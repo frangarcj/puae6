@@ -26,7 +26,7 @@ static void equal(const DeviceState &a, const DeviceState &b)
 static void rejects(const DeviceState &saved, const Disc &disc)
 {
     const auto before = snapshot(); const auto cycles = get_cycles();
-    for (int which = 0; which < 14; ++which) {
+    for (int which = 0; which < 16; ++which) {
         auto s = saved;
         switch (which) {
         case 0: s.bound = 2; break; case 1: s.opens = uint32_t(INT_MAX) + 1; break;
@@ -36,6 +36,7 @@ static void rejects(const DeviceState &saved, const Disc &disc)
         case 8: s.audio_head = 0; break; case 9: s.opens = 0; break;
         case 10: s.audio.disc_id[31] ^= 1; break; case 11: s.audio.stream.offset = 589; break;
         case 12: s.audio.callbacks = 4; break; case 13: s.bound = 0; break;
+        case 14: s.inserted = 2; break; case 15: s.inserted = 0; break;
         }
         assert(!device_can_restore(s, &disc, status_callback, record_sub));
         assert(!device_restore(s, &disc, status_callback, record_sub)); equal(snapshot(), before);
@@ -75,12 +76,20 @@ static void replay(int mode)
         if (mode == 8) { sys_command_close(0); sys_command_close(0); }
         if (mode == 9) device_unbind();
         if (mode == 10) { uint8_t raw[2448]; assert(!sys_command_cd_rawread(0, raw, 4, 1, 2448)); }
+        if (mode >= 12) {
+            const auto calls = a.provider.calls;
+            assert(device_set_inserted(false) == Result::Ok);
+            assert(device_bound_disc() == &a.disc && sys_command_isopen(0) == 2 && !sys_command_ismedia(0, 1));
+            if (mode == 13) assert(device_set_inserted(true) == Result::Ok);
+            assert(a.provider.calls == calls);
+        }
     }
     pcm(); const auto saved = snapshot(); const float phase = next_sample_evtime;
     if (mode == 1) rejects(saved, a.disc);
     if (mode == 6) assert(saved.error == int(Result::Ok) && saved.audio.error == int(Result::ReadError));
     if (mode == 7) assert(saved.terminal_ack && !saved.audio_head);
     if (mode == 11) assert(!saved.terminal_ack && !saved.audio_head && saved.audio.status == AUDIO_STATUS_PLAY_COMPLETE);
+    if (mode >= 12) assert(saved.bound && saved.inserted == uint32_t(mode == 13) && !saved.audio.bound);
     notices.clear(); subs.clear();
     const auto control_q = future(mode); const auto control_pcm = pcm(); const auto control = snapshot();
     const auto control_notices = notices; const auto control_subs = subs; const auto control_position = device_position();
@@ -100,4 +109,4 @@ static void replay(int mode)
     assert(device_position() == control_position && notices == control_notices && subs == control_subs);
     assert(rebound_calls == int(control_notices.size() + control_subs.size())); device_unbind();
 }
-int main() { for (int mode = 0; mode < 12; ++mode) replay(mode); }
+int main() { for (int mode = 0; mode < 14; ++mode) replay(mode); }

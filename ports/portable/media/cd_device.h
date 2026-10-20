@@ -8,6 +8,10 @@ constexpr uint32_t kDeviceMaxBurst = 128;
 // state/boot integration. Caller owns the Disc until device_unbind returns.
 Result device_bind(const Disc *);
 const Disc *device_bound_disc(); // Borrowed binding for identity/preflight, never serialized.
+// Private quiescent-boundary primitive. Keep owner/identity/open unit while the
+// medium is absent; Akiko callers must also invalidate its transport deliveries.
+Result device_set_inserted(bool);
+bool device_inserted();
 void device_unbind();
 Result device_last_error();
 uint32_t device_position(); // Read: next sector. Audio: current/last played sector.

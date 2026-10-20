@@ -1609,6 +1609,18 @@ frontends, arranque de juego, SaveRAM o snapshot CD32 Waterbox.
 
 ## CD directo en libretro (T66r1)
 
+La presencia privada del medio (T66u1) es independiente del binding prestado y
+de la unidad abierta. Expulsar conserva propietario, ID y `opens`: `ismedia`
+devuelve 0 y la informacion no anuncia medio ni TOC; -1 indica unidad inexistente.
+`DeviceState.inserted` se guarda y restaura sin I/O, junto al estado Akiko.
+Una accion explicita en frontera detiene CDDA y descarta transferencias, sectores,
+subcanales y solicitudes de reproduccion anteriores; el handler emulado entrega
+la notificacion 0/1 y regenera la TOC al reinsertar. Una accion repetida no cambia
+nada. Las respuestas ya publicadas, CPU y reloj se conservan. `cdrom_door` mantiene
+la semantica del pin: no se infiere el estado fisico de la tapa desde la presencia.
+Esta superficie privada no habilita aun cambio de CD en los frontends; faltan
+catalogo, identidad del conjunto y seleccion restaurable.
+
 ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina
 Automatic o CD32 y Kickstart Automatic. CD32 sin CD directo se rechaza. Las opciones incompatibles se rechazan; los tags CD32 de
 disquetes conservan su significado anterior. El propietario de la imagen y su

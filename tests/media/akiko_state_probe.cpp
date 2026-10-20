@@ -45,7 +45,7 @@ static void equal_fields(const Whole &a, const Whole &b)
     }
     E(device.audio.bound); E(device.audio.running); E(device.audio.sector); E(device.audio.callbacks);
     E(device.audio.position); E(device.audio.end); E(device.audio.left); E(device.audio.right);
-    E(device.audio.status); E(device.audio.error); A(device.disc_id); E(device.bound); E(device.opens);
+    E(device.audio.status); E(device.audio.error); A(device.disc_id); E(device.bound); E(device.inserted); E(device.opens);
     E(device.position); E(device.audio_head); E(device.terminal_ack); E(device.error);
 #undef A
 #undef E
@@ -225,4 +225,94 @@ static void exercise_joint(int mode)
     assert(ram == expected_ram && irqs == expected_irqs && b.provider.calls - count == expected_calls);
     end_owner();
 }
-int main() { codec_coverage(); for (int mode = 0; mode < 4; ++mode) exercise_joint(mode); }
+static std::vector<uint8_t> presence_future()
+{
+    std::vector<uint8_t> replies;
+    auto take = [&] { while (cdrom_receive_length) replies.push_back(akiko_bget(AKIKO_BASE + 0x28)); };
+    take(); // Preserve a reply already published before the tray action.
+    assert(replies == std::vector<uint8_t>({0x0b, 0x70}));
+    akiko_handler(false); take();
+    assert(replies == std::vector<uint8_t>({0x0b, 0x70, 0x0a, 0, 0xf5}));
+    assert(!cdrom_toc_cd_buffer.points && sys_command_ismedia(0, 1) == 0);
+    const auto old_ram = ram; const auto old_irqs = irqs;
+    cdrom_run_read(); // A previously armed PBX must not deliver the old cache.
+    avline(); // Nor may the real subchannel hsync path deliver the queued old entry.
+    assert(ram == old_ram && irqs == old_irqs);
+    assert(p6_akiko_media_set(true));
+    assert(!cdrom_toc_cd_buffer.points); // Only the ordinary handler refreshes it.
+    akiko_handler(false); take();
+    assert(replies == std::vector<uint8_t>({0x0b, 0x70, 0x0a, 0, 0xf5, 0x0a, 1, 0xf4}));
+    assert(cdrom_toc_cd_buffer.tracks == 2 && cdrom_toc_cd_buffer.lastaddress == 4);
+    assert(sys_command_cd_rawread(0, sector_buffer_1, 3, 1, 2352) == 2352);
+    sector_buffer_sector_1 = 3; sector_buffer_info_1[0] = 3;
+    cdrom_data_offset = 3; cdrom_pbx = 1;
+    cdrom_run_read(); assert(!cdrom_pbx && ram[0x1004] != 0xa5);
+    auto after = std::make_unique<Whole>(); whole_get(*after); const auto before_noop = wire(*after);
+    assert(p6_akiko_media_set(true)); whole_get(*after); assert(wire(*after) == before_noop);
+    advance(int(cda_evt * 20));
+    return replies;
+}
+static void presence_cut(bool pending)
+{
+    setup(); Fixture a, b, c;
+    assert(!p6_akiko_media_set(false));
+    begin_owner(a.disc); fixed_control(); nvram_read(); assert(!get_cdrom_toc());
+    cdrom_addressmisc = cdrx_address = 0x4000; cdtx_address = 0x4200; subcode_address = 0x4100;
+    cdrom_flags = CDFLAG_ENABLE | CDFLAG_PBX | CDFLAG_SUBCODE | CDFLAG_RAW | CDFLAG_CAS;
+    assert(sys_command_cd_play(0, 0, 2, 0, pending ? statusfunc : statusfunc_imm, subfunc));
+    advance(int(cda_evt * 100)); pcm();
+    sector_buffer_sector_1 = sector_buffer_sector_2 = 3;
+    sector_buffer_info_1[0] = sector_buffer_info_2[0] = 3;
+    memset(sector_buffer_1, 0xa5, 2352); memset(sector_buffer_2, 0xa5, 2352);
+    cdrom_addressdata = 0x1000; cdrom_data_offset = 3; cdrom_sector_counter = 0; cdrom_pbx = 1;
+    subcodebufferoffset = 35; subcodebufferoffsetw = 0; subcodebufferinuse[35] = 1;
+    memset(subcodebuffer + 35 * SUB_CHANNEL_SIZE, 0xa5, SUB_CHANNEL_SIZE);
+    requests.rdp = requests.wrp = 98;
+    for (auto word : {0x0110u, 0u, 2u, 0u}) write_comm_pipe_u32(&requests, word, 0);
+    cdrom_receive_length = 2; cdrom_receive_offset = 0;
+    cdrom_result_buffer[0] = 0x0b; cdrom_result_buffer[1] = 0x70;
+    auto before = std::make_unique<Whole>(), ejected = std::make_unique<Whole>(), after = std::make_unique<Whole>();
+    whole_get(*before); assert(before->device.audio.running);
+    assert(bool(before->device.audio.delay) == pending);
+    const auto encoded_before = wire(*before);
+    assert(p6_akiko_media_set(true)); whole_get(*after); assert(wire(*after) == encoded_before);
+    const auto saved_ram = ram; const auto saved_irqs = irqs;
+    const auto cycle = get_cycles(); const auto calls = a.provider.calls;
+    int32_t phase_before[p6_cda::kPhaseWords], phase_ejected[p6_cda::kPhaseWords];
+    assert(device_phase_get(phase_before, p6_cda::kPhaseWords));
+    assert(p6_akiko_media_set(false));
+    assert(get_cycles() == cycle && irqs == saved_irqs && ram == saved_ram && a.provider.calls == calls);
+    assert(device_bound_disc() == &a.disc && sys_command_isopen(0) == 1 && !sys_command_ismedia(0, 1));
+    whole_get(*ejected); const auto encoded_ejected = wire(*ejected);
+    assert(!ejected->device.inserted && !ejected->device.audio.bound && !ejected->device.audio.stream.active);
+    assert(ejected->controller.cdrom_door == before->controller.cdrom_door);
+    assert(ejected->controller.clock.cycle == before->controller.clock.cycle);
+    assert(ejected->controller.mediachanged && !ejected->controller.cdrom_disk && !request_count());
+    assert(p6_akiko_media_set(false)); whole_get(*after); assert(wire(*after) == encoded_ejected);
+    assert(device_phase_get(phase_ejected, p6_cda::kPhaseWords));
+    const auto expected = presence_future(); const auto expected_pcm = pcm(); const auto expected_ram = ram;
+    const auto expected_irqs = irqs; whole_get(*after); const auto expected_wire = wire(*after);
+    const auto expected_reads = a.provider.calls - calls;
+    end_owner();
+    // Both cuts restore in new owners: an active/waiting play, or the empty unit.
+    for (bool empty : {false, true}) {
+        auto &f = empty ? c : b;
+        setup(); begin_owner(f.disc); fixed_control(); nvram_read();
+        const auto &encoded = empty ? encoded_ejected : encoded_before;
+        const p6_akiko_context context{before->controller.config, before->device.audio.stream.period, cycle, &f.disc};
+        assert(p6_state::akiko_candidate_decode(encoded.data(), encoded.size(), *after, context));
+        set_cycles(cycle); assert(device_phase_set(empty ? phase_ejected : phase_before, p6_cda::kPhaseWords));
+        const auto count = f.provider.calls;
+        assert(p6_akiko_state_apply(after.get(), context) && f.provider.calls == count && get_cycles() == cycle);
+        ram = saved_ram; irqs = saved_irqs; p6_pcm_reset();
+        if (!empty) assert(p6_akiko_media_set(false));
+        assert(presence_future() == expected && pcm() == expected_pcm);
+        whole_get(*after); assert(wire(*after) == expected_wire && ram == expected_ram && irqs == expected_irqs);
+        assert(f.provider.calls - count == expected_reads); end_owner();
+    }
+}
+int main()
+{
+    codec_coverage(); for (int mode = 0; mode < 4; ++mode) exercise_joint(mode);
+    for (bool pending : {false, true}) presence_cut(pending);
+}

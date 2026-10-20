@@ -21,3 +21,6 @@ bool p6_akiko_state_get(p6_akiko_state *);
 bool p6_akiko_state_validate(const p6_akiko_state *, const p6_akiko_context &);
 bool p6_akiko_state_preflight(const p6_akiko_state *, const p6_akiko_context &);
 bool p6_akiko_state_apply(const p6_akiko_state *, const p6_akiko_context &);
+// Explicit host tray action at a quiescent unit boundary. No CPU/time advance;
+// notifications are delivered by the ordinary emulated Akiko handler afterwards.
+bool p6_akiko_media_set(bool inserted);

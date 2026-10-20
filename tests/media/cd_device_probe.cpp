@@ -100,5 +100,20 @@ int main()
     CHECK(filled(out, sizeof out, 0xa5) && !sys_command_cd_read(0, out, 0, 1));
     device_unbind(); CHECK(!sys_command_isopen(0) && device_position() == 0);
     CHECK(device_bind(&disc) == Result::Ok && sys_command_open(0) == 1);
+    const auto no_io = providers[0].calls + providers[1].calls + providers[2].calls;
+    CHECK(device_set_inserted(false) == Result::Ok && !device_inserted());
+    CHECK(device_bound_disc() == &disc && sys_command_isopen(0) == 1 && sys_command_ismedia(0, 1) == 0);
+    CHECK(sys_command_ismedia(1, 1) == -1);
+    CHECK(sys_command_info(0, &info, 1) == &info && info.open && !info.media_inserted && !info.toc.points);
+    memset(out, 0xa5, sizeof out); memset(&toc, 0xa5, sizeof toc); const auto untouched_toc = toc;
+    CHECK(!sys_command_cd_read(0, out, 0, 1) && !sys_command_cd_rawread(0, out, 0, 1, 2352));
+    CHECK(!sys_command_cd_toc(0, &toc) && !memcmp(&toc, &untouched_toc, sizeof toc));
+    CHECK(!sys_command_cd_qcode(0, out, 0, true) && !sys_command_cd_play(0, 130, 132, 0));
+    CHECK(filled(out, sizeof out, 0xa5));
+    CHECK(no_io == providers[0].calls + providers[1].calls + providers[2].calls);
+    sys_command_close(0); CHECK(!sys_command_isopen(0) && sys_command_open(0) == 1);
+    CHECK(device_set_inserted(true) == Result::Ok && device_inserted() && sys_command_ismedia(0, 1) == 1);
+    CHECK(sys_command_cd_toc(0, &toc) && toc.points == 6 && toc.lastaddress == 136);
     device_unbind(); CHECK(!sys_command_isopen(0));
+    CHECK(device_set_inserted(true) == Result::Invalid && !device_inserted());
 }

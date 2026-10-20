@@ -66,7 +66,7 @@ inline void akiko_candidate_fields(Archive &a, p6_akiko_state &candidate)
     AK_VALUE(audio, bound); AK_VALUE(audio, running); AK_VALUE(audio, sector);
     AK_VALUE(audio, callbacks); AK_VALUE(audio, position); AK_VALUE(audio, end);
     AK_VALUE(audio, left); AK_VALUE(audio, right); AK_VALUE(audio, status); AK_VALUE(audio, error);
-    AK_VALUE(device, disc_id); AK_VALUE(device, bound); AK_VALUE(device, opens);
+    AK_VALUE(device, disc_id); AK_VALUE(device, bound); AK_VALUE(device, inserted); AK_VALUE(device, opens);
     AK_VALUE(device, position); AK_VALUE(device, audio_head); AK_VALUE(device, terminal_ack); AK_VALUE(device, error);
 #undef AK_VALUE
 }

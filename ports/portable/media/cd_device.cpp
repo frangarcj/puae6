@@ -8,7 +8,7 @@ namespace {
 const p6_cd::Disc *disc;
 uint32_t opens, position;
 p6_cd::AudioPlayer audio;
-bool audio_head, terminal_ack;
+bool inserted, audio_head, terminal_ack;
 uint32_t head()
 {
     if (!audio_head) return position;
@@ -21,9 +21,9 @@ void stop_audio()
     audio_head = terminal_ack = false;
 }
 p6_cd::Result error = p6_cd::Result::Invalid;
-bool ready(int unit)
+bool ready(int unit, bool require_medium = true)
 {
-    if (unit != 0 || !disc || !opens) { error = p6_cd::Result::Invalid; return false; }
+    if (unit != 0 || !disc || !opens || (require_medium && !inserted)) { error = p6_cd::Result::Invalid; return false; }
     return true;
 }
 int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
@@ -49,6 +49,14 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
 }
 namespace p6_cd {
 const Disc *device_bound_disc() { return disc; }
+bool device_inserted() { return inserted; }
+Result device_set_inserted(bool value)
+{
+    if (!disc) return Result::Invalid;
+    if (inserted == value) return Result::Ok;
+    stop_audio(); inserted = value;
+    return error = Result::Ok;
+}
 bool device_phase_get(int32_t *out, unsigned n) { return audio.phase_get(out, n); }
 bool device_phase_set(const int32_t *in, unsigned n) { return audio.phase_set(in, n); }
 bool device_capture(DeviceState *out)
@@ -56,7 +64,7 @@ bool device_capture(DeviceState *out)
     if (!out) return false;
     DeviceState s{};
     if (!audio.capture(&s.audio)) return false;
-    s.bound = disc != nullptr;
+    s.bound = disc != nullptr; s.inserted = inserted;
     if (disc) memcpy(s.disc_id, disc->layout().content_id, sizeof s.disc_id);
     s.opens = opens; s.position = position; s.audio_head = audio_head; s.terminal_ack = terminal_ack;
     s.error = int32_t(error); // Do not merge asynchronous audio error as device_last_error does.
@@ -64,15 +72,16 @@ bool device_capture(DeviceState *out)
 }
 bool device_validate(const DeviceState &s, const Disc *candidate, uint32_t period)
 {
-    if (s.bound > 1 || s.audio_head > 1 || s.terminal_ack > 1 || s.opens > INT_MAX
+    if (s.bound > 1 || s.inserted > 1 || s.audio_head > 1 || s.terminal_ack > 1 || s.opens > INT_MAX
         || s.error < int(Result::Ok) || s.error > int(Result::Unsupported)) return false;
     if (!s.bound) {
         const uint8_t empty[32]{};
-        if (candidate || memcmp(s.disc_id, empty, sizeof empty) || s.opens || s.position || s.audio_head
+        if (candidate || memcmp(s.disc_id, empty, sizeof empty) || s.inserted || s.opens || s.position || s.audio_head
             || s.terminal_ack || s.audio.bound || s.error != int(Result::Invalid)) return false;
     } else if (!candidate || memcmp(s.disc_id, candidate->layout().content_id, sizeof s.disc_id)
                || !candidate->layout().tracks || s.position > candidate->layout().leadout) return false;
     if ((s.audio.bound && !s.opens) || (s.audio_head && !s.audio.bound) || (s.audio.running && !s.audio_head)) return false;
+    if (!s.inserted && (s.audio.bound || s.audio_head || s.terminal_ack)) return false;
     const bool terminal = s.audio.status == AUDIO_STATUS_PLAY_COMPLETE || s.audio.status == AUDIO_STATUS_PLAY_ERROR;
     if (s.terminal_ack && !terminal) return false;
     return AudioPlayer::validate(s.audio, s.audio.bound ? candidate : nullptr, period);
@@ -88,16 +97,16 @@ bool device_restore(const DeviceState &s, const Disc *candidate,
 {
     if (!device_can_restore(s, candidate, status, sub)
         || !audio.restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub)) return false;
-    disc = candidate; opens = s.opens; position = s.position;
+    disc = candidate; inserted = s.inserted != 0; opens = s.opens; position = s.position;
     audio_head = s.audio_head; terminal_ack = s.terminal_ack; error = Result(s.error);
     return true;
 }
 Result device_bind(const Disc *candidate)
 {
     if (disc || !candidate || !candidate->layout().tracks) return error = Result::Invalid;
-    disc = candidate; opens = position = 0; return error = Result::Ok;
+    disc = candidate; inserted = true; opens = position = 0; return error = Result::Ok;
 }
-void device_unbind() { stop_audio(); disc = nullptr; opens = position = 0; error = Result::Invalid; }
+void device_unbind() { stop_audio(); disc = nullptr; inserted = false; opens = position = 0; error = Result::Invalid; }
 Result device_last_error() { return error == Result::Ok && audio_head ? audio.error() : error; }
 uint32_t device_position() { return head(); }
 }
@@ -111,7 +120,7 @@ int sys_command_open(int unit)
 int sys_command_isopen(int unit) { return unit == 0 && disc ? int(opens) : 0; }
 void sys_command_close(int unit)
 {
-    if (!ready(unit)) return;
+    if (!ready(unit, false)) return;
     if (!--opens) stop_audio();
     error = p6_cd::Result::Ok;
 }
@@ -121,7 +130,7 @@ int get_standard_cd_unit(cd_standard_unit kind)
     return 0;
 }
 void close_standard_cd_unit(int unit) { sys_command_close(unit); }
-int sys_command_ismedia(int unit, int) { return ready(unit) ? 1 : -1; }
+int sys_command_ismedia(int unit, int) { return ready(unit, false) ? int(inserted) : -1; }
 int sys_command_cd_toc(int unit, cd_toc_head *out)
 {
     if (!ready(unit)) return 0;
@@ -129,14 +138,14 @@ int sys_command_cd_toc(int unit, cd_toc_head *out)
 }
 device_info *sys_command_info(int unit, device_info *out, int)
 {
-    if (!ready(unit) || !out) { error = p6_cd::Result::Invalid; return nullptr; }
+    if (!ready(unit, false) || !out) { error = p6_cd::Result::Invalid; return nullptr; }
     device_info info{};
-    info.open = true; info.type = INQ_ROMD; info.media_inserted = info.removable = info.write_protected = 1;
+    info.open = true; info.type = INQ_ROMD; info.media_inserted = inserted; info.removable = info.write_protected = 1;
     info.bytespersector = 2048; info.cylinders = info.trackspercylinder = 1;
-    info.sectorspertrack = int(disc->layout().leadout); info.unitnum = 1;
+    info.sectorspertrack = inserted ? int(disc->layout().leadout) : 0; info.unitnum = 1;
     strcpy(info.label, "PUAE6 immutable CD"); strcpy(info.vendorid, "PUAE6");
     strcpy(info.productid, "CD IMAGE"); strcpy(info.revision, "1.0"); info.backend = "OFFSET";
-    error = p6_cd::akiko_toc(*disc, &info.toc);
+    error = inserted ? p6_cd::akiko_toc(*disc, &info.toc) : p6_cd::Result::Ok;
     if (error != p6_cd::Result::Ok) return nullptr;
     *out = info; return out;
 }
@@ -174,7 +183,7 @@ int sys_command_cd_pause(int unit, int paused)
 }
 void sys_command_cd_stop(int unit)
 {
-    if (ready(unit)) { stop_audio(); error = p6_cd::Result::Ok; }
+    if (ready(unit, false)) { stop_audio(); error = p6_cd::Result::Ok; }
 }
 int sys_command_cd_play(int unit, int start, int end, int scan, play_status_callback status, play_subchannel_callback sub)
 {
@@ -192,7 +201,7 @@ int sys_command_cd_play(int unit, int start, int end, int scan, play_status_call
 int sys_command_cd_play(int unit, int start, int end, int scan) { return sys_command_cd_play(unit, start, end, scan, nullptr, nullptr); }
 uae_u32 sys_command_cd_volume(int unit, uae_u16 left, uae_u16 right)
 {
-    if (!ready(unit)) return UINT32_MAX;
+    if (!ready(unit, false)) return UINT32_MAX;
     const auto old = audio.volume(left, right); error = p6_cd::Result::Ok;
     return old;
 }
