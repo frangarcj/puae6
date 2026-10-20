@@ -22,14 +22,15 @@ core. Los errores de firmware o contenido se comunican al frontend.
 
 ## CD32 y A4000 experimentales
 
-Para CD32, abre directamente un ISO, CUE, CCD o NRG DAO, con modelo y Kickstart
+Para CD32, abre directamente un ISO, CUE, CCD, NRG DAO o MDS v1, con modelo y Kickstart
 en Automatic. Pon `kick40060.CD32` y `kick40060.CD32.ext` en el directorio de
 sistema; ambos son necesarios. El preset `cd32_fast8` añade 8 MiB de Fast RAM.
 En Automatic, `(CD32FR)` o la palabra `FastRAM` en el nombre del CD tambien
 activan esos 8 MiB; los ajustes explicitos y File Name Tags tienen prioridad.
 CD32 guarda su NVRAM mediante SaveRAM del frontend. Se ha probado arranque,
 partida y restauracion de Brian the Lion; no se promete compatibilidad con todos
-los juegos. MDS/CHD nativos, otras variantes NRG y cambio de CD siguen pendientes.
+los juegos. MDS admite una sesion y un MDF compartido; abre el MDS conservando
+su MDF al lado. CHD nativo, otras variantes NRG y cambio de CD siguen pendientes.
 
 A4000 usa `kick40068.A4000` en el mismo directorio de sistema. Los presets
 `a4030_normal`, `a4040_normal` y `a4060_normal` seleccionan 030, 040 y 060.

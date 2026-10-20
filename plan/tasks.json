@@ -16650,7 +16650,7 @@
       "title": "Conectar MDS a la fabrica y carga publica CD32 con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66s2",
         "T66r9"
@@ -16675,7 +16675,8 @@
         "MED01: actualizar factorytest para4endpoints reales yproveedorMDS, incluyendo seleccioncase-insensitive, nuevoowner/identidad,VFS yregresionISO/CUE/CCD/NRG. Usar infraestructuraaislada de test_cd_image, sinbuildmotor para atribucion.",
         "LR01 publico con ROMsCD32locales autorizadas: cargarMDS/MDF legal y comprobar avance+snapshot enproceso nuevo, futuros iguales ymismomediaID; cambiosenMDS/MDF impidenrestaurar sinmutar maquina. ReusarfixtureISO/ROM yventana corta de300unidades, sinrepetirBrian6500ni guest; S2 ya compara bytes ypregaps del lector.",
         "Actualizar docs/options conformatos/subconjuntoMDS/limites reales. Seisrutas necesarias deunaverticalatomica fabrica+seleccion+anuncio+doschecks+guia, manteniendo<400lineasmanuales orientativas; no crearhojas artificialespara la linea de extension/documentacion.",
-        "Frente busy_reference reutiliza a4040-frontends ymerge normalmain. Coordinador poseeplan/checks e integra; compilacion nativa -j2 serializada autorizadacuando codigoeste listo, sin guest/matrizcompleta. Materializacion porherramientaoficial ymtime soloparabytesSHAidenticos verificados; no editarbuildsourcesamanoni recibos."
+        "Frente busy_reference reutiliza a4040-frontends ymerge normalmain. Coordinador poseeplan/checks e integra; compilacion nativa -j2 serializada autorizadacuando codigoeste listo, sin guest/matrizcompleta. Materializacion porherramientaoficial ymtime soloparabytesSHAidenticos verificados; no editarbuildsourcesamanoni recibos.",
+        "Integrado693d462d:MED01/native_cd_factory4testsASan/UBSanPASS; LR01/public_mds_restore_identityPASS315unidades/corte300+15 yproceso nuevo16conVFSa stdio/rutasdistintas. Video/PCM/ticks yfuturoestado completoidenticos; MDSreservado/MDFpadding mutadosrechazados conbefore==after. Temporaleslimpios; sinCHD/guest/campañanueva."
       ],
       "checks": [
         "MED01",
