@@ -2,6 +2,7 @@
 #include "cd_read.h"
 #include "sha256.h"
 #include "libretro.h"
+#include "uae/cdrom.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,14 @@ static void print_id(const uint8_t *hash) { for (unsigned n = 0; n < 32; ++n) pr
 static void digest(const void *data, size_t n) { uint8_t hash[32]; p6_sha256_hash(data,n,hash); print_id(hash); }
 static bool untouched(const uint8_t *data, size_t n) { for (size_t i = 0; i < n; ++i) if (data[i] != 0xa5) return false; return true; }
 int main(int argc, char **argv) {
+    if (argc == 2 && !strcmp(argv[1],"--form2-edc")) {
+        uint8_t sector[2368], original[2352]; memset(sector,0xa5,sizeof sector);
+        for (unsigned n = 0; n < 2352; ++n) sector[8+n] = uint8_t(n*37+11);
+        memcpy(original,sector+8,sizeof original); encode_l2_mode2_form2(sector+8);
+        CHECK(untouched(sector,8) && untouched(sector+2360,8));
+        CHECK(!memcmp(original,sector+8,2348)); // Arbitrary header/subheader/payload stay exact.
+        printf("form2-edc "); digest(sector+8,2352); puts(""); return 0;
+    }
     CHECK(argc == 2 || argc == 3); retro_vfs_interface api{};
     api.open=vopen; api.close=vclose; api.tell=vtell; api.size=vsize; api.seek=vseek; api.read=vread;
     const auto *vfs = getenv("P6_CHD_VFS") ? &api : nullptr;

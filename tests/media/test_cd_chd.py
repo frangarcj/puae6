@@ -39,13 +39,24 @@ def mode1(payload, lba):
     return bytes(sector)
 
 
+def form2_body(payload, subheader=b'\0\0\x20\0\0\0\x20\0'):
+    # XA duplicates four bytes: submode is at2 and6, not at5 as in the old synth.
+    # Bitwise polynomial oracle independent of the WinUAE EDC table/helper.
+    assert len(payload) == 2324 and len(subheader) == 8
+    body = bytearray(subheader+payload+bytes(4)); edc = 0
+    for value in body[:-4]:
+        edc ^= value
+        for _ in range(8): edc = (edc >> 1) ^ (0xd8018001 if edc&1 else 0)
+    struct.pack_into('<I',body,2332,edc); return bytes(body)
+
+
 class CdChdTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-chd-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup); cls.work = Path(cls.temp.name)
         entries = json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0396-chd-mode2-form2-edc'):
             entry = next(p for p in entries if p['id'] == identifier); patch = (ROOT/entry['file']).read_bytes()
             assert hashlib.sha256(patch).hexdigest() == entry['sha256']
             for record in entry['files']:
@@ -103,8 +114,8 @@ class CdChdTests(unittest.TestCase):
         struct.pack_into('>Q',data,32,logical); data = reader.metadata_chain(data,records+[opaque],tag=[0x43485432]*len(records)+[0x54455354])
         path = self.work/(name+'.chd'); path.write_bytes(data+tail); return path,tracks,streams
 
-    def cooked_fixture(self, name, *, prefix=66, shift=0, replace=None):
-        kinds = ('MODE1','MODE1/2048','MODE2','MODE2/2336','MODE2_FORM_MIX','MODE2_FORM1','MODE2/2048')
+    def cooked_fixture(self, name, *, prefix=66, shift=0, replace=None, form2=False, payload=0, subchange=0):
+        kinds = ('MODE2_FORM2','MODE2/2324') if form2 else ('MODE1','MODE1/2048','MODE2','MODE2/2336','MODE2_FORM_MIX','MODE2_FORM1','MODE2/2048')
         specs = [('AUDIO','NONE',0,False,prefix)]
         specs += [(kind,sub,2 if sub == 'RW' else 3,sub == 'RW',5) for kind in kinds for sub in ('NONE','RW','RW_RAW')]
         units = []; streams = []; tracks = []; records = []; cursor = 0
@@ -117,12 +128,12 @@ class CdChdTests(unittest.TestCase):
             for k in range(frames):
                 if not n: raw = canonical = bytes(2352)
                 else:
-                    size = 2336 if body2 else 2048
-                    raw = bytes((n*31+k*7+i)&255 for i in range(size))
+                    size = 2324 if form2 else 2336 if body2 else 2048
+                    raw = bytes((n*31+k*7+i+payload)&255 for i in range(size))
                     # Include both Form1 and Form2 submode bits in stored2336 bodies.
                     if body2: raw = raw[:2]+bytes([32 if k&1 else 0])+raw[3:6]+bytes([32 if k&1 else 0])+raw[7:]
-                    canonical = raw if mode == 0 else mode1(raw,start+k) if cooked1 else nrg.mode2_header(start+k)+(raw if body2 else nrg.form1_body(raw))
-                pw = bytes((n*11+k+i*13)&255 for i in range(96))
+                    canonical = raw if mode == 0 else mode1(raw,start+k) if cooked1 else nrg.mode2_header(start+k)+(raw if body2 else form2_body(raw) if form2 else nrg.form1_body(raw))
+                pw = bytes((n*11+k+i*13+subchange)&255 for i in range(96))
                 stream += canonical + (pw if sub != 'NONE' else b'')
                 unit = raw + (nrg.interleave(pw) if sub == 'RW_RAW' else pw) if sub != 'NONE' else raw
                 units.append(unit.ljust(2448,b'\x9d'))
@@ -180,7 +191,7 @@ class CdChdTests(unittest.TestCase):
 
     def test_out_of_domain_and_geometry_do_not_publish(self):
         cases = [(0,'PREGAP:0','PREGAP:1'),(1,'POSTGAP:0','POSTGAP:1'),(3,'PREGAP:3','PREGAP:151'),(1,'PGTYPE:VMODE1_RAW','PGTYPE:VMODE1'),(2,'PGSUB:RW','PGSUB:NONE'),(5,'PGSUB:NONE','PGSUB:RW'),(1,'TYPE:MODE1_RAW','TYPE:MODE1')]
-        cases += [(3,'TYPE:MODE2_RAW','TYPE:'+mode) for mode in ('MODE2_FORM2','MODE2/2324','CDI/2352')]
+        cases += [(3,'TYPE:MODE2_RAW','TYPE:'+mode) for mode in ('CDI/2352',)]
         for n,replace in enumerate(cases): self.assertEqual(self.run_chd(self.fixture('reject'+str(n),replace=replace)[0],code=2),['error 5'])
         path = self.fixture('geometry')[0]; blob = bytearray(path.read_bytes()); struct.pack_into('>Q',blob,32,2448); path.write_bytes(blob); self.assertEqual(self.run_chd(path,code=2),['error 1'])
         path = self.fixture('crc')[0]; blob = bytearray(path.read_bytes()); blob[124] ^= 1; path.write_bytes(blob); self.assertEqual(self.run_chd(path,code=2),['error 4'])
@@ -219,3 +230,23 @@ class CdChdTests(unittest.TestCase):
         for fault in (1,2,3,4): self.assertEqual(self.run_chd(first[0],code=2,vfs=True,fault=fault),['error 4'])
         for n,old,new in ((2,'PGTYPE:VMODE1','PGTYPE:VMODE1_RAW'),(7,'PGTYPE:MODE2','PGTYPE:MODE2_FORM1'),(16,'PGTYPE:MODE2_FORM1','PGTYPE:MODE2'),(2,'PGSUB:RW','PGSUB:RW_RAW')):
             self.assertEqual(self.run_chd(self.cooked_fixture('cooked-reject'+str(n)+new[-1],replace=(n,old,new))[0],code=2),['error 5'])
+
+    def test_form2_2324_edc_subchannels_and_rebind(self):
+        first = self.cooked_fixture('form2',form2=True); rows = self.verify(first)
+        self.assertEqual(rows,self.verify(first,True))
+        self.verify(self.cooked_fixture('form2-minute',form2=True,prefix=4340))
+        for stream,t in zip(first[2][1:],first[1][1:]):
+            sector = stream[:2352]; self.assertEqual(sector[16:20],sector[20:24])
+            self.assertEqual(sector[16:24],b'\0\0\x20\0\0\0\x20\0')
+            self.assertNotEqual(sector[2076:2348],bytes(272)) # Form2 payload occupies the would-be Form1 P/Q area.
+        expected = hashlib.sha256(b''.join(self.canonical(first[1],first[2],lba)[2]+self.canonical(first[1],first[2],lba)[3] for lba in range(first[1][-1][2]))).hexdigest()
+        for n,options in enumerate(({}, {'shift':1},{'payload':1},{'subchange':1})):
+            other = self.cooked_fixture('form2-rebind'+str(n),form2=True,**options); self.verify(other)
+            self.assertEqual(self.run_chd(first[0],rebind=other[0])[-1],f'rebind {2 if n else 0} {expected}')
+        for fault in (1,2,3,4): self.assertEqual(self.run_chd(first[0],code=2,vfs=True,fault=fault),['error 4'])
+        # Direct helper must preserve arbitrary subheaders and all non-EDC bytes.
+        arbitrary = bytes((n*37+11)&255 for n in range(2352))
+        expected = arbitrary[:16]+form2_body(arbitrary[24:2348],arbitrary[16:24])
+        self.assertEqual(self.run_chd('--form2-edc'),['form2-edc '+hashlib.sha256(expected).hexdigest()])
+        for n,old,new in ((2,'PGTYPE:VMODE2_FORM2','PGTYPE:VMODE2_FORM1'),(5,'PGSUB:RW','PGSUB:RW_RAW')):
+            self.assertEqual(self.run_chd(self.cooked_fixture('form2-reject'+str(n),form2=True,replace=(n,old,new))[0],code=2),['error 5'])

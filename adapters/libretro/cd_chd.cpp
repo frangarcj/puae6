@@ -16,13 +16,14 @@ struct CdChd::Data {
     ChdMetadata metadata{};
     Layout layout{};
     Binding original{}, binding[99]{};
-    enum class Packing { Invalid, Mode1Cooked, Mode1Raw, Mode2Body, Mode2Form1, Mode2Raw, Audio };
+    enum class Packing { Invalid, Mode1Cooked, Mode1Raw, Mode2Body, Mode2Form1, Mode2Form2, Mode2Raw, Audio };
     struct View { Data *owner; unsigned number; Packing packing; } view[99]{};
     static Packing packing(const char *name) {
         if (!strcmp(name,"MODE1") || !strcmp(name,"MODE1/2048")) return Packing::Mode1Cooked;
         if (!strcmp(name,"MODE1_RAW") || !strcmp(name,"MODE1/2352")) return Packing::Mode1Raw;
         if (!strcmp(name,"MODE2") || !strcmp(name,"MODE2/2336") || !strcmp(name,"MODE2_FORM_MIX")) return Packing::Mode2Body;
         if (!strcmp(name,"MODE2_FORM1") || !strcmp(name,"MODE2/2048")) return Packing::Mode2Form1;
+        if (!strcmp(name,"MODE2_FORM2") || !strcmp(name,"MODE2/2324")) return Packing::Mode2Form2;
         if (!strcmp(name,"MODE2_RAW") || !strcmp(name,"MODE2/2352")) return Packing::Mode2Raw;
         return !strcmp(name,"AUDIO") ? Packing::Audio : Packing::Invalid;
     }
@@ -49,9 +50,9 @@ struct CdChd::Data {
             const uint32_t lba = (t.stored_pregap ? t.index0 : t.index1) + uint32_t(at/t.stride);
             if (v.packing == Packing::Mode1Cooked && t.stride == 2448) {
                 memmove(sector+16,sector,2048); encode_l2(sector,int(lba)+150);
-            } else if (v.packing == Packing::Mode2Body || v.packing == Packing::Mode2Form1) {
+            } else if (v.packing == Packing::Mode2Body || v.packing == Packing::Mode2Form1 || v.packing == Packing::Mode2Form2) {
                 // DiscSystem9b627578 SS_Mode2_2336/SS_Mode2_Form1_2048: preserve
-                // stored2336 bodies; only absent Form1 subheaders are synthesized.
+                // stored2336 bodies; absent cooked subheaders are synthesized.
                 const unsigned prefix = v.packing == Packing::Mode2Body ? 16 : 24;
                 memmove(sector+prefix,sector,r.data_bytes); memset(sector,0,prefix);
                 memset(sector+1,0xff,10);
@@ -60,6 +61,11 @@ struct CdChd::Data {
                 sector[12]=bcd(absolute/4500); sector[13]=bcd(absolute/75%60);
                 sector[14]=bcd(absolute%75); sector[15]=2;
                 if (v.packing == Packing::Mode2Form1) encode_l2_mode2_form1(sector);
+                if (v.packing == Packing::Mode2Form2) {
+                    // XA duplicates four bytes (UNECM v1.0): submode at2 and6.
+                    // Correct the old MacHawk/libMirage synth's second position5.
+                    sector[18]=sector[22]=0x20; encode_l2_mode2_form2(sector);
+                }
             } else if (v.packing == Packing::Audio) {
                 for (unsigned n = 0; n < 2352; n += 2) std::swap(sector[n],sector[n+1]);
             }
@@ -74,7 +80,7 @@ struct CdChd::Data {
         uint64_t cursor = 0; layout.tracks = metadata.tracks;
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n]; const auto kind = packing(r.type);
-            // Form2/2324, initial gaps, postgaps and mixed pregap semantics remain explicit tasks.
+            // Initial gaps, postgaps and mixed pregap semantics remain explicit tasks.
             if (kind == Packing::Invalid || (!n && r.pregap) || r.postgap || r.pregap > 150) return Result::Unsupported;
             if (r.pregap && (packing(r.pgtype+r.stored_pregap) != kind || r.pg_data_bytes != r.data_bytes ||
                 strcmp(r.pgsub,r.stored_pregap ? r.subtype : "NONE"))) return Result::Unsupported;

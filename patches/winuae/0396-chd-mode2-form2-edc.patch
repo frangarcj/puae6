@@ -1,0 +1,26 @@
+diff --git a/cdrom.cpp b/cdrom.cpp
+--- a/cdrom.cpp
++++ b/cdrom.cpp
+@@ -250,3 +250,11 @@
+     encode_L2_Q(p + 12);
+     memcpy(p + 12, header, 4);
+ }
++
++// Form2 has EDC only, no P/Q. Caller supplies the header/subheader and2324-byte payload.
++// libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e sector.c:770..772.
++void encode_l2_mode2_form2(uae_u8 *p)
++{
++    const uae_u32 edc = build_edc(p, 16, 2347);
++    for (unsigned n = 0; n < 4; ++n) p[2348 + n] = (uae_u8)(edc >> (8 * n));
++}
+diff --git a/include/uae/cdrom.h b/include/uae/cdrom.h
+--- a/include/uae/cdrom.h
++++ b/include/uae/cdrom.h
+@@ -6,5 +6,7 @@
+ void encode_l2(uae_u8 *p, int address);
+ // Recompute only Form1 EDC/P/Q in a 2352-byte sector; preserve header and body.
+ void encode_l2_mode2_form1(uae_u8 *p);
++// Recompute only Form2 EDC; preserve all2352-byte sector data except2348..2351.
++void encode_l2_mode2_form2(uae_u8 *p);
+ 
+ #endif /* UAE_CDROM_H */
