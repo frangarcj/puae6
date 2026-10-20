@@ -50,6 +50,7 @@ class CdDiscTests(unittest.TestCase):
         out = subprocess.run([str(self.exe), case], capture_output=True, text=True, timeout=30,
                              env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0:max_allocation_size_mb=24"})
         self.assertEqual(0, out.returncode, out.stderr)
+        return out.stdout
 
     def test_mixed_toc_raw_payload_ecma_sync_edc_and_both_pregaps(self):
         self.run_probe("reads")
@@ -76,3 +77,12 @@ class CdDiscTests(unittest.TestCase):
             q = bytes((0x41, 1, int(lba >= 4502))) + clock + b'\0' + bytes.fromhex(headers[lba])
             expected = b'\xff' * 12 + q + (binascii.crc_hqx(q, 0) ^ 0xffff).to_bytes(2, 'big') + bytes(72)
             self.assertEqual(bytes.fromhex(row[4]), expected)
+
+    def test_explicit_regions_modes_subchannels_postgap_and_rebind(self):
+        rows = self.run_probe('regions').splitlines(); self.assertTrue(rows)
+        for row in map(str.split,rows):
+            control,lba = map(int,row[1:3]); pre,post = lba<2,lba>=5
+            def bcd(n): return n//10*16+n%10
+            q = bytes((control*16+1,1,0 if pre else 2 if post else 1,0,0,abs(lba-2),0,0,2,bcd(lba)))
+            expected = (b'\xff' if pre or post else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
+            self.assertEqual(bytes.fromhex(row[3]),expected)

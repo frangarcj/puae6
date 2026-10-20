@@ -9,11 +9,11 @@
 using namespace p6_cd;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 static_assert(sizeof(Disc) < 16384, "bounded metadata, never a disc-sized allocation");
-struct Provider { uint64_t bytes, offset, last = 0; uint32_t stride, mode, calls = 0; int fault = 0; };
+struct Provider { uint64_t bytes, offset, last = 0; uint32_t stride, mode, calls = 0; int fault = 0; uint32_t boundary = 0, prefix_mode = 0; };
 static uint8_t byte(const Provider &p, uint64_t at)
 {
     const auto pos = (at - p.offset) % p.stride;
-    if (p.mode && pos == 15) return uint8_t(p.mode);
+    if (p.mode && pos == 15) return uint8_t((at-p.offset)/p.stride < p.boundary ? p.prefix_mode : p.mode);
     if (p.mode == 2 && pos == 18) return 0x20; // Mode2 Form2, never 2048-byte user data
     return uint8_t(at ^ (at >> 32) ^ (at >> 7));
 }
@@ -308,9 +308,94 @@ static int mode2_gaps()
     return 0;
 }
 
+static int explicit_regions()
+{
+    using R = Track::Regions;
+    for (auto program : {Mode::Audio,Mode::Mode1Raw,Mode::Mode2Raw}) for (auto prefix : {Mode::Audio,Mode::Mode1Raw,Mode::Mode2Raw})
+    for (unsigned stored = 0; stored < 3; ++stored) for (unsigned mask = 0; mask < 4; ++mask) for (unsigned post = 0; post < 2; ++post) {
+        if (!stored && (mask&2)) continue;
+        Provider p{11+7*2448,11,0,2448,unsigned(program)};
+        p.boundary = stored == 1 ? 2 : stored == 2 ? 1 : 0; p.prefix_mode = unsigned(prefix);
+        Binding binding{{{1},p.bytes,1},provide,&p}; Layout layout{}; layout.tracks=1; layout.leadout=7;
+        auto &t=layout.track[0]; t={0,2,7,0,2448,11,program,1,uint8_t(program==Mode::Audio?0:4),stored!=0,stored==2?1u:0u,2};
+        t.regions={R::Explicit|R::PostgapIndex2|(mask&1?R::ProgramSub96:0)|(mask&2?R::PregapSub96:0)|
+            (post?R::PostgapStored:0)|(post&&(mask&1)?R::PostgapSub96:0),prefix,uint32_t(prefix==Mode::Audio?0:4)};
+        Disc disc; CHECK(disc.bind(layout,&binding,1)==Result::Ok); uint8_t out[2464], q[96];
+        for (uint32_t lba=0; lba<7; ++lba) {
+            const bool pre=lba<2, tail=lba>=5, synthetic=(lba<(stored==1?0:stored==2?1:2))||(tail&&!post);
+            const auto mode=pre?prefix:program; const auto control=mode==Mode::Audio?0:4;
+            const bool has_sub=!synthetic&&(pre?mask&2:tail?post&&(mask&1):mask&1);
+            const auto at=11+uint64_t(lba-(stored==1?0:stored==2?1:2))*2448;
+            const auto calls=p.calls; SectorInfo info; CHECK(disc.describe(lba,&info)==Result::Ok);
+            CHECK(info.effective.mode==mode && info.effective.control==control && info.pause==(pre||tail) &&
+                info.synthetic==synthetic && info.stored_subs==has_sub && (synthetic||info.source_offset==at));
+            CHECK(describe_sector(disc,lba,&info)==Result::Ok && p.calls==calls);
+            for (unsigned view : {2048u,2352u,2448u}) {
+                memset(out,0xa5,sizeof out); const bool reject=view==2048&&mode!=Mode::Mode1Raw;
+                CHECK(canonical_read(disc,lba,view,out+8,view)==(reject?Result::Unsupported:Result::Ok));
+                CHECK(filled(out,8,0xa5)&&filled(out+8+view,sizeof out-8-view,0xa5));
+                if (reject) CHECK(filled(out,sizeof out,0xa5));
+                else if (!synthetic) for (unsigned n=0;n<(view==2448?2352:view);++n) CHECK(out[8+n]==byte(p,at+(view==2048?16:0)+n));
+                else if (view==2048||mode==Mode::Audio) CHECK(filled(out+8,view==2448?2352:view,0));
+                else CHECK(out[23]==(mode==Mode::Mode1Raw?1:2)&&filled(out+24,2048,0));
+            }
+            memset(out,0xa5,sizeof out);
+            CHECK(disc.read_sector(lba,2448,out,2448)==(has_sub?Result::Ok:Result::Unsupported));
+            if (!has_sub) CHECK(filled(out,sizeof out,0xa5));
+            CHECK(read_subchannel(disc,lba,q,sizeof q)==Result::Ok);
+            if (has_sub) for(unsigned n=0;n<96;++n) CHECK(q[n]==byte(p,at+2352+n)); // Opaque Q, CRC and R-W/SBI survive.
+            else {
+                printf("region %u %u ",control,lba); for(auto value:q) printf("%02x",value); puts("");
+                CHECK(q[14]==(pre?0:tail?2:1));
+            }
+            if (synthetic) CHECK(p.calls==calls);
+            else for (int fault : {1,2,3}) {
+                p.fault=fault; memset(out,0xa5,sizeof out);
+                CHECK(canonical_read(disc,lba,2448,out,2448)==Result::ReadError&&filled(out,sizeof out,0xa5));
+                p.fault=0;
+            }
+        }
+    }
+    Provider p{11+7*2448,11,0,2448,1}; Binding b{{{1},p.bytes,1},provide,&p};
+    Layout base{}; base.tracks=1; base.leadout=7; base.track[0]={0,2,7,0,2448,11,Mode::Mode1Raw,1,4,true,0,2};
+    base.track[0].regions={63,Mode::Mode1Raw,4}; Disc disc; CHECK(disc.bind(base,&b,1)==Result::Ok);
+    uint8_t saved[2448],out[2448]; CHECK(canonical_read(disc,0,2448,saved,sizeof saved)==Result::Ok);
+    for (unsigned field=0;field<7;++field) {
+        auto other=base; auto &r=other.track[0].regions;
+        if(field==0) r.flags^=R::ProgramSub96; if(field==1) r.flags^=R::PregapSub96;
+        if(field==2) r.flags^=R::PostgapSub96; if(field==3) r.flags^=R::PostgapIndex2;
+        if(field==4) r.flags&=~(R::PostgapStored|R::PostgapSub96);
+        if(field==5) r.pregap_mode=Mode::Mode2Raw; if(field==6) r.pregap_control=6;
+        CHECK(disc.rebind(other,&b,1)==Result::Incompatible);
+        CHECK(canonical_read(disc,0,2448,out,sizeof out)==Result::Ok&&!memcmp(out,saved,sizeof out));
+    }
+    for(unsigned bad=0;bad<13;++bad) {
+        auto other=base; auto &t=other.track[0]; auto &r=t.regions;
+        if(bad==0) r.flags=64; if(bad==1) r.flags=R::ProgramSub96; if(bad==2) r.flags=0;
+        if(bad==3) r.pregap_control=16; if(bad==4) r.pregap_mode=Mode::Audio;
+        if(bad==5) r.pregap_mode=Mode::Mode1_2048; if(bad==6) r.pregap_mode=Mode(99);
+        if(bad==7) t.stride=2352; if(bad==8) t.stored_pregap=false;
+        if(bad==9) t.synthetic_pregap=2; if(bad==10) t.postgap=0;
+        if(bad==11) r.flags&=~R::PostgapStored; if(bad==12) t.index1=0;
+        Disc empty; CHECK(empty.bind(other,&b,1)==Result::Invalid&&!empty.layout().tracks);
+        CHECK(disc.rebind(other,&b,1)==Result::Invalid);
+    }
+    Binding short_source=b; short_source.identity.bytes=11+5*2448;
+    Disc short_disc; CHECK(short_disc.bind(base,&short_source,1)==Result::Range);
+    base.track[0].regions.flags&=~(R::PostgapStored|R::PostgapSub96);
+    CHECK(short_disc.bind(base,&short_source,1)==Result::Ok); // Synthesized tail consumes no source.
+    base.track[0].regions.flags&=~R::PostgapIndex2; Disc index1;
+    CHECK(index1.bind(base,&short_source,1)==Result::Ok&&read_subchannel(index1,5,out,sizeof out)==Result::Ok);
+    CHECK(out[14]==1&&filled(out,12,0xff)); // Explicit policy without INDEX02 also keeps INDEX01.
+    SectorInfo canary{}; canary.number=123; CHECK(short_disc.describe(7,&canary)==Result::Range&&canary.number==123);
+    Disc empty; CHECK(empty.describe(0,&canary)==Result::Invalid&&canary.number==123);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
+    if (!strcmp(argv[1], "regions")) return explicit_regions();
     if (!strcmp(argv[1], "reads")) return reads();
     if (!strcmp(argv[1], "failures")) return failures_and_rebind();
     if (!strcmp(argv[1], "akiko")) return akiko();

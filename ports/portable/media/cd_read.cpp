@@ -4,20 +4,9 @@
 namespace p6_cd {
 Result describe_sector(const Disc &disc, uint32_t lba, SectorInfo *out)
 {
-    const auto &layout = disc.layout();
-    if (!out || !layout.tracks) return Result::Invalid;
-    if (lba >= layout.leadout) return Result::Range;
-    uint32_t n = 0;
-    while (lba >= layout.track[n].end) ++n;
-    const auto &t = layout.track[n];
-    const auto first = t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1;
-    const bool gap = lba < first || lba >= t.end - t.postgap;
-    const bool audio_prefix = n && (t.control & 4) && layout.track[n - 1].mode == Mode::Audio &&
-                              lba < t.index1 && t.index1 - lba > 150;
-    *out = {t, n + 1, t.stride == 2448 && !gap, lba < t.index1 || lba >= t.end - t.postgap, gap && audio_prefix};
-    if (audio_prefix) out->effective.control = layout.track[n - 1].control;
-    return Result::Ok;
+    return disc.describe(lba, out);
 }
+
 Result read_subchannel(const Disc &disc, uint32_t lba, void *out, size_t capacity)
 {
     if (!out || capacity < 96) return Result::Invalid;

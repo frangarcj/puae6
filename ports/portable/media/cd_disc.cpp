@@ -3,6 +3,26 @@
 #include <limits.h>
 #include <string.h>
 namespace p6_cd {
+namespace {
+using R = Track::Regions;
+bool mode_control(Mode mode, uint32_t control) {
+    return (mode == Mode::Mode1_2048 || mode == Mode::Mode1Raw || mode == Mode::Mode2Raw || mode == Mode::Audio) &&
+        control <= 15 && bool(control & 4) != (mode == Mode::Audio);
+}
+bool packing(Mode mode, uint32_t stride) { return mode == Mode::Mode1_2048 ? stride == 2048 : stride == 2352 || stride == 2448; }
+bool regions(const Track &t) {
+    const auto &r = t.regions; const auto f = r.flags;
+    if (!f) return r.pregap_mode == Mode::Mode1_2048 && !r.pregap_control;
+    if (!(f & R::Explicit) || (f & ~63u)) return false;
+    const bool pregap = t.index1 > t.index0, stored = t.stored_pregap && t.index1-t.index0 > t.synthetic_pregap;
+    if (pregap ? !mode_control(r.pregap_mode,r.pregap_control) || (stored && !packing(r.pregap_mode,t.stride)) :
+        r.pregap_mode != Mode::Mode1_2048 || r.pregap_control) return false;
+    if ((f & (R::ProgramSub96|R::PregapSub96|R::PostgapSub96)) && t.stride != 2448) return false;
+    return !((f & R::PregapSub96) && !stored) && !((f & (R::PostgapStored|R::PostgapIndex2)) && !t.postgap) &&
+        !((f & R::PostgapSub96) && !(f & R::PostgapStored));
+}
+}
+
 Result Disc::prepare(const Layout &layout, const Binding *bindings, uint32_t count)
 {
     if (!bindings || !count || count > kMaxSources || !layout.tracks || layout.tracks > kMaxTracks ||
@@ -12,15 +32,13 @@ Result Disc::prepare(const Layout &layout, const Binding *bindings, uint32_t cou
     uint32_t next = 0;
     for (uint32_t n = 0; n < layout.tracks; ++n) {
         const Track &t = layout.track[n];
-        const bool cooked = t.mode == Mode::Mode1_2048, audio = t.mode == Mode::Audio;
         if (t.index0 != next || t.index1 < t.index0 || t.end <= t.index1 || t.end > layout.leadout || t.source >= count ||
-            (t.mode != Mode::Mode1_2048 && t.mode != Mode::Mode1Raw && t.mode != Mode::Mode2Raw && !audio) ||
-            t.adr != 1 || t.control > 15 || bool(t.control & 4) == audio ||
+            !mode_control(t.mode,t.control) || t.adr != 1 ||
             t.synthetic_pregap > t.index1 - t.index0 || t.postgap >= t.end - t.index1 ||
             (!t.stored_pregap && t.synthetic_pregap && t.synthetic_pregap != t.index1 - t.index0) ||
-            (cooked ? t.stride != 2048 : t.stride != 2352 && t.stride != 2448)) return Result::Invalid;
+            !packing(t.mode,t.stride) || !regions(t)) return Result::Invalid;
         const auto bytes = sources_[t.source].identity().bytes;
-        const uint64_t sectors = t.end - t.postgap - (t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1);
+        const uint64_t sectors = t.end - ((t.regions.flags & R::PostgapStored) ? 0 : t.postgap) - (t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1);
         if (t.offset > bytes || sectors > (bytes - t.offset) / t.stride) return Result::Range;
         next = t.end;
     }
@@ -50,7 +68,9 @@ Result Disc::rebind(const Layout &layout, const Binding *bindings, uint32_t coun
         const Track &a = layout.track[n], &b = layout_.track[n];
         if (a.index0 != b.index0 || a.index1 != b.index1 || a.end != b.end || a.source != b.source || a.stride != b.stride ||
             a.offset != b.offset || a.mode != b.mode || a.adr != b.adr || a.control != b.control || a.stored_pregap != b.stored_pregap ||
-            a.synthetic_pregap != b.synthetic_pregap || a.postgap != b.postgap) return Result::Incompatible;
+            a.synthetic_pregap != b.synthetic_pregap || a.postgap != b.postgap ||
+            a.regions.flags != b.regions.flags || a.regions.pregap_mode != b.regions.pregap_mode ||
+            a.regions.pregap_control != b.regions.pregap_control) return Result::Incompatible;
     }
     for (uint32_t n = 0; n < count; ++n) {
         const auto &a = sources_[n].identity(), &b = bindings[n].identity;
@@ -59,23 +79,42 @@ Result Disc::rebind(const Layout &layout, const Binding *bindings, uint32_t coun
     *this = candidate;
     return Result::Ok;
 }
+Result Disc::describe(uint32_t lba, SectorInfo *out) const
+{
+    if (!count_ || !out) return Result::Invalid;
+    if (lba >= layout_.leadout) return Result::Range;
+    uint32_t n = 0; while (lba >= layout_.track[n].end) ++n;
+    const auto &t = layout_.track[n]; const auto f = t.regions.flags;
+    const bool pregap = lba < t.index1, postgap = lba >= t.end-t.postgap;
+    const uint32_t first = t.stored_pregap ? t.index0+t.synthetic_pregap : t.index1;
+    const bool synthetic = lba < first || (postgap && !(f & R::PostgapStored));
+    SectorInfo next{t,n+1,t.stride == 2448 && !synthetic,pregap || postgap,false,synthetic,0};
+    if (!synthetic) next.source_offset = t.offset + uint64_t(lba-first)*t.stride;
+    if (f & R::Explicit) {
+        if (pregap) { next.effective.mode=t.regions.pregap_mode; next.effective.control=uint8_t(t.regions.pregap_control); }
+        next.stored_subs = !synthetic && (f & (pregap ? R::PregapSub96 : postgap ? R::PostgapSub96 : R::ProgramSub96));
+        next.audio_gap = synthetic && next.effective.mode == Mode::Audio;
+    } else {
+        const bool audio_prefix = n && (t.control & 4) && layout_.track[n-1].mode == Mode::Audio && pregap && t.index1-lba > 150;
+        if (audio_prefix) next.effective.control=layout_.track[n-1].control;
+        next.audio_gap = synthetic && audio_prefix;
+    }
+    *out = next; return Result::Ok;
+}
 Result Disc::read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity) const
 {
     if (!count_ || !out || (view != 2048 && view != 2352 && view != 2448) || capacity < view) return Result::Invalid;
-    if (lba >= layout_.leadout) return Result::Range;
-    const Track *track = nullptr;
-    for (uint32_t n = 0; n < layout_.tracks; ++n) if (lba < layout_.track[n].end) { track = &layout_.track[n]; break; }
-    const auto &t = *track;
-    const uint32_t first = t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1;
-    const bool cooked = t.mode == Mode::Mode1_2048, gap = lba < first || lba >= t.end - t.postgap;
+    SectorInfo info; const auto described = describe(lba,&info);
+    if (described != Result::Ok) return described;
+    const auto &t = info.effective;
+    const bool cooked = t.mode == Mode::Mode1_2048, gap = info.synthetic;
     if ((view == 2048 && (t.mode == Mode::Audio || t.mode == Mode::Mode2Raw)) ||
-        (view == 2448 && (cooked || gap || t.stride != 2448))) return Result::Unsupported;
+        (view == 2448 && !info.stored_subs)) return Result::Unsupported;
     if (view == 2352 && (cooked || (gap && t.mode != Mode::Audio)) && lba > 100 * 60 * 75 - 151)
         return Result::Unsupported; // synthesized MSF has two BCD digits, validated before I/O
     uint8_t sector[kMaxReadBytes] = {};
     if (!gap) {
-        const uint64_t at = t.offset + uint64_t(lba - first) * t.stride;
-        const auto result = sources_[t.source].read_at(at, sector + (cooked && view == 2352 ? 16 : 0), t.stride);
+        const auto result = sources_[t.source].read_at(info.source_offset, sector + (cooked && view == 2352 ? 16 : 0), t.stride);
         if (result != Result::Ok) return result;
     }
     if (view == 2352 && (cooked || (gap && t.mode == Mode::Mode1Raw))) {

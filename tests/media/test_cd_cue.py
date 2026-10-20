@@ -67,7 +67,13 @@ class CdCueTests(unittest.TestCase):
             lba, view, status = map(int, row[1:4]); t = next(t for t in tracks if lba < t[2])
             first = t[0] + t[10] if t[9] else t[1]; gap = lba < first or lba >= t[2] - t[11]
             if t[6] == 2 and gap:
-                self.assertEqual(status, 5); continue
+                # T66g5: empty Mode2 gaps are Form1, with physical MSF and zero body.
+                if view == 2048:
+                    self.assertEqual(status,5); continue
+                self.assertEqual(status,0); absolute=lba+150
+                def bcd(n): return n//10*16+n%10
+                header=b'\0'+b'\xff'*10+b'\0'+bytes(map(bcd,(absolute//4500,absolute//75%60,absolute%75)))+b'\2'
+                self.assertEqual(row[4],hashlib.sha256(header+bytes(2336)).hexdigest()); continue
             self.assertEqual(status, 0)
             if gap: data = bytes(view)
             else:

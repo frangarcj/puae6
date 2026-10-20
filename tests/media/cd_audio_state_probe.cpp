@@ -115,4 +115,41 @@ static void bindings()
     assert(rebound.restore(historical, nullptr, nullptr, nullptr)); equal(snapshot(rebound), historical);
     assert(rebound.restore(error, &a.disc, status_callback, record_sub));
 }
-int main() { for (int mode = 0; mode < 10; ++mode) replay(mode); bindings(); }
+static void regional_replay()
+{
+    using R=Track::Regions;
+    for (bool stored : {false,true}) {
+        setup(); Provider original_provider, fresh_provider; Disc original_disc,fresh_disc;
+        Layout layout{}; layout.content_id[0]=9; layout.tracks=1; layout.leadout=4;
+        layout.track[0]={0,2,4,0,2448,0,Mode::Mode1Raw,1,4,stored,stored?0u:2u,0};
+        layout.track[0].regions={R::Explicit|R::ProgramSub96|(stored?R::PregapSub96:0),Mode::Audio,0};
+        Binding a{{{9},4*2448,1},provide,&original_provider},b=a; b.context=&fresh_provider;
+        assert(original_disc.bind(layout,&a,1)==Result::Ok&&fresh_disc.bind(layout,&b,1)==Result::Ok);
+        AudioPlayer player; assert(player.play(original_disc,0,4,status_callback,record_sub)==Result::Ok);
+        advance(int(cda_evt*100+137)); pcm(); const auto saved=snapshot(player); const auto phase=next_sample_evtime;
+        assert(saved.running&&saved.sector&&saved.position==0&&saved.stream.remaining<588);
+        notices.clear(); subs.clear(); const auto begin=get_cycles();
+        advance(int(cda_evt*1300+53)); const auto elapsed=get_cycles()-begin;
+        const auto control_pcm=pcm(); const auto control=snapshot(player); const auto control_status=notices; const auto control_subs=subs;
+        assert(control.status==AUDIO_STATUS_PLAY_ERROR&&control.error==int(Result::Unsupported)&&control.position==1);
+        assert(original_provider.calls==(stored?2:0)); player.stop();
+        AudioPlayer rebound; notices.clear(); subs.clear(); rebound_calls=0; const auto cycles=get_cycles();
+        assert(rebound.can_restore(saved,&fresh_disc,rebound_status,rebound_sub));
+        assert(rebound.restore(saved,&fresh_disc,rebound_status,rebound_sub));
+        assert(!fresh_provider.calls&&get_cycles()==cycles&&!rebound_calls); equal(snapshot(rebound),saved);
+        last_cycles=get_cycles(); next_sample_evtime=phase; p6_pcm_reset();
+        advance(int(cda_evt*1300+53)); assert(get_cycles()-cycles==elapsed&&pcm()==control_pcm);
+        equal(snapshot(rebound),control); assert(notices==control_status&&subs==control_subs);
+        assert(fresh_provider.calls==(stored?1:0)); rebound.stop();
+        // The inverse region rejects data before consuming delay or touching the source.
+        layout.track[0].mode=Mode::Audio; layout.track[0].control=0;
+        layout.track[0].regions.pregap_mode=Mode::Mode1Raw; layout.track[0].regions.pregap_control=4;
+        Disc inverse; assert(inverse.bind(layout,&b,1)==Result::Ok); AudioPlayer p; ms_delay=sector_delay=1;
+        const auto calls=fresh_provider.calls; const auto now=get_cycles();
+        assert(p.play(inverse,0,4,status_callback,record_sub)==Result::Unsupported);
+        const auto rejected=snapshot(p); assert(rejected.delay==633&&!rejected.sector&&fresh_provider.calls==calls&&get_cycles()==now);
+        p.stop(); ms_delay=sector_delay=0;
+        assert(p.play(inverse,2,4,nullptr,nullptr)==Result::Ok); p.stop();
+    }
+}
+int main() { for (int mode = 0; mode < 10; ++mode) replay(mode); bindings(); regional_replay(); }
