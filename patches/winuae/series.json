@@ -5677,9 +5677,9 @@
     {
       "id": "0398-hrtmon-native-state",
       "file": "patches/winuae/0398-hrtmon-native-state.patch",
-      "sha256": "5e9aa05a77369396252d0b0b4656bf6ccd857f46263e284aa59093a78728303f",
+      "sha256": "cacd4cd09ebaf6a356f9d3e642b2d0cce33710d08087d3b080182f0ba3343f7b",
       "title": "Preserve native HRTMon memory mapping shadows and CPU pending action",
-      "reason": "T69b: private fixed HRTMon owner accessors and boundary support for complete native state; memory and causal flags restore without paths or serialized pointers. The bridge requires these endpoints; no-cartridge execution remains unchanged.",
+      "reason": "T69b: private fixed HRTMon owner accessors and boundary support for complete native state; memory and causal flags restore without paths or serialized pointers. The bridge requires these endpoints; no-cartridge execution remains unchanged. Capture the three actual fixed A1200 bank maps, including Kickstart mirrors A8..B0 before Freeze; restore each span without changing B1..B7.",
       "category": "cartridge state host boundary",
       "order": 214,
       "symbols": [
@@ -5695,7 +5695,7 @@
         {
           "path": "ar.cpp",
           "before_sha256": "72ba5a7d0a8314c4eb9b17cf90775e5ddb680e6ce68f804cee1f280914f00c27",
-          "after_sha256": "86c230f73896b4d656359062cdada7287858682f258ca0e28f4bc7c802898430"
+          "after_sha256": "0266006ee5e83dd7ee7dbd989f1286004053069f77716d2f88b7099becca2d55"
         },
         {
           "path": "newcpu.cpp",
