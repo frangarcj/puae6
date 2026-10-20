@@ -16774,7 +16774,7 @@
     {
       "id": "T66t4",
       "title": "Acotar codecs CD CHD y cerrar la puerta conjunta del lector",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t3"
       ],
@@ -16993,6 +16993,49 @@
       "stop": "No anunciar cambioCDpublico hasta conexiones yrestauracionfrontend; no usar selecciontemporalni fallbackaliveDisc para aprobar estado deotromedio."
     },
     {
+      "id": "T66u3",
+      "title": "Conectar catalogo CD a M3U, Disk Control y restauracion publica libretro",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66u1",
+        "T66u2",
+        "T66r9"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/options.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_session.h",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/libretro_core.cpp",
+        "tests/libretro-host/test_cd32_load.py",
+        "docs/options.md",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Clasificar M3U mediante parser existente una sola vez, maximo16 entradas; si contiene CD todas son CD soportados y sin SAVEDISK. Entrada directa equivale a lista1. Owners estables y catalogo nativo de IDs unicos en primer orden declarado, conservando slots/labels/aliases y mapa a ordinal canonico. Abrir todos y bind unico transaccional; sin precargar CD entero. Seleccion inicial antes de p6_load y DiskTray asentado.",
+        "Disk Control CD registra peticiones; siguiente retro_run aplica ausencia real, seleccion solo expulsado y reinsercion via p6_akiko_media_set, conservando unidad/opens. Idempotencia y abrir/cerrar mismoCD; no inventar doorbit ni usar relojhost. Catalogo fijo: add/replace/remove false sin IO. Fallo de frontera impide advance y notifica error.",
+        "Reutilizar snapshot DiskTray: seleccion aplicada y peticiones pendientes causales. Validar mapa CD exacto (slots, aliases y ordinales), no prefijo ampliable floppy. p6_state_load resuelve Disc guardado contra catalogo antes del apply; ninguna seleccion especulativa antes de preflight. Paths distintos mismos bytes aceptados, catalogo reordenado/sustituido o mapa alias distinto rechazados sin mutacion.",
+        "LR01 y STATE01 usan misma union dirigida sin repetir: nueva Cd32PlaylistTests prueba A/B/A-alias, inicialB, indices legacy/extended, callback diferido y ausencia real con P6AK/disc_id/opens independientes; A300->B->restoreA en otro proceso y futuro15 AV/PCM/ticks/estado completo identico, cortes expulsado y peticion pendiente. Negativos mezcla/floppy/SAVEDISK/perdido/VFS/>16 y handles0, operaciones catalogo fijo sin mutacion. Regresiones MDS publica y dos DiskControl existentes. Actualizar assert antiguo CDdirecto count0/ejectfalse a slot1.",
+        "Frente cd_swap reutiliza t66-cd-swap aislado; seis rutas atomicas, estimacion300..380 manuales. Coordinador plan/checks e integracion, build candidato nativo -j2 en raiz, sin motor/guest en worktree. BizHawk/catalogo/estado y TAS/pelicula de cambio permanecen pendientes explicitos del padreT66."
+      ],
+      "checks": [
+        "LR01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "M3U y CD directo admiten cambio real conservando unidad, y restauran seleccion frontend/Disc causal y futuro exacto en otro proceso; rechazos son transaccionales y no acreditan aun cambio BizHawk/TAS."
+      ],
+      "stop": "No confundir slot con ordinal deduplicado, no seleccionar Disc antes de preflight y no anunciar soporte de cambio BizHawk/TAS por prueba libretro."
+    },
+    {
       "id": "T66l5",
       "title": "Leer NRG ETNF multitrack con pregap canonico explicito",
       "milestone": "M3",
@@ -17140,7 +17183,8 @@
         "T66l4",
         "T66u2",
         "T66l5",
-        "T66g5"
+        "T66g5",
+        "T66u3"
       ],
       "read": [
         "docs/01-architecture.md",

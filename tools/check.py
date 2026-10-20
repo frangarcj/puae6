@@ -312,6 +312,13 @@ TASK_SUITES[('MED01', 'T66u1')] = {'cd_media_presence': 'tests.media.test_cd_dev
 TASK_SUITES[('STATE01', 'T66u1')] = {'akiko_presence_and_delivery_state': 'tests.media.test_akiko_state.AkikoStateTests'}
 TASK_SUITES[('MED01', 'T66u2')] = TASK_SUITES[('MED01', 'T66u1')]
 TASK_SUITES[('STATE01', 'T66u2')] = {'native_cd_catalogue_restore': 'tests.media.test_cd32_state.Cd32StateTests'}
+# Both gates exercise one directed public state/control union; callers can select the pair once.
+for _gate in ('LR01', 'STATE01'):
+    TASK_SUITES[(_gate, 'T66u3')] = {
+        'public_cd_playlist_restore': 'tests.libretro-host.test_cd32_load.Cd32PlaylistTests',
+        'public_mds_regression': 'tests.libretro-host.test_cd32_load.Cd32MdsTests',
+        'callback_deferred_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_a_request_made_inside_a_callback_waits_for_the_next_boundary',
+        'same_disc_reinsert_regression': 'tests.libretro-host.test_libretro.LibretroTests.test_opening_and_closing_the_tray_on_the_same_disk_is_still_a_disk_change'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',
