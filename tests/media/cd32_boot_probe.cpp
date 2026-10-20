@@ -171,7 +171,7 @@ int main(int argc,char **argv)
     for(unsigned n=0;n<8;++n) {
         auto bad=c;
         switch(n) { case 0:bad.cpu_model=2;break;case 1:bad.cpu_compatibility=P6_CPU_NORMAL;break;
-        case 2:bad.cpu_multiplier=8;break;case 3:bad.fast_kib=8192;break;case 4:bad.floppy_drives=1;break;
+        case 2:bad.cpu_multiplier=8;break;case 3:bad.fast_kib=4096;break;case 4:bad.floppy_drives=1;break;
         case 5:bad.flags=P6_CONFIG_FLOPPY_WRITES;break;case 6:bad.chip_kib=1024;break;case 7:bad.hdf_controller=P6_HDF_CONTROLLER_IDE;break; }
         assert(p6_init(&bad,&e)==P6_ERROR_UNSUPPORTED);
     }

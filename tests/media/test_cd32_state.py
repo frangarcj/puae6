@@ -13,5 +13,5 @@ class Cd32StateTests(unittest.TestCase):
         exe=build_targets(ROOT/'build/link-audit',['p6_cd32_state_probe'])['p6_cd32_state_probe']
         result=subprocess.run([str(exe),main,ext],capture_output=True,text=True,timeout=180)
         self.assertEqual(0,result.returncode,result.stdout[-2000:]+result.stderr[-4000:])
-        for mode in range(4):
+        for mode in range(5):
             self.assertIn(f'native CD32 mode{mode} exact restore/new owner/identity/corrupt/map PASS',result.stdout)

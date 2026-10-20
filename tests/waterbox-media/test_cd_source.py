@@ -61,6 +61,7 @@ class Cd32WaterboxTests(CdTransportTests):
         self.extra_args = (main, ext)
 
 class Cd32PublicCoreTests(Cd32WaterboxTests):
+    public_modes = ('publicsave', 'publicload')
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):
         sys.path.insert(0, str(ROOT / 'integration/bizhawk/patches'))
         import build_tree
@@ -83,9 +84,12 @@ class Cd32PublicCoreTests(Cd32WaterboxTests):
             path = self.names[0]
             if path == 'device.iso':
                 path = str(work / path); Path(path).write_bytes(bytes(512 * 2048))
-            for mode in ('publicsave', 'publicload'):
+            for mode in self.public_modes:
                 result = subprocess.run(['dotnet', str(work / 'bin/Debug/net8.0/Cd32Loader.dll'), str(work), path,
                                          runtime, str(GUEST), sha, mode, *self.extra_args],
                                         env=env, capture_output=True, text=True, timeout=180)
                 self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-3000:])
                 self.assertIn('Public BizHawk CD32', result.stdout)
+
+class Cd32FastCoreTests(Cd32PublicCoreTests):
+    public_modes = ('frsave', 'frload')

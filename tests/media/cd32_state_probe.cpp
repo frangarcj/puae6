@@ -51,9 +51,10 @@ static void load(const std::vector<uint8_t> &state)
 {
     auto e=error(); call(p6_state_load(state.data(),state.size(),&e),e);
 }
-static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc)
+static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc,bool fast=false)
 {
     auto c=config(); c.video_standard=ntsc?P6_VIDEO_NTSC:P6_VIDEO_PAL; auto e=error();
+    c.fast_kib=fast?8192:0;
     call(p6_init(&c,&e),e); assert(device_bind(&disc.disc)==Result::Ok);
     call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); state_caps();
     p6_memory_region regions[8]; uint32_t count=0;
@@ -106,8 +107,17 @@ static void reject(const std::vector<uint8_t> &bad,p6_result result,DiscFixture 
 int main(int argc,char **argv)
 {
     assert(argc==3); auto rom=file(argv[2]); const auto main=file(argv[1]); rom.insert(rom.end(),main.begin(),main.end());
-    for(int mode=0;mode<4;++mode) {
-        DiscFixture a,b,alien(43); start(rom,a,mode&1); step();
+    for(int mode=0;mode<5;++mode) {
+        const bool fast=mode==4;
+        DiscFixture a,b,alien(43); start(rom,a,mode&1,fast); step();
+        if(fast) {
+            assert(currprefs.fastmem[0].size==8*1024*1024 && !currprefs.cs_ide && !currprefs.cs_pcmcia);
+            put_byte(0xe8004a,0); put_byte(0xe80048,0x20); // The real Zorro II autoconfig writes.
+            assert(&get_mem_bank(0x200000)==&fastmem_bank[0]);
+            put_long(0x200100,0x1234abcd); put_long(0x9ffffc,0xa9876543);
+            assert(do_get_mem_long(fastmem_bank[0].baseaddr+0x100)==0x1234abcd);
+            assert(do_get_mem_long(fastmem_bank[0].baseaddr+8*1024*1024-4)==0xa9876543);
+        }
         if(mode!=2) {
             assert(sys_command_cd_play(0,0,mode==3?1:20,0,nullptr,nullptr));
             if(mode==1) assert(sys_command_cd_pause(0,1)>=0);
@@ -128,7 +138,9 @@ int main(int argc,char **argv)
         put_long(AKIKO_BASE+0x38,0x12345678); // Partial C2P input must survive the native codec.
         const auto cut=save(); assert(cut[48]==12); map_matches();
         const auto expected=future(a),end=save();
-        load(cut); assert(save()==cut); assert(future(a)==expected && save()==end);
+        load(cut); assert(save()==cut);
+        if(fast) assert(get_long(0x200100)==0x1234abcd && get_long(0x9ffffc)==0xa9876543);
+        assert(future(a)==expected && save()==end);
         if(!mode) {
             sys_command_cd_stop(0); AudioPlayer foreign;
             assert(foreign.play(a.disc,0,20,nullptr,nullptr)==Result::Ok);
@@ -145,9 +157,16 @@ int main(int argc,char **argv)
             foreign.stop(); load(end);
         }
         auto corrupt=cut; corrupt.back()=0x7f; reseal(corrupt); reject(corrupt,P6_ERROR_CORRUPT_STATE,a);
-        stop(); start(rom,alien,mode&1); step(); reject(cut,P6_ERROR_INCOMPATIBLE,alien); stop();
-        start(rom,b,mode&1); set_cycles(17); update_cda_sound(1); // Validate before reset head, with different live time/period.
-        load(cut); assert(save()==cut); assert(future(b)==expected && save()==end); stop();
+        stop(); start(rom,alien,mode&1,fast); step(); reject(cut,P6_ERROR_INCOMPATIBLE,alien); stop();
+        if(fast) {
+            start(rom,a,false); step();
+            // The FR payload exceeds the stock bound, checked before config identity (envelope.cpp).
+            reject(cut,P6_ERROR_CORRUPT_STATE,a); stop();
+        }
+        start(rom,b,mode&1,fast); set_cycles(17); update_cda_sound(1); // Validate before reset head, with different live time/period.
+        load(cut); assert(save()==cut);
+        if(fast) assert(get_long(0x200100)==0x1234abcd && get_long(0x9ffffc)==0xa9876543);
+        assert(future(b)==expected && save()==end); stop();
         printf("native CD32 mode%d exact restore/new owner/identity/corrupt/map PASS\n",mode);
     }
 }

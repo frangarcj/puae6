@@ -90,6 +90,32 @@ class Cd32LoadTests(lr.LibretroHarness):
         self.run_cd('--runs', 1, '--do', f'0:sramload:{durable}', '--do', f'1:sramsave:{imported}')
         self.assertEqual(durable.read_bytes(), imported.read_bytes())
 
+    def test_cd32fr_preset_fast_memory_restore_and_stock_refusal(self):
+        work = self.work(); state = work / 'cd32fr.state'
+        content = os.environ.get('P6_CD_CUE_FILE', str(self.iso))
+        out = self.run_cd(
+                          '--set', 'puae6_preset=cd32_fast8', '--runs', 315,
+                          '--do', '300:poke:0x200100:1234abcd', '--do', '300:poke:0x9ffffc:a9876543',
+                          '--do', f'300:savefile:{state}', '--do', '315:memory', content=content)
+        self.assertRegex(out, r'memory-desc \d+ name=FAST start=0x200000 len=0x800000 ')
+        manual = self.run_cd('--set', 'puae6_machine=CD32', '--set', 'puae6_fast_size=MB8', '--runs', 16,
+                             '--do', f'1:loadfile:{state}:pos=300', '--do', '1:peek:0x200100:4',
+                             '--do', '1:peek:0x9ffffc:4', '--do', '16:memory', content=content)
+        self.assertIn('peek 0x200100 4 1234abcd', manual); self.assertIn('peek 0x9ffffc 4 a9876543', manual)
+        view = lambda r: (r['unit'], r['ticks'], r['hash'], r['ahash'], r['audio'])
+        self.assertEqual([view(r) for r in self.runs(out)[300:315]], [view(r) for r in self.runs(manual)[1:16]])
+        self.assertEqual(re.findall(r'^memory hash (.*)$', out, re.M), re.findall(r'^memory hash (.*)$', manual, re.M))
+        refused = self.run_cd('--runs', 1, '--do', '1:save:before', '--do', f'1:loadfile:{state}',
+                              '--do', '1:save:after', content=content)
+        self.assertIn(f'state load {state} exact ok=0', refused)
+        hashes = re.findall(r'^state save (?:before|after) ok=1 .* hash=(\w+)', refused, re.M)
+        self.assertEqual(len(hashes), 2); self.assertEqual(*hashes)
+        rom = (self.system_dir / 'kick40060.CD32.ext').read_bytes() + (self.system_dir / 'kick40060.CD32').read_bytes()
+        cli = subprocess.run([str(self.headless), '--run', '/dev/stdin', '--machine', 'cd32', '--fast', '8192', '--units', '2'],
+                             input=rom, capture_output=True, timeout=30)
+        self.assertEqual(cli.returncode, 0, cli.stderr.decode())
+        self.assertIn(b'unit 2 ticks=', cli.stdout)
+
     def test_invalid_model_firmware_and_vfs_fail_and_release_handles(self):
         self.run_cd('--set', 'puae6_machine=A1200', expect=3)
         floppy = self.directory / 'not-a-cd.adf'; floppy.write_bytes(bytes(901120))

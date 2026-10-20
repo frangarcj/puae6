@@ -1900,8 +1900,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             if (!core.cd->open(game->path, core.cd_vfs, &why)) {
                 notify_error("%s", why.c_str()); stop_image(); return false;
             }
-            // Floppy CD32 tags historically request A1200+8M; a real CD uses
-            // stock memory. Retain explicit options and resolve only its region.
+            // Floppy CD32 tags historically request A1200+8M. A real CD retains
+            // the explicit CD32/CD32FR memory choice and resolves only its region.
             core.settings.video_standard = p6_libretro::resolve_model(core.settings, false, {game->path}).settings.video_standard;
             core.settings.machine = p6_libretro::CdSession::firmware_names().machine;
             multidrive = false;

@@ -12704,7 +12704,7 @@
       "title": "68030 y preset A4000/030 real con restauracion",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "pending",
       "depends": [
         "T55a",
         "T55b1"
@@ -12737,8 +12737,9 @@
         "Implementar 68030 y A4000/030 con RTC, FatGary/Ramsey y direccionamiento reales; mantener cerrados los niveles CPU sin soporte y completar los definidos para esta maquina. Exponer preset y opciones coherentes en los tres frontends.",
         "Task force: pruebas dirigidas durante la vertical; el padre conserva la puerta acumulada original y no se cierra por el avance de una subparte.",
         "Reservar IDs de maquina11=A4030 y12=A4040;9/10 quedan reservados paraCD32/CDTV sin aceptarlos hastaimplementados. Validacion explicita de IDs, no rango continuo.",
-        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Falta arranque/restauracion con firmware A4000 real autorizado: no anunciar esa compatibilidad hasta probarlo; se aplaza para priorizar la preview utilizable.",
-        "T55b1 extrae la plataforma sintetica comprobable como dependencia tecnica. Esta ficha mantiene pendiente el arranque/restauracion con firmware A4000 real, todos sus checks y aceptacion. No se elimina esa puerta al permitir generacion040/060 independiente."
+        "Native/LR y restauracion Waterbox A4030 Auto/None pasan con micro-ROM. Con la ROM A4000 obtenida por la excepcion explicita queda pendiente ejecutar arranque/restauracion reales; no anunciar esa compatibilidad antes de probarla.",
+        "T55b1 extrae la plataforma sintetica comprobable como dependencia tecnica. Esta ficha mantiene pendiente el arranque/restauracion con firmware A4000 real, todos sus checks y aceptacion. No se elimina esa puerta al permitir generacion040/060 independiente.",
+        "La excepcion explicita del usuario del20oct permite descargar solo la KickstartA4000 enlazada para pruebas locales. SHA1 5fe04842d04a489720f0f4bb0e46948199406f49 coincide con rommgr fijado; archivo guardado en Downloads, fuera del proyecto. T55b se retoma despues, sin incluir ese binario en Git. Ruta local: /Users/frangar/Downloads/Kickstart v3.1 r40.68 (1993)(Commodore)(A4000).rom; fuente GitHub commit602a91e9bbbf1c4966b4e8b7fd04917002ace730. Pendiente ejecutar la aceptacion, no es DONE por obtener firmware."
       ],
       "checks": [
         "GEN01",
@@ -12749,8 +12750,7 @@
       "acceptance": [
         "El A4000/030 real arranca y restaura en nativo/Waterbox, con niveles y limites de CPU declarados y sin MMU fingida."
       ],
-      "stop": "Sin MMU: no fingirla.",
-      "blocked_reason": "La aceptacion pendiente requiere arranque/restauracion real A4000/030 en nativo y Waterbox. Busqueda local en Downloads y MacHawk:21ROM/bin/kick plausibles contrastadas con rommgr fijado, sin firmware A4000; ZIPs relevantes solo A600/AmigaSoccer. kick40068.A4000.RTB es tabla de relocacion, no ROM. Se ha pedido ruta local autorizada al usuario. La plataforma/micro-ROM sigue DONE en T55b1; no sustituye esta puerta. Otros tamanos Z3 y CPU040/060 pueden avanzar por subtareas independientes sin cerrar este bloqueo."
+      "stop": "Sin MMU: no fingirla."
     },
     {
       "id": "T55c1",
@@ -16211,7 +16211,8 @@
         "T66r2",
         "T66r3",
         "T66r4",
-        "T66r5"
+        "T66r5",
+        "T66r6"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16250,7 +16251,8 @@
         "T66r1 integra CD directo stock en libretro por Automatic con propietario de sesion y estado real. CD32FR, cambio de CD, NVRAM SaveRAM, Waterbox, juego y formatos restantes conservan todas las puertas del padre.",
         "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre.",
         "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre.",
-        "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre."
+        "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre.",
+        "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego."
       ],
       "checks": [
         "MED01",
@@ -17862,6 +17864,51 @@
         "Peliculas CD32 iniciadas desde SaveRAM o desde estado con NVRAM importada arrancan y hacen seek en Waterbox real con identidad comprobada y futuro determinista."
       ],
       "stop": "No relajar identidad global ni reconstruir desde la copia durable del usuario durante replay."
+    },
+    {
+      "id": "T66r6",
+      "title": "CD32FR con 8 MiB de Fast RAM compartida, memoria y restauracion real",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66r5",
+        "T49"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "config/**",
+        "adapters/libretro/**",
+        "integration/bizhawk/**",
+        "tests/media/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-media/**",
+        "tests/config/**",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md"
+      ],
+      "steps": [
+        "PUAE5 libretro-core.c:6279..6299: CD32FR es CD32 stock con Fast de 8 MiB. WinUAE cfgfile.cpp:9276..9314: modelo 8/config 0; config 1 es FMV y >1 CUBO, no usar. Conservar ID9 + fast_kib=8192, sin inventar otra placa/CPU ni consumir IDs reservados.",
+        "Permitir solo stock o Fast de 8 MiB en CD32; mantener rechazos de Chip/Slow/CPU/FPU/Z3/FDD. Exponer preset comun cd32_fast8 en libretro; BizHawk usa Machine.CD32 + FastMemory.MB8 y headless --machine cd32 --fast 8192. Identidad, presupuestos y codecs existentes deben transportar la memoria real.",
+        "Probar bus/autoconfig Fast, dominio/mapa de 8 MiB y restauracion de sus bytes con ROM CD32 local en ambos frontends, nueva instancia/proceso; rechazar estados/peliculas stock frente a FR sin mutacion. No sustituir por solo preferencias o build.",
+        "GEN01, LR01 y WB03 PASS. Native mode4 configura la placa Zorro II real y comprueba bytes por bus tras restore en otro owner; libretro cruza preset y opciones manuales en otro proceso, compara A/V/ticks/RAM y rechaza el estado en stock sin mutacion. Headless acepta CD32 --fast8192. El core publico BizHawk/net48 restaura los dos extremos de Fast RAM y el snapshot completo en otro sandbox/proceso, con identidad stock/FR separada. ROMs locales y CUE Brian autorizados, sin copia de assets ni informes. Guest26cc684471d62082, fuente vinculada verificada. T66 mantiene los pendientes de juegos, formatos y tags."
+      ],
+      "checks": [
+        "GEN01",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "CD32FR expone 8 MiB Fast reales con 2 MiB Chip y hardware stock, restaura memoria/futuro en libretro y Waterbox y distingue su identidad del stock; preset y configuracion manual son equivalentes."
+      ],
+      "stop": "No aceptar un preset que no mapee la RAM o no pueda restaurarla; T66 mantiene el cierre completo de juegos/formatos."
     }
   ],
   "max_in_progress": 4

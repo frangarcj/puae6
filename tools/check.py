@@ -273,6 +273,11 @@ TASK_SUITES[('MED02', 'T66r4')] = {'native_nvram_backing_and_restore': 'tests.me
                                'eeprom_owner_regression': 'tests.media.test_cd32_nvram.Cd32NvramTests'}
 TASK_SUITES[('LR01', 'T66r4')] = {'nvram_sram_persistence': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_nvram_sram_persistence_reset_and_snapshot_use_the_same_backing'}
 TASK_SUITES[('WB03', 'T66r4')] = {'public_cd32_nvram_persistence': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests'}
+TASK_SUITES[('GEN01', 'T66r6')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('LR01', 'T66r6')] = {'cd32fr_session_restore': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_cd32fr_preset_fast_memory_restore_and_stock_refusal',
+                                  'native_cd32fr_autoconfig_state': 'tests.media.test_cd32_state.Cd32StateTests',
+                                  'stock_profile_rejections': 'tests.media.test_cd32_boot.Cd32BootTests'}
+TASK_SUITES[('WB03', 'T66r6')] = {'public_cd32fr_memory_restore': 'tests.waterbox-media.test_cd_source.Cd32FastCoreTests'}
 # One integrated scenario covers startup/restore, suppressed A/V and real BK2/TAS seek.
 for _gate in ('WB03', 'WB08', 'WB09'):
     TASK_SUITES[(_gate, 'T66r5')] = {'real_cd32_bk2_tas_start_seek': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieStartTests'}

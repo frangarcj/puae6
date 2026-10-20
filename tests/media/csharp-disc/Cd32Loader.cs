@@ -74,10 +74,10 @@ internal static unsafe partial class Program
   using var disc = Mount(args[1]);
   long reads = 0;
   var seed = Enumerable.Range(0, 1024).Select(i => (byte)(i * 17 + 9)).ToArray();
-  Puae6Core Open(Disc image, bool combined = false, byte[] imported = null) {
+  Puae6Core Open(Disc image, bool combined = false, byte[] imported = null, bool fast = false) {
    var firmware = new Firmware(main, ext, combined);
    var comm = new CoreComm(_ => { }, (_, _) => { }, firmware, CoreComm.CorePreferencesFlags.None, null);
-   var original = new Puae6SyncSettings { ControllerPort2 = Puae6Port2.Cd32 };
+   var original = new Puae6SyncSettings { ControllerPort2 = Puae6Port2.Cd32, FastMemory = fast ? Puae6Fast.MB8 : Puae6Fast.Auto };
    var lp = new CoreLoadParameters<Puae6Settings, Puae6SyncSettings> { Comm = comm, SyncSettings = original };
    lp.Discs.Add(new DiscAsset(image));
    var method = typeof(Puae6Core).GetMethod("ParametersFrom", BindingFlags.NonPublic | BindingFlags.Static);
@@ -88,10 +88,12 @@ internal static unsafe partial class Program
    lp.Discs.RemoveAt(1);
    var p = Resolve();
    Require(original.Machine == Puae6Machine.A500 && p.SyncSettings.Machine == Puae6Machine.CD32);
+   Require(p.SyncSettings.FastMemory == original.FastMemory);
    Require(firmware.Asked.SequenceEqual(combined ? new[] { "CD32" } : new[] { "CD32", "CD32ext" }));
    p.GuestDirectory = Path.GetDirectoryName(args[3]); p.GuestFileName = Path.GetFileName(args[3]); p.PinnedGuestSha256 = args[4];
    var reader = p.ReadCd; p.ReadCd = (at, data, count) => { ++reads; return reader(at, data, count); };
    var core = new Puae6Core(comm, p);
+   if (args[5].StartsWith("fr")) { core.StoreSaveRam(seed); return core; }
    if (args[5].StartsWith("movie")) { if (imported != null) core.StoreSaveRam(imported); return core; }
    Require(core.GetSyncSettings().Machine == Puae6Machine.CD32);
    Require(!core.ControllerDefinition.BoolButtons.Contains(Controllers.NextDrive));
@@ -119,6 +121,7 @@ internal static unsafe partial class Program
    Require(core.Identity.ConfigHash.SequenceEqual(initialConfig) == (imported ?? seed).All(b => b == 0));
    return core;
   }
+  if (args[5].StartsWith("fr")) { FastCd32(args, fast => Open(disc, true, null, fast)); return; }
 #if MOVIES
   if (args[5].StartsWith("movie")) { Movies(args, nv => Open(disc, true, nv)); return; }
 #endif

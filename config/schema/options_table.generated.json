@@ -2614,6 +2614,13 @@
         "machine": "A4030",
         "cpu_compatibility": "normal"
       }
+    },
+    "cd32_fast8": {
+      "label": "CD32FR (2 MiB Chip + 8 MiB Fast RAM)",
+      "values": {
+        "machine": "CD32",
+        "fast_size": "MB8"
+      }
     }
   },
   "selectors": {

@@ -1669,3 +1669,15 @@ valida encabezado, modo, SaveRAM o envelope y campos del snapshot antes de Attac
 adoptar esa identidad; un LOAD normal mantiene su rechazo estricto. El contexto
 se retira al cargar o salir por excepcion, sin leer la copia durable del usuario.
 El formato P6WS v1 no cambia. La compilacion EmuHawk no acredita ejecucion de su UI.
+
+## CD32FR (T66r6)
+
+CD32 conserva ID9 y su placa stock. fast_kib=8192 añade la misma placa Zorro II
+de 8 MiB que usa PUAE5/CD32FR; Auto/None siguen sin Fast. Chip 2 MiB, Slow 0,
+68EC020 exacto, firmware principal+extendido y 0 disqueteras no cambian. Se rechazan
+otros tamaños y FPU/Z3/CPU alternativos. No se usa config1 del preset upstream
+(ese es FMV). Libretro ofrece cd32_fast8, equivalente a Machine.CD32 y
+FastMemory.MB8 en BizHawk o --machine cd32 --fast 8192 en headless. La memoria
+forma parte de la identidad y del estado; Waterbox reserva 32 MiB de mmap para
+esta configuracion mediante la regla comun (base 16 MiB + 2 veces 8 MiB). No se anuncia
+aun el arranque completo de juego ni seleccion de FR por etiquetas de CD.

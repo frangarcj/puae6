@@ -325,13 +325,15 @@ class NormalizationTests(unittest.TestCase):
     def test_the_presets_are_bundles_of_the_options_and_give_the_memory_of_puae5(self):
         # T49: PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine. A preset is values of the options, so the ABI has no field for it.
         document = schema()
-        self.assertEqual([entry["id"] for entry in document["presets"]], ["a1200_fast8", "a600_puae5", "a4030_normal"])
+        self.assertEqual([entry["id"] for entry in document["presets"]], ["a1200_fast8", "a600_puae5", "a4030_normal", "cd32_fast8"])
         a1200 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "a1200_fast8"))
         self.assertEqual((a1200["machine"], a1200["chip_kib"], a1200["slow_kib"], a1200["fast_kib"]), (3, 0, 0, 8192))
         a600 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {"fast_size": "MB1"}), "a600_puae5"))
         self.assertEqual((a600["machine"], a600["chip_kib"], a600["slow_kib"], a600["fast_kib"]), (2, 2048, 0, 8192))
         a4030 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "a4030_normal"))
         self.assertEqual((a4030["machine"], a4030["cpu_compatibility"], a4030["fast_kib"]), (11, 2, 0))
+        cd32 = gen.to_p6_config(document, gen.apply_preset(document, gen.normalize_config(document, {}), "cd32_fast8"))
+        self.assertEqual((cd32["machine"], cd32["chip_kib"], cd32["slow_kib"], cd32["fast_kib"]), (9, 0, 0, 8192))
         plain = gen.normalize_config(document, {"machine": "A600"})
         self.assertEqual(gen.apply_preset(document, plain, "none"), plain)
         with self.assertRaises(gen.ConfigError) as caught:

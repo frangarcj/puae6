@@ -28,9 +28,13 @@ BizHawk selecciona `Machine=CD32` al cargar un unico CD y pide los firmwares
 El perfil usa 68EC020 exacto, AGA, 2 MiB Chip, sin Fast/FPU/Z3 ni disqueteras.
 SaveRAM contiene los 1024 bytes crudos de la EEPROM. BizHawk solo permite
 importarlos antes de ejecutar o cargar un estado; libretro los ofrece como
-RETRO_MEMORY_SAVE_RAM. CD32FR, cambio de CD y pelicula desde un estado con
-NVRAM inicial importada siguen pendientes; el arranque completo de juegos
-aun no esta acreditado.
+RETRO_MEMORY_SAVE_RAM. El preset `cd32_fast8` añade 8 MiB de Fast RAM (CD32FR),
+equivalente a `puae6_machine=CD32` + `puae6_fast_size=MB8`. En BizHawk se eligen
+`Machine=CD32` y `FastMemory=MB8`; en headless `--machine cd32 --fast 8192`.
+Requiere reinicio y los estados/peliculas del stock no se intercambian con FR.
+Las peliculas BK2/TASproj CD32 admiten inicio desde SaveRAM o estado binario
+con NVRAM inicial importada. Cambio de CD, seleccion de FR por etiquetas del CD y
+arranque completo de juegos siguen pendientes.
 
 ## A4000/030 (T55b)
 
@@ -324,7 +328,7 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
 | `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_floppy_drives`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_cpu_compatibility`, `puae6_hdf_controller` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
-| `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`: preset del esquema, que las demas claves refinan. |
+| `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`, `a4030_normal`, `cd32_fast8`: preset del esquema, que las demas claves refinan. |
 
 Las flags `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact` y `cycle_exact` deben ser `true` en exact y `false` en compatible/normal; `cpu_compatible` es `true` en exact/compatible y `false` en normal. Describen el nivel final de `puae6_cpu_compatibility`, cualquiera que sea el orden de las claves; una contradiccion se rechaza.
 

@@ -303,8 +303,8 @@ p6_result validate_memory(const p6_config &c, p6_error *error)
     const MachineInfo &m = machine_info(c.machine);
     const bool ecs = (m.chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0, aga = is_aga(c.machine);
     if (c.machine == kCd32Machine && ((c.chip_kib && c.chip_kib != 2048) ||
-        (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE)))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "stock CD32 has 2 MiB Chip and no Slow/Fast RAM");
+        (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && c.fast_kib != 8192)))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 has 2 MiB Chip, no Slow RAM and either no Fast RAM or the CD32FR 8 MiB board");
     if (c.machine == P6_MACHINE_A4030 && ((c.chip_kib && c.chip_kib != 2048) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000 has 2 MiB Chip and no Slow RAM trapdoor");
     if (c.machine == P6_MACHINE_A1000) {

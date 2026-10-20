@@ -1,16 +1,36 @@
 {
   "schema_version": 1,
   "profile": "deterministic-a500",
-  "machine": "CD32-private",
+  "machine": "CD32",
   "machine_id": 9,
   "upstream_preset": "default_prefs + built_in_prefs(model8, config0, compa0, romcheck0) + stock exact overrides + fixup_prefs",
   "firmware": "1048576 bytes: extended512KiB + main512KiB; rommgr IDs64/19/18 and both checksums",
   "fields": {
-    "cpu_model": 68020, "address_space_24": 1, "cpu_cycle_exact": 1, "cpu_clock_multiplier": 1024,
-    "chip_kib": 2048, "slow_kib": 0, "fast_kib": 0, "nr_floppies": 0,
-    "cs_cd32cd": 1, "cs_cd32c2p": 1, "cs_cd32nvram": 1, "cs_cd32nvram_size": 1024,
-    "cs_ciaoverlay": 0, "cs_ide": 0, "cs_pcmcia": 0, "cs_cd32fmv": 0,
-    "cs_ksmirror_e0": 0, "cs_ksmirror_a8": 1
+    "cpu_model": 68020,
+    "address_space_24": 1,
+    "cpu_cycle_exact": 1,
+    "cpu_clock_multiplier": 1024,
+    "chip_kib": 2048,
+    "slow_kib": 0,
+    "fast_kib": 0,
+    "nr_floppies": 0,
+    "cs_cd32cd": 1,
+    "cs_cd32c2p": 1,
+    "cs_cd32nvram": 1,
+    "cs_cd32nvram_size": 1024,
+    "cs_ciaoverlay": 0,
+    "cs_ide": 0,
+    "cs_pcmcia": 0,
+    "cs_cd32fmv": 0,
+    "cs_ksmirror_e0": 0,
+    "cs_ksmirror_a8": 1
   },
-  "limits": "Native boot probe only; no frontend selection, native state, FMV, expansions or alternate CPU accuracy. CD owner remains outside the engine."
+  "limits": "CD32 and CD32FR only; no FMV, other expansions, alternate CPU accuracy or host CD device. The CD owner remains outside the engine; full game acceptance remains in T66.",
+  "variants": {
+    "CD32FR": {
+      "machine_id": 9,
+      "fast_kib": 8192,
+      "note": "Same upstream model8/config0 and stock hardware, plus one 8 MiB Zorro II autoconfig board. Fast RAM enters state/movie identity."
+    }
+  }
 }
