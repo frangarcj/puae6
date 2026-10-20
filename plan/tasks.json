@@ -18040,6 +18040,100 @@
       "stop": "No copiar el motor antiguo, usar stubs de exito ni backend CD simulado, ni relajar puertas de T67. Respetar el limite manual o dividir explicitamente antes de ampliar."
     },
     {
+      "id": "T67b1",
+      "title": "Capturar validar y aplicar el componente privado CDTV sin efectos host",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T67a",
+        "T66h1",
+        "T66u2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "patches/winuae/0400-cdtv-component-state.patch",
+        "ports/portable/cdtv_state.h",
+        "tests/media/cdtv_state_probe.cpp",
+        "tests/media/test_cdtv_state.py",
+        "CMakeLists.txt",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Infraestructura del componente CDTV privado, sin habilitar estado nativo. Separada de la integracion P6CT para respetar el limite manual: 7 rutas, objetivo 350-395 lineas incluyendo probe. Padre T67 conserva codec completo, perfil, autoconfig y arranque. Estado p6_state_* mantiene UNSUPPORTED mientras currprefs.cs_cdtvcd.",
+        "DTO tipado completo y accesores mediante patch0400, sin editar upstream ni dumps de structs. Una funcion tipada field(value,live,operacion,rango) comparte lista EXPLICITA de campos entre capture/validate/apply; Validate no lee refs live, y Apply solo sigue a validacion y preflight completos. No arrays anonimos de palabras ni macros para ocultar logica. DeviceState/CDA usan contratos existentes.",
+        "Incluir FIFO logica, parser/respuesta parcial/last_out, DMAC/6525/latches/strobes, control/media/error/posiciones/volumen/DAC/TOC/Q cacheados, NVRAM32768, ring36x96 y transferencia SUB/contadores, SEEK y modo callback CDA0/normal/inmediato. Los buffers/TOC se validan explicitamente, no se reconstruyen desde el medio actual. Getter de subcode_handler solo para futura reconstruccion; ningun puntero guardado. E9 se deriva con dmac_bank y un banco ajeno se rechaza antes de mutar. Apply no provoca IRQ, callback, backend read, audio advance ni eventos nuevos.",
+        "MED01 CdtvStateComponentTests.test_local_roundtrip_and_transactional_refusals, exe p6_cdtv_state_probe modo local. Dueno real A500+Disc: get, alteracion valida de registros/FIFO/parser/respuesta/NVRAM/SUB y CDA permitido, apply y get iguales; volver al original. Negativos de rango, cola, SUB, callback, Disc y DMA deben preservar estado, get_cycles, reads, callbacks observados y slots/fechas event2. Un contador privado excluido del DTO observa callbacks reales. Incluir modos de audio alcanzables sin afirmar futuro completo. DTO local inicializado, nunca formato persistido.",
+        "Regresion cercana CdtvLinkTests una vez. Inventario distingue componente privado verificado de codec nativo AUSENTE, sin P6CT falso. cd_swap trabaja aislado y no edita metadata; root registra serie/clasificacion y serializa build -j2. Si alcanza400 o necesita otra ruta, parar y dividir explicitamente antes. La puerta completa de restauracion fria/futuro pertenece a T67b2."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El componente CDTV real admite captura/validacion/aplicacion local completa y rechaza candidatos invalidos antes de mutar, sin avanzar reloj, leer backend ni invocar callbacks/eventos. El estado nativo sigue rechazado hasta T67b2."
+      ],
+      "stop": "No habilitar codec parcial, serializar punteros, regenerar caches causales ni superar400 lineas sin subdivision previa."
+    },
+    {
+      "id": "T67b2",
+      "title": "Restaurar CDTV privado con P6CT scheduler audio e identidad completos",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T67b1",
+        "T15",
+        "T66u2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "bridge/state_cdtv.cpp",
+        "bridge/state.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "bridge/state_upstream.cpp",
+        "CMakeLists.txt",
+        "tests/media/cdtv_state_probe.cpp",
+        "tests/media/test_cdtv_state.py",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Integrar el componente b1 sin volver a enumerar motor/get/apply. Diez rutas, 340-395 lineas nuevas incluyendo ampliacion del mismo probe. Registrar visitor P6CT field-by-field (DTO, DeviceState/PCM) y retirar UNSUPPORTED solo cuando esten todos los duenos y la puerta completa. No ofrecer aun perfil/autoconfig/arranque CDTV.",
+        "P6SC agrega ID14 reversible para subcode_interrupt mediante getter del motor, solo con dueno CDTV; conservar slot/fecha/data sin ptr serializado. P6AU obtiene/aplica device_phase para CDTV ademas de CD32. P6CT reconstruye callbacks desde selector y Disc validado; E9 se remapea al aplicar sin IRQ, lectura host o event2_newevent. P6RM sigue dueno de Chip/Slow. Identidad agrega dominio CDTV privado condicional y chunk_count propio: A500 sin CDTV con el MISMO catalogo rechaza antes de reset/Apply.",
+        "Probar p6_load, bind catalogo, private_start y state_load ANTES del primer run; validar candidato, reset head existente y remapeo E9 por P6CT tras memory_reset. La correccion comun CPU/IRQ aplicada durante T69b ya forma parte del motor actual; esta hoja no necesita ni habilita el cartucho HRTMon. Su dependencia de infraestructura nativa es T15, y se conserva la regresion CPU/IRQ pertinente.",
+        "STATE01/DET02 CdtvStateTests.test_cold_restore_and_future, misma fixture una vez. Writer/reader con siete cortes: parser parcial, respuesta parcial, SEEK con cola, DMA real de dos sectores antes de terminal (416hsync sin cuotas), IRQ latched, CDA playing con SUB/event14 activo, pausa/stop con fase retenida. Mismo dueno y nuevo dueno/proceso sin run previo: save exacto al restaurar y futuro MMIO/RAM/AV/PCM/ticks mas save final completo. Rechazos de campo/evento sin dueno/identidad preservan estado, callbacks y reads.",
+        "Reutilizar exe/helpers de b1. Regresiones cortas: modo local b1, CdtvLinkTests, AkikoLinkTests y CPUinterrupt relevante, una sola union; inventario estatico de componentes. No duplicar siete cortes ni afirmar Waterbox por native. Padre T67 queda pendiente de perfil, firmware extendido, autoconfig y ambos frontends. Si no cabe400, parar antes de ampliar; no excepcion retrospectiva."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "P6CT, P6SC y P6AU restauran juntos el CDTV privado en frio y en otro proceso, con identidad estricta y futuro completo exacto en siete cortes causales; negativos no mutan la imagen. Ningun perfil ni arranque publico se atribuye por esta puerta."
+      ],
+      "stop": "No codec parcial, alias de P6AK, ptr serializado, IRQ/avance durante Apply ni cambio de temporizacion para pasar un test."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -18048,7 +18142,9 @@
       "depends": [
         "T66",
         "T50",
-        "T67a"
+        "T67a",
+        "T67b1",
+        "T67b2"
       ],
       "read": [
         "docs/01-architecture.md",
