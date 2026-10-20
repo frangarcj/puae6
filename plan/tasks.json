@@ -17531,6 +17531,47 @@
       "stop": "No ocultar regiones en reserved delABI ni inferirlasdeQ; no descartarSUBalmacenado ni normalizarbytesconCONTROLincorrecto."
     },
     {
+      "id": "T66t10",
+      "title": "Normalizar pregaps CHD de otro tipo y postgaps con identidad regional",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t9",
+        "T66t8"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_chd.h",
+        "adapters/libretro/cd_chd.cpp",
+        "tests/media/cd_chd_probe.cpp",
+        "tests/media/test_cd_chd.py"
+      ],
+      "steps": [
+        "Conservar exactamente T8/flags0/P6CHD1 en tracks de postgap0/gap<=150/PGpacking ySUB compatibles. Casos nuevos activanRegionsExplicit conPGTYPE/CONTROL de todoINDEX00. PrimertrackPREGAP/HTOA yCDI siguenUnsupported conpuertas posteriores, no eliminar guard sincontrato negativo.",
+        "Seleccionar PGpacking/pg_data_bytes/pgsub porordinal almacenado antes de expandir cooked yextraerSUB96. Normalizarstride comun2352/2448; regionesinSUBrellenan cola0 pero flagsdeclaran ausencia, canonicalQ synth sinIO. Audio swap solo regionAudio; misma generacionMode1/Form1/Form2 probada. SourceFRAMESno incluye PGsintetico/postgap/padding4.",
+        "Geometriau64 end=index1+FRAMES-(stored?PREGAP:0)+POSTGAP conlimiteMSF; encabezadosusanLBAfisico+150, offset_framesCHDsolo unidades/paddingoriginales. CHDpostgap sintetico pausaINDEX02 conmodo/controlprograma; flagsExplicit+SUBporregion, nuncaPostgapStored. PGsinteticoobedecePGTYPE yno consumeSUB aunque metadataPGSUBvalida lo nombre.",
+        "Solo si alguntrackExplicit, dominioP6CHR1 conservaencodingbaseT8 yañadeu32LEflags,pregap_mode,pregap_control porcadaa track antesSourcebytes/hash; contenedorcompleto/geometria/tail/sourcehashincluidos. DiscolegacymantieneP6CHD1 byteexacto. Rebindcomparetoc/regions/sourceIDs, renamepermite ymetadata/bytesalteradosrechaza.",
+        "Conservar7metodosT8 ycodecs; fixture+oraculonumerico independiente paresAudio/Mode1/Mode2/2336/Form1/Form2, NONE/RW/RW_RAWdistintos, gaps151/200,postgap1/2,BCD/cursor/padding/sourcehash yP6CHR1. ProbeQ conVFSfallido usa describe.stored_subs: almacenadoReadErroroutintacto, sinteticogeneraQexactasinIO; lowlevel2448Unsupportedausencia. BaselineT8rechaza fixture. Freshownerrebind/identidad yatomicidadIO.",
+        "Cuatro rutas atomicas objetivo300..380lineas, avisar antes400; rootpodra ampliar si fixtureyproveedornecesitanatomicidad, sinhojasceremoniales. AgenteCDaislado/standalone-j2 sinengine/guest/metadata. MED01T8acumulativo+CdDiscTests ySTATE01T9regresion, unauniondirigida. WBv2/DiscSystemtipado/publicfactory/HTOA permanecen requeridos."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "CHDregional conserva payload/SUBporpacking, CONTROL/Q/CDDA yoffsetfisico correctos conidentidadrebindestable ylegacyP6CHD1intacto; no seatribuye carga publica/WB/HTOA."
+      ],
+      "stop": "No inferirPGTYPEdeQ, perderSUBopaco, incluirpaddingenSource ni cambiarP6CHD1 paraformatosyaaceptados."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17603,7 +17644,8 @@
         "T66t6",
         "T66t7",
         "T66t8",
-        "T66t9"
+        "T66t9",
+        "T66t10"
       ],
       "read": [
         "docs/01-architecture.md",
