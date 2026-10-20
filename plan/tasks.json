@@ -18250,7 +18250,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario.",
-        "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada."
+        "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada.",
+        "Para la ruta HRTMon puede usarse el builtin ya contenido en el snapshotWinUAE fijado (hrtmon.rom.cpp), extraido solo a build/ durante tests; no requiere descargar una ROM comercial. La guia primaria del autor declara GPL: https://github.com/wepl/hrtmon/blob/master/HRTmon.guide. Procedencia de bytes sigue SHA del snapshot, no master como inputrelease. ActionReplay comercial requiere asset autorizado aparte; HRTMon no acredita todos los modelosAR ni elimina criterios de activacion/estado."
       ],
       "checks": [
         "DET02"
