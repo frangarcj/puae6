@@ -5625,9 +5625,9 @@
     {
       "id": "0394-hrtmon-port",
       "file": "patches/winuae/0394-hrtmon-port.patch",
-      "sha256": "499a610e39d91f1efcc104aeefe1e8b36d3a4bd8a99b14105915f62774013c8d",
+      "sha256": "48f4e659edcd827e4650581432bedb3e3ccc07727aead8077941af6cc83347c4",
       "title": "Port pinned HRTMon owner and lifecycle through original Action Replay hooks",
-      "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec.",
+      "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec. Legacy .uss path codecs are excluded in portable; no successful stubs or path deserialization.",
       "category": "optional cartridge host boundary",
       "order": 211,
       "symbols": [
@@ -5643,7 +5643,34 @@
         {
           "path": "ar.cpp",
           "before_sha256": "7b3d207f00da646ea239f9b393fd55b2eb72989d583b408d15b57b8e9d2e3cb6",
-          "after_sha256": "25ca6a63f251906227d2dbe06ab9a410612c40d7209d3b00f2804124274429d8"
+          "after_sha256": "72ba5a7d0a8314c4eb9b17cf90775e5ddb680e6ce68f804cee1f280914f00c27"
+        }
+      ]
+    },
+    {
+      "id": "0396-chd-mode2-form2-edc",
+      "file": "patches/winuae/0396-chd-mode2-form2-edc.patch",
+      "sha256": "2dba1c0e595622475af10679670f7d87ebe65961d304c6ada147ca0f23149d5d",
+      "title": "Encode Mode2 Form2 EDC without modifying payload or adding P/Q",
+      "reason": "T66t8: CHD cooked Form2 requires EDC over subheader plus2324 payload bytes. Reuse the original build_edc polynomial, write only trailing four bytes; normalized XA duplicated subheader is selected explicitly by the provider.",
+      "category": "CD media normalization",
+      "order": 212,
+      "symbols": [
+        "encode_l2_mode2_form2"
+      ],
+      "test": "tests/media/test_cd_chd.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cdrom.cpp",
+          "before_sha256": "90f580d2eb0e4dfb3aaea517a7fd65500645a8caee5ef2e0c60e1ebd6e8f37ec",
+          "after_sha256": "66437f90506c378fbd7dbf8954dfa1661f11c6abeb517e9022d13d8f430aeb70"
+        },
+        {
+          "path": "include/uae/cdrom.h",
+          "before_sha256": "f2e89c73ec809d165caad013a4a9a00768d2d2efc3219d60572327025625b06c",
+          "after_sha256": "7d85f774666b0914114cefa400e665983d38500bde6114ee95bedfd68edc9f4b"
         }
       ]
     }
