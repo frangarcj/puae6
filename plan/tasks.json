@@ -16687,6 +16687,129 @@
       "stop": "Conservar enT66CHD/NRG/cambioCD y puertas completas; MDSnoimplica soportar todaslasversiones/sesiones/modos del formato."
     },
     {
+      "id": "T66t2",
+      "title": "Leer CHD v5 CD por ReadFn con cabecera y propiedad acotadas",
+      "status": "in_progress",
+      "depends": [
+        "T66t1"
+      ],
+      "touch": [
+        "ports/portable/media/chd_reader.h",
+        "ports/portable/media/chd_reader.cpp",
+        "third_party/libchdr/patches/0002-readfn-header.patch",
+        "cmake/Chd.cmake",
+        "tests/media/chd_dependencies_probe.c",
+        "third_party/libchdr/NOTICE.md",
+        "tools/import_chd.py",
+        "third_party/libchdr/selection.json",
+        "tests/media/test_chd_reader.py",
+        "tests/media/chd_reader_probe.cpp"
+      ],
+      "steps": [
+        "Sustituir FILE/cursor del decoder derivado por core_file con ReadFn/context/bytes y operaciones por offset. Excluir entrada por nombre y precache del target con error claro; no simular FILE ni precargar CHD. Mantener originales third_party pristinos y aplicar parche derivado con hashesbefore/after fijos por importer.",
+        "Validar antes de divisiones/asignaciones: magic, cabecera124/version5, sin padre ni escritura, unitbytes2448, hunkbytes positivo/multiplo2448<=512KiB, logicalbytes positivo/alineado, techo por resta segura. Maximo2^20hunks, mapaexpandido12MiB/comprimido16MiB; limites documentados encontrato y Unsupported, tipos/overflow/offsets comprobados. No atribuir aun mapas/codecs arbitrarios seguros.",
+        "Lecturas por offset exactas fragmentadas<=2448bytes, contexto prestado con ownership explicito; construccion y salida publicas transaccionales, staging dehunk y cleanup parcial correcto. Slots decodec repetidos inicializan/liberan estado compartido una sola vez. ReadFn nunca devuelve exito tras fallo/lectura corta.",
+        "MED01 dirigido: cuatrofixturesCDv5 T1 bytes completos adelante/atras/repetido mediante ReadFn, negativos cabecera/divisiones/limites/padre/write/IOcorto ysalidaintacta con ASan/UBSan. Conservar regresion checksum/import+minimalcheckout T1 adaptando probe a callbacks host; no motor/guest/matriz.",
+        "Frente cd32_close reutiliza t53-cpu y merge main, coordinador poseeplan/checks e integra. Diezrutas devertical atomica contrato+parche+receta+manifest+probes: limite orientativo400lineasmanuales, proponer ampliacion antes deexceder. No aceptar contenido publico CHD hasta T66t3/T66t4 yproveedor/restore; ningun stub seguro por completar esta hoja."
+      ],
+      "acceptance": [
+        "El lector independiente valida geometria y recursos antes de operar, decodifica los cuatro fixtures exactos por offsets acotados y rechaza errores de cabecera/IO de forma transaccional bajo sanitizers. No acredita aun hardening completo de mapas/codecs ni soporte CHD publico."
+      ],
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "stop": "No enlazar CHD al producto hasta completar hardening conjunto y proveedor/restore; conservar todas las puertas y variantes pendientes de T66."
+    },
+    {
+      "id": "T66t3",
+      "title": "Acotar mapas CHD v5, referencias SELF y cadenas de metadata",
+      "status": "pending",
+      "depends": [
+        "T66t2"
+      ],
+      "touch": [
+        "third_party/libchdr/patches/0003-v5-map-metadata.patch",
+        "ports/portable/media/chd_reader.cpp",
+        "tools/import_chd.py",
+        "third_party/libchdr/selection.json",
+        "tests/media/test_chd_reader.py",
+        "tests/media/chd_reader_probe.cpp"
+      ],
+      "steps": [
+        "Parche derivado de libchdr_chd.c, bitstream.c/.h y huffman.c: lecturas exactas de mapas, asignaciones comprobadas, anchos bits longitud<=24/SELF<=32, agotamiento y shifts seguros, RLE<=hunks, simbolos/arboles/lookupHuffman validos sin memoria no inicializada.",
+        "Comprobar CRC del mapa original y cada entrada: slot inicializado, longitud, offset/span valido, tipo soportado y rechazoPARENT aunque header no declareparent. Mapas no comprimidos conservan entrada0 comohunkceros y exigen lectura completa delresto. Buffercomprimido dimensionado tras validar mapa con limite1MiB porbloque explicito.",
+        "Resolver SELF una vez alabrir mediante colores y compresiondecaminos, recorridos iterativos O(hunks) sinrecursion/pila proporcional; rechazar ciclos/fuerarango, conservar CRCoriginal antes de normalizar.",
+        "Validar cadena metadata antes depublicar: offsets/cabecera16/payload/sumas, max4096entradas/64KiBpayload/1MiBagregado, ciclos/pasos deterministas. Conservar flags/tags desconocidos opacos; IOerror no equivale metadataausente.",
+        "MED01 ASan/UBSan con mismos cuatrofixtures y mutaciones dirigidas mapa truncado/CRC/tipos/offsets/bitstream, SELF largo/ciclico, metadata ciclica/limites/IOcorto y salidasintactas; numero callbacks acotado. Mantener CHDfuera producto, <=400lineasmanuales o proponer subdivision sin recortar puerta."
+      ],
+      "acceptance": [
+        "Los mapas y metadata no producen lecturas/asignaciones fuera de limites ni recursion no acotada, conservan bytes de fixtures y rechazan mutaciones dirigidas con errores transaccionales bajo sanitizers. El soporte publico y codecs arbitrarios siguen pendientes."
+      ],
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "stop": "No enlazar CHD al producto hasta completar hardening conjunto y proveedor/restore; conservar todas las puertas y variantes pendientes de T66."
+    },
+    {
+      "id": "T66t4",
+      "title": "Acotar codecs CD CHD y cerrar la puerta conjunta del lector",
+      "status": "pending",
+      "depends": [
+        "T66t3"
+      ],
+      "touch": [
+        "third_party/libchdr/patches/0004-cd-codec-bounds.patch",
+        "ports/portable/media/chd_reader.cpp",
+        "tools/import_chd.py",
+        "third_party/libchdr/selection.json",
+        "tests/media/test_chd_reader.py",
+        "tests/media/chd_reader_probe.cpp"
+      ],
+      "steps": [
+        "Parche derivado libchdr_chd.c/libchdr_flac.c: cdzl/cdlz comprueban header minimo, complen_base y longitudes ambaspartes, retornos decoders antes de reconstruccion/ECC. Zlib exige finaldestream y entrada/salidaexactas; LZMA comprueba SRes y ELzmaStatus por separado preservando fin sinmarker permitido porCHD y tamaños exactos.",
+        "FLAC valida44100Hz/doscanales/16bits, lecturas producen exactamente frames solicitados, offsetfinal<=complen antes de restas/seek ysin underflow. Corregir cleanup constructores fallidos y LzmaEnc_Destroy conallocator correcto, sin cambiar oraculos positivos.",
+        "Puerta conjunta MED01 ASan/UBSan delreader con cuatrofixtures positivas T1 ymutaciones pequeñas dirigidas decabecera/mapas/SELF/metadata/longitudescodecs/IOcorto; salidaintacta y callbacks acotados. No campañas, relojhost, nueva dependenciapin ni comprobacion por simpleexito.",
+        "Cerrar lector solo tras pasar puerta conjunta; proveedor TOC/CHTR/CHT2/padding4frames/subcanales/identidad/rebind ycarga publica siguen posteriores delpadre. <=400lineasmanuales orientativas; coordinador integra y responsable noedita metadata."
+      ],
+      "acceptance": [
+        "El lector CHDv5CD sin padre supera conjuntamente fixtures exactos y negativos de cabecera/mapas/metadata/codecs bajo ASan/UBSan sin IO parcial ni salida mutada. Todavia no anuncia extension ni soporte de proveedor/publico."
+      ],
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "stop": "No enlazar CHD al producto hasta completar hardening conjunto y proveedor/restore; conservar todas las puertas y variantes pendientes de T66."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16741,7 +16864,10 @@
         "T66s1",
         "T66t1",
         "T66s2",
-        "T66s3"
+        "T66s3",
+        "T66t2",
+        "T66t3",
+        "T66t4"
       ],
       "read": [
         "docs/01-architecture.md",

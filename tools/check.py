@@ -297,6 +297,9 @@ TASK_SUITES[('MED01', 'T66s2')] = {'native_mds_source': 'tests.media.test_cd_mds
 TASK_SUITES[('MED01', 'T66s3')] = {'native_cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('LR01', 'T66s3')] = {'public_mds_restore_identity': 'tests.libretro-host.test_cd32_load.Cd32MdsTests.test_mds_public_snapshot_new_process_and_media_identity'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
+for _task in ('T66t2', 'T66t3', 'T66t4'):
+    TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',
+                                     'pinned_chd_regression': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 TASK_SUITES[('MED01', 'T66j2')] = {'native_ccd_source': 'tests.media.test_cd_ccd.CdCcdTests', 'pinned_ccd_metadata': 'tests.media.test_ccd_metadata.CcdMetadataTests'}
 TASK_SUITES[('MED01', 'T66e2b')] = {'pinned_cue_metadata': 'tests.media.test_cue_metadata', 'native_cue_layout': 'tests.media.test_cd_cue', 'cd_disc_regression': 'tests.media.test_cd_disc'}
 TASK_SUITES[('MED01', 'T66e2')] = dict(TASK_SUITES[('MED01', 'T66e2b')])
