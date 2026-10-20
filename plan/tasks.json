@@ -17702,6 +17702,56 @@
       "stop": "No inferirregionesdesdeQ niusarel mismoproveedorcomooraculo; sinbinariosx86fallbackennativoARM64, sinmodificarMacHawk."
     },
     {
+      "id": "T66t14",
+      "title": "Cargar CHD publico en libretro con catalogo estado y juego real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t10",
+        "T66t13",
+        "T66u3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md",
+        "docs/00-sources.md"
+      ],
+      "touch": [
+        "cmake/Libretro.cmake",
+        "cmake/Chd.cmake",
+        "adapters/libretro/cd_image.cpp",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/libretro_core.cpp",
+        "tests/media/test_cd_image.py",
+        "tests/libretro-host/test_cd32_load.py",
+        "third_party/libchdr/NOTICE.md",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "IncluirmoduloChd.cmakeenLibretro, cd_chd.cppenp6_cd_images ylinkprivadop6_chd_reader→p6_chdstatic/PIC/hidden/verificacionoffline. Comentarios/NOTICEdejan nodecirno-productcuandoahoralinkreal. NoCMakeLists/engine/ABI/WB/C#/generados. CdImageData poseeCdChdyreusatemplateuse;factoryextensionchdcaseinsensitivesinfallback. CdSessiondirectoyM3UCDmixtoconcatalogo16/dedupeporidentity/cambiodiferido. coreinfo valid_extensionschd, nobin/mdf.",
+        "DominioexistenteCDv5/none-cdzl-cdlz-cdfl,sinparent/HTOA/CDI/GD/DVD; limites/rechazosT2/T10exactos. No cambiarP6CHD1/P6CHR1 ni flags/estados. Docs02describecontratodefuenteactual; GUI/nativepreviewCZIPtodaviano contieneCHD/HRTpublico, no modificarlistadeformatosdelZIPhastaempaquetarnuevacandidata. Assets/Gitcomercialintactos.",
+        "MED01CdImageTestsnuevo test_chd_four_codecs_factory_vfs_identity_and_fresh_owner:4fixtureslegales40framesexistentesporfactory/VFS/canonical/sourceID/rebind/cierre/fallo/outintacto. RecetastandalonedeclaramismolinkChd.cmakeycd_chd.cpp+helper0396,conserva4parsersflagsPIC/sourcesincluidas. Quitarchddeunknownasercionpermanecerechazootrosformatos. NorepetirT7..T10matricesenteras.",
+        "LR01Cd32ChdTests2metodos test_chd_direct_snapshot_new_process_vfs_and_container_identity ytest_chd_playlist_catalog_switch_and_restore. FixturepropiaPythonstoredv5ISO512cerousacd_map/metadata_chain: pruebasCDreal/read315ycachemiss/fault/no-seek/renamealias/appendopacoidentityrechazosincambiarmaquina/newprocessstdIOVFS/fullbytesyplaylistCHD/ISO/alias. EsISOvacio,nobootapp. RegresioncercanaunicaCd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner conBrianCUElocalautorizadosolo345, noR7completaotravez.",
+        "GatejuegorealunavezparaformatoCHD: rootusa chdman0.287yainstalado(sininstalacion/red),createcd -np1 -hs19584 cdzl delBrianCUEautorizadoconoutputsSOLOtempbuild/,verify, reutilizasinmodificargoldenCd32GameTests.test_brian_gameplay_and_restoreconP6_CD32_GAME_CUErutaCHD. Mismosmenu1399/juego6500/interaccion/PCM/futuro80/sandboxnativoownerproceso; no6500porcodec. DET02seleccionamismogamefixtureincluidaLR01,unionunavez. BorrarCHDtemporalalterminarcheck. Siincompatibilidadcodec/streamrealconservarreproducerydoshipotesis sinrelajaroraculo.",
+        "Nueverutasatomicas objetivo220..290manuales; cd32_closeaisladonometadatani motor/guest/rootcompile-j2. PuedeprobarMEDstandaloneChd/CSharpnoenginecoordinado, avisarantesbuildheavy. RootserializalibretroproductoytestsgameactualescandidataconC3estable. BackendhostCSharp/typedpublicWBsiguenotrah ojaT66sinatribuirporlanative."
+      ],
+      "checks": [
+        "MED01",
+        "LR01",
+        "DET02"
+      ],
+      "acceptance": [
+        "CHDdirectoyplaylistcarganconlibchdrrealestatico, preservanVFS/identidad/restauracionotroproceso yBrianconvertidolocalmentealcanzaeljuegoconoraculoexistente.4codecfixturesfactorycorrectas,noatribuirbootappalISOvacio niWaterboxalcorelibretro."
+      ],
+      "stop": "Sin fallbackbinariox86/nuevasinstalaciones/IOguest ni tocargolden/identidadesparapasar; outputscomercialesderivadossolobuildtempseeliminan."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17778,7 +17828,8 @@
         "T66t10",
         "T66t11",
         "T66t12",
-        "T66t13"
+        "T66t13",
+        "T66t14"
       ],
       "read": [
         "docs/01-architecture.md",
