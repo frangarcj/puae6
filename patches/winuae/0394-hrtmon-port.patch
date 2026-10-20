@@ -97,3 +97,21 @@ diff --git a/ar.cpp b/ar.cpp
  	zfile_fclose (f);
  	hrtmon_configure ();
  	hrtmon_custom = hrtmemory + 0x08f000;
+@@ -2007,6 +2048,8 @@
+ 		action_replay_flag = ACTION_REPLAY_ACTIVE;
+ }
+ 
++#ifndef P6_PORTABLE
++// Legacy .uss codec serializes host paths; native cartridge state stays gated until T69b.
+ uae_u8 *save_hrtmon(size_t *len, uae_u8 *dstptr)
+ {
+ 	uae_u8 *dstbak, *dst;
+@@ -2188,6 +2231,8 @@
+ 	}
+ }
+ 
++#endif
++
+ #define NPSIZE 65536
+ 
+ static uae_u8 bswap (uae_u8 v,int b7,int b6,int b5,int b4,int b3,int b2,int b1,int b0)
