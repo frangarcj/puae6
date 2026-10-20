@@ -5731,6 +5731,32 @@
           "after_sha256": "c78109a748a91d9caeba522c49ce838e36fdc31b93793d67e4a0eddc9db71c41"
         }
       ]
+    },
+    {
+      "id": "0400-cdtv-component-state",
+      "file": "patches/winuae/0400-cdtv-component-state.patch",
+      "sha256": "cbc15cf6b33d13789cdd4a8bcf8552c0dfda714319ba728da500808073f4308f",
+      "title": "Capture validate and apply the private typed CDTV component",
+      "reason": "T67b1: explicit value-only CDTV inventory, buffers, cached TOC/Q, NVRAM and shared CD owner state. Validation precedes application; no clock, callbacks or IRQ effects. Full native P6CT remains disabled until T67b2.",
+      "category": "CDTV state component boundary",
+      "order": 216,
+      "symbols": [
+        "p6_cdtv_state_get",
+        "p6_cdtv_state_validate",
+        "p6_cdtv_state_apply",
+        "p6_cdtv_callback_observations",
+        "p6_cdtv_subcode_handler"
+      ],
+      "test": "tests/media/test_cdtv_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cdtv.cpp",
+          "before_sha256": "c78109a748a91d9caeba522c49ce838e36fdc31b93793d67e4a0eddc9db71c41",
+          "after_sha256": "80ad61295bb5777afdc049483414770d13f5934226cdc5101d967cb751ad4191"
+        }
+      ]
     }
   ]
 }
