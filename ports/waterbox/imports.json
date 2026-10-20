@@ -23,7 +23,8 @@
       "strrchr",
       "strstr",
       "strcspn",
-      "wcslen"
+      "wcslen",
+      "atoi"
     ],
     "format": [
       "snprintf",
@@ -73,7 +74,8 @@
     "math": "sinf, cosf and powf are Paula's filter math (audio_math.cpp). Their results come from the musl and compiler-rt of the pinned sysroot, not from the host libm; T19c compares the PCM with headless.",
     "emulibc": "alloc_sealed is the Waterbox runtime's own service (references/machawk/waterbox/emulibc): the firmware and the media are copied into the sealed heap during p6w_init. alloc_plain and alloc_invisible are not used: everything else is malloc, which Waterbox captures. __wbxsysinfo is the layout the runtime writes into the guest (the ranges of its heaps); p6w_memory_info hands it to the host.",
     "thread_specific": "Only adapters/waterbox/abi_probe.cpp (WB13) uses them: musl's thread-specific data must survive a host callback. The machine creates no thread and keeps nothing in a key.",
-    "finalization": "The compiler registers the global AudioPlayer destructor in ports/portable/media/cd_device.cpp through atexit because the pinned recipe uses -fno-use-cxa-atexit. The symbol resolves to the pinned sandbox musl libc.a, not a host process service. Device shutdown closes its stream explicitly; the sandbox is disposed by Waterbox. No exit, process creation, clock or filesystem import is authorized."
+    "finalization": "The compiler registers the global AudioPlayer destructor in ports/portable/media/cd_device.cpp through atexit because the pinned recipe uses -fno-use-cxa-atexit. The symbol resolves to the pinned sandbox musl libc.a, not a host process service. Device shutdown closes its stream explicitly; the sandbox is disposed by Waterbox. No exit, process creation, clock or filesystem import is authorized.",
+    "atoi": "ar.cpp action_replay_version parses decimal AR2/AR3 version components in its AR_VER_STR_LEN-bounded copy. The object-level audit includes this function with the HRTMon unit even though public commercial AR owners remain unsupported. atoi resolves to the pinned sandbox musl libc.a; it adds no host locale, filesystem, clock or process service."
   },
   "forbidden": [
     "time",
