@@ -13222,7 +13222,7 @@
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T55b",
         "T55c1",
@@ -13282,7 +13282,8 @@
         "Atribucion real del negro040: F4D8/CINVA BC enF80C6E llega a op_illg porque build_cpufunctbl conserva el antiguo filtro totalF-line020. Frente aislado a4040-frontends corrige parche0384, preservando instrucciones enteras/cache040/060 generadas y rechazo PMMU/FPU ausente. Reproducer de opcode publico y regresiones cache/MOVE16 antes del firmware; coordinador registra serie/clasificacion, sin editar generados ni fingir MMU.",
         "Candidata0384: IntegerFlineTests3PASS; firmware real040/060 nativo ylibretro4testsPASS (boot visual/animado, paridad headless yrestoreSame/Newproceso). WBguestce7f0918/91sources+4recipe:040 realPASS y060PASS en repeticion dirigida con el mismo guest/runtime, incluidos nuevo sandbox/proceso. El primer060 falloSIGBUS host en _xzm_xzone_malloc_tiny→verify_hash→wbx_load_state, guardpageMALLOC, antes de aplicar paginas de esa carga; causa ultima pendiente, no first-pass ni falloCPU demostrado. Mantener visible la inestabilidad host para candidata/release. FRESTORE completo y puerta acumulada del padre siguen pendientes.",
         "Incremento0386: reanudar solo CU06rev40 reconstruido porFPSP op2_xi/op2_com desde SINGLEnormal, CMD15400, STAG0, exp3f81..407e y significando24bits. Oraculo literal paraaritmetica/FP0..7/limites/compare/INEX/E3; no acreditar DOUBLE06nativo ni especiales/denorms. El padre mantiene la puerta completa, cuyo siguiente incremento decodifica esas variantes con fuenteprimaria, y no se cierra por este subcaso.",
-        "Incremento0387 validado: CU06double reconstruido desde SINGLE zero/infinity, STAG1/ex3c00 o STAG2/ex43ff, mantisa0 y signo conservado. Baseline0386 reproduce fallo en primer+0; Frestore040Tests86casosPASS en candidata0387, incluidos12 nuevos de signo/resultados/flags, prioridadE3 y DZ50/OPERR52 con destino intacto, FPIAR4000 y FSAVEUNIMP28. No cerrar padre ni acreditar NaNs/denorms o DOUBLE06nativo."
+        "Incremento0387 validado: CU06double reconstruido desde SINGLE zero/infinity, STAG1/ex3c00 o STAG2/ex43ff, mantisa0 y signo conservado. Baseline0386 reproduce fallo en primer+0; Frestore040Tests86casosPASS en candidata0387, incluidos12 nuevos de signo/resultados/flags, prioridadE3 y DZ50/OPERR52 con destino intacto, FPIAR4000 y FSAVEUNIMP28. No cerrar padre ni acreditar NaNs/denorms o DOUBLE06nativo.",
+        "Tras0387 y86casosPASS, el responsable pasa al frente de formatosCD para priorizar producto utilizable. FRESTORE completo, inestabilidad host y todas las puertasCPU pendientes conservan su alcance; esta ficha vuelve a pending hasta retomar implementacion, no se considera terminada ni bloqueada."
       ],
       "checks": [
         "GEN01",
@@ -16520,6 +16521,42 @@
       "stop": "Mantener en T66 los formatos/variantes y cambioCD pendientes; esta hoja no cierra el padre."
     },
     {
+      "id": "T66s1",
+      "title": "Exportar metadata MDS v1 acotada desde el parser fijado",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66j1",
+        "T66o1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0388-mds-metadata-only.patch",
+        "ports/portable/media/cd_mds_metadata.h",
+        "tests/media/mds_metadata_probe.cpp",
+        "tests/media/test_mds_metadata.py"
+      ],
+      "steps": [
+        "Reutilizar el recorrido y offsets de parsemds del WinUAE6030 fijado mediante parche, sin editar upstream ni copiar el motor PUAE. Export P6_MDS_METADATA sobre ReadFn+size: campos endian-explicitos, salida transaccional, sin filesystem/handles ni copiar sectores. Corregir firma, cotas de tablas/footers/strings, extras de pregap/length y offsets64bits.",
+        "Primera vertical MDSv1 de una sesion y MDF unico; tipos de pista reales compatibles con Layout actual, nombres ASCII/UTF16LE y wildcard MDF deben tener semantica explicita atribuida al codigo fijado/DiscSystem. No inferir pregap ambiguo para aprobar fixtures; decidirlo con offsets y fixture independiente. Versiones/sesiones/archivos o modos fuera del decoder devuelven Unsupported claro y permanecen visibles enT66.",
+        "MED01: compilar TU real derivada bajo ASan/UBSan con fixtures binarios independientes; probar TOC, pregap/longitud, modos, nombres, offset>4GiB sin asignacion proporcional, truncados/firma/endian/overflow/IOcorto y salida intacta. Conservar compilacion de endpointsCUE/CCD/NRG existentes como regresion cercana.",
+        "Frente busy_reference reutiliza worktree a4040-frontends y fusiona main normalmente. Coordinador posee serie/clasificacion/checks/plan y reserva0388; enviar contrato y hashes antes de materializar. Solo tests parser, sin compilar motor ni guest ni bateria completa. Limite orientativo400lineas logicas; comunicar ampliacion atomica necesaria antes de editar fuera del touch."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El decoder MDSv1 entrega metadata exacta por lecturas acotadas, conserva pregap/longitudes/offsets/nombres y rechaza entradas truncadas/no soportadas sin mutar salida. No acredita aun proveedor MDF ni carga publica."
+      ],
+      "stop": "No anunciar MDS en frontend hasta conectar proveedor y comprobar lectura/identidad/restore; el padre conserva todos sus checks y formatos restantes."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16570,7 +16607,8 @@
         "T66r6",
         "T66r7",
         "T66r8",
-        "T66r9"
+        "T66r9",
+        "T66s1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16613,7 +16651,8 @@
         "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego.",
         "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado.",
         "T66r8 conserva como puerta requerida la contaminacion visual de una nueva sesion nativa tras jugar, descubierta por T66r7; no queda cerrada por el restore del corte en nuevo owner.",
-        "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre."
+        "T66r9 cierra seleccion por etiquetas de CD directo sin alterar los tags de disquete. Formatos/variantes y cambioCD siguen pendientes, ademas de las puertas completas del padre.",
+        "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales."
       ],
       "checks": [
         "MED01",
