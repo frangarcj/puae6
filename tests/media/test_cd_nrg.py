@@ -16,6 +16,12 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import materialize_upstream as mat
 
 
+def mode2_header(lba):
+    # DiscSystem9b627578 SynthUtils.SectorHeader: physical MSF, never INDEX-relative.
+    absolute = lba + 150
+    return b'\0' + b'\xff' * 10 + b'\0' + bytes((n // 10 * 16 + n % 10) for n in (absolute // 4500, absolute // 75 % 60, absolute % 75)) + b'\2'
+
+
 def interleave(pw):
     return bytes(sum(((pw[ch * 12 + bit // 8] >> (7 - bit % 8)) & 1) << (7 - ch) for ch in range(8)) for bit in range(96))
 
@@ -27,7 +33,7 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336'):
             e = next(x for x in entries if x['id'] == identifier); record = e['files'][0]; target = cls.work / record['path']
             if not target.exists(): target.write_bytes((ROOT / 'upstream/winuae' / record['path']).read_bytes())
             patch = (ROOT / e['file']).read_bytes()
@@ -43,19 +49,20 @@ class CdNrgTests(unittest.TestCase):
         out = subprocess.run(command + [str(cls.work / n) for n in ('cdrom.cpp', 'blkdev_cdimage.cpp')] + ['-o', str(cls.exe)], capture_output=True, text=True, timeout=60)
         if out.returncode: raise AssertionError(out.stderr)
 
-    def fixture(self, name='fixture', version=2, shift=0, missing=False, modes=(0, 5, 6, 7, 15, 16, 17)):
-        tail, directory, expected = nrg(version, modes)
+    def fixture(self, name='fixture', version=2, shift=0, missing=False, modes=(0, 5, 6, 7, 15, 16, 17), sectors=50):
+        tail, directory, expected = nrg(version, modes, sectors=sectors)
         raw = [list(map(int, row.split()[1:])) for row in expected[1:]]
         payload = bytearray((bytes(range(256)) * ((directory + 255) // 256))[:directory]); streams = []
         for row in raw:
             off0, off1, end, stride, mode, idx0, idx1, has, adr, control = row; stream = bytearray()
             for at in range(off0, end, stride):
                 sector = bytearray(payload[at:at + stride])
-                if stride != 2048: sector[15] = 2 if mode in (6, 17) else 1
+                if stride not in (2048, 2336): sector[15] = 2 if mode in (6, 17) else 1
                 if stride == 2448:
                     pw = bytearray((at // stride + n * 13 + 1) & 255 for n in range(96)); pw[22:24] = b'\0\0'
                     self.assertNotEqual(0, binascii.crc_hqx(pw[12:22], 0) ^ 0xffff)
                     sector[2352:] = interleave(pw); stream.extend(sector[:2352] + pw)
+                elif mode == 3: stream.extend(mode2_header(idx0 + (at - off0) // stride + shift) + sector)
                 else: stream.extend(sector)
                 payload[at:at + stride] = sector
             row[5] += shift; row[6] += shift; streams.append(bytes(stream))
@@ -90,7 +97,8 @@ class CdNrgTests(unittest.TestCase):
         tracks = [list(map(int, line.split()[1:])) for line in lines if line.startswith('track ')]
         for n, (r, t, stream) in enumerate(zip(raw, tracks, streams)):
             start = r[5] if r[7] else r[6] - (r[1] - r[0]) // r[3]; clipped = max(0, start)
-            self.assertEqual(t, [clipped, r[6], r[6] + (r[2] - r[1]) // r[3], n, r[3], (clipped - start) * r[3], 0 if r[4] == 0 else 3 if r[4] in (7, 16) else 2 if r[4] in (6, 17) else 1])
+            width = 2352 if r[4] == 3 else r[3]
+            self.assertEqual(t, [clipped, r[6], r[6] + (r[2] - r[1]) // r[3], n, width, (clipped - start) * width, 0 if r[4] == 0 else 3 if r[4] in (7, 16) else 2 if r[4] in (3, 6, 17) else 1])
             self.assertIn(f'source {n} {len(stream)} {hashlib.sha256(stream).hexdigest()}', lines)
         for row in map(str.split, lines):
             if row[0] == 'bytes':
@@ -110,6 +118,31 @@ class CdNrgTests(unittest.TestCase):
         for version, shift, missing in ((1, 0, False), (2, 75, False), (2, 0, True), (1, 0, 2), (2, 0, 2)):
             fixture = self.fixture(version=version, shift=shift, missing=missing); self.assertEqual(self.verify(fixture), self.verify(fixture, vfs=True))
         fixture = self.fixture(shift=75, modes=(16, 15, 17)); self.assertEqual(self.verify(fixture), self.verify(fixture, vfs=True))
+
+    def test_mode3_headers_payload_cross_sector_hash_and_new_owner(self):
+        for version in (1, 2):
+            for shift, missing in ((0, False), (75, 2)):
+                fixture = self.fixture(f'mode3-{version}-{shift}', version, shift, missing, modes=(3, 3, 0, 7))
+                self.assertEqual(self.verify(fixture), self.verify(fixture, vfs=True))
+        # Full-stream hashes include every BCD rollover, also the clipped negative INDEX00 prefix.
+        self.verify(self.fixture('minute', modes=(3,), sectors=4501))
+        first = self.fixture('first-mode3', modes=(3,))[0]; same = self.fixture('same-mode3', modes=(3,))[0]
+        baseline = self.run_nrg(first, rebind=same, vfs=True)[-1]; self.assertTrue(baseline.startswith('rebind 0 '))
+        changed = self.fixture('changed-mode3', modes=(3,))[0]; data = bytearray(changed.read_bytes()); data[17] ^= 1; changed.write_bytes(data)
+        self.assertEqual(self.run_nrg(first, rebind=changed, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+
+    def test_mode3_impossible_msf_is_rejected_before_reading_sparse_payload(self):
+        # The parser validates this large extent; the owner must refuse its unrepresentable header before hashing it.
+        tail, directory, _ = nrg(modes=(3,), sectors=449851)
+        path = self.work / 'msf-overflow.nrg'
+        with path.open('wb') as stream: stream.seek(directory); stream.write(tail)
+        self.assertEqual(self.run_nrg(path, code=2), ['error 5'])
+        path = self.fixture('msf-negative', modes=(3,))[0]; data = bytearray(path.read_bytes()); cue = data.index(b'CUEX')
+        # Extend the stored first pregap by one sector while preserving all physical/TOC lengths.
+        struct.pack_into('>i', data, cue + 8 + 8 + 4, -151)
+        dao = data.index(b'DAOX') + 8 + 22; struct.pack_into('>Q', data, dao + 26, 151 * 2336)
+        struct.pack_into('>i', data, cue + 8 + 24 + 4, 49)
+        path.write_bytes(data); self.assertEqual(self.run_nrg(path, code=2), ['error 5'])
 
     def test_full_container_identity_rebind_new_owner_and_reject_discarded_or_raw_metadata_changes(self):
         first = self.fixture('first')[0]; same = self.fixture('same')[0]; baseline = self.run_nrg(first, rebind=same)[-1]

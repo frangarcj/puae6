@@ -18,7 +18,7 @@ def chunk(tag, payload=b''):
     return tag.encode() + struct.pack('>I', len(payload)) + payload
 
 
-def nrg(version=2, modes=(0, 7), base=0, *, prefix=b'', sinf=True):
+def nrg(version=2, modes=(0, 7), base=0, *, prefix=b'', sinf=True, sectors=50):
     # DiscSystem NRG_format.cs: DAO header22, record30/42; binary first/last.
     cues = bytearray(); records = bytearray(); rows = []; offset = base; lba = -150
     def cue(track, index, address, control=4):
@@ -29,11 +29,11 @@ def nrg(version=2, modes=(0, 7), base=0, *, prefix=b'', sinf=True):
     for number, mode in enumerate(modes, 1):
         stride = 2048 if mode in (0, 2) else 2336 if mode == 3 else 2352 if mode in (5, 6, 7) else 2448
         control = 0 if mode in (7, 16) else 4; pregap = 150 if number == 1 else 10
-        index1 = lba + pregap; offset1 = offset + pregap * stride; end = offset1 + 50 * stride
+        index1 = lba + pregap; offset1 = offset + pregap * stride; end = offset1 + sectors * stride
         cues.extend(cue(number, 0, lba, control) + cue(number, 1, index1, control))
         records.extend(b'US1234567890' + struct.pack('>H', stride) + bytes((mode, 0, 0, 0)) + struct.pack('>QQQ' if version == 2 else '>III', offset, offset1, end))
         rows.append(f'track {offset} {offset1} {end} {stride} {mode} {lba} {index1} 1 1 {control}')
-        offset = end; lba = index1 + 50
+        offset = end; lba = index1 + sectors
     cues.extend(cue(0xaa, 1, lba))
     dao = struct.pack('>I', 22 + len(records)) + b'1234567890123' + bytes((0, 0x20, 1, 1, len(modes))) + records
     directory = offset + 123; data = prefix + chunk('CUEX' if version == 2 else 'CUES', cues) + chunk('DAOX' if version == 2 else 'DAOI', dao)
@@ -50,7 +50,7 @@ class NrgMetadataTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='nrg-metadata-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); target = cls.work / 'blkdev_cdimage.cpp'; target.write_bytes((ROOT / 'upstream/winuae/blkdev_cdimage.cpp').read_bytes())
         entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only'):
+        for identifier in ('0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             assert hashlib.sha256(target.read_bytes()).hexdigest() == e['files'][0]['before_sha256']
             assert hashlib.sha256(patch).hexdigest() == e['sha256']
@@ -69,7 +69,7 @@ class NrgMetadataTests(unittest.TestCase):
         return out.stdout.splitlines()
 
     def test_dao_v1_v2_indices_binary_track_numbers_modes_and_large_offsets(self):
-        for version, modes, base in ((1, (0, 5, 6, 7, 15, 16, 17), 0), (2, (0, 5, 6, 7, 15, 16, 17), 2**32 + 7), (2, (7,) * 99, 0)):
+        for version, modes, base in ((1, (0, 3, 5, 6, 7, 15, 16, 17), 0), (2, (0, 3, 5, 6, 7, 15, 16, 17), 2**32 + 7), (2, (7,) * 99, 0)):
             data, directory, expected = nrg(version, modes, base); self.assertEqual(expected, self.run_nrg(data, directory))
         data, directory, expected = nrg(sinf=False); self.assertEqual(expected, self.run_nrg(data, directory))
         for version in (1, 2):
@@ -91,7 +91,7 @@ class NrgMetadataTests(unittest.TestCase):
             d, b, _ = nrg(version); self.run_nrg(d.replace(b'CUES' if version == 1 else b'CUEX', b'CUEX' if version == 1 else b'CUES'), b, error=1)
 
     def test_unimplemented_variants_are_explicit_and_previous_endpoints_compile(self):
-        for mode in (2, 3, 4):
+        for mode in (2, 4):
             data, base, _ = nrg(modes=(mode,)); self.run_nrg(data, base, error=5)
         for tag in ('ETN2', 'ETNF', 'TINF', 'CDTX', 'MTYP'):
             data, base, _ = nrg(prefix=chunk(tag)); self.run_nrg(data, base, error=5)

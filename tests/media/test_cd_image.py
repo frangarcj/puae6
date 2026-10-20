@@ -22,7 +22,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336'):
             e=next(x for x in entries if x['id']==identifier); r=e['files'][0]; target=cls.work/r['path']
             if not target.exists(): target.write_bytes((ROOT/'upstream/winuae'/r['path']).read_bytes())
             patch=(ROOT/e['file']).read_bytes()
@@ -69,7 +69,8 @@ class CdImageTests(unittest.TestCase):
         cue_lines=self.run_image(cue,vfs=True); self.assertEqual(iso_sectors,[r for r in cue_lines if r.startswith('sector ')])
         ccd=test_cd_ccd.CdCcdTests.fixture(self,'ccd')[0]; renamed=ccd.with_suffix('.CcD'); ccd.rename(renamed)
         nrg=test_cd_nrg.CdNrgTests.fixture(self,'dao')[0]; nrg_case=nrg.with_suffix('.NrG'); nrg.rename(nrg_case)
-        for image,tracks in ((renamed,3),(nrg_case,7)):
+        mode3=test_cd_nrg.CdNrgTests.fixture(self,'mode3',modes=(3,7))[0]
+        for image,tracks in ((renamed,3),(nrg_case,7),(mode3,2)):
             lines=self.run_image(image); self.assertEqual(tracks,int(lines[0].split()[1])); self.assertEqual(lines,self.run_image(image,vfs=True))
             self.assertTrue(self.run_image(image,rebind=image,vfs=True)[-2].startswith('rebind 0 '))
         for suffix in ('bin','mdf','chd','iso.trailing'):

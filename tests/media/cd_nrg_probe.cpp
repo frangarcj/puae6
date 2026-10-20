@@ -49,10 +49,12 @@ int main(int argc, char **argv)
     for (unsigned n = 0; n < owner->sources(); ++n) {
         const auto &b = owner->bindings()[n];
         printf("source %u %llu ", n, (unsigned long long)b.identity.bytes); for (auto value : b.identity.content_id) printf("%02x", value); puts("");
-        const auto at = b.identity.bytes > 2448 ? UINT64_C(2440) : 0;
+        for (uint64_t at : {UINT64_C(0), UINT64_C(8), UINT64_C(2344), UINT64_C(2440), b.identity.bytes - 20}) {
+        if (at > b.identity.bytes) continue;
         const size_t length = size_t(b.identity.bytes - at < 2448 ? b.identity.bytes - at : 2448);
         CHECK(b.read(b.context, at, out, length, &got) && got == length);
         printf("bytes %u %llu %zu ", n, (unsigned long long)at, length); digest(out, length); puts("");
+        }
         memset(out, 0xa5, sizeof out);
         CHECK(b.read(b.context, b.identity.bytes, nullptr, 0, &got) && !got);
         CHECK(!b.read(b.context, b.identity.bytes, out, 1, &got) && !got && untouched(out, sizeof out));
@@ -71,13 +73,14 @@ int main(int argc, char **argv)
             if (view == 2448) { CHECK(read_subchannel(disc, lba, out, 96) == Result::Ok); printf("sub %u ", lba); digest(out, 96); puts(""); }
         }
     }
-    if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448) {
+    if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448 || owner->metadata()->track[n].mode == 3) {
         const auto &b = owner->bindings()[n]; fault_at = owner->metadata()->track[n].offset0 + 2448;
         for (fault = 1; fault <= 3; ++fault) {
             memset(out, 0xa5, sizeof out);
             CHECK(!b.read(b.context, 2440, out + 8, 2448, &got) && !got && untouched(out, sizeof out));
             CHECK(canonical_read(disc, layout.track[n].index1, 2448, out + 8, 2448) == Result::ReadError && untouched(out, sizeof out));
-            CHECK(read_subchannel(disc, layout.track[n].index1, out, 96) == Result::ReadError && untouched(out, sizeof out));
+            if (layout.track[n].stride == 2448) CHECK(read_subchannel(disc, layout.track[n].index1, out, 96) == Result::ReadError && untouched(out, sizeof out));
+            else CHECK(!b.read(b.context, 2352, out + 8, 16, &got) && !got && untouched(out, sizeof out));
         }
         break;
     }

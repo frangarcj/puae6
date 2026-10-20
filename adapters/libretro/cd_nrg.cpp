@@ -11,7 +11,7 @@ struct CdNrg::Data {
     NrgMetadata metadata{};
     Layout layout{};
     Binding original{}, binding[99]{};
-    struct View { Data *owner; unsigned number; } view[99]{};
+    struct View { Data *owner; unsigned number; int64_t start; } view[99]{};
     static bool whole_read(const void *ctx, uint64_t offset, void *out, size_t length, size_t *got)
     {
         const bool ok = static_cast<const Data *>(ctx)->file.read_at(offset, out, length);
@@ -23,18 +23,30 @@ struct CdNrg::Data {
         *got = 0;
         const auto &v = *static_cast<const View *>(ctx);
         const auto &d = *v.owner; const auto &t = d.metadata.track[v.number];
-        const uint64_t bytes = t.end - t.offset0;
+        const uint64_t bytes = d.binding[v.number].identity.bytes;
         if (length > 2448 || (length && !out) || offset > bytes || length > bytes - offset) return false;
-        if (t.stride != 2448) {
+        if (t.stride != 2448 && t.mode != 3) {
             if (!d.file.read_at(t.offset0 + offset, out, length)) return false;
         } else {
             uint8_t staging[2448], sector[2448], sub[96];
             for (size_t done = 0; done < length;) {
-                const auto at = offset + done, within = at % 2448;
-                if (!d.file.read_at(t.offset0 + at - within, sector, sizeof sector)) return false;
-                sub_to_deinterleaved(sector + 2352, sub); // Only SUB96, once; audio/data stay byte exact.
-                memcpy(sector + 2352, sub, sizeof sub);
-                const size_t take = length - done < 2448 - within ? length - done : size_t(2448 - within);
+                const uint64_t width = t.mode == 3 ? 2352 : 2448;
+                const auto at = offset + done, within = at % width;
+                if (t.mode == 3) {
+                    // DiscSystem 9b627578: SS_Mode2_2336 + SynthUtils.SectorHeader.
+                    // Preserve the entire body, including subheader and EDC/ECC.
+                    if (!d.file.read_at(t.offset0 + (at / width) * 2336, sector + 16, 2336)) return false;
+                    memset(sector, 0, 16); memset(sector + 1, 0xff, 10);
+                    const auto absolute = uint32_t(v.start + int64_t(at / width) + 150);
+                    auto bcd = [](uint32_t value) { return uint8_t((value / 10) * 16 + value % 10); };
+                    sector[12] = bcd(absolute / 4500); sector[13] = bcd(absolute / 75 % 60);
+                    sector[14] = bcd(absolute % 75); sector[15] = 2;
+                } else {
+                    if (!d.file.read_at(t.offset0 + at - within, sector, sizeof sector)) return false;
+                    sub_to_deinterleaved(sector + 2352, sub); // Only SUB96, once; audio/data stay byte exact.
+                    memcpy(sector + 2352, sub, sizeof sub);
+                }
+                const size_t take = length - done < width - within ? length - done : size_t(width - within);
                 memcpy(staging + done, sector + within, take); done += take;
             }
             if (length) memcpy(out, staging, length);
@@ -46,16 +58,19 @@ struct CdNrg::Data {
         layout.tracks = metadata.tracks; layout.leadout = uint32_t(metadata.leadout);
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n];
-            const unsigned expected = r.mode == 0 ? 2048 : r.mode == 5 || r.mode == 6 || r.mode == 7 ? 2352 : 2448;
+            const unsigned expected = r.mode == 0 ? 2048 : r.mode == 3 ? 2336 : r.mode == 5 || r.mode == 6 || r.mode == 7 ? 2352 : 2448;
             if (r.stride != expected) return Result::Unsupported; // Padded sectors have no inferred decoder.
             const auto pregap = (r.offset1 - r.offset0) / r.stride;
             const int64_t start = r.has_index0 ? r.index0 : int64_t(r.index1) - int64_t(pregap);
             const int64_t end = int64_t(r.index1) + int64_t((r.end - r.offset1) / r.stride);
             if (int64_t(r.index1) - start != int64_t(pregap) || (n && start < 0) || (!n && start > 0) || end > metadata.leadout) return Result::Invalid;
+            // Header MSF has two BCD digits, including the stored prefix hashed below.
+            if (r.mode == 3 && (start < -150 || end > 100 * 60 * 75 - 150)) return Result::Unsupported;
+            const unsigned stride = r.mode == 3 ? 2352 : r.stride;
             const uint32_t clipped = start < 0 ? 0 : uint32_t(start);
-            const auto mode = r.mode == 0 ? Mode::Mode1_2048 : r.mode == 7 || r.mode == 16 ? Mode::Audio : r.mode == 6 || r.mode == 17 ? Mode::Mode2Raw : Mode::Mode1Raw;
-            layout.track[n] = {clipped, uint32_t(r.index1), uint32_t(end), n, r.stride, uint64_t(int64_t(clipped) - start) * r.stride, mode, r.adr, r.control, true};
-            view[n] = {this, n}; binding[n] = {{{0}, r.end - r.offset0, 1}, read, &view[n]};
+            const auto mode = r.mode == 0 ? Mode::Mode1_2048 : r.mode == 7 || r.mode == 16 ? Mode::Audio : r.mode == 3 || r.mode == 6 || r.mode == 17 ? Mode::Mode2Raw : Mode::Mode1Raw;
+            layout.track[n] = {clipped, uint32_t(r.index1), uint32_t(end), n, stride, uint64_t(int64_t(clipped) - start) * stride, mode, r.adr, r.control, true};
+            view[n] = {this, n, start}; binding[n] = {{{0}, ((r.end - r.offset0) / r.stride) * stride, 1}, read, &view[n]};
         }
         Disc validation;
         const auto valid = validation.bind(layout, binding, metadata.tracks);
