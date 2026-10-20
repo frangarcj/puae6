@@ -285,6 +285,9 @@ TASK_SUITES[('WB03', 'T66r7')] = {
     'real_brian_gameplay_snapshot': 'tests.waterbox-media.test_cd_source.Cd32GameCoreTests'}
 TASK_SUITES[('LR01', 'T66r8')] = {
     'cold_reload_after_gameplay': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_cold_reload_matches_fresh_session'}
+TASK_SUITES[('LR01', 'T66r9')] = {
+    'direct_cd_tag_resolution': 'tests.libretro-host.test_model_tags.CdModelResolutionTests',
+    'direct_cd_tag_memory_restore': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_direct_cd_filename_tags_fast_memory_and_restore'}
 # One integrated scenario covers startup/restore, suppressed A/V and real BK2/TAS seek.
 for _gate in ('WB03', 'WB08', 'WB09'):
     TASK_SUITES[(_gate, 'T66r5')] = {'real_cd32_bk2_tas_start_seek': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieStartTests'}
