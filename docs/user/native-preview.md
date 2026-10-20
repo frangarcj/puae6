@@ -20,6 +20,20 @@ Medios: ADF/ADZ/DMS, ADF extendido, FDI e IPF; ZIP/7z/RP9 de discos,
 playlists M3U, HDF/HDZ y volumenes LHA/directorio/UAE dentro de los limites del
 core. Los errores de firmware o contenido se comunican al frontend.
 
+## CD32 y A4000 experimentales
+
+Para CD32, abre directamente un ISO, CUE, CCD o NRG DAO, con modelo y Kickstart
+en Automatic. Pon `kick40060.CD32` y `kick40060.CD32.ext` en el directorio de
+sistema; ambos son necesarios. El preset `cd32_fast8` añade 8 MiB de Fast RAM.
+CD32 guarda su NVRAM mediante SaveRAM del frontend. Se ha probado arranque,
+partida y restauracion de Brian the Lion; no se promete compatibilidad con todos
+los juegos. MDS/CHD nativos, otras variantes NRG y cambio de CD siguen pendientes.
+
+A4000 usa `kick40068.A4000` en el mismo directorio de sistema. Los presets
+`a4030_normal`, `a4040_normal` y `a4060_normal` seleccionan 030, 040 y 060.
+Su arranque con firmware real y restauracion estan probados; siguen siendo
+experimentales, sin MMU ni caches, y FRESTORE040 conserva casos pendientes.
+
 ## Controles y guardado
 
 Jugador 1: joystick del segundo puerto Amiga y raton del primero; jugador 2:
@@ -96,12 +110,10 @@ slave ambiguo; el core no descarga esos archivos.
 ## Limites de esta entrega
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
-usan interprete de CPU. El preset A4030 Normal es experimental: las pruebas
-sinteticas pasan, pero falta validar su arranque con firmware A4000 real.
-040/060 y las maquinas CD32/CDTV siguen en desarrollo. Algunos slaves WHDLoad
+usan interprete de CPU; A4000 y CD32 conservan los limites experimentales indicados
+arriba. CDTV sigue pendiente. Algunos slaves WHDLoad
 necesitan Kickstarts o RTB adicionales; esos archivos debe aportarlos el usuario
 mediante el preparador explicito descrito en `docs/whdload.md` de los fuentes.
-El mando CD32 no implica soporte de la maquina CD32 ni de sus discos CD.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
 
