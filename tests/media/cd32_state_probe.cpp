@@ -10,17 +10,19 @@
 #include "cd_audio_state.h"
 #include <memory>
 #include <algorithm>
+static_assert(kDeviceMaxDiscs == P6_MAX_MEDIA, "CD catalog and frontend media capacity");
 struct DiscFixture {
     uint64_t calls=0;
+    uint8_t tag;
     Disc disc;
     static bool read(const void *opaque,uint64_t at,void *out,size_t n,size_t *got) {
         auto &self=*const_cast<DiscFixture *>(static_cast<const DiscFixture *>(opaque)); ++self.calls;
         static const uint8_t pcm[4]={0xd2,0x04,0xd7,0xf6}; // LE +1234/-2345.
         if(at>20*2352 || n>20*2352-at) return false;
-        for(size_t i=0;i<n;++i) static_cast<uint8_t *>(out)[i]=pcm[(at+i)%4];
+        for(size_t i=0;i<n;++i) static_cast<uint8_t *>(out)[i]=pcm[(at+i)%4]^self.tag;
         *got=n; return true;
     }
-    explicit DiscFixture(uint8_t id=42) {
+    explicit DiscFixture(uint8_t id=42) : tag(uint8_t(id^42)) {
         Layout layout{}; layout.tracks=1; layout.leadout=20; layout.content_id[0]=id;
         layout.track[0]={0,0,20,0,2352,0,Mode::Audio,1,0,false};
         Binding binding{{{id},20*2352,1},read,this}; assert(disc.bind(layout,&binding,1)==Result::Ok);
@@ -51,11 +53,13 @@ static void load(const std::vector<uint8_t> &state)
 {
     auto e=error(); call(p6_state_load(state.data(),state.size(),&e),e);
 }
-static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc,bool fast=false)
+static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc,bool fast=false,DiscFixture *other=nullptr)
 {
     auto c=config(); c.video_standard=ntsc?P6_VIDEO_NTSC:P6_VIDEO_PAL; auto e=error();
     c.fast_kib=fast?8192:0;
-    call(p6_init(&c,&e),e); assert(device_bind(&disc.disc)==Result::Ok);
+    call(p6_init(&c,&e),e);
+    const Disc *catalog[]={&disc.disc,other?&other->disc:nullptr};
+    assert(device_catalog_bind(catalog,other?2:1)==Result::Ok);
     call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); state_caps();
     p6_memory_region regions[8]; uint32_t count=0;
     call(p6_memory_regions(regions,8,&count,&e),e);
@@ -103,6 +107,46 @@ static void reject(const std::vector<uint8_t> &bad,p6_result result,DiscFixture 
     const auto before=save(); const auto cycle=get_cycles(); const auto calls=disc.calls; auto e=error();
     assert(p6_state_load(bad.data(),bad.size(),&e)==result);
     assert(save()==before && get_cycles()==cycle && disc.calls==calls); map_matches();
+}
+static void change_cd(uint32_t selected)
+{
+    const auto opens=sys_command_isopen(0);
+    assert(p6_akiko_media_set(false) && device_select(selected)==Result::Ok && p6_akiko_media_set(true));
+    assert(sys_command_isopen(0)==opens);
+}
+static void catalog_state(const std::vector<uint8_t> &rom)
+{
+    DiscFixture a,b(43),fresh_a,fresh_b(43),alien(44);
+    start(rom,a,false,false,&b); step();
+    assert(sys_command_cd_play(0,0,20,0,nullptr,nullptr));
+    const auto cut_a=save(), expected_a=future(a),end_a=save();
+    change_cd(1); assert(device_bound_disc()==&b.disc);
+    uint8_t raw[2352]; assert(sys_command_cd_rawread(0,raw,0,1,2352)==2352 && raw[0]==0xd3);
+    assert(sys_command_cd_play(0,0,20,0,nullptr,nullptr)); step();
+    assert(p6_akiko_media_set(false)); const auto cut_empty_b=save();
+    assert(!memcmp(cut_a.data()+208,cut_empty_b.data()+208,32)); // Selection is not media identity.
+    change_cd(0);
+    const auto a_calls=a.calls,b_calls=b.calls;
+    load(cut_a); assert(a.calls==a_calls && b.calls==b_calls && save()==cut_a);
+    assert(device_bound_disc()==&a.disc && device_catalog_disc(1)==&b.disc);
+    assert(future(a)==expected_a && save()==end_a);
+    load(cut_empty_b); assert(save()==cut_empty_b && device_bound_disc()==&b.disc && !device_inserted());
+    assert(device_catalog_size()==2 && sys_command_isopen(0)==1);
+    assert(p6_akiko_media_set(true) && sys_command_cd_play(0,0,20,0,nullptr,nullptr));
+    const auto expected_b=future(b),end_b=save(); stop();
+    start(rom,fresh_a,false,false,&fresh_b); step(); change_cd(1); step();
+    const auto fresh_calls=fresh_a.calls+fresh_b.calls;
+    load(cut_a); assert(save()==cut_a && fresh_a.calls+fresh_b.calls==fresh_calls);
+    assert(device_bound_disc()==&fresh_a.disc && future(fresh_a)==expected_a && save()==end_a);
+    load(cut_empty_b); assert(save()==cut_empty_b && device_bound_disc()==&fresh_b.disc && !device_inserted());
+    assert(p6_akiko_media_set(true) && sys_command_cd_play(0,0,20,0,nullptr,nullptr));
+    assert(future(fresh_b)==expected_b && save()==end_b); stop();
+    start(rom,a,false,false,&alien); step(); const auto alien_calls=alien.calls;
+    reject(cut_a,P6_ERROR_INCOMPATIBLE,a); assert(alien.calls==alien_calls); stop();
+    start(rom,b,false,false,&a); step(); const auto other_calls=a.calls;
+    reject(cut_a,P6_ERROR_INCOMPATIBLE,b); assert(a.calls==other_calls); stop();
+    start(rom,a,false); step(); reject(cut_a,P6_ERROR_INCOMPATIBLE,a); stop();
+    printf("native CD catalogue A/B empty/new owner/exact future/identity PASS\n");
 }
 int main(int argc,char **argv)
 {
@@ -169,4 +213,5 @@ int main(int argc,char **argv)
         assert(future(b)==expected && save()==end); stop();
         printf("native CD32 mode%d exact restore/new owner/identity/corrupt/map PASS\n",mode);
     }
+    catalog_state(rom);
 }

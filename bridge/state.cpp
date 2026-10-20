@@ -257,14 +257,18 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
         ids[i] = session.media_content_id[i];
     }
     media_manifest_hash(count, types, ids, out);
-    // CD binding is fixed for the session, including every append-only prefix.
+    // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
-    const auto *disc = p6_cd::device_bound_disc();
-    if (session.config.machine == p6_bridge::kCd32Machine || disc) {
-        const uint8_t bound = disc ? 1 : 0, empty[32]{};
-        const uint8_t *parts[] = {out, &bound, disc ? disc->layout().content_id : empty};
-        const uint64_t lengths[] = {32, 1, 32};
-        domain_hash("p6/media/cd-binding/v1", parts, lengths, 3, out);
+    const uint32_t discs = p6_cd::device_catalog_size();
+    if (session.config.machine == p6_bridge::kCd32Machine || discs) {
+        uint8_t count_le[4]; put32(count_le, discs);
+        const uint8_t *parts[p6_cd::kDeviceMaxDiscs + 2] = {out, count_le};
+        uint64_t lengths[p6_cd::kDeviceMaxDiscs + 2] = {32, 4};
+        for (uint32_t n = 0; n < discs; ++n) {
+            parts[n + 2] = p6_cd::device_catalog_disc(n)->layout().content_id;
+            lengths[n + 2] = 32;
+        }
+        domain_hash("p6/media/cd-catalog/v1", parts, lengths, discs + 2, out);
     }
 }
 

@@ -6,6 +6,8 @@
 #include <string.h>
 namespace {
 const p6_cd::Disc *disc;
+const p6_cd::Disc *catalog[p6_cd::kDeviceMaxDiscs];
+uint32_t catalog_count;
 uint32_t opens, position;
 p6_cd::AudioPlayer audio;
 bool inserted, audio_head, terminal_ack;
@@ -48,7 +50,21 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
 }
 }
 namespace p6_cd {
+uint32_t device_catalog_size() { return catalog_count; }
+const Disc *device_catalog_disc(uint32_t n) { return n < catalog_count ? catalog[n] : nullptr; }
+const Disc *device_resolve_disc(const uint8_t id[32])
+{
+    if (id) for (uint32_t n = 0; n < catalog_count; ++n)
+        if (!memcmp(id, catalog[n]->layout().content_id, 32)) return catalog[n];
+    return nullptr;
+}
 const Disc *device_bound_disc() { return disc; }
+Result device_select(uint32_t n)
+{
+    if (inserted || n >= catalog_count) return Result::Invalid;
+    if (disc != catalog[n]) { disc = catalog[n]; position = 0; error = Result::Ok; }
+    return Result::Ok;
+}
 bool device_inserted() { return inserted; }
 Result device_set_inserted(bool value)
 {
@@ -90,6 +106,7 @@ bool device_can_restore(const DeviceState &s, const Disc *candidate,
                         play_status_callback status, play_subchannel_callback sub)
 {
     return device_validate(s, candidate, s.audio.stream.period) &&
+        (!catalog_count || (candidate && device_resolve_disc(candidate->layout().content_id) == candidate)) &&
         audio.can_restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub);
 }
 bool device_restore(const DeviceState &s, const Disc *candidate,
@@ -98,15 +115,33 @@ bool device_restore(const DeviceState &s, const Disc *candidate,
     if (!device_can_restore(s, candidate, status, sub)
         || !audio.restore(s.audio, s.audio.bound ? candidate : nullptr, status, sub)) return false;
     disc = candidate; inserted = s.inserted != 0; opens = s.opens; position = s.position;
+    // Component callers may restore into an unbound owner. The registered
+    // production catalog otherwise remains immutable across a selection change.
+    if (!candidate) { catalog_count = 0; memset(catalog, 0, sizeof catalog); }
+    else if (!catalog_count) { catalog[0] = candidate; catalog_count = 1; }
     audio_head = s.audio_head; terminal_ack = s.terminal_ack; error = Result(s.error);
     return true;
 }
 Result device_bind(const Disc *candidate)
 {
-    if (disc || !candidate || !candidate->layout().tracks) return error = Result::Invalid;
-    disc = candidate; inserted = true; opens = position = 0; return error = Result::Ok;
+    return device_catalog_bind(&candidate, 1);
 }
-void device_unbind() { stop_audio(); disc = nullptr; inserted = false; opens = position = 0; error = Result::Invalid; }
+Result device_catalog_bind(const Disc *const *items, uint32_t count, uint32_t selected)
+{
+    if (disc || !items || !count || count > kDeviceMaxDiscs || selected >= count) return Result::Invalid;
+    for (uint32_t n = 0; n < count; ++n) {
+        if (!items[n] || !items[n]->layout().tracks) return Result::Invalid;
+        for (uint32_t p = 0; p < n; ++p)
+            if (!memcmp(items[n]->layout().content_id, items[p]->layout().content_id, 32)) return Result::Invalid;
+    }
+    memcpy(catalog, items, count * sizeof *items); catalog_count = count;
+    disc = catalog[selected]; inserted = true; opens = position = 0; return error = Result::Ok;
+}
+void device_unbind()
+{
+    stop_audio(); disc = nullptr; inserted = false; opens = position = catalog_count = 0;
+    memset(catalog, 0, sizeof catalog); error = Result::Invalid;
+}
 Result device_last_error() { return error == Result::Ok && audio_head ? audio.error() : error; }
 uint32_t device_position() { return head(); }
 }

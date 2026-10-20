@@ -116,4 +116,26 @@ int main()
     CHECK(sys_command_cd_toc(0, &toc) && toc.points == 6 && toc.lastaddress == 136);
     device_unbind(); CHECK(!sys_command_isopen(0));
     CHECK(device_set_inserted(true) == Result::Invalid && !device_inserted());
+    Disc many[kDeviceMaxDiscs]; const Disc *items[kDeviceMaxDiscs];
+    for (uint32_t n = 0; n < kDeviceMaxDiscs; ++n) {
+        auto different = layout; different.content_id[0] = uint8_t(100 + n);
+        CHECK(many[n].bind(different, bindings, 3) == Result::Ok); items[n] = &many[n];
+    }
+    Disc same_id; CHECK(same_id.bind(layout, bindings, 3) == Result::Ok);
+    const Disc *bad[] = {&disc, nullptr}, *duplicate[] = {&disc, &same_id};
+    CHECK(device_catalog_bind(nullptr, 1) == Result::Invalid && device_catalog_bind(items, 0) == Result::Invalid);
+    CHECK(device_catalog_bind(items, kDeviceMaxDiscs + 1) == Result::Invalid);
+    CHECK(device_catalog_bind(items, kDeviceMaxDiscs, kDeviceMaxDiscs) == Result::Invalid);
+    CHECK(device_catalog_bind(bad, 2) == Result::Invalid && device_catalog_bind(duplicate, 2) == Result::Invalid);
+    CHECK(!device_catalog_size() && !device_catalog_disc(0) && !device_resolve_disc(nullptr));
+    CHECK(device_catalog_bind(items, kDeviceMaxDiscs, kDeviceMaxDiscs - 1) == Result::Ok);
+    items[0] = items[1]; CHECK(device_catalog_disc(0) == &many[0]); items[0] = &many[0];
+    CHECK(device_catalog_size() == kDeviceMaxDiscs && device_bound_disc() == items[kDeviceMaxDiscs - 1]);
+    CHECK(sys_command_open(0) == 1 && device_select(0) == Result::Invalid);
+    CHECK(device_set_inserted(false) == Result::Ok && device_select(kDeviceMaxDiscs) == Result::Invalid);
+    CHECK(device_select(0) == Result::Ok && device_bound_disc() == items[0] && sys_command_isopen(0) == 1);
+    CHECK(device_resolve_disc(items[0]->layout().content_id) == items[0]);
+    CHECK(device_catalog_disc(kDeviceMaxDiscs) == nullptr && device_resolve_disc(disc.layout().content_id) == nullptr);
+    CHECK(device_set_inserted(true) == Result::Ok && device_catalog_bind(items, 1) == Result::Invalid);
+    device_unbind(); CHECK(!device_catalog_size() && !device_catalog_disc(0));
 }

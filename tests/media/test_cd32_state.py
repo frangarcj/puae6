@@ -15,3 +15,4 @@ class Cd32StateTests(unittest.TestCase):
         self.assertEqual(0,result.returncode,result.stdout[-2000:]+result.stderr[-4000:])
         for mode in range(5):
             self.assertIn(f'native CD32 mode{mode} exact restore/new owner/identity/corrupt/map PASS',result.stdout)
+        self.assertIn('native CD catalogue A/B empty/new owner/exact future/identity PASS',result.stdout)

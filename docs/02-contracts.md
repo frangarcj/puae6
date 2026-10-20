@@ -1600,8 +1600,14 @@ La fase Paula completa se aplica despues de restore_audio_finish y antes de CDA,
 con acceso exclusivo al stream propiedad del backend. CIA conserva el latch
 independiente CD32 y reconstruye el mapa al terminar todos los chunks.
 
-La identidad de medios incluye el binding CD fijo (presencia e ID normalizado del
-Disc) en todos los prefijos del manifiesto. Un CD diferente se rechaza antes de
+La identidad de medios incluye el catalogo CD fijo (T66u2): cuenta e IDs de los
+Disc en el orden declarado, en todos los prefijos del manifiesto. Se admiten
+1..16 propietarios prestados con IDs unicos; no se guardan rutas ni punteros.
+Seleccionar exige medio ausente y conserva la unidad y sus referencias abiertas.
+La seleccion y presencia son estado: P6AK resuelve su `disc_id` contra el catalogo
+antes de validar, sin cambiar el disco vivo; Apply publica el propietario elegido
+solo despues del preflight completo. Asi un estado de A restaura tras cambiar a B
+del mismo conjunto. Sustituir, quitar o reordenar el catalogo se rechaza antes de
 mutar. tests/media/test_cd32_state.py ejercita la API nativa con firmware local
 autorizado y un CD sintetico por offset, continuacion AV/estado en otra instancia,
 mapa real y rechazos corruptos. Estas pruebas no acreditan por si solas carga en
@@ -1619,7 +1625,7 @@ la notificacion 0/1 y regenera la TOC al reinsertar. Una accion repetida no camb
 nada. Las respuestas ya publicadas, CPU y reloj se conservan. `cdrom_door` mantiene
 la semantica del pin: no se infiere el estado fisico de la tapa desde la presencia.
 Esta superficie privada no habilita aun cambio de CD en los frontends; faltan
-catalogo, identidad del conjunto y seleccion restaurable.
+sus conexiones a DiskControl, BizHawk y peliculas/TAS.
 
 ISO, CUE, CCD y NRG DAO directos seleccionan CD32 stock con maquina
 Automatic o CD32 y Kickstart Automatic. CD32 sin CD directo se rechaza. Las opciones incompatibles se rechazan; los tags CD32 de

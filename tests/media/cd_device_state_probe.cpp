@@ -109,4 +109,39 @@ static void replay(int mode)
     assert(device_position() == control_position && notices == control_notices && subs == control_subs);
     assert(rebound_calls == int(control_notices.size() + control_subs.size())); device_unbind();
 }
-int main() { for (int mode = 0; mode < 14; ++mode) replay(mode); }
+static void catalog_restore()
+{
+    setup(); Fixture a, b, fresh_a, fresh_b;
+    auto other_layout = b.disc.layout(); other_layout.content_id[0] = 2;
+    Disc second, fresh_second;
+    Binding binding{{{2}, 4 * 2448, 1}, provide, &b.provider};
+    assert(second.bind(other_layout, &binding, 1) == Result::Ok);
+    binding.context = &fresh_b.provider; assert(fresh_second.bind(other_layout, &binding, 1) == Result::Ok);
+    const Disc *items[] = {&a.disc, &second}, *fresh[] = {&fresh_a.disc, &fresh_second};
+    assert(device_catalog_bind(items, 2) == Result::Ok && sys_command_open(0) == 1);
+    assert(sys_command_cd_play(0, 0, 2, 0, status_callback, record_sub));
+    advance(int(cda_evt * 100 + 137)); pcm();
+    const auto saved = snapshot(); const float phase = next_sample_evtime;
+    const auto expected_q = future(1); const auto expected_pcm = pcm(); const auto expected = snapshot();
+    assert(device_set_inserted(false) == Result::Ok && device_select(1) == Result::Ok);
+    assert(device_set_inserted(true) == Result::Ok && device_bound_disc() == &second);
+    const auto untouched = snapshot(); const auto calls = a.provider.calls + b.provider.calls; const auto cycle = get_cycles();
+    assert(!device_restore(saved, &second, status_callback, record_sub)); equal(snapshot(), untouched);
+    assert(!device_restore(saved, &fresh_a.disc, status_callback, record_sub)); equal(snapshot(), untouched);
+    assert(device_select(0) == Result::Invalid && device_catalog_bind(fresh, 2) == Result::Invalid);
+    equal(snapshot(), untouched);
+    assert(device_can_restore(saved, device_resolve_disc(saved.disc_id), status_callback, record_sub));
+    equal(snapshot(), untouched); assert(get_cycles() == cycle && a.provider.calls + b.provider.calls == calls);
+    assert(device_restore(saved, device_resolve_disc(saved.disc_id), status_callback, record_sub));
+    equal(snapshot(), saved); assert(device_bound_disc() == &a.disc && sys_command_isopen(0) == 1);
+    last_cycles = get_cycles(); next_sample_evtime = phase; p6_pcm_reset();
+    assert(future(1) == expected_q && pcm() == expected_pcm); equal(snapshot(), expected);
+    device_unbind(); setup();
+    assert(device_catalog_bind(fresh, 2, 1) == Result::Ok && sys_command_open(0) == 1);
+    const auto fresh_calls = fresh_a.provider.calls + fresh_b.provider.calls;
+    assert(device_restore(saved, device_resolve_disc(saved.disc_id), status_callback, record_sub));
+    assert(fresh_a.provider.calls + fresh_b.provider.calls == fresh_calls && device_bound_disc() == &fresh_a.disc);
+    equal(snapshot(), saved); last_cycles = get_cycles(); next_sample_evtime = phase; p6_pcm_reset();
+    assert(future(1) == expected_q && pcm() == expected_pcm); equal(snapshot(), expected); device_unbind();
+}
+int main() { for (int mode = 0; mode < 14; ++mode) replay(mode); catalog_restore(); }
