@@ -16327,6 +16327,47 @@
       "stop": "No dar por terminado T66, no usar nativo como Waterbox ni copiar CD entero a heap."
     },
     {
+      "id": "T66r7",
+      "title": "Arrancar un juego CD32 real y restaurarlo en libretro y Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66r6"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tests/media/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-media/**",
+        "tests/waterbox-state/**",
+        "integration/bizhawk/**",
+        "bridge/**",
+        "ports/portable/**",
+        "patches/winuae/**"
+      ],
+      "steps": [
+        "Frente delegado en worktree aislado; el coordinador mantiene plan/checks/series/clasificacion e integra commits. Leer T66/T66r6, codigo y pruebas actuales; usar firmware CD32 y CUE Brian the Lion autorizados y existentes en Downloads, sin descargar assets comerciales ni modificar MacHawk.",
+        "Completar el arranque real del juego por la carga publica y fuente por offset, hasta una pantalla/interaccion de juego comprobable, mas alla de la animacion del firmware. Capturar un corte util y comparar futuro A/V, tiempo y memoria tras restaurar en libretro y Waterbox real, incluidos nuevo owner/sandbox y proceso cuando sus contratos lo requieren.",
+        "Si aparece un fallo, conservar el reproducer como test y corregir la vertical minima dentro de touch. Antes de ampliar mas de400lineas o tocar metadata compartida, comunicar alcance al coordinador. Checks dirigidos; compilaciones pesadas serializadas por el coordinador. No informes ni evidencias historicas; temporales en build/ y limpieza al terminar.",
+        "El padre conserva MED01/DET02/AV02/WB03/LR01, todos los formatos y variantes restantes, cambio de CD y seleccion automatica por tags. Esta hoja solo acredita el juego elegido y su restauracion publica; no cerrar T66 con ella."
+      ],
+      "checks": [
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "El juego CD32 autorizado elegido arranca por las rutas publicas libretro y Waterbox y restaura un corte de juego con el mismo futuro causal/A/V en los contextos requeridos; la prueba no confunde el arranque del firmware con el del juego."
+      ],
+      "stop": "No cargar el CD entero en el guest, no cerrar por compilacion/firmware ni atribuir compatibilidad con otros juegos/formatos; pedir al coordinador turno de compilacion pesada y decisiones de metadata."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -16374,7 +16415,8 @@
         "T66r3",
         "T66r4",
         "T66r5",
-        "T66r6"
+        "T66r6",
+        "T66r7"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -16414,7 +16456,8 @@
         "T66r2 conecta el backend CD dentro del guest Waterbox tras Seal y prueba CD32 privado con snapshot; el loader publico, identidad wrapper y SaveRAM siguen en este padre.",
         "T66r3 integra modelo comun, carga publica e identidad/restore BizHawk. SaveRAM NVRAM, CD32FR, formatos restantes y arranque completo del juego conservan todas las puertas del padre.",
         "T66r4 conecta NVRAM real con SaveRAM y su identidad inicial. No cierra arranque completo, CD32FR ni formatos restantes del padre.",
-        "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego."
+        "T66r6 implementa CD32FR como CD32+8MiB Fast por configuracion comun y preset; el padre conserva formatos restantes, cambio/seleccion automatica por tags de CD y arranque/restauracion completo de juego.",
+        "T66r7 concentra arranque/restauracion publica de un juego CD32 real en ambos adaptadores. El padre conserva formatos/variantes restantes, cambio de CD, tags y todas sus puertas originales; el coordinador integra la vertical del worktree aislado."
       ],
       "checks": [
         "MED01",
