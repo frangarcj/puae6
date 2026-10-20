@@ -5599,6 +5599,28 @@
           "after_sha256": "de96a994d933265c3f45b6d275778d7f57edf92fff7c9c383847e33cd3bdd2a4"
         }
       ]
+    },
+    {
+      "id": "0395-frestore040-fpsp-cu06-nan",
+      "file": "patches/winuae/0395-frestore040-fpsp-cu06-nan.patch",
+      "sha256": "5844e97510c7f7732b17186bb4cd312bab3d3f386a73744cb47911102a428000",
+      "title": "Decode FPSP reconstructed CU06 NaN SINGLE payloads",
+      "reason": "T55c11: FPSP op2_xi/op2_com remaps SINGLE max exponent407f to43ff while retaining STAG3 and payload. Convert only this bounded shape to extended NaN before existing arithmetic; preserve sign, payload and quiet/signaling bit. Native DOUBLE06 and denormals remain pending.",
+      "category": "FPU state correction",
+      "order": 210,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "d54de3cfb8636aae019faf164003c034162d7b5c13e473a59316f72ba98a9430",
+          "after_sha256": "bcfe8b5861703e27856fbfba83c5b586bd674695f952e79ccd19f422ad6959a6"
+        }
+      ]
     }
   ]
 }

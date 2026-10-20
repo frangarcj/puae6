@@ -248,6 +248,55 @@ static void produced_commands(int rev) {
         printf("FSAVE040 rev%x op%02x vector%u command/stage/restore/private/future PASS\n",rev,c.op,c.vector);
     }
 }
+static void busy_06_nan() {
+    // Motorola FPSP bugfix.S:op2_com (Linux 1da177e4) remaps SINGLE
+    // exponent407f to43ff. MC68040UM tables9-3/9-5/9-16: STAG3,
+    // payload left justified; bit62 is quiet, and the integer bit is ignored.
+    // https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf
+    unsigned n=0;
+    for(unsigned op : {0u,0x22u,0x38u,0x3au})
+    for(unsigned payload : {0x40000000u,0x7fffff00u,0x00000100u,0x3fffff00u})
+    for(unsigned sign : {0u,0x8000u}) for(unsigned mode=0;mode<3;mode++) {
+        const unsigned dest=n++&7;
+        const bool signaling=!(payload&0x40000000), pending=mode==2;
+        const bool trap=mode==1 && signaling;
+        const bool writes=op!=0x38 && op!=0x3a && !pending && !trap;
+        owner(0x40); for(int i=0;i<8;i++) move(i,10+i);
+        regs.fpiar=0xabcdef; auto before=capture();
+        Words w(25,0); w[0]=0x40600000; w[2]=0x06000000;
+        w[0x28/4]=0x4000; w[0x40/4]=(0x5400u|(dest<<7)|op)<<16;
+        w[0x3c/4]=3u<<29; w[0x58/4]=(sign|0x43ff)<<16;
+        w[0x5c/4]=payload;
+        if(pending) w[0x48/4]=1u<<25;
+        fpp_set_fpcr(pending ? 0x0200:mode==1 ? 0x4000:0);
+        fpp_set_fpsr(pending ? 0x08000200:0);
+        install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+        for(unsigned i=0;i<8;i++) {
+            assert(regs.fp[i].fpx.high==(writes && i==dest ? sign|0x7fff:before.high[i]));
+            assert(regs.fp[i].fpx.low==(writes && i==dest ? uint64_t(payload|0x40000000u)<<32:before.low[i]));
+        }
+        assert((regs.fpsr&0x07000000)==(pending ? 0:0x01000000));
+        assert((regs.fpsr&0xff00)==(pending ? 0x0200:signaling ? 0x4000:0));
+        assert(regs.fp_exp_pend==(pending ? 49:trap ? 54:0));
+        assert(regs.fpiar==(trap ? 0x4000:0xabcdef));
+        auto saved=capture(); owner(0x40); assert(p6_fpu_state_apply(&saved));
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        const unsigned header=pending ? 0x40600000:trap ? 0x40280000:0x40000000;
+        assert(get_long(0x11000)==header);
+        if(pending || trap) {
+            assert(p6_fpu_state_apply(&saved)); // FSAVE itself clears the pending exception.
+            const unsigned vector=pending ? 49:54;
+            put_long(vector*4,0x2000); fpuop_arithmetic(0xf200,0x0422);
+            assert(m68k_getpc()==0x2000 && regs.fp_exception && !regs.fp_exp_pend);
+        } else {
+            move(0,1); move(1,2); fpuop_arithmetic(0xf200,0x0422);
+            assert(regs.fp[0].fpx.high==0x4000 && regs.fp[0].fpx.low==0xc000000000000000ULL);
+        }
+        printf("FRESTORE040 rev40 BUSY06-nan op%x/payload%x/sign%x mode%u result/flags/private/future PASS\n",op,payload,sign,mode);
+    }
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -256,7 +305,7 @@ int main(int argc,char **argv) {
     c.audio_rate_hz=48000; c.random_seed=1; c.rtc_epoch_seconds=946684800;
     p6_error e{P6_ABI_VERSION,sizeof e,{}}; assert(p6_init(&c,&e)==P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_OK);
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
-    busy_06(); busy_06(true); busy_06_zero_inf();
+    busy_06(); busy_06(true); busy_06_zero_inf(); busy_06_nan();
     for(int rev : {0x40,0x41}) {
         produced_commands(rev);
         for(int event=0;event<3;event++) busy(rev,event);
