@@ -18905,19 +18905,22 @@
         "tests/cartridge/hrtmon_probe.cpp",
         "tests/cartridge/test_hrtmon.py",
         "docs/02-contracts.md",
-        "tests/host/bridge_caps_probe.cpp"
+        "tests/host/bridge_caps_probe.cpp",
+        "ports/waterbox/imports.json"
       ],
       "steps": [
         "P6_COMMAND_FREEZE bit0 enp6_input_v2.commands, ABI108/tail/prefixv1intactos. Entrada esnivel: bridge calcula risingedge unavez, consume pressduranteACTIVEsinencolar; mantenertrasx/reset/loadstate no retrigger; release+press activa. v1 equivalelevel0. BitsdesconocidosBAD_ARGUMENT yFreezesinownerUNSUPPORTEDantesmutarmaquina. Reusarhelperinterno sinGuard conservandowrapperprivadoGuard; no invocarAPIguardadadentroRun. Conservar reset→media→input→run; no reiniciarflancoconreset_keyboard, soloownerload/forget_input.",
         "Applied.commands yrawsoloenteros, P6INañadelevelu8condicionalownerHRTMon enMeasure/Save/Validate/Apply, conservando bytesnocart. Rango0..1 ynegativotransaccional, statecargado restauraheldsinreemitirNMI. P6_CAP_HRTMON bit11soloalcerrarcomportamiento, flagsconfigbit2yaC1. Noestadohostduplicado ni nuevopunteros/colas.",
         "HrtMonCommandTests fixturepublicacompartidaIN01/STATE01/DET02: bootrealA1200+builtinconfig, input_v2Freeze activaHRTMon, comandoRAM5a/x, holdnoactivaciontrasx/reset/restoreheld, release+presssi, presionACTIVEconsumida, v1release, unknowncommands/sincartrechazantransaccional. Writer/readerotroprocesoconestado/futurosAV/PCM/ticks/RAM/CPU/fullsave ycanarios. ReusarhelpersBsinrepetir7cortes. RegresionparalelaABI2/P6INcontests.input.test_parallel.ParallelTests dosmetodosrestore/rechazos; unionexactaseejecutaunavez.",
         "Diezrutas atomicas objetivo150..240manuales. Agentecd_swapaislado no metadatani buildmotor/guest; rootserializa-j2. C1STATE01realPASSyBUILD01exactoPASS. SiC2estacerca, rootcombinaenunWBX conBfix/T12yC1 paraevitarrebuildprevioalaAPIqueusaranfrontends. Libretro/BizHawk/TASsiguenhojaspublicasyWBrealobligado, ARcomercialpadreintacto.",
-        "Ampliar11aruta soloexpectedexactodebridge_caps_probe.cpp: nuevacapHRTMon debeincluirseenequalityexistente,sinquitarassertniañadirceremonia. Registraranteseditar; ≤240manualesrestoatomicoconABI/cap. BUILDactualrootpreC2permiteT12/T80bgatesmientrasC2aislado; siguienteWBXincrementalcompartidoconfrontendsC4/TAS."
+        "Ampliar11aruta soloexpectedexactodebridge_caps_probe.cpp: nuevacapHRTMon debeincluirseenequalityexistente,sinquitarassertniañadirceremonia. Registraranteseditar; ≤240manualesrestoatomicoconABI/cap. BUILDactualrootpreC2permiteT12/T80bgatesmientrasC2aislado; siguienteWBXincrementalcompartidoconfrontendsC4/TAS.",
+        "BuildWBXactualC1+B+T12 alcanzaaudit_importsyrechazaatoi. ElunicosimbolonuevoesconversiondeversionesARenaction_replay_version(ar.cpp), unidadACTION_REPLAYahoraseleccionada: auditoriapuroobjetoincluyefuncioninclusosiownerARnoestaexpuesto. Ampliar12aruta imports.json sololibcatoi, documentarresolucionmuslpin/sinhostIO/clock/localehost; nocambioalgoritmo nihabilitacionAR. Rooteditaesta12arutamientrasagentemantiene11anteriores. Reejecutarbuildguestincremental yHOST01Puae6RecipeTests(inventarioforbidden/classify/ELF/TLS/fuentes), sinrelajarningunforbiddenniinventarexito."
       ],
       "checks": [
         "IN01",
         "STATE01",
-        "DET02"
+        "DET02",
+        "HOST01"
       ],
       "acceptance": [
         "Freeze porABI2 esunflancocausalrestaurable,comandorealysalidaRAMfuncionanendeterminismodeotroproceso; hold/release/reset/ACTIVEysincartcorrectos, noduplicaciontrasestado. Nativo noacreditaWBfrontends."
