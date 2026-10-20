@@ -34,7 +34,12 @@ PATCHES = [PATCH_META, {"path": "patches/0002-readfn-header.patch",
     "src/libchdr_bitstream.c": "cc58fe03235a8948e14cc94ba8209f28407fc732bc905beed33f82c6aecbd3b3",
     "include/libchdr/bitstream.h": "36382f8797459cc696424c09f285de56b414e7aeacb9fcb064e6869f3aa71927",
     "src/libchdr_huffman.c": "bd42f4334a9258879507b9623b338dbc522f981400252e4666152374cc93c432",
-    "src/libchdr_chd.c": "920720563f0689bc348543aed88ce45f96e0f39f5edf724cfab37f8706d97c42"}}]
+    "src/libchdr_chd.c": "920720563f0689bc348543aed88ce45f96e0f39f5edf724cfab37f8706d97c42"}},
+    {"path": "patches/0004-cd-codec-bounds.patch",
+    "sha256": "e0cb0e29d234a268b809d6f45add0ac1c8f4805804a7cb341107a471fb3810bf", "after": {
+    "src/libchdr_chd.c": "f5b638d0564f585b6c91aa132609b5afe4c3a2f8d38d81495c6d68add1d54407",
+    "src/libchdr_flac.c": "c054ba04984969467d7f889a1d0deac6d39599ef5c0cb8dfd86910f81c9fabc5",
+    "include/libchdr/flac.h": "b9383a25672818652a82b119b1859df6ca5db447c27ff7050cd5ab3bcf88b0b1"}}]
 CHDR = ["src/libchdr_" + n + ".c" for n in ("bitstream", "cdrom", "chd", "flac", "huffman")]
 CHDR += ["include/libchdr/" + n + ".h" for n in ("bitstream", "cdrom", "chd", "chdconfig", "coretypes", "flac", "huffman")]
 CHDR += ["include/dr_libs/dr_flac.h", "LICENSE.txt"]
@@ -63,11 +68,13 @@ No PUAE engine or libretro-common source is included.
 patches/0001 corrects Adler-32 ABI and standalone includes, without
 changing the 32-bit calculation. Applied only to a derived build copy.
 patches/0002 replaces host FILE/cursor with borrowed ReadFn offsets, validates
-CDv5 geometry/resources, and makes construction/cleanup transactional. Full
-map/metadata/codec hardening remains T66t3/T66t4; do not expose public content yet.
+CDv5 geometry/resources, and makes construction/cleanup transactional.
+patches/0003 validates bounded maps/metadata, resolves SELF iteratively and
+checks bitstream/Huffman input. patches/0004 validates CD codec split lengths,
+exact decoder completion, FLAC format/positions and failed codec cleanup.
 
-This dependency is not linked to a product. ReadFn I/O is implemented; full
-map/metadata/codec hardening is still required before arbitrary files. CD TOC,
+The private CDv5 reader uses bounded ReadFn offsets, validated maps/metadata
+and checked codec payloads. This dependency is not linked to a product. CD TOC,
 identity, subchannels, provider restore and public loading remain later gates.
 """
 

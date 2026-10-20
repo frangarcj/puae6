@@ -3,13 +3,33 @@
 extern "C" {
 #include <libchdr/bitstream.h>
 #include <libchdr/huffman.h>
+#include <libchdr/flac.h>
 }
 #include <algorithm>
 #include <fstream>
 #include <iterator>
 #include <vector>
+#include <set>
+#include <cstdlib>
 #include <string.h>
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "line %d: %s\n", __LINE__, #x); abort(); } } while (0)
+// Only the derived C target redirects allocation; C++ containers remain ordinary.
+static std::set<void *> live;
+static size_t allocation_calls = 0, allocation_fault = 0;
+extern "C" void *chd_test_malloc(size_t bytes) {
+    if (++allocation_calls == allocation_fault) return nullptr;
+    void *p = std::malloc(bytes); if (p) live.insert(p); return p;
+}
+extern "C" void *chd_test_calloc(size_t n, size_t bytes) {
+    if (++allocation_calls == allocation_fault) return nullptr;
+    void *p = std::calloc(n, bytes); if (p) live.insert(p); return p;
+}
+extern "C" void *chd_test_realloc(void *p, size_t bytes) {
+    if (++allocation_calls == allocation_fault) return nullptr;
+    live.erase(p); void *next = std::realloc(p, bytes);
+    if (next) live.insert(next); else if (p && bytes) live.insert(p); return next;
+}
+extern "C" void chd_test_free(void *p) { if (p) CHECK(live.erase(p) == 1); std::free(p); }
 using namespace p6_cd;
 struct Fake {
     std::vector<uint8_t> data;
@@ -75,6 +95,25 @@ static void faults(Fake original, const std::vector<uint8_t> &expected) {
         CHECK(r.read_at(offset, out, sizeof out) == Result::Ok && !memcmp(out, expected.data() + offset, sizeof out));
     }
 }
+static void allocations(Fake original, const std::vector<uint8_t> &expected) {
+    CHECK(live.empty()); allocation_calls = 0;
+    { ChdReader r; uint8_t out[2448]; CHECK(r.open(Fake::read, &original, original.data.size()) == Result::Ok);
+      CHECK(r.read_at(0, out, sizeof out) == Result::Ok); }
+    const auto count = allocation_calls; CHECK(count && count < 256 && live.empty());
+    for (size_t fail = 1; fail <= count; ++fail) {
+        Fake f = original; allocation_calls = 0; allocation_fault = fail;
+        { ChdReader r; uint8_t out[2448]; memset(out, 0xa5, sizeof out);
+          auto status = r.open(Fake::read, &f, f.data.size());
+          if (status == Result::Ok) status = r.read_at(0, out, sizeof out);
+          if (status == Result::Ok) CHECK(!memcmp(out, expected.data(), sizeof out));
+          else CHECK(status == Result::ReadError && std::all_of(out, out + sizeof out, [](uint8_t b) { return b == 0xa5; }) && strlen(r.error()));
+          allocation_fault = 0;
+          if (!r.bytes()) CHECK(r.open(Fake::read, &f, f.data.size()) == Result::Ok);
+          CHECK(r.read_at(0, out, sizeof out) == Result::Ok && !memcmp(out, expected.data(), sizeof out) && f.calls < 5000);
+        }
+        CHECK(live.empty());
+    }
+}
 static void headers(Fake original, Fake compressed) {
     struct Case { unsigned at; uint64_t value; unsigned width; Result result; };
     for (auto c : {Case{0,0,1,Result::Invalid}, {8,123,4,Result::Invalid}, {12,4,4,Result::Unsupported},
@@ -109,18 +148,37 @@ static void metadata(Fake f) {
     CHECK(std::all_of(out, out + 4, [](uint8_t b) { return b == 0xa5; }) && f.calls < 5000);
     chd_close(decoder);
 }
+static void flac_wrapper(const std::vector<uint8_t> &frame) {
+    flac_decoder decoder{}; CHECK(!flac_decoder_init(&decoder));
+    CHECK(!flac_decoder_reset(&decoder, 48000, 2, 588, frame.data(), frame.size()));
+    CHECK(!flac_decoder_reset(&decoder, 44100, 1, 588, frame.data(), frame.size()));
+    CHECK(!flac_decoder_reset(&decoder, 44100, 2, 40000, frame.data(), frame.size()));
+    CHECK(!flac_decoder_reset(&decoder, 44100, 2, 588, frame.data(), UINT32_MAX));
+    int16_t out[1178];
+    for (bool underflow : {false, true}) {
+        CHECK(flac_decoder_reset(&decoder, 44100, 2, 588, frame.data(), frame.size()));
+        memset(out, 0xa5, sizeof out);
+        CHECK(flac_decoder_decode_interleaved(&decoder, out, 588, false));
+        CHECK(std::all_of(out, out + 1176, [](int16_t n) { return n == 0; }));
+        if (underflow) decoder.compressed_offset = 0;
+        CHECK(flac_decoder_finish(&decoder) == (underflow ? UINT32_MAX : frame.size()) && !decoder.decoder);
+    }
+    CHECK(flac_decoder_reset(&decoder, 44100, 2, 588, frame.data(), frame.size()));
+    CHECK(!flac_decoder_decode_interleaved(&decoder, out, 589, false)); flac_decoder_free(&decoder);
+    CHECK(flac_decoder_finish(&decoder) == UINT32_MAX);
+}
 static void bits() {
     uint8_t bytes[4] = {0x80,0,0,0}; auto *stream = create_bitstream(bytes, 4);
     CHECK(bitstream_read(stream, 32) == 0x80000000u && !bitstream_overflow(stream));
-    CHECK(bitstream_flush(stream) == 4); bitstream_read(stream, 1); CHECK(bitstream_overflow(stream)); free(stream);
+    CHECK(bitstream_flush(stream) == 4); bitstream_read(stream, 1); CHECK(bitstream_overflow(stream)); chd_test_free(stream);
     stream = create_bitstream(bytes, 1); CHECK(bitstream_peek(stream, 8) == 0x80 && !bitstream_overflow(stream));
     CHECK(bitstream_read(stream, 1) == 1 && bitstream_read(stream, 7) == 0 && !bitstream_overflow(stream));
-    bitstream_read(stream, 33); CHECK(bitstream_overflow(stream)); free(stream);
+    bitstream_read(stream, 33); CHECK(bitstream_overflow(stream)); chd_test_free(stream);
     uint8_t unaligned[5] = {0xff,0x80,0,0,0}; stream = create_bitstream(unaligned, 5);
     CHECK(bitstream_read(stream, 1) == 1 && bitstream_peek(stream, 32) == 0xff000000u);
-    CHECK(bitstream_read(stream, 32) == 0xff000000u && !bitstream_overflow(stream)); free(stream);
+    CHECK(bitstream_read(stream, 32) == 0xff000000u && !bitstream_overflow(stream)); chd_test_free(stream);
     auto *decoder = create_huffman_decoder(16, 8); stream = create_bitstream(bytes, 1);
-    huffman_decode_one(decoder, stream); CHECK(bitstream_overflow(stream)); delete_huffman_decoder(decoder); free(stream);
+    huffman_decode_one(decoder, stream); CHECK(bitstream_overflow(stream)); delete_huffman_decoder(decoder); chd_test_free(stream);
 }
 int main(int argc, char **argv) {
     CHECK(argc == 4); Fake f{load(argv[2])};
@@ -129,6 +187,15 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[1], "headers")) headers(f, Fake{load(argv[3])});
     else if (!strcmp(argv[1], "metadata")) metadata(f);
     else if (!strcmp(argv[1], "bits")) bits();
+    else if (!strcmp(argv[1], "flac-wrapper")) flac_wrapper(f.data);
+    else if (!strcmp(argv[1], "allocations")) allocations(f, load(argv[3]));
+    else if (!strcmp(argv[1], "bad-read")) {
+        for (unsigned n = 0; n < 3; ++n) {
+            ChdReader r; CHECK(r.open(Fake::read, &f, f.data.size()) == Result::Ok); uint8_t out[2448]; memset(out, 0xa5, sizeof out);
+            CHECK(r.read_at(0, out, sizeof out) == Result::Invalid && strlen(r.error()));
+            CHECK(std::all_of(out, out + sizeof out, [](uint8_t b) { return b == 0xa5; }) && f.calls < 5000);
+        }
+    }
     else {
         ChdReader r; auto status = r.open(Fake::read, &f, f.data.size()); uint8_t out[2448];
         if (!strcmp(argv[1], "reject") || !strcmp(argv[1], "limit")) {
@@ -142,4 +209,5 @@ int main(int argc, char **argv) {
             CHECK(f.calls < r.bytes() / 2448 + 100);
         }
     }
+    CHECK(live.empty());
 }

@@ -28,7 +28,8 @@ Result ChdReader::open(ReadFn read, const void *context, uint64_t bytes)
     std::unique_ptr<Data> candidate(new(std::nothrow) Data);
     if (!candidate) { error_ = "out of memory"; return Result::ReadError; }
     candidate->file = {read, context, bytes};
-    // Maps (block cap 1 MiB), SELF and the complete bounded metadata chain validate before publication.
+    // Maps, SELF and the complete bounded metadata chain validate before publication.
+    // Codec payloads validate on read, inside scratch before transactional delivery.
     auto e = chd_open_file(&candidate->file, CHD_OPEN_READ, nullptr, &candidate->decoder);
     if (e != CHDERR_NONE) { error_ = chd_error_string(e); return result(e); }
     const auto *header = chd_get_header(candidate->decoder);

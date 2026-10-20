@@ -19,9 +19,11 @@ No PUAE engine or libretro-common source is included.
 patches/0001 corrects Adler-32 ABI and standalone includes, without
 changing the 32-bit calculation. Applied only to a derived build copy.
 patches/0002 replaces host FILE/cursor with borrowed ReadFn offsets, validates
-CDv5 geometry/resources, and makes construction/cleanup transactional. Full
-map/metadata/codec hardening remains T66t3/T66t4; do not expose public content yet.
+CDv5 geometry/resources, and makes construction/cleanup transactional.
+patches/0003 validates bounded maps/metadata, resolves SELF iteratively and
+checks bitstream/Huffman input. patches/0004 validates CD codec split lengths,
+exact decoder completion, FLAC format/positions and failed codec cleanup.
 
-This dependency is not linked to a product. ReadFn I/O is implemented; full
-map/metadata/codec hardening is still required before arbitrary files. CD TOC,
+The private CDv5 reader uses bounded ReadFn offsets, validated maps/metadata
+and checked codec payloads. This dependency is not linked to a product. CD TOC,
 identity, subchannels, provider restore and public loading remain later gates.

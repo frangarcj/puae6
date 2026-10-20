@@ -1,6 +1,7 @@
-"""MED01: bounded CHD I/O, maps, SELF and metadata; codec hardening follows."""
+"""MED01: bounded CHD I/O, maps, SELF and metadata; exact CD codec completion and transactional cleanup."""
 import os
 import binascii
+import lzma
 from pathlib import Path
 import struct
 import subprocess
@@ -15,14 +16,14 @@ FIXTURES = ROOT / "tests/fixtures/chd"
 SECTOR = bytes(n % 251 for n in range(2448))
 
 
-def cd_map(entries, tree=None, symbols=None, widths=(24, 32, 0), first=124):
+def cd_map(entries, tree=None, symbols=None, widths=(24, 32, 0), first=124, codec=b"zlib", sector=SECTOR):
     """Legal v5 map encoder with a flat Huffman tree; fields are independently CRC'd."""
     attributes, raw, body = [], bytearray(), bytearray()
     for kind, value in entries:
         at, length, crc = first + len(body), 0, 0
         if kind < 5:
             length = len(value); body += value
-            crc = binascii.crc_hqx(value if kind == 4 else SECTOR, 0xffff)
+            crc = binascii.crc_hqx(value if kind == 4 else sector, 0xffff)
             if kind < 4:
                 attributes.append(format(length, f"0{widths[0]}b"))
             attributes.append(format(crc, "016b"))
@@ -34,9 +35,29 @@ def cd_map(entries, tree=None, symbols=None, widths=(24, 32, 0), first=124):
     bits += "".join(attributes)
     packed = int(bits + "0" * (-len(bits) % 8), 2).to_bytes((len(bits) + 7) // 8, "big")
     header = bytearray(124); header[:8] = b"MComprHD"
-    struct.pack_into(">II4I3QII", header, 8, 124, 5, 0x7a6c6962, 0, 0, 0, len(entries) * 2448, 124 + len(body), 0, 2448, 2448)
+    struct.pack_into(">II4I3QII", header, 8, 124, 5, int.from_bytes(codec, "big"), 0, 0, 0, len(entries) * len(sector), 124 + len(body), 0, len(sector), 2448)
     map_header = struct.pack(">I", len(packed)) + first.to_bytes(6, "big") + struct.pack(">H", binascii.crc_hqx(raw, 0xffff)) + bytes([*widths, 0])
     return header + body + map_header + packed
+
+
+def deflate(data, finish=zlib.Z_FINISH):
+    encoder = zlib.compressobj(6, zlib.DEFLATED, -15)
+    return encoder.compress(data) + encoder.flush(finish)
+
+
+def flac_constant(frames=588, rate=9, bits=4, channels=1):
+    """Numeric constant-zero stereo FLAC frame, independent of dr_flac/chdman."""
+    def crc(data, width, polynomial):
+        value = 0
+        for b in data:
+            value ^= b << (width - 8)
+            for _ in range(8):
+                value = ((value << 1) ^ (polynomial if value >> (width - 1) else 0)) & ((1 << width) - 1)
+        return value
+    header = bytes([0xff,0xf8,0x70 | rate,(channels << 4) | (bits << 1),0]) + (frames - 1).to_bytes(2,"big")
+    header += bytes([crc(header, 8, 7)])
+    frame = header + (bytes(1 + (24 if bits == 6 else 16) // 8) * (channels + 1))
+    return frame + crc(frame, 16, 0x8005).to_bytes(2,"big")
 
 
 def metadata_chain(container, payloads, cycle=None):
@@ -64,7 +85,9 @@ class ChdReaderTests(unittest.TestCase):
             'cmake_minimum_required(VERSION 3.19)\nproject(chd_reader C CXX)\n'
             f'include("{ROOT}/cmake/Chd.cmake")\n'
             f'add_executable(probe "{ROOT}/tests/media/chd_reader_probe.cpp")\n'
-            'target_link_libraries(probe PRIVATE p6_chd_reader)\n')
+            'target_link_libraries(probe PRIVATE p6_chd_reader)\n'
+            'target_compile_definitions(p6_chd PRIVATE malloc=chd_test_malloc calloc=chd_test_calloc '
+            'realloc=chd_test_realloc free=chd_test_free)\n')
         flags = "-O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer"
         dependency.ChdDependencyTests.run_ok(["cmake", "-S", str(cls.work), "-B", str(cls.work / "out"),
             "-DCMAKE_C_FLAGS=" + flags, "-DCMAKE_CXX_FLAGS=" + flags, "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined"])
@@ -136,3 +159,43 @@ class ChdReaderTests(unittest.TestCase):
         for name, payloads in {"metadata-count": [b""] * 4097, "metadata-payload": [bytes(65537)],
                               "metadata-total": [bytes(65536)] * 17}.items():
             with self.subTest(case=name): self.case(name, metadata_chain(base, payloads), "limit")
+
+    def test_zlib_requires_exact_input_output_and_stream_end(self):
+        for name, payload in {"trailing": deflate(SECTOR) + b"x", "unfinished": deflate(SECTOR, zlib.Z_SYNC_FLUSH),
+                              "short-output": deflate(SECTOR[:-1]), "long-output": deflate(SECTOR + b"x")}.items():
+            with self.subTest(case=name): self.case("zlib-" + name, cd_map([(0,payload)]), "bad-read")
+
+    def test_cd_split_codec_lengths_errors_and_lzma_end_status(self):
+        zero = bytes(2448); oracle = self.work / "codec-zero.bin"; oracle.write_bytes(zero)
+        for codec in (b"cdzl", b"cdlz"):
+            base = deflate(bytes(2352)) if codec == b"cdzl" else lzma.compress(bytes(2352), format=lzma.FORMAT_RAW,
+                filters=[{"id": lzma.FILTER_LZMA1, "dict_size": 4096}])
+            sub = deflate(bytes(96))
+            def payload(a=base, b=sub): return b"\0" + len(a).to_bytes(2,"big") + a + b
+            self.case(codec.decode() + "-valid", cd_map([(0,payload())], codec=codec, sector=zero), "self", oracle)
+            for name, data in {"short-header": b"\0", "zero-base": b"\0\0\0" + sub, "oversize-base": b"\0\xff\xff" + base + sub,
+                "missing-sub": payload(b=b""), "base-truncated": payload(a=base[:-1]), "base-trailing": payload(a=base + b"x"),
+                "sub-truncated": payload(b=sub[:-1]), "sub-trailing": payload(b=sub + b"x"), "sub-short-output": payload(b=deflate(bytes(95)))}.items():
+                with self.subTest(codec=codec, case=name): self.case(codec.decode() + "-" + name, cd_map([(0,data)], codec=codec, sector=zero), "bad-read")
+            # >=64KiB hunks use three length bytes and a larger ECC bitmap.
+            large = bytes(2448 * 27)
+            a = deflate(bytes(2352 * 27)) if codec == b"cdzl" else lzma.compress(bytes(2352 * 27), format=lzma.FORMAT_RAW,
+                filters=[{"id": lzma.FILTER_LZMA1, "dict_size": 65536}])
+            packed = bytes(4) + len(a).to_bytes(3,"big") + a + deflate(bytes(96 * 27))
+            self.case(codec.decode() + "-large", cd_map([(0,packed)], codec=codec, sector=large), "self", oracle)
+            for name, data in {"large-short-header": packed[:6], "large-oversize": bytes(4) + b"\xff\xff\xff" + packed[7:]}.items():
+                with self.subTest(codec=codec, case=name): self.case(codec.decode() + name, cd_map([(0,data)], codec=codec, sector=large), "bad-read")
+
+    def test_cd_flac_frames_format_completion_and_subcode_lengths(self):
+        zero = bytes(2448); oracle = self.work / "flac-zero.bin"; oracle.write_bytes(zero); sub = deflate(bytes(96))
+        frame = self.work / "constant.flacframe"; frame.write_bytes(flac_constant())
+        self.probe("flac-wrapper", frame, oracle)
+        self.case("flac-valid", cd_map([(0,flac_constant() + sub)], codec=b"cdfl", sector=zero), "self", oracle)
+        for name, payload in {"short": b"x", "frame-short": flac_constant(100) + sub, "frame-extra": flac_constant(589) + sub,
+            "rate": flac_constant(rate=8) + sub, "bits": flac_constant(bits=6) + sub, "mono": flac_constant(channels=0) + sub,
+            "no-sub": flac_constant(), "sub-truncated": flac_constant() + sub[:-1], "sub-trailing": flac_constant() + sub + b"x"}.items():
+            with self.subTest(case=name): self.case("flac-" + name, cd_map([(0,payload)], codec=b"cdfl", sector=zero), "bad-read")
+
+    def test_failed_codec_allocations_cleanup_and_retry(self):
+        for codec in self.pattern.CODECS:
+            with self.subTest(codec=codec): self.probe("allocations", FIXTURES / (codec + ".chd"), self.expected)

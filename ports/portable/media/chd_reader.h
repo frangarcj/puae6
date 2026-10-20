@@ -1,4 +1,4 @@
-// Private CDv5 reader. Maps/codecs remain untrusted until T66t3/T66t4 pass.
+// Private read-only CDv5 reader without parents; no public CD provider.
 #pragma once
 #include "cd_source.h"
 #include <memory>
@@ -11,9 +11,13 @@ public:
     ChdReader &operator=(const ChdReader &) = delete;
     // Immutable context is borrowed through destruction; no reentry or cursor.
     // CD units2448; hunk<=512KiB, <=2^20hunks, expanded map<=12MiB,
-    // compressed map<=16MiB. Resource limits return Unsupported, OOM ReadError.
+    // compressed map<=16MiB, compressed block<=1MiB. Metadata: <=4096 entries,
+    // <=64KiB each, <=1MiB total. SELF resolves iteratively before publication.
+    // Resource limits return Unsupported; I/O/allocation errors use ReadError.
     Result open(ReadFn, const void *context, uint64_t bytes);
-    // <=2448 bytes, transactional output, including errors crossing hunks.
+    // <=2448 bytes, transactional output, including codec/I/O errors crossing hunks.
+    // Decoders require exact input/output and stream completion (LZMA permits
+    // CHD termination without an end marker); CD FLAC is 44100Hz/stereo/16-bit.
     Result read_at(uint64_t, void *, size_t) const;
     uint64_t bytes() const;
     uint32_t hunk_bytes() const;
