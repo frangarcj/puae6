@@ -123,6 +123,7 @@
 #include "events.h"
 #include "memory.h"
 #include "custom.h"
+#include "newcpu.h"
 #include "inputdevice.h"
 #include "savestate.h"
 #include "video_present.h"
@@ -1180,10 +1181,15 @@ struct PureSave {
 // pipelined, the audio and the disk keep their hands off what is being put back), and the scheduler, which P6SC has just applied and owns, is put back when
 // the body is done, whatever a restore_* or a *_finish scheduled. The generator is P6CP's, applied before any of these bodies, and is put back the same way: restore_custom's
 // write of DSKSYNC predicts the next disk event, and the prediction draws one random bit per bit of the line for a drive that reads an unformatted track.
+// DSKSYNC can also call doint while CHIP's INTENA/INTREQ are still incomplete. Keep the P6CP-owned IRQ pipeline and special flags: update_ipl may
+// change the pin history, ipl_fetch_now/next the sampled levels and time, and doint may set INT/DOINT. None is derived again from partial chipset state.
 struct ApplyScope {
     bool on;
     int state = 0, idx = 0, next = 1, count = 0, restart = 0, remain = 0;
     uae_u32 rng = 0;
+    uae_atomic spc = 0;
+    int ipl[2] = {}, pin = 0, pin_p = 0;
+    evt_t ipl_evt = 0, pin_change = 0, pin_change_p = 0;
     evt_t nextevent_before = 0;
     ev main[ev_max];
     ev2 secondary[ev2_max];
@@ -1197,6 +1203,14 @@ struct ApplyScope {
         p6_events_get(&idx, &next, &count, &restart, &remain);
         nextevent_before = nextevent;
         rng = p6_rng_get();
+        spc = regs.spcflags;
+        ipl[0] = regs.ipl[0];
+        ipl[1] = regs.ipl[1];
+        pin = regs.ipl_pin;
+        pin_p = regs.ipl_pin_p;
+        ipl_evt = regs.ipl_evt;
+        pin_change = regs.ipl_pin_change_evt;
+        pin_change_p = regs.ipl_pin_change_evt_p;
     }
     ~ApplyScope()
     {
@@ -1206,6 +1220,14 @@ struct ApplyScope {
         p6_events_set(idx, next, remain);
         nextevent = nextevent_before;
         p6_rng_set(rng);
+        regs.spcflags = spc;
+        regs.ipl[0] = ipl[0];
+        regs.ipl[1] = ipl[1];
+        regs.ipl_pin = pin;
+        regs.ipl_pin_p = pin_p;
+        regs.ipl_evt = ipl_evt;
+        regs.ipl_pin_change_evt = pin_change;
+        regs.ipl_pin_change_evt_p = pin_change_p;
         savestate_state = state;
     }
     ApplyScope(const ApplyScope &) = delete;
