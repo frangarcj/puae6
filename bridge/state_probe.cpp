@@ -74,6 +74,7 @@
 #include "blitter.h"
 #include "newcpu.h"
 #include "fpp.h"
+#include "cpu_late_probe.h"
 #include "video_present.h"
 #include "inputdevice.h"
 #include "input.h"
@@ -179,7 +180,11 @@ void cpu(Canon &c)
     }
     if (currprefs.cpu_model == 68030)
         c.put(regs.vbr).put(regs.msp).put(regs.caar).put(regs.cacr).put(regs.sfc).put(regs.dfc).put(int32_t(regs.instruction_cnt));
-    if (currprefs.fpu_model) {
+    if (!p6_probe_cpu_late(c)) {
+        fprintf(stderr, "cpu probe: internal FPU owner is not ready\n");
+        exit(1);
+    }
+    if (currprefs.fpu_model == 68881 || currprefs.fpu_model == 68882) {
         // T54: with an FPU the digest also holds what the FPU block of the CPU chunk carries (the data registers as bit patterns, the control registers, the pending-exception words
         // and the FSAVE data). A machine without one has the digest it always had.
         for (int i = 0; i < 8; ++i) c.put(regs.fp[i].fpx.high).put(regs.fp[i].fpx.low);

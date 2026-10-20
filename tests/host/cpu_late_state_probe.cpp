@@ -9,6 +9,7 @@
 #include "newcpu.h"
 #include "fpp.h"
 #include "p6_fpu_state.h"
+#include "cpu_late_probe.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -19,6 +20,16 @@
 #include <vector>
 using namespace p6_state;
 using Bytes = std::vector<uint8_t>;
+struct Observation {
+    Bytes bytes;
+    template<class T> Observation &put(T value) {
+        for (unsigned i=0;i<sizeof(T);i++) bytes.push_back(uint8_t(uint64_t(value)>>(8*i)));
+        return *this;
+    }
+};
+static Bytes observe() {
+    Observation c; assert(p6_probe_cpu_late(c)); return c.bytes;
+}
 static std::map<std::string,std::pair<size_t,size_t>> fields;
 static void field(void *,uint64_t at,uint64_t size,const char *name) { fields[name]={at,size}; }
 static Bytes capture() {
@@ -89,6 +100,70 @@ static void corrupt(const Bytes &saved,const char *name,uint32_t value) {
     auto before=capture(); auto cycle=get_cycles(); auto ram=get_long(0x10000);
     assert(!validate(bad)); assert(capture()==before && cycle==get_cycles() && ram==get_long(0x10000));
 }
+static void observation(int model) {
+    const auto saved=capture(); const auto original=observe();
+    const auto cycles=get_cycles(); const auto ram=get_long(0x10000);
+    assert(observe()==original && capture()==saved && get_cycles()==cycles && get_long(0x10000)==ram);
+    // Fixed widths: controls 18/26 bytes, context 12, FP registers 80,
+    // ten FPU control/pending fields 38, 24 frame scalars 96, operands 48.
+    assert(original.size()==size_t((model==68060 ? 26:18)+274));
+    auto changed=[&](size_t offset) {
+        auto expected=original; expected.at(offset)^=1;
+        assert(observe()==expected); apply(saved);
+    };
+    regs.vbr^=1; changed(0); regs.msp^=1; changed(4); regs.cacr^=1; changed(8);
+    regs.sfc^=1; changed(12); regs.dfc^=1; changed(13); regs.instruction_cnt^=1; changed(14);
+    if(model==68060) { regs.buscr^=1; changed(18); regs.pcr^=1; changed(22); }
+    p6_fpu_state f{}; assert(p6_fpu_state_get(&f));
+    const size_t start=model==68060 ? 26:18;
+    for(unsigned i=0;i<4;i++) assert(original[start+i]==uint8_t(uint32_t(model)>>(8*i)));
+    auto fp=[&](auto &word,size_t offset) {
+        word^=1; assert(p6_fpu_state_apply(&f)); changed(start+offset); word^=1;
+    };
+    for(unsigned i=0;i<8;i++) { fp(f.high[i],12+10*i); fp(f.low[i],14+10*i); }
+    // Independent order/width assertions, including inactive operand words.
+    uint32_t *controls[]={&f.fpcr,&f.fpsr,&f.fpiar,&f.state,&f.exp_state,&f.exp_pend,&f.unimp_pend,&f.ea};
+    for(unsigned i=0;i<8;i++) {
+        // Reserved low bits and bounded exception states need valid values.
+        if(i==0 || i==1 || i==4 || i==5 || i==6) continue;
+        fp(*controls[i],92+4*i);
+    }
+    f.fpcr^=0x10; assert(p6_fpu_state_apply(&f));
+    auto expected=original; expected[start+92]^=0x10; assert(observe()==expected); apply(saved); f.fpcr^=0x10;
+    auto pending=[&](uint32_t &word,size_t offset,uint32_t value) {
+        const auto old=word; word=value; assert(p6_fpu_state_apply(&f));
+        auto bytes=original; for(unsigned i=0;i<4;i++) bytes[start+offset+i]=uint8_t(value>>(8*i));
+        assert(observe()==bytes); apply(saved); word=old;
+    };
+    pending(f.fpsr,96,f.fpsr^8); pending(f.exp_state,108,(f.exp_state+1)%3);
+    pending(f.exp_pend,112,f.exp_pend ? 0:49); pending(f.unimp_pend,116,f.unimp_pend ? 0:3);
+    fp(f.opword,124); fp(f.flags,126);
+    uint32_t *frame[]={&f.frame.ccr,&f.frame.v,&f.frame.fpiarcu,&f.frame.cmdreg3b,&f.frame.cmdreg1b,
+        &f.frame.stag,&f.frame.dtag,&f.frame.e1,&f.frame.e3,&f.frame.t,&f.frame.grs,&f.frame.wbte15,&f.frame.wbtm66,
+        &f.frame.cusavepc,&f.frame.fpr_dirty,&f.frame.fpsr_shadow,&f.frame.cmdreg2b,&f.frame.nmnexc,&f.frame.nmcexc,
+        &f.frame.ete15,&f.frame.fpte15,&f.frame.s,&f.frame.x,&f.frame.u};
+    for(unsigned i=0;i<24;i++) fp(*frame[i],130+4*i);
+    for(unsigned i=0;i<3;i++) {
+        fp(f.frame.eo[i],226+16*i); fp(f.frame.fpt[i],230+16*i);
+        fp(f.frame.et[i],234+16*i); fp(f.frame.wbt[i],238+16*i);
+    }
+    auto context=[&](size_t offset,uint8_t mask) {
+        auto bytes=original; bytes[start+offset]^=mask; assert(observe()==bytes);
+    };
+    currprefs.fpu_strict=!currprefs.fpu_strict; context(8,1); currprefs.fpu_strict=!currprefs.fpu_strict;
+    currprefs.fpu_no_unimplemented=!currprefs.fpu_no_unimplemented; context(8,2);
+    currprefs.fpu_no_unimplemented=!currprefs.fpu_no_unimplemented;
+    if(model==68040) { currprefs.fpu_revision^=1; context(4,1); currprefs.fpu_revision^=1; }
+    auto configured=currprefs.fpu_model; currprefs.fpu_model=model==68040 ? 68060:68040;
+    Observation invalid; assert(!p6_probe_cpu_late(invalid)); currprefs.fpu_model=configured;
+    // No FPU means no private block; earlier CPUs append no late observation.
+    auto fpu=currprefs.fpu_model; currprefs.fpu_model=0;
+    assert(observe()==Bytes(original.begin(),original.begin()+start)); currprefs.fpu_model=fpu;
+    auto cpu=currprefs.cpu_model;
+    for(int previous : {68000,68010,68020,68030}) { currprefs.cpu_model=previous; assert(observe().empty()); }
+    currprefs.cpu_model=cpu;
+    assert(capture()==saved && observe()==original && get_cycles()==cycles && get_long(0x10000)==ram);
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     Bytes rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()}; assert(!rom.empty());
@@ -117,6 +192,7 @@ int main(int argc,char **argv) {
             assert(validate(saved)); assert(capture()==before && cycle==get_cycles() && ram==get_long(0x10000));
             apply(saved); assert(capture()==saved && fpu_words()==saved_fpu); assert(future(model)==expected);
             apply(saved);
+            observation(model);
             corrupt(saved,"cpu.cacr",1); corrupt(saved,"cpu.sfc",8);
             corrupt(saved,"cpu.stopped",3); corrupt(saved,"fpu.internal.context.model",68882);
             corrupt(saved,"fpu.internal.context.revision",0x42); corrupt(saved,"fpu.internal.fpcr",0x10000);
