@@ -1,6 +1,6 @@
 // Bindings and layout borrow this owner; the VFS table must outlive it.
 // Private CHD owner: raw/audio, Mode1 cooked and Mode2 body/Form1/Form2, not a public loader.
-// HTOA, postgaps and differently packed pregaps remain unsupported.
+// Per-region packing/SUB and synthesized postgaps are explicit; HTOA/CDI remain unsupported.
 #pragma once
 #include "cd_disc.h"
 #include "cd_chd_metadata.h"

@@ -17,7 +17,7 @@ struct CdChd::Data {
     Layout layout{};
     Binding original{}, binding[99]{};
     enum class Packing { Invalid, Mode1Cooked, Mode1Raw, Mode2Body, Mode2Form1, Mode2Form2, Mode2Raw, Audio };
-    struct View { Data *owner; unsigned number; Packing packing; } view[99]{};
+    struct View { Data *owner; unsigned number; Packing packing, pregap; } view[99]{};
     static Packing packing(const char *name) {
         if (!strcmp(name,"MODE1") || !strcmp(name,"MODE1/2048")) return Packing::Mode1Cooked;
         if (!strcmp(name,"MODE1_RAW") || !strcmp(name,"MODE1/2352")) return Packing::Mode1Raw;
@@ -42,31 +42,36 @@ struct CdChd::Data {
         for (size_t done = 0; done < length;) {
             const uint64_t at = offset + done, within = at % t.stride;
             if (d.reader.read_at((r.offset_frames + at / t.stride) * 2448,sector,sizeof sector) != Result::Ok) return false;
+            const bool pregap = r.stored_pregap && at/t.stride < r.pregap;
+            const auto kind = pregap ? v.pregap : v.packing;
+            const auto data_bytes = pregap ? r.pg_data_bytes : r.data_bytes;
+            const auto subtype = pregap ? r.pgsub : r.subtype;
             // CHD SUB96 follows the stored data size, before any header/ECC expansion.
             if (t.stride == 2448) {
-                if (!strcmp(r.subtype,"RW_RAW")) sub_to_deinterleaved(sector+r.data_bytes,sub);
-                else memcpy(sub,sector+r.data_bytes,sizeof sub);
+                memset(sub,0,sizeof sub); // Shared stride does not imply stored SUB in this region.
+                if (!strcmp(subtype,"RW_RAW")) sub_to_deinterleaved(sector+data_bytes,sub);
+                else if (strcmp(subtype,"NONE")) memcpy(sub,sector+data_bytes,sizeof sub);
             }
             const uint32_t lba = (t.stored_pregap ? t.index0 : t.index1) + uint32_t(at/t.stride);
-            if (v.packing == Packing::Mode1Cooked && t.stride == 2448) {
+            if (kind == Packing::Mode1Cooked && t.stride != 2048) {
                 memmove(sector+16,sector,2048); encode_l2(sector,int(lba)+150);
-            } else if (v.packing == Packing::Mode2Body || v.packing == Packing::Mode2Form1 || v.packing == Packing::Mode2Form2) {
+            } else if (kind == Packing::Mode2Body || kind == Packing::Mode2Form1 || kind == Packing::Mode2Form2) {
                 // DiscSystem9b627578 SS_Mode2_2336/SS_Mode2_Form1_2048: preserve
                 // stored2336 bodies; absent cooked subheaders are synthesized.
-                const unsigned prefix = v.packing == Packing::Mode2Body ? 16 : 24;
-                memmove(sector+prefix,sector,r.data_bytes); memset(sector,0,prefix);
+                const unsigned prefix = kind == Packing::Mode2Body ? 16 : 24;
+                memmove(sector+prefix,sector,data_bytes); memset(sector,0,prefix);
                 memset(sector+1,0xff,10);
                 const uint32_t absolute = lba+150;
                 auto bcd = [](uint32_t value) { return uint8_t(value/10*16+value%10); };
                 sector[12]=bcd(absolute/4500); sector[13]=bcd(absolute/75%60);
                 sector[14]=bcd(absolute%75); sector[15]=2;
-                if (v.packing == Packing::Mode2Form1) encode_l2_mode2_form1(sector);
-                if (v.packing == Packing::Mode2Form2) {
+                if (kind == Packing::Mode2Form1) encode_l2_mode2_form1(sector);
+                if (kind == Packing::Mode2Form2) {
                     // XA duplicates four bytes (UNECM v1.0): submode at2 and6.
                     // Correct the old MacHawk/libMirage synth's second position5.
                     sector[18]=sector[22]=0x20; encode_l2_mode2_form2(sector);
                 }
-            } else if (v.packing == Packing::Audio) {
+            } else if (kind == Packing::Audio) {
                 for (unsigned n = 0; n < 2352; n += 2) std::swap(sector[n],sector[n+1]);
             }
             if (t.stride == 2448) memcpy(sector+2352,sub,sizeof sub);
@@ -80,18 +85,26 @@ struct CdChd::Data {
         uint64_t cursor = 0; layout.tracks = metadata.tracks;
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n]; const auto kind = packing(r.type);
-            // Initial gaps, postgaps and mixed pregap semantics remain explicit tasks.
-            if (kind == Packing::Invalid || (!n && r.pregap) || r.postgap || r.pregap > 150) return Result::Unsupported;
-            if (r.pregap && (packing(r.pgtype+r.stored_pregap) != kind || r.pg_data_bytes != r.data_bytes ||
-                strcmp(r.pgsub,r.stored_pregap ? r.subtype : "NONE"))) return Result::Unsupported;
-            const uint64_t index1 = cursor+r.pregap, end = index1+r.frames-(r.stored_pregap ? r.pregap : 0);
+            const auto pgkind = packing(r.pgtype+r.stored_pregap);
+            // First-track pregaps/HTOA and CDI need their own public address/session contract.
+            if (kind == Packing::Invalid || (!n && r.pregap) || (r.pregap && pgkind == Packing::Invalid)) return Result::Unsupported;
+            const bool regional = r.postgap || r.pregap > 150 || (r.pregap && (pgkind != kind || r.pg_data_bytes != r.data_bytes ||
+                strcmp(r.pgsub,r.stored_pregap ? r.subtype : "NONE")));
+            const uint64_t index1 = cursor+r.pregap, end = index1+r.frames-(r.stored_pregap ? r.pregap : 0)+r.postgap;
             if (end > 100*60*75-150) return Result::Unsupported; // common two-digit absolute MSF
-            const bool no_sub = !strcmp(r.subtype,"NONE");
-            const uint32_t stride = kind == Packing::Mode1Cooked && no_sub ? 2048 : no_sub ? 2352 : 2448;
-            const auto mode = kind == Packing::Audio ? Mode::Audio : kind == Packing::Mode1Cooked && no_sub ? Mode::Mode1_2048 :
-                kind == Packing::Mode1Cooked || kind == Packing::Mode1Raw ? Mode::Mode1Raw : Mode::Mode2Raw;
-            layout.track[n] = {uint32_t(cursor),uint32_t(index1),uint32_t(end),n,stride,0,mode,1,uint8_t(kind == Packing::Audio ? 0 : 4),r.stored_pregap,r.stored_pregap ? 0 : r.pregap,0};
-            view[n] = {this,n,kind}; binding[n] = {{{0},uint64_t(r.frames)*stride,1},read,&view[n]}; cursor = end;
+            const bool main_sub = strcmp(r.subtype,"NONE"), pg_sub = r.stored_pregap && strcmp(r.pgsub,"NONE");
+            const uint32_t stride = !regional && kind == Packing::Mode1Cooked && !main_sub ? 2048 : main_sub || (regional && pg_sub) ? 2448 : 2352;
+            auto normalized = [](Packing value) { return value == Packing::Audio ? Mode::Audio :
+                value == Packing::Mode1Cooked || value == Packing::Mode1Raw ? Mode::Mode1Raw : Mode::Mode2Raw; };
+            const auto mode = stride == 2048 ? Mode::Mode1_2048 : normalized(kind);
+            layout.track[n] = {uint32_t(cursor),uint32_t(index1),uint32_t(end),n,stride,0,mode,1,uint8_t(kind == Packing::Audio ? 0 : 4),r.stored_pregap,r.stored_pregap ? 0 : r.pregap,r.postgap};
+            if (regional) {
+                using R = Track::Regions;
+                layout.track[n].regions = {R::Explicit|(main_sub ? R::ProgramSub96 : 0)|(pg_sub ? R::PregapSub96 : 0)|
+                    (r.postgap ? R::PostgapIndex2 : 0),r.pregap ? normalized(pgkind) : Mode::Mode1_2048,
+                    r.pregap && pgkind != Packing::Audio ? 4u : 0u};
+            }
+            view[n] = {this,n,kind,pgkind}; binding[n] = {{{0},uint64_t(r.frames)*stride,1},read,&view[n]}; cursor = end;
         }
         layout.leadout = uint32_t(cursor);
         Disc validation; const auto valid = validation.bind(layout,binding,metadata.tracks);
@@ -108,7 +121,9 @@ struct CdChd::Data {
             }
             p6_sha256_final(&hash,binding[n].identity.content_id);
         }
-        p6_sha256_init(&hash); p6_sha256_update(&hash,"P6CHD1",6);
+        bool regional = false;
+        for (unsigned n = 0; n < metadata.tracks; ++n) regional |= layout.track[n].regions.flags != 0;
+        p6_sha256_init(&hash); p6_sha256_update(&hash,regional ? "P6CHR1" : "P6CHD1",6);
         auto put = [&](uint64_t value, unsigned width = 4) {
             uint8_t encoded[8]; for (unsigned n = 0; n < width; ++n) encoded[n] = uint8_t(value >> (n*8));
             p6_sha256_update(&hash,encoded,width);
@@ -120,6 +135,7 @@ struct CdChd::Data {
             const auto &t = layout.track[n];
             for (auto value : {t.index0,t.index1,t.end,t.source,t.stride}) put(value);
             put(t.offset,8); put(unsigned(t.mode)); put(t.adr); put(t.control); put(t.stored_pregap); put(t.synthetic_pregap); put(t.postgap);
+            if (regional) { put(t.regions.flags); put(unsigned(t.regions.pregap_mode)); put(t.regions.pregap_control); }
             put(binding[n].identity.bytes,8); p6_sha256_update(&hash,binding[n].identity.content_id,32);
         }
         p6_sha256_final(&hash,layout.content_id); return Result::Ok;

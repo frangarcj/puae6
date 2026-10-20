@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
     for (unsigned n = 0; n < owner->sources(); ++n) {
         const auto &b = owner->bindings()[n]; const auto &t = layout.track[n];
         printf("track %u %u %u %u %u %llu %u %u %u %u %u %u\n",t.index0,t.index1,t.end,t.source,t.stride,(unsigned long long)t.offset,unsigned(t.mode),t.adr,t.control,t.stored_pregap,t.synthetic_pregap,t.postgap);
+        printf("regions %u %u %u %u\n",n,t.regions.flags,unsigned(t.regions.pregap_mode),t.regions.pregap_control);
         printf("source %u %llu ",n,(unsigned long long)b.identity.bytes); print_id(b.identity.content_id); puts("");
         const uint64_t at = t.stride-8; const size_t length = size_t(b.identity.bytes-at < 2448 ? b.identity.bytes-at : 2448);
         CHECK(b.read(b.context,at,out,length,&got) && got == length);
@@ -66,6 +67,9 @@ int main(int argc, char **argv) {
     }
     for (uint32_t lba = 0; lba < layout.leadout; ++lba) {
         SectorInfo info; CHECK(describe_sector(disc,lba,&info) == Result::Ok);
+        memset(out,0xa5,sizeof out);
+        CHECK(disc.read_sector(lba,2448,out,2448)==(info.stored_subs ? Result::Ok : Result::Unsupported));
+        if (!info.stored_subs) CHECK(untouched(out,sizeof out));
         printf("info %u %u %u %u %u\n",lba,info.effective.control,info.stored_subs,info.pause,info.audio_gap);
         for (unsigned view : {2048u,2352u,2448u}) {
             memset(out,0xa5,sizeof out); const auto r = canonical_read(disc,lba,view,out+8,view);
@@ -77,15 +81,23 @@ int main(int argc, char **argv) {
         uint8_t saved[2448]; const auto &t = layout.track[n]; const auto &b = owner->bindings()[n];
         // Choose a different CHD hunk even for the final source before inducing I/O failure.
         const auto evict = layout.track[n+1 < layout.tracks ? layout.tracks-1 : 0].index1;
-        CHECK(canonical_read(disc,t.index1,2448,saved,sizeof saved) == Result::Ok);
-        CHECK(canonical_read(disc,evict,2448,out,sizeof out) == Result::Ok);
-        for (int error : {1,4}) {
-            fault=error; memset(out,0xa5,sizeof out);
-            CHECK(!b.read(b.context,t.stride-8,out,2448,&got) && !got && untouched(out,sizeof out));
-            CHECK(canonical_read(disc,t.index1,2448,out,2448) == Result::ReadError && untouched(out,sizeof out));
-            CHECK(read_subchannel(disc,t.index1,out,96) == Result::ReadError && untouched(out,sizeof out));
-            fault=0; CHECK(canonical_read(disc,t.index1,2448,out,2448) == Result::Ok && !memcmp(out,saved,2448));
+        for (uint32_t lba : {t.stored_pregap ? t.index0 : t.index1,t.index1}) {
+            SectorInfo info; CHECK(disc.describe(lba,&info)==Result::Ok);
+            CHECK(canonical_read(disc,lba,2448,saved,sizeof saved) == Result::Ok);
             CHECK(canonical_read(disc,evict,2448,out,sizeof out) == Result::Ok);
+            for (int error : {1,4}) {
+                fault=error; memset(out,0xa5,sizeof out);
+                CHECK(!b.read(b.context,t.stride-8,out,2448,&got) && !got && untouched(out,sizeof out));
+                CHECK(canonical_read(disc,lba,2448,out,2448) == Result::ReadError && untouched(out,sizeof out));
+                if (info.stored_subs) CHECK(read_subchannel(disc,lba,out,96) == Result::ReadError && untouched(out,sizeof out));
+                else CHECK(read_subchannel(disc,lba,out,96)==Result::Ok&&!memcmp(out,saved+2352,96)&&untouched(out+96,sizeof out-96));
+                fault=0; CHECK(canonical_read(disc,lba,2448,out,2448) == Result::Ok && !memcmp(out,saved,2448));
+                CHECK(canonical_read(disc,evict,2448,out,sizeof out) == Result::Ok);
+            }
+        }
+        if (t.postgap) {
+            CHECK(canonical_read(disc,t.end-1,2448,saved,sizeof saved)==Result::Ok);
+            fault=1; CHECK(canonical_read(disc,t.end-1,2448,out,2448)==Result::Ok&&!memcmp(out,saved,2448)); fault=0;
         }
     }
     if (argc == 3) {

@@ -1,4 +1,5 @@
 """Private CHD provider domain: exact numeric sectors, IDs, rebind and native/VFS I/O."""
+import binascii
 import functools
 import hashlib
 import json
@@ -12,7 +13,7 @@ from tests.media import test_chd_reader as reader, test_cd_mds as mds, test_cd_n
 ROOT = Path(__file__).resolve().parents[2]
 
 
-@functools.lru_cache(maxsize=128)
+@functools.lru_cache(maxsize=2048)
 def mode1(payload, lba):
     sector = bytearray(nrg.mode2_header(lba)[:-1] + b'\1' + payload + bytes(288))
     edc = 0
@@ -150,6 +151,83 @@ class CdChdTests(unittest.TestCase):
         struct.pack_into('>Q',data,32,logical); data = reader.metadata_chain(data,records,tag=0x43485432)
         path = self.work/(name+'.chd'); path.write_bytes(data); return path,tracks,streams
 
+    def regional_fixture(self, name, *, prefix=66, payload=0, subchange=0, gapchange=0, postchange=0, variant=False):
+        pairs = [('AUDIO','MODE1'),('MODE1','AUDIO'),('MODE2_FORM1','MODE2_RAW'),('MODE2_FORM2','MODE1_RAW'),
+                 ('MODE1_RAW','MODE2/2336'),('MODE2_FORM_MIX','MODE2_FORM2'),('MODE2_RAW','MODE1/2048'),('MODE1/2048','MODE2_FORM1')]
+        specs = [('AUDIO','AUDIO','NONE','NONE',False,0,0,prefix)]
+        for pg,kind in pairs:
+            for n,(pgsub,sub) in enumerate((('NONE','RW'),('RW','NONE'),('RW_RAW','RW'),('RW','RW_RAW'))):
+                specs.append((pg,kind,pgsub,sub,n<3,2 if n<3 else 151+(len(specs)%2)*49,1+len(specs)%2,5))
+        units=[]; streams=[]; tracks=[]; regions=[]; records=[]; cursor=0
+        def packing(kind):
+            return 3 if kind=='AUDIO' else 0 if kind in ('MODE1','MODE1/2048') else 1 if kind in ('MODE1_RAW','MODE1/2352') else 2
+        for n,(pg,kind,pgsub,sub,stored,gap,post,frames) in enumerate(specs):
+            if n==1: gap+=gapchange; post+=postchange
+            if variant and n==1: pg='MODE2_FORM1'; pgsub='RW_RAW'
+            regional=bool(n); stride=2448 if sub!='NONE' or (stored and pgsub!='NONE') else 2352
+            mainmode=packing(kind); mainmode=1 if mainmode==0 else mainmode
+            pgmode=packing(pg); pgmode=1 if pgmode==0 else pgmode
+            flags=(1|(2 if sub!='NONE' else 0)|(4 if stored and pgsub!='NONE' else 0)|(32 if post else 0)) if regional else 0
+            policy=[flags,pgmode,0 if pgmode==3 else 4] if regional else [0,0,0]
+            end=cursor+gap+frames-(gap if stored else 0)+post
+            tracks.append([cursor,cursor+gap,end,n,stride,0,mainmode,1,0 if mainmode==3 else 4,int(stored),0 if stored else gap,post]); regions.append(policy)
+            start=cursor if stored else cursor+gap; stream=bytearray()
+            for k in range(frames):
+                selected,st=(pg,pgsub) if stored and k<gap else (kind,sub); mode=packing(selected)
+                size=2352 if mode in (1,3) or selected in ('MODE2_RAW','MODE2/2352') else 2324 if selected in ('MODE2_FORM2','MODE2/2324') else 2336 if selected in ('MODE2','MODE2/2336','MODE2_FORM_MIX') else 2048
+                raw=bytes((n*31+k*7+i+payload)&255 for i in range(size)); lba=start+k
+                if mode==3:
+                    samples=[(n*317+k*211+i*13+payload)%65536-32768 for i in range(1176)]
+                    raw=struct.pack('>1176h',*samples); body=struct.pack('<1176h',*samples)
+                elif mode==0: body=mode1(raw,lba)
+                elif size==2352: raw=raw[:15]+bytes([1 if mode==1 else 2])+raw[16:]; body=raw
+                else: body=nrg.mode2_header(lba)+(raw if size==2336 else form2_body(raw) if size==2324 else nrg.form1_body(raw))
+                pw=bytes((n*11+k+i*13+subchange)&255 for i in range(96))
+                stream+=body+((pw if st!='NONE' else bytes(96)) if stride==2448 else b'')
+                unit=raw+(nrg.interleave(pw) if st=='RW_RAW' else pw) if st!='NONE' else raw
+                units.append(unit.ljust(2448,b'\x9d'))
+            units += [bytes([n&255])*2448]*((-frames)&3); streams.append(bytes(stream)); cursor=end
+            pgtype=('V' if stored else '')+pg if gap else 'MODE1'
+            records.append(f'TRACK:{n+1} TYPE:{kind} SUBTYPE:{sub} FRAMES:{frames} PREGAP:{gap} PGTYPE:{pgtype} PGSUB:{pgsub} POSTGAP:{post}'.encode())
+        logical=len(units)*2448; units += [bytes(2448)]*((-len(units))&7)
+        data=reader.cd_map([(4,b''.join(units[n:n+8])) for n in range(0,len(units),8)],sector=bytes(19584))
+        struct.pack_into('>Q',data,32,logical); path=self.work/(name+'.chd'); path.write_bytes(reader.metadata_chain(data,records,tag=0x43485432))
+        return path,tracks,streams,regions
+
+    def regional_sector(self, fixture, lba):
+        _,tracks,streams,regions=fixture; n=next(n for n,t in enumerate(tracks) if lba<t[2]); t=tracks[n]; f,pgmode,pgcontrol=regions[n]
+        pre,post=lba<t[1],lba>=t[2]-t[11]; first=t[0] if t[9] else t[1]; synthetic=lba<first or post
+        mode,control=(pgmode,pgcontrol) if f and pre else (t[6],t[8]); at=(lba-first)*t[4]
+        stored=not synthetic and (bool(f&(4 if pre else 2)) if f else t[4]==2448)
+        body=streams[n][at:at+2352] if not synthetic else bytes(2352) if mode==3 else mode1(bytes(2048),lba) if mode==1 else nrg.mode2_header(lba)+bytes(2336)
+        if stored: sub=streams[n][at+2352:at+2448]
+        else:
+            def bcd(n): return n//10*16+n%10
+            def clock(n): return bytes(map(bcd,(n//4500,n//75%60,n%75)))
+            q=bytes((control*16+1,bcd(n+1),0 if pre else 2 if post and f&32 else 1))+clock(abs(lba-t[1]))+b'\0'+clock(lba+150)
+            sub=(b'\xff' if pre or post else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
+        return body,sub,mode,[control,int(stored),int(pre or post),int(synthetic and mode==3)]
+
+    def verify_regional(self, fixture, vfs=False):
+        path,tracks,streams,regions=fixture; rows=self.run_chd(path,vfs=vfs); blob=path.read_bytes(); digest=hashlib.sha256
+        logical,hunk=struct.unpack_from('>Q',blob,32)[0],struct.unpack_from('>I',blob,56)[0]; padded=sum((len(s)//t[4]+3)//4*4 for t,s in zip(tracks,streams))
+        encoded=b'P6CHR1'+struct.pack('<Q',len(blob))+digest(blob).digest()+struct.pack('<QIQQII',logical,hunk,padded,logical//2448-padded,len(tracks),tracks[-1][2])
+        for n,(t,stream,region) in enumerate(zip(tracks,streams,regions)):
+            self.assertIn('track '+' '.join(map(str,t)),rows); self.assertIn('regions '+' '.join(map(str,[n]+region)),rows)
+            self.assertIn(f'source {n} {len(stream)} {digest(stream).hexdigest()}',rows)
+            encoded+=struct.pack('<IIIIIQIIIIIIIIIQ',*t,*region,len(stream))+digest(stream).digest()
+        self.assertIn(f'container {len(blob)} {digest(blob).hexdigest()}',rows)
+        self.assertIn(f'disc {len(tracks)} {tracks[-1][2]} {digest(encoded).hexdigest()}',rows)
+        for row in map(str.split,rows):
+            if row[0]=='bytes': n,at,count=map(int,row[1:4]); self.assertEqual(row[4],digest(streams[n][at:at+count]).hexdigest())
+            if row[0] not in ('sector','info'): continue
+            lba=int(row[1]); body,sub,mode,info=self.regional_sector(fixture,lba)
+            if row[0]=='info': self.assertEqual(list(map(int,row[2:])),info); continue
+            view,status=map(int,row[2:4]); error=5 if view==2048 and mode in (2,3) else 0
+            self.assertEqual(status,error)
+            if not error: self.assertEqual(row[4],digest(body[16:2064] if view==2048 else body if view==2352 else body+sub).hexdigest())
+        return rows
+
     def canonical(self, tracks, streams, lba):
         t = next(t for t in tracks if lba < t[2]); first = t[0] if t[9] else t[1]; gap = lba < first; at = (lba-first)*t[4]
         main = bytes(2048 if t[6] == 0 else 2352) if gap else streams[t[3]][at:at+min(t[4],2352)]
@@ -190,7 +268,7 @@ class CdChdTests(unittest.TestCase):
             self.assertEqual(self.run_chd(first[0],rebind=other[0])[-1],f'rebind {2 if n else 0} {expected}')
 
     def test_out_of_domain_and_geometry_do_not_publish(self):
-        cases = [(0,'PREGAP:0','PREGAP:1'),(1,'POSTGAP:0','POSTGAP:1'),(3,'PREGAP:3','PREGAP:151'),(1,'PGTYPE:VMODE1_RAW','PGTYPE:VMODE1'),(2,'PGSUB:RW','PGSUB:NONE'),(5,'PGSUB:NONE','PGSUB:RW'),(1,'TYPE:MODE1_RAW','TYPE:MODE1')]
+        cases = [(0,'PREGAP:0','PREGAP:1'),(1,'PGTYPE:VMODE1_RAW','PGTYPE:VCDI/2352'),(2,'PGSUB:RW','PGSUB:BAD')]
         cases += [(3,'TYPE:MODE2_RAW','TYPE:'+mode) for mode in ('CDI/2352',)]
         for n,replace in enumerate(cases): self.assertEqual(self.run_chd(self.fixture('reject'+str(n),replace=replace)[0],code=2),['error 5'])
         path = self.fixture('geometry')[0]; blob = bytearray(path.read_bytes()); struct.pack_into('>Q',blob,32,2448); path.write_bytes(blob); self.assertEqual(self.run_chd(path,code=2),['error 1'])
@@ -228,7 +306,7 @@ class CdChdTests(unittest.TestCase):
             if shift:
                 for n in (2,7,16): self.assertNotEqual(first[2][n],other[2][n])
         for fault in (1,2,3,4): self.assertEqual(self.run_chd(first[0],code=2,vfs=True,fault=fault),['error 4'])
-        for n,old,new in ((2,'PGTYPE:VMODE1','PGTYPE:VMODE1_RAW'),(7,'PGTYPE:MODE2','PGTYPE:MODE2_FORM1'),(16,'PGTYPE:MODE2_FORM1','PGTYPE:MODE2'),(2,'PGSUB:RW','PGSUB:RW_RAW')):
+        for n,old,new in ((2,'PGTYPE:VMODE1','PGTYPE:VCDI/2352'),(7,'PGTYPE:MODE2','PGTYPE:CDI/2352'),(16,'PGTYPE:MODE2_FORM1','PGTYPE:CDI/2352'),(2,'PGSUB:RW','PGSUB:BAD')):
             self.assertEqual(self.run_chd(self.cooked_fixture('cooked-reject'+str(n)+new[-1],replace=(n,old,new))[0],code=2),['error 5'])
 
     def test_form2_2324_edc_subchannels_and_rebind(self):
@@ -248,5 +326,18 @@ class CdChdTests(unittest.TestCase):
         arbitrary = bytes((n*37+11)&255 for n in range(2352))
         expected = arbitrary[:16]+form2_body(arbitrary[24:2348],arbitrary[16:24])
         self.assertEqual(self.run_chd('--form2-edc'),['form2-edc '+hashlib.sha256(expected).hexdigest()])
-        for n,old,new in ((2,'PGTYPE:VMODE2_FORM2','PGTYPE:VMODE2_FORM1'),(5,'PGSUB:RW','PGSUB:RW_RAW')):
+        for n,old,new in ((2,'PGTYPE:VMODE2_FORM2','PGTYPE:VCDI/2352'),(5,'PGSUB:RW','PGSUB:BAD')):
             self.assertEqual(self.run_chd(self.cooked_fixture('form2-reject'+str(n),form2=True,replace=(n,old,new))[0],code=2),['error 5'])
+
+    def test_regional_pregap_packings_subchannels_postgap_and_identity(self):
+        fixture=self.regional_fixture('regional'); rows=self.verify_regional(fixture)
+        self.assertEqual(rows,self.verify_regional(fixture,True))
+        self.verify_regional(self.regional_fixture('regional-minute',prefix=4340))
+
+    def test_regional_reader_failures_and_fresh_owner_rebind(self):
+        first=self.regional_fixture('regional-first'); self.verify_regional(first)
+        expected=hashlib.sha256(b''.join(b''.join(self.regional_sector(first,lba)[:2]) for lba in range(first[1][-1][2]))).hexdigest()
+        for n,options in enumerate(({}, {'payload':1},{'subchange':1},{'gapchange':1},{'postchange':1},{'variant':True})):
+            other=self.regional_fixture('regional-rebind'+str(n),**options); self.verify_regional(other)
+            self.assertEqual(self.run_chd(first[0],rebind=other[0])[-1],f'rebind {2 if n else 0} {expected}')
+        for fault in (1,2,3,4): self.assertEqual(self.run_chd(first[0],code=2,vfs=True,fault=fault),['error 4'])
