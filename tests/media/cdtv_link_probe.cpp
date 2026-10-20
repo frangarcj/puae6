@@ -61,6 +61,7 @@ int main(int argc, char **argv)
         config.random_seed = 1; config.rtc_epoch_seconds = 946684800;
         assert(p6_init(&config, &error) == P6_OK);
         assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
+        assert(!p6_cdtv_private_start() && !currprefs.cs_cdtvcd && !changed_prefs.cs_cdtvcd);
         using namespace p6_cd;
         Layout layout{}; layout.tracks = 1; layout.leadout = 2;
         layout.track[0] = {0, 0, 2, 0, 2048, 0, Mode::Mode1_2048, 1, 4, false};
