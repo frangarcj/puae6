@@ -20,7 +20,8 @@ ENV = dict(ci.ENV, P6_TEST_PORTABILITY="1", P6_TEST_SIMD_MATRIX="1", P6_TEST_ENG
            P6_A600_UNITS="1800", P6_A1200_UNITS="2200", P6_A1200_DMS_UNITS="1500", P6_GAME_UNITS="420", P6_HDF_UNITS="700", P6_HDF_UNITS_13="700",
            P6_CPU_PERF_DIR=str(CPU_PERF_DIR), P6_RUN_CPU_PERF="0")
 ASSETS = ("P6_KICKSTART_ROM", "P6_KICKSTART_A600_ZIP", "P6_WB205_ZIP", "P6_KICKSTART_A1200_ROM", "P6_AGA_ADF", "P6_AGA_DMS",
-          "P6_GAME_ADF", "P6_WHDLOAD_LHA", "P6_FATALMISSION_LHA", "P6_FDI_FILE", "P6_IPF_FILE", "P6_PACKAGE_ZIP")
+          "P6_GAME_ADF", "P6_WHDLOAD_LHA", "P6_FATALMISSION_LHA", "P6_FDI_FILE", "P6_IPF_FILE", "P6_PACKAGE_ZIP",
+          "P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE")
 SIMD = {
     "test_decision": {"functional": ("DecisionTests",), "performance": ("PerformanceTests",)},
     "test_engine_flags": {"optimization": ("ConfigurationTests", "EquivalenceTests", "SafetyTests"), "performance": ("PerformanceTests", "DecisionTests")},

@@ -76,6 +76,28 @@ class NightlyRecipeTests(unittest.TestCase):
         preflight.assert_called_once_with(ci.ASSETS)
         prepare.assert_not_called()
 
+    def test_missing_a4000_or_cd32_assets_stop_before_build_or_image_preparation(self):
+        required = {"P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE"}
+        self.assertLessEqual(required, set(ci.ASSETS))
+        with tempfile.TemporaryDirectory() as directory:
+            asset = Path(directory) / "fixture"
+            asset.write_bytes(b"preflight checks presence, never loads private content")
+            for missing in sorted(required):
+                environment = {name: str(asset) for name in ci.ASSETS if name != missing}
+                with self.subTest(missing=missing), mock.patch.dict(ci.os.environ, environment, clear=True), \
+                     mock.patch.object(ci.ci.platform, "system", return_value="Darwin"), \
+                     mock.patch.object(ci.ci.platform, "machine", return_value="arm64"), \
+                     mock.patch.object(ci.ci.os, "sysconf", return_value=16384), \
+                     mock.patch.object(ci.ci.shutil, "which", return_value="/local/tool"), \
+                     mock.patch.object(ci, "images") as images, mock.patch.object(ci, "prepare") as prepare, \
+                     mock.patch.object(ci, "execute") as execute:
+                    result = ci.run("functional")
+                self.assertEqual("BLOCKED", result["status"])
+                self.assertIn(missing, result["diagnostic"])
+                images.assert_not_called()
+                prepare.assert_not_called()
+                execute.assert_not_called()
+
     def test_cpu_campaign_is_prepared_once_before_its_measurements_are_consumed(self):
         with mock.patch.object(ci, "execute") as execute:
             ci.prepare("performance")
