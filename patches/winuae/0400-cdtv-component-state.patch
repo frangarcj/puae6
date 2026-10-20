@@ -1,0 +1,235 @@
+diff --git a/cdtv.cpp b/cdtv.cpp
+--- a/cdtv.cpp
++++ b/cdtv.cpp
+@@ -29,6 +29,7 @@
+ #include "gui.h"
+ #include "zfile.h"
+ #include "p6_state_access.h"
++#include "cdtv_state.h"
+ #include "media/cd_device.h"
+ #include <limits.h>
+ #ifdef A2091
+@@ -66,6 +67,8 @@
+ static uae_u32 requests[100];
+ static unsigned request_head, request_size;
+ static bool service_running;
++static uint32_t callback_mode;
++static uint64_t callback_observations;
+ static uae_u64 seek_deadline;
+ static int subqcnt, subchannelcounter;
+ static uae_u8 last_out;
+@@ -176,6 +179,7 @@
+ 		return;
+ 	sys_command_cd_pause (unitnum, 0);
+ 	sys_command_cd_stop (unitnum);
++	callback_mode = 0;
+ }
+ 
+ static void cdaudiostop (void)
+@@ -252,6 +256,7 @@
+ 
+ static void subfunc (uae_u8 *data, int cnt)
+ {
++	++callback_observations;
+ 	if (!issub ())
+ 		return;
+ 
+@@ -294,6 +299,8 @@
+ }
+ static int statusfunc (int status, int playpos)
+ {
++	++callback_observations;
++	if (status == -1) callback_mode = 1;
+ 	if (status == -1)
+ 		return 150;
+ 	if (status == -2)
+@@ -317,6 +324,8 @@
+ 
+ static int statusfunc_imm(int status, int playpos)
+ {
++	++callback_observations;
++	if (status == -1) callback_mode = 2;
+ 	if (status < 0)
+ 		return 0;
+ 	if (status == AUDIO_STATUS_IN_PROGRESS)
+@@ -1724,6 +1733,7 @@
+ 	}
+ 
+ 	close_unit ();
++	callback_mode = 0;
+ 	service_running = true; request_head = request_size = 0;
+ 	seek_deadline = dma_wait = 0;
+ 	dmac_istr = dmac_cntr = dmac_dawr = dmac_acr = dmac_wtc = dmac_dma = dma_finished = 0;
+@@ -1786,6 +1796,172 @@
+ 	return {dmac_acr, uint32_t(dmac_wtc), dmac_istr, request_size,
+ 		uint32_t(cdrom_command_cnt_in), uint32_t(cd_error), uint32_t(dmac_dma),
+ 		uint32_t(dma_finished), uint32_t(seek_deadline != 0)};
++}
++
++// One explicit field inventory; Validate never reads live values or writes either owner.
++enum class CdtvOp { Capture, Validate, Apply };
++template<CdtvOp op, class V, class L> static bool cdtv_field(V &v, L &live, int64_t lo, int64_t hi)
++{
++    if constexpr (op == CdtvOp::Capture) v = live;
++    if (v < lo || v > hi) return false;
++    if constexpr (op == CdtvOp::Apply) live = v;
++    return true;
++}
++template<CdtvOp op, class S> static bool cdtv_fields(S &s)
++{
++    bool ok = true;
++    ok &= cdtv_field<op>(s.configured, configured, 233, 233);
++    ok &= cdtv_field<op>(s.cdtvscsi, cdtvscsi, 0, 0);
++    ok &= cdtv_field<op>(s.unitnum, unitnum, 0, 0);
++    ok &= cdtv_field<op>(s.dma_mask, dma_mask, 16777215, 16777215);
++    ok &= cdtv_field<op>(s.service_running, service_running, 1, 1);
++    ok &= cdtv_field<op>(s.callback_mode, callback_mode, 0, 2);
++    ok &= cdtv_field<op>(s.request_size, request_size, 0, 100);
++    ok &= cdtv_field<op>(s.dmac_istr, dmac_istr, 0, 255);
++    ok &= cdtv_field<op>(s.dmac_cntr, dmac_cntr, 0, 255);
++    ok &= cdtv_field<op>(s.dmac_dawr, dmac_dawr, 0, 65535);
++    ok &= cdtv_field<op>(s.dmac_acr, dmac_acr, 0, UINT32_MAX);
++    ok &= cdtv_field<op>(s.dmac_wtc, dmac_wtc, INT32_MIN, INT32_MAX);
++    ok &= cdtv_field<op>(s.dmac_dma, dmac_dma, 0, 1);
++    ok &= cdtv_field<op>(s.activate_stch, activate_stch, 0, 1);
++    ok &= cdtv_field<op>(s.cdrom_command_done, cdrom_command_done, 0, 1);
++    ok &= cdtv_field<op>(s.cd_playing, cd_playing, 0, 1);
++    ok &= cdtv_field<op>(s.cd_paused, cd_paused, 0, 1);
++    ok &= cdtv_field<op>(s.cd_motor, cd_motor, 0, 1);
++    ok &= cdtv_field<op>(s.cd_media, cd_media, 0, 1);
++    ok &= cdtv_field<op>(s.cd_error, cd_error, 0, 1);
++    ok &= cdtv_field<op>(s.cd_finished, cd_finished, 0, 1);
++    ok &= cdtv_field<op>(s.cd_isready, cd_isready, 0, 1);
++    ok &= cdtv_field<op>(s.cd_audio_finished, cd_audio_finished, 0, 1);
++    ok &= cdtv_field<op>(s.cdrom_sector, cdrom_sector, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.cdrom_sectors, cdrom_sectors, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.cdrom_length, cdrom_length, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.cdrom_offset, cdrom_offset, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.last_cd_position, last_cd_position, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.play_start, play_start, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.play_end, play_end, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.last_play_pos, last_play_pos, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.last_play_end, last_play_end, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.datatrack, datatrack, 0, 1);
++    ok &= cdtv_field<op>(s.cd_audio_status, cd_audio_status, 0, 255);
++    ok &= cdtv_field<op>(s.cd_volume, cd_volume, 0, 1023);
++    ok &= cdtv_field<op>(s.cd_volume_stored, cd_volume_stored, 0, 1023);
++    ok &= cdtv_field<op>(s.dac_control_data_format, dac_control_data_format, 0, 65535);
++    ok &= cdtv_field<op>(s.cd_led, cd_led, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.frontpanel, frontpanel, 0, 1);
++    ok &= cdtv_field<op>(s.cdtv_hsync, cdtv_hsync, -1, INT32_MAX - 1);
++    ok &= cdtv_field<op>(s.dma_finished, dma_finished, 0, 1);
++    ok &= cdtv_field<op>(s.cdtv_sectorsize, cdtv_sectorsize, 512, 2340);
++    ok &= cdtv_field<op>(s.dma_wait, dma_wait, 0, int64_t(INT32_MAX) * 312 * 50 / 75 + 1024);
++    ok &= cdtv_field<op>(s.seek_deadline, seek_deadline, 0, INT64_MAX);
++    ok &= cdtv_field<op>(s.cdrom_command_cnt_in, cdrom_command_cnt_in, 0, 15);
++    ok &= cdtv_field<op>(s.cdrom_command_cnt_out, cdrom_command_cnt_out, -1, 15);
++    ok &= cdtv_field<op>(s.cdrom_command_size_out, cdrom_command_size_out, -1, 16);
++    ok &= cdtv_field<op>(s.tp_a, tp_a, 0, 255);
++    ok &= cdtv_field<op>(s.tp_b, tp_b, 0, 255);
++    ok &= cdtv_field<op>(s.tp_c, tp_c, 0, 255);
++    ok &= cdtv_field<op>(s.tp_ad, tp_ad, 0, 255);
++    ok &= cdtv_field<op>(s.tp_bd, tp_bd, 0, 255);
++    ok &= cdtv_field<op>(s.tp_cd, tp_cd, 0, 255);
++    ok &= cdtv_field<op>(s.tp_imask, tp_imask, 0, 255);
++    ok &= cdtv_field<op>(s.tp_cr, tp_cr, 0, 255);
++    ok &= cdtv_field<op>(s.tp_air, tp_air, 0, 255);
++    ok &= cdtv_field<op>(s.tp_ilatch, tp_ilatch, 0, 255);
++    ok &= cdtv_field<op>(s.tp_ilatch2, tp_ilatch2, 0, 255);
++    ok &= cdtv_field<op>(s.volstrobe1, volstrobe1, 0, 1);
++    ok &= cdtv_field<op>(s.volstrobe2, volstrobe2, 0, 1);
++    ok &= cdtv_field<op>(s.stch, stch, 0, 1);
++    ok &= cdtv_field<op>(s.cmd, cmd, 0, 1);
++    ok &= cdtv_field<op>(s.enable, enable, 0, 1);
++    ok &= cdtv_field<op>(s.xaen, xaen, 0, 1);
++    ok &= cdtv_field<op>(s.dten, dten, 0, 1);
++    ok &= cdtv_field<op>(s.sten, sten, -3, 1);
++    ok &= cdtv_field<op>(s.scor, scor, -1, 1);
++    ok &= cdtv_field<op>(s.sbcp, sbcp, -1, 1);
++    ok &= cdtv_field<op>(s.subcodebufferoffset, subcodebufferoffset, 0, 35);
++    ok &= cdtv_field<op>(s.subcodebufferoffsetw, subcodebufferoffsetw, 0, 35);
++    ok &= cdtv_field<op>(s.subcodeoffset, subcodeoffset, -2, 95);
++    ok &= cdtv_field<op>(s.subcode_activecnt, subcode_activecnt, -1, 5);
++    ok &= cdtv_field<op>(s.subqcnt, subqcnt, 0, 75);
++    ok &= cdtv_field<op>(s.subchannelcounter, subchannelcounter, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.last_out, last_out, 0, 255);
++    ok &= cdtv_field<op>(s.toc.first_track, toc.first_track, 0, 99);
++    ok &= cdtv_field<op>(s.toc.first_track_offset, toc.first_track_offset, 0, 102);
++    ok &= cdtv_field<op>(s.toc.last_track, toc.last_track, 0, 99);
++    ok &= cdtv_field<op>(s.toc.last_track_offset, toc.last_track_offset, 0, 102);
++    ok &= cdtv_field<op>(s.toc.firstaddress, toc.firstaddress, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.toc.lastaddress, toc.lastaddress, 0, INT32_MAX);
++    ok &= cdtv_field<op>(s.toc.tracks, toc.tracks, 0, 99);
++    ok &= cdtv_field<op>(s.toc.points, toc.points, 0, 103);
++    for (unsigned n = 0; n < 103; ++n) {
++        auto &v = s.toc.entry[n]; auto &e = toc.toc[n];
++        ok &= cdtv_field<op>(v.adr, e.adr, 0, 15);
++        ok &= cdtv_field<op>(v.control, e.control, 0, 15);
++        ok &= cdtv_field<op>(v.tno, e.tno, 0, 255);
++        ok &= cdtv_field<op>(v.point, e.point, 0, 255);
++        ok &= cdtv_field<op>(v.track, e.track, 0, 255);
++        ok &= cdtv_field<op>(v.zero, e.zero, 0, 255);
++        ok &= cdtv_field<op>(v.address, e.address, 0, INT32_MAX);
++        ok &= cdtv_field<op>(v.paddress, e.paddress, 0, INT32_MAX);
++        for (unsigned b = 0; b < 2; ++b) ok &= cdtv_field<op>(v.crc[b], e.crc[b], 0, 255);
++    }
++    return ok;
++}
++template<CdtvOp op, class S> static void cdtv_buffers(S &s)
++{
++    if constexpr (op == CdtvOp::Capture) memcpy(s.input, cdrom_command_input, sizeof s.input); else memcpy(cdrom_command_input, s.input, sizeof s.input);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.output, cdrom_command_output, sizeof s.output); else memcpy(cdrom_command_output, s.output, sizeof s.output);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.q, cdrom_qcode, sizeof s.q); else memcpy(cdrom_qcode, s.q, sizeof s.q);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.nvram, cdtv_battram, sizeof s.nvram); else memcpy(cdtv_battram, s.nvram, sizeof s.nvram);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.sub_used, subcodebufferinuse, sizeof s.sub_used); else memcpy(subcodebufferinuse, s.sub_used, sizeof s.sub_used);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.sub, subcodebuffer, sizeof s.sub); else memcpy(subcodebuffer, s.sub, sizeof s.sub);
++    if constexpr (op == CdtvOp::Capture) memcpy(s.transfer, subtransferbuf, sizeof s.transfer); else memcpy(subtransferbuf, s.transfer, sizeof s.transfer);
++}
++static bool cdtv_ready() { return service_running && currprefs.cs_cdtvcd && !currprefs.cs_cdtvcr && unitnum == 0; }
++uint64_t p6_cdtv_callback_observations() { return callback_observations; }
++void (*p6_cdtv_subcode_handler())(uint32_t) { return subcode_interrupt; }
++bool p6_cdtv_state_get(p6_cdtv_state *s)
++{
++    if (!s || !cdtv_ready() || &get_mem_bank(0xe90000) != &dmac_bank) return false;
++    memset(s, 0, sizeof *s);
++    if (!p6_cd::device_capture(&s->device)) return false;
++    if (!cdtv_fields<CdtvOp::Capture>(*s)) return false;
++    cdtv_buffers<CdtvOp::Capture>(*s);
++    s->callback_mode = s->device.audio.callbacks ? callback_mode : 0;
++    for (unsigned n = 0; n < 100; ++n) s->queue[n] = n < request_size ? requests[(request_head + n) % 100] : 0;
++    for (unsigned n = 0; n < 36; ++n) if (!s->sub_used[n]) memset(s->sub[n], 0, 96);
++    return true;
++}
++bool p6_cdtv_state_validate(const p6_cdtv_state *s, const p6_cdtv_context &c)
++{
++    if (!s || c.cycle < 0 || c.ntsc > 1 || c.cda_period != (c.ntsc ? 41558u : 41179u) || !cdtv_fields<CdtvOp::Validate>(*s) ||
++        !s->device.bound || !s->device.opens || !p6_cd::device_validate(s->device, c.disc, c.cda_period)) return false;
++    if (s->callback_mode > 2 || s->device.audio.callbacks != (s->callback_mode ? 3u : 0u) || (s->dmac_acr & 1) ||
++        (s->cdrom_offset & 1) || (s->cdrom_length & 1) || s->cdrom_offset > INT32_MAX - s->cdrom_length ||
++        (s->seek_deadline && (s->seek_deadline < uint64_t(c.cycle) || s->seek_deadline - c.cycle > uint64_t(c.ntsc ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL) * CYCLE_UNIT / 2))) return false;
++    if (s->cdtv_sectorsize != 512 && s->cdtv_sectorsize != 1024 && s->cdtv_sectorsize != 2048 && s->cdtv_sectorsize != 2052 && s->cdtv_sectorsize != 2336 && s->cdtv_sectorsize != 2340) return false;
++    for (unsigned n = 0; n < 100; ++n) {
++        if (n >= s->request_size) { if (s->queue[n]) return false; }
++        else if (s->queue[n] == 0x110 || s->queue[n] == 0x111) n += std::min(3u, s->request_size - n - 1);
++        else if (s->queue[n] > 0x107) return false;
++    }
++    for (unsigned n = 0; n < 36; ++n) {
++        if (s->sub_used[n] > 1) return false;
++        if (!s->sub_used[n]) for (auto v : s->sub[n]) if (v) return false;
++    }
++    return true;
++}
++bool p6_cdtv_state_apply(const p6_cdtv_state *s, const p6_cdtv_context &c)
++{
++    if (!cdtv_ready() || get_cycles() != c.cycle || !p6_cdtv_state_validate(s, c) ||
++        (&get_mem_bank(0xe90000) != &dmac_bank && &get_mem_bank(0xe90000) != &dummy_bank)) return false;
++    auto status = s->callback_mode == 2 ? statusfunc_imm : s->callback_mode == 1 ? statusfunc : nullptr;
++    auto sub = s->callback_mode ? subfunc : nullptr;
++    if (!p6_cd::device_can_restore(s->device, c.disc, status, sub) || !p6_cd::device_restore(s->device, c.disc, status, sub)) return false;
++    cdtv_fields<CdtvOp::Apply>(*s); cdtv_buffers<CdtvOp::Apply>(*s);
++    request_head = 0; memcpy(requests, s->queue, sizeof requests);
++    if (&get_mem_bank(0xe90000) != &dmac_bank) map_banks(&dmac_bank, 0xe9, 1, 0);
++    return true;
+ }
+ 
+ bool cdtvscsi_init(struct autoconfig_info *) { return false; }

@@ -8090,7 +8090,7 @@
           "DMC3",
           "DMC4"
         ],
-        "reason": "Upstream CD32/CDU restore routines are not used: the private stock CD32 profile has semantic native P6AK with fixed CD identity. CDTV/DMAC remain unsupported here; full CD32 Waterbox and game boot remain T66 gates.",
+        "reason": "Upstream CD32/CDU restore routines are not used: the private stock CD32 profile has semantic native P6AK with fixed CD identity. CDTV/DMAC has a private semantic DTO (ports/portable/cdtv_state.h, patch0400) with local capture/validate/apply checks in tests/media/test_cdtv_state.py; its FIFO, DMAC/6525, cached TOC/Q, volatile NVRAM, SUB and DeviceState/CDA are component values only. P6SC event binding, P6AU phase, native P6CT, cold restore and complete future remain T67b2, and p6_state_* still rejects CDTV as UNSUPPORTED; full CD32 Waterbox and game boot remain T66 gates.",
         "evidence": [
           "bridge/state_akiko.cpp",
           "ports/portable/state_io/akiko.h",

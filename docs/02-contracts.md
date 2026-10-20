@@ -1822,3 +1822,9 @@ no avanzan el reloj; solo `p6_run_frame` ejecuta el dispositivo. No incluye SCSI
 tarjeta, persistencia, autoconfig/perfil publico ni arranque CDTV. Mientras
 `currprefs.cs_cdtvcd` este activo, todo estado nativo devuelve `UNSUPPORTED` antes
 de medir/aplicar; necesita un codec causal propio, nunca un P6AK prestado.
+
+T67b1 ofrece solo un DTO privado CDTV con captura, validacion y aplicacion local.
+Incluye registros, FIFO/SUB, TOC/Q cacheados, NVRAM y CDA/PCM, sin guardar punteros.
+Su aplicacion no lee medios, avanza ciclos, emite IRQ/callbacks ni agenda eventos.
+P6SC/P6AU y restauracion fria/futuro completos siguen en T67b2; `p6_state_*`
+con CDTV continua `UNSUPPORTED`. No es un formato persistente ni un perfil publico.
