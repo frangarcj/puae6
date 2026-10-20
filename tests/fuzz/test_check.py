@@ -18,6 +18,18 @@ def completed(counts, code=0):
 
 
 class TaskSuiteDispatchTests(unittest.TestCase):
+    def test_public_profile_fuzz_is_scoped_to_its_native_oracle(self):
+        suites = check.TASK_SUITES[("FUZZ01", "T55c9")]
+        self.assertEqual(suites["public_profile_config_oracle"], "tests.fuzz.test_fuzz.ConfigProfileFuzzTests")
+        gap = check.dispatch("FUZZ01", task="T55c9", required=("state",))
+        self.assertEqual((gap["status"], gap["assertions_executed"]), ("NOT_IMPLEMENTED", []))
+        with mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+             mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+            result = check.dispatch("FUZZ01", task="T55c9")
+        self.assertEqual("PASS", result["status"])
+        self.assertEqual(sorted(suites), result["assertions_executed"])
+        self.assertEqual(len(suites), runner.call_count)
+
     def test_the_state_fuzz_target_is_not_implemented_for_t26_and_covered_for_t15(self):
         # T26 predates the native state: asking it for the state target is a gap, reported as such. T15 owns the target.
         result = check.dispatch("FUZZ01", task="T26", required=("state",))

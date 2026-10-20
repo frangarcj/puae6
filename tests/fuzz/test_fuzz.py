@@ -35,12 +35,12 @@ def clean(result):
 
 
 @unittest.skipUnless(TOOLS, "toolchain unavailable")
-class NativeFuzzTests(unittest.TestCase):
+class NativeFuzzBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.exe = build_probe(ROOT / "build/native-debug", True, "p6_fuzz_probe")
         source = (ROOT / "tests/fixtures/microrom/vsync.s").read_text(encoding="utf-8")
-        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-fuzz-", dir=ROOT / "build")
         cls.rom = Path(cls.tmp.name) / "vsync.rom"
         cls.rom.write_bytes(builder.build(source))
 
@@ -53,6 +53,33 @@ class NativeFuzzTests(unittest.TestCase):
         return subprocess.run([str(self.exe), *args], capture_output=True, text=True, timeout=900,
                               env={**ENV, **(extra_env or {})})
 
+
+class ConfigProfileFuzzTests(NativeFuzzBase):
+    def test_public_profiles_and_boundaries_under_sanitizers(self):
+        result = self.run_target("config", 19, 10000)
+        self.assertTrue(clean(result), result.stderr[-1000:])
+        coverage = re.search(r"config coverage machines=([0-9a-f]+) z3=([0-9a-f]+) fpus=([0-9a-f]+) controllers=([0-9a-f]+) cd32_fast=([0-9a-f]+)", result.stdout)
+        self.assertIsNotNone(coverage, result.stdout)
+        # Public machine IDs1..9 and11; all eleven Z3 choices, three FPUs,
+        # both controllers and both stock/FR. These masks come from the ABI.
+        self.assertEqual([0xbfe, 0x7ff, 7, 3, 3], [int(v, 16) for v in coverage.groups()])
+        self.assertRegex(result.stdout, r"config result 0: [1-9]")
+        self.assertRegex(result.stdout, r"config result 4: [1-9]")
+
+    def test_profile_mutations_are_reproducible(self):
+        first = self.run_target("config", 7, 3000)
+        second = self.run_target("config", 7, 3000)
+        self.assertTrue(clean(first), first.stderr[-1000:])
+        self.assertTrue(clean(second), second.stderr[-1000:])
+        self.assertEqual(first.stdout, second.stdout)
+
+    def test_an_incorrect_oracle_is_detected(self):
+        result = self.run_target("config", 19, 1000, {"P6_FUZZ_SELFTEST": "1"})
+        self.assertEqual(1, result.returncode)
+        self.assertIn("FUZZ FAILURE", result.stderr)
+
+
+class NativeFuzzTests(NativeFuzzBase):
     def test_the_recorded_seeds_run_clean(self):
         for run in CORPUS["runs"]:
             with self.subTest(**{k: run[k] for k in ("target", "seed", "iterations")}):
@@ -68,7 +95,7 @@ class NativeFuzzTests(unittest.TestCase):
 
     def test_the_config_fuzzer_reaches_accepted_and_rejected_inputs(self):
         result = self.run_target("config", 3, 5000)
-        codes = {int(line.split(":")[0].rsplit(" ", 1)[1]) for line in result.stdout.splitlines()}
+        codes = {int(line.split(":")[0].rsplit(" ", 1)[1]) for line in result.stdout.splitlines() if line.startswith("config result ")}
         self.assertLessEqual({0, 1, 4}, codes)      # OK, BAD_ARGUMENT, UNSUPPORTED
 
     def test_the_firmware_fuzzer_loads_some_images_and_rejects_most(self):

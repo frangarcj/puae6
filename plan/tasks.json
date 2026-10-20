@@ -13127,6 +13127,40 @@
       "stop": "No deducir writeback de dirty ni semantica S/X sin un oraculo; CU_SAVEPC06, reanudacion completa y excepciones no aritmeticas siguen pendientes enT55c."
     },
     {
+      "id": "T55c9",
+      "title": "Cerrar el oraculo FUZZ01 de los perfiles publicos A4030 y CD32",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T55b",
+        "T55c5",
+        "T66r6"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md"
+      ],
+      "touch": [
+        "tests/fuzz/**",
+        "tests/test_plan.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Actualizar el oraculo independiente de p6_config segun el contrato publico: A4030/Normal/68030,68881/82,IDE,Chip2MiB/sinSlow y todos los tamanosZ3; CD32 stock/FR con sus restricciones. Conservar los ocho modelos anteriores y rechazar IDs reservados y CPUs040/060 aun no publicas.",
+        "Sembrar todos los perfiles admitidos y sus fronteras de CPU, precision, FPU, controlador y memoria antes de mutar. Comprobar que el oraculo coincide con casos de aceptacion/rechazo escritos desde el contrato y que p6_init coincide con ambos. No llamar al validator de produccion desde el oraculo ni derivar esperados de sus resultados.",
+        "Ejecutar config bajo ASan/UBSan con semillas fijas, demostrar cobertura de modelos/tamanos/FPU/controlador/FR y ambos resultados, reproducibilidad y fallo intencional del harness. Reutilizar el target existente; no repetir fuzz de medios/firmware sin cambios. El padre conserva sus puertas y la extension futura040/060."
+      ],
+      "checks": [
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "El fuzz de la ABI publica alcanza todos los perfiles actuales, cada tamanoZ3 y las fronteras nuevas; su oraculo independiente coincide con p6_init bajo sanitizers, es reproducible y detecta un oraculo invertido. No se atribuye cobertura de ejecucion ni perfiles040/060."
+      ],
+      "stop": "No importar validacion de produccion como oraculo ni confundir init con arranque o restauracion; CPU040/060 y su fuzz permanecen enT55c."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13141,7 +13175,8 @@
         "T55c5",
         "T55c6",
         "T55c7",
-        "T55c8"
+        "T55c8",
+        "T55c9"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -13177,7 +13212,8 @@
         "T55c6 conecta los controles040/060 y el estado privado de FPU al cuerpo P6CP, con prueba del visitor real y continuacion de instrucciones. El padre conserva presetA4040, ABI/frontends, ejecucion por frames, firmware/Waterbox, FRESTORE040 y cierre FUZZ01; esta hoja no habilita publicamente esas CPUs.",
         "Al habilitar perfiles040/060, extender inventario de estado y digestCPU para los controles/FPU interna y mantener FUZZ01 coherente con todos los modelos ofrecidos; el codec privado de T55c6 no acredita esas puertas publicas.",
         "T55c7 corrige el TODO de contenidos UNIMP040 $28/$30 y su excepcion aritmetica pendiente. No acredita la reanudacion completa del frame BUSY (CU_SAVEPC/writeback), los formatos no aritmeticos ni la puerta publica A4040; siguen en este padre.",
-        "T55c8 conserva los camposBUSY040 y prioriza E3/E1 antes de reanudar CU. No acredita writeback, S/X, CU_SAVEPC06 ni reanudacion completa; siguen en la puerta original del padre."
+        "T55c8 conserva los camposBUSY040 y prioriza E3/E1 antes de reanudar CU. No acredita writeback, S/X, CU_SAVEPC06 ni reanudacion completa; siguen en la puerta original del padre.",
+        "T55c9 extiende FUZZ01 a todos los perfiles publicos actuales (A4030/030, Z3 y CD32/FR) por p6_init bajo sanitizers. No acredita ejecucion/estado ni los futuros perfiles040/060; antes de habilitarlos hay que ampliar otra vez su oraculo."
       ],
       "checks": [
         "GEN01",
