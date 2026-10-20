@@ -272,8 +272,8 @@ extern "C" p6_result p6_shutdown(p6_error *error)
     Guard guard;
     if (!guard.ok)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
-    if (session.state == State::Loaded || session.state == State::Faulted)
-        release_engine();
+    // Preload owners exist even before start_engine; its Stage guards protect the engine.
+    release_engine();
     p6_bridge::profile_state_supported = true;
     session.state = State::Uninitialized;
     return P6_OK;
