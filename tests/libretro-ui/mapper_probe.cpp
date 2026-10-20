@@ -3,6 +3,7 @@
 // reset, and the input memory through the adapter section of a state. Exit code 0 and "mapper probe ok" when every check holds.
 #include "model.h"
 #include "state_frame.h"
+#include "input_map.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -266,7 +267,7 @@ static void memory_in_a_state()
     section.input.mouse_ry = 17;
     section.input.turbo_phase = 119;
     section.input.reset_hold = kResetHoldUnits;
-    section.input.held = bit(3) | bit(23) | bit(kHotkeyBit + 4);
+    section.input.held = bit(3) | bit(23) | bit(31);
     section.input.host_frac[0] = -99;
     section.input.host_frac[1] = 42;
     section.input.stick_frac[0][0] = 999;
@@ -292,7 +293,7 @@ static void memory_in_a_state()
     CHECK(accepts(1, uint32_t(kMouseBacklog)) && !accepts(1, uint32_t(kMouseBacklog + 1)));
     CHECK(accepts(3, kTurboCycle - 1) && !accepts(3, kTurboCycle));                  // the turbo phase stays inside its cycle
     CHECK(accepts(3, kResetHoldUnits << 8) && !accepts(3, (kResetHoldUnits + 1) << 8) && !accepts(3, UINT32_C(1) << 16));
-    CHECK(accepts(4, bit(kHotkeyBit + kHotkeyCount - 1)) && !accepts(4, bit(kHotkeyBit + kHotkeyCount)));      // a hotkey that does not exist
+    CHECK(accepts(4, bit(31)) && accepts(4, UINT32_MAX)); // 24 pad + 8 hotkeys use every u32 bit; shifting by32 would be UB.
     CHECK(accepts(5, 99) && !accepts(5, 100) && !accepts(5, uint32_t(uint16_t(-100))));     // the fraction a Mouse Speed leaves: -99 .. 99
     CHECK(accepts(6, 999) && !accepts(6, 1000) && accepts(7, uint32_t(uint16_t(-999)) << 16) && !accepts(7, uint32_t(uint16_t(-1000)) << 16));
     CHECK(accepts(8, kMessageReset | (kMessageUnits << 8)) && accepts(8, 0) && !accepts(8, kMessageReset + 1) && !accepts(8, kMessageJoystick | ((kMessageUnits + 1) << 8)));
@@ -370,9 +371,34 @@ static void schema_defaults()
           config.rtc_epoch_seconds == 946684800);
 }
 
+static int16_t freeze_key(unsigned, unsigned device, unsigned, unsigned id) { return device == RETRO_DEVICE_KEYBOARD && id == RETROK_F11; }
+static void freeze_levels()
+{
+    InputConfig c; InputMemory m; c.hrtmon=true;
+    const auto hot=pressing(bit(31));
+    for(unsigned n=0;n<10;++n) CHECK(step(hot,c,&m).commands==P6_COMMAND_FREEZE);
+    CHECK(!step(pressing(0),c,&m).commands);
+    c.mapper[0]=c.mapper[1]=kMapperTargetFreeze; c.turbo=true; c.turbo_input=0;
+    for(unsigned n=0;n<10;++n) CHECK(step(pressing(1),c,&m).commands==1); // Turbo never pulses Freeze.
+    CHECK(step(pressing(3),c,&m).commands==1 && step(pressing(2),c,&m).commands==1 && !step(pressing(0),c,&m).commands);
+    m.vkbd_open=true;
+    CHECK(!step(pressing(1),c,&m).commands && step(hot,c,&m).commands==1); // VKBD owns pad, not physical hotkeys.
+    c.hrtmon=false; CHECK(!step(hot,c,&m).commands); m.vkbd_open=false; CHECK(!step(pressing(1),c,&m).commands);
+    Settings s; s.cartridge=P6_CONFIG_HRTMON; s.hotkey_freeze=RETROK_F11;
+    unsigned device[kPortCount]={}; InputMemory keys;
+    const auto packet=read_input_v2(freeze_key,device,input_config(s),&keys);
+    CHECK(packet.base.abi_version==2 && packet.base.struct_size==108 && packet.commands==1 && !packet.parallel[0].type && !packet.parallel[1].type);
+    s.cartridge=0; CHECK(!read_input_v2(freeze_key,device,input_config(s),&keys).commands);
+    for(unsigned flags=0;flags<4;++flags) {
+        s.floppy_writes=flags&1; s.cartridge=flags&2; p6_config config{}; config.flags=UINT32_MAX;
+        to_config(s,&config); CHECK(config.flags==flags);
+    }
+}
+
 int main()
 {
     defaults();
+    freeze_levels();
     schema_defaults();
     face_options();
     targets();

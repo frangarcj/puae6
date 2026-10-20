@@ -32,6 +32,7 @@ struct Settings {
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
+    uint32_t cartridge = 0u;  // reboot, p6_config.flags = disabled
     uint32_t floppy_speed = 0u;  // reboot, p6_config.floppy_speed = 100
     uint32_t floppy_drive_count = 0u;  // reboot, p6_config.floppy_drives = auto
     uint32_t floppy_multidrive = 0u;  // presentation, presentation.floppy_multidrive = disabled
@@ -65,6 +66,7 @@ struct Settings {
     uint32_t hotkey_reset = 0u;  // presentation, presentation.hotkey_reset = ---
     uint32_t hotkey_statusbar = 293u;  // presentation, presentation.hotkey_statusbar = f12
     uint32_t hotkey_vkbd = 0u;  // presentation, presentation.hotkey_vkbd = ---
+    uint32_t hotkey_freeze = 0u;  // presentation, presentation.hotkey_freeze = ---
     uint32_t mapper_up = 0u;  // presentation, presentation.mapper_up = ---
     uint32_t mapper_down = 0u;  // presentation, presentation.mapper_down = ---
     uint32_t mapper_left = 0u;  // presentation, presentation.mapper_left = ---
@@ -107,6 +109,7 @@ struct Settings {
 
 inline void to_config(const Settings &settings, p6_config *config)
 {
+    config->flags = 0u;
     config->machine = settings.machine;
     config->video_standard = settings.video_standard;
     config->chip_kib = settings.chip_size;
@@ -126,7 +129,8 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->sound_filter_type = settings.sound_filter_type;
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
-    config->flags = settings.floppy_writes;
+    config->flags |= settings.floppy_writes;
+    config->flags |= settings.cartridge;
     config->floppy_speed = settings.floppy_speed;
     config->floppy_drives = settings.floppy_drive_count;
     config->video_resolution = settings.video_resolution;
@@ -222,6 +226,7 @@ constexpr Value kMapperTargetSetValues[] = {
     {"toggle_statusbar", 17u},
     {"toggle_crop", 21u},
     {"reset", 22u},
+    {"freeze", 23u},
     {"key_grave", 256u},
     {"key_1", 257u},
     {"key_2", 258u},
@@ -341,8 +346,9 @@ constexpr uint32_t kMapperTargetToggleAspect = 20u;
 constexpr uint32_t kMapperTargetToggleStatusbar = 17u;
 constexpr uint32_t kMapperTargetToggleCrop = 21u;
 constexpr uint32_t kMapperTargetReset = 22u;
-#define P6_SET_MAPPER_TARGET_V2 {"---", "Default function of the button"}, {"none", "Disabled (does nothing)"}, {"joy_up", "Joystick Up"}, {"joy_down", "Joystick Down"}, {"joy_left", "Joystick Left"}, {"joy_right", "Joystick Right"}, {"joy_fire", "Joystick Fire (button 1)"}, {"joy_fire2", "Joystick 2nd fire (button 2)"}, {"joy_fire3", "Joystick 3rd button (button 3)"}, {"mouse_left", "Mouse Left Button"}, {"mouse_right", "Mouse Right Button"}, {"mouse_middle", "Mouse Middle Button"}, {"mouse_move_up", "Mouse Move Up"}, {"mouse_move_down", "Mouse Move Down"}, {"mouse_move_left", "Mouse Move Left"}, {"mouse_move_right", "Mouse Move Right"}, {"toggle_vkbd", "Toggle Virtual Keyboard"}, {"toggle_mouse", "Toggle Joystick/Mouse"}, {"toggle_turbo", "Toggle Turbo Fire"}, {"toggle_aspect", "Toggle Aspect Ratio (PAL/NTSC pixels)"}, {"toggle_statusbar", "Toggle Statusbar"}, {"toggle_crop", "Toggle Crop"}, {"reset", "Reset (Ctrl-Amiga-Amiga)"}, {"key_grave", "Key Grave"}, {"key_1", "Key 1"}, {"key_2", "Key 2"}, {"key_3", "Key 3"}, {"key_4", "Key 4"}, {"key_5", "Key 5"}, {"key_6", "Key 6"}, {"key_7", "Key 7"}, {"key_8", "Key 8"}, {"key_9", "Key 9"}, {"key_0", "Key 0"}, {"key_minus", "Key Minus"}, {"key_equals", "Key Equals"}, {"key_backslash", "Key Backslash"}, {"key_keypad_0", "Key Keypad 0"}, {"key_q", "Key Q"}, {"key_w", "Key W"}, {"key_e", "Key E"}, {"key_r", "Key R"}, {"key_t", "Key T"}, {"key_y", "Key Y"}, {"key_u", "Key U"}, {"key_i", "Key I"}, {"key_o", "Key O"}, {"key_p", "Key P"}, {"key_left_bracket", "Key Left Bracket"}, {"key_right_bracket", "Key Right Bracket"}, {"key_keypad_1", "Key Keypad 1"}, {"key_keypad_2", "Key Keypad 2"}, {"key_keypad_3", "Key Keypad 3"}, {"key_a", "Key A"}, {"key_s", "Key S"}, {"key_d", "Key D"}, {"key_f", "Key F"}, {"key_g", "Key G"}, {"key_h", "Key H"}, {"key_j", "Key J"}, {"key_k", "Key K"}, {"key_l", "Key L"}, {"key_semicolon", "Key Semicolon"}, {"key_quote", "Key Quote"}, {"key_hash", "Key Hash"}, {"key_keypad_4", "Key Keypad 4"}, {"key_keypad_5", "Key Keypad 5"}, {"key_keypad_6", "Key Keypad 6"}, {"key_less_than", "Key Less Than"}, {"key_z", "Key Z"}, {"key_x", "Key X"}, {"key_c", "Key C"}, {"key_v", "Key V"}, {"key_b", "Key B"}, {"key_n", "Key N"}, {"key_m", "Key M"}, {"key_comma", "Key Comma"}, {"key_period", "Key Period"}, {"key_slash", "Key Slash"}, {"key_keypad_period", "Key Keypad Period"}, {"key_keypad_7", "Key Keypad 7"}, {"key_keypad_8", "Key Keypad 8"}, {"key_keypad_9", "Key Keypad 9"}, {"key_space", "Key Space"}, {"key_backspace", "Key Backspace"}, {"key_tab", "Key Tab"}, {"key_keypad_enter", "Key Keypad Enter"}, {"key_return", "Key Return"}, {"key_escape", "Key Escape"}, {"key_delete", "Key Delete"}, {"key_keypad_minus", "Key Keypad Minus"}, {"key_up", "Key Up"}, {"key_down", "Key Down"}, {"key_right", "Key Right"}, {"key_left", "Key Left"}, {"key_f1", "Key F1"}, {"key_f2", "Key F2"}, {"key_f3", "Key F3"}, {"key_f4", "Key F4"}, {"key_f5", "Key F5"}, {"key_f6", "Key F6"}, {"key_f7", "Key F7"}, {"key_f8", "Key F8"}, {"key_f9", "Key F9"}, {"key_f10", "Key F10"}, {"key_keypad_left_paren", "Key Keypad Left Paren"}, {"key_keypad_right_paren", "Key Keypad Right Paren"}, {"key_keypad_slash", "Key Keypad Slash"}, {"key_keypad_star", "Key Keypad Star"}, {"key_keypad_plus", "Key Keypad Plus"}, {"key_help", "Key Help"}, {"key_left_shift", "Key Left Shift"}, {"key_right_shift", "Key Right Shift"}, {"key_control", "Key Control"}, {"key_left_alt", "Key Left Alt"}, {"key_right_alt", "Key Right Alt"}, {"key_left_amiga", "Key Left Amiga"}, {"key_right_amiga", "Key Right Amiga"}
-#define P6_SET_MAPPER_TARGET_LEGACY "---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_vkbd|toggle_mouse|toggle_turbo|toggle_aspect|toggle_statusbar|toggle_crop|reset|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"
+constexpr uint32_t kMapperTargetFreeze = 23u;
+#define P6_SET_MAPPER_TARGET_V2 {"---", "Default function of the button"}, {"none", "Disabled (does nothing)"}, {"joy_up", "Joystick Up"}, {"joy_down", "Joystick Down"}, {"joy_left", "Joystick Left"}, {"joy_right", "Joystick Right"}, {"joy_fire", "Joystick Fire (button 1)"}, {"joy_fire2", "Joystick 2nd fire (button 2)"}, {"joy_fire3", "Joystick 3rd button (button 3)"}, {"mouse_left", "Mouse Left Button"}, {"mouse_right", "Mouse Right Button"}, {"mouse_middle", "Mouse Middle Button"}, {"mouse_move_up", "Mouse Move Up"}, {"mouse_move_down", "Mouse Move Down"}, {"mouse_move_left", "Mouse Move Left"}, {"mouse_move_right", "Mouse Move Right"}, {"toggle_vkbd", "Toggle Virtual Keyboard"}, {"toggle_mouse", "Toggle Joystick/Mouse"}, {"toggle_turbo", "Toggle Turbo Fire"}, {"toggle_aspect", "Toggle Aspect Ratio (PAL/NTSC pixels)"}, {"toggle_statusbar", "Toggle Statusbar"}, {"toggle_crop", "Toggle Crop"}, {"reset", "Reset (Ctrl-Amiga-Amiga)"}, {"freeze", "HRTMon Freeze"}, {"key_grave", "Key Grave"}, {"key_1", "Key 1"}, {"key_2", "Key 2"}, {"key_3", "Key 3"}, {"key_4", "Key 4"}, {"key_5", "Key 5"}, {"key_6", "Key 6"}, {"key_7", "Key 7"}, {"key_8", "Key 8"}, {"key_9", "Key 9"}, {"key_0", "Key 0"}, {"key_minus", "Key Minus"}, {"key_equals", "Key Equals"}, {"key_backslash", "Key Backslash"}, {"key_keypad_0", "Key Keypad 0"}, {"key_q", "Key Q"}, {"key_w", "Key W"}, {"key_e", "Key E"}, {"key_r", "Key R"}, {"key_t", "Key T"}, {"key_y", "Key Y"}, {"key_u", "Key U"}, {"key_i", "Key I"}, {"key_o", "Key O"}, {"key_p", "Key P"}, {"key_left_bracket", "Key Left Bracket"}, {"key_right_bracket", "Key Right Bracket"}, {"key_keypad_1", "Key Keypad 1"}, {"key_keypad_2", "Key Keypad 2"}, {"key_keypad_3", "Key Keypad 3"}, {"key_a", "Key A"}, {"key_s", "Key S"}, {"key_d", "Key D"}, {"key_f", "Key F"}, {"key_g", "Key G"}, {"key_h", "Key H"}, {"key_j", "Key J"}, {"key_k", "Key K"}, {"key_l", "Key L"}, {"key_semicolon", "Key Semicolon"}, {"key_quote", "Key Quote"}, {"key_hash", "Key Hash"}, {"key_keypad_4", "Key Keypad 4"}, {"key_keypad_5", "Key Keypad 5"}, {"key_keypad_6", "Key Keypad 6"}, {"key_less_than", "Key Less Than"}, {"key_z", "Key Z"}, {"key_x", "Key X"}, {"key_c", "Key C"}, {"key_v", "Key V"}, {"key_b", "Key B"}, {"key_n", "Key N"}, {"key_m", "Key M"}, {"key_comma", "Key Comma"}, {"key_period", "Key Period"}, {"key_slash", "Key Slash"}, {"key_keypad_period", "Key Keypad Period"}, {"key_keypad_7", "Key Keypad 7"}, {"key_keypad_8", "Key Keypad 8"}, {"key_keypad_9", "Key Keypad 9"}, {"key_space", "Key Space"}, {"key_backspace", "Key Backspace"}, {"key_tab", "Key Tab"}, {"key_keypad_enter", "Key Keypad Enter"}, {"key_return", "Key Return"}, {"key_escape", "Key Escape"}, {"key_delete", "Key Delete"}, {"key_keypad_minus", "Key Keypad Minus"}, {"key_up", "Key Up"}, {"key_down", "Key Down"}, {"key_right", "Key Right"}, {"key_left", "Key Left"}, {"key_f1", "Key F1"}, {"key_f2", "Key F2"}, {"key_f3", "Key F3"}, {"key_f4", "Key F4"}, {"key_f5", "Key F5"}, {"key_f6", "Key F6"}, {"key_f7", "Key F7"}, {"key_f8", "Key F8"}, {"key_f9", "Key F9"}, {"key_f10", "Key F10"}, {"key_keypad_left_paren", "Key Keypad Left Paren"}, {"key_keypad_right_paren", "Key Keypad Right Paren"}, {"key_keypad_slash", "Key Keypad Slash"}, {"key_keypad_star", "Key Keypad Star"}, {"key_keypad_plus", "Key Keypad Plus"}, {"key_help", "Key Help"}, {"key_left_shift", "Key Left Shift"}, {"key_right_shift", "Key Right Shift"}, {"key_control", "Key Control"}, {"key_left_alt", "Key Left Alt"}, {"key_right_alt", "Key Right Alt"}, {"key_left_amiga", "Key Left Amiga"}, {"key_right_amiga", "Key Right Amiga"}
+#define P6_SET_MAPPER_TARGET_LEGACY "---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_vkbd|toggle_mouse|toggle_turbo|toggle_aspect|toggle_statusbar|toggle_crop|reset|freeze|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"
 // The value set hotkey_key: one list for every option that says values_from.
 constexpr Value kHotkeyKeySetValues[] = {
     {"---", 0u},
@@ -548,6 +554,10 @@ constexpr Value kSoundFilterTypeValues[] = {
 constexpr Value kFloppyWritesValues[] = {
     {"disabled", 0u},
     {"enabled", 1u},
+};
+constexpr Value kCartridgeValues[] = {
+    {"disabled", 0u},
+    {"hrtmon", 2u},
 };
 constexpr Value kFloppySpeedValues[] = {
     {"100", 0u},
@@ -970,6 +980,7 @@ constexpr Option kOptions[] = {
     {"puae6_sound_filter", true, &Settings::sound_filter, kSoundFilterValues, 3, 0},
     {"puae6_sound_filter_type", true, &Settings::sound_filter_type, kSoundFilterTypeValues, 3, 0},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
+    {"puae6_cartridge", true, &Settings::cartridge, kCartridgeValues, 2, 0},
     {"puae6_floppy_speed", true, &Settings::floppy_speed, kFloppySpeedValues, 5, 0},
     {"puae6_floppy_drives", true, &Settings::floppy_drive_count, kFloppyDriveCountValues, 5, 0},
     {"puae6_floppy_multidrive", true, &Settings::floppy_multidrive, kFloppyMultidriveValues, 2, 0},
@@ -1003,30 +1014,31 @@ constexpr Option kOptions[] = {
     {"puae6_hotkey_reset", false, &Settings::hotkey_reset, kHotkeyKeySetValues, 10, 0},
     {"puae6_hotkey_statusbar", false, &Settings::hotkey_statusbar, kHotkeyKeySetValues, 10, 2},
     {"puae6_hotkey_vkbd", false, &Settings::hotkey_vkbd, kHotkeyKeySetValues, 10, 0},
-    {"puae6_mapper_up", false, &Settings::mapper_up, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_down", false, &Settings::mapper_down, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_left", false, &Settings::mapper_left, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_right", false, &Settings::mapper_right, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_b", false, &Settings::mapper_b, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_a", false, &Settings::mapper_a, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_y", false, &Settings::mapper_y, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_x", false, &Settings::mapper_x, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_select", false, &Settings::mapper_select, kMapperTargetSetValues, 118, 16},
-    {"puae6_mapper_start", false, &Settings::mapper_start, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_l", false, &Settings::mapper_l, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_r", false, &Settings::mapper_r, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_l2", false, &Settings::mapper_l2, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_r2", false, &Settings::mapper_r2, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_l3", false, &Settings::mapper_l3, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_r3", false, &Settings::mapper_r3, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_lu", false, &Settings::mapper_lu, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_ld", false, &Settings::mapper_ld, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_ll", false, &Settings::mapper_ll, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_lr", false, &Settings::mapper_lr, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_ru", false, &Settings::mapper_ru, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_rd", false, &Settings::mapper_rd, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_rl", false, &Settings::mapper_rl, kMapperTargetSetValues, 118, 0},
-    {"puae6_mapper_rr", false, &Settings::mapper_rr, kMapperTargetSetValues, 118, 0},
+    {"puae6_hotkey_freeze", false, &Settings::hotkey_freeze, kHotkeyKeySetValues, 10, 0},
+    {"puae6_mapper_up", false, &Settings::mapper_up, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_down", false, &Settings::mapper_down, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_left", false, &Settings::mapper_left, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_right", false, &Settings::mapper_right, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_b", false, &Settings::mapper_b, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_a", false, &Settings::mapper_a, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_y", false, &Settings::mapper_y, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_x", false, &Settings::mapper_x, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_select", false, &Settings::mapper_select, kMapperTargetSetValues, 119, 16},
+    {"puae6_mapper_start", false, &Settings::mapper_start, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_l", false, &Settings::mapper_l, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_r", false, &Settings::mapper_r, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_l2", false, &Settings::mapper_l2, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_r2", false, &Settings::mapper_r2, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_l3", false, &Settings::mapper_l3, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_r3", false, &Settings::mapper_r3, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_lu", false, &Settings::mapper_lu, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_ld", false, &Settings::mapper_ld, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_ll", false, &Settings::mapper_ll, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_lr", false, &Settings::mapper_lr, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_ru", false, &Settings::mapper_ru, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_rd", false, &Settings::mapper_rd, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_rl", false, &Settings::mapper_rl, kMapperTargetSetValues, 119, 0},
+    {"puae6_mapper_rr", false, &Settings::mapper_rr, kMapperTargetSetValues, 119, 0},
     {"puae6_statusbar", false, &Settings::statusbar, kStatusbarValues, 8, 0},
     {"puae6_statusbar_startup", false, &Settings::statusbar_startup, kStatusbarStartupValues, 2, 0},
     {"puae6_statusbar_messages", false, &Settings::statusbar_messages, kStatusbarMessagesValues, 2, 0},
@@ -1152,6 +1164,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
+    {"puae6_cartridge", "Cartridge (Restart)", "Cartridge (Restart)",
+     "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart)", "Floppy Speed (Restart)",
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1283,6 +1299,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
     {"puae6_hotkey_vkbd", "Toggle Virtual Keyboard", "Toggle Virtual Keyboard",
      "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default.",
      "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default.",
+     "hotkey", {P6_SET_HOTKEY_KEY_V2}, "---"},
+    {"puae6_hotkey_freeze", "HRTMon Freeze", "HRTMon Freeze",
+     "Activate the monitor when Cartridge is HRTMon. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga.",
+     "Activate the monitor when Cartridge is HRTMon. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga.",
      "hotkey", {P6_SET_HOTKEY_KEY_V2}, "---"},
     {"puae6_mapper_up", "Up", "Up",
      "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that).",
@@ -1439,6 +1459,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_sound_filter", "Audio Filter (Restart)", "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"emulated", "Emulated (follows the power LED)"}, {"off", "Off"}, {"on", "Always on"}}, "emulated"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
+    {"puae6_cartridge", "Cartridge (Restart)", "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart)", "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
     {"puae6_floppy_drives", "Floppy Drives (Restart)", "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Default (two drives; MultiDrive enables four)"}, {"1", "DF0"}, {"2", "DF0 and DF1"}, {"3", "DF0 to DF2"}, {"4", "DF0 to DF3"}}, "auto"},
     {"puae6_floppy_multidrive", "MultiDrive (Restart)", "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled"}, {"enabled", "Mount disks in separate drives"}}, "disabled"},
@@ -1472,6 +1493,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_hotkey_reset", "Reset", "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga.", {P6_SET_HOTKEY_KEY_V2}, "---"},
     {"puae6_hotkey_statusbar", "Toggle Statusbar", "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12.", {P6_SET_HOTKEY_KEY_V2}, "f12"},
     {"puae6_hotkey_vkbd", "Toggle Virtual Keyboard", "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default.", {P6_SET_HOTKEY_KEY_V2}, "---"},
+    {"puae6_hotkey_freeze", "HRTMon Freeze", "Activate the monitor when Cartridge is HRTMon. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga.", {P6_SET_HOTKEY_KEY_V2}, "---"},
     {"puae6_mapper_up", "Up", "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_down", "Down", "What Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
     {"puae6_mapper_left", "Left", "What Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that).", {P6_SET_MAPPER_TARGET_V2}, "---"},
@@ -1533,6 +1555,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_sound_filter", "Audio Filter (Restart); emulated|off|on"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart); auto|A500|A1200"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
+    {"puae6_cartridge", "Cartridge (Restart); disabled|hrtmon"},
     {"puae6_floppy_speed", "Floppy Speed (Restart); 100|200|400|800|turbo"},
     {"puae6_floppy_drives", "Floppy Drives (Restart); auto|1|2|3|4"},
     {"puae6_floppy_multidrive", "MultiDrive (Restart); disabled|enabled"},
@@ -1566,6 +1589,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_hotkey_reset", "Reset; " P6_SET_HOTKEY_KEY_LEGACY},
     {"puae6_hotkey_statusbar", "Toggle Statusbar; f12|---|f11|pause|print|scrolllock|numlock|menu|rctrl|rshift"},
     {"puae6_hotkey_vkbd", "Toggle Virtual Keyboard; " P6_SET_HOTKEY_KEY_LEGACY},
+    {"puae6_hotkey_freeze", "HRTMon Freeze; " P6_SET_HOTKEY_KEY_LEGACY},
     {"puae6_mapper_up", "Up; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_down", "Down; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_left", "Left; " P6_SET_MAPPER_TARGET_LEGACY},
@@ -1574,7 +1598,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_mapper_a", "A; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_y", "Y; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_x", "X; " P6_SET_MAPPER_TARGET_LEGACY},
-    {"puae6_mapper_select", "Select; toggle_vkbd|---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_mouse|toggle_turbo|toggle_aspect|toggle_statusbar|toggle_crop|reset|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"},
+    {"puae6_mapper_select", "Select; toggle_vkbd|---|none|joy_up|joy_down|joy_left|joy_right|joy_fire|joy_fire2|joy_fire3|mouse_left|mouse_right|mouse_middle|mouse_move_up|mouse_move_down|mouse_move_left|mouse_move_right|toggle_mouse|toggle_turbo|toggle_aspect|toggle_statusbar|toggle_crop|reset|freeze|key_grave|key_1|key_2|key_3|key_4|key_5|key_6|key_7|key_8|key_9|key_0|key_minus|key_equals|key_backslash|key_keypad_0|key_q|key_w|key_e|key_r|key_t|key_y|key_u|key_i|key_o|key_p|key_left_bracket|key_right_bracket|key_keypad_1|key_keypad_2|key_keypad_3|key_a|key_s|key_d|key_f|key_g|key_h|key_j|key_k|key_l|key_semicolon|key_quote|key_hash|key_keypad_4|key_keypad_5|key_keypad_6|key_less_than|key_z|key_x|key_c|key_v|key_b|key_n|key_m|key_comma|key_period|key_slash|key_keypad_period|key_keypad_7|key_keypad_8|key_keypad_9|key_space|key_backspace|key_tab|key_keypad_enter|key_return|key_escape|key_delete|key_keypad_minus|key_up|key_down|key_right|key_left|key_f1|key_f2|key_f3|key_f4|key_f5|key_f6|key_f7|key_f8|key_f9|key_f10|key_keypad_left_paren|key_keypad_right_paren|key_keypad_slash|key_keypad_star|key_keypad_plus|key_help|key_left_shift|key_right_shift|key_control|key_left_alt|key_right_alt|key_left_amiga|key_right_amiga"},
     {"puae6_mapper_start", "Start; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_l", "L; " P6_SET_MAPPER_TARGET_LEGACY},
     {"puae6_mapper_r", "R; " P6_SET_MAPPER_TARGET_LEGACY},

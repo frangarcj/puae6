@@ -302,7 +302,7 @@ class NormalizationTests(unittest.TestCase):
         document = schema()
         normalized = gen.normalize_config(document, {})
         machine = {"machine": "A500", "video_standard": "PAL", "chip_size": "Auto", "slow_size": "Auto", "fast_size": "Auto", "fpu_model": "None", "collision_level": "auto", "z3_memory": "None", "cpu_model": "auto", "cpu_compatibility": "exact", "cpu_multiplier": "auto", "hdf_controller": "uae", "audio_rate_hz": "48000", "random_seed": 1,
-                   "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled",
+                   "rtc_epoch_seconds": 946684800, "floppy_writes": "disabled", "cartridge": "disabled",
                    "sound_separation": "70", "sound_interpolation": "anti", "sound_filter": "emulated", "sound_filter_type": "auto", "floppy_speed": "100", "floppy_drive_count": "auto", "video_resolution": "hires", "video_line_mode": "double"}
         # The presentation options (T31) are all off by default: the picture, the input and the overlays of the core are the machine's own.
         presentation = {"drive_sound_volume": "0", "floppy_multidrive": "disabled", "video_aspect": "pixel", "floppy_save": "off", "hdf_save": "off", "video_crop": "disabled", "video_crop_mode": "both", "video_crop_delay": "enabled",
@@ -314,7 +314,7 @@ class NormalizationTests(unittest.TestCase):
         for name in ("up", "down", "left", "right", "b", "a", "y", "x", "select", "start", "l", "r", "l2", "r2", "l3", "r3", "lu", "ld", "ll", "lr", "ru", "rd", "rl", "rr"):
             presentation["mapper_" + name] = "---"          # every button does what it always did
         presentation["mapper_select"] = "toggle_vkbd"       # except Select, which opens the virtual keyboard (PUAE5's default)
-        for name in ("mouse_toggle", "turbo_toggle", "aspect_toggle", "crop_toggle", "reset", "vkbd"):
+        for name in ("mouse_toggle", "turbo_toggle", "aspect_toggle", "crop_toggle", "reset", "vkbd", "freeze"):
             presentation["hotkey_" + name] = "---"          # and no key of the keyboard is taken from the Amiga
         presentation["hotkey_statusbar"] = "f12"            # but F12, which the Amiga does not have, shows the statusbar (PUAE5's default), and the bar starts hidden
         self.assertEqual(normalized, {**machine, **presentation})

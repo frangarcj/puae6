@@ -101,6 +101,16 @@ def _only(obj, allowed, required, where, errors):
     return not missing        # an object that lacks a required field is not looked at further
 
 
+def _flag_bit(option: dict) -> int:
+    """A flags part is exactly an enum switch 0/one bit; malformed values cannot relax duplicate mapping checks."""
+    values = option.get("values", [])
+    abis = [v.get("abi") for v in values if isinstance(v, dict)] if isinstance(values, list) else []
+    if option.get("type") != "enum" or len(abis) != 2 or not all(type(v) is int and 0 <= v < 2**32 for v in abis) or 0 not in abis:
+        return 0
+    bit = max(abis)
+    return bit if bit and not bit & (bit - 1) else 0
+
+
 def validate_schema(schema: dict, config_fields: list[str] | None = None) -> None:
     """Raise SchemaError, listing every problem, unless the schema is complete and consistent. `config_fields` are the members of p6_config
     (by default read from bridge/include/p6.h): every one of them must be mapped by an option or be a fixed field of ABI v1."""
@@ -131,6 +141,7 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
     ids: set[str] = set()
     keys: set[str] = set()
     mapped: dict[str, str] = {}
+    flag_mask, flags_valid = 0, True
     for i, option in enumerate(schema.get("options") or []):
         name = option.get("id") if isinstance(option, dict) else None
         where = f"option '{name}'" if isinstance(name, str) else f"options[{i}]"
@@ -162,8 +173,14 @@ def validate_schema(schema: dict, config_fields: list[str] | None = None) -> Non
                     errors.append(f"{where}: p6_config has no field '{field}'")
                 if field in FIXED_CONFIG_FIELDS:
                     errors.append(f"{where}: p6_config.{field} has one valid value in ABI v1 and is not a choice")
-            if maps_to in mapped:
+            bit = _flag_bit(option) if maps_to == "p6_config.flags" else 0
+            if maps_to == "p6_config.flags" and not bit:
+                errors.append(f"{where}: a flags part must be an enum switch 0/one bit")
+            if maps_to in mapped and not (maps_to == "p6_config.flags" and flags_valid and bit and not bit & flag_mask):
                 errors.append(f"{where}: maps_to '{maps_to}' is already used by option '{mapped[maps_to]}'")
+            if maps_to == "p6_config.flags":
+                flags_valid &= bool(bit)
+                flag_mask |= bit
             mapped[maps_to] = str(name)
         if "values_from" in option:
             shared = (schema.get("value_sets") or {}).get(option["values_from"])
@@ -526,8 +543,12 @@ def abi_value(option: dict, normalized) -> int:
 
 def to_p6_config(schema: dict, normalized: dict) -> dict:
     """The p6_config fields (name -> number) that a normalized configuration produces."""
-    return {option["maps_to"].partition(".")[2]: abi_value(option, normalized[option["id"]])
-            for option in schema["options"] if option["maps_to"].startswith("p6_config.")}
+    result = {}
+    for option in schema["options"]:
+        if not option["maps_to"].startswith("p6_config."): continue
+        field, value = option["maps_to"].partition(".")[2], abi_value(option, normalized[option["id"]])
+        result[field] = result.get(field, 0) | value if field == "flags" else value
+    return result
 
 
 # --- generated header ------------------------------------------------------------------------------------------------------------------
@@ -663,9 +684,11 @@ def generate_header(schema: dict) -> str:
     w("")
     w("inline void to_config(const Settings &settings, p6_config *config)")
     w("{")
+    w("    config->flags = 0u;")
     for option in options:
         if option["class"] == "reboot":
-            w(f"    config->{option['maps_to'].partition('.')[2]} = settings.{option['id']};")
+            field = option['maps_to'].partition('.')[2]
+            w(f"    config->{field} {'|=' if field == 'flags' else '='} settings.{option['id']};")
     w("}")
     w("")
     out.extend(_apply_preset_function(schema))
@@ -786,7 +809,14 @@ def generate_table(schema: dict) -> str:
         entry["class"] = option["class"]
         if option.get("restart"):
             entry["restart"] = True
-        (config if option["class"] == "reboot" else presentation)[option["maps_to"].partition(".")[2]] = entry
+        field = option["maps_to"].partition(".")[2]
+        if option["maps_to"] == "p6_config.flags":
+            group = config.setdefault(field, {"default": 0, "allowed": [0], "parts": []})
+            group["default"] |= entry["default"]
+            group["allowed"] = sorted({a | b for a in group["allowed"] for b in entry["allowed"]})
+            group["parts"].append(entry)
+        else:
+            (config if option["class"] == "reboot" else presentation)[field] = entry
         adapters[option["id"]] = {"headless": option["headless"], "wrapper": option["wrapper"],
                                   "libretro": option["libretro"]["key"] if option["libretro"] else None}
         if option["libretro"] and (option["libretro"].get("extra_values") or "default" in option["libretro"]):

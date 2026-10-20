@@ -345,7 +345,9 @@ class LibretroParity(Schema):
         for stale in ("kSeed", "kRtcEpoch", "kAudioRateHz", "946684800", "48000"):
             self.assertNotIn(stale, self.core_source, f"libretro_core.cpp still has a literal of its own: {stale}")
         for option in self.reboot.values():
-            self.assertIn(f"config->{option['maps_to'].partition('.')[2]} = settings.{option['id']};", self.header)
+            field = option['maps_to'].partition('.')[2]
+            self.assertIn(f"config->{field} {'|=' if field == 'flags' else '='} settings.{option['id']};", self.header)
+        self.assertIn("config->flags = 0u;", self.header)
 
     def test_the_machine_the_core_runs_follows_the_options_in_av_info_and_region(self):
         self.assertIn("core.settings.video_standard == P6_VIDEO_NTSC", self.core_source)
@@ -428,6 +430,14 @@ class AdaptersAgree(Schema):
         self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "collision_level": 0, "z3_memory": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         for field, value in defaults.items():
+            entry = self.table["p6_config"][field]
+            if "parts" in entry:
+                combined = 0
+                for part in entry["parts"]:
+                    self.assertEqual(int(libretro[part["option"]]), part["default"])
+                    combined |= part["default"]
+                self.assertEqual(combined, value, field)
+                continue
             name = self.table["p6_config"][field]["option"]
             extras = self.table["adapters"][name].get("libretro_extra_values")
             if extras:

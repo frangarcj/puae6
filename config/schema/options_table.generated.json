@@ -358,14 +358,38 @@
       "default": 0,
       "allowed": [
         0,
-        1
+        1,
+        2,
+        3
       ],
-      "names": {
-        "disabled": 0,
-        "enabled": 1
-      },
-      "option": "floppy_writes",
-      "class": "reboot"
+      "parts": [
+        {
+          "default": 0,
+          "allowed": [
+            0,
+            1
+          ],
+          "names": {
+            "disabled": 0,
+            "enabled": 1
+          },
+          "option": "floppy_writes",
+          "class": "reboot"
+        },
+        {
+          "default": 0,
+          "allowed": [
+            0,
+            2
+          ],
+          "names": {
+            "disabled": 0,
+            "hrtmon": 2
+          },
+          "option": "cartridge",
+          "class": "reboot"
+        }
+      ]
     },
     "floppy_speed": {
       "default": 0,
@@ -1228,6 +1252,12 @@
       "option": "hotkey_vkbd",
       "class": "presentation"
     },
+    "hotkey_freeze": {
+      "default": 0,
+      "values_from": "hotkey_key",
+      "option": "hotkey_freeze",
+      "class": "presentation"
+    },
     "mapper_up": {
       "default": 0,
       "values_from": "mapper_target",
@@ -1537,6 +1567,7 @@
       "toggle_statusbar": 17,
       "toggle_crop": 21,
       "reset": 22,
+      "freeze": 23,
       "key_grave": 256,
       "key_1": 257,
       "key_2": 258,
@@ -1982,6 +2013,16 @@
       },
       "libretro": "puae6_floppy_writes"
     },
+    "cartridge": {
+      "headless": {
+        "how": "fixed"
+      },
+      "wrapper": {
+        "how": "fixed",
+        "where": "flags"
+      },
+      "libretro": "puae6_cartridge"
+    },
     "floppy_speed": {
       "headless": {
         "how": "named",
@@ -2313,6 +2354,15 @@
         "how": "none"
       },
       "libretro": "puae6_hotkey_vkbd"
+    },
+    "hotkey_freeze": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      },
+      "libretro": "puae6_hotkey_freeze"
     },
     "mapper_up": {
       "headless": {

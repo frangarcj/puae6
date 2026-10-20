@@ -54,6 +54,7 @@
       {"value": "toggle_statusbar", "abi": 17, "label": "Toggle Statusbar", "const": "ToggleStatusbar"},
       {"value": "toggle_crop", "abi": 21, "label": "Toggle Crop", "const": "ToggleCrop"},
       {"value": "reset", "abi": 22, "label": "Reset (Ctrl-Amiga-Amiga)", "const": "Reset"},
+      {"value": "freeze", "abi": 23, "label": "HRTMon Freeze", "const": "Freeze"},
       {"value": "key_grave", "abi": 256, "label": "Key Grave"},
       {"value": "key_1", "abi": 257, "label": "Key 1"},
       {"value": "key_2", "abi": 258, "label": "Key 2"},
@@ -615,6 +616,23 @@
         "category": "media",
         "label": "Floppy Writes",
         "info": "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state."
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "flags"}
+    },
+    {
+      "id": "cartridge",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.flags",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "hrtmon", "abi": 2, "abi_name": "P6_CONFIG_HRTMON", "label": "HRTMon builtin (A1200 only)"}
+      ],
+      "libretro": {
+        "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
+        "info": "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target."
       },
       "headless": {"how": "fixed"},
       "wrapper": {"how": "fixed", "where": "flags"}
@@ -1513,6 +1531,20 @@
         "category": "hotkey",
         "label": "Toggle Virtual Keyboard",
         "info": "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_freeze",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_freeze",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_freeze", "category": "hotkey", "label": "HRTMon Freeze",
+        "info": "Activate the monitor when Cartridge is HRTMon. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

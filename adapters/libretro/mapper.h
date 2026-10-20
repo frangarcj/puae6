@@ -56,7 +56,7 @@ constexpr uint8_t kMessageNone = 0, kMessageJoystick = 1, kMessageMouse = 2, kMe
 
 constexpr unsigned kMapperInputs = 24;
 constexpr unsigned kStickInput = 16;               // inputs 16..19: left stick up, down, left, right; 20..23 the right one
-constexpr unsigned kHotkeyCount = 7;               // mouse toggle, turbo, aspect, crop, reset, statusbar, virtual keyboard (the order of the schema's hotkey options)
+constexpr unsigned kHotkeyCount = 8;               // mouse, turbo, aspect, crop, reset, statusbar, virtual keyboard, Freeze
 constexpr unsigned kHotkeyBit = 24;                // bits of Controls::down / InputMemory::held from here on are the hotkeys
 
 // What the adapter keeps between two runs for the input. It is part of the saved timeline (state_frame.h), and is zero at load (the D-Pad mode starts from
@@ -105,6 +105,7 @@ struct InputMemory {
 
 // The options that shape the input, read from the settings at every run (they change at once, in the menu).
 struct InputConfig {
+    bool hrtmon = false;
     uint32_t mapper[kMapperInputs] = {};          // the schema's mapper_target number of each input (0 = default function)
     uint32_t hotkey_code[kHotkeyCount] = {};      // the RETROK_* code of each hotkey, 0 = none
     unsigned analog_mouse = 0;                    // bit 0 the left stick, bit 1 the right one
@@ -123,6 +124,7 @@ struct InputConfig {
 inline InputConfig input_config(const p6_options::Settings &s)
 {
     InputConfig c;
+    c.hrtmon = s.cartridge == P6_CONFIG_HRTMON;
     const uint32_t mapper[kMapperInputs] = {s.mapper_b, s.mapper_y, s.mapper_select, s.mapper_start, s.mapper_up, s.mapper_down, s.mapper_left, s.mapper_right,
                                             s.mapper_a, s.mapper_x, s.mapper_l, s.mapper_r, s.mapper_l2, s.mapper_r2, s.mapper_l3, s.mapper_r3,
                                             s.mapper_lu, s.mapper_ld, s.mapper_ll, s.mapper_lr, s.mapper_ru, s.mapper_rd, s.mapper_rl, s.mapper_rr};
@@ -134,6 +136,7 @@ inline InputConfig input_config(const p6_options::Settings &s)
     c.hotkey_code[4] = s.hotkey_reset;
     c.hotkey_code[5] = s.hotkey_statusbar;
     c.hotkey_code[6] = s.hotkey_vkbd;
+    c.hotkey_code[7] = s.hotkey_freeze;
     c.crop_on = s.video_crop != 0;
     c.aspect_ntsc = s.video_aspect == kAspectNtsc || (s.video_aspect != kAspectPal && s.video_standard == P6_VIDEO_NTSC);
     c.analog_mouse = s.analog_mouse;
@@ -153,7 +156,7 @@ inline InputConfig input_config(const p6_options::Settings &s)
 constexpr uint32_t kHotkeyTargets[kHotkeyCount] = {
     p6_options::kMapperTargetToggleMouse, p6_options::kMapperTargetToggleTurbo, p6_options::kMapperTargetToggleAspect,
     p6_options::kMapperTargetToggleCrop, p6_options::kMapperTargetReset, p6_options::kMapperTargetToggleStatusbar,
-    p6_options::kMapperTargetToggleVkbd,
+    p6_options::kMapperTargetToggleVkbd, p6_options::kMapperTargetFreeze,
 };
 
 // What the frontend reported this run, as far as the mapper cares: which inputs and hotkeys are down, and where the sticks are.
@@ -164,6 +167,7 @@ struct Controls {
 
 // What the mapper makes of the controls in one run.
 struct Effects {
+    uint32_t commands = 0;            // P6_COMMAND_* levels; the common bridge owns edges
     uint32_t joy = 0;                 // P6_BUTTON_* of the joystick port
     uint32_t mouse_buttons = 0;       // P6_BUTTON_1 left, 2 right, 3 middle
     int32_t move_x = 0, move_y = 0;   // counts the mapper wants the mouse to move this unit (the frontend's mouse is added by the caller)
@@ -267,6 +271,7 @@ inline void apply_target(uint32_t target, bool mouse_mode, const InputConfig &co
         }
     }
     switch (target) {
+    case kMapperTargetFreeze: if (config.hrtmon) out->commands |= P6_COMMAND_FREEZE; break;
     case kMapperTargetJoyUp: out->joy |= P6_BUTTON_UP; break;
     case kMapperTargetJoyDown: out->joy |= P6_BUTTON_DOWN; break;
     case kMapperTargetJoyLeft: out->joy |= P6_BUTTON_LEFT; break;
@@ -376,8 +381,10 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
     };
     for (unsigned input = 0; input < kMapperInputs; ++input)
         if (edges >> input & 1) run_action(target_of(input));
-    for (unsigned k = 0; k < kHotkeyCount; ++k)
+    for (unsigned k = 0; k < kHotkeyCount; ++k) {
         if (edges >> (kHotkeyBit + k) & 1) run_action(kHotkeyTargets[k]);
+        if (config.hrtmon && kHotkeyTargets[k] == kMapperTargetFreeze && (controls.down >> (kHotkeyBit + k) & 1)) out->commands |= P6_COMMAND_FREEZE;
+    }
     const bool mouse_mode = memory->dpad_mouse && mouse_port;
     const bool turbo_on = config.turbo != memory->turbo_toggled;
     const unsigned pulse = unsigned(std::max(2, config.pulse));
@@ -390,7 +397,7 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
     } else {
         for (unsigned input = 0; input < kMapperInputs; ++input) {
             bool down = controls.down >> input & 1;
-            if (down && turbo_held && input == config.turbo_input) down = (memory->turbo_phase % pulse) < pulse / 2;
+            if (down && turbo_held && input == config.turbo_input && target_of(input) != kMapperTargetFreeze) down = (memory->turbo_phase % pulse) < pulse / 2;
             if (down) apply_target(target_of(input), mouse_mode, config, out);
         }
         memory->turbo_phase = turbo_held ? uint8_t((memory->turbo_phase + 1) % kTurboCycle) : 0;

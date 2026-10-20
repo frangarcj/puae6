@@ -273,7 +273,7 @@ inline void read_pointer(retro_input_state_t state, unsigned port, unsigned devi
 
 // The packet of one run, from the frontend's state (polled once, just before), the options that shape the input and the device of each libretro port. An
 // Amiga port nothing drives is empty (P6_PORT_NONE with all fields zero). Called once per p6_run_frame: it moves InputMemory.
-inline p6_input read_input(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory)
+inline p6_input read_input(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory, uint32_t *commands = nullptr)
 {
     p6_input input = {};
     input.abi_version = P6_ABI_VERSION;
@@ -283,6 +283,7 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
     read_controls(state, config, pad, &controls);
     Effects effects;
     mapper_step(controls, config, mouse_port, memory, &effects);       // moves the memory even without a pad: releases are seen, the soft reset finishes
+    if (commands) *commands = effects.commands;
     read_keys(state, config, memory, input.keys);
     for (unsigned word = 0; word < 4; ++word) input.keys[word] |= effects.keys[word];
     if (mouse_port) {
@@ -313,12 +314,13 @@ inline p6_input read_input(retro_input_state_t state, const unsigned device[kPor
 inline p6_input_v2 read_input_v2(retro_input_state_t state, const unsigned device[kPortCount], const InputConfig &config, InputMemory *memory)
 {
     p6_input_v2 packet = {};
-    packet.base = read_input(state, device, config, memory);
+    packet.base = read_input(state, device, config, memory, &packet.commands);
     for (unsigned p = 0; p < 2; ++p) if (device[p + 2] == RETRO_DEVICE_JOYPAD) {
         read_joystick(state, p + 2, &packet.parallel[p]);
         packet.parallel[p].buttons &= P6_BUTTON_1 | P6_BUTTON_UP | P6_BUTTON_DOWN | P6_BUTTON_LEFT | P6_BUTTON_RIGHT;
         packet.base.abi_version = P6_INPUT_VERSION_2; packet.base.struct_size = sizeof packet;
     }
+    if (packet.commands) { packet.base.abi_version = P6_INPUT_VERSION_2; packet.base.struct_size = sizeof packet; }
     return packet;
 }
 
