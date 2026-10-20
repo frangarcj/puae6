@@ -331,6 +331,7 @@ TASK_SUITES[('WB03', 'T66u5')] = {
 TASK_SUITES[('WB09', 'T66u6')] = {
     'real_cd32_movie_swap': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieSwapTests',
     'real_cd32_startup_regression': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieStartTests'}
+TASK_SUITES[('MED01', 'T66t6')] = {'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
     TASK_SUITES[('MED01', _task)] = {'bounded_chd_reader': 'tests.media.test_chd_reader.ChdReaderTests',

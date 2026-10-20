@@ -16858,6 +16858,45 @@
       "stop": "No enlazar CHD al producto por esta hoja ni ocultar PGTYPE/PGSUB o Form2 mediante normalizacion inventada; conservar proveedor/publico y puerta completa T66."
     },
     {
+      "id": "T66t6",
+      "title": "Proveedor CHD privado con vistas canonicas e identidad completa",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t5",
+        "T66g5"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_chd.h",
+        "adapters/libretro/cd_chd.cpp",
+        "tests/media/cd_chd_probe.cpp",
+        "tests/media/test_cd_chd.py"
+      ],
+      "steps": [
+        "OwnerCdChd conAPI deCdMds: open/layout/bindings/sources/metadata/container_identity, poseeCdFile+ChdReader+ChdMetadata ypublica candidatoalfinal. SinfabricaCdImage/extension/enlaceproducto. Cuatrorutas nuevas360..395manuales, frente cd32_close aislado; CMake temporalincluyeChd.cmake yhelpers/encoder0355 verificados-j2 ASan/UBSan, sinmotor/guest nimetadata compartida.",
+        "Dominioinicial explicito: AUDIO, MODE1 oMODE1/2048 conNONE, MODE1_RAW oMODE1/2352 yMODE2_RAW oMODE2/2352 conNONE/RW/RW_RAW. PrimerPREGAP0, todosPOSTGAP0, posteriorespregaps0..150 almacenadososinteticos; gap>0 exigePGTYPE mismo modo semantico Ydatasize, almacenadoPGSUBigualSUBTYPE,sinteticoPGSUBNONE. Camposdegap0seconservan pero no condicionanbytesinexistentes. CDI/Mode2cooked/Form1/Form2/MIX/Mode1cookedconsub/HTOA/postgap/pregapdistinto quedanUnsupportedexplicito ypuertaspendientes requeridasdelpadreT66, no cierreCHD.",
+        "CursorLBA0, INDEX00cursor/INDEX01cursor+pregap, datosFRAMES-(stored?pregap:0), endINDEX01+datos. OffsetCHD usaT5, separado degaps sinteticos/padding4/tail. Bindingsportrack contienen FRAMES*stride exactos; layoutstored_pregap decideprimerdato. Limitarleadout alMSFcomun y validarDisc.bind antesdehash/publicacion. Callback cruza sectores leyendounidades2448 ystaging<=2448: AUDIO swap16solo2352BE->LE, RWconservaP-W, RW_RAWdesintercala96, NONEdescarta96; cooked2048 usaMode1_2048 yencoderrealcomun, raw2352/2448 conservaMode1Raw/Mode2Raw.",
+        "Identidad CdFile.bind(Opaque) hasheatodo contenedor inclmetadataopaca/padding/tail/sobrantesvalidos, nuncaSHAdeheader; hashdevistasnormalizadas porbinding. LayoutP6CHD1 incluyegeometria/TOC+bytes/IDcontainer+sourceIDs conLEexplicito, sinrutas/paddingC++. Disc.rebind aownerfrescoaceptarenombrado; mismatchrechazadosinmutarownernicallbacks, destruirantiguosolotrasexito. Mutaciondepadding paraidentidadrequiereCHDvalido/CRCcoherente; CRCroto debefallarlectura, noacreditarrebindIncompatible.",
+        "MED01 CdChdTests: test_four_codecs_and_mixed_raw_cooked_audio_subchannels_and_gaps; test_complete_container_identity_and_fresh_owner_rebind; test_out_of_domain_and_geometry_do_not_publish; test_vfs_short_io_hash_and_cross_sector_reads_are_transactional. OraculosPythonindependientes paraLayout/hashcontainer+vistas/sectores/PQ. CuatrofixturesT1 intactos+fixturemixtonumerico sinchdman obligatorio. Views2048/2352/2448 yCONTROL/PQ reales, gapstoredpayload ysyntheticcomun; Audio2048/Mode2Raw2048 siguenUnsupported. FalloIOenhashcontainer/vista/lectura dejaoutintacto ygot0; progresoVFSparcialpositivo secompleta. Todaslimitacionesanteriorescontinuansiguienteshojas antesdecargapublica."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Proveedor privado deldominio explicito entrega vistas/TOC/PQ yCDDAcanonicos conidentidad completa, rebindtransaccional yrechazos/fallosIO sinpublicacionparcial bajoASan/UBSan; noanunciaCHDgeneral ni carga publica."
+      ],
+      "stop": "No normalizarPGTYPE/PGSUB/Form2 ocultamente, no habilitarextension porbuildprivate ni cerrarpuertaCHD/T66conestedominio inicial."
+    },
+    {
       "id": "T66l3",
       "title": "Leer NRG DAO Mode2 de2336bytes con cabeceras por LBA",
       "milestone": "M3",
@@ -17356,7 +17395,8 @@
         "T66t5",
         "T66u4",
         "T66u5",
-        "T66u6"
+        "T66u6",
+        "T66t6"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -17403,7 +17443,8 @@
         "T66s1 separa parserMDSv1 por presupuesto: metadata acotada primero, proveedor MDF y carga publica despues. El padre conserva soporteMDS integrado, CHD, variantesNRG, cambioCD y todas sus puertas originales.",
         "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia.",
         "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales.",
-        "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre."
+        "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre.",
+        "CHDnormalizacion restante trasproveedor inicialT66t6: Mode1cookedconsubcode, Mode2/2336/MIX/Form1/2048, Form2/2324conEDCreal, HTOA/postgap yPGTYPE/PGSUBdistintos (requierencontratoCONTROL/vista2048/subcanalescomun). Sonpuertas requeridaspendientes, noexclusionesdealcance ni cierredelpadre; carga publica/restauracion despuesdeproveedor completo."
       ],
       "checks": [
         "MED01",
