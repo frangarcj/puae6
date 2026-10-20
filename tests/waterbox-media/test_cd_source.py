@@ -60,6 +60,12 @@ class Cd32WaterboxTests(CdTransportTests):
         self.names = (os.environ.get('P6_CD_CUE_FILE', 'device.iso'),)
         self.extra_args = (main, ext)
 
+class Cd32CatalogWaterboxTests(Cd32WaterboxTests):
+    modes = ("cd32catalogsave", "cd32catalogload")
+    def setUp(self):
+        super().setUp()
+        self.names = ("device.iso",) # Two synthetic payloads, never a game campaign.
+
 class Cd32PublicCoreTests(Cd32WaterboxTests):
     public_modes = ('publicsave', 'publicload')
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):

@@ -13,6 +13,11 @@ typedef struct p6w_cd_info {
 } p6w_cd_info;
 /* Return exact byte count, or a negative error. No exception crosses callback. */
 typedef int32_t (*p6w_cd_read_fn)(uint64_t offset, void *destination, uint32_t count);
+/* Catalog callback uses the immutable canonical ordinal, never a host cursor. */
+typedef int32_t (*p6w_cd_catalog_read_fn)(uint32_t disc, uint64_t offset, void *destination, uint32_t count);
+/* New private exports borrow info[1..16]; rebind validates all before publishing
+ * the thunk and preserves snapshot selection/presence. change requires absence
+ * before choosing another ordinal. status writes count, selected, present, opens. */
 /* Adapter-internal teardown, called after the engine closes Akiko. */
 void p6w_cd_session_end(void);
 #endif

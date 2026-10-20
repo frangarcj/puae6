@@ -1744,3 +1744,21 @@ Renombres con los mismos bytes se admiten; cambios de catalogo/orden/mapa se
 rechazan sin modificar maquina ni frontend. LR01/STATE01 comprueban IDs/presencia
 P6AK y restauracion A tras B en otro proceso con futuro y estado completo exactos.
 Cambio BizHawk y pelicula TAS siguen pendientes de sus puertas propias.
+
+
+## Catalogo privado CD Waterbox (T66u4)
+
+p6w_cd_catalog_bind recibe1..16 descriptores2432 existentes y un lector con
+ordinal canonico explicito; IDs unicos y orden fijo, sin cursor mutable del host.
+Legacy bind/ABI1/layout31 permanecen. Todos los hosts CD registran callbacks en
+slots0/1 fijos y sellan baseline vacio antes de bind. Owners/sources fijos quedan
+capturados; rebind valida todo sin IO y solo publica el thunk tras exito, conserva
+seleccion/presencia/opens restaurados y nunca vuelve a enlazar el catalogo.
+p6w_cd_change exige ausencia para otro ordinal y se aplica en frontera guardada;
+status informa count/selected/present/opens reales. Repeticiones no cancelan
+transferencias; expulsar conserva unidad/identidad y bloquea lecturas sin IO.
+CdHost bloquea lecturas/cambio tras restore incompleto hasta restaurar un snapshot
+completo. WB03 prueba A/B/Bausente con datos distintos, futuro AV/PCM/ticks/RAM y
+snapshot completo en sandbox/proceso nuevos; rechazos de rebind conservan thunk
+anterior. La identidad publica previa al snapshot y botones BizHawk pertenecenU5;
+registro/replay BK2/TAS pertenecenU6, sin acreditarlos por esta puerta privada.
