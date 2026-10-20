@@ -18933,6 +18933,56 @@
       "stop": "Sin Guardanidado, pulsofrontendfalso, accionpendienteoculta ni extensionnocartP6IN; no serializarpunteros/alterarIRQhardware."
     },
     {
+      "id": "T69c3",
+      "title": "Exponer HRTMon y Freeze por opciones y mapper libretro",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69c2",
+        "T16",
+        "T17",
+        "T31d"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "config/schema/options.json",
+        "tools/generate_options.py",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "adapters/libretro/mapper.h",
+        "adapters/libretro/input_map.h",
+        "tests/libretro-ui/mapper_probe.cpp",
+        "tests/libretro-ui/test_hrtmon.py",
+        "tests/config/test_parity.py"
+      ],
+      "steps": [
+        "Opcionrebootcartridgedisabled0/hrtmon2→p6_config.flags,puae6_cartridge; hotkey_freeze---/targetfreezeABI23. FlagsdeFloppyWrites1yHRT2componenOR,sinpisarescrituras. Validatormaps_toduplicadossolo0/bitunicosdisjuntos, otrosduplicadosrejectedlegacy. to_p6_config yto_configlimpianuna vez yORpartes; tablageneradaflags{default0,allowed0..3,parts...}. Testparidadrecorreparts sinperderdefaultniopciones. Dosoutputssegeneranconherramienta,nomanual. CorecomunrechazaHRTenmachineincompatible, defaultoff. Headless/wrapperconservannot_offeredhastaC4.",
+        "Effects.commandsnivel/InputConfig.hrtmon, nocolocarFreezeenrun_actionpulse niturbo. ConcartoffignorarhotkeyparanofaultRun. DosmappingsORmantienen1hastasoltarlosdos. VKBDposeepadlimitasolopadmapping, hotkeyfisicofuncionaconVKBD. InputABI2siCommandsaunqueparallel0, ABI108. Octavahotkeybit31unsigned probadoUBSan, state_frame.maskactual8bits24alreadyvalid,sinrewrites. Edge/historypertenecenbridgeC2, norepetirfrontend.",
+        "IN01 MapperProbeTests.test_the_mapper_holds_its_own_checks(ASanUBSanO1) extiendecasosbit31/hold/release/dosbotones/turbo/VKBD/off/ABI108/roundtripInputMemory; HrtMonOptionTests normalizaflags0..3/tablaparts/rechazossolapadosyotrosmapsduplicados. GEN01test_schema/test_parityygenerate_options--check. LR01/STATE01compartenHrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process, unionunavez.",
+        "Hostlibretrorealyaofreceact/loadfile/key-at/savefile/peek/poke/traza: A1200Kickstartautorizado300unidades, F11held301+,corteACTIVEheld380, o...5a/x poreltecladoreal,RAM/futuroAVPCM/ticks/estadofinalcompleto; otroprocesorestauraantesRunyrepite. ParseP6LRSTATv8header64/P6NATIVEheader336/chunksconlayoutparaRAM/HRT/P6INlevel, nopatternbytesciego. Offrechazaestadoon savebefore==after. Norepetir7cortesB ni buildsWBporC3.",
+        "Nueverutasatomicas objetivo250..330manualexcluidos2generados;paridad9arutanecesariapormapflagscompuesto. cd_swapaislado nometadatamotor/guest, rootcompila-j2/directgatesyrootmantieneplan. Excepcionesextraanteseditar; GEN01esIDexistente(noOPT01). C4managed/TASpublicosWBrealconservanpuertasyARcomercialpadreintacto."
+      ],
+      "checks": [
+        "GEN01",
+        "IN01",
+        "LR01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "LibretrohabilitaHRTMonrealporconfigyFreeze/hotkeymappernivel,preservaFloppyWrites yrestauracionheldcold/futurorrealconrechazos. Generador/tablas/mappercoherentes sinhistoriaedgeduplicada."
+      ],
+      "stop": "Sin editaroutputsmanuales, masksignedUB, perderflagsdeescritura, nuevohistoryfrontend ni declararWBporpruebanativa."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -18943,7 +18993,8 @@
         "T69a",
         "T69b",
         "T69c1",
-        "T69c2"
+        "T69c2",
+        "T69c3"
       ],
       "read": [
         "docs/01-architecture.md",

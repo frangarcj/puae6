@@ -614,6 +614,10 @@ TASK_SUITES[('BUILD01', 'T69c1')] = {'pinned_builtin_generation': 'tests.cartrid
 TASK_SUITES[('STATE01', 'T69c1')] = {'public_builtin_config_restore': 'tests.cartridge.test_hrtmon.HrtMonBuiltinTests.test_public_config_builtin_load_restore_identity_and_teardown'}
 for _gate in ('IN01', 'STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T69c2')] = {'public_freeze_level_restore': 'tests.cartridge.test_hrtmon.HrtMonCommandTests'}
+TASK_SUITES[('GEN01', 'T69c3')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('IN01', 'T69c3')] = {'mapper_levels': 'tests.libretro-ui.test_mapper.MapperProbeTests.test_the_mapper_holds_its_own_checks', 'composed_flags': 'tests.libretro-ui.test_hrtmon.HrtMonOptionTests'}
+for _gate in ('LR01', 'STATE01'):
+    TASK_SUITES[(_gate, 'T69c3')] = {'real_libretro_hrtmon': 'tests.libretro-ui.test_hrtmon.HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process'}
 TASK_SUITES[('HOST01', 'T69c2')] = {'guest_import_recipe': 'tests.waterbox-smoke.test_build.Puae6RecipeTests'}
 TASK_SUITES[('IN01', 'T69c2')]['exact_capabilities_regression'] = 'tests.host.test_bridge_caps.BridgeCapsTests'
 TASK_SUITES[('STATE01', 'T69c2')].update({
