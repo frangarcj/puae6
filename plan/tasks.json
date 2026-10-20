@@ -16621,14 +16621,16 @@
         "adapters/libretro/cd_mds.cpp",
         "cmake/Libretro.cmake",
         "tests/media/test_cd_mds.py",
-        "tests/media/cd_mds_probe.cpp"
+        "tests/media/cd_mds_probe.cpp",
+        "tests/media/test_cd_image.py"
       ],
       "steps": [
         "Implementar CdMds sobre metadata cruda0388 y CdFile/VFS con RAII, sin precargar MDF ni copiar motorviejo. Registrar targetmetadataMDScuarto y proveedor en p6_cd_images, todavia sin anunciarextension ni seleccionarCdImage; eso queda para integracion publica posterior.",
         "Normalizacion atribuida: libMirage oficial a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e/libmirage/images/image-mds/parser.c:461..474 crea pregap sintetico,492 start_offset apunta datos,543..545 extra.length es longitud de datos,646..651 session_start es inicio disco. Usar semantica y fixtures independientes, sin copiar fuente. Desde session_start acumular pregap+sectors, exigir concordancia con start_sector/Q/A2/session_end y contiguidad; clip negativo de primera pista fueraLBA>=0 sin desplazar datos. Inconsistencias se rechazan, no heuristicas silenciosas.",
         "Una MDF compartida: expandir *.mdf con basenameMDS y resolver nombre relativo conservando mayusculas/UTF8 como CdCue. Modos/strides permitidos por metadata; normalizar soloSUB96interleaved a deinterleaved sin tocar audio/data. Mantener limites expresos del Disc comun, incluidos viewsMode2 no soportados, sin stub de exito.",
         "Identidad incluye MDS y MDF completos por SHA256, normalizacion/TOC y fuentes, sin rutas ni punteros/padding. Rebind en owner nuevo verifica IDs/layout completos y conserva owner previo ante fallo. Validar spans/longitudes/overflow antes de publicar y lecturas acotadas/transaccionales con falloVFS; no fallback a sectores sinteticos tras error.",
-        "MED01 dirigido con build aislado sinmotor/guest: fixtures legales de modo1cooked/raw, audio,Mode2raw ySUB2448, pregaps inicial/intermedio, Unicode/wildcard, offsets arbitrarios ystrides mixtos, IDs/mutacionesenmetadata/payload/padding, nuevosowners/rebind, erroresVFS/archivoausente/corto ysalidasintactas. RegresioncercanaDisc/parsers si cambia dependencia relevante. Frente busy_reference reutiliza a4040-frontends; coordinador metadata/checks e integra. <=400lógicasmanuales orientativas,5rutas; anunciar necesidad atomica antes de ampliar."
+        "MED01 dirigido con build aislado sinmotor/guest: fixtures legales de modo1cooked/raw, audio,Mode2raw ySUB2448, pregaps inicial/intermedio, Unicode/wildcard, offsets arbitrarios ystrides mixtos, IDs/mutacionesenmetadata/payload/padding, nuevosowners/rebind, erroresVFS/archivoausente/corto ysalidasintactas. RegresioncercanaDisc/parsers si cambia dependencia relevante. Frente busy_reference reutiliza a4040-frontends; coordinador metadata/checks e integra. <=400lógicasmanuales orientativas,5rutas; anunciar necesidad atomica antes de ampliar.",
+        "Dependencia atomica detectada porresponsable: test_cd_image fija exactamente3targetsmetadata. Ampliar touch solo a ese testexistente para exigir4targets/flagsPICconMDS al integrarCMake; ajuste mínimo necesario del mismo contrato, sin relajar comprobaciones ni abrir nueva bateria. El coordinador realiza este sextoarchivo de integracion cuando el proveedor este listo."
       ],
       "checks": [
         "MED01"
