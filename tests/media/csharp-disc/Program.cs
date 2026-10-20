@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using BizHawk.Emulation.DiscSystem;
 using Puae6;
 
@@ -86,7 +87,62 @@ internal static unsafe partial class Program
   Require(raw.ReadSector(0, 2352, output) && output.AsSpan(0, 2352).SequenceEqual(mode2));
   Refused(output, () => raw.ReadSector(0, 2048, output));
  }
+ // Actual decompressed unit source for the CHD mount seam; no native decoder API.
+ sealed class UnitsBlob : IBlob
+ {
+  readonly byte[] bytes; public int Reads, Closes;
+  public UnitsBlob(byte[] data) { bytes=data; }
+  public int Read(long at, byte[] output, int offset, int count) {
+   if(Closes!=0||at<0||at>bytes.LongLength-count) throw new IOException("Unit range");
+   ++Reads; Buffer.BlockCopy(bytes,(int)at,output,offset,count); return count;
+  }
+  public void Dispose() { Closes=1; }
+ }
+ static void ChdUnits(string path)
+ {
+  using var input=JsonDocument.Parse(File.ReadAllText(path)); var rows=input.RootElement.GetProperty("tracks");
+  var chd=new CHD_Format.CHDFile { Header=new LibChd.chd_header { unitbytes=2448, hunkbytes=19584 } };
+  uint[] sizes={2048,2352,2336,2048,2324,2336,2352,2352};
+  foreach(var row in rows.EnumerateArray()) {
+   var a=row.EnumerateArray().Select(v=>v.GetUInt32()).ToArray();
+   chd.CdMetadatas.Add(new() { Track=(uint)chd.CdMetadatas.Count+1, TrackType=(LibChd.chd_track_type)a[0],
+    SubType=(LibChd.chd_sub_type)a[1], Frames=a[2], Pregap=a[3], PregapTrackType=(LibChd.chd_track_type)a[4],
+    PregapSubType=(LibChd.chd_sub_type)a[5], PregapInChd=a[6]!=0, PostGap=a[7], ExtraFrames=(0-a[2])&3,
+    ByteSwapAudio=true, SectorSize=sizes[a[0]], SubSize=a[1]==2?0u:96u });
+  }
+  var original=chd.CdMetadatas.Select(t=>(t.PregapTrackType,t.PregapSubType)).ToArray();
+  var blob=new UnitsBlob(File.ReadAllBytes(Path.ChangeExtension(path,"units")));
+  var policy=new DiscMountPolicy { CUE_PregapMode2_As_XA_Form2=input.RootElement.GetProperty("xaGap").GetBoolean() };
+  using(var disc=CHD_Format.LoadCHDToDisc(chd,blob,policy)) {
+   Require(blob.Reads==0&&original.SequenceEqual(chd.CdMetadatas.Select(t=>(t.PregapTrackType,t.PregapSubType))));
+   var immutable=disc.Regions.ToArray(); chd.CdMetadatas[0].TrackType=LibChd.chd_track_type.CD_TRACK_MODE2;
+   chd.CdMetadatas[0].Pregap=999; Require(immutable.SequenceEqual(disc.Regions));
+   try { ((IList<DiscRegionInfo>)disc.Regions).Clear(); throw new Exception("Mutable regions"); }
+   catch(NotSupportedException) { }
+   Require(typeof(Disc).GetProperty(nameof(Disc.Regions)).GetSetMethod(true).IsAssembly);
+   foreach(var r in disc.Regions) Console.WriteLine($"region {r.Start} {r.End} {r.Track} {r.Index} {r.Mode} {r.Control} {(r.Synthetic?1:0)} {(uint)r.Type} {(uint)r.SubType}");
+   disc.SynthProvider=new ArraySectorSynthProvider { Sectors=disc._Sectors, FirstLBA=-150 }; // Same provider as DiscMountJob.
+   var reader=new DiscSectorReader(disc); var output=new byte[2464];
+   using var rendered=File.Create(Path.ChangeExtension(path,"actual"));
+   for(int lba=0;lba<disc._Sectors.Count-150;++lba) {
+    Array.Fill(output,(byte)0xa5); Require(reader.ReadLBA_2448(lba,output,8)==2448);
+    Require(output.Take(8).Concat(output.Skip(2456)).All(v=>v==0xa5));
+    rendered.Write(output,8,2448);
+    Console.WriteLine($"sector {lba} {CdHash(output.AsSpan(8,2448).ToArray())}");
+   }
+  }
+  Require(blob.Closes==1);
+  string mds=Path.ChangeExtension(path,"mds");
+  if(File.Exists(mds)) {
+   using var body=new UnitsBlob(File.ReadAllBytes(mds)); var output=Enumerable.Repeat((byte)0xa5,2368).ToArray();
+   var synth=new BizHawk.Emulation.DiscSystem.CUE.SS_Mode2_Form2_2328 { Blob=body, Policy=policy };
+   synth.Synth(new SectorSynthJob { LBA=4350, DestBuffer2448=output, DestOffset=8, Parts=ESectorSynthPart.User2352 });
+   Require(output.Take(8).Concat(output.Skip(2360)).All(v=>v==0xa5));
+   Console.WriteLine("mds "+CdHash(output.AsSpan(8,2352).ToArray()));
+  }
+ }
  static void Main(string[] args) {
+  if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }
   if (args.Length > 1) { if (args[5].StartsWith("cd32")) Cd32Waterbox(args); else Waterbox(args); return; }
   Iso(args[0]); Cue(args[0]); Console.WriteLine("DiscSystem ISO/CUE offset, identity and rebind PASS");
  }

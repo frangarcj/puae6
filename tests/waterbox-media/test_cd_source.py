@@ -37,7 +37,7 @@ class CdTransportTests(unittest.TestCase):
                     data = (ROOT / "references/machawk" / name).read_bytes()
                     self.assertEqual(hashlib.sha256(data).hexdigest(), entry["sha256"])
                     target = work / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(data)
-            for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch"):
+            for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch"):
                 subprocess.run(["patch", "-p1", "-i", str(ROOT / "integration/bizhawk/patches" / name)], cwd=work, check=True, capture_output=True)
             project = work / "DiscSource.csproj"; shutil.copyfile(ROOT / "tests/media/csharp-disc/DiscSource.csproj", project)
             env = {**os.environ, "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget"), "DOTNET_NOLOGO": "1", "DOTNET_ROLL_FORWARD": "Major", "DOTNET_CLI_HOME": str(ROOT / "build/waterbox/dotnet-home")}

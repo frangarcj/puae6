@@ -1039,6 +1039,18 @@ payload, cache, limites y propagacion de errores con un proveedor de hunks de
 prueba. Este proveedor no decodifica CHD ni acredita la biblioteca nativa macOS;
 esa dependencia y el arranque CD32 permanecen pendientes en T66.
 
+T66t13 añade `Disc.Regions`, una lista inmutable de regiones CHD visibles
+`[Start,End)`: pista, indice, modo/control, tipo almacenado, SUB y procedencia
+sintetica salen de la metadata original al montar. No se reconstruyen desde Q
+ni desde el sintetizador; el montaje tampoco modifica la metadata de entrada.
+El seam interno CHDFile+IBlob usa unidades descomprimidas reales y el mismo
+montador/sintetizadores que la entrada por archivo. MED01 compara sus2448bytes
+con oraculos independientes: MSF/BCD, EDC/P/Q, XA Form2 duplicado en2/6,
+audio BE→LE, SUB en data_size, RW/RW_RAW, pregaps y postgap INDEX02. Omite el
+padding fisico de4frames y conserva literalmente ambas politicas de gap Mode2;
+el futuro conector canonico debe elegir false explicitamente. Esto no acredita
+el backend host `chd_capi`, la conexion publica tipada ni su restauracion WB.
+
 T66g1 convierte el layout validado a `cd_toc_head` real de WinUAE: A0, pistas,
 A1 y A2 conservan ADR/control, INDEX01 y leadout, con el mismo orden que
 `command_toc` fijado. Extrae96 P-W deinterleaved o SUBQ_SIZE16 (cabecera con
