@@ -16819,7 +16819,7 @@
     {
       "id": "T66t5",
       "title": "Interpretar TOC CHD v5 y reutilizar un hunk decodificado",
-      "status": "in_progress",
+      "status": "done",
       "milestone": "M3",
       "required": true,
       "depends": [
