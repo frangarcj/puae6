@@ -511,6 +511,10 @@ TASK_SUITES[('DET02', 'T55a')] = {
 TASK_SUITES[('DET02', 'T55b1')] = {'a4030_platform_state': 'tests.state.test_a4030'}
 TASK_SUITES[('WB03', 'T55b1')] = {
     'a4030_auto_none_sandbox': 'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast'}
+TASK_SUITES[('GEN01', 'T55c10')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('LR01', 'T55c10')] = {'a4040_frontend_restore': 'tests.libretro-host.test_a4040.A4040FrontendTests'}
+TASK_SUITES[('WB03', 'T55c10')] = {'a4040_sandbox_restore': 'tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests'}
+TASK_SUITES[('STATE01', 'T66r7')] = {'pending_config_countdown': 'tests.state.test_pending_config.PendingConfigTests'}
 TASK_SUITES[('GEN01', 'T55b')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('DET02', 'T55b')] = {
     'a4030_platform_state': 'tests.state.test_a4030',
