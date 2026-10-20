@@ -1,0 +1,34 @@
+diff --git a/src/BizHawk.Client.Common/movie/MovieSession.cs b/src/BizHawk.Client.Common/movie/MovieSession.cs
+--- a/src/BizHawk.Client.Common/movie/MovieSession.cs
++++ b/src/BizHawk.Client.Common/movie/MovieSession.cs
+@@ -221,4 +221,13 @@
+ 		}
+ 
+-		public void RunQueuedMovie(bool recordMode, IEmulator emulator)
++		public void RunQueuedMovie(bool recordMode, IEmulator emulator)
++		{
++			using var puae6MediaStart = emulator is global::Puae6.Puae6Core mediaCore && mediaCore.Identity.Machine != "CD32"
++				? global::Puae6.Puae6Movie.PrepareStart(new Dictionary<string, string>(_queuedMovie.HeaderEntries), mediaCore,
++					_queuedMovie.StartsFromSavestate, _queuedMovie.BinarySavestate, _queuedMovie.StartsFromSaveRam, _queuedMovie.SaveRam)
++				: null;
++			RunQueuedMovieCore(recordMode, emulator);
++		}
++
++		private void RunQueuedMovieCore(bool recordMode, IEmulator emulator)
+ 		{
+diff --git a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs b/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
+--- a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
++++ b/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
+@@ -176,6 +176,12 @@
+ 			movie.Core = Emulator.Attributes().CoreName;
+ 			movie.SystemID = Emulator.SystemId; // TODO: I feel like setting this shouldn't be necessary, but it is currently
+ 
++			if (Emulator is global::Puae6.Puae6Core mediaCore && mediaCore.Identity.Machine != "CD32")
++			{
++				if (movie.StartsFromSaveRam && movie.SaveRam is null) movie.StartsFromSaveRam = false;
++				foreach (var entry in global::Puae6.Puae6Movie.HeaderForStart(mediaCore, movie.StartsFromSavestate, movie.StartsFromSaveRam ? movie.SaveRam : null))
++					movie.HeaderEntries[entry.Key] = entry.Value;
++			}
+ 			var settable = GetSettingsAdapterForLoadedCoreUntyped();
+ 			if (settable.HasSyncSettings)
+ 			{

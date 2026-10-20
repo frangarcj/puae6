@@ -16,6 +16,26 @@ public sealed unsafe partial class Puae6Core
 		if (_started || _faulted || _movieStart is not null) throw new InvalidOperationException("a movie starts in a fresh core");
 	}
 
+	internal StateIdentity MediaMovieIdentity(byte[]? saveRam)
+	{
+		var canonical = Puae6MediaIdentity.CanonicalSaveRam(saveRam, _media, _hardFiles, _syncSettings.FloppyWrites);
+		return MakeIdentity(_parameters.Firmware, null, canonical is null ? null : StateEnvelope.Sha256(canonical));
+	}
+
+	internal void CheckMediaMovieBoot()
+	{
+		if (_imported is not null) throw new MovieRejectedException(MovieRejection.BadStart, "a movie requires the original media bases before Attach");
+	}
+
+	internal void ValidateMediaMovieState(byte[] state)
+	{
+		// No identity override: an imported sealed base still needs separate transport.
+		using var reader = new BinaryReader(new MemoryStream(state, false));
+		var payload = StateEnvelope.Read(reader, _identity);
+		using var fields = new BinaryReader(new MemoryStream(payload, false));
+		Parse(fields);
+	}
+
 	internal IDisposable PrepareMovieState(byte[] state, StateIdentity identity, byte[] nvramHash)
 	{
 		using var stream = new MemoryStream(state, false);

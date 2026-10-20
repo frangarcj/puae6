@@ -69,16 +69,24 @@ public static class Puae6Movie
 	/// <summary>Capture before the frontend reboots: a SRAM movie starts from the captured bytes, a state movie from the original boot identity.</summary>
 	public static Dictionary<string, string> HeaderForStart(Puae6Core core, bool fromState, byte[]? saveRam)
 	{
-		if (core.Identity.Machine != "CD32") throw new MovieRejectedException(MovieRejection.BadStart, "this startup transport is for CD32");
+		if (core.Identity.Machine != "CD32") return Header(fromState ? core.Identity : core.MediaMovieIdentity(saveRam), null);
 		var hash = fromState ? core.InitialNvramHash : StateEnvelope.Sha256(saveRam ?? new byte[P6.Cd32NvramBytes]);
 		return Header(core.MovieIdentity(hash), hash);
 	}
 
-	/// <summary>CD32 preflight before Movie.Attach (TAS Attach can already import SRAM). The scope permits only the validated initial snapshot's identity.</summary>
+	/// <summary>Preflight before Movie.Attach (TAS Attach can already import SRAM). Only CD32 may project an initial snapshot identity.</summary>
 	public static IDisposable? PrepareStart(IReadOnlyDictionary<string, string> header, Puae6Core core, bool fromState, byte[]? state, bool fromSram, byte[]? saveRam)
 	{
 		core.CheckMovieBoot();
-		if (core.Identity.Machine != "CD32" || (fromState && fromSram)) throw new MovieRejectedException(MovieRejection.BadStart, "invalid CD32 movie start mode");
+		if (fromState && fromSram) throw new MovieRejectedException(MovieRejection.BadStart, "conflicting movie start modes");
+		if (core.Identity.Machine != "CD32")
+		{
+			core.CheckMediaMovieBoot();
+			if (fromSram && saveRam is null) throw new MovieRejectedException(MovieRejection.BadStart, "the movie has no initial SaveRAM");
+			Validate(header, fromState ? core.Identity : core.MediaMovieIdentity(fromSram ? saveRam : null), null);
+			if (fromState) core.ValidateMediaMovieState(state ?? throw new MovieRejectedException(MovieRejection.BadStart, "a binary initial state is required"));
+			return null;
+		}
 		if (!header.TryGetValue(NvramKey, out var text)) throw new MovieRejectedException(MovieRejection.MissingKey, $"the movie has no {NvramKey}");
 		if (text.Length != 64 || text.Any(c => !Uri.IsHexDigit(c))) throw new MovieRejectedException(MovieRejection.BadStart, "invalid initial NVRAM hash");
 		var hash = Enumerable.Range(0, 32).Select(i => Convert.ToByte(text.Substring(i * 2, 2), 16)).ToArray();
@@ -120,5 +128,18 @@ public static class Puae6Movie
 		Same(FirmwareKey, MovieRejection.OtherFirmware, "another firmware");
 		Same(MediaKey, MovieRejection.OtherMedia, "other disks");
 		if (nvramHash is not null) Same(NvramKey, MovieRejection.OtherConfig, "other initial NVRAM");
+	}
+}
+
+
+/// <summary>Pure startup projection; parsing validates every referenced base before any guest is rebuilt.</summary>
+public static class Puae6MediaIdentity
+{
+	public static byte[]? CanonicalSaveRam(byte[]? data, IReadOnlyList<byte[]> floppies, IReadOnlyList<byte[]> hardFiles, bool floppyWrites)
+	{
+		if (data is null) return null;
+		var parsed = SaveRam.Parse(data, floppies, hardFiles);
+		if (!floppyWrites && parsed.Floppy.Count != 0) throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "the movie carries floppy writes but they are disabled");
+		return data.Take(parsed.Length).ToArray();
 	}
 }

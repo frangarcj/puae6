@@ -451,6 +451,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	}
 
 	StateIdentity MakeIdentity(byte[] firmware, byte[]? initialNvramHash = null)
+		=> MakeIdentity(firmware, initialNvramHash, _imported?.Hash);
+
+	StateIdentity MakeIdentity(byte[] firmware, byte[]? initialNvramHash, byte[]? saveRamHash)
 	{
 		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
 		// The memory enters the identity only when it is not the machine's own: the identity of a core with the stock memory is the one it always had.
@@ -489,7 +492,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.ControllerPort3 != Puae6ParallelPort.None || _syncSettings.ControllerPort4 != Puae6ParallelPort.None)
             memory += $";parallel={_syncSettings.ControllerPort3},{_syncSettings.ControllerPort4}";
 		if (_syncSettings.Machine == Puae6Machine.CD32) memory += ";nvram=" + BitConverter.ToString(initialNvramHash ?? _nvramInitialHash).Replace("-", "").ToLowerInvariant();
-		if (_imported is not null) memory += ";saveram=" + BitConverter.ToString(_imported.Hash).Replace("-", "").ToLowerInvariant();
+		if (saveRamHash is not null) memory += ";saveram=" + BitConverter.ToString(saveRamHash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
 			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
 		byte[] ConfigHash(Puae6Machine machine) => StateEnvelope.Sha256(Encoding.UTF8.GetBytes(Config(machine)));

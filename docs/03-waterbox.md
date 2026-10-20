@@ -617,3 +617,17 @@ prueba Client.Common/net48 real: limites de pagina, captura fuera de orden,
 invalidacion, vuelta del buffer circular y compresion Zwinder Memory/TempFile.
 El historial se lee en un proceso nuevo contra bytes independientes. Es una prueba del host; T80 conserva
 la aceptacion Waterbox, identidad de peliculas ADF/HDF y UI real.
+
+
+## Inicio de peliculas con ADF, HDF y volumenes (T80b)
+
+El transporte de MainForm/MovieSession valida las cabeceras y el SaveRAM antes de
+Attach. PowerOn proyecta las bases originales; SaveRAM usa el blob seleccionado,
+validado contra esas bases y sin padding final. La importacion real reconstruye
+las bases selladas, tambien cuando TAS importa dos veces; no se reemplaza por un
+hash adoptado. Grabar desde SaveRAM sin cambios (null) se normaliza a PowerOn.
+Los estados sin base importada conservan su validacion estricta. Un estado creado
+sobre una base importada sigue pendiente de transporte binario de esa base; el
+snapshot y su hash solos no reconstruyen el heap sellado. STATE01 prueba solo la
+canonizacion host. WB09/WB03 requieren el guest compartido actual explicitado por
+`P6_MEDIA_MOVIE_GUEST_RECEIPT`, replay/seek y otro proceso; sin el, quedan BLOCKED.
