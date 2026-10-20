@@ -16996,9 +16996,10 @@
       "title": "Leer NRG ETNF multitrack con pregap canonico explicito",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
-        "T66l4"
+        "T66l4",
+        "T66g5"
       ],
       "read": [
         "docs/00-sources.md",
@@ -17033,6 +17034,46 @@
         "ETNF soportado produce pistas/datos/pregaps canonicos150 yheadersporLBAreal exactos, identidadcompleta yrebindtransaccional conregresionDAO/factorybajo sanitizers; contratodeinformacionperdidadocumentado. ETN2/mixedstride/multisesion permanecenpendientes."
       ],
       "stop": "No inventar pregap original perdido, trasladarreglaETNF aETN2nirecortarpuerta completaT66; fuenteoriginalpristina ypatchderivado."
+    },
+    {
+      "id": "T66g5",
+      "title": "Sintetizar pregaps y postgaps Mode2 vacios con direccion real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66b",
+        "T66g2",
+        "T66s2",
+        "T66l4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_disc.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tests/media/test_cd_mds.py",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Quitar limitacionactual gapMode2Raw=>Unsupported para main2352 sintetico, sin modificar lectura de datosalmacenados. CanonicaMode2Form1vacia: sync12+MSFBCD(LBA+150)/mode2+2336ceros; EDC/ECC0 porque subheader/payload0 yheaderexcluidodelaparidad. Contrastarprimario libMiragea9d6a2044b3c7bdf63ca44517ddd5738fd68c69e sector.c:Mode2Mixedsin datosseleccionaForm1, generadordata0 yEDC/ECC755..767; no inventarForm2.",
+        "Mantenervista2048Mode2Unsupported explicita yDisc.read2448 almacenados actual; canonical_read2448 combinamain2352nuevo+P/Qsinteticos existentes. AntesdeIO/salidavalidarMSFdosdigitos, igualMode1; gapnoIO, dataconIOerror no seconvierteengap. Incluirpregap/postgap,clipping yrolloversBCD, preservandobind/rebind/transacciones.",
+        "MED01 CdDiscTests+CdMdsTests ASan/UBSan: probeexistente confirmaheaderliteral/body0/Q,ceroIO,salidainmutable alfallo/rangoMSF ydatasectorMode2Form2intacto; MDSoraculoactualizado a2352canonicoconidentidad/VFS/rebind. Sinusarhelpernuevo0391enDiscporque arnesesexistentes compilanencoder0355; evitar nuevadependenciainclude/encoder e innecesariorefactorgeneral.",
+        "Frente busy_reference ejecutag5antesderetomarl5; preservarWIPETNFaisladoysin incluirloencommitg5. Cincorutasatomicas estimacion<200manuales; l5quedapendingdependiendodeg5. Coordinador poseeplan/checks e integra, sinmotor/guest ni nuevopatchWinUAE. Documentarpolitica canonicaynoformularpregapsoriginales deformatosque nolossalvan."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Los gaps sinteticosMode2 entregan2352canonicosexactos y2448conP/Q, sinIO ni mutacionsobrefallo; datosalmacenados/erroresreales,otrosmodos yMDSsiguenpasando sanitizers. PermiteretomarETNFsin limitarmainMode2pregapsaUnsupported."
+      ],
+      "stop": "No inferirForm2 desdegapvacio, introducirencoderMode1paraMode2 ni retornargapsintetico trasfallode datosreales."
     },
     {
       "id": "T66",
@@ -17097,7 +17138,8 @@
         "T66u1",
         "T66l4",
         "T66u2",
-        "T66l5"
+        "T66l5",
+        "T66g5"
       ],
       "read": [
         "docs/01-architecture.md",

@@ -264,6 +264,8 @@ TASK_SUITES[('MED01', 'T66l4')] = {'nrg_mode2_metadata': 'tests.media.test_nrg_m
 TASK_SUITES[('MED01', 'T66l5')] = {'nrg_etnf_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
                                    'nrg_etnf_source': 'tests.media.test_cd_nrg.CdNrgTests',
                                    'native_cd_factory': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('MED01', 'T66g5')] = {'mode2_synthetic_gap': 'tests.media.test_cd_disc.CdDiscTests',
+                                   'mds_mode2_gap_regression': 'tests.media.test_cd_mds.CdMdsTests'}
 TASK_SUITES[('MED01', 'T66o1')] = {'native_cd_image_owner': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66p1')] = {'caps_standalone': 'tests.host.test_bridge_caps', 'private_stock_cd32_boot': 'tests.media.test_cd32_boot.Cd32BootTests'}
 TASK_SUITES[('LR01', 'T66r1')] = {'direct_cd32_sessions': 'tests.libretro-host.test_cd32_load.Cd32LoadTests'}
