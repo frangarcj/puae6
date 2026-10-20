@@ -17802,7 +17802,7 @@
       "title": "Backend CHD host opt-in para DiscSystem con decoder real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t14",
         "T66t13",
@@ -17835,7 +17835,8 @@
         "MED01 ChdHostCSharpTests: los cuatro fixtures legales existentes recorren decoder, DiscSystem y regiones/sectores reales hasta Puae6DiscSource. Comprobar audio, SUB/Q y stream completo contra oraculos numericos independientes; cruces de hunk, truncamiento, apertura fallida, disposicion y rechazo sin mutacion. Regresiones cercanas ChdCanonicalCSharpTests y ChdBlobReadTests; no repetir juego de 6500 frames ni matrices de codecs completas ya aprobadas.",
         "busy_reference implementa en worktree aislado, sin metadata ni motor/guest build. Nueve rutas, objetivo 330-390 lineas manuales incluyendo patch C# y tests; avisar y dividir antes de superar 400 o ampliar rutas. Root coordina compilaciones pesadas de CDTV y la biblioteca standalone no debe coincidir con ellas sin acuerdo. Patch 0010 reservado aqui; 0009 queda reservado al transporte futuro de bases de estados de T80.",
         "Esta hoja no conecta el loader publico PUAE6 ni acredita descriptor regional V2/Waterbox: Puae6DiscSource aun construye v1. La hoja posterior debe seleccionar explicitamente esta ruta solo para PUAE6, fijar politica XA canonica, traducir Disc.Regions a P6CdInfoV2 y pasar WB03 real. El bloqueo host conocido no se transforma en PASS por el backend nativo.",
-        "Integracion dirigida del proyecto real DiscSystem (target netstandard2.0 con sus analyzers, compatible con el host net48): el harness net8 no lo sustituye. El primer build detecta CA1065 porque un .cctor lanza TypeLoadException. Mover la misma guarda estricta sizeof/offsets al constructor normal antes del open nativo; no desactivar analizador ni debilitar ABI. Añadir ChdHostCSharpTests.test_real_discsystem_target_and_analyzers dentro de su ruta ya autorizada. BUILD01 selecciona ese metodo, incluido tambien en MED01: union una vez. Los cinco metodos canonical/blob ya aprobados no se repiten por la correccion de ctor/harness."
+        "Integracion dirigida del proyecto real DiscSystem (target netstandard2.0 con sus analyzers, compatible con el host net48): el harness net8 no lo sustituye. El primer build detecta CA1065 porque un .cctor lanza TypeLoadException. Mover la misma guarda estricta sizeof/offsets al constructor normal antes del open nativo; no desactivar analizador ni debilitar ABI. Añadir ChdHostCSharpTests.test_real_discsystem_target_and_analyzers dentro de su ruta ya autorizada. BUILD01 selecciona ese metodo, incluido tambien en MED01: union una vez. Los cinco metodos canonical/blob ya aprobados no se repiten por la correccion de ctor/harness.",
+        "Backend integrado63edde9f/9f721aad. Union MED01 acumulada: ChdHostCSharpTests3 PASS20.515s (cuatro codecs, ABI Info32/Track96, ownership/FD, truncacion/rangos y proyecto DiscSystem real con analyzers), mas ChdCanonicalCSharpTests2 y ChdBlobReadTests3 ya PASS con seam identico. BUILD01 es el subconjunto del mismo target real; no repetido. CA1065 corregido con CheckLayout en ctor normal antes de abrir, sin debilitar layout. Biblioteca/exports temporales y build.log eliminados; default chd-rs intacto. Seleccion publica PUAE6, politica XA, Regions a V2 y Waterbox siguen pendientes."
       ],
       "checks": [
         "MED01",
