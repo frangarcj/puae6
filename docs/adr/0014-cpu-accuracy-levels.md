@@ -137,3 +137,13 @@ y res_func.S:wrap_div/fix_stk: exponentes-63/-62 y bitsE15. La inversa conserva
 exactamente esas mantisas; FDIV da1/3 e INEX2, con FPIAR causante separado del
 PC de reintento del frameCPU0 y preservado por FSAVE. No acredita exponentes
 FE arbitrarios ni completa writeback/SX/SAVEPC06 o los perfiles publicos040/060.
+
+CU_SAVEPC06 se reanuda para la reconstruccion extended de revision40 que define
+[Motorola FPSP bugfix.S:op0_xi/op0_sete15](https://github.com/torvalds/linux/blob/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/bugfix.S).
+Ese frame recien vaciado carece de FPTEMP: toma FPn como destino y conserva
+el registro fuente IEEE extended en ETEMP, con ETE15=!ETE14. La conversion FE
+no sirve para esa etapa: para1.0 ETE15 vale1. Se reutilizan la aritmetica y la
+prioridad de pendientes existentes. El oraculo usa resultados matematicos,
+FCMP/FTST sin escritura y el protocolo FPSP; no es una captura de hardware.
+La revision41, el formato double de op2_xi, otros micro-PC y la semantica general
+de dirty/SX/writeback siguen en la puerta pendiente de T55c.

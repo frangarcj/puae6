@@ -5273,6 +5273,28 @@
           "after_sha256": "b9f027c0234ff14ff1730089e825a9fc708aa4a368cd537bde631eb13e3dfacf"
         }
       ]
+    },
+    {
+      "id": "0379-frestore040-fpsp-cu06-extended",
+      "file": "patches/winuae/0379-frestore040-fpsp-cu06-extended.patch",
+      "sha256": "cbf5c3d2f4cedc54600ac384d099e72ffef9896e17cb445eaf56d3680537b262",
+      "title": "Resume the FPSP rev40 CU06 extended-register reconstruction",
+      "reason": "T55c: MotorolaFPSP bugfix.S rebuilds CU06 with the live architectural destination and an IEEE extended source in ETEMP; its ETE15 encoding belongs to an earlier stage than FE. Keep other CU06 formats and pipeline states in the parent gate.",
+      "category": "state corrections",
+      "order": 196,
+      "symbols": [
+        "fpuop_restore"
+      ],
+      "test": "tests/host/test_frestore040.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "b9f027c0234ff14ff1730089e825a9fc708aa4a368cd537bde631eb13e3dfacf",
+          "after_sha256": "8eb2e5a07e171183586ecf94f90e09cc8eb33168b0924c614d0efcddbb9bb6db"
+        }
+      ]
     }
   ]
 }

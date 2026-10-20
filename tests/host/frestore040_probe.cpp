@@ -115,6 +115,46 @@ static void busy_new_exception(int rev) {
     assert(get_long(0x11040)==0x00200000);
     printf("FRESTORE040 rev%x BUSY FE-denorm/new-exception-identity PASS\n",rev);
 }
+static void busy_06() {
+    // Motorola FPSP bugfix.S:op0_xi/op0_sete15 reconstructs rev40 CU:
+    // empty FPTEMP, architectural FPn destination, IEEE extended ETEMP,
+    // and ETE15 = !ETE14. Expected arithmetic below is independent of FSAVE.
+    struct Case { unsigned op; int left; uint32_t source[3]; uint16_t high; uint64_t low; uint32_t cc; };
+    const Case cases[] = {
+        {0x22,2,{0x3fff0000,0x80000000,0},0x4000,0xc000000000000000ULL,0}, //2+1=3
+        {0x28,5,{0x40000000,0x80000000,0},0x4000,0xc000000000000000ULL,0}, //5-2=3
+        {0x23,-3,{0x40000000,0x80000000,0},0xc001,0xc000000000000000ULL,0x08000000}, //-3*2=-6
+        {0x20,6,{0x40000000,0x80000000,0},0x4000,0xc000000000000000ULL,0}, //6/2=3
+        {0x05,-7,{0x40020000,0x90000000,0},0x4000,0xc000000000000000ULL,0}, //internal FSQRT9=3
+        {0x1a,2,{0x3fff0000,0x80000000,0},0xbfff,0x8000000000000000ULL,0x08000000}, //neg1=-1
+        {0x38,2,{0x3fff0000,0x80000000,0},0x4000,0x8000000000000000ULL,0}, //cmp2,1; no write
+        {0x3a,2,{0xbfff0000,0x80000000,0},0x4000,0x8000000000000000ULL,0x08000000}, //tst-1; no write
+        {0x20,1,{0x40000000,0xc0000000,0},0x3ffd,0xaaaaaaaaaaaaaaabULL,0}, //1/3 -> INEX2
+    };
+    for(unsigned n=0;n<sizeof cases/sizeof *cases+1;++n) {
+        const bool pending=n==sizeof cases/sizeof *cases;
+        const auto &c=cases[pending ? 0:n]; const unsigned dest=n&7;
+        owner(0x40); for(int i=0;i<8;i++) move(i,10+i); move(dest,c.left);
+        auto before=capture(); Words w(25,0); w[0]=0x40600000; w[2]=0x06000000;
+        w[0x28/4]=0x4000; w[0x40/4]=(0x4800u|(dest<<7)|c.op)<<16;
+        w[0x3c/4]=(c.source[0]&0x40000000) ? 0:1u<<28;
+        for(unsigned i=0;i<3;i++) w[0x58/4+i]=c.source[i];
+        if(pending) w[0x48/4]=1u<<25;
+        fpp_set_fpcr(n>=8 ? 0x0200:0); fpp_set_fpsr(pending ? 0x0200:0);
+        install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<8;i++) {
+            const bool result=i==dest && !pending;
+            assert(regs.fp[i].fpx.high==(result ? c.high:before.high[i]));
+            assert(regs.fp[i].fpx.low==(result ? c.low:before.low[i]));
+        }
+        assert((regs.fpsr&0x0f000000)==c.cc && regs.fp_exp_pend==unsigned(n>=8 ? 49:0));
+        if(n==8) assert(regs.fpiar==0x4000 && (regs.fpsr&0x0200));
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        assert(get_long(0x11000)==(n>=8 ? 0x40600000:0x40000000));
+        printf("FRESTORE040 rev40 BUSY06 case%u arithmetic/flags/registers/frame PASS\n",n);
+    }
+}
 int main(int argc,char **argv) {
     assert(argc==2); std::ifstream file(argv[1],std::ios::binary);
     std::vector<uint8_t> rom{std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
@@ -123,6 +163,7 @@ int main(int argc,char **argv) {
     c.audio_rate_hz=48000; c.random_seed=1; c.rtc_epoch_seconds=946684800;
     p6_error e{P6_ABI_VERSION,sizeof e,{}}; assert(p6_init(&c,&e)==P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_OK);
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
+    busy_06();
     for(int rev : {0x40,0x41}) {
         for(int event=0;event<3;event++) busy(rev,event);
         busy_resume(rev);
