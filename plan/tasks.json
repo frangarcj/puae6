@@ -18788,6 +18788,52 @@
       "stop": "No guardar punteros, inferirmapeodesdeflag, aceptarCPU-SPCdiscordante ni usarcodec.uss/pathsenApply; assetsARcomerciales siguenautorizacionaparte."
     },
     {
+      "id": "T69c1",
+      "title": "Activar HRTMon builtin desde la configuracion publica comun",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69a",
+        "T69b"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "CMakeLists.txt",
+        "tools/prepare_hrtmon.py",
+        "tools/build_waterbox.py",
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/lifecycle.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/00-sources.md"
+      ],
+      "steps": [
+        "Generar build/assets/hrtmon_builtin.cpp con Pythonstdlibgzip desde upstream/winuae/hrtmon.rom.cpp fijado: sourceSHA f3cdc921cb33d9f7b16197d66a182dda63a107e331032fb30ffad96dc98b9367, packed41970, raw198732/HRT!offset4/rawSHA15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5. Constarray compilada enp6_bridge nativo/WB; noROMrawGit, inflater oFSruntime. Fuera build/generated para noalterar29CPUoutputs/receipt. CMake customcommand depende script+source; WBbuilder prepara antesenumerarfuentes yvalida assetenreceipt.",
+        "P6_CONFIG_HRTMON bit1=2, defaultoff ysoloA1200; rechazo antesmutarmaquina y firmwareinvalido antesbinding. Bootstrap interno sinGuard antesbuild_preferences, wrappersprivados conservanGuard. Copia raw inmutable ySHAidentidadB, flags configtambiénidentifican. Releaseexisting limpia Initialized/loaded/failed/preload, load/unload/reload sinresiduo. Combinacionflags3 conservaFloppyWrites. NoFreezeAPI ni CAP hastaC2.",
+        "BUILD01 HrtMonBuiltinTests.test_generation_is_reproducible_and_rejects_changed_source demuestra generación reproducible/tamper sinmotor. STATE01 .test_public_config_builtin_load_restore_identity_and_teardown usa builtin-write/read enprobeexistente conKickstartA1200autorizado: dosprocesos antesprimerRun destino, corte tras1unidad/futuro5, saveexacto/RAM/AV/PCM/ticks, on→offrechazo transaccional yteardown/defaults. No repetir7cortesB ni anunciarfrontends porflagcomun.",
+        "Diezrutas atomicas objetivo180..240manuales excluidoconstarraygenerada. Responsablecd_swapworktreeaislado, no metadata ni builds motor/guest. Rootserializa-j2 ycombina C1+Bfix+T66t12 enunaguestcompilation, despueschecksrealesWBpendientes. C2Freeze/inputlevel yfrontends/TASsiguenpadreT69; ARcomercialrequiereassetautorizado ycodecpropio."
+      ],
+      "checks": [
+        "BUILD01",
+        "STATE01"
+      ],
+      "acceptance": [
+        "La configuracion publica habilita builtinHRTMon fijado soloA1200, carga/restaura/limpiaowner eidentidadcorrectamente sinIOhostruntime; generaciónverificadayflagscombinables. NoacreditaFreezepublico niWaterboxporpruebanativa."
+      ],
+      "stop": "No Guardanidado niInflater/FSguest, sincartuchocomercialdescargado ni cambiarCPUserializacion/golden; scopeextraanteseditar."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -18796,7 +18842,8 @@
       "depends": [
         "T24",
         "T69a",
-        "T69b"
+        "T69b",
+        "T69c1"
       ],
       "read": [
         "docs/01-architecture.md",
