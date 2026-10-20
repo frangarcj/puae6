@@ -32,6 +32,7 @@ static std::vector<uint8_t> file(const char *path)
     assert(fread(out.data(),1,out.size(),f)==out.size()); fclose(f); return out;
 }
 static unsigned cpu_mode=P6_CPU_EXACT;
+static bool normal_only=false;
 static p6_config config(uint32_t machine=P6_MACHINE_A1200)
 {
     p6_config c{P6_ABI_VERSION,sizeof c}; c.machine=machine; c.video_standard=P6_VIDEO_PAL;
@@ -67,12 +68,30 @@ static void command(const char *text,bool enter=true)
     if (enter) { step(3,AK_RET); step(12); }
 }
 static std::map<std::string,uint64_t> fields;
-static void field(void *,uint32_t,uint64_t at,uint64_t,const char *name) { fields[name]=at; }
+static std::map<uint64_t,std::pair<uint64_t,std::string>> spans;
+static void field(void *,uint32_t,uint64_t at,uint64_t size,const char *name) { fields[name]=at; spans[at]={size,name}; }
 static std::vector<uint8_t> save()
 {
     auto e=error(); uint64_t size=0,written=0; call(p6_state_bound(&size,&e),e);
-    std::vector<uint8_t> out(size); p6_state::Options opts; opts.on_field=field; fields.clear();
+    std::vector<uint8_t> out(size); p6_state::Options opts; opts.on_field=field; fields.clear(); spans.clear();
     call(p6_state::save(out.data(),out.size(),&written,opts,&e),e); out.resize(written); return out;
+}
+static void same_state(const std::vector<uint8_t> &expected)
+{
+    const auto actual=save();
+    if(actual!=expected) {
+        fprintf(stderr,"HRTMon state mismatch mode=%u expected_size=%zu actual_size=%zu\n",cpu_mode,expected.size(),actual.size());
+        unsigned header=0,body=0;
+        for(size_t at=0;at<expected.size() && at<actual.size();++at) {
+            if(expected[at]==actual[at]) continue;
+            if(at<p6_state::kHeaderSize) { if(header++>=4) continue; } else if(body++>=16) break;
+            auto found=spans.upper_bound(at); const char *name="envelope/chunk header"; uint64_t relative=at;
+            if(found!=spans.begin()) { --found; if(at-found->first<found->second.first) { name=found->second.second.c_str(); relative=at-found->first; } }
+            fprintf(stderr,"  offset=%zu field=%s+%llu expected=%02x actual=%02x\n",at,name,(unsigned long long)relative,expected[at],actual[at]);
+        }
+        fflush(stderr);
+    }
+    assert(actual==expected);
 }
 static void check_mirrors()
 {
@@ -153,7 +172,7 @@ static std::array<uint8_t,32> future(unsigned cut)
 static std::string state_path(const char *directory,unsigned cut) { return std::string(directory)+"/"+std::to_string(cpu_mode)+"-"+std::to_string(cut)+".state"; }
 static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,const char *directory,bool writing)
 {
-    for(cpu_mode=0;cpu_mode<=P6_CPU_NORMAL;++cpu_mode) {
+    for(cpu_mode=normal_only?P6_CPU_NORMAL:P6_CPU_EXACT;cpu_mode<=P6_CPU_NORMAL;++cpu_mode) {
         std::vector<std::vector<uint8_t>> cuts;
         if(writing) {
             start(rom,cart); step(300); assert(get_long(4)>0 && get_long(4)<currprefs.chipmem.size);
@@ -175,8 +194,8 @@ static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint
             if(cpu_mode!=P6_CPU_EXACT && cut!=2) continue;
             const auto path=state_path(directory,cut); auto state=writing?cuts[cut]:file(path.c_str());
             if(!writing) start(rom,cart);
-            load(state); assert(save()==state); const auto first=future(cut);
-            load(state); assert(save()==state); assert(first==future(cut));
+            load(state); same_state(state); const auto first=future(cut);
+            load(state); same_state(state); assert(first==future(cut));
             if(writing) { FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f); }
             printf("HRTMon continuation %u/%u ",cpu_mode,cut); for(auto byte:first) printf("%02x",byte); puts("");
             if(!writing) stop();
@@ -187,6 +206,7 @@ static void continuations(const std::vector<uint8_t> &rom,const std::vector<uint
 }
 int main(int argc,char **argv)
 {
+    const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5); const bool writing=!strcmp(argv[3],"write");
     assert(writing || !strcmp(argv[3],"read")); const auto rom=file(argv[1]),cart=file(argv[2]); auto e=error();
     assert(p6_bridge::bind_hrtmon({cart.data(),cart.size()},&e)==P6_ERROR_BAD_STATE);
@@ -204,7 +224,8 @@ int main(int argc,char **argv)
     continuations(rom,cart,argv[4],writing);
     call(p6_init(&c,&e),e); call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
     p6_sha256_init(&observed); step(); const auto state=save(); load(state);
-    auto foreign=file(state_path(argv[4],0).c_str()); const auto before=save();
+    cpu_mode=normal_only?P6_CPU_NORMAL:P6_CPU_EXACT;
+    auto foreign=file(state_path(argv[4],normal_only?2:0).c_str()); cpu_mode=P6_CPU_EXACT; const auto before=save();
     const auto refused=p6_state_load(foreign.data(),foreign.size(),&e); assert(refused==P6_ERROR_INCOMPATIBLE || refused==P6_ERROR_CORRUPT_STATE);
     assert(save()==before); corrupt(before,"cpu.spcflags",SPCFLAG_ACTION_REPLAY);
     assert(!hrtmem_size && hrtmon_flag==ACTION_REPLAY_INACTIVE);
