@@ -18780,7 +18780,9 @@
         "T66v4",
         "T66v5",
         "T66v6",
-        "T66v7"
+        "T66v7",
+        "T66v8",
+        "T66v9"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -21519,6 +21521,94 @@
         "CD32FR expone 8 MiB Fast reales con 2 MiB Chip y hardware stock, restaura memoria/futuro en libretro y Waterbox y distingue su identidad del stock; preset y configuracion manual son equivalentes."
       ],
       "stop": "No aceptar un preset que no mapee la RAM o no pueda restaurarla; T66 mantiene el cierre completo de juegos/formatos."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v8",
+      "title": "Validar metadata DAO multisesion en parser C# existente",
+      "status": "in_progress",
+      "depends": [
+        "T66v7",
+        "T66l8",
+        "T66l9"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0018-canonical-nrg-dao-metadata.patch",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "tests/media/test_cd_source_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close aislado, cinco rutas280..350lineas manuales. Reservar0017 para firmwareCDTV. Parser unicoNRG_format.cs derivado: ParsePuae6Nrg(Stream) devuelve NRGFile existente validado, sin DTO/parser paralelo; solo añadir SessionHint/CatalogRaw13/IsrcRaw12 y conservar strings legacy.",
+        "Acotar directorio/chunks/END/footer/versiones y grupos ordinales completos; hasta99tracks globalesconsecutivos; SINF/First/Last/CUE coherentes; CUE0/A2/INDEX00/01 explicitos con prevA2<=nextCUE0<=nextINDEX00. Extents fisicos ordenados/alineados sin solapar dentro payload yduracionvsLBA. Catalogo/hint/ISRCexactos; hintno cuenta sesiones. Parse sin leerpayload.",
+        "MED01 metodos nuevos metadata_exact_groups_and_global_tracks y metadata_invalid_and_no_payload en NrgCanonicalCSharpTests, fixture nrg_sessions existentev1/v2 con huecos11/20/30 ychunksreordenados; guardedstream ynegativos transaccionales. RegresionDAOsingle exactID existente. BUILD01 targetDiscSystem/analyzers real una vez. Sin Mount/provider/carga publica; normalizacion/restorepublico permanecen obligatorios."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Parser C# existente retorna metadata DAO multi exacta y validada antes del payload; malformed falla sin IO y singleDAO conserva identidad. No acredita carga publica."
+      ],
+      "stop": "No superar400lineas ni ampliarTouch sin ficha previa; sin gate real no cerrar. Metadata y compilaciones pesadas solo coordinador."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v9",
+      "title": "Habilitar NRG DAO multisesion en fabrica nativa y restore libretro",
+      "status": "in_progress",
+      "depends": [
+        "T66v4",
+        "T66v5"
+      ],
+      "touch": [
+        "adapters/libretro/cd_image.cpp",
+        "adapters/libretro/cd_nrg.h",
+        "tests/media/cd_image_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "tests/libretro-host/test_cd32_load.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/0018-cd-multisession.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference aislado, ocho rutas180..250lineas manuales. CdImage opt-in ExplicitSessions aliasvalor1 de ExplicitPrivate; CdNrg directo defaultSingleOnly e IDslegacy/P6NRGM intactos. Factoryprobe aplica0405 enmetadata sin motor nuevo/fallback/seleccion mutable.",
+        "MED01 factory metodo test_dao_multisession_factory_virtual_toc_identity_and_vfs reutiliza nrg_multisession_fixture V3/V5: tabla yTOCglobal, huecos11/20/29 sinVFS/salida, freshowner yforeignidentity. Regresiones defaultCdNrg rechazoantespayload yfactoryDAOlegacy existentes una vez.",
+        "LR01/STATE01/DET02 mismo selector Cd32NrgMultisessionTests.test_dao_multisession_direct_load_restore_cold_and_identity: harnessCd32Session writerVFS cut300/future16/local/cycles2; readerstdio renamed nuevo proceso load0antesprimerRun; TOCvirtual1/2/3 yA2=39/ordinal0; RAM/AV/PCM/ticks/fullstate exactos ynegativecatalog/payloadsesion2 transaccionales. No afirmarbootjuego; V5 cubreCDDA dirigido. Rootunicosbuildsj2, no repetirV5/V7/C#/CDTV."
+      ],
+      "checks": [
+        "MED01",
+        "LR01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Carga publica nativa DAO multi conserva TOCvirtual/huecos/identidad y restore local/frio antesprimerRun con futuro exacto; defaults e identidades legacy intactos. Waterbox publico sigue pendiente."
+      ],
+      "stop": "No superar400lineas ni ampliarTouch sin ficha previa; sin gate real no cerrar. Metadata y compilaciones pesadas solo coordinador."
     }
   ],
   "max_in_progress": 4

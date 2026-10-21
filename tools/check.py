@@ -338,6 +338,11 @@ for _gate in ('WB03', 'WB08', 'DET02'):
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
+TASK_SUITES[('MED01', 'T66v8')] = {'dao_metadata': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_dao_multisession_metadata_exact_groups_and_global_tracks', 'dao_metadata_invalid': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_dao_multisession_metadata_invalid_and_no_payload', 'legacy_dao': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_dao_v1_v2_default_and_opt_in_preserve_bytes_and_identity'}
+TASK_SUITES[('BUILD01', 'T66v8')] = {'discsystem_target': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_real_discsystem_target_and_analyzers'}
+TASK_SUITES[('MED01', 'T66v9')] = {'native_multi_factory': 'tests.media.test_cd_image.CdImageTests.test_dao_multisession_factory_virtual_toc_identity_and_vfs', 'default_refusal': 'tests.media.test_cd_nrg.CdNrgTests.test_dao_multisession_rejects_before_payload_or_publication', 'legacy_factory': 'tests.media.test_cd_image.CdImageTests.test_delegates_all_formats_with_parsers_together_and_no_fallback'}
+for _gate in ('LR01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T66v9')] = {'public_native_multi_restore': 'tests.libretro-host.test_cd32_load.Cd32NrgMultisessionTests.test_dao_multisession_direct_load_restore_cold_and_identity'}
 for _gate in ('WB03', 'DET02'):
     TASK_SUITES[(_gate, 'T66v7')] = {'private_v3_snapshot': 'tests.waterbox-media.test_cd_source.Cd32SessionWaterboxTests.test_private_v3_cold_snapshot_and_rebind', 'legacy_v1': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests', 'regional_v2': 'tests.waterbox-media.test_cd_source.Cd32RegionalWaterboxTests'}
 TASK_SUITES[('MED01', 'T66v6')] = {'v3_session_descriptor': 'tests.media.test_cd_disc.CdDiscTests.test_waterbox_v3_descriptor_sessions_gaps_identity_and_rebind', 'v2_descriptor_regression': 'tests.media.test_cd_disc.CdDiscTests.test_waterbox_v2_descriptor_layout_regions_and_rebind'}
