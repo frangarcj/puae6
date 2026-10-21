@@ -12,7 +12,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_libretro as lr
 from tests.build_support import ROOT, build_targets
-from tests.media import test_mds_metadata as mds_ref, test_chd_reader as chd_ref
+from tests.media import test_mds_metadata as mds_ref, test_chd_reader as chd_ref, test_cd_chd as chd_provider
 
 
 class Cd32Session(lr.LibretroHarness):
@@ -207,7 +207,7 @@ class Cd32PlaylistTests(Cd32Session):
         playlist.write_text(''.join(f'{p.name}|Disc {i}\n' for i, p in enumerate(paths)))
         return playlist, paths
 
-    def device(self, path):
+    def device(self, path, *, controller=False):
         data = path.read_bytes()
         self.assertEqual(b'P6LRSTAT', data[:8])
         version, header, native_bytes, section_bytes = struct.unpack_from('<IIQI', data, 8)
@@ -222,7 +222,7 @@ class Cd32PlaylistTests(Cd32Session):
         self.assertEqual((1, 336), (version, header))
         payload_bytes, count = struct.unpack_from('<QI', native, 40)
         self.assertEqual(len(native), header + payload_bytes)
-        at = header; device = None
+        at = header; device = None; body = None
         for _ in range(count):
             self.assertLessEqual(at + 16, len(native))
             tag, version, size = struct.unpack_from('<4sIQ', native, at); at += 16
@@ -230,9 +230,10 @@ class Cd32PlaylistTests(Cd32Session):
             if tag == b'P6AK':
                 self.assertIsNone(device); self.assertEqual(1, version); self.assertGreaterEqual(size, 60)
                 device = struct.unpack_from('<32s7I', native, at + size - 60)
+                body = native[at:at+size]
             at += size # P6RT is legitimately empty on a CD32 without RTC.
         self.assertEqual(at, len(native)); self.assertIsNotNone(device)
-        return device
+        return (device,body) if controller else device
 
     @staticmethod
     def iso_id(path):
@@ -341,6 +342,46 @@ class Cd32ChdTests(Cd32Session):
         self.run_cd('--vfs-no-seek',content=content,expect=3)
         broken=work/'truncated.chd'; broken.write_bytes(content.read_bytes()[:100])
         self.run_cd(content=broken,expect=3)
+
+
+    def test_chd_htoa_public_cold_restore_and_identity(self):
+        work=self.work(); gap=200
+        fixture,_=chd_provider.htoa_fixture(work,'htoa',gap); content,tracks,streams=fixture
+        cut,end,fresh=(work/name for name in ('htoa-cut','htoa-end','htoa-fresh'))
+        # Independent P6CHR1 identity, including complete container and normalized sources.
+        raw=content.read_bytes(); logical=struct.unpack_from('>Q',raw,32)[0]; hunk=struct.unpack_from('>I',raw,56)[0]
+        padded=sum((len(s)//t[4]+3)//4*4 for t,s in zip(tracks,streams))
+        digest=hashlib.sha256
+        identity=b'P6CHR1'+struct.pack('<Q',len(raw))+digest(raw).digest()+struct.pack('<QIQQII',logical,hunk,padded,logical//2448-padded,2,gap+12)
+        for t,stream,region in zip(tracks,streams,([1,3,0],[0,0,0])):
+            identity+=struct.pack('<IIIIIQIIIIIIIIIQ',*t,*region,len(stream))+digest(stream).digest()
+        expected_id=digest(identity).digest()
+        def verify(path):
+            device,body=Cd32PlaylistTests.device(self,path,controller=True)
+            self.assertEqual(device[:3],(expected_id,1,1))
+            # P6AKv1 state_io/akiko.h: config/misc8 + fields156 + input/result64
+            # + command/response64 + toc_bytes1339 + q16. Semantic LE, no C++ padding.
+            at=8+156+64+64+1339+16
+            self.assertEqual(struct.unpack_from('<8i',body,at),(1,1,2,2,0,gap+12,2,5))
+            entries=[struct.unpack_from('<8B2i',body,at+32+n*16) for n in range(5)]
+            self.assertEqual([(e[0],e[1],e[3],e[4],e[-1]) for e in entries[1:3]],[(1,0,1,1,gap),(1,4,2,2,gap+3)])
+            self.assertEqual((entries[-1][3],entries[-1][-1]),(0xa2,gap+12))
+        original=self.run_cd('--runs',315,'--do',f'300:savefile:{cut}','--do',f'315:savefile:{end}',content=content)
+        self.assertIn('machine CD32',original); verify(cut); verify(end)
+        renamed=work/'renamed.chd'; renamed.write_bytes(content.read_bytes())
+        resumed=self.run_cd('--no-vfs','--runs',16,'--do',f'1:loadfile:{cut}:pos=300','--do','1:images',
+                            '--do',f'16:savefile:{fresh}',content=renamed)
+        self.assertIn(f'state load {cut} pos=300 ok=1',resumed)
+        self.assertIn('state images count=1 index=0 eject=0',resumed)
+        view=lambda r:(r['unit'],r['ticks'],r['hash'],r['ahash'],r['audio'])
+        self.assertEqual([view(r) for r in self.runs(original)[300:315]],[view(r) for r in self.runs(resumed)[1:16]])
+        self.assertEqual(end.read_bytes(),fresh.read_bytes()); verify(fresh)
+        for n,options in enumerate(({'payload':1},{'gap':201})):
+            other,_=chd_provider.htoa_fixture(work,'foreign'+str(n),options.get('gap',gap),payload=options.get('payload',0))
+            before,after=work/('before'+str(n)),work/('after'+str(n))
+            rejected=self.run_cd('--runs',1,'--do',f'1:savefile:{before}','--do',f'1:loadfile:{cut}',
+                                 '--do',f'1:savefile:{after}',content=other[0])
+            self.assertIn(f'state load {cut} exact ok=0',rejected); self.assertEqual(before.read_bytes(),after.read_bytes())
 
     def test_chd_playlist_catalog_switch_and_restore(self):
         def playlist():

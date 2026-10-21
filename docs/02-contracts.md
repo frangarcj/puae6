@@ -1956,3 +1956,15 @@ si contradice la TOC; no infieren direcciones de Q. El primer pregap no almacena
 continua Unsupported en nuestros proveedores hasta su contrato propio.
 MED01 contrasta P1/149/150/151/200, bytes/hash/rebind/VFS y carga host XML real;
 no acredita aun restore publico HTOA en libretro/Waterbox, pendiente del padreT66.
+
+
+T66t18 comprueba HTOA publico P200 con la misma fixture original de T17.
+Waterbox carga XML por RomLoader y exige bytes0/P-1/P mediante ReadAt y
+ReadSector reales, TOC V2/ordinal0/presencia, StoreSaveRam en el guest existente,
+EEPROM durable y futuro cut300+15 con snapshot entero, owners/proceso nuevos
+bajo rutas distintas, tres tramos de supresion y cierre de FD. Otro payload o P
+se rechaza sin cambiar snapshot/NVRAM. LR usa retro_load_game, TOC semantica
+P6AK e identidad matematica, futuro y estado completo tras proceso nuevo.
+No existe endpoint retro_* sectorial: LR no acredita tres lecturas independientes;
+los bytes quedan en el proveedor compartido y exports WB. No se añaden exports
+privados ni se atribuye arranque de aplicacion a esta fixture de audio/datos.

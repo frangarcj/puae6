@@ -1,6 +1,7 @@
 #if PUBLIC_CHD
 using System.Reflection;
 using BizHawk.Client.Common;
+using BizHawk.Common;
 using BizHawk.Emulation.Common;
 using Puae6;
 
@@ -8,11 +9,28 @@ internal static unsafe partial class Program
 {
  static Puae6Guest ChdGuest(Puae6Core core) => (Puae6Guest)typeof(Puae6Core)
   .GetField("_guest", BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
- static void ChdRead(Puae6Core core, byte[] expected)
+ static void ChdRead(Puae6Core core, byte[] expected, int pregap)
  {
   var guest=ChdGuest(core);
   Require((bool)typeof(P6CdHost).GetField("regional",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd));
-  foreach(int at in new[] { 0, 19577, expected.Length-2448 }) {
+  var status=new uint[4]; Require(guest.Cd.Status(guest,status)==P6.Ok);
+  if(!status.Take(3).SequenceEqual(new uint[] { 1,0,1 })) throw new Exception($"CHD count/ordinal/presence: {string.Join(",",status)}");
+  var offsets=new List<int> { 0,19577,expected.Length-2448 };
+  if(pregap!=0) {
+   var info=(P6CdInfoV2)typeof(P6CdHost).GetField("infoV2",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd);
+   Require(info.Version==2 && info.Count==2 && info.Leadout==(uint)(pregap+12));
+   Require(info.Tracks[0]==0 && info.Tracks[1]==pregap && info.Tracks[2]==pregap+3 && info.Tracks[3]==0 && info.Tracks[4]==0);
+   Require(info.Tracks[12]==pregap+3 && info.Tracks[13]==pregap+3 && info.Tracks[15]==1 && info.Tracks[16]==4);
+   foreach(int lba in new[] { 0,pregap-1,pregap }) {
+    offsets.Add(lba*2448);
+    foreach(uint view in new uint[] { 2352,2448 }) {
+     var output=new byte[view];
+     using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector((uint)lba,view,(IntPtr)p,view)==P6.Ok);
+     if(!output.SequenceEqual(expected.Skip(lba*2448).Take((int)view))) throw new Exception($"HTOA sector {lba}/{view} differs");
+    }
+   }
+  }
+  foreach(int at in offsets) {
    var output=new byte[2448]; Require(guest.Cd.ReadAt(guest,(ulong)at,output)==P6.Ok);
    Require(output.SequenceEqual(expected.Skip(at).Take(output.Length)));
   }
@@ -28,6 +46,7 @@ internal static unsafe partial class Program
   string work=args[0], xml=args[1], image=Path.ChangeExtension(xml,".chd"), file=Path.Combine(work,"public-chd.state");
   byte[] main=File.ReadAllBytes(args[6]), ext=File.ReadAllBytes(args[7]);
   byte[] expected=File.ReadAllBytes(Path.Combine(work,"wire.bin"));
+  int pregap=args.Length>8?int.Parse(args[8]):0;
   byte[] seed=Enumerable.Range(0,1024).Select(n=>(byte)(n*17+9)).ToArray();
   File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
@@ -55,7 +74,7 @@ internal static unsafe partial class Program
    } catch { core.Dispose(); throw; }
   }
   using(var core=Open(xml,seed)) {
-   ChdRead(core,expected);
+   ChdRead(core,expected,pregap);
    byte[] cut; string[] future;
    if(args[5]=="chdpublicsave") {
     Run(core,300); cut=Save(core); File.WriteAllBytes(file,cut);
@@ -68,7 +87,7 @@ internal static unsafe partial class Program
    void Check(Puae6Core target)
    {
     Restore(target,cut); Require(target.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(file+".nvram")));
-    ChdRead(target,expected);
+    ChdRead(target,expected,pregap);
     Require(Run(target,15).Concat(new[] { ChdRam(target) }).SequenceEqual(future));
     Require(Save(target).SequenceEqual(File.ReadAllBytes(file+".end")));
     foreach(var (video,audio) in new[] { (false,false), (true,false), (false,true) }) {
@@ -90,15 +109,16 @@ internal static unsafe partial class Program
   }
   Require(OpenChd(image)==0);
   using(var fresh=Open(xml,seed)) { // No frame before the cold LOAD, also in the second process.
-   var cut=File.ReadAllBytes(file); Restore(fresh,cut); ChdRead(fresh,expected);
+   var cut=File.ReadAllBytes(file); Restore(fresh,cut); ChdRead(fresh,expected,pregap);
    Require(Run(fresh,15).Concat(new[] { ChdRam(fresh) }).SequenceEqual(File.ReadAllLines(file+".future")));
    Require(Save(fresh).SequenceEqual(File.ReadAllBytes(file+".end")));
    Require(fresh.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(file+".nvram")));
   }
   Require(OpenChd(image)==0);
-  using(var durable=Open(xml,File.ReadAllBytes(file+".nvram"))) ChdRead(durable,expected);
+  using(var durable=Open(xml,File.ReadAllBytes(file+".nvram"))) ChdRead(durable,expected,pregap);
   Require(OpenChd(image)==0);
-  string otherXml=Path.Combine(work,"other.xml"), otherImage=Path.ChangeExtension(otherXml,".chd");
+  foreach(string name in pregap==0?new[] { "other" }:new[] { "other","shifted" }) {
+  string otherXml=Path.Combine(Path.GetDirectoryName(xml),name+".xml"), otherImage=Path.ChangeExtension(otherXml,".chd");
   using(var other=Open(otherXml,seed)) {
    var before=Save(other); var nvram=other.CloneSaveRam(false);
    try { Restore(other,File.ReadAllBytes(file)); throw new Exception("Other CHD accepted"); }
@@ -106,6 +126,7 @@ internal static unsafe partial class Program
    Require(before.SequenceEqual(Save(other)) && nvram.SequenceEqual(other.CloneSaveRam(false)));
   }
   Require(OpenChd(otherImage)==0 && OpenChd(image)==0);
+  }
   Console.WriteLine("Public CHD XML Waterbox reads/SaveRAM/cold owner/new process/full future/FD close PASS");
  }
 }
