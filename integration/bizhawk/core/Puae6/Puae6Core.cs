@@ -84,7 +84,7 @@ public sealed class Puae6Parameters
 			int next = 0;
 			foreach (int slot in CdSlots) { if (slot < 0 || slot > next || slot >= CdCount) throw new InvalidOperationException("Invalid CD slot map"); if (slot == next) ++next; }
 			if (next != CdCount) throw new InvalidOperationException("CD catalog has an unused ordinal");
-			if (Enumerable.Range(0, CdCount).Select(n => BitConverter.ToString(CatalogId(n))).Distinct().Count() != CdCount)
+			if (Enumerable.Range(0, CdCount).Select(n => BitConverter.ToString(CatalogId(n))).Distinct().ToArray().Length != CdCount)
 				throw new InvalidOperationException("CD catalog IDs must be unique");
 		}
 		if ((cd || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32

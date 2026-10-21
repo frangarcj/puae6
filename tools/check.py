@@ -324,7 +324,9 @@ TASK_SUITES[('WB03', 'T66u4')] = {
     'cd_catalogue_sandbox_restore': 'tests.waterbox-media.test_cd_source.Cd32CatalogWaterboxTests',
     'single_cd32_regression': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests',
     'legacy_cd_transport_regression': 'tests.waterbox-media.test_cd_source.CdTransportTests'}
-TASK_SUITES[('GEN01', 'T66u5')] = TASK_SUITES[('GEN01', 'T66r3')]
+TASK_SUITES[('GEN01', 'T66u5')] = {**TASK_SUITES[('GEN01', 'T66r3')],
+    'wrapper_state_inventory': 'tests.waterbox-state.test_wrapper_inventory',
+    'mixed_regional_legacy_catalogue': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_xml_amiga_public_selector_xa_and_parameters'}
 TASK_SUITES[('WB03', 'T66u5')] = {
     'public_cd_catalogue_restore': 'tests.waterbox-media.test_cd_source.Cd32CatalogCoreTests',
     'public_single_cd_regression': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests'}

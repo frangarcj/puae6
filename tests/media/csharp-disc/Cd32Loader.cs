@@ -1,3 +1,4 @@
+using BizHawk.Common;
 using System.Reflection;
 using System.Security.Cryptography;
 using BizHawk.Emulation.Common;
@@ -7,7 +8,6 @@ using Puae6;
 #if PUBLIC_CHD
 using System.Diagnostics;
 using BizHawk.Client.Common;
-using BizHawk.Common;
 #endif
 
 internal static unsafe partial class Program

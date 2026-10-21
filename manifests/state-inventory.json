@@ -8550,6 +8550,22 @@
       "_movieStart": {
         "policy": "lifecycle",
         "what": "T66r5: temporary movie startup authorization, cleared on initial snapshot load or scope disposal. Contains only the fully validated projected CD32 boot identity/hash; never changes normal state identity checks or emulated bytes before LOAD."
+      },
+      "_cdOrdinal": {
+        "policy": "saved",
+        "proof": "WB03 Cd32CatalogCoreTests: A/B/absence, held buttons, full future and new sandbox/process",
+        "what": "Canonical CD ordinal currently applied; used by eject and by insert after restore.",
+        "state": [
+          "CdOrdinal"
+        ]
+      },
+      "_cdPresent": {
+        "policy": "saved",
+        "proof": "WB03 Cd32CatalogCoreTests: A/B/absence, held buttons, full future and new sandbox/process",
+        "what": "Whether the applied CD is inserted; insert switches the ordinal only after ejecting a present CD.",
+        "state": [
+          "CdPresent"
+        ]
       }
     }
   }
