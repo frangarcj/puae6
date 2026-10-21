@@ -18392,6 +18392,68 @@
       "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
     },
     {
+      "id": "T67c3b",
+      "title": "Publicar CDTV nativo y libretro con CD inicial fijo",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T67c3a",
+        "T66r1",
+        "T66m7",
+        "T66r9"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.h",
+        "config/schema/options.json",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "adapters/headless/main.cpp",
+        "adapters/libretro/firmware.h",
+        "adapters/libretro/cd_session.h",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/model.h",
+        "adapters/libretro/libretro_core.cpp",
+        "config/profiles/cdtv-ecs.json",
+        "tests/config/test_schema.py",
+        "tests/libretro-host/test_model_tags.py",
+        "tests/libretro-host/test_cdtv_load.py",
+        "docs/02-contracts.md",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Publicar P6_MACHINE_CDTV10 y alias interno ligado a macro; schema wrapper:false mantiene BizHawk excluido hasta su propia puerta. Headless --machine cdtv solo combinado firmware, sin inventar CD/estadoCLI. Dos salidas de schema solo generador.",
+        "Firmware fijo KS1.3 ID6 y EXT2.7 ID22,256KiB cada una; helper estatico por maquina produce EXT+MAIN tambien sin contenido. Preservar validacion/descifrado/VFS y publicacion transaccional. Automatic+CD directo con tagCDTV selecciona CDTV; modelo/presetexplicito prevalece ytagsdisabled fallbackCD32. CDTV precede CD32FR/FastRAM enmismonombre; disquetes conservan semantica previa.",
+        "CD inicial fijo o sincontenido, binding antesp6_load y ownersvivos hasta shutdown, autoconfigoriginalC2. Rechazar ADF/HDF/Kickstartalternativo/playlistsmultimedio/eject/index/add/replace antes de bandeja/eventos; no exito ficticio niAkiko paraCDTV. CambioCDTV yconexionBizHawk/WB quedan hojas obligatoriasposteriores.",
+        "Reutilizar integra puerta nativa C3a MED01/STATE01/DET02 sin duplicar probe. LR01/DET02 CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload usa fixtureC3a, marcador firma/nonce/contador creciente buscado enChipRAM mediante peek existente, save/load/futuroRAM/AV/PCM/ticks, --cycles2 yrestorecoldprocesonuevo. CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals cubreAutomatic/explicito/tagsdisabled/sincontenido/VFSstdio/firmwareincompletoalterado/modelosincompatibles/refusalsconestadoybandejaintactos/handlescerrados.",
+        "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. cd32_close implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "DET02",
+        "LR01",
+        "GEN01",
+        "ABI01"
+      ],
+      "acceptance": [
+        "CDTV acreditado porC3a arranca mediante retro_load_game y conserva futuro tras restore/recarga, rechaza operaciones fuera del dominio sin efectos y soporta firmware fijo transaccional; ABI/schema/headless corresponden a lo disponible, BizHawk/WB y cambiosCDTV siguen pendientes."
+      ],
+      "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -18405,7 +18467,8 @@
         "T67b2",
         "T67c1",
         "T67c2",
-        "T67c3a"
+        "T67c3a",
+        "T67c3b"
       ],
       "read": [
         "docs/01-architecture.md",
