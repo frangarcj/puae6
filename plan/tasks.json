@@ -10158,7 +10158,7 @@
       "title": "Preservar TPIDR_EL0 de Darwin en la copia local del runtime Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T28a",
         "T09b2",
@@ -10183,7 +10183,8 @@
         "docs/07-machawk.md",
         "manifests/waterbox-memory.json",
         "tools/check.py",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "integration/bizhawk/smoke/Puae6.cs"
       ],
       "steps": [
         "La fuente fijada escribe TIBptr si TPIDR_EL0==0 y Context* durante interop; XNU usa ese registro para CPU/cluster, cero es valido. Corregir solo la copia Darwin ARM64 del runtime mediante parche versionado, sin editar ../MacHawk ni references; no atribuir aun el SIGBUS particular ni inferir x28 filtrado del valor CAS.",
@@ -10191,7 +10192,8 @@
         "Coordinador registra hashes exactos before/after y parche en plan/toolchains; materializacion verifica snapshot, parche y resultado, cache limpia o derivada exacta, sin fuzz ni aceptar ediciones ajenas. Recibo incorpora patchset e inventario derivado. Tests de input alterado, patch alterado, cache alterada y salida reproducible; ajustar numero exacto cargo tests al anadir regresiones reales.",
         "Presupuesto atomico hasta450 lineas manuales en diez rutas por parche/runtime/receta y regresion inseparables; binario generado excluido. Root integra metadata/build/checks y serializa compilaciones-j2. Cargo offline mas WB13, WB14 y WB15 reales dirigidos con guest actual; nueva causa concreta permite retomar despues U4/T12/80b/69c4 una vez, sin acreditar sus puertas por este test ni repetir matriz completa.",
         "Conservar decision ABI y fuentes primarias en ADR0017 y actualizar docs07: TPIDR de Darwin no es almacenamiento guest. Registrar limites: un PASS aislado o prueba de slot no acredita estabilidad; si persiste SIGBUS conservar reproducer y dos hipotesis, sin cerrar tareas afectadas.",
-        "Al registrar esta hoja nueva, ajustar el conteo exacto del plan y comprobar sus tres dependencias en tests/test_plan.py; solo metadata, sin relajar DAG ni gates."
+        "Al registrar esta hoja nueva, ajustar el conteo exacto del plan y comprobar sus tres dependencias en tests/test_plan.py; solo metadata, sin relajar DAG ni gates.",
+        "Regresion de integracion WB14 con guest actual: Areas del arnes aun reserva5 descriptores cuando P6W_MAX_AREAS es6 por NVRAM CD32, por lo que retorna0 y PageTests indexa arrayvacio. Ampliar solo integration/bizhawk/smoke/Puae6.cs: capacidad6, negativo5 y canarios/trailingbytes conservados; exigir al menosuna area tras init. El test WB14 existente captura el comportamiento; no cambiar motor, tolerancias ni repetir WB13/WB15 ya aprobados sin cambio relevante."
       ],
       "checks": [
         "BUILD01",
@@ -17333,7 +17335,7 @@
       "title": "Catalogo CD y cambio causal dentro del sandbox Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T66u1",
         "T66u2",
@@ -17374,8 +17376,7 @@
       "acceptance": [
         "Catalogo y seleccion deCD restauran dentro deWaterboxreal en otro sandbox/proceso, datosB yopens probados, rebind no altera seleccioncausal ni aceptaotrodescriptor; aun sin acreditarloaderpublico/peliculas."
       ],
-      "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot.",
-      "blocked_reason": "Cd32CatalogWaterboxTests conserva el fallo real SIGBUS/SIGSEGV del host xzone/CoreCLR. Control WB13 sin catalogo ni CD tambien cae con el mismo guest7351/runtimecf45; boot_driver C sin.NET/CD pasa en3procesos, por tanto el callbackCD no es necesario para provocar el fallo. H1: presion de memoria/Darwin como T28a, contrastar la misma candidata sin presion; H2: interaccion de.NET con el mapa/protecciones Waterbox, contrastar control managed minimo y C con los mismos heaps. No acreditar snapshot nativo ni repetir bateria en el mismo entorno sin un cambio concreto. RevisionhistoricaT28a(b8be1be3): TieredCompilation0/GC/mallocknobs/eviction/addresshints ya contrastados sinresolver, Csin.NETtambienreprodujo. IPSactuales muestrancargademetadatosmallocdesdeNULL+178 oMALLOCguardpage; noesmeroretornoNULLporOOM ynoidentificaquiencorrompioelpuntero. Contrastependienteutil: mismacandidata conmenorpresionnatural, sincerrarapps/cambiarglobalenv; ningunPASSaisladoacreditaestabilidad."
+      "stop": "No basarcallback enindicefrontend mutable, no bind/seleccioninicial despuesde restore ni atribuirTASpor snapshot."
     },
     {
       "id": "T66u5",

@@ -410,14 +410,15 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     /// The areas the guest reports (p6w_memory_areas): data (a guest function), name, size and flags of each, in the order it gives them.
     internal (ulong Data, string Name, long Size, long Flags)[] Areas()
     {
-        nint buffer = Marshal.AllocHGlobal(5 * 32);
+        const int capacity = 6; // P6W_MAX_AREAS, including the optional CD32 NVRAM.
+        nint buffer = Marshal.AllocHGlobal(capacity * 32);
         try
         {
-            new Span<byte>((void*)buffer, 5 * 32).Fill(0xCD);
-            Program.Require(In(() => Guest<Values>("p6w_memory_areas")(buffer, 4)) == 0, "undersized area buffer refused");
-            Program.Require(new ReadOnlySpan<byte>((void*)buffer, 5 * 32).IndexOfAnyExcept((byte)0xCD) < 0, "undersized buffer untouched");
-            nuint count = In(() => Guest<Values>("p6w_memory_areas")(buffer, 5));
-            Program.Require(count <= 5, "the guest reports at most five areas");
+            new Span<byte>((void*)buffer, capacity * 32).Fill(0xCD);
+            Program.Require(In(() => Guest<Values>("p6w_memory_areas")(buffer, capacity - 1)) == 0, "undersized area buffer refused");
+            Program.Require(new ReadOnlySpan<byte>((void*)buffer, capacity * 32).IndexOfAnyExcept((byte)0xCD) < 0, "undersized buffer untouched");
+            nuint count = In(() => Guest<Values>("p6w_memory_areas")(buffer, capacity));
+            Program.Require(count is > 0 and <= capacity, "the loaded guest reports one to six areas");
             var areas = new (ulong, string, long, long)[(int)count];
             for (int i = 0; i < areas.Length; ++i)
             {
@@ -425,7 +426,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
                 nint name = *(nint*)(a + 8);                                  // a pointer into the guest: read it while the sandbox is active
                 areas[i] = (*(ulong*)a, In(() => Marshal.PtrToStringUTF8(name)) ?? "", *(long*)(a + 16), *(long*)(a + 24));
             }
-            Program.Require(new ReadOnlySpan<byte>((void*)(buffer + 32 * (int)count), (5 - (int)count) * 32).IndexOfAnyExcept((byte)0xCD) < 0,
+            Program.Require(new ReadOnlySpan<byte>((void*)(buffer + 32 * (int)count), (capacity - (int)count) * 32).IndexOfAnyExcept((byte)0xCD) < 0,
                 "the guest wrote nothing past the areas it reported");
             return areas;
         }

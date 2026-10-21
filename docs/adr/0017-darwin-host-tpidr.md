@@ -1,6 +1,6 @@
 # ADR 0017: TPIDR_EL0 pertenece a Darwin
 
-Estado: implementacion en validacion mediante T28c.
+Estado: decidido e integrado mediante T28c.
 
 ## Decision
 
