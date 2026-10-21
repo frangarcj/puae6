@@ -2018,7 +2018,7 @@ La lectura comun NERO revierte BE32 antes de ampliar a long: DAOv1 anterior
 fallaba al revertir64bits; su fixture original conserva geometria/bytes esperados.
 Regiones/identidad V2 cubren la materializacion canonica; no recuperan pregaps
 originales. TINF/multisesion/otrosmodos siguen pendientes. MED01 y target real
-no acreditan todavia seleccion publica ni ejecucion/restore Waterbox.
+se complementan con seleccion publica y restore Waterbox en T66l9.
 
 ## Metadata DAO multisesion de NRG (T66v2)
 
@@ -2051,3 +2051,8 @@ MED01 ejecuta selector, bytes y cierres antes del firmware en Client.Common
 real. WB03/WB08/DET02 restauran EEPROM/snapshot/futuro en owner y proceso
 nuevos, con ETNF y ETN2 equivalentes y negativos de payload/geometria.
 El fixture sintetico no acredita arranque de una aplicacion ni TAO general.
+
+La lease publica expone IsDisposed: los callbacks single/catalogo comprueban
+su vida antes de leer, incluidos clones y alias. Un Blob_RawFile liberado podria
+reabrir el archivo; el guard evita esa lectura y conserva el destino sin tocar
+el contrato de fuentes API prestadas.
