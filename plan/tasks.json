@@ -20639,6 +20639,59 @@
       "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos."
     },
     {
+      "id": "T69d2",
+      "title": "Restaurar Action Replay 2/3 privado con identidad, bancos y NMI completos",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T69d1",
+        "T15"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0408-action-replay-native-state.patch",
+        "ports/portable/p6_state_access.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "manifests/state-inventory.json",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "manifests/codegen.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical privada AR2/3 sobre T69d1, sin opciones/ABI/frontend nuevos ni ROM comercial. Excepcion atomica de ocho rutas de implementacion y hasta450lineas manuales: identidad/P6RM/P6CP/P6SC/fixture no pueden habilitarse parcialmente. Root inventario/serie/clasificacion/metadata aparte; aviso antes de superar presupuesto o editar otra ruta. Un responsable aislado, sin builds de motor/guest; root serializa build-j2 y union dirigida una vez.",
+        "Leer ar.cpp/newcpu.cpp fijados, 0394/0398/0407, visitantes P6RM/P6CP/P6SC y Archive antes de editar. Capturar RAM64KiB, flag, armode_read/write, artemp[4], hardreset, ar_hide/ar_hidden/ar_mapped y forma real de bancos por separado, sombras512+16+16 y todo otro campo causal demostrado. ROM/geometria/punteros derivados del mismo propietario; identidad dominio propio con modelo+SHAraw. No copiar .uss incompleto ni inferir mapeo desde PC/flag. Campos AR1/legacy excluidos con razon explicita, no asumir igualdad SPC/flag de HRTMon.",
+        "Accessor get/validate puros y apply sin IO, NMI ni event2_newevent. Reconstruir bancos con funciones originales y reenlazar PC sin alterar prefetch. Handler CIA retardado con IDestable15 en P6SC y dato0/1 solo con owner AR valido; no serializar punteros ni aceptar callbacks ajenos. Validacion usa campos entrantes/CPU-SPC candidato, no los valores vivos del destino. Mantener gate Unsupported hasta codec completo y pruebas, con Measure calculable antes del primer run.",
+        "STATE01/STATE02/DET02 comparten ArStateTests.test_complete_ar23_semantic_cold_state_and_refusals sin duplicar ejecucion. Cartucho y firmware propios: rutina IRQ7 incrementa RAM, espera señal y sale mediante400006/RTE. Cortes WAITRESET/DORESET/ACTIVATE pendiente/ACTIVE/salida-ocultacion y callbackCIA pendiente; restore local y proceso nuevo, comparar futuro completo por unidad, RAM/contador/vector, ambos modelos y Compatible/Exact admitidos. Negativos campo a campo, mapa/SPC discordantes y cartucho ajeno deben rechazar sin mutar estado/tiempo/buffers. No habilitar save parcial por alcanzar PC en ROM.",
+        "Adaptar el probe propietario anterior al nuevo contrato completo sin quitar sus canarios, copia/rollback/exclusividad/cleanup. Regresion HRTMon/default solo rutas efectivamente tocadas; no repetir campañas completas, Waterbox ni juegos por este codec privado. Actualizar inventario causal y excepcion native-state de AR; AR1/AR1200/activacion comercial/publica siguen puertas del padre."
+      ],
+      "checks": [
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "AR2/3 privado restaura su estado causal completo en el mismo owner y proceso frio con identidad y rechazos transaccionales; el futuro de su programa original coincide por unidad. HRTMon/default conservan su comportamiento y AR comercial/publico queda explicitamente pendiente."
+      ],
+      "stop": "No snapshot parcial, punteros/IO en Apply, tolerancias o golden nuevos para ocultar divergencia. Tras dos intentos razonados conservar reproducer y dos hipotesis, bloquear sin prometer el codec."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -20652,7 +20705,8 @@
         "T69c2",
         "T69c3",
         "T69c4",
-        "T69d1"
+        "T69d1",
+        "T69d2"
       ],
       "read": [
         "docs/01-architecture.md",
