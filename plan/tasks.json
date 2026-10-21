@@ -19149,7 +19149,8 @@
         "tests/libretro-host/test_cdtv_load.py",
         "docs/02-contracts.md",
         "docs/options.md",
-        "tools/check.py"
+        "tools/check.py",
+        "tests/config/test_parity.py"
       ],
       "steps": [
         "Publicar P6_MACHINE_CDTV10 y alias interno ligado a macro; schema wrapper:false mantiene BizHawk excluido hasta su propia puerta. Headless --machine cdtv solo combinado firmware, sin inventar CD/estadoCLI. Dos salidas de schema solo generador.",
@@ -19157,7 +19158,8 @@
         "CD inicial fijo o sincontenido, binding antesp6_load y ownersvivos hasta shutdown, autoconfigoriginalC2. Rechazar ADF/HDF/Kickstartalternativo/playlistsmultimedio/eject/index/add/replace antes de bandeja/eventos; no exito ficticio niAkiko paraCDTV. CambioCDTV yconexionBizHawk/WB quedan hojas obligatoriasposteriores.",
         "Reutilizar integra puerta nativa C3a MED01/STATE01/DET02 sin duplicar probe. LR01/DET02 CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload usa fixtureC3a, marcador firma/nonce/contador creciente buscado enChipRAM mediante peek existente, save/load/futuroRAM/AV/PCM/ticks, --cycles2 yrestorecoldprocesonuevo. CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals cubreAutomatic/explicito/tagsdisabled/sincontenido/VFSstdio/firmwareincompletoalterado/modelosincompatibles/refusalsconestadoybandejaintactos/handlescerrados.",
         "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. busy_reference implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe.",
-        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente."
+        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente.",
+        "Ampliacion previa por codigo real: tests/config/test_parity.py asume wrapper:false vacio y todos modelos en Puae6Machine. Ajustar filtro wrapper:false y familia1.x para CDTV sin publicarlo BizHawk. Presupuesto real producto100..125 +schema/profile/docs25..35 +testsconfig/model40..55 +LR140..165, total305..380 manuales y2generados. Si supera400, detener antes y dividir vertical sin suprimir checks."
       ],
       "checks": [
         "MED01",
