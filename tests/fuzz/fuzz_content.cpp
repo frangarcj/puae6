@@ -1328,12 +1328,24 @@ struct Expected {
     std::string model_by;       // "tag", "word", "type", "explicit", "off", "blocked"
     std::string video_by;       // "tag", "option", "explicit", "off"
     const OracleTag *tag = nullptr;
+    uint32_t multidrive = 0, accuracy = 0;
+    bool md_tag = false, ce_tag = false;
 };
 
 Expected oracle_resolve(const p6_options::Settings &s, bool hard, const std::vector<std::string> &names)
 {
     Expected e{s.machine, s.video_standard, s.chip_size, s.fast_size, "explicit", "explicit"};
     const bool tags = s.filename_tags != 0;
+    // docs/options.md: (MD) enables MultiDrive; (CE) overrides CPU accuracy.
+    // These effects apply even with a manually chosen machine/video standard.
+    e.multidrive = s.floppy_multidrive;
+    e.accuracy = s.cpu_compatibility;
+    if (tags) for (const auto &name : names) {
+        e.md_tag = e.md_tag || oracle_has(name, "(MD)", false);
+        e.ce_tag = e.ce_tag || oracle_has(name, "(CE)", false);
+    }
+    if (e.md_tag) e.multidrive = 1;
+    if (e.ce_tag) e.accuracy = P6_CPU_EXACT;
     if (s.machine == 0) {
         const uint32_t type_model = hard ? s.model_hd : s.model_fd;
         e.machine = type_model;
@@ -1427,6 +1439,30 @@ std::string hostile_name(Random &rng)
 
 int fuzz_model(uint64_t seed, uint64_t iterations)
 {
+    // Fixed contract witnesses, independent of RNG and of the resolver's output.
+    const struct { const char *name; bool md, ce; } effects[] = {
+        {"plain.adf", false, false}, {"(md)(ce).adf", false, false},
+        {"(MD).adf", true, false}, {"(CE).adf", false, true},
+        {"(MD)(CE).adf", true, true}, {"(MD)(CE)(MD)(CE).adf", true, true},
+    };
+    unsigned witnesses = 0;
+    for (uint32_t tags : {0u, 1u}) for (uint32_t md : {0u, 1u}) for (uint32_t accuracy : {0u, 1u, 2u})
+        for (const auto &effect : effects) {
+            p6_options::Settings s; s.machine = P6_MACHINE_A1200; s.video_standard = P6_VIDEO_PAL;
+            s.filename_tags = tags; s.floppy_multidrive = md; s.cpu_compatibility = accuracy;
+            const std::vector<std::string> names{effect.name};
+            const auto got = resolve_model(s, false, names);
+            const auto want = oracle_resolve(s, false, names);
+            const uint32_t expected_md = md || (tags && effect.md) ? 1u : 0u;
+            const uint32_t expected_cpu = tags && effect.ce ? uint32_t(P6_CPU_EXACT) : accuracy;
+            if (want.multidrive != expected_md || want.accuracy != expected_cpu ||
+                got.settings.floppy_multidrive != expected_md || got.multidrive != (expected_md != 0) ||
+                got.settings.cpu_compatibility != expected_cpu || got.force_cycle_exact != (tags && effect.ce) ||
+                got.notes.size() != unsigned(tags ? effect.md + effect.ce : 0) || !got.warnings.empty())
+                bug("model tag effect disagrees with a documented witness", witnesses, effect.name);
+            ++witnesses;
+        }
+    printf("model effect witnesses %u\n", witnesses);
     static const char *const kinds[] = {"clean", "multi", "near", "bare", "hostile", "explicit", "off", "order"};
     Random rng(seed);
     std::map<std::string, std::pair<unsigned, unsigned>> histogram;
@@ -1469,7 +1505,8 @@ int fuzz_model(uint64_t seed, uint64_t iterations)
         (by_tag ? count_kind.first : count_kind.second)++;
         // Pure: the same inputs, the same answer, notes and warnings included.
         if (first.notes != again.notes || first.warnings != again.warnings || first.settings.machine != again.settings.machine || first.settings.video_standard != again.settings.video_standard ||
-            first.settings.chip_size != again.settings.chip_size || first.settings.fast_size != again.settings.fast_size)
+            first.settings.chip_size != again.settings.chip_size || first.settings.fast_size != again.settings.fast_size ||
+            first.multidrive != again.multidrive || first.force_cycle_exact != again.force_cycle_exact || first.tags_read != again.tags_read)
             bug("the same inputs gave two answers", iteration, kind);
         // Never automatic, always a machine and a standard of the ABI.
         if (first.settings.machine < 1 || first.settings.machine > 8) bug("the machine is not one of the eight", iteration, std::to_string(first.settings.machine));
@@ -1480,27 +1517,35 @@ int fuzz_model(uint64_t seed, uint64_t iterations)
             bug("the machine is not the oracle's", iteration, kind + ": " + std::to_string(first.settings.machine) + " instead of " + std::to_string(expected_machine) + " by " + want.model_by);
         if (first.settings.video_standard != want.video) bug("the video standard is not the oracle's", iteration, kind + ": " + std::to_string(first.settings.video_standard) + " by " + want.video_by);
         if (first.settings.chip_size != want.chip || first.settings.fast_size != want.fast) bug("the memory is not the oracle's", iteration, kind);
-        // Nothing else changes, and what a person chose is never changed by a tag.
+        if (first.settings.floppy_multidrive != want.multidrive || first.multidrive != (want.multidrive != 0) ||
+            first.settings.cpu_compatibility != want.accuracy || first.force_cycle_exact != want.ce_tag || first.tags_read != (settings.filename_tags != 0))
+            bug("the tag effects are not the oracle's", iteration, kind);
+        // Model/video/memory choices stay explicit; MD/CE have their own expectations above.
         if (settings.machine != 0 && first.settings.machine != settings.machine) bug("a model chosen by hand was changed", iteration, kind);
         if ((settings.video_standard == 1 || settings.video_standard == 2) && first.settings.video_standard != settings.video_standard) bug("a standard chosen by hand was changed", iteration, kind);
         if (settings.machine != 0 && (first.settings.chip_size != settings.chip_size || first.settings.fast_size != settings.fast_size)) bug("the memory of a model chosen by hand was changed", iteration, kind);
         if (settings.fast_size != 0 && first.settings.fast_size != settings.fast_size) bug("a Fast RAM size chosen by hand was changed", iteration, kind);
         if (settings.chip_size != 0 && first.settings.chip_size != settings.chip_size) bug("a Chip RAM size chosen by hand was changed", iteration, kind);
         for (const p6_options::Option &option : p6_options::kOptions) {
+            if (first.settings.*option.field != again.settings.*option.field) bug("an option is not pure", iteration, option.key);
             if (option.field == &p6_options::Settings::machine || option.field == &p6_options::Settings::video_standard || option.field == &p6_options::Settings::chip_size ||
-                option.field == &p6_options::Settings::fast_size)
+                option.field == &p6_options::Settings::fast_size || option.field == &p6_options::Settings::floppy_multidrive || option.field == &p6_options::Settings::cpu_compatibility)
                 continue;
             if (first.settings.*option.field != settings.*option.field) bug("an option the resolution does not own was changed", iteration, option.key);
         }
         // With the tags off nothing is read, so nothing is said about a tag; and what is said is bounded however long the names are.
         if (settings.filename_tags == 0 && !first.warnings.empty()) bug("a warning with the tags off", iteration, first.warnings[0]);
-        if (first.notes.size() > 3 || first.warnings.size() > 4) bug("more messages than there is to say", iteration, std::to_string(first.notes.size()));
+        // At most one model note, one region note and one per active effect tag.
+        if (first.notes.size() > 2u + unsigned(want.md_tag) + unsigned(want.ce_tag) || first.warnings.size() > 4)
+            bug("more messages than there is to say", iteration, std::to_string(first.notes.size()));
         for (const std::string &text : first.notes) if (text.size() > 600) bug("a note longer than a line of the log", iteration, std::to_string(text.size()));
         for (const std::string &text : first.warnings) if (text.size() > 600) bug("a warning longer than a line of the log", iteration, std::to_string(text.size()));
         if (want.model_by == "tag") ++decided[want.tag ? want.tag->text : "?"];
         if (want.model_by == "word") ++decided["word"];
         if (want.model_by == "blocked") ++warned["unsupported-model-tag"];
         if (want.video_by == "tag") ++decided["region"];
+        if (want.md_tag) ++decided["multidrive"];
+        if (want.ce_tag) ++decided["cycle-exact"];
         if (!first.warnings.empty()) ++warned["warnings"];
         if (want.model_by == "blocked" && first.warnings.empty()) bug("a tag of a machine this core does not have was not warned", iteration, kind);
     }

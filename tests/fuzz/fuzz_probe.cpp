@@ -73,13 +73,15 @@ p6_config valid_config(uint32_t machine = P6_MACHINE_A500)
 
 // The memory rules of p6_config (T49), written again from the header comments: 0 is the machine's own, P6_MEMORY_NONE is none. The A500 has an OCS Agnus (Chip RAM 512 KiB or 1 MiB),
 // AGA maps 1.5 MiB of Slow RAM at most, and the Fast RAM board is 1, 2, 4 or 8 MiB.
-bool machine_accepted(uint32_t machine) { return (machine >= 1 && machine <= 9) || machine == 11 || machine == 12; }
+bool machine_accepted(uint32_t machine) { return machine >= P6_MACHINE_A500 && machine <= P6_MACHINE_A4040; }
 
 // OCS Agnus: the A500, the A500 OG and the A2000 OG (the A1000 has its own rule); the others have the ECS Agnus or AGA and take 2 MiB of Chip RAM.
 bool ocs_agnus(uint32_t machine) { return machine == P6_MACHINE_A500 || machine == P6_MACHINE_A500OG || machine == P6_MACHINE_A2000OG; }
 
 bool memory_accepted(const p6_config &c)
 {
+    if (c.machine == P6_MACHINE_CDTV)         // stock CDTV: 1 MiB Chip, no Slow/Fast expansion
+        return (c.chip_kib == 0 || c.chip_kib == 1024) && (c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE) && (c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE);
     if (c.machine == P6_MACHINE_A1000)         // the memory of its preset: 512 KiB of Chip RAM, nothing else
         return (c.chip_kib == 0 || c.chip_kib == 512) && (c.slow_kib == 0 || c.slow_kib == P6_MEMORY_NONE) && (c.fast_kib == 0 || c.fast_kib == P6_MEMORY_NONE);
     if (c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040 || c.machine == P6_MACHINE_CD32) {
@@ -110,6 +112,7 @@ bool fpu_accepted(const p6_config &c)
 // CD32 takes its stock68020/Exact and multiplier0/4. The remaining bytes have separate validators below.
 bool cpu_accepted(const p6_config &c)
 {
+    if (c.machine == P6_MACHINE_CDTV) return (c.cpu_model == 0 || c.cpu_model == 1) && c.cpu_compatibility == P6_CPU_EXACT;
     if (c.machine == P6_MACHINE_A4040) return (c.cpu_model == 0 || c.cpu_model == 5 || c.cpu_model == 7) && c.cpu_compatibility == P6_CPU_NORMAL;
     if (c.machine == P6_MACHINE_A4030) return (c.cpu_model == 0 || c.cpu_model == 4) && c.cpu_compatibility == P6_CPU_NORMAL;
     if (c.machine == P6_MACHINE_CD32) return (c.cpu_model == 0 || c.cpu_model == 3) && c.cpu_compatibility == P6_CPU_EXACT;
@@ -119,6 +122,7 @@ bool cpu_accepted(const p6_config &c)
 bool clock_accepted(const p6_config &c)
 {
     const uint8_t m = c.cpu_multiplier;
+    if (c.machine == P6_MACHINE_CDTV) return m == 0 || m == 2;
     if (c.machine == P6_MACHINE_CD32) return m == 0 || m == 4;
     return m == 0 || m == 1 || m == 2 || m == 4 || m == 8 || m == 10 || m == 12 || m == 16;
 }
@@ -143,9 +147,11 @@ bool oracle_accepts(const p6_config &c)
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
     const bool accepted = c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
-           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~P6_CONFIG_FLOPPY_WRITES) == 0 && fpu_accepted(c) && audio_accepted(c) &&
+           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON)) == 0 &&
+           (!(c.flags & P6_CONFIG_HRTMON) || c.machine == P6_MACHINE_A1200) && fpu_accepted(c) && audio_accepted(c) &&
            !c.reserved7[0] && !c.reserved8[0] && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
            (c.machine != P6_MACHINE_CD32 || (!c.flags && !c.floppy_drives)) && c.collision_level <= 4 && c.floppy_drives <= 4 &&
+           (c.machine != P6_MACHINE_CDTV || (!c.flags && !c.floppy_drives)) &&
            c.cpu_compatibility <= P6_CPU_NORMAL && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);
     return inverted ? !accepted : accepted;
@@ -230,7 +236,11 @@ ConfigCases config_cases()
     for (uint8_t clock : {0, 1, 2, 4, 8, 10, 12, 16}) {
         auto c = valid_config(P6_MACHINE_A4030); c.cpu_multiplier = clock; out.accept(c);
     }
-    for (uint32_t m : {0u, 10u, 13u, 0xffffffffu}) { auto c = valid_config(m); out.reject(c); }
+    // Preserve the old iteration1716 witness: ID10 now denotes public stock CDTV.
+    for (uint32_t m : {0u, 10u, 13u, 0xffffffffu}) {
+        auto c = valid_config(m);
+        if (m == P6_MACHINE_CDTV) out.accept(c); else out.reject(c);
+    }
     for (uint32_t fast : {1u, 1024u, 2048u, 4096u, 16384u}) {
         auto c = valid_config(P6_MACHINE_CD32); c.fast_kib = fast; out.reject(c);
     }
@@ -248,6 +258,33 @@ ConfigCases config_cases()
     for (uint32_t m = 1; m <= 9; ++m) for (uint8_t z3 : {1, 10}) {
         auto c = valid_config(m); c.z3_memory = z3; out.reject(c);
     }
+    for (uint8_t cpu : {0, 1}) for (uint8_t clock : {0, 2}) for (uint32_t chip : {0u, 1024u})
+        for (uint32_t none : {0u, P6_MEMORY_NONE}) {
+            auto c = valid_config(P6_MACHINE_CDTV); c.cpu_model = cpu; c.cpu_multiplier = clock;
+            c.chip_kib = chip; c.slow_kib = none; c.fast_kib = none; out.accept(c);
+        }
+    const auto cdtv = valid_config(P6_MACHINE_CDTV);
+    for (uint8_t cpu : {2, 3, 4, 5, 7, 255}) { auto c = cdtv; c.cpu_model = cpu; out.reject(c); }
+    for (uint8_t accuracy : {1, 2, 255}) { auto c = cdtv; c.cpu_compatibility = accuracy; out.reject(c); }
+    for (uint8_t clock : {1, 4, 8, 10, 12, 16, 255}) { auto c = cdtv; c.cpu_multiplier = clock; out.reject(c); }
+    for (uint32_t size : {1u, 512u, 2048u, 8192u, P6_MEMORY_NONE}) {
+        auto c = cdtv; c.chip_kib = size; out.reject(c);
+        if (size != P6_MEMORY_NONE) {
+            c = cdtv; c.slow_kib = size; out.reject(c);
+            c = cdtv; c.fast_kib = size; out.reject(c);
+        }
+    }
+    for (uint8_t n : {1, 4, 255}) { auto c = cdtv; c.floppy_drives = n; out.reject(c); }
+    for (uint8_t z3 : {1, 10}) { auto c = cdtv; c.z3_memory = z3; out.reject(c); }
+    for (uint32_t fpu : {68881u, 68882u, 68040u, 68060u}) { auto c = cdtv; c.fpu_model = fpu; out.reject(c); }
+    { auto c = cdtv; c.hdf_controller = P6_HDF_CONTROLLER_IDE; out.reject(c); }
+    // Both public flag bits compose on A1200; no cartridge on other machines.
+    for (uint32_t m = 1; m <= 12; ++m) for (uint32_t flags : {1u, 2u, 3u, 4u}) {
+        auto c = valid_config(m); c.flags = flags;
+        if ((m == P6_MACHINE_A1200 && flags <= 3) ||
+            (m != P6_MACHINE_CD32 && m != P6_MACHINE_CDTV && flags == P6_CONFIG_FLOPPY_WRITES)) out.accept(c);
+        else out.reject(c);
+    }
     return out;
 }
 
@@ -256,7 +293,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
     Random rng(seed);
     std::map<int, unsigned> histogram;
     const auto cases = config_cases();
-    uint32_t machines = 0, z3 = 0, fpus = 0, controllers = 0, cd32_fast = 0, late_cpus = 0;
+    uint32_t machines = 0, z3 = 0, fpus = 0, controllers = 0, cd32_fast = 0, late_cpus = 0, a1200_flags = 0;
     for (uint64_t i = 0; i < iterations; ++i) {
         const bool witness = i < cases.witnesses.size();
         p6_config c = witness ? cases.witnesses[i].first : cases.seeds[rng.below(unsigned(cases.seeds.size()))];
@@ -302,8 +339,10 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         ++histogram[int(r)];
         const bool expected = !null_config && kind != 1 && oracle_accepts(c);
         if ((r == P6_OK) != expected) {
-            char text[128];
-            snprintf(text, sizeof text, "p6_init returned %d, the oracle says %s", int(r), expected ? "accept" : "reject");
+            char text[240];
+            snprintf(text, sizeof text, "p6_init returned %d, the oracle says %s (machine=%u cpu=%u/%u clock=%u chip/slow/fast=%u/%u/%u flags=%u)",
+                     int(r), expected ? "accept" : "reject", c.machine, c.cpu_model, c.cpu_compatibility, c.cpu_multiplier,
+                     c.chip_kib, c.slow_kib, c.fast_kib, c.flags);
             bug(text, i);
         }
         if (kind == 1 && (r != P6_ERROR_BAD_ARGUMENT || unusable.message[0] != 'x')) bug("unusable error struct written", i);
@@ -311,6 +350,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         if (pass == &error && r == P6_OK && error.message[0]) bug("message set on success", i);
         if (r == P6_OK) {
             machines |= 1u << c.machine;
+            if (c.machine == P6_MACHINE_A1200) a1200_flags |= 1u << c.flags;
             if (c.machine == P6_MACHINE_A4030) {
                 z3 |= 1u << c.z3_memory;
                 fpus |= 1u << (c.fpu_model == 0 ? 0 : c.fpu_model == 68881 ? 1 : 2);
@@ -329,7 +369,7 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         }
     }
     for (const auto &entry : histogram) printf("config result %d: %u\n", entry.first, entry.second);
-    printf("config coverage machines=%x z3=%x fpus=%x controllers=%x cd32_fast=%x late_cpus=%x\n", machines, z3, fpus, controllers, cd32_fast, late_cpus);
+    printf("config coverage machines=%x z3=%x fpus=%x controllers=%x cd32_fast=%x late_cpus=%x a1200_flags=%x\n", machines, z3, fpus, controllers, cd32_fast, late_cpus, a1200_flags);
     return 0;
 }
 

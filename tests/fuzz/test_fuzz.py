@@ -60,10 +60,11 @@ class ConfigProfileFuzzTests(NativeFuzzBase):
         self.assertTrue(clean(result), result.stderr[-1000:])
         coverage = re.search(r"config coverage machines=([0-9a-f]+) z3=([0-9a-f]+) fpus=([0-9a-f]+) controllers=([0-9a-f]+) cd32_fast=([0-9a-f]+)", result.stdout)
         self.assertIsNotNone(coverage, result.stdout)
-        # Public machine IDs1..9,11,12; all eleven Z3 choices, five FPUs,
+        # Public machine IDs1..12; all eleven Z3 choices, five FPUs,
         # both controllers and both stock/FR. These masks come from the ABI.
-        self.assertEqual([0x1bfe, 0x7ff, 0x1f, 3, 3], [int(v, 16) for v in coverage.groups()])
+        self.assertEqual([0x1ffe, 0x7ff, 0x1f, 3, 3], [int(v, 16) for v in coverage.groups()])
         self.assertIn("late_cpus=3", result.stdout)
+        self.assertIn("a1200_flags=f", result.stdout)  # none, writes, HRTMon, both
         self.assertRegex(result.stdout, r"config result 0: [1-9]")
         self.assertRegex(result.stdout, r"config result 4: [1-9]")
 
@@ -549,6 +550,7 @@ class ContentFuzzTests(unittest.TestCase):
                                    "entry is corrupt", "archive is damaged"):
                         self.assertIn(reason, text)
                 elif run["target"] == "model":
+                    self.assertIn("model effect witnesses 72", text)
                     kinds = self.histogram(text, "model")
                     self.assertEqual(sorted(MODEL_KINDS), sorted(kinds))
                     for kind in ("clean", "multi", "near", "bare", "hostile", "order"):
@@ -559,6 +561,8 @@ class ContentFuzzTests(unittest.TestCase):
                     for tag in MODEL_DECIDERS:
                         self.assertRegex(text, rf'(?m)^model decided "{re.escape(tag)}": [1-9]', tag)
                     self.assertRegex(text, r'(?m)^model warned "unsupported-model-tag": [1-9]')
+                    for effect in ("multidrive", "cycle-exact"):
+                        self.assertRegex(text, rf'(?m)^model decided "{effect}": [1-9]')
                 elif run["target"] == "firmware":
                     kinds = self.histogram(text, "firmware")
                     self.assertEqual(sorted(FIRMWARE_KINDS), sorted(kinds))
