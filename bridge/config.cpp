@@ -37,7 +37,8 @@
 
 namespace p6_bridge {
 
-namespace { const char *const kCartridgeId = "p6-cartridge.rom"; }
+namespace { const char *const kCartridgeId = "p6-cartridge.rom", *const kActionReplayId = "p6-action-replay.rom"; }
+bool ar_bound() { return p6_blob_exists(kActionReplayId) == P6_BLOB_OK; }
 bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
 
 bool hrtmon_identity(uint8_t out[32])
@@ -73,16 +74,37 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
     p6_error_clear(error);
     p6_session::Guard guard;
     if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
-    if (p6_session::session.state != p6_session::State::Initialized || hrtmon_bound())
+    if (p6_session::session.state != p6_session::State::Initialized || hrtmon_bound() || ar_bound())
         return p6_fail(error, P6_ERROR_BAD_STATE, "bind HRTMon once, before load");
     if (p6_session::session.config.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private HRTMon requires A1200");
     return register_hrtmon(image, error);
 }
 
+p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    p6_session::Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
+    const auto &s = p6_session::session; const auto &c = s.config;
+    if (s.state != p6_session::State::Initialized || ar_bound() || hrtmon_bound())
+        return p6_fail(error, P6_ERROR_BAD_STATE, "bind one cartridge before load");
+    if (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000 || resolve_cpu_multiplier(c) != 2 ||
+        c.cpu_compatibility == P6_CPU_NORMAL || c.fpu_model || c.z3_memory || c.flags || c.hdf_controller || !memory_is_preset(c))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private AR requires stock compatible A500/68000");
+    if (model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "private AR supports models2/3");
+    if (!image.data || image.bytes != (model == 2 ? 131072u : 262144u) || !memcmp(image.data, "ATZ!HRT!", 8))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected raw AR2/3 image of matching size");
+    if (p6_blob_register(kActionReplayId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
+        return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy Action Replay image");
+    return P6_OK;
+}
+
 p6_result load_builtin_hrtmon(p6_error *error)
 {
     if (!(p6_session::session.config.flags & P6_CONFIG_HRTMON) || hrtmon_bound()) return P6_OK;
+    if (ar_bound()) return p6_fail(error, P6_ERROR_BAD_STATE, "Action Replay already owns the cartridge slot");
     extern const uint8_t hrtmon_builtin[198732];
     return register_hrtmon({hrtmon_builtin, sizeof hrtmon_builtin}, error);
 }
@@ -668,6 +690,7 @@ void build_preferences(const p6_config &c, bool ide)
     if (c.machine == kCd32Machine || c.machine == kCdtvMachine) { currprefs.flashfile[0] = currprefs.romextfile[0] = currprefs.romextfile2[0] = 0; }
     currprefs.cartfile[0] = 0;
     if (hrtmon_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kCartridgeId); }
+    else if (ar_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kActionReplayId); }
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
 }
@@ -768,6 +791,12 @@ p6_result check_loaded_firmware(p6_error *error)
         extendedkickmem_bank.reserved_size != 524288 || !extendedkickmem_bank.baseaddr ||
         !firmware_matches(extendedkickmem_bank.baseaddr, 262144, 22)))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CDTV extended firmware is missing or corrupt");
+    if (ar_bound()) {
+        uint64_t bytes = 0; uint32_t kind = 0;
+        if (p6_blob_size(kActionReplayId, &bytes, &kind) != P6_BLOB_OK || kind != P6_BLOB_ROM ||
+            (bytes != 131072 && bytes != 262144) || armodel != (bytes == 131072 ? 2 : 3))
+            return p6_fail(error, P6_ERROR_WRONG_MEDIA, "Action Replay loader did not adopt the complete owner");
+    }
     // The decoded image must be intact.
     if (!kickstart_checksum(kickmem_bank.baseaddr, kickmem_bank.reserved_size))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware checksum is invalid");

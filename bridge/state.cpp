@@ -478,6 +478,8 @@ Plan make_plan()
 // asked for placeholders).
 p6_result gate(const Options &options, p6_error *error)
 {
+    if (p6_bridge::ar_bound())
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Action Replay native codec is not implemented");
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
     if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500 && session.config.machine != p6_bridge::kCdtvMachine)

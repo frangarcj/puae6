@@ -299,10 +299,85 @@ static void public_builtin(const std::vector<uint8_t> &rom,const char *directory
     assert(!p6_bridge::hrtmon_bound() && !hrtmem_size && hrtmon_flag==ACTION_REPLAY_INACTIVE); stop();
     puts("HRTMon builtin config/identity/teardown PASS");
 }
+static void ar_states_refused()
+{
+    auto e=error(); uint64_t size=UINT64_C(0x123456789abcdef0),written=99;
+    uint8_t bytes[32],before[32]; memset(bytes,0xa5,sizeof bytes); memcpy(before,bytes,sizeof bytes);
+    const auto ticks=p6_session::session.master_ticks; const auto flag=regs.spcflags;
+    assert(p6_state_bound(&size,&e)==P6_ERROR_UNSUPPORTED && size==UINT64_C(0x123456789abcdef0));
+    assert(p6_state_save(bytes,sizeof bytes,&written,&e)==P6_ERROR_UNSUPPORTED && !written);
+    assert(p6_state_load(bytes,sizeof bytes,&e)==P6_ERROR_UNSUPPORTED && !memcmp(bytes,before,sizeof bytes));
+    assert(p6_session::session.master_ticks==ticks && regs.spcflags==flag);
+}
+static void ar_owner(const std::vector<uint8_t> &rom)
+{
+    auto e=error(); const char *id="p6-action-replay.rom";
+    std::vector<uint8_t> image(262144);
+    for(size_t n=0;n<image.size();n+=2) { image[n]=0x4e; image[n+1]=0x71; } // Original NOP cartridge, never executed.
+    assert(p6_bridge::bind_action_replay(2,{image.data(),131072},&e)==P6_ERROR_BAD_STATE);
+    for(unsigned bad=0;bad<7;++bad) {
+        auto c=config(bad==0?P6_MACHINE_A1200:P6_MACHINE_A500);
+        if(bad==1)c.cpu_model=2; if(bad==2)c.cpu_multiplier=4; if(bad==3)c.cpu_compatibility=P6_CPU_NORMAL;
+        if(bad==4)c.chip_kib=1024; if(bad==5)c.fast_kib=2048; if(bad==6)c.flags=P6_CONFIG_FLOPPY_WRITES;
+        call(p6_init(&c,&e),e);
+        assert(p6_bridge::bind_action_replay(2,{image.data(),131072},&e)==P6_ERROR_UNSUPPORTED && !p6_bridge::ar_bound());
+        call(p6_shutdown(&e),e);
+    }
+    for(unsigned scenario=0;scenario<5;++scenario) {
+        const unsigned model=scenario==0||scenario==2?2:3; auto cart=image;
+        const size_t length=model==2?131072:262144;
+        if(scenario==2) { const uint32_t address=0x400000+uint32_t(length)-4; for(unsigned b=0;b<4;++b)cart[b]=uint8_t(address>>(24-8*b)); }
+        if(scenario>=3) { const char *text=scenario==3?"(V3.17)":"(V3.17 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA)"; memcpy(cart.data()+4,text,strlen(text)+1); }
+        const size_t count=length; auto c=config(P6_MACHINE_A500); if(scenario==2)c.cpu_compatibility=P6_CPU_COMPATIBLE; call(p6_init(&c,&e),e);
+        assert(p6_bridge::bind_action_replay(1,{image.data(),count},&e)==P6_ERROR_BAD_ARGUMENT);
+        for(size_t bytes:{size_t(0),count-1,count+1})
+            assert(p6_bridge::bind_action_replay(model,{image.data(),bytes},&e)==P6_ERROR_WRONG_MEDIA && !p6_bridge::ar_bound());
+        assert(p6_bridge::bind_action_replay(model,{nullptr,count},&e)==P6_ERROR_WRONG_MEDIA);
+        auto input=cart; call(p6_bridge::bind_action_replay(model,{input.data(),count},&e),e); input.assign(input.size(),0);
+        assert(p6_bridge::ar_bound() && !p6_bridge::hrtmon_bound()); ar_states_refused();
+        assert(p6_bridge::bind_action_replay(model,{image.data(),count},&e)==P6_ERROR_BAD_STATE);
+        assert(p6_bridge::bind_hrtmon({nullptr,0},&e)==P6_ERROR_BAD_STATE);
+        uint8_t copied[16]; size_t got=0; assert(p6_blob_pread(id,8,copied,sizeof copied,&got)==P6_BLOB_OK && got==sizeof copied);
+        assert(!memcmp(copied,cart.data()+8,sizeof copied));
+        call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+        assert(armodel==int(model) && !currprefs.cart_internal && !strcmp(currprefs.cartfile,id)); ar_states_refused();
+        action_replay_reset(true,false); // Existing hardware reset maps the actual ROM/RAM banks; no cart execution.
+        assert(!strcmp(get_mem_bank(0x400000).name,"Action Replay ROM") && !strcmp(get_mem_bank(0x440000).name,"Action Replay RAM"));
+        for(uint32_t at=8;at<count;at+=254) assert(get_byte(0x400000+at)==cart[at]);
+        assert(get_byte(0x400000+count-1)==cart[count-1] && get_long(0x440010)==0);
+        put_long(0x440010,0x12345678); put_word(0x44fffe,0xabcd);
+        assert(get_long(0x440010)==0x12345678 && get_word(0x44fffe)==0xabcd);
+        put_byte(0x400100,0); assert(get_byte(0x400100)==cart[0x100]);
+        put_byte(0x400001,2); assert(regs.spcflags&SPCFLAG_ACTION_REPLAY); ar_states_refused();
+        memset(ar_custom,0xa5,sizeof ar_custom); memset(ar_ciaa,0xa5,sizeof ar_ciaa); memset(ar_ciab,0xa5,sizeof ar_ciab);
+        call(p6_shutdown(&e),e);
+        assert(!p6_bridge::ar_bound() && !armodel && action_replay_flag==ACTION_REPLAY_INACTIVE && !(regs.spcflags&SPCFLAG_ACTION_REPLAY));
+        assert(p6_blob_exists(id)==P6_BLOB_NOT_FOUND);
+        for(auto byte:ar_custom) assert(!byte); for(auto byte:ar_ciaa) assert(!byte); for(auto byte:ar_ciab) assert(!byte);
+    }
+    auto c=config(); c.flags=P6_CONFIG_HRTMON; call(p6_init(&c,&e),e); call(p6_bridge::load_builtin_hrtmon(&e),e);
+    assert(p6_bridge::bind_action_replay(2,{image.data(),131072},&e)==P6_ERROR_BAD_STATE); call(p6_shutdown(&e),e);
+    for(unsigned malformed=0;malformed<2;++malformed) {
+        auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e); std::vector<uint8_t> invalid(262144,0);
+        if(malformed) invalid[4]=1; // AR3's last nonzero long precedes its checksum start0x7c.
+        call(p6_bridge::bind_action_replay(3,{invalid.data(),invalid.size()},&e),e);
+        assert(p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_ERROR_WRONG_MEDIA && !armodel && !p6_bridge::ar_bound());
+        call(p6_shutdown(&e),e);
+    }
+    // The internal blob seam can simulate a corrupted/truncated owner before the engine adopts it.
+    c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e); call(p6_bridge::bind_action_replay(2,{image.data(),131072},&e),e);
+    p6_blob_clear(); assert(p6_blob_register(id,P6_BLOB_ROM,image.data(),8)==P6_BLOB_OK);
+    assert(p6_load({rom.data(),rom.size()},nullptr,0,&e)==P6_ERROR_WRONG_MEDIA && !armodel && !p6_bridge::ar_bound());
+    call(p6_shutdown(&e),e);
+    call(p6_init(&c,&e),e); call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    assert(!p6_bridge::ar_bound() && !armodel && !currprefs.cartfile[0]); call(p6_shutdown(&e),e);
+    puts("AR2/3 copied owner/banks/refusals/cleanup PASS; activation and codec not asserted");
+}
 int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5);
+    if(!strcmp(argv[3],"ar-owner")) { ar_owner(file(argv[1])); return 0; }
     if(!strcmp(argv[3],"commands-write") || !strcmp(argv[3],"commands-read")) {
         public_commands(file(argv[1]),argv[4],!strcmp(argv[3],"commands-write")); return 0;
     }

@@ -91,3 +91,15 @@ class HrtMonTests(unittest.TestCase):
                 self.assertEqual(len(twins[-1]),7)
                 self.assertIn('HRTMon refusal/teardown and A1200 without cartridge PASS',result.stdout)
             self.assertEqual(*twins)
+
+
+class ArOwnerTests(unittest.TestCase):
+    def test_private_ar23_owner_loads_copied_rom_and_refuses_states(self):
+        from tests.fixtures.test_microrom import builder, SOURCE
+        exe = build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar-owner-',dir=ROOT/'build') as tmp:
+            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(SOURCE))
+            result=subprocess.run([str(exe),str(firmware),'-','ar-owner',tmp],capture_output=True,text=True,timeout=90,
+                                  env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+            self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
+            self.assertIn('AR2/3 copied owner/banks/refusals/cleanup PASS',result.stdout)
