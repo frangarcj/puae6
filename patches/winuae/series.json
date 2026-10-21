@@ -5952,6 +5952,50 @@
           "after_sha256": "6aa75bc2c753d259ab704bdffdbfb2b67a86429eceb51836ae84a77d9e9e1fe3"
         }
       ]
+    },
+    {
+      "id": "0406-cdtv-display-power-on",
+      "file": "patches/winuae/0406-cdtv-display-power-on.patch",
+      "sha256": "dfd2b4f4b59518674bf8295d5d7447297e7cad1c0cb7654108861bb5edb4c4a3",
+      "title": "Reset retained CDTV display latches only on a new power-on",
+      "reason": "T67c3d: two long independent owners diverge by1024ticks at169; transplanting the display/Copper state reproduces it, blitter does not. Restore BSS-zero display state before custom_init only on CDTV power-on, preserving warm reset and first-owner behavior.",
+      "category": "cold session boundary",
+      "order": 223,
+      "symbols": [
+        "p6_custom_display_power_on"
+      ],
+      "test": "tests/libretro-host/test_cdtv_load.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f45fb70d4fe86a37f075266803a0ea4015b8c4bf5e16f68bae567da7f0832668",
+          "after_sha256": "65d6df9088b7c1117852b06da495183f0bb0b30decca4db693832121e9a56f9b"
+        }
+      ]
+    },
+    {
+      "id": "0409-cdtv-floppy-power-on",
+      "file": "patches/winuae/0409-cdtv-floppy-power-on.patch",
+      "sha256": "ba59609fc59a64f08debd3ecd89cddb4e49160f2c9e0e9e55431b7f057aba8da",
+      "title": "Start the CDTV disk read shifter at its cold BSS phase",
+      "reason": "T67c3d: DMA remains active without a physical drive. Exact cold622 replay proves the disk phase domain causes the4096tick return difference; scheduler cursor transplant does not. Reset only bitoffset at new CDTV power-on, preserving hardware RESET and state restore.",
+      "category": "cold session boundary",
+      "order": 224,
+      "symbols": [
+        "p6_disk_power_on"
+      ],
+      "test": "tests/libretro-host/test_cdtv_load.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "disk.cpp",
+          "before_sha256": "140dd76f57c2f0a8ea3f025efbedc30f63b9ee055918f97c506bb9f5c89973bc",
+          "after_sha256": "ce03deb72a5e8d305b171875acdc1bb22a7bdaa0bb7f6e27bc0e0e03953a9e81"
+        }
+      ]
     }
   ]
 }

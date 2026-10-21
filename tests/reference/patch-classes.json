@@ -228,7 +228,9 @@
     "0404-nrg-etn2-canonical-pregap": "required",
     "0405-nrg-dao-sessions-metadata": "required",
     "0407-action-replay-blob-owner": "required",
-    "0408-action-replay-native-state": "instrumentation"
+    "0408-action-replay-native-state": "instrumentation",
+    "0406-cdtv-display-power-on": "required",
+    "0409-cdtv-floppy-power-on": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
