@@ -338,6 +338,8 @@ for _gate in ('WB03', 'WB08', 'DET02'):
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
+for _gate in ('WB03', 'DET02'):
+    TASK_SUITES[(_gate, 'T66v7')] = {'private_v3_snapshot': 'tests.waterbox-media.test_cd_source.Cd32SessionWaterboxTests.test_private_v3_cold_snapshot_and_rebind', 'legacy_v1': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests', 'regional_v2': 'tests.waterbox-media.test_cd_source.Cd32RegionalWaterboxTests'}
 TASK_SUITES[('MED01', 'T66v6')] = {'v3_session_descriptor': 'tests.media.test_cd_disc.CdDiscTests.test_waterbox_v3_descriptor_sessions_gaps_identity_and_rebind', 'v2_descriptor_regression': 'tests.media.test_cd_disc.CdDiscTests.test_waterbox_v2_descriptor_layout_regions_and_rebind'}
 for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T66v5')] = {'native_multisession_cold_restore': 'tests.media.test_cd32_state.Cd32NrgStateTests.test_private_multisession_restore_new_process', 'native_legacy_regression': 'tests.media.test_cd32_state.Cd32StateTests'}
