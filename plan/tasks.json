@@ -21721,6 +21721,7 @@
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
         "integration/bizhawk/core/Puae6/WhdLoad.cs",
         "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
         "tests/media/csharp-disc/Cd32Loader.cs",
         "tests/media/csharp-disc/Cd32Chd.cs",
         "tests/waterbox-media/test_chd_public.py",
@@ -21735,7 +21736,8 @@
         "MED01/WB03/DET02 unionunaejecucion: nuevo NrgMultiPublicWaterboxTests.test_public_multisession_and_mixed_catalog_cold_restore +ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore +NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Harness/Run/Save/Restore/loaderrealexistentes, no nuevocore/probealterno.",
         "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion.",
         "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto.",
-        "IncluirSBIvalidocompañante enfixtureDAOmulti paraacreditarV13real: Qpatcheada/identidadmismomediopayloadtable ySBIajeno rechazado, local/coldrestore/fullfuture/snapshotenmismaunion, sinnuevoWBbuildni campañaextra."
+        "IncluirSBIvalidocompañante enfixtureDAOmulti paraacreditarV13real: Qpatcheada/identidadmismomediopayloadtable ySBIajeno rechazado, local/coldrestore/fullfuture/snapshotenmismaunion, sinnuevoWBbuildni campañaextra.",
+        "Ampliacionprevia portargetreal net48: incluirPuae6DiscSource.cs parahexbytes compatibleconnet48 yaccesoindexado aultimaSesion (CA1826), sinmodificarcontratoID; factoryList.Exists sustituyeAny porMA0020. No relajar analyzers. PrepararClient.Commonunavezconfailfastantes3clasesparaevitarrebuildsdelmismofallodecompilacion; reutilizarcacheenunion."
       ],
       "checks": [
         "MED01",
