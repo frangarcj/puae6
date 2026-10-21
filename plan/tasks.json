@@ -17890,6 +17890,58 @@
       "stop": "No derivar metadata de Q cuando existen regiones, copiar packing CHD a wire, relajar checks de descriptor ni acreditar sandbox por C# host."
     },
     {
+      "id": "T66t15c",
+      "title": "Conectar CHD regional al loader publico XML Amiga y parametros PUAE6",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t15b",
+        "T66r3",
+        "T66r5",
+        "T80a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0011-public-puae6-chd.patch",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "integration/bizhawk/patches/build_tree.py",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/DiscSource.csproj",
+        "tests/media/test_chd_host_csharp.py",
+        "docs/02-contracts.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical atomica publica del host: XML estandar con sistema Amiga conocido antes de montar y PUAE6 preferido o forzado selecciona el backend CHD opt-in y fija CUE_PregapMode2_As_XA_Form2=false. CHD directo solo selecciona esa ruta con forcedCoreName=PUAE6; la apertura directa normal por preferencia permanece pendiente visible. Otros sistemas o core forzado distinto conservan loader actual, sin preprobar todos los CHD ni fallback tras error seleccionado. Patch0011 reservado; 0009 sigue reservado al transporte de bases de peliculas.",
+        "Parametros CdInfoV2 exclusivos de V1, pareja descriptor/lector estricta, copia interna, WhdLoad.Resolve, constructor publico ParametersFrom, BootGuest y reapertura SaveRAM, identidad del medio y host P6CdHost V2 deben acoplarse. Preservar identidad V1 exacta. El propietario de Disc/fuente sobrevive a reaperturas y se libera una sola vez al disponer; fallo de construccion o montaje no pierde el owner ni deja FD abierto. Verificar contrato real DiscAsset/MainForm, sin adoptar dos veces ni cambiar el prestamo de lectores V1.",
+        "Montaje/finalizacion DiscSystem real con cuatro codecs existentes y descriptor regional T15b. XML Amiga con preferencia PUAE6 es entrada util de UI; movie forcedPUAE6 se decide antes del montaje. No convertir fallo CHD seleccionado en fallback SNES de LoadXML ni probar otro core para esconderlo. El mapa/publicacion de la fuente se completa solo tras validar.",
+        "MED01/STATE01 comparten ChdHostCSharpTests.test_xml_amiga_public_selector_xa_and_parameters: parser XML y selector reales, finalizacion, ParametersFrom, validacion/copia/WhdLoad, descriptor V2, identidad, reopen wiring y bytes XA independientes, ownership/negativos antes de guest. No regex ni copia del algoritmo como sustituto. DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind conserva v1. BUILD01 ChdHostCSharpTests.test_real_client_common_target_and_analyzers compila proyecto real Client.Common con Cores/DiscSystem transitivos y analizadores estrictos.",
+        "busy_reference trabaja aislado, nueve rutas de implementacion con objetivo320-390 lineas manuales; tests/test_plan.py es metadata exclusiva de root. Si no cabe400 o necesita ruta extra, parar antes y dividir o ampliar explicitamente. No compilar motor/guest; standalone host CMake solo con ventana coordinada. Root integra sin repetir baterias acumuladas.",
+        "Esta puerta acredita conexion host y parametros publicos; no ejecucion ni restauracion Waterbox. WB03 publico con carga, SaveRAM reopen, snapshot y proceso nuevo es puerta posterior obligatoria del padre T66; conservar T66t12/T66u4 bloqueadas y registrar el escenario publico antes de cerrar T66. No proclamar CHD BizHawk funcional completo por compilar o por harness host."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "XML Amiga seleccionado explicitamente para PUAE6 recorre backend CHD real, descriptor V2 y parametros publicos completos con politica XA fijada, identidad y ownership comprobados; v1 y otros cores mantienen su contrato. Target real y checks host pasan. La ejecucion/restauracion Waterbox sigue como puerta independiente visible."
+      ],
+      "stop": "Sin apropiarse CHD de otros sistemas, reintento por otro core tras error, owner duplicado ni acreditacion WB por compile. Dividir antes de400; no instalar ni modificar MacHawk."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -17969,7 +18021,8 @@
         "T66t13",
         "T66t14",
         "T66t15a",
-        "T66t15b"
+        "T66t15b",
+        "T66t15c"
       ],
       "read": [
         "docs/01-architecture.md",
