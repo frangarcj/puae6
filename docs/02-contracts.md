@@ -304,8 +304,18 @@ ascendente, despues de reset/medios/entrada y antes de ejecutar la unidad. Una p
 en la primera unidad o dentro del monitor se consume sin cola; mantenerla tras `x`,
 reset o restauracion no activa otra vez. Soltar y volver a pulsar si activa. Entrada v1
 equivale a commands0. Bits desconocidos dan BAD_ARGUMENT; Freeze sin owner da UNSUPPORTED
-antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 solo con HRTMon;
+antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 con HRTMon o AR2/AR3;
 Apply lo copia sin emitir accion. Reset del teclado conserva este flanco y unload/load lo borra.
+
+T69d3: `P6_CAP_AR23` (bit12) anuncia la API nativa aditiva
+`p6_cartridge_bind(uint32_t model, p6_buffer image, p6_error*)`, con modelos2/3
+para Action Replay II/III. El propietario copia la ROM antes de cargar la maquina;
+solo admite A500 stock con 68000 Exact/Compatible y excluye un owner HRTMon simultaneo.
+La identidad incluye modelo y bytes de ROM. Freeze comparte el contrato de nivel y
+flanco anterior: solo solicita la entrada al monitor despues de arrancar una unidad,
+con la maquina cargada, sin reset y con el cartucho preparado. El estado nativo conserva
+RAM, mapas, latches, IRQ y eventos del cartucho, ademas del nivel de commands.
+Esta capacidad no anuncia AR1/AR1200 ni selectores de libretro o BizHawk.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

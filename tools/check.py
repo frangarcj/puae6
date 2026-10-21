@@ -716,6 +716,14 @@ for _gate in ('MED01', 'LIFE01'):
 for _gate in ('STATE01', 'STATE02', 'DET02'):
     TASK_SUITES[(_gate, 'T69d2')] = {'complete_ar23_native': 'tests.cartridge.test_hrtmon.ArStateTests.test_complete_ar23_semantic_cold_state_and_refusals'}
 
+TASK_SUITES[('ABI01', 'T69d3')] = {
+    'native_c_cpp_signature': 'tests.contracts.test_api.NativeContractTests',
+    'exact_capabilities': 'tests.host.test_bridge_caps.BridgeCapsTests'}
+for _gate in ('IN01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T69d3')] = {
+        'public_ar23_real_firmware': 'tests.cartridge.test_hrtmon.NativeArTests.test_public_ar23_freeze_return_real_firmware_and_cold_state',
+        'shared_hrtmon_command_regression': 'tests.cartridge.test_hrtmon.HrtMonCommandTests'}
+
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
 for _gate in ('WB03', 'WB04', 'WB09'):
