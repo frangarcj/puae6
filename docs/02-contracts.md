@@ -2056,3 +2056,13 @@ La lease publica expone IsDisposed: los callbacks single/catalogo comprueban
 su vida antes de leer, incluidos clones y alias. Un Blob_RawFile liberado podria
 reabrir el archivo; el guard evita esa lectura y conserva el destino sin tocar
 el contrato de fuentes API prestadas.
+
+
+T67c3a2 usa el ISO/HUNK propio de T67c3a1 con limite explicito1000 unidades.
+El corte exige nonce DOS y contador Delay positivo; el futuro16 incluye toda
+ChipRAM, video, PCM, indices/ticks, llamadas al lector y bytes del fullsave.
+Restore local y proceso nuevo sin run previo deben reproducirlo exactamente.
+Sin Startup no ejecuta el marcador al mismo limite; nonceB debe ejecutarB y
+rechazar el estadoA por identidad sin tocar fullsave, contador, ciclos ni IO.
+Los assets y resultados del escenario viven solo en temporales build; esta
+puerta privada no acredita frontend publico ni snapshot Waterbox.

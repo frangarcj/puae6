@@ -1,4 +1,4 @@
-// Private stock CDTV firmware/map gate; no autoconfig, CD boot or state claim.
+// Private CDTV firmware maps, original CDFS/HUNK execution and complete native continuation.
 #include "p6.h"
 #include "config.h"
 #include "sysconfig.h"
@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstdio>
 #include <vector>
+#include <string>
 #ifndef _WIN32
 #include <sys/mman.h>
 #endif
@@ -86,7 +87,20 @@ struct BootImage {
                 static_cast<unsigned long long>(at / 2048), unsigned(at % 2048), n); return true;
     }
 };
-static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex, unsigned limit)
+static std::vector<uint8_t> save_state()
+{
+    uint64_t bound = 0, used = 0; ok(p6_state_bound(&bound, &error));
+    std::vector<uint8_t> state(bound); ok(p6_state_save(state.data(), bound, &used, &error));
+    assert(used <= bound); state.resize(used); return state;
+}
+static std::vector<uint8_t> artifact(const std::string &path, const std::vector<uint8_t> *data = nullptr)
+{
+    FILE *f = fopen(path.c_str(), data ? "wb" : "rb"); assert(f);
+    if (data) { assert(fwrite(data->data(), 1, data->size(), f) == data->size()); fclose(f); return {}; }
+    assert(!fseek(f, 0, SEEK_END)); long size = ftell(f); assert(size > 0 && size < 33554432); rewind(f);
+    std::vector<uint8_t> bytes(size); assert(fread(bytes.data(), 1, bytes.size(), f) == bytes.size()); fclose(f); return bytes;
+}
+static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex, unsigned limit, const char *role = "", const char *directory = "")
 {
     BootImage image; FILE *f = fopen(path, "rb"); assert(f && !fseek(f, 0, SEEK_END));
     const long size = ftell(f); assert(size > 0 && size <= 1048576 && size % 2048 == 0); rewind(f);
@@ -113,8 +127,14 @@ static void original_boot(const std::vector<uint8_t> &rom, const char *path, con
         assert(found <= 1); return counter;
     };
     p6_input input{P6_ABI_VERSION, sizeof input}; p6_frame out{P6_ABI_VERSION, sizeof out};
+    const bool reader = !strcmp(role, "read"), absent = !strcmp(role, "absent"), other = !strcmp(role, "other");
+    const std::string base = std::string(directory) + "/original";
     uint32_t first = 0; unsigned unit = 0;
-    for (; unit < limit && !first; ++unit) {
+    if (reader) {
+        auto cut = artifact(base + ".cut"); ok(p6_state_load(cut.data(), cut.size(), &error));
+        assert(save_state() == cut && (first = live())); // No run before the cold LOAD.
+    }
+    for (; !reader && unit < limit && !first; ++unit) {
         ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error)); first = live();
     }
     fprintf(stderr, "CDTV original boot units=%u reads=%u PC=%x marker=%u\n", unit, image.reads, m68k_getpc(), first);
@@ -131,19 +151,59 @@ static void original_boot(const std::vector<uint8_t> &rom, const char *path, con
         fputc('\n', stderr);
     }
     fprintf(stderr, "HUNK signatures=%u zero=%u positive=%u expected_nonce=%u\n", signatures, zero, positive, matching);
-    assert(first && image.reads);
-    for (unsigned n = 0; n < 16; ++n) ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error));
-    assert(live() > first); ok(p6_shutdown(&error)); p6_cd::device_unbind();
+    if (absent) {
+        assert(!first && image.reads && unit == limit); ok(p6_shutdown(&error)); p6_cd::device_unbind();
+        puts("CDTV missing Startup never executed nonce"); return;
+    }
+    assert(first && (reader || image.reads));
+    auto future = [&]() {
+        p6_sha256 hash; p6_sha256_init(&hash); const auto reads = image.reads;
+        for (unsigned n = 0; n < 16; ++n) {
+            ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error));
+            const uint64_t metadata[]{out.unit_index, out.master_ticks, out.audio_frames, out.video_bytes,
+                out.video_format, out.video_width, out.video_height, out.video_stride_bytes,
+                out.aspect_num, out.aspect_den, out.cadence_num, out.cadence_den, out.field_parity, out.flags};
+            p6_sha256_update(&hash, metadata, sizeof metadata);
+            p6_sha256_update(&hash, chipmem_bank.baseaddr, chipmem_bank.allocated_size);
+            p6_sha256_update(&hash, out.video, out.video_bytes); p6_sha256_update(&hash, out.audio, out.audio_frames * 4);
+        }
+        assert(live() > first);
+        uint8_t digest[32]; p6_sha256_final(&hash, digest); auto result = save_state(); // Compare every final state byte too.
+        result.insert(result.end(), digest, digest + 32);
+        const uint64_t calls = image.reads - reads;
+        for (unsigned n = 0; n < 8; ++n) result.push_back(uint8_t(calls >> (8 * n)));
+        return result;
+    };
+    if (*role) {
+        auto cut = save_state();
+        if (other) {
+            const auto alien = artifact(base + ".cut"); const auto cycles = get_cycles(); const auto reads = image.reads;
+            assert(p6_state_load(alien.data(), alien.size(), &error) == P6_ERROR_INCOMPATIBLE);
+            assert(save_state() == cut && live() == first && get_cycles() == cycles && image.reads == reads);
+            future(); puts("CDTV nonce B executed and rejected A without state or IO mutation");
+        } else {
+            const auto expected = reader ? artifact(base + ".future") : future();
+            if (!reader) { artifact(base + ".cut", &cut); artifact(base + ".future", &expected); }
+            ok(p6_state_load(cut.data(), cut.size(), &error)); assert(save_state() == cut && live() == first);
+            assert(future() == expected);
+            printf("CDTV original %s exact RAM/AV/PCM/ticks/fullstate future16\n", reader ? "cold process" : "local restore");
+        }
+    } else future();
+    ok(p6_shutdown(&error)); p6_cd::device_unbind();
     puts("CDTV original ISO/HUNK nonce read and guest Delay counter advanced");
 }
 int main(int argc, char **argv)
 {
-    assert(argc == 3 || argc == 5 || argc == 6); const auto main = file(argv[1]), ext = file(argv[2]);
+    assert(argc == 3 || argc == 5 || argc == 6 || argc == 8); const auto main = file(argv[1]), ext = file(argv[2]);
     auto rom = ext; rom.insert(rom.end(), main.begin(), main.end());
     if (argc >= 5) {
-        const unsigned limit = argc == 6 ? unsigned(strtoul(argv[5], nullptr, 10)) : 600;
+        const unsigned limit = argc >= 6 ? unsigned(strtoul(argv[5], nullptr, 10)) : 600;
         assert(limit >= 600 && limit <= 1000);
-        original_boot(rom, argv[3], argv[4], limit); return 0;
+        if (argc == 8) {
+            assert(!strcmp(argv[6], "write") || !strcmp(argv[6], "read") || !strcmp(argv[6], "absent") || !strcmp(argv[6], "other"));
+            original_boot(rom, argv[3], argv[4], limit, argv[6], argv[7]);
+        } else original_boot(rom, argv[3], argv[4], limit);
+        return 0;
     }
     for (unsigned n = 0; n < 11; ++n) {
         auto c = config();

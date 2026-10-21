@@ -41,21 +41,47 @@ class CdtvFirmwareTests(unittest.TestCase):
         self.assertIn('CD boot/autoconfig/state not asserted',result.stdout)
 
 
+def boot_inputs():
+    main,ext=(os.environ.get(key) for key in ('P6_CDTV_ROM_MAIN','P6_CDTV_ROM_EXT'))
+    cue=os.environ.get('P6_CDTV_BOOT_CUE') or os.environ.get('P6_CD32_GAME_CUE') or os.environ.get('P6_CD_CUE_FILE')
+    if not main or not ext or not cue:
+        raise RuntimeError('BLOCKED: authorized CDTV main/ext ROMs and boot CUE required')
+    tm=cdtv_boot_image.trademark(cue)
+    if hashlib.sha256(tm).hexdigest() not in {
+        'df6da5cea7c67fe02bdee1c9b7e3debc0406496ef99971b76b78b121d7d923c3',
+        'bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb'}:
+        raise AssertionError('TM differs from the authorized local sources')
+    return main,ext,tm
+
+
 class CdtvOriginalBootTests(unittest.TestCase):
     def test_original_iso_hunk_executes_nonce(self):
-        main,ext=(os.environ.get(key) for key in ('P6_CDTV_ROM_MAIN','P6_CDTV_ROM_EXT'))
-        cue=os.environ.get('P6_CDTV_BOOT_CUE') or os.environ.get('P6_CD32_GAME_CUE') or os.environ.get('P6_CD_CUE_FILE')
-        if not main or not ext or not cue:
-            raise RuntimeError('BLOCKED: authorized CDTV main/ext ROMs and Brian CUE required')
-        tm=cdtv_boot_image.trademark(cue)
-        self.assertIn(hashlib.sha256(tm).hexdigest(), {
-            'df6da5cea7c67fe02bdee1c9b7e3debc0406496ef99971b76b78b121d7d923c3',
-            'bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb'})
+        main,ext,tm=boot_inputs()
         exe=build_targets(ROOT/'build/state-opt',['p6_cdtv_boot_probe'],optimized=True)['p6_cdtv_boot_probe']
         with tempfile.TemporaryDirectory(prefix='cdtv-original-',dir=ROOT/'build') as directory:
             iso=Path(directory)/'original.iso'; iso.write_bytes(cdtv_boot_image.image(tm))
-            limit=os.environ.get('P6_CDTV_BOOT_LIMIT')
-            result=subprocess.run([str(exe),main,ext,str(iso),cdtv_boot_image.NONCE.hex(),*([limit] if limit else [])],
+            limit=os.environ.get('P6_CDTV_BOOT_LIMIT','1000')
+            result=subprocess.run([str(exe),main,ext,str(iso),cdtv_boot_image.NONCE.hex(),limit],
                                   capture_output=True,text=True,timeout=180)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertIn('nonce read and guest Delay counter advanced',result.stdout)
+
+
+class CdtvBootRestoreTests(unittest.TestCase):
+    def test_original_iso_hunk_boot_cold_restore_and_negatives(self):
+        main,ext,tm=boot_inputs()
+        exe=build_targets(ROOT/'build/state-opt',['p6_cdtv_boot_probe'],optimized=True)['p6_cdtv_boot_probe']
+        nonce_b=bytes(b^0xa5 for b in cdtv_boot_image.NONCE)
+        with tempfile.TemporaryDirectory(prefix='cdtv-original-state-',dir=ROOT/'build') as directory:
+            work=Path(directory)
+            for name,nonce,startup in (('original',cdtv_boot_image.NONCE,True),('absent',cdtv_boot_image.NONCE,False),('other',nonce_b,True)):
+                (work/(name+'.iso')).write_bytes(cdtv_boot_image.image(tm,nonce,startup=startup))
+            for role,name,nonce,wanted in (
+                ('write','original',cdtv_boot_image.NONCE,'local restore exact'),
+                ('read','original',cdtv_boot_image.NONCE,'cold process exact'),
+                ('absent','absent',cdtv_boot_image.NONCE,'missing Startup never executed'),
+                ('other','other',nonce_b,'nonce B executed and rejected A')):
+                result=subprocess.run([str(exe),main,ext,str(work/(name+'.iso')),nonce.hex(),'1000',role,directory],
+                                      capture_output=True,text=True,timeout=180)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertIn(wanted,result.stdout)
