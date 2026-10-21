@@ -208,8 +208,12 @@ static void bus_program()
     // Poll RAM command; CPU writes $E80048=EA or $E8004C=0, then clears it.
     const uint16_t code[] = {0x4a39,1,0,0x67f8,0x0c39,1,1,0,0x670a,0x13fc,0,0xe8,0x4c,0x6008,
                              0x13fc,0xea,0xe8,0x48,0x4239,1,0,0x60d4};
-    for (unsigned n = 0; n < sizeof code / sizeof *code; ++n) put_word(0x12000 + n * 2, code[n]);
-    put_byte(0x10000, 0); regs.sr = 0x2700; MakeFromSR(); m68k_setpc_normal(0x12000); fill_prefetch(); frames();
+    for (unsigned n = 0; n < sizeof code / sizeof *code; ++n) {
+        put_word(0x12000 + n * 2, code[n]); assert(get_word(0x12000 + n * 2) == code[n]);
+    }
+    put_byte(0x10000, 0); assert(!get_byte(0x10000));
+    regs.sr = 0x2700; MakeFromSR(); m68k_setpc_normal(0x12000); fill_prefetch(); frames();
+    assert(m68k_getpc() >= 0x12000 && m68k_getpc() < 0x1202c);
 }
 static uint64_t bus_future(unsigned cut)
 {
@@ -289,6 +293,14 @@ static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *r
             }
             assert(captured);
             fprintf(stderr, "CDTV first unit configured=%d PC=%x\n", pending->configured, m68k_getpc()); assert(pending->configured == 0 && pending->dma_mask == UINT32_MAX);
+            unsigned waited = 0;
+            while (&get_mem_bank(0x12000) != &chipmem_bank && waited < 64) {
+                frames(); ++waited;
+                assert(p6_cdtv_state_get(pending.get()) && pending->configured == 0);
+                assert(get_byte(0xe80000) == 0xc0 && get_byte(0xe80002) == 0x10);
+            }
+            fprintf(stderr,"CDTV Chip RAM visible after %u further units PC=%x\n",waited,m68k_getpc());
+            assert(&get_mem_bank(0x12000) == &chipmem_bank);
             assert(get_byte(0xe80000) == 0xc0 && get_byte(0xe80002) == 0x10); bus_program();
             if (cut) { put_byte(0x10000, cut == 2 ? 2 : 1); frames(); }
         }
