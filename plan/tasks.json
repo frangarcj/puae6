@@ -18785,7 +18785,8 @@
         "T66v9",
         "T66v10",
         "T66v11",
-        "T66v12"
+        "T66v12",
+        "T66v13"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -21715,7 +21716,8 @@
       "depends": [
         "T66v11",
         "T66l9",
-        "T66v7"
+        "T66v7",
+        "T66v13"
       ],
       "touch": [
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
@@ -21734,7 +21736,8 @@
         "Factorysinglemulti usaV3. Si cualquierfuente SessionCount>=2 todo catalogopromueveV3: V2copia12words/tablecount0 yV1usaRegionalDescriptorexistente storedpregap1/flags0. IDsinrecalcular; identidadcatalogo PUAE6 CD catalog/v1+IDs/slots anterior exacta. Sinmulti rutaV1/V2identica; leaseIsDisposedantescallback, sinownerparalelo.",
         "MED01/WB03/DET02 unionunaejecucion: nuevo NrgMultiPublicWaterboxTests.test_public_multisession_and_mixed_catalog_cold_restore +ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore +NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Harness/Run/Save/Restore/loaderrealexistentes, no nuevocore/probealterno.",
         "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion.",
-        "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto."
+        "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto.",
+        "IncluirSBIvalidocompañante enfixtureDAOmulti paraacreditarV13real: Qpatcheada/identidadmismomediopayloadtable ySBIajeno rechazado, local/coldrestore/fullfuture/snapshotenmismaunion, sinnuevoWBbuildni campañaextra."
       ],
       "checks": [
         "MED01",
@@ -21745,6 +21748,47 @@
         "Loader/factory/core reales transportan singlemulti ycatalogomixtoV3conpropietario eIDcompletos; Waterboxreal restaura antesprimerRun/fullfuture/snapshot exactos, rechazos transaccionales ylegacy V2 pasan."
       ],
       "stop": "No superar400lineas sin dividirantes; no habilitar publico por probe privado. Root metadata ybuildspesados, agenteaislado."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v13",
+      "title": "Aplicar SBI por proveedor disperso y conservar subcanales",
+      "status": "pending",
+      "depends": [
+        "T66v10"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0020-provider-sbi-overlay.patch",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "tests/media/test_cd_source_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference aislado trasV10DONE, cinco rutas240..350manuales. Patch0020targetsApplySBIJob.cs,Internal/SectorSynth.cs,DiscMountJob.cs. ReutilizarLoadSBIJob/SS_PatchQ; quitarunicamente rechazo temporalSBI sparse. Rootmetadata/buildspesados; parser/owner/inventarioparalelo prohibidos.",
+        "Preflightcantidad12*ABAs.Count checked,valores-1..255, ABA-LBAchecked yTODASdireccionesconprovider antesIO/candidato: huecorechaza sinlecturas. LuegoQoriginal ybuffersprivados, duplicadoscomponenenordenexistente, publicarsynthprovider+memo solotrasexito; falloconservaambos. Dominiolegacydirectosnoseamplia porleadoutwrapper. OverlaymismoDisc consultaIsDisposedantesretornarpatch/delegado; catchmontajecierraFD.",
+        "CorregirSS_PatchQ causal: DestOffsetrespetado; deinterleavedexactos12bytesQ, interleavedsolobitQdecada96simbolospreservaP/RW/main. CRCoriginalasMednafenfalse; recomputadoinvertido truecomocontratoexistente. No soportarSBIgeneralporintuicion.",
+        "MED01unaunion NrgCanonicalCSharpTests.test_sbi_sparse_sessions_q_precedence_offsets_and_interleave y test_sbi_preflight_read_failure_and_owner_cleanup_transactionally +DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind. Tipos1/2/3,duplicados,ambassesiones,Qstored/synth/CRC/offsets/canarios,ultimoregistroenhuecosinIO,datosinvalidos,readfailure sinpublicacion/FDsinreabrir. BUILD01 targetreal/analyzers existenteunavez. V12fixtureSBIenmismaunionWB acreditaidentidad/restorepatcheados, noWBextra."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "SBI sobreDAOmulti porLBA conserva P/RW/main yCRCcontractual, rechaza huecos/fallos transaccionalmente sinIO/publicacion/FDrevivido, y legacy/targetreal pasan; restorepublico permanece puertaV12."
+      ],
+      "stop": "No tocarfueraTouch ni superar400manualsin dividirantes; sinSparseOwnerDONE no activar. No repetir suitesacumuladas."
     }
   ],
   "max_in_progress": 4
