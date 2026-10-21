@@ -1,5 +1,6 @@
 #include "../../adapters/libretro/cd_nrg.h"
 #include "cd_read.h"
+#include "cd_akiko.h"
 #include "uae/cdrom.h"
 #include "sha256.h"
 #include "libretro.h"
@@ -9,6 +10,7 @@
 #include <memory>
 using namespace p6_cd;
 using p6_libretro::CdNrg;
+using p6_libretro::NrgSessionPolicy;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "line%d: %s\n", __LINE__, #x); return 70; } } while (0)
 struct retro_vfs_file_handle { FILE *file; };
 static uint64_t fault_at;
@@ -16,6 +18,7 @@ static int fault;
 static uint64_t metadata_directory;
 static unsigned payload_reads;
 static bool metadata_only;
+static unsigned read_calls;
 static retro_vfs_file_handle *RETRO_CALLCONV vopen(const char *path, unsigned, unsigned)
 {
     FILE *file = fopen(path, "rb");
@@ -34,6 +37,7 @@ static int64_t RETRO_CALLCONV vsize(retro_vfs_file_handle *f) { const auto pos =
 static int64_t RETRO_CALLCONV vseek(retro_vfs_file_handle *f, int64_t at, int origin) { return fseek(f->file, long(at), origin); }
 static int64_t RETRO_CALLCONV vread(retro_vfs_file_handle *f, void *out, uint64_t length)
 {
+    ++read_calls;
     if (metadata_only && uint64_t(ftell(f->file)) < metadata_directory) { ++payload_reads; return -1; }
     if (fault == 1 || fault == 2) return fault == 1 ? -1 : 0;
     if (fault == 3 && uint64_t(ftell(f->file)) >= fault_at) return -1;
@@ -53,7 +57,9 @@ int main(int argc, char **argv)
     const auto *vfs = getenv("P6_NRG_PROBE_VFS") ? &api : nullptr;
     metadata_only = getenv("P6_NRG_PROBE_METADATA_ONLY") != nullptr;
     CHECK(!metadata_only || vfs);
-    auto owner = std::make_unique<CdNrg>(); const auto status = owner->open(argv[1], vfs);
+    const auto policy = getenv("P6_NRG_PRIVATE_SESSIONS") ? NrgSessionPolicy::ExplicitPrivate : NrgSessionPolicy::SingleOnly;
+    CdNrg invalid; CHECK(invalid.open(argv[1],vfs,NrgSessionPolicy(99))==Result::Invalid&&!invalid.layout());
+    auto owner = std::make_unique<CdNrg>(); const auto status = owner->open(argv[1], vfs, policy);
     if (status != Result::Ok) { CHECK(!payload_reads); CHECK(!owner->layout() && !owner->metadata() && !owner->bindings() && !owner->sources()); printf("error %u\n", unsigned(status)); return 2; }
     CHECK(owner->open(argv[1], vfs) == Result::Invalid);
     Disc disc; CHECK(disc.bind(*owner->layout(), owner->bindings(), owner->sources()) == Result::Ok);
@@ -61,6 +67,36 @@ int main(int argc, char **argv)
     printf("container %llu ", (unsigned long long)id.bytes); for (auto value : id.content_id) printf("%02x", value); puts("");
     const auto &layout = disc.layout(); printf("disc %u %u ", layout.tracks, layout.leadout); for (auto value : layout.content_id) printf("%02x", value); puts("");
     uint8_t out[2464]; size_t got = 123;
+    if (layout.sessions) {
+        const auto calls = read_calls;
+        cd_toc_head global; memset(&global,0xa5,sizeof global);
+        CHECK(akiko_toc(disc,&global)==Result::Unsupported&&untouched(reinterpret_cast<uint8_t*>(&global),sizeof global));
+        for (unsigned n=0;n<layout.sessions;++n) {
+            SessionToc result{}; CHECK(akiko_session_toc(disc,n+1,&result)==Result::Ok);
+            const auto &s=result.session; const auto &t=result.toc;
+            printf("session %u %u %u %u %d %u %d %d %d %d\n",n+1,s.first_track,s.last_track,s.format,s.cue0,s.a2,t.tracks,t.points,t.firstaddress,t.lastaddress);
+            for(int i=0;i<t.points;++i) printf("toc %u %u %u %d %u\n",n+1,t.toc[i].point,t.toc[i].track,t.toc[i].paddress,t.toc[i].control);
+            if (!n) continue;
+            const auto gap_start=layout.session[n-1].a2, gap_end=layout.track[s.first_track-1].index0;
+            for(uint32_t lba : {gap_start,uint32_t(s.cue0),gap_end-1}) if(lba<gap_end) {
+                for(unsigned view : {2048u,2352u,2448u}) {
+                    memset(out,0xa5,sizeof out);
+                    CHECK(canonical_read(disc,lba,view,out,sizeof out)==Result::Range&&untouched(out,sizeof out));
+                }
+                CHECK(read_subchannel(disc,lba,out,sizeof out)==Result::Range&&untouched(out,sizeof out));
+                printf("gap %u\n",lba);
+            }
+        }
+        CHECK(read_calls==calls);
+        if(vfs) {
+            const auto &t=layout.track[layout.tracks-1]; fault_at=owner->metadata()->track[layout.tracks-1].offset1;
+            for(fault=1;fault<=3;++fault) {
+                memset(out,0xa5,sizeof out);
+                CHECK(canonical_read(disc,t.index1,2352,out,sizeof out)==Result::ReadError&&untouched(out,sizeof out));
+            }
+            fault=0;
+        }
+    }
     for (unsigned n = 0; n < owner->sources(); ++n) {
         const auto &b = owner->bindings()[n];
         printf("source %u %llu ", n, (unsigned long long)b.identity.bytes); for (auto value : b.identity.content_id) printf("%02x", value); puts("");
@@ -129,9 +165,23 @@ int main(int argc, char **argv)
     CHECK(!memcmp(original, sector, sizeof original) && untouched(out, 8) && untouched(out + 2360, sizeof out - 2360));
     printf("encoder "); digest(sector, 2352); puts("");
     if (argc == 3) {
-        auto fresh = std::make_unique<CdNrg>(); CHECK(fresh->open(argv[2], vfs) == Result::Ok);
+        uint8_t before[32], after[32];
+        auto delivery = [&](uint8_t *id) {
+            p6_sha256 hash; p6_sha256_init(&hash);
+            for (unsigned n = 0; n < layout.tracks; ++n) {
+                const auto &t = layout.track[n];
+                for (uint32_t lba : {t.index0, t.index1, t.end - 1}) {
+                    if (canonical_read(disc,lba,2352,out,sizeof out)!=Result::Ok) return false;
+                    p6_sha256_update(&hash,out,2352);
+                }
+            }
+            p6_sha256_final(&hash,id); return true;
+        };
+        if (layout.sessions) CHECK(delivery(before));
+        auto fresh = std::make_unique<CdNrg>(); CHECK(fresh->open(argv[2], vfs, policy) == Result::Ok);
         const auto result = disc.rebind(*fresh->layout(), fresh->bindings(), fresh->sources());
         if (result == Result::Ok) owner.reset(); else fresh.reset();
+        if (layout.sessions) CHECK(delivery(after)&&!memcmp(before,after,sizeof before));
         CHECK(canonical_read(disc, 0, 2352, out, sizeof out) == Result::Ok);
         printf("rebind %u ", unsigned(result)); digest(out, 2352); puts("");
     }

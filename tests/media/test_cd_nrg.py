@@ -79,7 +79,7 @@ class CdNrgTests(unittest.TestCase):
         command = ['clang++', '-std=c++17', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fno-exceptions', '-fno-rtti', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
                    '-I' + str(cls.work / 'include'), '-DP6_NRG_METADATA', '-DUAE_SYSDEPS_H', '-include', 'cstring', '-I' + str(ROOT / 'ports/portable'), '-I' + str(ROOT / 'ports/portable/media'),
                    '-I' + str(ROOT / 'references/libretro-api/include'), '-I' + str(ROOT / 'upstream/winuae/include'), '-x', 'c++', str(ROOT / 'tests/media/cd_nrg_probe.cpp'), str(ROOT / 'adapters/libretro/cd_nrg.cpp'), str(ROOT / 'ports/portable/media/sha256.c')]
-        command += [str(ROOT / 'ports/portable/media' / (name + '.cpp')) for name in ('cd_source', 'cd_wave', 'cd_disc', 'cd_read', 'cd_subchannel', 'cd_utilities')]
+        command += [str(ROOT / 'ports/portable/media' / (name + '.cpp')) for name in ('cd_source', 'cd_wave', 'cd_disc', 'cd_read', 'cd_subchannel', 'cd_utilities', 'cd_akiko')]
         out = subprocess.run(command + [str(cls.work / n) for n in ('cdrom.cpp', 'blkdev_cdimage.cpp')] + ['-o', str(cls.exe)], capture_output=True, text=True, timeout=60)
         if out.returncode: raise AssertionError(out.stderr)
 
@@ -129,10 +129,11 @@ class CdNrgTests(unittest.TestCase):
         path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
         return path, raw, streams
 
-    def run_nrg(self, path, *, code=0, vfs=False, rebind=None, metadata_only=False):
-        env = {k: v for k, v in os.environ.items() if k not in ('P6_NRG_PROBE_VFS', 'P6_NRG_PROBE_METADATA_ONLY')}
+    def run_nrg(self, path, *, code=0, vfs=False, rebind=None, metadata_only=False, private_sessions=False):
+        env = {k: v for k, v in os.environ.items() if k not in ('P6_NRG_PROBE_VFS', 'P6_NRG_PROBE_METADATA_ONLY', 'P6_NRG_PRIVATE_SESSIONS')}
         if vfs: env['P6_NRG_PROBE_VFS'] = '1'
         if metadata_only: env['P6_NRG_PROBE_METADATA_ONLY'] = '1'
+        if private_sessions: env['P6_NRG_PRIVATE_SESSIONS'] = '1'
         out = subprocess.run([str(self.exe), str(path)] + ([] if rebind is None else [str(rebind)]), capture_output=True, text=True, timeout=60, env=env)
         self.assertEqual(code, out.returncode, out.stderr + out.stdout[-300:]); return out.stdout.splitlines()
 
@@ -142,6 +143,64 @@ class CdNrgTests(unittest.TestCase):
             path = self.work / 'multi-session.nrg'; path.write_bytes(bytes(directory) + data)
             self.assertEqual(['error 5'], self.run_nrg(path, code=2))
             self.assertEqual(['error 5'], self.run_nrg(path, code=2, vfs=True, metadata_only=True))
+
+    def multisession_fixture(self, name, version=2):
+        tail, directory, expected, blocks = nrg_sessions(version)
+        raw = [list(map(int, row.split()[1:])) for row in expected if row.startswith('track ')]
+        payload = bytearray(directory); streams = []
+        for n, r in enumerate(raw):
+            stream = bytearray()
+            for ordinal, at in enumerate(range(r[0], r[2], r[3])):
+                sector = bytearray((bytes((n * 53 + ordinal + k) & 255 for k in range(256)) * 10)[:r[3]])
+                if r[4] == 6: sector[15] = 2
+                payload[at:at + r[3]] = sector; stream.extend(sector)
+            streams.append(bytes(stream))
+        path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
+        return path, raw, streams, directory, blocks
+
+    def test_private_multisession_bytes_tocs_gaps_identity_and_vfs(self):
+        for version in (1, 2):
+            path, raw, streams, directory, _ = self.multisession_fixture('private-read', version)
+            lines = self.run_nrg(path, private_sessions=True)
+            self.assertEqual(lines, self.run_nrg(path, private_sessions=True, vfs=True))
+            self.assertEqual(['session 1 1 2 0 -150 11 2 5 0 11', 'session 2 3 3 32 20 39 1 4 30 39'],
+                             [row for row in lines if row.startswith('session ')])
+            self.assertEqual(['toc 1 160 1 0 0', 'toc 1 1 1 0 0', 'toc 1 2 2 6 4', 'toc 1 161 2 11 0', 'toc 1 162 0 11 0',
+                              'toc 2 160 3 0 4', 'toc 2 3 3 32 4', 'toc 2 161 3 39 4', 'toc 2 162 0 39 4'],
+                             [row for row in lines if row.startswith('toc ')])
+            self.assertEqual(['gap 11', 'gap 20', 'gap 29'], [row for row in lines if row.startswith('gap ')])
+            whole = path.read_bytes(); source = hashlib.sha256(whole).digest()
+            canonical = b'P6NRGM' + struct.pack('<Q', len(whole)) + source + struct.pack('<QIIiiII', directory, version, 3, -150, 39, 0, 1) + b'1234567890123'
+            for r, stream in zip(raw, streams):
+                canonical += struct.pack('<QQQiiIIIII', *(r[i] for i in (0, 1, 2, 5, 6, 3, 4, 8, 9, 7))) + b'US1234567890' + hashlib.sha256(stream).digest()
+                main = stream[r[1] - r[0]:r[1] - r[0] + r[3]]
+                self.assertIn(f'sector {r[6]} 2352 0 {hashlib.sha256(main).hexdigest()}', lines)
+                if r[4] == 0: self.assertIn(f'sector {r[6]} 2048 0 {hashlib.sha256(main).hexdigest()}', lines)
+            canonical += struct.pack('<II', 1, 2)
+            for first, last, fmt, cue0, a2, hint, catalog in ((1, 2, 0, -150, 11, 1, b'1234567890123'), (3, 3, 32, 20, 39, 7, b'ABCDEFGHIJKLM')):
+                canonical += struct.pack('<IIIIII', first, last, fmt, cue0 & 0xffffffff, a2, hint) + catalog
+            self.assertEqual(lines[1], f'disc 3 39 {hashlib.sha256(canonical).hexdigest()}')
+            self.assertEqual(['track 0 0 4 0 2352 352800 3', 'track 4 6 11 1 2048 0 0', 'track 30 32 39 2 2352 0 2'],
+                             [row for row in lines if row.startswith('track ')])
+
+    def test_private_multisession_new_owner_and_rebind_reject_every_identity_component(self):
+        first, raw, _, directory, blocks = self.multisession_fixture('private-original')
+        same = self.multisession_fixture('private-renamed')[0]
+        baseline = self.run_nrg(first, rebind=same, vfs=True, private_sessions=True)[-1]
+        self.assertTrue(baseline.startswith('rebind 0 ')); original = same.read_bytes()
+        mutations = [(r[0] + 17, original[r[0] + 17] ^ 1, 'B') for r in raw]
+        second = blocks[1]
+        mutations += [(directory + second['CUE'] + 12, 21, 'I'),
+                      (directory + second['DAO'] + 26, 0x10, 'B'),
+                      (directory + second['DAO'] + 27, 8, 'B'),
+                      (directory + second['DAO'] + 12, ord('Z'), 'B')]
+        for at, value, fmt in mutations:
+            changed = bytearray(original); struct.pack_into('>' + fmt, changed, at, value); same.write_bytes(changed)
+            self.assertEqual(self.run_nrg(first, rebind=same, vfs=True, private_sessions=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+
+    def test_private_policy_preserves_all_legacy_identity_domains(self):
+        paths = [self.fixture('policy-dao')[0], self.etnf_fixture('policy-etnf')[0], self.etnf_fixture('policy-etn2', etn2=True)[0]]
+        for path in paths: self.assertEqual(self.run_nrg(path), self.run_nrg(path, private_sessions=True))
 
     def verify(self, fixture, vfs=False):
         path, raw, streams, directory, leadout = fixture; lines = self.run_nrg(path, vfs=vfs); whole = path.read_bytes(); source = hashlib.sha256(whole).digest()

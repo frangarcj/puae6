@@ -5,13 +5,16 @@
 #include <memory>
 struct retro_vfs_interface;
 namespace p6_libretro {
+enum class NrgSessionPolicy { SingleOnly, ExplicitPrivate };
 class CdNrg {
 public:
     CdNrg();
     ~CdNrg();
     CdNrg(const CdNrg &) = delete;
     CdNrg &operator=(const CdNrg &) = delete;
-    p6_cd::Result open(const char *, const retro_vfs_interface * = nullptr);
+    // Factory callers retain SingleOnly; opt-in does not enable a global device TOC.
+    p6_cd::Result open(const char *, const retro_vfs_interface * = nullptr,
+                      NrgSessionPolicy = NrgSessionPolicy::SingleOnly);
     const p6_cd::Layout *layout() const;
     const p6_cd::Binding *bindings() const;
     uint32_t sources() const;

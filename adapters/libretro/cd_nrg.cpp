@@ -56,11 +56,16 @@ struct CdNrg::Data {
         }
         *got = length; return true;
     }
-    Result prepare()
+    Result prepare(NrgSessionPolicy policy)
     {
-        if (metadata.sessions > 1) return Result::Unsupported; // Before binding, payload reads or publication.
+        const bool multi = metadata.sessions > 1;
+        if (multi && policy != NrgSessionPolicy::ExplicitPrivate) return Result::Unsupported; // Before payload.
         const bool tao = metadata.layout != NrgLayout::Dao;
         layout.tracks = metadata.tracks; layout.leadout = uint32_t(metadata.leadout);
+        if (multi) {
+            layout.sessions = metadata.sessions;
+            for (unsigned n = 0; n < layout.sessions; ++n) layout.session[n] = metadata.session[n].info;
+        }
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n];
             const unsigned expected = r.mode == 0 || r.mode == 2 ? 2048 : r.mode == 3 ? 2336 : r.mode == 5 || r.mode == 6 || r.mode == 7 ? 2352 : 2448;
@@ -94,7 +99,7 @@ struct CdNrg::Data {
             p6_sha256_final(&hash, binding[n].identity.content_id);
         }
         // Separate the canonical gap policy from DAO without changing existing DAO identities.
-        const char *domain = metadata.layout == NrgLayout::Etn2Canonical150 ? "P6ETN2" : tao ? "P6ETN1" : "P6NRG1";
+        const char *domain = multi ? "P6NRGM" : metadata.layout == NrgLayout::Etn2Canonical150 ? "P6ETN2" : tao ? "P6ETN1" : "P6NRG1";
         p6_sha256_init(&hash); p6_sha256_update(&hash, domain, 6);
         auto put = [&](uint64_t value, unsigned bytes = 4) {
             uint8_t data[8];
@@ -110,18 +115,26 @@ struct CdNrg::Data {
             put(r.stride); put(r.mode); put(r.adr); put(r.control); put(r.has_index0); p6_sha256_update(&hash, r.isrc, 12);
             p6_sha256_update(&hash, binding[n].identity.content_id, 32);
         }
+        if (multi) {
+            put(1); put(metadata.sessions); // Private session policy version, then ordered complete table.
+            for (unsigned n = 0; n < metadata.sessions; ++n) {
+                const auto &entry = metadata.session[n]; const auto &s = entry.info;
+                put(s.first_track); put(s.last_track); put(s.format); put(uint32_t(s.cue0)); put(s.a2);
+                put(entry.session_hint); p6_sha256_update(&hash, entry.catalog, 13);
+            }
+        }
         p6_sha256_final(&hash, layout.content_id); return Result::Ok;
     }
 };
 CdNrg::CdNrg() = default;
 CdNrg::~CdNrg() = default;
-Result CdNrg::open(const char *path, const retro_vfs_interface *vfs)
+Result CdNrg::open(const char *path, const retro_vfs_interface *vfs, NrgSessionPolicy policy)
 {
-    if (!path || data_) return Result::Invalid;
+    if (!path || data_ || (policy != NrgSessionPolicy::SingleOnly && policy != NrgSessionPolicy::ExplicitPrivate)) return Result::Invalid;
     auto candidate = std::make_unique<Data>();
     if (!candidate->file.open(path, vfs)) return Result::ReadError;
     auto result = nrg_metadata(candidate.get(), Data::whole_read, candidate->file.size(), &candidate->metadata);
-    if (result == Result::Ok) result = candidate->prepare();
+    if (result == Result::Ok) result = candidate->prepare(policy);
     if (result == Result::Ok) data_ = std::move(candidate);
     return result;
 }

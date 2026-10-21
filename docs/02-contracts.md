@@ -2066,3 +2066,24 @@ Sin Startup no ejecuta el marcador al mismo limite; nonceB debe ejecutarB y
 rechazar el estadoA por identidad sin tocar fullsave, contador, ciclos ni IO.
 Los assets y resultados del escenario viven solo en temporales build; esta
 puerta privada no acredita frontend publico ni snapshot Waterbox.
+
+## Propietario NRG multisesion privado (T66v3)
+
+CdNrg exige NrgSessionPolicy::ExplicitPrivate para construir un propietario DAO
+multisesion. SingleOnly sigue siendo el default usado por la factory publica y
+rechaza el caso antes de bindings, hash o payload. Una politica desconocida es
+Invalid antes de abrir el archivo. El opt-in copia la tabla validada y conserva
+los LBAs, offsets e intervalos originales; no selecciona sesiones ni habilita
+el TOC global. Consultas privadas devuelven los TOCs particulares y los intervalos
+sin datos siguen siendo Range sin IO ni cambios en la salida.
+
+La identidad multi tiene dominio P6NRGM seguido del mismo archivo completo,
+metadata global, pistas crudas e IDs de fuentes que DAO. Anade politica privada
+1, cantidad de sesiones y, por cada una, first/last/format/CUE0/A2/hint en LE32
+mas sus 13 bytes de catalogo. No incluye rutas, punteros, cursores ni padding.
+DAO/ETNF/ETN2 de una sesion conservan sus dominios e identidades byte exactos,
+tambien con opt-in. Rebind valida todo antes de reemplazar lectores; errores
+mantienen el propietario anterior. MED01 contrasta ambas sesiones con payloads
+distintos, TOCs, huecos, identidad matematica, fallos VFS y propietarios nuevos.
+La politica del dispositivo publico necesita ADR propia; no se atribuye este
+comportamiento al hardware ni se altera sys_command_info_session.
