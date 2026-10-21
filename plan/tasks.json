@@ -18520,7 +18520,7 @@
       ],
       "id": "T66v4",
       "title": "Definir TOC global virtual multisesion y acceso privado del dispositivo",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v3"
       ],
@@ -18534,13 +18534,15 @@
         "docs/02-contracts.md",
         "docs/adr/0018-cd-multisession.md",
         "tools/check.py",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "adapters/libretro/cd_nrg.h"
       ],
       "steps": [
         "Politica virtual documentada en ADR, no fidelidad hardware acreditada: READ_TOC_EX oficial formato0 incluye todas las sesiones completas y AA leadout final; ECMA168 C.3 numeracion global continua. Proyeccion cd_toc_head pistas1..N/LBAs absolutos/leadoutfinal, sin confundir agregados A0/A1/A2 con lead-in fisico. Consultas por sesion siguen puras; SessionInfo y FullTOC fisico no forman parte de API actual y quedan explicitamente sin implementar. Fuentes primarias: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddcdrm/ns-ntddcdrm-_cdrom_read_toc_ex y ECMA168 2nd1994 anexoC.",
         "Activar solo despues de V3DONE; cd32_close aislado, <=250lineas manuales en rutas indicadas, root metadata. El cuerpo actual akiko_toc ya produce proyeccionglobal: retirar rechazo multi y ajustar comentario/contrato. Mantener byteexacto legacy/una sesion y fabrica publica NRG multisesion rechazada; no ABI, guest, firmware ni codecs en esta hoja.",
         "Preflight Disc.describe de todo burst solo para layouts multisesion antes de ReadFn: cruce huecoRange con ceroIO/salida y posicion intactas. Probar dispositivo real con lecturas ambas sesiones, fronteras/huecos, TOC global exacta y consulta por sesion que no cambia global; inspeccionar cd_nrg_probe y actualizar solo asercion de rechazo global ahora superada, conservando rechazo factory default.",
-        "MED01 union dirigida CdDiscTests, CdDeviceTests y CdNrgTests ASan/UBSan. No build guest ni baterias completas. Registrar ADR como decision util, sin informe por tarea; coldrestore/publico/transporte multisesion siguen hojas requeridas posteriores antes de padreT66."
+        "MED01 union dirigida CdDiscTests, CdDeviceTests y CdNrgTests ASan/UBSan. No build guest ni baterias completas. Registrar ADR como decision util, sin informe por tarea; coldrestore/publico/transporte multisesion siguen hojas requeridas posteriores antes de padreT66.",
+        "Ajuste coordinador previo: autorizar comentario de cd_nrg.h para reflejar politicaV4 y aclarar rechazo por defecto en contratoV2, sin cambiar codigo. Union23PASS34.892s ASan/UBSan; ultimo refuerzo purezaDevice1PASS6.791s. Diff/sintaxis PASS y revision del preflight sin coste extra single-session."
       ],
       "checks": [
         "MED01"
@@ -18563,7 +18565,7 @@
       ],
       "id": "T66v5",
       "title": "Restaurar CD32 privado con NRG multisesion en proceso nuevo",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v3",
         "T66v4",

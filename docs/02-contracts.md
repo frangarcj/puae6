@@ -2038,9 +2038,10 @@ nueva y su contador a cero, con metadata e identidades anteriores intactas.
 El limite de metadata sigue siendo 64 KiB y cada lectura como maximo 256 bytes;
 solo el parser admite hasta 3*99+1 chunks. La salida se publica tras validar
 todo el candidato. MED01 observa la tabla, limites, errores y formatos legacy.
-CdNrg rechaza varias sesiones antes de bindings, hash del archivo o payload;
-un probe VFS cuenta y rechaza esos intentos. Proveedor, dispositivo, transporte
-y restauracion publica multisesion siguen pendientes; esta hoja no los habilita.
+Por defecto CdNrg rechaza varias sesiones antes de bindings, hash o payload;
+un probe VFS cuenta y rechaza esos intentos. El opt-in privado de T66v3 y el
+dispositivo virtual de T66v4 se describen abajo; carga/transporte y restauracion
+publica multisesion siguen pendientes.
 
 
 T66l9 conecta NRG canonico por RomLoader a MountPuae6Nrg: XML Amiga con

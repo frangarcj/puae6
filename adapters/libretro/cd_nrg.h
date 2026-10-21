@@ -12,7 +12,7 @@ public:
     ~CdNrg();
     CdNrg(const CdNrg &) = delete;
     CdNrg &operator=(const CdNrg &) = delete;
-    // Factory callers retain SingleOnly; opt-in does not enable a global device TOC.
+    // Factory callers retain SingleOnly; private opt-in preserves the explicit session table.
     p6_cd::Result open(const char *, const retro_vfs_interface * = nullptr,
                       NrgSessionPolicy = NrgSessionPolicy::SingleOnly);
     const p6_cd::Layout *layout() const;
