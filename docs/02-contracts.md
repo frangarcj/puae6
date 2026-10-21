@@ -2108,5 +2108,8 @@ tras p6_load, antes de su primer p6_run_frame. Estado inmediato, cinco frames de
 AV/PCM/ticks/lecturas, bytes/TOCs/Q de ambas sesiones y estado final completo deben
 coincidir. Los huecos siguen siendo Range sin lecturas ni salida parcial.
 Cambiar el catalogo o payload de la segunda sesion exige rechazo incompatible
-antes de mutar estado, reloj o callbacks, incluso en el destino frio. La factory
-publica conserva el rechazo; esta puerta no acredita Akiko fisico ni Waterbox.
+antes de mutar estado, reloj o callbacks. En destino frio, save debe seguir
+rechazado con BAD_STATE y buffer intacto antes/despues del rechazo ajeno; se
+comparan CPU/RAM, reloj, contadores y propiedad sin avanzar un frame. El negativo
+con fullsave se conserva por separado en un destino que ya ejecuto una unidad.
+La factory publica conserva el rechazo; esta puerta no acredita Akiko fisico ni Waterbox.

@@ -175,6 +175,36 @@ struct NrgFixture {
         assert(disc.layout().sessions==2 && disc.layout().tracks==3);
     }
 };
+static void cold_reject(const std::vector<uint8_t> &bad,NrgFixture &disc)
+{
+    auto cold_save=[] {
+        uint8_t buffer[64]; memset(buffer,0xa5,sizeof buffer); uint64_t written=123; auto e=error();
+        assert(!p6_session::session.started);
+        assert(p6_state_save(buffer,sizeof buffer,&written,&e)==P6_ERROR_BAD_STATE && !written);
+        assert(std::all_of(buffer,buffer+sizeof buffer,[](uint8_t b){ return b==0xa5; }));
+    };
+    auto witness=[&] {
+        std::vector<uint64_t> out; auto add=[&](uint64_t value){ out.push_back(value); };
+        add(get_cycles()); add(disc.calls); add(p6_session::session.started);
+        add(p6_session::session.unit_index); add(p6_session::session.master_ticks);
+        for(auto value:regs.regs) add(value);
+        add(regs.pc); add(reinterpret_cast<uintptr_t>(regs.pc_p)); add(reinterpret_cast<uintptr_t>(regs.pc_oldp));
+        add(regs.instruction_pc); add(regs.ir); add(regs.irc); add(regs.sr); add(regs.spcflags);
+        add(regs.s); add(regs.m); add(regs.stopped); add(regs.halted); add(regs.exception); add(regs.intmask);
+        add(regs.ipl[0]); add(regs.ipl[1]); add(regs.ipl_pin); add(regs.ipl_pin_p);
+        add(regs.ipl_pin_change_evt); add(regs.ipl_pin_change_evt_p); add(regs.ipl_evt); add(regs.ipl_evt_pre);
+        add(reinterpret_cast<uintptr_t>(chipmem_bank.baseaddr)); add(chipmem_bank.allocated_size);
+        if(chipmem_bank.baseaddr && chipmem_bank.allocated_size) {
+            uint8_t digest[32]; p6_sha256_hash(chipmem_bank.baseaddr,chipmem_bank.allocated_size,digest);
+            for(auto byte:digest) add(byte);
+        }
+        add(reinterpret_cast<uintptr_t>(device_bound_disc())); add(device_open_count()); add(device_inserted());
+        return out;
+    };
+    cold_save(); const auto before=witness(); auto e=error();
+    assert(p6_state_load(bad.data(),bad.size(),&e)==P6_ERROR_INCOMPATIBLE);
+    assert(witness()==before); cold_save();
+}
 static std::vector<uint8_t> state_file(const std::string &path,const std::vector<uint8_t> *data=nullptr)
 {
     FILE *f=fopen(path.c_str(),data?"wb":"rb"); assert(f);
@@ -246,7 +276,8 @@ static void nrg_state(const std::vector<uint8_t> &rom,const char *mode,const cha
         assert(nrg_future(disc)==expected && save()==end); stop();
         for(const char *foreign : {catalog_other,payload_other}) {
             NrgFixture alien(foreign); start(rom,alien,false);
-            reject(state,P6_ERROR_INCOMPATIBLE,alien); stop();
+            cold_reject(state,alien); // A configuration before its first unit cannot be saved.
+            step(); reject(state,P6_ERROR_INCOMPATIBLE,alien); stop(); // Separate started-destination fullsave oracle.
         }
         printf("native NRG multi cut%u %s exact/future/fullstate/identity PASS\n",cut,mode);
     }
