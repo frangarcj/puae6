@@ -1,6 +1,7 @@
 // Bounded pinned WinUAE parsenrg metadata plus canonical ETNF/ETN2; no handles.
 #pragma once
 #include "cd_source.h"
+#include "cd_disc.h"
 namespace p6_cd {
 enum class NrgLayout : uint8_t { Dao, EtnfCanonical150, Etn2Canonical150 };
 struct NrgTrack {
@@ -12,6 +13,11 @@ struct NrgTrack {
     uint32_t start_sector; // ETNF/ETN2 raw packed coordinate; absent in DAO.
     char isrc[12];
 };
+struct NrgDaoSession {
+    Session info;
+    uint8_t session_hint; // raw DAO header byte; not an inferred session count
+    char catalog[13];
+};
 struct NrgMetadata {
     uint64_t directory;
     uint32_t tracks, version;
@@ -20,9 +26,13 @@ struct NrgMetadata {
     NrgLayout layout;
     char catalog[13];
     NrgTrack track[99];
+    uint32_t sessions = 0; // zero preserves all single-session metadata/identity
+    NrgDaoSession session[99]{}; // populated only for explicit multi-session DAO
 };
 // Exact offset reads, at most256B/request; no payload reads. Input size is the
-// whole container. Errors leave out intact. Single-session DAO v1/v2 or ETNF/ETN2.
+// whole container. Errors leave out intact. DAO v1/v2 or single-session ETNF/ETN2.
+// Multiple DAO sessions preserve the nth CUE/DAO/SINF groups, CUE0/A2 and global
+// track numbers. Metadata support does not enable a multi-session CdNrg owner.
 // ETNF/ETN2 offset0 == offset1 points to data, never a stored pregap. INDEX00/01 and
 // leadout use canonical150, as GNUlibcdio68ea374f; original pregaps are not stored.
 // VCDImager23f07386 image_nrg.c:_map/_write_tail omits them, even if nonstandard.

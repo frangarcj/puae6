@@ -58,6 +58,7 @@ struct CdNrg::Data {
     }
     Result prepare()
     {
+        if (metadata.sessions > 1) return Result::Unsupported; // Before binding, payload reads or publication.
         const bool tao = metadata.layout != NrgLayout::Dao;
         layout.tracks = metadata.tracks; layout.leadout = uint32_t(metadata.leadout);
         for (unsigned n = 0; n < metadata.tracks; ++n) {

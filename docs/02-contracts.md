@@ -2019,3 +2019,25 @@ fallaba al revertir64bits; su fixture original conserva geometria/bytes esperado
 Regiones/identidad V2 cubren la materializacion canonica; no recuperan pregaps
 originales. TINF/multisesion/otrosmodos siguen pendientes. MED01 y target real
 no acreditan todavia seleccion publica ni ejecucion/restore Waterbox.
+
+## Metadata DAO multisesion de NRG (T66v2)
+
+El parser conserva hasta 99 grupos y 99 pistas globales. Empareja el CUE, DAO y
+SINF numero n por ordinal de su tipo, como libMirage a9d6a204; no exige un orden
+fisico de tipos. Cada grupo multi requiere CUE0 y A2 explicitos, indices de sus
+pistas y un SINF con su conteo. Los rangos globales son consecutivos; las
+longitudes y pregaps fisicos se contrastan con los indices y A2 de esa sesion.
+A2 previo <= CUE0 siguiente <= INDEX00 siguiente, sin duraciones constantes ni
+aplanar intervalos. Los extents DAO deben estar alineados, dentro del archivo
+y no solaparse. No se infieren sesiones ETNF/ETN2 ni se aceptan mezclas DAO/TAO.
+
+La tabla NrgDaoSession incluye Session, catalogo y hint crudo por grupo; el hint
+no se interpreta como contador. Los campos globales proceden del primer grupo,
+salvo leadout que conserva el ultimo A2. Una sola sesion deja toda la tabla
+nueva y su contador a cero, con metadata e identidades anteriores intactas.
+El limite de metadata sigue siendo 64 KiB y cada lectura como maximo 256 bytes;
+solo el parser admite hasta 3*99+1 chunks. La salida se publica tras validar
+todo el candidato. MED01 observa la tabla, limites, errores y formatos legacy.
+CdNrg rechaza varias sesiones antes de bindings, hash del archivo o payload;
+un probe VFS cuenta y rechaza esos intentos. Proveedor, dispositivo, transporte
+y restauracion publica multisesion siguen pendientes; esta hoja no los habilita.

@@ -58,6 +58,39 @@ def etnf(modes=(3, 3, 3), lengths=(300, 225, 375), version=1, *, etn2=False):
     return data, physical, [f'nrg {version} {len(modes)} {physical} -150 {packed + (len(modes) - 1) * 150} 0 0'] + rows
 
 
+def nrg_sessions(version=2, base=0, groups=None):
+    # Explicit libMirage CUE0/A2 session boundaries, independent of padding constants.
+    if groups is None:
+        groups = ((-150, 11, ((1, 7, -150, 0, 4), (2, 0, 4, 6, 11)), 0, 1, b'1234567890123'),
+                  (20, 39, ((3, 6, 30, 32, 39),), 0x20, 7, b'ABCDEFGHIJKLM'))
+    blocks = []; chunks = []; rows = []; sessions = []; offset = base; position = 0
+    for ordinal, (cue0, a2, tracks, fmt, hint, catalog) in enumerate(groups, 1):
+        def cue(number, index, address, control=4):
+            number = number if number == 0xaa else number // 10 * 16 + number % 10
+            absolute = address + 150
+            value = struct.pack('>i', address) if version == 2 else bytes((0, absolute // 4500, absolute // 75 % 60, absolute % 75))
+            return bytes((control * 16 + 1, number, index, 0)) + value
+        cues = bytearray(cue(0, 0, cue0)); records = bytearray()
+        for number, mode, zero, one, end_lba in tracks:
+            stride = 2048 if mode in (0, 2) else 2336 if mode == 3 else 2352
+            control = 0 if mode == 7 else 4; index1 = offset + (one - zero) * stride
+            end = index1 + (end_lba - one) * stride
+            cues.extend(cue(number, 0, zero, control) + cue(number, 1, one, control))
+            records.extend(b'US1234567890' + struct.pack('>H', stride) + bytes((mode, 0, 0, 0)) + struct.pack('>QQQ' if version == 2 else '>III', offset, index1, end))
+            rows.append(f'track {offset} {index1} {end} {stride} {mode} {zero} {one} 1 1 {control}'); offset = end
+        cues.extend(cue(0xaa, 1, a2))
+        header = struct.pack('>I', 22 + len(records)) + catalog + bytes((0, fmt, hint, tracks[0][0], tracks[-1][0]))
+        group = {}
+        for kind, payload in (('CUEX' if version == 2 else 'CUES', cues), ('DAOX' if version == 2 else 'DAOI', header + records), ('SINF', struct.pack('>I', len(tracks)))):
+            group[kind[:3]] = position; data = chunk(kind, payload); chunks.append(data); position += len(data)
+        blocks.append(group)
+        sessions.append(f'session {ordinal} {tracks[0][0]} {tracks[-1][0]} {fmt} {cue0} {a2} {hint} {catalog.hex()}')
+    directory = offset + 123
+    data = b''.join(chunks) + chunk('END!') + (b'NER5' + struct.pack('>Q', directory) if version == 2 else b'NERO' + struct.pack('>I', directory))
+    expected = [f'nrg {version} {len(rows)} {directory} {groups[0][0]} {groups[-1][1]} {groups[0][3]} {groups[0][4]}'] + sessions + rows
+    return data, directory, expected, blocks
+
+
 @unittest.skipUnless(shutil.which('clang++'), 'clang++ unavailable')
 class NrgMetadataTests(unittest.TestCase):
     @classmethod
@@ -66,7 +99,7 @@ class NrgMetadataTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='nrg-metadata-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); target = cls.work / 'blkdev_cdimage.cpp'; target.write_bytes((ROOT / 'upstream/winuae/blkdev_cdimage.cpp').read_bytes())
         entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +228,56 @@ class NrgMetadataTests(unittest.TestCase):
         self.run_nrg(data[:end] + data[:104] + data[end:], base, error=5)
         etnf_data = etnf()[0]
         self.run_nrg(data[:end] + etnf_data[:68] + data[end:], base, error=5)
+
+    def test_dao_sessions_explicit_boundaries_catalogs_and_virtual_extents(self):
+        for version, prefix in ((1, 0), (2, 2**32 + 7)):
+            data, base, expected, blocks = nrg_sessions(version, prefix)
+            actual = self.run_nrg(data, base); self.assertEqual(expected, actual)
+            self.assertEqual(['session 1 1 2 0 -150 11 1 31323334353637383930313233',
+                              'session 2 3 3 32 20 39 7 4142434445464748494a4b4c4d'], actual[1:3])
+            self.assertEqual(prefix + 397835, base)
+            # The nth chunk of each type is the group; physical ordering is irrelevant.
+            ordered = []
+            for kind in ('SIN', 'CUE', 'DAO'):
+                for block in blocks:
+                    at = block[kind]; length = struct.unpack_from('>I', data, at + 4)[0]
+                    ordered.append(data[at:at + 8 + length])
+            end = data.index(b'END!'); self.assertEqual(actual, self.run_nrg(b''.join(ordered) + data[end:], base))
+        groups = tuple((-150 if n == 0 else (n - 1) * 10 + 2, n * 10 + 2,
+                        ((n + 1, 0, -150 if n == 0 else n * 10, 0 if n == 0 else n * 10 + 1, n * 10 + 2),),
+                        0, 1, b'1234567890123') for n in range(99))
+        data, base, expected, _ = nrg_sessions(groups=groups)
+        self.assertEqual(expected, self.run_nrg(data, base))
+        overflow = groups + ((982, 992, ((100, 0, 990, 991, 992),), 0, 1, b'1234567890123'),)
+        self.run_nrg(*nrg_sessions(groups=overflow)[:2], error=1)
+
+    def test_dao_session_malformed_groups_boundaries_extents_and_reads_preserve_output(self):
+        for version in (1, 2):
+            data, base, _, blocks = nrg_sessions(version); first, second = blocks
+            invalid = [data[:-1]]
+            def change(at, value, fmt='I'):
+                bad = bytearray(data); struct.pack_into('>' + fmt, bad, at, value); invalid.append(bad)
+            change(first['SIN'] + 8, 3)
+            change(second['DAO'] + 8 + 20, 4, 'B'); change(second['DAO'] + 8 + 21, 4, 'B')
+            # CUE0=9 overlaps prior A2; CUE0=31 exceeds this group's INDEX00=30.
+            for value in (9, 31):
+                at = second['CUE'] + 12
+                if version == 2: change(at, value)
+                else:
+                    bad = bytearray(data); bad[at:at + 4] = bytes((0, 0, 2, value)); invalid.append(bad)
+            at = first['CUE']; length = struct.unpack_from('>I', data, at + 4)[0]
+            for entry in (0, length - 8):
+                bad = bytearray(data); struct.pack_into('>I', bad, at + 4, length - 8)
+                del bad[at + 8 + entry:at + 16 + entry]; invalid.append(bad)
+            at = second['SIN']; invalid.append(data[:at] + data[at + 12:])
+            width = 8 if version == 2 else 4; record = second['DAO'] + 30
+            for field, value in ((18, 376544 - 2352), (18 + width, 381248 + 1), (18 + 2 * width, 2**(width * 8) - 1)):
+                change(record + field, value, 'Q' if version == 2 else 'I')
+            for bad in invalid: self.run_nrg(bad, base, error=1)
+            for fault in (1, 2, 3): self.run_nrg(data, base, fault=fault, error=4)
+            end = data.index(b'END!'); at = first['DAO']; length = struct.unpack_from('>I', data, at + 4)[0]
+            self.run_nrg(data[:end] + data[at:at + 8 + length] + data[end:], base, error=5)
+            self.run_nrg(data[:end] + etnf()[0][:68] + data[end:], base, error=5)
 
     def test_invalid_footer_chunks_endian_bcd_extent_and_callback_are_transactional(self):
         data, base, _ = nrg(); dao = data.index(b'DAOX'); start = dao + 8 + 22

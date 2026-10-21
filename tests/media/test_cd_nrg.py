@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from tests.media.test_nrg_metadata import nrg, etnf
+from tests.media.test_nrg_metadata import nrg, etnf, nrg_sessions
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import materialize_upstream as mat
@@ -66,7 +66,7 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -129,11 +129,19 @@ class CdNrgTests(unittest.TestCase):
         path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
         return path, raw, streams
 
-    def run_nrg(self, path, *, code=0, vfs=False, rebind=None):
-        env = {k: v for k, v in os.environ.items() if k != 'P6_NRG_PROBE_VFS'}
+    def run_nrg(self, path, *, code=0, vfs=False, rebind=None, metadata_only=False):
+        env = {k: v for k, v in os.environ.items() if k not in ('P6_NRG_PROBE_VFS', 'P6_NRG_PROBE_METADATA_ONLY')}
         if vfs: env['P6_NRG_PROBE_VFS'] = '1'
+        if metadata_only: env['P6_NRG_PROBE_METADATA_ONLY'] = '1'
         out = subprocess.run([str(self.exe), str(path)] + ([] if rebind is None else [str(rebind)]), capture_output=True, text=True, timeout=60, env=env)
         self.assertEqual(code, out.returncode, out.stderr + out.stdout[-300:]); return out.stdout.splitlines()
+
+    def test_dao_multisession_rejects_before_payload_or_publication(self):
+        for version in (1, 2):
+            data, directory, _, _ = nrg_sessions(version)
+            path = self.work / 'multi-session.nrg'; path.write_bytes(bytes(directory) + data)
+            self.assertEqual(['error 5'], self.run_nrg(path, code=2))
+            self.assertEqual(['error 5'], self.run_nrg(path, code=2, vfs=True, metadata_only=True))
 
     def verify(self, fixture, vfs=False):
         path, raw, streams, directory, leadout = fixture; lines = self.run_nrg(path, vfs=vfs); whole = path.read_bytes(); source = hashlib.sha256(whole).digest()

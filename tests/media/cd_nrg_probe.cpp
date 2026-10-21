@@ -13,9 +13,20 @@ using p6_libretro::CdNrg;
 struct retro_vfs_file_handle { FILE *file; };
 static uint64_t fault_at;
 static int fault;
+static uint64_t metadata_directory;
+static unsigned payload_reads;
+static bool metadata_only;
 static retro_vfs_file_handle *RETRO_CALLCONV vopen(const char *path, unsigned, unsigned)
 {
-    FILE *file = fopen(path, "rb"); return file ? new retro_vfs_file_handle{file} : nullptr;
+    FILE *file = fopen(path, "rb");
+    if (file && metadata_only) {
+        uint8_t footer[12];
+        if (fseek(file,-12,SEEK_END) || fread(footer,1,12,file)!=12) { fclose(file); return nullptr; }
+        const bool wide = !memcmp(footer,"NER5",4); metadata_directory=0;
+        for(unsigned n=wide?4:8;n<12;++n) metadata_directory=metadata_directory*256+footer[n];
+        rewind(file);
+    }
+    return file ? new retro_vfs_file_handle{file} : nullptr;
 }
 static int RETRO_CALLCONV vclose(retro_vfs_file_handle *f) { const int status = fclose(f->file); delete f; return status; }
 static int64_t RETRO_CALLCONV vtell(retro_vfs_file_handle *f) { return ftell(f->file); }
@@ -23,6 +34,7 @@ static int64_t RETRO_CALLCONV vsize(retro_vfs_file_handle *f) { const auto pos =
 static int64_t RETRO_CALLCONV vseek(retro_vfs_file_handle *f, int64_t at, int origin) { return fseek(f->file, long(at), origin); }
 static int64_t RETRO_CALLCONV vread(retro_vfs_file_handle *f, void *out, uint64_t length)
 {
+    if (metadata_only && uint64_t(ftell(f->file)) < metadata_directory) { ++payload_reads; return -1; }
     if (fault == 1 || fault == 2) return fault == 1 ? -1 : 0;
     if (fault == 3 && uint64_t(ftell(f->file)) >= fault_at) return -1;
     return fread(out, 1, size_t(length < 3 ? length : 3), f->file);
@@ -39,8 +51,10 @@ int main(int argc, char **argv)
     retro_vfs_interface api{};
     api.open = vopen; api.close = vclose; api.size = vsize; api.tell = vtell; api.seek = vseek; api.read = vread;
     const auto *vfs = getenv("P6_NRG_PROBE_VFS") ? &api : nullptr;
+    metadata_only = getenv("P6_NRG_PROBE_METADATA_ONLY") != nullptr;
+    CHECK(!metadata_only || vfs);
     auto owner = std::make_unique<CdNrg>(); const auto status = owner->open(argv[1], vfs);
-    if (status != Result::Ok) { CHECK(!owner->layout() && !owner->metadata() && !owner->bindings() && !owner->sources()); printf("error %u\n", unsigned(status)); return 2; }
+    if (status != Result::Ok) { CHECK(!payload_reads); CHECK(!owner->layout() && !owner->metadata() && !owner->bindings() && !owner->sources()); printf("error %u\n", unsigned(status)); return 2; }
     CHECK(owner->open(argv[1], vfs) == Result::Invalid);
     Disc disc; CHECK(disc.bind(*owner->layout(), owner->bindings(), owner->sources()) == Result::Ok);
     const auto &id = *owner->container_identity();
