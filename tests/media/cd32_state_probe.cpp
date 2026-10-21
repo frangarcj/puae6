@@ -8,6 +8,10 @@
 #include "audio.h"
 #include "cd_audio.h"
 #include "cd_audio_state.h"
+#include "cd_nrg.h"
+#include "cd_akiko.h"
+#include "cd_read.h"
+#include <string>
 #include <memory>
 #include <algorithm>
 static_assert(kDeviceMaxDiscs == P6_MAX_MEDIA, "CD catalog and frontend media capacity");
@@ -53,7 +57,8 @@ static void load(const std::vector<uint8_t> &state)
 {
     auto e=error(); call(p6_state_load(state.data(),state.size(),&e),e);
 }
-static void start(const std::vector<uint8_t> &rom,DiscFixture &disc,bool ntsc,bool fast=false,DiscFixture *other=nullptr)
+template<class Fixture>
+static void start(const std::vector<uint8_t> &rom,Fixture &disc,bool ntsc,bool fast=false,Fixture *other=nullptr)
 {
     auto c=config(); c.video_standard=ntsc?P6_VIDEO_NTSC:P6_VIDEO_PAL; auto e=error();
     c.fast_kib=fast?8192:0;
@@ -81,7 +86,8 @@ static void map_matches()
     const auto *bank=cia.oldovl?kickmem_bank.baseaddr:chipmem_bank.baseaddr;
     assert(get_long(0)==do_get_mem_long(bank));
 }
-static std::vector<uint8_t> future(DiscFixture &disc)
+template<class Fixture>
+static std::vector<uint8_t> future(Fixture &disc)
 {
     p6_sha256 hash; p6_sha256_init(&hash); const auto before=disc.calls;
     for(int n=0;n<5;++n) {
@@ -102,7 +108,8 @@ static void reseal(std::vector<uint8_t> &s)
 {
     p6_state::seal(s.data(),s.size()-p6_state::kHeaderSize,12,p6_state::current_identity(),le64(s.data()+24),le64(s.data()+32));
 }
-static void reject(const std::vector<uint8_t> &bad,p6_result result,DiscFixture &disc)
+template<class Fixture>
+static void reject(const std::vector<uint8_t> &bad,p6_result result,Fixture &disc)
 {
     const auto before=save(); const auto cycle=get_cycles(); const auto calls=disc.calls; auto e=error();
     assert(p6_state_load(bad.data(),bad.size(),&e)==result);
@@ -148,9 +155,106 @@ static void catalog_state(const std::vector<uint8_t> &rom)
     start(rom,a,false); step(); reject(cut_a,P6_ERROR_INCOMPATIBLE,a); stop();
     printf("native CD catalogue A/B empty/new owner/exact future/identity PASS\n");
 }
+// The owner and all counted callbacks outlive the machine; no shared context from another owner.
+struct NrgFixture {
+    p6_libretro::CdNrg owner;
+    Disc disc;
+    uint64_t calls=0;
+    struct Reader { NrgFixture *self; Binding original; } reader[kMaxSources]{};
+    static bool read(const void *opaque,uint64_t at,void *out,size_t n,size_t *got) {
+        const auto &r=*static_cast<const Reader *>(opaque); ++r.self->calls;
+        return r.original.read(r.original.context,at,out,n,got);
+    }
+    explicit NrgFixture(const char *path) {
+        assert(owner.open(path,nullptr,p6_libretro::NrgSessionPolicy::ExplicitPrivate)==Result::Ok);
+        Binding bindings[kMaxSources];
+        for(unsigned n=0;n<owner.sources();++n) {
+            reader[n]={this,owner.bindings()[n]}; bindings[n]={reader[n].original.identity,read,&reader[n]};
+        }
+        assert(disc.bind(*owner.layout(),bindings,owner.sources())==Result::Ok);
+        assert(disc.layout().sessions==2 && disc.layout().tracks==3);
+    }
+};
+static std::vector<uint8_t> state_file(const std::string &path,const std::vector<uint8_t> *data=nullptr)
+{
+    FILE *f=fopen(path.c_str(),data?"wb":"rb"); assert(f);
+    std::vector<uint8_t> bytes;
+    if(data) assert(fwrite(data->data(),1,data->size(),f)==data->size());
+    else {
+        assert(!fseek(f,0,SEEK_END)); const auto n=ftell(f); assert(n>0 && n<64*1024*1024);
+        assert(!fseek(f,0,SEEK_SET)); bytes.resize(size_t(n)); assert(fread(bytes.data(),1,bytes.size(),f)==bytes.size());
+    }
+    assert(!fclose(f)); return bytes;
+}
+static std::vector<uint8_t> nrg_future(NrgFixture &disc)
+{
+    auto result=future(disc); p6_sha256 hash; p6_sha256_init(&hash);
+    cd_toc_head toc{}; assert(sys_command_cd_toc(0,&toc));
+    assert(toc.tracks==3 && toc.lastaddress==39 && toc.toc[3].paddress==32 && toc.toc[5].paddress==39);
+    for(unsigned ordinal=1;ordinal<=2;++ordinal) {
+        SessionToc session{}; assert(akiko_session_toc(disc.disc,ordinal,&session)==Result::Ok);
+        const auto &s=session.session;
+        assert(s.first_track==(ordinal==1?1:3) && s.last_track==(ordinal==1?2:3));
+        assert(s.format==(ordinal==1?0:32) && s.cue0==(ordinal==1?-150:20) && s.a2==(ordinal==1?11:39));
+        const auto &t=session.toc;
+        for(int n=0;n<t.points;++n) {
+            p6_sha256_update(&hash,&t.toc[n].point,1);
+            p6_sha256_update(&hash,&t.toc[n].paddress,sizeof t.toc[n].paddress);
+        }
+    }
+    uint8_t raw[2352],q[SUBQ_SIZE];
+    for(int lba : {0,32}) {
+        assert(sys_command_cd_rawread(0,raw,lba,1,sizeof raw)==sizeof raw);
+        assert(sys_command_cd_qcode(0,q,lba,false));
+        p6_sha256_update(&hash,raw,sizeof raw); p6_sha256_update(&hash,q,sizeof q);
+    }
+    const auto before=disc.calls;
+    for(uint32_t lba : {11u,20u,29u}) {
+        memset(raw,0xa5,sizeof raw);
+        assert(canonical_read(disc.disc,lba,sizeof raw,raw,sizeof raw)==Result::Range);
+        assert(std::all_of(raw,raw+sizeof raw,[](uint8_t b){ return b==0xa5; }));
+    }
+    assert(disc.calls==before);
+    uint8_t digest[32]; p6_sha256_final(&hash,digest); result.insert(result.end(),digest,digest+32); return result;
+}
+static void nrg_state(const std::vector<uint8_t> &rom,const char *mode,const char *path,
+                      const char *catalog_other,const char *payload_other,const char *prefix)
+{
+    const bool writer=!strcmp(mode,"write"); assert(writer || !strcmp(mode,"read"));
+    for(unsigned cut=0;cut<2;++cut) {
+        const auto stem=std::string(prefix)+std::to_string(cut);
+        NrgFixture disc(path); start(rom,disc,false);
+        std::vector<uint8_t> state,expected,end;
+        if(writer) {
+            step(); put_long(AKIKO_BASE+0x24,0); pio_command({7}); // Populate the cache through the real INFO command.
+            auto component=std::make_unique<p6_akiko_state>(); assert(p6_akiko_state_get(component.get()));
+            assert(component->controller.toc.tracks==3 && component->controller.toc.lastaddress==39);
+            if(!cut) assert(sys_command_cd_play(0,0,4,0,nullptr,nullptr));
+            else {
+                uint8_t sector[2352]; sys_command_cd_stop(0);
+                assert(sys_command_cd_rawread(0,sector,32,1,sizeof sector)==sizeof sector && device_position()==33);
+            }
+            assert(p6_akiko_state_get(component.get()));
+            assert(cut?!component->device.audio.running:component->device.audio.running);
+            state=save(); expected=nrg_future(disc); end=save();
+            state_file(stem+".state",&state); state_file(stem+".future",&expected); state_file(stem+".end",&end);
+        } else {
+            state=state_file(stem+".state"); expected=state_file(stem+".future"); end=state_file(stem+".end");
+        }
+        // Reader reaches Apply before its first frame, with newly allocated sources and contexts.
+        const auto calls=disc.calls; load(state); assert(save()==state && disc.calls==calls);
+        assert(nrg_future(disc)==expected && save()==end); stop();
+        for(const char *foreign : {catalog_other,payload_other}) {
+            NrgFixture alien(foreign); start(rom,alien,false);
+            reject(state,P6_ERROR_INCOMPATIBLE,alien); stop();
+        }
+        printf("native NRG multi cut%u %s exact/future/fullstate/identity PASS\n",cut,mode);
+    }
+}
 int main(int argc,char **argv)
 {
-    assert(argc==3); auto rom=file(argv[2]); const auto main=file(argv[1]); rom.insert(rom.end(),main.begin(),main.end());
+    assert(argc==3 || argc==8); auto rom=file(argv[2]); const auto main=file(argv[1]); rom.insert(rom.end(),main.begin(),main.end());
+    if(argc==8) { nrg_state(rom,argv[3],argv[4],argv[5],argv[6],argv[7]); return 0; }
     for(int mode=0;mode<5;++mode) {
         const bool fast=mode==4;
         DiscFixture a,b,alien(43); start(rom,a,mode&1,fast); step();

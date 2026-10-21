@@ -59,6 +59,21 @@ def interleave(pw):
     return bytes(sum(((pw[ch * 12 + bit // 8] >> (7 - bit % 8)) & 1) << (7 - ch) for ch in range(8)) for bit in range(96))
 
 
+def nrg_multisession_fixture(work, name, version=2):
+    tail, directory, expected, blocks = nrg_sessions(version)
+    raw = [list(map(int, row.split()[1:])) for row in expected if row.startswith('track ')]
+    payload = bytearray(directory); streams = []
+    for n, r in enumerate(raw):
+        stream = bytearray()
+        for ordinal, at in enumerate(range(r[0], r[2], r[3])):
+            sector = bytearray((bytes((n * 53 + ordinal + k) & 255 for k in range(256)) * 10)[:r[3]])
+            if r[4] == 6: sector[15] = 2
+            payload[at:at + r[3]] = sector; stream.extend(sector)
+        streams.append(bytes(stream))
+    path = work / (name + '.nrg'); path.write_bytes(payload + tail)
+    return path, raw, streams, directory, blocks
+
+
 @unittest.skipUnless(shutil.which('clang++'), 'clang++ unavailable')
 class CdNrgTests(unittest.TestCase):
     @classmethod
@@ -145,18 +160,7 @@ class CdNrgTests(unittest.TestCase):
             self.assertEqual(['error 5'], self.run_nrg(path, code=2, vfs=True, metadata_only=True))
 
     def multisession_fixture(self, name, version=2):
-        tail, directory, expected, blocks = nrg_sessions(version)
-        raw = [list(map(int, row.split()[1:])) for row in expected if row.startswith('track ')]
-        payload = bytearray(directory); streams = []
-        for n, r in enumerate(raw):
-            stream = bytearray()
-            for ordinal, at in enumerate(range(r[0], r[2], r[3])):
-                sector = bytearray((bytes((n * 53 + ordinal + k) & 255 for k in range(256)) * 10)[:r[3]])
-                if r[4] == 6: sector[15] = 2
-                payload[at:at + r[3]] = sector; stream.extend(sector)
-            streams.append(bytes(stream))
-        path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
-        return path, raw, streams, directory, blocks
+        return nrg_multisession_fixture(self.work, name, version)
 
     def test_private_multisession_bytes_tocs_gaps_identity_and_vfs(self):
         for version in (1, 2):

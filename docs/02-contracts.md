@@ -2096,3 +2096,17 @@ no leen payload ni alteran apertura, posicion o medio. Antes de leer un burst
 multisesion se describe todo su rango: un hueco devuelve Range sin IO y conserva
 salida y posicion. Session Info y FullTOC fisico quedan fuera de la API actual;
 SingleOnly sigue rechazando NRG multi por defecto en la factory publica.
+
+
+## Restauracion nativa del propietario NRG multisesion (T66v5)
+
+La puerta privada usa el mismo P6AK y la identidad P6NRGM completa, sin guardar
+punteros al propietario ni introducir seleccion mutable de sesion. Dos cortes
+conservan CDDA activo de la pista1 y transporte detenido en la pista3 de la segunda
+sesion. El lector abre otra copia del archivo en otro proceso y aplica el estado
+tras p6_load, antes de su primer p6_run_frame. Estado inmediato, cinco frames de
+AV/PCM/ticks/lecturas, bytes/TOCs/Q de ambas sesiones y estado final completo deben
+coincidir. Los huecos siguen siendo Range sin lecturas ni salida parcial.
+Cambiar el catalogo o payload de la segunda sesion exige rechazo incompatible
+antes de mutar estado, reloj o callbacks, incluso en el destino frio. La factory
+publica conserva el rechazo; esta puerta no acredita Akiko fisico ni Waterbox.
