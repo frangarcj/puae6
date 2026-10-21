@@ -71,6 +71,19 @@ internal static unsafe partial class Program
     ChdRead(target,expected);
     Require(Run(target,15).Concat(new[] { ChdRam(target) }).SequenceEqual(future));
     Require(Save(target).SequenceEqual(File.ReadAllBytes(file+".end")));
+    foreach(var (video,audio) in new[] { (false,false), (true,false), (false,true) }) {
+     Restore(target,cut); var idle=new Idle(target.ControllerDefinition);
+     for(int n=0;n<5;++n) {
+      Require(target.FrameAdvance(idle,video,audio)); var row=future[n].Split(' ');
+      Require(target.CycleCount.ToString()==row[1]);
+      if(video) { var pixels=new byte[target.BufferWidth*target.BufferHeight*4]; Buffer.BlockCopy(target.GetVideoBuffer(),0,pixels,0,pixels.Length); Require(Hash(pixels)==row[2]); }
+      target.GetSamplesSync(out var samples,out int frames);
+      if(audio) { var pcm=new byte[frames*4]; Buffer.BlockCopy(samples,0,pcm,0,pcm.Length); Require(Hash(pcm)==row[3]); }
+      else Require(frames==0);
+     }
+     Require(Run(target,10).Concat(new[] { ChdRam(target) }).SequenceEqual(future.Skip(5)));
+     Require(Save(target).SequenceEqual(File.ReadAllBytes(file+".end")));
+    }
    }
    Check(core);
    // Close the old Disc owner as well as its sandbox before reopening through RomLoader.

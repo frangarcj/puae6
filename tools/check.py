@@ -333,6 +333,8 @@ TASK_SUITES[('WB03', 'T66u5')] = {
 TASK_SUITES[('WB09', 'T66u6')] = {
     'real_cd32_movie_swap': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieSwapTests',
     'real_cd32_startup_regression': 'tests.bizhawk-movies.test_cd32_start.Cd32MovieStartTests'}
+for _gate in ('WB03', 'WB08', 'DET02'):
+    TASK_SUITES[(_gate, 'T66t16')] = {'public_chd_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66t6')] = {'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):

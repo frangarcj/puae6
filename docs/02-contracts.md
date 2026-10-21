@@ -1927,5 +1927,7 @@ contrastan el wire2448 independiente, tambien tras StoreSaveRam que recrea el
 sandbox conservando el owner. El corte300 y futuro15 comparan RAM, AV/PCM,
 ticks y snapshot completo en el mismo core, otro owner y otro proceso antes
 del primer frame. NVRAM durable, rechazo OtherMedia sin mutacion y cierre de
-handles pertenecen al mismo gate WB03/DET02; un fallo del runner lo deja
+handles pertenecen al mismo gate WB03/DET02. WB08 compara ticks y las salidas
+activas al suprimir video/audio por separado o juntos, y el futuro completo
+tras esos tramos. Un fallo del runner lo deja
 BLOCKED. Este CD de audio no acredita arranque de juego ni peliculas CHD.
