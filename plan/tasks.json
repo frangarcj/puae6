@@ -18652,7 +18652,7 @@
       ],
       "id": "T66v7",
       "title": "Conectar transporte V3 privado y snapshot Waterbox multisesion",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v6",
         "T67c3c"
@@ -18672,7 +18672,8 @@
         "P6CdInfoV3 y Session20B reales en CdHost, constructor/arrayclonados, BindV3/BindCatalogV3 y ABI Attach; mismos slots/callbacks ydispatch LoadSnapshot/Restore/faultlatch. Evitar wrapperproduccion paralelo; solo IntPtrsentinel para negativo antesvalidacion como probeexistente.",
         "Extender harnessCd32Waterbox modo cd32sessions OpenV3 reusaRun/Save/Ram/Restore. PythonentregaDTO/streamcanonico conocidos, C#no interpretaNRG/DiscSystem y omiteMount. IDprivadoversionado calculado sobretodoscampos/tabla+payloadlegible; noprobarparsing/bootjuego. Ambassesiones0/4/6/11 y30/32/39, Qbytesindependientes, huecos11/20/29 sin callback/salida; guestReadSector real.",
         "WB03/DET02 mismo selector tests.waterbox-media.test_cd_source.Cd32SessionWaterboxTests.test_private_v3_cold_snapshot_and_rebind. Writer2frames/cut+5futuroAV/PCM/ticks/RAM/reads/fullsnapshotfinal/local; reader nuevo proceso/sandboxantesprimerRun, snapshotinmediato/futuroexactos. RebindtablaalteradaIDigual rechaza antespublicarsentinel y rawsnapshotigual, OtherMediaIDpropio antesLoad, faultlatch. Single ycatalog1V3 mismasgarantias, doscallbacks. RegresiondirigidaV1Cd32WaterboxTests yV2Cd32RegionalWaterboxTests pordispatchcomun, nocatalogo/TASacumulado.",
-        "Sin guestactual/runner receiptvalido puertaBLOCKED. Parsing/cargarestauracionpublica multisesion siguenrequeridos posteriores antesT66; identidadprivada de fixture no acredita normalizacionhost real."
+        "Sin guestactual/runner receiptvalido puertaBLOCKED. Parsing/cargarestauracionpublica multisesion siguenrequeridos posteriores antesT66; identidadprivada de fixture no acredita normalizacionhost real.",
+        "Guest real9de84c43330beed8...58103640bytes y receipts/sourceidentity estrictos. NuevoV3+regresionesV1/V2 tresmetodosPASS38.330s sin skips; single/catalog1write/readconPIDdistinto, snapshotantesprimerRun/fullfuture/identidad/rebindfalloslatch pasan. C#offline/sintaxis previosPASS. No parser/cargapublica multisesion acreditados."
       ],
       "checks": [
         "WB03",
