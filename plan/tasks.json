@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T39a",
         "T35",
@@ -11672,7 +11672,8 @@
         "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
         "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
       ],
-      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
+      "blocked_reason": "Repositorio privado frangarcj/puae6 creado y main sincronizada, workflow manual presente; API GitHub informa cero runners. La autorizacion para descargar/preparar un runner temporal en este Mac esta solicitada y pendiente. La CI remota y union acumulada/nightly conservan todas sus puertas; no se acreditan por los checks dirigidos locales."
     },
     {
       "id": "T39",
@@ -20692,6 +20693,59 @@
       "stop": "No snapshot parcial, punteros/IO en Apply, tolerancias o golden nuevos para ocultar divergencia. Tras dos intentos razonados conservar reproducer y dos hipotesis, bloquear sin prometer el codec."
     },
     {
+      "id": "T69d3",
+      "title": "Exponer AR2/AR3 nativo con Freeze y firmware real determinista",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69d2",
+        "T69c2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/input.cpp",
+        "bridge/state_devices.cpp",
+        "tests/contracts/layout_probe.c",
+        "tests/host/bridge_caps_probe.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference aislado en action-replay-owner con rama nueva desde main; root metadata/integracion/builds-j2. Vertical ABI+propietario+flanco+P6IN y su fixture debe ser atomica: hasta10rutas de implementacion y400lineas manuales, mas root metadata/contrato. No editar upstream ni ampliar modelos/perfiles/ABIstruct72 o tocar frontend/schema; avisar antes si no cabe.",
+        "Agregar API C aditiva p6_cartridge_bind(uint32_t model,p6_buffer image,p6_error*) para AR2/3 y P6_CAP_AR23 bit12, modelos2/3 explicitos. Reutilizar bind privado T69d1 sin dobleGuard, copia immutable, errores/BUSY/canarios y rollback existentes. Cambiar solo las declaraciones/contratos necesarios y comprobar firma en C/C++ y mascara exacta de caps. AR1/AR1200 siguen sin anunciar, flag HRTMon builtin y perfiles ajenos permanecen intactos.",
+        "P6_COMMAND_FREEZE conserva semantica de nivel/flanco de HRTMon: validar owner AR oHRT antesmutacion, activar solo Loaded/started/unidad>0/noreset/IDLE apropiado. Unificar helperprivado si procede sin cambiar comportamiento HRT. P6IN guarda commands tambien con AR para que held/restauracion/reset no reemitanaccion; Apply solo copia elnivel. Identidad ya incluye modelo+ROM, sincart cuerpos sin cambios. No nueva cola, tiempo host ni scheduler.",
+        "IN01/STATE01/DET02 seleccionan una union NativeArTests.test_public_ar23_freeze_return_real_firmware_and_cold_state. Fixture original por API publica verifica bind/copia/argumentos/Freeze held/released/reset, commands corruptos/canarios y coldheld. Firmware real opt-in P6_KICKSTART_A500_ROM y P6_ACTION_REPLAY2_ROM/P6_ACTION_REPLAY3_ROM ya autorizados en build/assets; modelos2/3 Exact de A500stock, reutilizar p6_hrtmon_probe. Boot y comandos por entrada real; no PC/prefetch/clock ajustados desdehost. ROM AR3 contiene ayuda primaria x=restart current program y g(address); si hace falta cargar bucle propio en RAM por bytes y lanzarlo por comandoG, despuesFreeze detiene contador y x lo reanuda. Restaurar ACTIVE/comando-parcial/held en proceso frio y comparar futuro completo/estado exacto; no done por logo o PC enROM.",
+        "No builds motor/guest ni bateria en agente; sintaxis/fixture/commit y root gates dirigidos una vez. ABI01 firma+caps existente, IN01/STATE01/DET02 comparten union, regresion HRTMon input/held solo porque se toca ruta compartida. No repetir codec privado completo, juegos ni Waterbox salvo causa concreta. Si firmware no avanza como esperado, diagnostico acotado y dosintentos razonados; conservar reproducer y bloquear con doshipotesis, no pulsaciones/flags/ventanas al azar.",
+        "Root actualiza docs/02-contracts.md, dispatcher y estado; agentes no metadata compartida. El padre T69 conserva AR1/AR1200 y todas conexiones frontend/libretro/Waterbox; este gate solo anuncia API neutral nativa AR2/3."
+      ],
+      "checks": [
+        "ABI01",
+        "IN01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Caller C puede adoptar AR2/3 desdebytes y activar Freeze por inputv2, con ownership, errores y held/reset/restauracion coherentes. Programa y firmware real ejecutan monitor/salida/futuro deterministas, incluido proceso nuevo; HRTMon conserva su comportamiento. No acredita los modelos restantes ni opciones frontend."
+      ],
+      "stop": "No ROM comercial en Git/paquete ni snapshot parcial, publicidad de modelos no probados, PC/prefetch/clock de host para simular activacion o asserts/tolerancias debilitados. Dosintentos sin resolver mismofallo: reproducer+hipotesis yblocked."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -20706,7 +20760,8 @@
         "T69c3",
         "T69c4",
         "T69d1",
-        "T69d2"
+        "T69d2",
+        "T69d3"
       ],
       "read": [
         "docs/01-architecture.md",
