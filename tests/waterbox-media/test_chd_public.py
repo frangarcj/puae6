@@ -34,12 +34,21 @@ def prepare_public_cd(cls, *, guest_required):
         if wb.sha256(guest)!=sha: raise AssertionError('guest SHA differs from receipt')
         runtime = wb.read_runtime_receipt(wb.runtime_receipt_path())['runtime_dylib']
         if wb.sha256(Path(runtime['path']))!=runtime['sha256']: raise AssertionError('runtime SHA differs from receipt')
+    work,env,output=build_public_cd(sha)
+    if guest_required:
+        (work / 'dll').mkdir(exist_ok=True); shutil.copy2(guest, work / 'dll/puae6.wbx')
+    cls.prepared=(work,env,guest,sha,runtime,main,ext,output)
+
+
+@functools.lru_cache(maxsize=1)
+def build_public_cd(sha):
     spec = importlib.util.spec_from_file_location('public_chd_recipe', ROOT / 'integration/bizhawk/patches/build_tree.py')
     recipe = importlib.util.module_from_spec(spec); spec.loader.exec_module(recipe)
     recipe.MACHAWK = Path(os.environ.get('P6_MACHAWK_REFERENCE', str(recipe.MACHAWK)))
     recipe.git = functools.partial(recipe.git, cwd=recipe.MACHAWK)
     temporary = tempfile.TemporaryDirectory(prefix='public-chd-wbx-', dir=ROOT / 'build')
-    cls.addClassCleanup(temporary.cleanup)
+    unittest.addModuleCleanup(build_public_cd.cache_clear)
+    unittest.addModuleCleanup(temporary.cleanup)
     work = Path(temporary.name); tree = work / 'client-common'
     recipe.check_patches(); recipe.export_tree(tree, recipe.EXPORT_EMUHAWK)
     recipe.apply_patches(tree); recipe.install_sources(tree)
@@ -58,9 +67,7 @@ def prepare_public_cd(cls, *, guest_required):
     output = work / 'bin/Debug/net8.0'
     library = 'libp6_chd_host.dylib' if sys.platform == 'darwin' else 'libp6_chd_host.so'
     shutil.copy2(assembly.parent / library, output / library)
-    if guest_required:
-        (work / 'dll').mkdir(); shutil.copy2(guest, work / 'dll/puae6.wbx')
-    cls.prepared=(work,env,guest,sha,runtime,main,ext,output)
+    return work,env,output
 
 
 
