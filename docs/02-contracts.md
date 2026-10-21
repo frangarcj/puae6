@@ -1895,10 +1895,8 @@ La app abre DOS version0, lee nonce16 de SYS:P6DATA y aumenta su contador propio
 tras Delay(1). Firma16, nonce16 y contadorBE32 ocupan offsets0/16/32; los campos
 BE32 en36/40/44/48 diagnostican etapa y resultados OpenLibrary/Open/Read.
 Solo nonce correcto y contador positivo/creciente acreditan ejecucion: una copia
-HUNK cacheada con contador0 no pasa. El experimento de600unidades produjo lecturas
-PVD/TM/HUNK pero etapa0; no se ha observado ejecucion de la entrada. Quedan por distinguir la
-aceptacion del TM candidato y bootstrap/CDFS/LoadSeg antes del HUNK. No se ha
-acreditado boot ni implementado su puerta de restore/negativos; estos no se
-sustituyen por los cortes de autoconfig. Startup-Sequence conserva el mismo case
-mixto y version ISO que el disco original. El orden raiz se corrige sin atribuirle
-el fallo previo a la entrada ni ejecutar otra campaña.
+HUNK cacheada con contador0 no pasa. La aceptacion del TM candidato y la ruta
+bootstrap/CDFS/LoadSeg siguen abiertas. Boot y su puerta de restore/negativos
+completos permanecen bloqueados; los cortes de autoconfig no los sustituyen.
+Startup-Sequence conserva el case mixto y version ISO del disco original, y
+el directorio raiz mantiene el orden ISO9660.

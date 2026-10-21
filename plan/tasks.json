@@ -18357,7 +18357,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T67c2",
         "T15",
@@ -18385,7 +18385,8 @@
         "AppDOS1.3 usa OpenLibraryversion0 y Open/Read/Close; marcador en DATA propio PCrelativo, contador inicial0, copia nonce leido y progresa con Delay1 LVO-198/D1. No direcciones RAM arbitrarias ni relojhost. Host exige firma+nonce+contadorpositivo unico y creciente: copia HUNK en cache con contador0 no pasa.",
         "CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives comparte MED01/STATE01/DET02 en una ejecucion: boot original hasta marcador dentro del limite, savecut y16unidades de futuro RAM/AV/PCM/ticks/fullsave, restore mismoowner y nuevo proceso antes del primer run exactos. Sin Startup no marcador al mismo limite; nonceB debe ejecutarB y rechazar estadoA transaccional poridentidad. PC en ROM/pantalla no prueban boot.",
         "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes.",
-        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente."
+        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente.",
+        "Reproducer MED01 actual: CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce. Conservar el selector completo CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives como puerta pendiente; el reproducer de arranque no sustituye STATE01/DET02 ni implementa restore. Revisar disponibilidad del ejecutable MacHawk existente solo lectura como control independiente antes de pedir otro asset; cualquier salida temporal solo build y limpiar al terminar."
       ],
       "checks": [
         "MED01",
@@ -18395,7 +18396,8 @@
       "acceptance": [
         "ISO y programa originales ejecutan lectura real CDFS/AmigaDOS bajo firmware CDTV autorizado y producen resultado RAM dependiente del fichero; restore local y cold nuevo proceso reproducen futuro completo, negativos no arrancan ni mutan estado al rechazar identidad."
       ],
-      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
+      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis.",
+      "blocked_reason": "El reproducer CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce falla antes de ejecutar la entrada: nonce/contador/etapas propios siguen cero. Corregir el orden ISO no cambia el fallo. H1: el TM2048 local aun no tiene aceptacion acreditada con ROM2.7; contrastar con un arranque independiente sin asumir incompatibilidad. H2: bootstrap/CDFS/LoadSeg o fixture ISO/HUNK se detiene antes del programa; contrastar mismo ISO/ROM con una referencia independiente. No mas campañas iguales ni cambios de flags/ROM; restore y negativos completos siguen sin implementar/acreditar."
     },
     {
       "id": "T67c3b",
