@@ -18782,7 +18782,10 @@
         "T66v6",
         "T66v7",
         "T66v8",
-        "T66v9"
+        "T66v9",
+        "T66v10",
+        "T66v11",
+        "T66v12"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -21609,6 +21612,130 @@
         "Carga publica nativa DAO multi conserva TOCvirtual/huecos/identidad y restore local/frio antesprimerRun con futuro exacto; defaults e identidades legacy intactos. Waterbox publico sigue pendiente."
       ],
       "stop": "No superar400lineas ni ampliarTouch sin ficha previa; sin gate real no cerrar. Metadata y compilaciones pesadas solo coordinador."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v10",
+      "title": "Montar DAO multisesion privado con proveedor disperso por offsets",
+      "status": "pending",
+      "depends": [
+        "T66v8"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0019-canonical-nrg-dao-sessions.patch",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "tests/media/test_cd_source_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cinco rutas220..350manuales, cd_swapaislado. Patch0019 targetsNRG_format.cs,DiscMountJob.cs,Disc.cs. LoadPuae6Nrg deriva soloDAOmulti a proveedoroffset; single/default exactos. SynthProvidercustom preservado solooptinNRG, sin Array/_Sectors denso ni constantes4500/6750/2250.",
+        "Disc.Puae6NrgDao tipado publicNRG_Format.Puae6DaoLayout {get;internalset;} copiadoal adoptarowner, readonlystructs/read-onlyarrays ystringshexrawsin NRGFilecapturado/static/CWT. Sessions FirstTrack/LastTrack/Format/Cue0/A2/SessionHint/CatalogHex26; Tracks Number/Index0/Index1/End/Mode/Adr/Control/Offset0/Offset1/EndOffset/Stride/IsrcHex24. Index0negativoalmacenadopreservado.",
+        "SS_Mode1_2048/Mode2Form1/2336/2352/2448 existentes; Get(lba) sparse porrangos devuelve nullenhuecos, DiscSession/TOCreales. MED01 nuevos sparse_offsets_tocs_and_stored_subchannels y gaps_faults_and_owner_cleanup +regresionDAOsingleexactID. Bytes/Qdeambassesiones offsets vsfixtureV3; gaps0sinoutput/IO, truncado/fault/dispose/FD. NoPuae6DiscSource ni cargaWBpublica acreditada."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Proveedor poroffset lee ambas sesiones y subcanales exactos; huecos no consumenIO ni publican salida; metadata congelada/owners y legacy pasan sin carga publica."
+      ],
+      "stop": "No superar400lineas sin dividirantes; no habilitar publico por probe privado. Root metadata ybuildspesados, agenteaislado."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v11",
+      "title": "Normalizar DAO multisesion en descriptor V3 e identidad canonica",
+      "status": "pending",
+      "depends": [
+        "T66v10",
+        "T66v7"
+      ],
+      "touch": [
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cuatro rutas150..300manuales. Puae6DiscSource multi soloDisc.Puae6NrgDao validado; Source.SessionCount0legacy/>=2optin yDescriptorV3, V1/V2rechazanmulti. Tracks porordinalglobal atravesSesioneslocales; regiones/huecos porrangos sincontigüidadinventada.",
+        "ReadAt preflightTODASLBAsantesIO/staging,incluidonoalineadoquefinalizaenhueco; ReadSector/Qhuecorechazo sinseleccionmutable. Rebind crea candidato/IDentero antescambiarreader; conserva borrowed/leaseIsDisposed existentes.",
+        "Identidad P6CD2448 NUL/version3: tabla+rangos+limites/CUE0/A2/format+catalogo/hint/ISRCcrudos yhashcanonicodeintervalosrespaldados ordenados,incluidoprimerprefijonegativoalmacenado. No rellenar/hashhuecos. RamaV1/V2singleexacta; no igualdadconP6NRGMnativo. MED01 descriptor_v3_and_canonical_identity y rebind_lease_and_transactional_failures +singleexactID sinrepetirporlabel. Pythonhashindependiente/renamedowner yforeignmetadata/payload/salidanoIO."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "DescriptorV3 preserva tabla/bytes/huecos y nueva identidad completa, rebind transaccional y singleIDs exactos; loader/core y snapshot publico siguen pendientes."
+      ],
+      "stop": "No superar400lineas sin dividirantes; no habilitar publico por probe privado. Root metadata ybuildspesados, agenteaislado."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v12",
+      "title": "Conectar carga publica NRG multisesion y catalogos mixtos con restore Waterbox",
+      "status": "pending",
+      "depends": [
+        "T66v11",
+        "T66l9",
+        "T66v7"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "tests/waterbox-media/test_chd_public.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Verticalatomica siete rutas240..350manuales porpublicacioncompleta, sinparser/RomLoaderpatch/guestnuevo siV7actual. Params CdInfoV3/CdCatalogV3, count/create/identity/catalogID/validate yclonesCore/WhdLoad; seis modos mutuamenteexclusivos, limites/mapa/IDunicos/borrowed ylease intactos.",
+        "Factorysinglemulti usaV3. Si cualquierfuente SessionCount>=2 todo catalogopromueveV3: V2copia12words/tablecount0 yV1usaRegionalDescriptorexistente storedpregap1/flags0. IDsinrecalcular; identidadcatalogo PUAE6 CD catalog/v1+IDs/slots anterior exacta. Sinmulti rutaV1/V2identica; leaseIsDisposedantescallback, sinownerparalelo.",
+        "MED01/WB03/DET02 unionunaejecucion: nuevo NrgMultiPublicWaterboxTests.test_public_multisession_and_mixed_catalog_cold_restore +ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore +NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Harness/Run/Save/Restore/loaderrealexistentes, no nuevocore/probealterno.",
+        "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion."
+      ],
+      "checks": [
+        "MED01",
+        "WB03",
+        "DET02"
+      ],
+      "acceptance": [
+        "Loader/factory/core reales transportan singlemulti ycatalogomixtoV3conpropietario eIDcompletos; Waterboxreal restaura antesprimerRun/fullfuture/snapshot exactos, rechazos transaccionales ylegacy V2 pasan."
+      ],
+      "stop": "No superar400lineas sin dividirantes; no habilitar publico por probe privado. Root metadata ybuildspesados, agenteaislado."
     }
   ],
   "max_in_progress": 4
