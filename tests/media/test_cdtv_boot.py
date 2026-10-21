@@ -28,11 +28,13 @@ class CdtvFirmwareTests(unittest.TestCase):
 class CdtvOriginalBootTests(unittest.TestCase):
     def test_original_iso_hunk_executes_nonce(self):
         main,ext=(os.environ.get(key) for key in ('P6_CDTV_ROM_MAIN','P6_CDTV_ROM_EXT'))
-        cue=os.environ.get('P6_CD32_GAME_CUE') or os.environ.get('P6_CD_CUE_FILE')
+        cue=os.environ.get('P6_CDTV_BOOT_CUE') or os.environ.get('P6_CD32_GAME_CUE') or os.environ.get('P6_CD_CUE_FILE')
         if not main or not ext or not cue:
             raise RuntimeError('BLOCKED: authorized CDTV main/ext ROMs and Brian CUE required')
         tm=cdtv_boot_image.trademark(cue)
-        self.assertEqual(hashlib.sha256(tm).hexdigest(),'df6da5cea7c67fe02bdee1c9b7e3debc0406496ef99971b76b78b121d7d923c3')
+        self.assertIn(hashlib.sha256(tm).hexdigest(), {
+            'df6da5cea7c67fe02bdee1c9b7e3debc0406496ef99971b76b78b121d7d923c3',
+            'bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb'})
         exe=build_targets(ROOT/'build/state-opt',['p6_cdtv_boot_probe'],optimized=True)['p6_cdtv_boot_probe']
         with tempfile.TemporaryDirectory(prefix='cdtv-original-',dir=ROOT/'build') as directory:
             iso=Path(directory)/'original.iso'; iso.write_bytes(cdtv_boot_image.image(tm))

@@ -21,11 +21,19 @@ def trademark(cue):
         parts = shlex.split(line)
         if parts and parts[0].upper() == 'FILE': source = cue.parent / parts[1]
         if parts[:2] == ['TRACK', '01']:
-            if parts[2] != 'MODE1/2048': raise ValueError('TM fixture requires MODE1/2048 track01')
+            if parts[2] not in ('MODE1/2048','MODE1/2352'): raise ValueError('TM fixture requires Mode1 track01')
+            stride, header = (2048,0) if parts[2] == 'MODE1/2048' else (2352,16)
             break
     if source is None: raise ValueError('Missing data track')
     with source.open('rb') as stream:
-        stream.seek(16 * 2048); pvd = stream.read(2048)
+        def user(lba, count):
+            data = bytearray()
+            while count:
+                stream.seek(lba * stride + header); part = stream.read(min(2048,count))
+                if not part: raise ValueError('Short data track')
+                data.extend(part); count -= len(part); lba += 1
+            return bytes(data)
+        pvd = user(16,2048)
         if pvd[:7] != b'\x01CD001\x01': raise ValueError('Missing primary volume descriptor')
         app, at = pvd[883:1395], 1
         while at + 4 <= len(app) and app[at:at+2] != b'\0\0':
@@ -35,7 +43,7 @@ def trademark(cue):
                 if size != 20: raise ValueError('TM option layout')
                 count, lba, *_ = struct.unpack('>5I', app[at+4:at+24])
                 if not 0 < count <= 65536 or not lba: raise ValueError('TM extent')
-                stream.seek(lba * 2048); tm = stream.read(count)
+                tm = user(lba,count)
                 if len(tm) != count: raise ValueError('Short TM source')
                 return tm
             at += 4 + size

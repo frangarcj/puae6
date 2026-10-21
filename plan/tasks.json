@@ -18045,6 +18045,97 @@
       "stop": "Runtime o asset ausente/fallido deja BLOCKED; no sustituir loader real por ParametersFrom manual ni Waterbox por host/nativo."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "id": "T66t17",
+      "title": "Conservar HTOA CHD y el primer INDEX00 en nativo y DiscSystem",
+      "depends": [
+        "T66t10",
+        "T66t15c",
+        "T66t16"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_chd.cpp",
+        "ports/portable/media/chd_host.cpp",
+        "integration/bizhawk/patches/0012-chd-first-track-pregap.patch",
+        "tests/media/test_cd_chd.py",
+        "tests/media/cd_chd_probe.cpp",
+        "tests/media/test_chd_canonical_csharp.py",
+        "tests/media/test_chd_host_csharp.py",
+        "tests/media/test_cd_source_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cerrar HTOA requerido por T66 sin cambiar ABI: CHD storedP comienza en LBA0, INDEX01=P, INDEX00=0; los150RedBook sinteticos son independientes y no consumen bytes CHD. Contrastar MAME/WinUAE6030, libMirage a9d6a2 y reader/writer DiscSystem9b627; no usar reader antiguo como oraculo. Mantener primer pregap no almacenado fuera hasta contrato propio, sin rechazar datos HTOA soportados.",
+        "Vertical atomica nativo+managed de250..350 lineas, nueve rutas de implementacion por compatibilidad de direcciones y lector compartido. NativeCdChd/host retiran solo el rechazo demostrado; patch0012 corrige el reader CHD derivado para anteponer150 sinteticos al storedP. Helper C# aplica el patch nuevo antes de ejecutar. No modificar MacHawk ni outputs generados, preservar IDs y bytes de discos sin HTOA.",
+        "MED01 compara oraculo matematico independiente para P1/149/150/151/200 con audio identificable y segunda Mode1: P-1/P, LBA/TOC/Q/CONTROL, rawSUB contradictorio, stream/hash/rebind/VFS y rechazo transaccional. Root registra selector y ejecuta union dirigida una vez; agente busy_reference aislado sin metadata ni builds pesados. Public restore de HTOA queda como puerta posterior requerida antes de T66; no cerrar padre por proveedor."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Nativo y DiscSystem conservan todos los bytes de HTOA almacenado y las posiciones visibles correctas, con sintesis lead-in separada, identidad y rebinding coherentes bajo sanitizers y regresion sin HTOA."
+      ],
+      "stop": "No desplazar INDEX01 por150 ni eliminar rechazos sin contrato primario; ampliar scope antes de otras rutas o400lineas."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "id": "T66l6",
+      "title": "Leer NRG ETNF con pistas de strides distintos",
+      "depends": [
+        "T66l5",
+        "T66g5",
+        "T66o1"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0403-nrg-etnf-mixed-stride.patch",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/test_cd_image.py",
+        "docs/options.md",
+        "tools/check.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Completar la deuda ETNF mixedstride manteniendo politica canonica150. Contrastar fuentes fijadas VCDImager/libcdio antes de cambiar contrato: separar acumulacion logica en sectores de offsets fisicos en bytes. La ecuacion offset=start_sector*stride del dominio homogeneo no puede aplicarse ciegamente a una mezcla. No habilitar ETN2 ni multisesion en esta hoja; permanecen requeridos en T66.",
+        "Cinco rutas de implementacion130..210lineas; patch0403 solo blkdev_cdimage.cpp sobre la serie actual, sin editar upstream. Agente cd_swap aislado entrega SHA y hashes antes/despues, root registra serie/clasificacion/selectores/plan y serializa compilaciones. Si la fuente primaria impide dominio mixto no inventar imagen aceptada: conservar reproducer y explicar limite verificable.",
+        "MED01 NrgMetadataTests+CdNrgTests+CdImageTests una union bajo ASan/UBSan:2048→2352→2336 e inverso, dato/pregap/dato, headers/Q/CONTROL exactos, identidad archivo completo, VFS y nuevo owner/rebind; offsets/longitudes contradictorios no publican. Root autoriza standalone pesado tras integrar metadata; no motor/guest durante desarrollo."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "ETNF mixto representa por separado datos fisicos y posiciones logicas y mantiene sectores/pregaps canonicos150, con controles independientes y regresiones DAO/factory intactas."
+      ],
+      "stop": "No quitar solamente el guard de stride ni inventar offsets/pregap perdidos; ETN2/multisesion y puerta padre siguen pendientes."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18126,7 +18217,9 @@
         "T66t15a",
         "T66t15b",
         "T66t15c",
-        "T66t16"
+        "T66t16",
+        "T66t17",
+        "T66l6"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18460,7 +18553,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T67c2",
         "T15",
@@ -18489,7 +18582,8 @@
         "CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives comparte MED01/STATE01/DET02 en una ejecucion: boot original hasta marcador dentro del limite, savecut y16unidades de futuro RAM/AV/PCM/ticks/fullsave, restore mismoowner y nuevo proceso antes del primer run exactos. Sin Startup no marcador al mismo limite; nonceB debe ejecutarB y rechazar estadoA transaccional poridentidad. PC en ROM/pantalla no prueban boot.",
         "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes.",
         "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente.",
-        "Reproducer MED01 actual: CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce. Conservar el selector completo CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives como puerta pendiente; el reproducer de arranque no sustituye STATE01/DET02 ni implementa restore. Revisar disponibilidad del ejecutable MacHawk existente solo lectura como control independiente antes de pedir otro asset; cualquier salida temporal solo build y limpiar al terminar."
+        "Reproducer MED01 actual: CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce. Conservar el selector completo CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives como puerta pendiente; el reproducer de arranque no sustituye STATE01/DET02 ni implementa restore. Revisar disponibilidad del ejecutable MacHawk existente solo lectura como control independiente antes de pedir otro asset; cualquier salida temporal solo build y limpiar al terminar.",
+        "Nuevo control autorizado por el usuario: Cannon Fodder local, track01 MODE1/2352, PVD CDTV y TM declarado22152/LBA21/cdtv35.2. Extender lector temporal del TM a sectores raw sin copiar headers; conservar Brian MODE1/2048 y sus pins. Esta nueva fuente justifica retomar el reproducer de nonce una vez, sin atribuir todavia arranque de Cannon ni restauracion completa."
       ],
       "checks": [
         "MED01",
@@ -18499,8 +18593,7 @@
       "acceptance": [
         "ISO y programa originales ejecutan lectura real CDFS/AmigaDOS bajo firmware CDTV autorizado y producen resultado RAM dependiente del fichero; restore local y cold nuevo proceso reproducen futuro completo, negativos no arrancan ni mutan estado al rechazar identidad."
       ],
-      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis.",
-      "blocked_reason": "El reproducer CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce no acredita entrada: nonce/contador/etapas propios siguen cero. La misma ISO/ROM completa 600 frames y snapshot en el PUAE5/Waterbox ya compilado de MacHawk, tambien con marcador cacheado y nonce/contador/etapa0; dlopen resuelto con enlace temporal local sin modificar el hermano. H1: el TM2048 local no tiene aceptacion acreditada con ROM2.7; hace falta un control CDTV autorizado que arranque o contrato primario del bootstrap. H2: el fixture ISO/HUNK/Startup falla antes del programa; el fallo compartido no lo distingue de H1 ni demuestra un defecto del port. No extraer otro TM por ventana de ROM: los residentes locales tienen versiones y punteros absolutos distintos. Conservar reproducer; no mas campañas iguales ni cambios de flags/ROM. Restore y negativos completos siguen pendientes."
+      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
     },
     {
       "id": "T67c3b",
