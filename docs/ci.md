@@ -88,5 +88,25 @@ Control siguen por loopback dentro del mismo contenedor. El pin identifica una
 imagen local existente, sin prometer que reconstruir su Dockerfile reproduzca
 los mismos bytes.
 
-No hay `origin` configurado en este checkout. Guardar este YAML y ejecutar lanes
-locales no acredita ejecucion remota: T39b/T39 permanecen pendientes de esa puerta.
+El repositorio privado `frangarcj/puae6` ya esta creado y sincronizado. Guardar
+workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
+conservan pendientes sus puertas no ejecutadas en los runners declarados.
+
+## Puerta nativa Linux alojada
+
+`native-linux.yml` ofrece exclusivamente lanzamiento manual en `ubuntu-24.04`
+estandar, con checkout fijado, permisos de lectura y limite de 45 minutos.
+`python3 tools/ci/linux_native.py` usa Clang/Ninja/CMake preinstalados, `-O2 -g`
+con assertions y dos compiladores simultaneos. No instala paquetes ni usa Docker,
+MacHawk, secretos, servicios adicionales, caches de GitHub o upload de artifacts.
+El lanzamiento remoto queda a cargo del coordinador tras comprobar cuota/coste;
+la existencia del YAML no autoriza gasto ni acredita una ejecucion verde.
+
+Las micro-ROM MIT propias `boot.s` e `input_all.s` prueban headless/libretro y
+restore nativo respectivamente. `boot.s` evita depender de los puertos distintos
+por defecto de cada frontend. Ambos guardan/restauran en procesos nuevos y comparan futuro
+hardware/AV/PCM y fullstate exactos. Los estados temporales se eliminan al cerrar;
+la identidad de fuentes, patchset, codegen, compiladores y binarios sale por stdout.
+Falta de herramienta, salida incompleta, error, discrepancia o timeout impide PASS.
+Esta puerta nativa no sustituye PR/Waterbox Darwin ni nightly/release, su matriz,
+sanitizers, corpus privado o rendimiento; `puae6.yml` conserva esas selecciones.
