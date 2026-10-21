@@ -33,6 +33,14 @@ no una afirmacion de que ambos frames sean legales en ese estadio del hardware.
 - [MC68040UM, apartado9.6.2 y figura9-9](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf):
   los operandos denormales SINGLE y DOUBLE de esa figura tienen ETE cero.
   La figura no prueba todos los estadios CU06 anteriores a E1.
+- [FPSP res_func.S fijado](https://raw.githubusercontent.com/torvalds/linux/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2/arch/m68k/fpsp040/res_func.S):
+  atiende el vector55. `nrm_src` normaliza y `fix_stk` prepara CU=FE con E1
+  desactivado; `cu_dnrm` completa ciertas operaciones en software sin FRESTORE.
+  Es una fase distinta y no prueba la representacion previa en CU06.
+- [Errata oficial MC68040DE](https://www.nxp.com/docs/en/errata/MC68040DE_D.txt)
+  para mascaras 2E42K/2E71M y [addendum Motorola de 1998](https://www.nxp.com/docs/en/reference-manual/MC68040UMAD.pdf):
+  no especifican esa representacion. La correccion FP del addendum trata
+  BSUN/FPIAR; no permite resolver la procedencia de ETEMP ni aceptar el decoder.
 
 ## Condicion para continuar
 
