@@ -830,7 +830,9 @@ static void real_ar1_boot()
 {
     // AR1 returns to Kickstart itself; F1 is Clr+Home, never Continue Boot.
     level(1,300); real_ar1_wait(false); assert(held_command()==1);
-    assert(get_long(4)>0 && (get_long(4)&~1u)<currprefs.chipmem.size);
+    const uint32_t sysbase=get_long(4); const auto &bank=get_mem_bank(sysbase);
+    assert(sysbase && !(sysbase&1) && (&bank==&chipmem_bank || &bank==&bogomem_bank) && bank.baseaddr &&
+        sysbase>=bank.start && uint64_t(sysbase)-bank.start+2<=bank.allocated_size);
 }
 static void real_ar1_loop()
 {
