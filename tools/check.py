@@ -367,6 +367,9 @@ TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical
 TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
 TASK_SUITES[('STATE01', 'T80a')] = {'darwin_host_state_buffers': 'tests.bizhawk-movies.test_host_states.DarwinHostStateTests'}
 TASK_SUITES[('MED01', 'T67c3a1')] = {'original_cdtv_boot': 'tests.media.test_cdtv_boot.CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce'}
+for _gate in ('MED01', 'STATE01', 'DET02'):
+    for _task in ('T67c3a2', 'T67c3a'):
+        TASK_SUITES[(_gate, _task)] = {'original_cdtv_boot_restore': 'tests.media.test_cdtv_boot.CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives'}
 for _gate in ('MED01', 'BUILD01'):
     TASK_SUITES[(_gate, 'T67c1')] = {'cdtv_firmware': 'tests.media.test_cdtv_boot.CdtvFirmwareTests'}
 for _gate in ('MED01', 'STATE01', 'DET02'):
