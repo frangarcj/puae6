@@ -2157,3 +2157,21 @@ sin restore y la de boot/restore exigen ticks, RAM, video y PCM exactos. Una
 limpieza parcial del display no acredita la inicializacion completa; mantener
 la publicacion pendiente mientras siga un desfase causal. El warmreset no debe
 convertirse en un power-on ni tolerar o adaptar los estados para ocultarlo.
+
+## Transporte privado Waterbox V3 (T66v7)
+
+Los exports bind_v3/catalog_bind_v3 usan el mismo propietario permanente y la
+validacion completa anterior a publicar callbacks. layout_v3 informa 18 u64: los
+10 regionales, offsets de cantidad/tabla, tamano y cinco offsets de Session.
+V1/V2/V3 no rebindan entre versiones. CdHost copia descriptor/catalogo V3 y usa
+los slots 0/1 existentes; snapshot restaura primero el sandbox y despues valida
+rebind con los nuevos callbacks. Un fallo deja el wrapper bloqueado hasta una
+restauracion completa correcta. Los guards CDTV no cambian.
+
+La puerta privada usa DTO numerico y bytes canonicos de fixture, identidad
+WBSESS3 de todos los campos, tabla y payload legible, sin parser NRG nuevo.
+Exige dos sesiones y huecos sin callback, snapshot inmediato y futuro completo
+AV/PCM/ticks/RAM/lecturas tras restore local y frio antes del primer frame en
+sandbox/proceso nuevos. Identidad ajena se rechaza antes de LoadSnapshot y una
+tabla distinta con ID conservado no publica callbacks. Esto no habilita loader
+publico multisesion ni acredita normalizacion de imagenes o hardware Akiko.

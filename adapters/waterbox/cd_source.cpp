@@ -53,7 +53,21 @@ ECL_EXPORT uint64_t p6w_cd_layout_v2(uint64_t *out, uint64_t capacity)
  if (!out || capacity < 10) return 0;
  memcpy(out,layout,sizeof layout); return 10;
 }
+ECL_EXPORT uint64_t p6w_cd_layout_v3(uint64_t *out, uint64_t capacity)
+{
+ const uint64_t layout[] = {sizeof(p6w_cd_info_v3),offsetof(p6w_cd_info_v3,bytes),offsetof(p6w_cd_info_v3,tracks),
+  sizeof(p6w_cd_track_v2),offsetof(p6w_cd_track_v2,stored_pregap),offsetof(p6w_cd_track_v2,synthetic_pregap),
+  offsetof(p6w_cd_track_v2,postgap),offsetof(p6w_cd_track_v2,flags),offsetof(p6w_cd_track_v2,pregap_mode),offsetof(p6w_cd_track_v2,pregap_control),
+  offsetof(p6w_cd_info_v3,session_count),offsetof(p6w_cd_info_v3,sessions),sizeof(p6w_cd_session),
+  offsetof(p6w_cd_session,first_track),offsetof(p6w_cd_session,last_track),offsetof(p6w_cd_session,format),
+  offsetof(p6w_cd_session,cue0),offsetof(p6w_cd_session,a2)};
+ if (!out || capacity<18) return 0;
+ memcpy(out,layout,sizeof layout); return 18;
+}
 namespace {
+uint32_t wire_version(const p6w_cd_info_v3 *) { return 3; }
+p6_cd::Result decode(const p6w_cd_info_v3 *info,const p6_cd::Binding &binding,p6_cd::Layout *layout)
+ { return p6_waterbox::cd_descriptor_v3(info,binding,layout); }
 uint32_t wire_version(const p6w_cd_info *) { return 1; }
 uint32_t wire_version(const p6w_cd_info_v2 *) { return 2; }
 p6_cd::Result decode(const p6w_cd_info_v2 *info, const p6_cd::Binding &binding, p6_cd::Layout *layout)
@@ -145,6 +159,24 @@ ECL_EXPORT int32_t p6w_cd_bind_v2(const p6w_cd_info_v2 *info, p6w_cd_read_fn cal
  return r;
 }
 ECL_EXPORT int32_t p6w_cd_catalog_bind_v2(const p6w_cd_info_v2 *info, uint32_t count, p6w_cd_catalog_read_fn callback, uint32_t rebind)
+{
+ p6_session::Guard guard;
+ if (!guard.ok) return P6_ERROR_BUSY;
+ if (!callback) return P6_ERROR_BAD_ARGUMENT;
+ const int r=bind_catalog(info,count,true,rebind);
+ if (r==P6_OK) cd_catalog_callback=callback;
+ return r;
+}
+ECL_EXPORT int32_t p6w_cd_bind_v3(const p6w_cd_info_v3 *info, p6w_cd_read_fn callback, uint32_t rebind)
+{
+ p6_session::Guard guard;
+ if (!guard.ok) return P6_ERROR_BUSY;
+ if (!callback) return P6_ERROR_BAD_ARGUMENT;
+ const int r=bind_catalog(info,1,false,rebind);
+ if (r==P6_OK) cd_callback=callback;
+ return r;
+}
+ECL_EXPORT int32_t p6w_cd_catalog_bind_v3(const p6w_cd_info_v3 *info,uint32_t count,p6w_cd_catalog_read_fn callback,uint32_t rebind)
 {
  p6_session::Guard guard;
  if (!guard.ok) return P6_ERROR_BUSY;

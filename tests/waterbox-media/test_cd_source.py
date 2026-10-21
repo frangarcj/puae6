@@ -1,5 +1,8 @@
 """Private CD transport on real Waterbox; this does not boot a CD32."""
 import json
+import binascii
+import hashlib
+import struct
 import os
 from pathlib import Path
 import shutil
@@ -58,6 +61,50 @@ class Cd32CatalogWaterboxTests(Cd32WaterboxTests):
 
 class Cd32RegionalWaterboxTests(Cd32CatalogWaterboxTests):
     modes = ("cd32regionalsave", "cd32regionalload", "cd32regionalcatalogsave", "cd32regionalcatalogload")
+
+@unittest.skipUnless(GUEST.is_file() and wb.runtime_receipt_path().is_file() and shutil.which("dotnet"), "built guest/runtime and dotnet required")
+class Cd32SessionWaterboxTests(unittest.TestCase):
+    setUp=Cd32WaterboxTests.setUp
+
+    def test_private_v3_cold_snapshot_and_rebind(self):
+        with tempfile.TemporaryDirectory(prefix='cd-v3-',dir=ROOT/'build') as temporary:
+            work=Path(temporary); assembly,env=build_disc_source(work)
+            runtime=wb.read_runtime_receipt(wb.runtime_receipt_path())['runtime_dylib']['path']
+            sha=json.loads(RECEIPT.read_text())['guest']['sha256']; path=work/'sessions'
+            def fixture(variant='',metadata=False,payload=False):
+                info=bytearray(6792); wire=bytearray(39*2448)
+                struct.pack_into('<II32sQII',info,0,3,len(info),bytes(32),len(wire),3,39)
+                def bcd(n): return n//10*16+n%10
+                def clock(n): return bytes(map(bcd,(n//4500,n//75%60,n%75)))
+                for n,(start,one,end,mode) in enumerate(((0,0,4,0),(4,6,11,1),(30,32,39,2))):
+                    control=0 if mode==0 else 4; pre=start<one
+                    struct.pack_into('<12I',info,56+n*48,start,one,end,mode,control,0,1,0,0,7 if pre else 3,mode if pre else 0,control if pre else 0)
+                    for lba in range(start,end):
+                        raw=bytearray((bytes((n*53+lba+k)&255 for k in range(256))*10)[:2352])
+                        if mode: raw[:16]=b'\0'+b'\xff'*10+b'\0'+clock(lba+150)+bytes((mode,))
+                        if mode==2: raw[16:24]=bytes((1,2,0,0))*2
+                        q=bytes((control*16+1,n+1,int(lba>=one)))+clock(abs(lba-one))+b'\0'+clock(lba+150)
+                        sub=(b'\xff' if lba<one else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
+                        wire[lba*2448:(lba+1)*2448]=raw+sub
+                struct.pack_into('<I',info,4808,2)
+                struct.pack_into('<IIIiI',info,4812,1,2,0,-150,11)
+                struct.pack_into('<IIIiI',info,4832,3,3,0x10 if metadata else 0x20,20,39)
+                if payload: wire[32*2448+24]^=1
+                info[8:40]=hashlib.sha256(b'WBSESS3'+info+wire[:11*2448]+wire[30*2448:]).digest()
+                Path(str(path)+variant+'.v3').write_bytes(info); Path(str(path)+variant+'.wire').write_bytes(wire)
+            fixture(); fixture('-meta',metadata=True); fixture('-data',payload=True)
+            for shape in ('','catalog'):
+                pids=[]
+                for action in ('save','load'):
+                    command=['dotnet',str(assembly),str(work),str(path),runtime,str(GUEST),sha,'cd32sessions'+shape+action,*self.extra_args]
+                    with subprocess.Popen(command,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True) as process:
+                        pids.append(process.pid)
+                        try: stdout,stderr=process.communicate(timeout=180)
+                        except subprocess.TimeoutExpired:
+                            process.kill(); stdout,stderr=process.communicate(); self.fail(stdout[-2000:]+stderr[-4000:])
+                        self.assertEqual(0,process.returncode,stdout[-3000:]+stderr[-4000:])
+                        self.assertIn('Private V3 sessions single/catalog cold snapshot/full future/identity/rebind PASS',stdout)
+                self.assertNotEqual(*pids)
 
 class Cd32PublicCoreTests(Cd32WaterboxTests):
     public_modes = ('publicsave', 'publicload')

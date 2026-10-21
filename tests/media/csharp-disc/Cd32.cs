@@ -12,6 +12,10 @@ public abstract class CatalogRebindProbe
  public abstract int Bind(IntPtr info, uint count, IntPtr callback, uint rebind);
  [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_catalog_bind_v2")]
  public abstract int BindV2(IntPtr info, uint count, IntPtr callback, uint rebind);
+ [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_catalog_bind_v3")]
+ public abstract int BindV3(IntPtr info, uint count, IntPtr callback, uint rebind);
+ [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_bind_v3")]
+ public abstract int SingleV3(IntPtr info, IntPtr callback, uint rebind);
  [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_bind")]
  public abstract int Single(IntPtr info, IntPtr callback, uint rebind);
  [BizImport(LibPuae6.CC, EntryPoint = "p6w_cd_bind_v2")]
@@ -41,12 +45,18 @@ internal static unsafe partial class Program
  {
   LoadRuntime(args[2]);
   string path = args[1], guestPath = args[3], sha = args[4];
+  bool sessions=args[5].StartsWith("cd32sessions"), sessionCatalog=args[5].StartsWith("cd32sessionscatalog");
+  P6CdInfoV3 SessionDescriptor(string fixture) {
+   var bytes=File.ReadAllBytes(fixture+".v3"); Require(bytes.Length==sizeof(P6CdInfoV3));
+   return MemoryMarshal.Read<P6CdInfoV3>(bytes);
+  }
+  byte[] SessionId(string fixture) => File.ReadAllBytes(fixture+".v3").AsSpan(8,32).ToArray();
   bool regional=args[5].StartsWith("cd32regional"), catalog=args[5].StartsWith("cd32catalog")||args[5].StartsWith("cd32regionalcatalog"), saving=args[5].EndsWith("save");
   string statePath = Path.Combine(args[0], "cd32.p6ws"), futurePath = statePath + ".future";
   if (saving && path == Path.Combine(args[0], "device.iso")) File.WriteAllBytes(path, new byte[(regional?520:512)*2048]);
   byte[] rom = File.ReadAllBytes(args[7]).Concat(File.ReadAllBytes(args[6])).ToArray();
-  using var disc = Mount(path);
-  var source = new Puae6DiscSource(disc);
+  using var disc = sessions?null:Mount(path);
+  var source = sessions?null:new Puae6DiscSource(disc);
   string secondPath = Path.Combine(args[0], "catalog-b.iso");
   if (catalog) File.WriteAllBytes(secondPath, Enumerable.Repeat((byte)0x6d, (regional?520:512)*2048).ToArray());
   using var secondDisc = catalog ? Mount(secondPath) : null;
@@ -56,13 +66,24 @@ internal static unsafe partial class Program
    heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB }, new byte[32], SHA256.HashData(rom), id);
   var regionalId=new byte[32];
   if(regional) { var info=RegionalDescriptor(source); for(int n=0;n<32;++n) regionalId[n]=info.Id[n]; }
-  var identity = Identity(regional?regionalId:source.ContentId);
+  var identity = Identity(sessions?SessionId(path):regional?regionalId:source.ContentId);
   long reads = 0;
   bool fail = false, busy = false;
-  Puae6Guest Open(Puae6DiscSource image, Puae6DiscSource other = null, bool legacy = false) {
+  Puae6Guest Open(Puae6DiscSource image, Puae6DiscSource other = null, bool legacy = false, string fixture = null) {
    Puae6Guest g = null;
    P6CdHost cd;
-   if (catalog) {
+   if(sessions) {
+    string file=fixture ?? path; var payload=File.ReadAllBytes(file+".wire"); var info=SessionDescriptor(file);
+    bool Read(ulong at,byte[] output,int count) {
+     ++reads; if(busy) { busy=false; Require(g.Cd.Change(g,0,false)==P6.Busy); }
+     ulong end=at+(uint)count;
+     if(fail || end<at || end>(ulong)payload.Length || !((at<11*2448&&end<=11*2448)||(at>=30*2448&&end<=39*2448))) return false;
+     Buffer.BlockCopy(payload,(int)at,output,0,count); return true;
+    }
+    if(sessionCatalog) { var descriptors=new[] {info}; cd=new P6CdHost(descriptors,(n,at,data,count)=>n==0&&Read(at,data,count)); descriptors[0].SessionCount=99; }
+    else cd=new P6CdHost(info,Read);
+    info.SessionCount=99; // The managed owner copied the descriptor before Seal.
+   } else if (catalog) {
     var sources = new[] { image, other ?? second };
     bool Read(uint index, ulong at, byte[] data, int count) {
      ++reads;
@@ -91,11 +112,11 @@ internal static unsafe partial class Program
     return g;
    } catch { g.Dispose(); throw; }
   }
-  byte[] Save(Puae6Guest g) {
+  byte[] Save(Puae6Guest g,StateIdentity expectedId=null) {
    using var raw = new MemoryStream(); using var writer = new BinaryWriter(raw, Encoding.UTF8, true);
    using (g.Host.EnterExit()) g.Host.SaveStateBinary(writer);
    using var outer = new MemoryStream(); using var wrapped = new BinaryWriter(outer);
-   StateEnvelope.Write(wrapped, identity, raw.ToArray()); return outer.ToArray();
+   StateEnvelope.Write(wrapped, expectedId ?? identity, raw.ToArray()); return outer.ToArray();
   }
   void Restore(Puae6Guest g, byte[] data, StateIdentity expected) {
    using var raw = new MemoryStream(data); using var reader = new BinaryReader(raw);
@@ -149,6 +170,70 @@ internal static unsafe partial class Program
     fixed(P6CdInfoV2* p=descriptors) Require((catalog?raw.BindV2((IntPtr)p,2,new IntPtr(1),1):raw.SingleV2((IntPtr)p,new IntPtr(1),1))==P6.BadState);
    }
    Require(reads==before&&saved.SequenceEqual(Save(legacy)));
+  }
+  if(sessions) {
+   var wire=File.ReadAllBytes(path+".wire");
+   void SessionData(Puae6Guest target) {
+    var output=new byte[2464]; long calls=reads;
+    using var active=target.Host.EnterExit();
+    foreach(uint lba in new uint[] {11,20,29}) {
+     Array.Fill(output,(byte)0xcc);
+     fixed(byte* p=output) Require(target.Lib.p6w_cd_read_sector(lba,2448,(IntPtr)(p+8),2448)==P6.BadArgument);
+     Require(output.All(b=>b==0xcc)&&reads==calls);
+    }
+    foreach(uint lba in new uint[] {0,3,4,6,10,30,32,38}) foreach(uint view in new uint[] {2352,2448}) {
+     Array.Fill(output,(byte)0xcc);
+     fixed(byte* p=output) Require(target.Lib.p6w_cd_read_sector(lba,view,(IntPtr)(p+8),view)==P6.Ok);
+     Require(output.Take(8).Concat(output.Skip(8+(int)view)).All(b=>b==0xcc));
+     Require(output.AsSpan(8,(int)view).SequenceEqual(wire.AsSpan((int)lba*2448,(int)view)));
+    }
+   }
+   string[] SessionFuture(Puae6Guest target) {
+    long calls=reads; var rows=Run(target,5).Concat(new[] {Ram(target)}).ToList(); SessionData(target);
+    rows.Add((reads-calls).ToString(System.Globalization.CultureInfo.InvariantCulture)); return rows.ToArray();
+   }
+   using var v3Guest=Open(null); SessionData(v3Guest);
+   if(saving) {
+    Run(v3Guest,2); File.WriteAllBytes(statePath,Save(v3Guest));
+    File.WriteAllLines(futurePath,SessionFuture(v3Guest)); File.WriteAllBytes(futurePath+".bin",Save(v3Guest));
+   }
+   var cutV3=File.ReadAllBytes(statePath);
+   void CheckV3(Puae6Guest target) {
+    Restore(target,cutV3,identity); Require(Save(target).SequenceEqual(cutV3)); // Fresh target has never run.
+    Require(SessionFuture(target).SequenceEqual(File.ReadAllLines(futurePath)));
+    Require(Save(target).SequenceEqual(File.ReadAllBytes(futurePath+".bin")));
+   }
+   CheckV3(v3Guest);
+   using(var v3Fresh=Open(null)) CheckV3(v3Fresh);
+   var stableV3=Save(v3Guest); long readsV3=reads;
+   using(v3Guest.Host.EnterExit()) {
+    var raw=BizInvoker.GetInvoker<CatalogRebindProbe>(v3Guest.Host,v3Guest.Host,CallingConventionAdapters.MakeWaterboxDepartureOnly(v3Guest.Host));
+    var replacement=new IntPtr(1); var bad=SessionDescriptor(path); bad.Sessions[7]=0x10;
+    Require((sessionCatalog?raw.BindV3((IntPtr)(&bad),1,replacement,1):raw.SingleV3((IntPtr)(&bad),replacement,1))==P6.WrongMedia);
+    --bad.Size; Require((sessionCatalog?raw.BindV3((IntPtr)(&bad),1,replacement,1):raw.SingleV3((IntPtr)(&bad),replacement,1))==P6.BadArgument);
+    var legacy=new P6CdInfo {Version=1,Size=(uint)sizeof(P6CdInfo)};
+    Require((sessionCatalog?raw.Bind((IntPtr)(&legacy),1,replacement,1):raw.Single((IntPtr)(&legacy),replacement,1))==P6.BadState);
+    var regionalV2=new P6CdInfoV2 {Version=2,Size=(uint)sizeof(P6CdInfoV2)};
+    Require((sessionCatalog?raw.BindV2((IntPtr)(&regionalV2),1,replacement,1):raw.SingleV2((IntPtr)(&regionalV2),replacement,1))==P6.BadState);
+   }
+   Require(reads==readsV3&&stableV3.SequenceEqual(Save(v3Guest))); // Check BSS before executing another callback.
+   busy=true; SessionData(v3Guest); Require(!busy);
+   var guardV3=Enumerable.Repeat((byte)0xcc,2448).ToArray(); fail=true;
+   Require(v3Guest.Cd.ReadAt(v3Guest,0,guardV3)==P6.Io&&guardV3.All(b=>b==0xcc)); fail=false;
+   foreach(string variant in new[] {path+"-meta",path+"-data"}) {
+    using var alienV3=Open(null,fixture:variant); var alienId=Identity(SessionId(variant));
+    var beforeV3=Save(alienV3,alienId); long calls=reads;
+    try { Restore(alienV3,cutV3,alienId); throw new Exception("Other V3 medium accepted"); }
+    catch(StateRejectedException e) { Require(e.Reason==StateRejection.OtherMedia); }
+    Require(calls==reads&&beforeV3.SequenceEqual(Save(alienV3,alienId)));
+    var internalOther=Save(alienV3); // Deliberately bypass only the outer identity to exercise rebind/latch.
+    try { Restore(v3Guest,internalOther,identity); throw new Exception("Internal V3 owner accepted"); }
+    catch(InvalidDataException) { Require(v3Guest.Cd.ReadAt(v3Guest,0,guardV3)==P6.BadState&&v3Guest.Cd.Change(v3Guest,0,true)==P6.BadState); }
+    Restore(v3Guest,cutV3,identity); SessionData(v3Guest);
+   }
+   using(v3Guest.Host.EnterExit()) Require(v3Guest.Lib.p6w_shutdown()==P6.Ok);
+   Require(v3Guest.Cd.ReadAt(v3Guest,0,guardV3)==P6.BadState);
+   Console.WriteLine("Private V3 sessions single/catalog cold snapshot/full future/identity/rebind PASS"); return;
   }
   if (catalog) {
    uint[] Status(Puae6Guest g) { var v = new uint[4]; Require(g.Cd.Status(g, v) == P6.Ok); return v; }
