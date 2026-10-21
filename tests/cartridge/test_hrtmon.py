@@ -115,6 +115,7 @@ class ArStateTests(unittest.TestCase):
     MOVEA.L #$7F000,A7
     MOVE.B #3,$BFE201.L
     MOVE.B #2,$BFE001.L
+    MOVE.B #0,$1100C.L
 wait:
     .word $4A39,$0001,$100C,$67F8
 count:
