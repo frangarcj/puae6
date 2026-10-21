@@ -18047,7 +18047,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "id": "T66t17",
       "title": "Conservar HTOA CHD y el primer INDEX00 en nativo y DiscSystem",
       "depends": [
@@ -18094,7 +18094,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "id": "T66l6",
       "title": "Leer NRG ETNF con pistas de strides distintos",
       "depends": [
@@ -18134,6 +18134,99 @@
         "ETNF mixto representa por separado datos fisicos y posiciones logicas y mantiene sectores/pregaps canonicos150, con controles independientes y regresiones DAO/factory intactas."
       ],
       "stop": "No quitar solamente el guard de stride ni inventar offsets/pregap perdidos; ETN2/multisesion y puerta padre siguen pendientes."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "id": "T66t18",
+      "title": "Restaurar HTOA CHD mediante cargas publicas libretro y Waterbox",
+      "depends": [
+        "T66t17",
+        "T66t16",
+        "T66t14"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/libretro-host/test_cd32_load.py",
+        "tests/waterbox-media/test_chd_public.py",
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Reusar htoa_fixture(P200,NONE), segunda Mode1, variantes payload/P y rutas renombradas. Cuatro rutas de implementacion180..220lineas; sin produccion nueva salvo defecto demostrado y scope ampliado antes. Agente busy_reference aislado, metadata root y compilaciones pesadas/guest serializadas.",
+        "WB carga XML por RomLoader real y comprueba descriptorV2 con INDEX01=P/count2, Statuscount1/ordinal0/presente y bytes0/P-1/P por ReadAt y export ReadSector reales. Reusar T16 StoreSaveRam en EEPROM existente, durable en core nuevo, cut300/futuro15, owner/sandbox/proceso nuevo antes del primer frame, snapshot entero y tres tramos de supresion. OtherMedia transaccional y FDclose se conservan.",
+        "LR usa retro_load_game real, TOC semantica serializada P6AK y discoID/presencia con identidad matematica,15futuro/newprocess y negativos sin mutar. No hay endpoint retro_* de lectura sectorial: este gate no atribuye tres lecturas independientes a libretro; los bytes se acreditan en WB y proveedor nativo compartido. No inventar exports debug ni usar hash de estado como lectura.",
+        "Selectores Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity y ChdPublicWaterboxTests.test_xml_chd_htoa_saveram_and_cold_restore; LR01/WB03/WB08/DET02 comparten la union sin repetir por etiqueta. Root actualiza una vez guest/recibos tras0403 antes de runner real."
+      ],
+      "checks": [
+        "LR01",
+        "WB03",
+        "WB08",
+        "DET02"
+      ],
+      "acceptance": [
+        "HTOA almacenado conserva TOC/identidad y futuro exacto tras restore publico y nuevos owners/procesos en ambos frontends; Waterbox acredita ademas bytes0/P-1/P por export real, EEPROM durable y supresion de salidas. No se simula una API sectorial libretro inexistente."
+      ],
+      "stop": "Sin runner actual deja BLOCKED; no sustituir restore por host ni afirmar lecturas retro_* no observadas."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "id": "T66l7",
+      "title": "Leer NRG ETN2 de una sesion con offsets de64bits",
+      "depends": [
+        "T66l6",
+        "T66l5",
+        "T66o1"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/options.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0404-nrg-etn2-canonical-pregap.patch",
+        "ports/portable/media/cd_nrg_metadata.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_image.py",
+        "docs/options.md",
+        "tools/check.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "NER5 con registrosETN2 de32bytes: offsetBE64@0,longitudBE64@8,modoBE32@16,sectorBE32@20,reservados24..31cero. Contrastar WinUAE6030parsenrg,DiscSystem9b627NRG_format.cs490..496 ylibMiragea9d6a2 parser373..383/load_session_tao835..883; estosultimos respaldan directamente normalizacion150 compartida conETNF. No copiar type3->2048 ni lastlba por+28 deWinUAE, que contradicen esos lectores.",
+        "Una sesion1..99pistas modos00/02/03/07 y mezclascompactas: fisico/logico contiguos independientes, alineacionporpista y limites previos. Etn2Canonical150 y dominioP6ETN2 explicitos; identidadesETNF/DAO anterioresexactas. Padding,multisesion,TINF y cargaTAOenDiscSystem permanecen deudas separadas delpadre, no se acreditan por este proveedor.",
+        "Ocho rutas de implementacion220..300manuales, patch0404solo blkdev_cdimage.cpp derivado actual0403; no editar upstream/generados. Agente cd_swap aislado entregaSHA/beforeafter ycommit, rootserie/clasificacion/plan/checks. MED01 mismas3clasesNrgMetadataTests/CdNrgTests/CdImageTests unaunion bajoASan/UBSan; mezcla/inverso, Q/fronteras, virtual64bits>4GiB sin asignarpayload, overflow/truncado/reservado, identidad/VFS/rebind/freshowner. Sin motor/guest poragente."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "ETN2 nativo conserva bytes/posiciones/pregaps canonicos150 y offsets64bits, identidad y rebind transaccionales con oraculos independientes y regresionesETNF/DAO sin cambios."
+      ],
+      "stop": "No presentar TAO BizHawk ni multisesion como soportados; no inventarcampos64bits ni truncarlos. Dividir antes400 o ampliar scope antesotrasrutas."
     },
     {
       "id": "T66",
@@ -18219,7 +18312,9 @@
         "T66t15c",
         "T66t16",
         "T66t17",
-        "T66l6"
+        "T66l6",
+        "T66t18",
+        "T66l7"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18594,7 +18689,7 @@
         "ISO y programa originales ejecutan lectura real CDFS/AmigaDOS bajo firmware CDTV autorizado y producen resultado RAM dependiente del fichero; restore local y cold nuevo proceso reproducen futuro completo, negativos no arrancan ni mutan estado al rechazar identidad."
       ],
       "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis.",
-      "blocked_reason": "Cannon Fodder autorizado aporta TM real22152/LBA21/cdtv35.2, SHA bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb. Fixture propia con ese TM termina600f/60lecturas/nonce0 sin HUNK; no acredita entrada. Control independiente PUAE5/Waterbox Release de MacHawk: Cannon original1000f y fixture600f terminan en el mismo PNG de logo CDTV, sin audio ni aplicacion acreditada, con KS1.3/EXT2.7. H1: configuracion/firmware o ruta CDTV de la referencia no valida para este disco; confirmar si el arranque conocido era CDTV o CD32. H2: fixture CDFS/Startup/HUNK tiene otro defecto, pero el control que tampoco arranca no lo distingue. Mantener reproducer y restauracion/negativos pendientes; no repetir esta campaña sin dato nuevo."
+      "blocked_reason": "Cannon Fodder autorizado aporta TM real22152/LBA21/cdtv35.2, SHA bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb. Fixture propia con ese TM termina600f/60lecturas/nonce0 sin HUNK; no acredita entrada. Control independiente PUAE5/Waterbox Release de MacHawk: Cannon original1000f y fixture600f terminan en el mismo PNG de logo CDTV, sin audio ni aplicacion acreditada, con KS1.3/EXT2.7. H1: configuracion/firmware o ruta CDTV de la referencia no valida para este disco; confirmar si el arranque conocido era CDTV o CD32. H2: fixture CDFS/Startup/HUNK tiene otro defecto, pero el control que tampoco arranca no lo distingue. Mantener reproducer y restauracion/negativos pendientes; no repetir esta campaña sin dato nuevo. El usuario no recuerda si el arranque conocido fue CDTV o CD32."
     },
     {
       "id": "T67c3b",
