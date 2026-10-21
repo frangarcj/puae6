@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "machine": "CDTV-private",
+  "machine_id": 10,
+  "upstream_preset": "default_prefs + built_in_prefs(model9, config0, compa0, romcheck0) + stock exact overrides + fixup_prefs",
+  "firmware": "524288 bytes: extended256KiB ID22 (v2.7) + main256KiB ID6 (KS1.3); fixed rommgr SHA1 and main checksum",
+  "fields": {
+    "cpu_model": 68000,
+    "address_space_24": 1,
+    "cpu_cycle_exact": 1,
+    "cpu_clock_multiplier": 512,
+    "chipset_mask": 1,
+    "chip_kib": 1024,
+    "slow_kib": 0,
+    "fast_kib": 0,
+    "nr_floppies": 0,
+    "cs_compatible": 2,
+    "cs_cdtvcd": 1,
+    "cs_cdtvram": 1,
+    "cs_cdtvcr": 0,
+    "cs_rtc": 1,
+    "cs_ciaoverlay": 1,
+    "cs_ksmirror_e0": 0,
+    "cs_ide": 0,
+    "cs_pcmcia": 0
+  },
+  "limits": "Private firmware/map gate only. No schema/frontend selection, DMAC autoconfig, CD boot, native state or Waterbox acceptance. No CR/SCSI/SRAM card/Fast RAM or persistent NVRAM."
+}

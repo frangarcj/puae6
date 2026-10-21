@@ -462,6 +462,8 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (session.config.machine == p6_bridge::kCdtvMachine)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV profile state awaits causal autoconfig");
     if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV state requires its A500 test owner");
     uint8_t cartridge[32];

@@ -234,6 +234,12 @@ target_include_directories(p6_cdtv_state_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_cdtv_state_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_cdtv_state_probe PRIVATE p6_state p6_bridge p6_portable)
+add_executable(p6_cdtv_boot_probe tests/media/cdtv_boot_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_cdtv_boot_probe p6_codegen)
+target_include_directories(p6_cdtv_boot_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable"
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_cdtv_boot_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_cdtv_boot_probe PRIVATE p6_state p6_bridge p6_portable)
 # Identity, validation and registration of the media of p6_load (tests/media/test_media.py runs it with a ROM).
 add_executable(p6_media_probe tests/media/media_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_media_probe p6_codegen)

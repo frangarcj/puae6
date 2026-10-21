@@ -196,7 +196,7 @@ extern "C" p6_result p6_init(const p6_config *supplied, p6_error *error)
     if (const p6_result checked = p6_bridge::validate_config(*supplied, error))
         return checked;
     config = *supplied;
-    p6_bridge::profile_state_supported = true;
+    p6_bridge::profile_state_supported = config.machine != p6_bridge::kCdtvMachine;
     session.state = State::Initialized;
     return P6_OK;
 }
@@ -216,6 +216,8 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
         return checked;
     if (config.machine == p6_bridge::kCd32Machine && media_count)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "stock CD32 accepts its bound CD only, without floppy/HDF media");
+    if (config.machine == p6_bridge::kCdtvMachine && media_count)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV firmware profile accepts no floppy/HDF media");
     if (const p6_result checked = p6_bridge::validate_media(media, media_count, error))
         return checked;
 

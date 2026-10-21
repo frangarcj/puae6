@@ -1849,3 +1849,15 @@ El dominio de identidad CDTV rechaza A500 sin ese dueno aun con el mismo catalog
 La carga valida antes del reset head, reconstruye E9 y callbacks sin adelantar
 hardware, y admite otro proceso sin primer run. Perfil/autoconfig/arranque publico
 y snapshots Waterbox siguen pendientes; no hay compatibilidad entre builds.
+
+T67c1 añade un perfil CDTV privado ID10, fuera del ABI/schema y los frontends.
+Parte del preset WinUAE model9/config0: 68000 exacto, ECS Agnus/OCS Denise,
+Chip1MiB, RTC1 y sin disquetes ni expansiones. Solo admite el combinado
+EXT256KiB v2.7 (ID22) + KS1.3 de256KiB (ID6), validado por hashes de la tabla
+y checksum principal antes de cargar. Vistas acotadas separan ambas mitades;
+el banco extendido ocupa512KiB en F0-F7, con el relleno/checksum que genera
+WinUAE, y nunca contiene bytes de MAIN. La principal conserva su alias256KiB.
+El probe acredita preferencias, mapas, ejecucion y teardown/recarga A500;
+no acredita autoconfig DMAC ni arranque CD/menu. El estado de este nuevo owner
+devuelve UNSUPPORTED y su capacidad permanece apagada hasta la hoja causal de
+autoconfig P6RM/P6CT. El codec privado A500 de T67b2 conserva su propio gate.

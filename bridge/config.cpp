@@ -220,6 +220,7 @@ const MachineInfo kMachines[] = {
     {P6_MACHINE_A4030, "A4030", 6, 0, {2048, 0, 8192}, 68030, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
     {P6_MACHINE_A4040, "A4040", 6, 1, {2048, 0, 8192}, 68040, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
     {P6_MACHINE_CD32, "CD32", 8, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, CP_CD32, false},
+    {kCdtvMachine, "CDTV", 9, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, CP_CDTV, false},
 };
 
 const MachineInfo *find_machine(uint32_t machine)
@@ -303,7 +304,7 @@ int resolve_floppy_speed(const p6_config &c)
 
 uint32_t resolve_floppy_drives(const p6_config &c)
 {
-    return c.machine == kCd32Machine ? 0 : c.floppy_drives ? c.floppy_drives : 2;
+    return c.machine == kCd32Machine || c.machine == kCdtvMachine ? 0 : c.floppy_drives ? c.floppy_drives : 2;
 }
 
 int resolve_collision_level(const p6_config &c) { return c.collision_level ? int(c.collision_level) - 1 : 3; }
@@ -382,6 +383,9 @@ p6_result validate_memory(const p6_config &c, p6_error *error)
     // The OCS Agnus of the A500 and A2000 OG has 1 MiB as the 8371 with the jumper, anything above it needs ECS. AGA maps at most 1.5 MiB of Slow RAM (memory_reset).
     const MachineInfo &m = machine_info(c.machine);
     const bool ecs = (m.chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0, aga = is_aga(c.machine);
+    if (c.machine == kCdtvMachine && ((c.chip_kib && c.chip_kib != 1024) ||
+        (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE)))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV requires 1 MiB Chip, no Slow or Fast RAM");
     if (c.machine == kCd32Machine && ((c.chip_kib && c.chip_kib != 2048) ||
         (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && c.fast_kib != 8192)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 has 2 MiB Chip, no Slow RAM and either no Fast RAM or the CD32FR 8 MiB board");
@@ -408,6 +412,9 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config has the wrong ABI version or size");
     if (!find_machine(c.machine))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the requested machine is not supported");
+    if (c.machine == kCdtvMachine && ((c.cpu_model && c.cpu_model != 1) || c.cpu_compatibility != P6_CPU_EXACT ||
+        (c.cpu_multiplier && c.cpu_multiplier != 2) || c.fpu_model || c.z3_memory || c.floppy_drives || c.flags || c.hdf_controller))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV requires stock exact 68000, no expansions or floppy drives");
     if (c.machine == kCd32Machine && ((c.cpu_model && c.cpu_model != 3) || c.cpu_compatibility != P6_CPU_EXACT ||
         (c.cpu_multiplier && c.cpu_multiplier != 4) || c.fpu_model || c.z3_memory || c.floppy_drives || c.flags))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 currently requires stock exact 68EC020, no FPU/Z3 or floppy drives");
@@ -480,23 +487,31 @@ p6_result validate_config(const p6_config &c, p6_error *error)
     return P6_OK;
 }
 
+static bool firmware_matches(const uae_u8 *data, int size, int id)
+{
+    const auto *rd = getromdatabyid(id); uae_u8 sha[SHA1_SIZE]; get_sha1(const_cast<uae_u8 *>(data), size, sha);
+    if (!rd || rd->size != unsigned(size)) return false;
+    for (unsigned n = 0; n < SHA1_SIZE; ++n)
+        if (sha[n] != uint8_t(rd->sha1[n / 4] >> (24 - 8 * (n % 4)))) return false;
+    return true;
+}
 p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_error *error)
 {
     if (!firmware.data || firmware.bytes == 0)
         return p6_fail(error, P6_ERROR_NEED_FIRMWARE, "no firmware was supplied");
+    if (machine == kCdtvMachine) {
+        const auto *data = static_cast<const uae_u8 *>(firmware.data);
+        if (firmware.bytes != 524288 || !firmware_matches(data, 262144, 22) ||
+            !firmware_matches(data + 262144, 262144, 6) || !kickstart_checksum(const_cast<uae_u8 *>(data + 262144), 262144))
+            return p6_fail(error, P6_ERROR_WRONG_MEDIA, "private CDTV requires EXT v2.7 ID22 256 KiB + KS1.3 ID6 256 KiB");
+        return P6_OK;
+    }
     if (machine == kCd32Machine) {
         if (firmware.bytes != 1048576) return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CD32 requires canonical extended512KiB+main512KiB firmware");
         auto *data = const_cast<uae_u8 *>(static_cast<const uae_u8 *>(firmware.data));
         // getromdatabydata temporarily edits unknown input; match the fixed ROM
         // table's SHA1 directly so even a rejected read-only buffer stays intact.
-        auto matches = [](uae_u8 *p, int size, int id) {
-            const auto *rd = getromdatabyid(id); uae_u8 sha[SHA1_SIZE]; get_sha1(p, size, sha);
-            if (!rd || rd->size != unsigned(size)) return false;
-            for (unsigned n = 0; n < SHA1_SIZE; ++n)
-                if (sha[n] != uint8_t(rd->sha1[n / 4] >> (24 - 8 * (n % 4)))) return false;
-            return true;
-        };
-        if (!matches(data, 1048576, 64) || !matches(data, 524288, 19) || !matches(data + 524288, 524288, 18) ||
+        if (!firmware_matches(data, 1048576, 64) || !firmware_matches(data, 524288, 19) || !firmware_matches(data + 524288, 524288, 18) ||
             !kickstart_checksum(data, 524288) || !kickstart_checksum(data + 524288, 524288))
             return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CD32 firmware pair, order or checksum is invalid");
         return P6_OK;
@@ -538,7 +553,7 @@ void build_preferences(const p6_config &c, bool ide)
         currprefs.cs_compatible = CP_A2000;
         built_in_chipset_prefs(&currprefs);
     }
-    if (c.machine != kCd32Machine && currprefs.floppyslots[1].dfxtype == DRV_NONE)
+    if (c.machine != kCd32Machine && c.machine != kCdtvMachine && currprefs.floppyslots[1].dfxtype == DRV_NONE)
         currprefs.floppyslots[1].dfxtype = DRV_35_DD;     // upstream's A500 OG and A1000 have one drive; the ABI gives every machine DF0 and DF1 (the external drive port)
     if (resolve_floppy_drives(c) != 2) {
         currprefs.nr_floppies = int(resolve_floppy_drives(c));
@@ -650,7 +665,7 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.reset_delay = 0;        // config-invariants.json: the delayed-reset wait cannot poll
     currprefs.crash_auto_reset = 0;   // config-invariants.json: a halted CPU stays in the polling wait
     for (auto &drive : currprefs.floppyslots) drive.dfxclick = 1;
-    if (c.machine == kCd32Machine) { currprefs.flashfile[0] = currprefs.romextfile[0] = currprefs.romextfile2[0] = 0; }
+    if (c.machine == kCd32Machine || c.machine == kCdtvMachine) { currprefs.flashfile[0] = currprefs.romextfile[0] = currprefs.romextfile2[0] = 0; }
     currprefs.cartfile[0] = 0;
     if (hrtmon_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kCartridgeId); }
     _tcscpy(currprefs.romfile, kFirmwareId);
@@ -678,6 +693,8 @@ p6_result check_preset(p6_error *error)
     else if (!no_gayle && !is_a4000(preset_config.machine) && p.cs_ide) drifted = "gayle";
     else if (preset_config.machine == kCd32Machine && (!p.cs_cd32cd || !p.cs_cd32c2p || !p.cs_cd32nvram || p.cs_cd32nvram_size != 1024 ||
              p.cs_ciaoverlay || p.cs_cd32fmv || p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.cs_ksmirror_e0 || !p.cs_ksmirror_a8)) drifted = "CD32 motherboard";
+    else if (preset_config.machine == kCdtvMachine && (!p.cs_cdtvcd || !p.cs_cdtvram || p.cs_cdtvcr || p.cs_rtc != 1 ||
+             p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.romextfile2[0] || p.cs_ksmirror_e0)) drifted = "CDTV motherboard";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||
              p.uaeserial || p.sana2 || p.win32_automount_drives || p.win32_automount_removable || p.win32_automount_cddrives || p.win32_automount_netdrives ||
@@ -747,6 +764,10 @@ p6_result check_loaded_firmware(p6_error *error)
     if (preset_config.machine == kCd32Machine && (extendedkickmem_bank.reserved_size != 524288 ||
         !extendedkickmem_bank.baseaddr || !kickstart_checksum(extendedkickmem_bank.baseaddr, 524288)))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CD32 extended firmware is missing or corrupt");
+    if (preset_config.machine == kCdtvMachine && (kickmem_bank.reserved_size != 262144 ||
+        extendedkickmem_bank.reserved_size != 524288 || !extendedkickmem_bank.baseaddr ||
+        !firmware_matches(extendedkickmem_bank.baseaddr, 262144, 22)))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CDTV extended firmware is missing or corrupt");
     // The decoded image must be intact.
     if (!kickstart_checksum(kickmem_bank.baseaddr, kickmem_bank.reserved_size))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "firmware checksum is invalid");
