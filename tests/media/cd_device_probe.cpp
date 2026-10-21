@@ -1,6 +1,7 @@
 #define P6_CDA_FIXTURE_ONLY
 #include "../audio/cd_audio_probe.cpp"
 #include "media/cd_device.h"
+#include "media/cd_akiko.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +24,69 @@ static bool filled(const uint8_t *p, size_t count, uint8_t v)
 }
 static int reported_status, status_count;
 static int status(int s, int) { reported_status = s; ++status_count; return 0; }
+static int sessions()
+{
+    Provider p[]={{2048,3},{2352,2},{2448,4,0,true}};
+    Binding b[3]{};
+    for(unsigned n=0;n<3;++n) b[n]={{{uint8_t(n+1)},uint64_t(p[n].stride)*p[n].sectors,1},read,&p[n]};
+    Layout layout{}; layout.tracks=3; layout.leadout=16; layout.content_id[0]=77;
+    layout.track[0]={0,0,3,0,2048,0,Mode::Mode1_2048,1,4,false};
+    layout.track[1]={3,3,5,1,2352,0,Mode::Audio,1,0,false};
+    layout.track[2]={10,12,16,2,2448,0,Mode::Mode1Raw,1,4,false,2};
+    layout.sessions=2; layout.session[0]={1,2,0,-150,5}; layout.session[1]={3,3,0,8,16};
+    Disc disc; CHECK(disc.bind(layout,b,3)==Result::Ok);
+    CHECK(device_bind(&disc)==Result::Ok&&sys_command_open(0)==1);
+    uint8_t out[2*2448+16]; memset(out,0xa5,sizeof out);
+    // Last audio sector followed by the hole: reject before reading even sector 4.
+    for(int view : {2048,2352,2448})
+        CHECK(!sys_command_cd_rawread(0,out+8,4,2,view)&&device_last_error()==Result::Range);
+    CHECK(!p[0].calls&&!p[1].calls&&!p[2].calls&&filled(out,sizeof out,0xa5)&&device_position()==0);
+    cd_toc_head toc; device_info info;
+    CHECK(sys_command_cd_toc(0,&toc)&&sys_command_info(0,&info,0)==&info);
+    CHECK(!memcmp(&toc,&info.toc,sizeof toc)&&info.sectorspertrack==16);
+    CHECK(toc.first_track==1&&toc.last_track==3&&toc.tracks==3&&toc.points==6&&toc.lastaddress==16);
+    CHECK(toc.toc[0].point==0xa0&&toc.toc[0].track==1&&toc.toc[0].control==0);
+    for(unsigned n=0;n<3;++n) {
+        CHECK(toc.toc[n+1].track==n+1&&toc.toc[n+1].point==n+1);
+        CHECK(toc.toc[n+1].paddress==(n==0?0:n==1?3:12)&&toc.toc[n+1].control==(n==1?0:4));
+    }
+    CHECK(toc.toc[4].point==0xa1&&toc.toc[4].track==3&&toc.toc[4].paddress==16);
+    CHECK(toc.toc[5].point==0xa2&&toc.toc[5].paddress==16);
+    for(unsigned ordinal : {2u,1u,2u}) {
+        SessionToc local{}; CHECK(akiko_session_toc(disc,ordinal,&local)==Result::Ok);
+        CHECK(local.toc.lastaddress==(ordinal==1?5:16)&&local.toc.first_track==(ordinal==1?1:3));
+        cd_toc_head again; CHECK(sys_command_cd_toc(0,&again)&&!memcmp(&toc,&again,sizeof toc));
+    }
+    CHECK(!p[0].calls&&!p[1].calls&&!p[2].calls&&device_position()==0);
+    CHECK(device_bound_disc()==&disc&&device_open_count()==1&&device_inserted());
+    for(int lba : {0,12,15}) {
+        memset(out,0xa5,sizeof out);
+        CHECK(sys_command_cd_read(0,out+8,lba,1));
+        const unsigned source=lba?2:0; const uint64_t offset=lba?uint64_t(lba-12)*2448+16:0;
+        for(unsigned n=0;n<2048;++n) CHECK(out[8+n]==value(p[source],offset+n));
+        CHECK(filled(out,8,0xa5)&&filled(out+2056,sizeof out-2056,0xa5));
+    }
+    CHECK(sys_command_cd_rawread(0,out,4,1,2352)==2352);
+    for(unsigned n=0;n<2352;++n) CHECK(out[n]==value(p[1],2352+n));
+    const auto calls=p[0].calls+p[1].calls+p[2].calls;
+    for(int lba : {10,11}) {
+        CHECK(sys_command_cd_rawread(0,out,lba,1,2448)==2448&&filled(out+16,2048,0));
+        CHECK(out[2364]==0x41&&out[2365]==3&&out[2366]==0); // New session data INDEX00, no inherited audio.
+    }
+    const auto position=device_position(); SessionToc local{};
+    CHECK(akiko_session_toc(disc,1,&local)==Result::Ok&&sys_command_info(0,&info,0)==&info);
+    CHECK(sys_command_cd_toc(0,&info.toc)&&!memcmp(&toc,&info.toc,sizeof toc));
+    CHECK(device_position()==position&&device_open_count()==1&&device_bound_disc()==&disc&&device_inserted());
+    memset(out,0xa5,sizeof out);
+    for(int lba : {5,7,8,9,16}) for(int view : {2048,2352,2448}) {
+        CHECK(!sys_command_cd_rawread(0,out+8,lba,1,view)&&device_last_error()==Result::Range);
+        CHECK(filled(out,sizeof out,0xa5)&&device_position()==position);
+    }
+    CHECK(!sys_command_cd_rawread(0,out+8,15,2,2352)&&device_last_error()==Result::Range);
+    CHECK(p[0].calls+p[1].calls+p[2].calls==calls&&filled(out,sizeof out,0xa5)&&device_position()==position);
+    device_unbind(); CHECK(!device_bound_disc()&&!device_open_count());
+    return 0;
+}
 int main()
 {
     int16_t dummy[1176]{}; cd_audio_state bootstrap{};
@@ -138,4 +202,5 @@ int main()
     CHECK(device_catalog_disc(kDeviceMaxDiscs) == nullptr && device_resolve_disc(disc.layout().content_id) == nullptr);
     CHECK(device_set_inserted(true) == Result::Ok && device_catalog_bind(items, 1) == Result::Invalid);
     device_unbind(); CHECK(!device_catalog_size() && !device_catalog_disc(0));
+    return sessions();
 }

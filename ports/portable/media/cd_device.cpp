@@ -36,6 +36,13 @@ int read_sectors(int unit, uae_u8 *out, int block, int count, int view)
     if (view != 2048 && view != 2352 && view != 2448) { error = Result::Unsupported; return 0; }
     const uint32_t end = disc->layout().leadout;
     if (uint32_t(block) >= end || uint32_t(count) > end - uint32_t(block)) { error = Result::Range; return 0; }
+    // A multi-session burst crossing a hole must fail before any payload I/O.
+    // Use the same metadata policy as sector reads; leave the legacy path alone.
+    if (disc->layout().sessions > 1) for (int n = 0; n < count; ++n) {
+        SectorInfo info;
+        error = disc->describe(uint32_t(block + n), &info);
+        if (error != Result::Ok) return 0;
+    }
     // Bounded burst, transactional output even if the final sector fails. This
     // also preserves position; no caller sees a half-published buffer as valid.
     uint8_t staging[kDeviceMaxBurst * kMaxReadBytes];

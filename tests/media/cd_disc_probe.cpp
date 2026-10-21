@@ -517,7 +517,19 @@ static int sessions()
     Disc disc; CHECK(disc.bind(layout,b,2)==Result::Ok&&p[0].calls==0&&p[1].calls==0);
     SessionToc toc, unchanged; memset(&toc,0xa5,sizeof toc); memcpy(&unchanged,&toc,sizeof toc);
     cd_toc_head global; memset(&global,0xa5,sizeof global);
-    CHECK(akiko_toc(disc,&global)==Result::Unsupported&&filled(reinterpret_cast<uint8_t*>(&global),sizeof global,0xa5));
+    CHECK(akiko_toc(disc,&global)==Result::Ok);
+    cd_toc_head expected; memset(&expected,0,sizeof expected);
+    expected.first_track=expected.first_track_offset=1;
+    expected.last_track=expected.last_track_offset=expected.tracks=2;
+    expected.points=5; expected.lastaddress=224;
+    for(unsigned n=0;n<5;++n) expected.toc[n].adr=1;
+    expected.toc[0].point=0xa0; expected.toc[0].track=1;
+    expected.toc[1].track=expected.toc[1].point=1;
+    expected.toc[2].track=expected.toc[2].point=2;
+    expected.toc[2].control=4; expected.toc[2].paddress=220;
+    expected.toc[3].point=0xa1; expected.toc[3].track=2; expected.toc[3].paddress=224;
+    expected.toc[4].point=0xa2; expected.toc[4].paddress=224;
+    CHECK(!memcmp(&global,&expected,sizeof global));
     for (uint32_t ordinal : {0u,3u}) {
         CHECK(akiko_session_toc(disc,ordinal,&toc)==Result::Range&&!memcmp(&toc,&unchanged,sizeof toc));
     }
@@ -537,6 +549,7 @@ static int sessions()
         for(unsigned n=0;n<4;++n) CHECK(t.toc[n].adr==1&&t.toc[n].control==(ordinal==1?0:4));
     }
     CHECK(p[0].calls==0&&p[1].calls==0); // Queries do not read or select media.
+    CHECK(akiko_toc(disc,&global)==Result::Ok&&!memcmp(&global,&expected,sizeof global));
     uint8_t out[2448], saved[2448]; SectorInfo info{}; info.number=123;
     for (uint32_t lba : {4u,9u,10u,19u}) {
         CHECK(disc.describe(lba,&info)==Result::Range&&info.number==123);

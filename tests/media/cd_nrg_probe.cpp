@@ -70,7 +70,14 @@ int main(int argc, char **argv)
     if (layout.sessions) {
         const auto calls = read_calls;
         cd_toc_head global; memset(&global,0xa5,sizeof global);
-        CHECK(akiko_toc(disc,&global)==Result::Unsupported&&untouched(reinterpret_cast<uint8_t*>(&global),sizeof global));
+        CHECK(akiko_toc(disc,&global)==Result::Ok);
+        // Numeric oracle for the two-session DAO fixture; never a selected lead-in.
+        CHECK(global.first_track==1&&global.first_track_offset==1&&global.last_track==3&&global.last_track_offset==3);
+        CHECK(global.tracks==3&&global.points==6&&global.firstaddress==0&&global.lastaddress==39);
+        const unsigned points[]={0xa0,1,2,3,0xa1,0xa2}, tracks[]={1,1,2,3,3,0};
+        const int addresses[]={0,0,6,32,39,39}, controls[]={0,0,4,4,0,0};
+        for(unsigned n=0;n<6;++n) CHECK(global.toc[n].point==points[n]&&global.toc[n].track==tracks[n]
+            &&global.toc[n].paddress==addresses[n]&&global.toc[n].adr==1&&global.toc[n].control==controls[n]);
         for (unsigned n=0;n<layout.sessions;++n) {
             SessionToc result{}; CHECK(akiko_session_toc(disc,n+1,&result)==Result::Ok);
             const auto &s=result.session; const auto &t=result.toc;
@@ -87,6 +94,7 @@ int main(int argc, char **argv)
                 printf("gap %u\n",lba);
             }
         }
+        cd_toc_head again; CHECK(akiko_toc(disc,&again)==Result::Ok&&!memcmp(&global,&again,sizeof global));
         CHECK(read_calls==calls);
         if(vfs) {
             const auto &t=layout.track[layout.tracks-1]; fault_at=owner->metadata()->track[layout.tracks-1].offset1;

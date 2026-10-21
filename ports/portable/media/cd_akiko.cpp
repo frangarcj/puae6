@@ -6,10 +6,10 @@ Result akiko_toc(const Disc &disc, cd_toc_head *out)
 {
     const auto &layout = disc.layout();
     if (!out || !layout.tracks) return Result::Invalid;
-    if (layout.sessions > 1) return Result::Unsupported;
     cd_toc_head toc;
     memset(&toc, 0, sizeof toc);
-    // Same ordering and fields as command_toc in pinned blkdev_cdimage.cpp.
+    // Same legacy ordering/fields; multi-session projects all global tracks and
+    // the final leadout. These aggregate A0/A1/A2 are not a physical lead-in.
     toc.first_track = toc.first_track_offset = 1;
     toc.last_track = toc.last_track_offset = toc.tracks = int(layout.tracks);
     toc.points = int(layout.tracks) + 3;

@@ -2000,8 +2000,8 @@ explicita y ordinal desde 1. Devuelve SessionToc con metadata Session y el
 cd_toc_head real; formato y CUE0 no se ocultan en campos ajenos de ese tipo.
 Los numeros de pista son globales, los offsets son locales 1..N, firstaddress
 es INDEX00 inicial y lastaddress/A2 conservan la direccion explicita. El TOC
-global legacy rechaza varias sesiones como Unsupported; una tabla explicita de
-una sola sesion conserva su resultado anterior. Las consultas no hacen IO y
+global sigue la proyeccion virtual de T66v4; una tabla explicita de una sola
+sesion conserva su resultado anterior byte exacto. Las consultas no hacen IO y
 sus errores conservan la salida. MED01 prueba estas propiedades en el componente;
 NRG multisesion, el dispositivo publico, el transporte Waterbox y su restauracion
 completa conservan sus puertas posteriores. No se modifica el ABI publico.
@@ -2073,8 +2073,8 @@ CdNrg exige NrgSessionPolicy::ExplicitPrivate para construir un propietario DAO
 multisesion. SingleOnly sigue siendo el default usado por la factory publica y
 rechaza el caso antes de bindings, hash o payload. Una politica desconocida es
 Invalid antes de abrir el archivo. El opt-in copia la tabla validada y conserva
-los LBAs, offsets e intervalos originales; no selecciona sesiones ni habilita
-el TOC global. Consultas privadas devuelven los TOCs particulares y los intervalos
+los LBAs, offsets e intervalos originales; no selecciona sesiones. Las consultas
+privadas devuelven los TOCs particulares y los intervalos
 sin datos siguen siendo Range sin IO ni cambios en la salida.
 
 La identidad multi tiene dominio P6NRGM seguido del mismo archivo completo,
@@ -2085,5 +2085,13 @@ DAO/ETNF/ETN2 de una sesion conservan sus dominios e identidades byte exactos,
 tambien con opt-in. Rebind valida todo antes de reemplazar lectores; errores
 mantienen el propietario anterior. MED01 contrasta ambas sesiones con payloads
 distintos, TOCs, huecos, identidad matematica, fallos VFS y propietarios nuevos.
-La politica del dispositivo publico necesita ADR propia; no se atribuye este
-comportamiento al hardware ni se altera sys_command_info_session.
+La carga y restauracion publicas multisesion conservan puertas posteriores;
+no se atribuye este comportamiento al hardware ni se altera sys_command_info_session.
+
+T66v4 conecta al dispositivo privado un TOC global virtual: pistas globales
+1..N, INDEX01 en LBA absoluto y leadout final, sin seleccionar una sesion.
+A0/A1/A2 agregados no representan un lead-in fisico (ADR 0018). TOC e informacion
+no leen payload ni alteran apertura, posicion o medio. Antes de leer un burst
+multisesion se describe todo su rango: un hueco devuelve Range sin IO y conserva
+salida y posicion. Session Info y FullTOC fisico quedan fuera de la API actual;
+SingleOnly sigue rechazando NRG multi por defecto en la factory publica.
