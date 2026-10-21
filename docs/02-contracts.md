@@ -2229,3 +2229,14 @@ MED01 compara bytes/Q, TOCs y metadata de ambas sesiones, padding fisico, huecos
 sin IO, canarios, lecturas cortas/excepciones, truncado y cierre/reapertura de FD.
 La entrada single y el montaje default conservan su comportamiento e identidad.
 Esta hoja no habilita Puae6DiscSource multisesion ni el loader publico Waterbox.
+
+T66v13 aplica SBI por un overlay local de `SynthProvider`, tambien sobre DAO
+multisesion disperso. Valida todos los registros/direcciones antes de leer Q:
+un hueco no consume lecturas ni publica provider/memo parcial. Los duplicados
+se componen en orden. Solo se sustituye Q, respetando offsets e interleaving;
+main/P/R-W permanecen intactos. Sin la politica Mednafen conserva los bytes CRC
+originales; con ella mantiene el checksum deliberadamente invertido existente.
+El overlay consulta `Disc.IsDisposed` del mismo owner antes de devolver sectores,
+sin otro propietario ni reapertura tras cierre. Los errores de montaje cierran
+los recursos. El parser y el dominio legacy de direcciones no se amplian; esto
+no acredita SBI general ni restore publico, cuya puerta sigue siendo V12.

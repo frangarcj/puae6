@@ -1,4 +1,5 @@
 """Opt-in pinned DiscSystem TAO canonical150; no public loader or Waterbox claim."""
+import binascii
 import functools
 import hashlib
 import importlib.util
@@ -32,6 +33,23 @@ def nrg_fixture(modes=(0,2,3),*,wide=False,payload=0,lengths=(3,4,5)):
     assert len(data)==directory
     metadata=b'P6CD2448\0'+struct.pack('<3I',2,cursor,len(modes))+b''.join(struct.pack('<12I',*t) for t in records)
     return bytes(data)+tail,bytes(wire),records,[hashlib.sha256(metadata+wire).hexdigest().upper(),*rows,f'leadout {cursor}']
+
+
+def sbi_fixture(path, wire, entries, lbas, *, mednafen=True):
+    """Write real SBI records and return independently patched deinterleaved2448 bytes.
+
+    entries=(LBA, record_type, payload); lbas describes wire order, including negative INDEX00.
+    """
+    patched=bytearray(wire); positions={lba:n*2448+2364 for n,lba in enumerate(lbas)}; file=bytearray(b'SBI\0')
+    for lba,kind,payload in entries:
+        aba=lba+150; msf=(aba//4500,aba//75%60,aba%75)
+        file+=bytes((v//10*16+v%10 for v in msf))+bytes([kind])+payload
+        at=positions[lba]; start,count={1:(0,10),2:(3,3),3:(7,3)}[kind]; assert len(payload)==count
+        patched[at+start:at+start+count]=payload
+        if mednafen: # SynthChecksum writes complemented CRC; Mednafen inverts it again.
+            patched[at+10:at+12]=binascii.crc_hqx(patched[at:at+10],0).to_bytes(2,'big')
+    path.write_bytes(file)
+    return bytes(patched)
 
 
 class NrgCanonicalCSharpTests(unittest.TestCase):
@@ -154,9 +172,40 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
             self.assertEqual(self.sparse(path,faults=True),rows); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
         path,_,rows=self.sparse_fixture('sbi')
         path.with_suffix('.sbi').write_bytes(b'SBI\0')
-        self.assertEqual(self.sparse(path,'nrg-sparse-refuse'),['rejected NotSupportedException'])
+        self.assertEqual(self.sparse(path),rows) # An empty valid companion is accepted without changing sectors.
         path.with_suffix('.sbi').write_bytes(b'bad!')
         self.assertEqual(self.sparse(path),rows) # Invalid signature retains the historical ignored-file behavior.
+
+    def test_sbi_sparse_sessions_q_precedence_offsets_and_interleave(self):
+        entries=((-1,1,bytes(range(10))),(6,2,b'\x98\x76\x54'),(32,3,b'\x12\x34\x56'),(-1,2,b'\x99\x88\x77'))
+        lbas=[*range(-150,11),*range(30,39)]
+        for modes in ((7,0,6),(16,15,17)):
+            path,wire,_=self.sparse_fixture('sbi-wire'+str(modes),modes=modes)
+            patch=self.work/'records.sbi'
+            for mednafen in (False,True):
+                expected=sbi_fixture(patch,wire,entries,lbas,mednafen=mednafen)
+                result=subprocess.run([source.DOTNET,str(self.dll),'nrg-sbi',str(path),str(patch),str(mednafen).lower()],env=self.env,capture_output=True,text=True,timeout=30)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
+                interleaved=b''.join(expected[n:n+2352]+nrg.interleave(expected[n+2352:n+2448]) for n in range(0,len(expected),2448))
+                self.assertEqual(Path(str(path)+'.interleaved').read_bytes(),interleaved)
+            # Public mount finalization discovers the real companion and applies the default policy.
+            path.with_suffix('.sbi').write_bytes(patch.read_bytes())
+            result=subprocess.run([source.DOTNET,str(self.dll),'nrg-sbi',str(path)],env=self.env,capture_output=True,text=True,timeout=30)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
+
+    def test_sbi_preflight_read_failure_and_owner_cleanup_transactionally(self):
+        path,wire,rows=self.sparse_fixture('sbi-faults',modes=(16,15,17))
+        result=subprocess.run([source.DOTNET,str(self.dll),'nrg-sbi-faults',str(path)],env=self.env,capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        companion=path.with_suffix('.sbi')
+        for contents,error in ((b'SBI\0\x00\x02\x11\x02abc','InvalidDataException'),(b'SBI\0\x00','SBIParseException')):
+            companion.write_bytes(contents)
+            self.assertEqual(self.sparse(path,'nrg-sparse-refuse'),['rejected '+error])
+        companion.unlink()
+        self.assertEqual(self.sparse(path),rows) # Both failed mounts released their backing files.
+        self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
 
     def metadata(self,data,base,fault=''):
         path=self.work/'metadata.nrg'; path.write_bytes(data)

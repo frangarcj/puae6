@@ -1,0 +1,143 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/Internal/Jobs/ApplySBIJob.cs b/src/BizHawk.Emulation.DiscSystem/Internal/Jobs/ApplySBIJob.cs
+--- a/src/BizHawk.Emulation.DiscSystem/Internal/Jobs/ApplySBIJob.cs
++++ b/src/BizHawk.Emulation.DiscSystem/Internal/Jobs/ApplySBIJob.cs
+@@ -1,54 +1,58 @@
+-// TODO - generate correct Q subchannel CRC
++using System.Collections.Generic;
++using System.IO;
++
+ namespace BizHawk.Emulation.DiscSystem
+ {
+ 	internal class ApplySBIJob
+ 	{
+-		/// <summary>
+-		/// applies an SBI file to the disc
+-		/// </summary>
+ 		public void Run(Disc disc, SBI.SubQPatchData sbi, bool asMednafen)
+ 		{
+-			//TODO - could implement as a blob, to avoid allocating so many byte buffers
++			if (disc.IsDisposed) throw new ObjectDisposedException(nameof(disc));
++			var count = sbi.ABAs.Count;
++			if (sbi.subq == null || sbi.subq.Length != checked(count * 12)) throw new InvalidDataException("Invalid SBI patch length");
++			foreach (var value in sbi.subq)
++				if (value < -1 || value > 255) throw new InvalidDataException("Invalid SBI patch byte");
+ 
+-			//save this, it's small, and we'll want it for disc processing a/b checks
+-			disc.Memos["sbi"] = sbi;
++			if (count == 0) { disc.Memos["sbi"] = sbi; return; }
+ 
+-			var dsr = new DiscSectorReader(disc);
++			// Resolve every address before any backing read or candidate patch exists.
++			var parent = disc.SynthProvider;
++			var addresses = new int[count];
++			var originals = new Dictionary<int, ISectorSynthJob2448>();
++			for (var i = 0; i < count; i++)
++			{
++				var lba = checked(sbi.ABAs[i] - 150);
++				// The legacy array did not permit its synthetic leadout wrapper as SBI input.
++				if (disc.Puae6NrgDao == null && (lba < -150 || (long)lba + 150 >= disc._Sectors.Count))
++					throw new InvalidDataException("SBI address outside recorded sectors");
++				var original = parent.Get(lba) ?? throw new InvalidDataException("SBI address has no sector");
++				addresses[i] = lba; originals[lba] = original;
++			}
+ 
+-			var n = sbi.ABAs.Count;
+-			var b = 0;
+-			for (var i = 0; i < n; i++)
++			var patches = new Dictionary<int, SS_PatchQ>();
++			var reader = new DiscSectorReader(disc);
++			for (var i = 0; i < count; i++)
+ 			{
+-				var lba = sbi.ABAs[i] - 150;
+-
+-				//create a synthesizer which can return the patched data
+-				var ss_patchq = new SS_PatchQ { Original = disc._Sectors[lba + 150] };
+-				var subQbuf = ss_patchq.Buffer_SubQ;
+-
+-				//read the old subcode
+-				dsr.ReadLBA_SubQ(lba, subQbuf, 0);
+-
+-				//insert patch
+-				disc._Sectors[lba + 150] = ss_patchq;
+-
+-				//apply SBI patch
++				var lba = addresses[i];
++				if (!patches.TryGetValue(lba, out var patch))
++				{
++					patch = new SS_PatchQ { Original = originals[lba] };
++					if (reader.ReadLBA_SubQ(lba, patch.Buffer_SubQ, 0) != 12) throw new InvalidDataException("Missing SBI source Q");
++					patches.Add(lba, patch);
++				}
++				var q = patch.Buffer_SubQ;
+ 				for (var j = 0; j < 12; j++)
+-				{
+-					var patch = sbi.subq[b++];
+-					if (patch == -1) continue;
+-					subQbuf[j] = (byte)patch;
+-				}
+-
+-				//Apply mednafen hacks
+-				//The reasoning here is that we know we expect these sectors to have a wrong checksum. therefore, generate a checksum, and make it wrong
+-				//However, this seems senseless to me. The whole point of the SBI data is that it stores the patches needed to generate an acceptable subQ, right?
++					if (sbi.subq[i * 12 + j] != -1) q[j] = (byte)sbi.subq[i * 12 + j];
++				// Preserve the established deliberately incorrect Mednafen checksum policy.
+ 				if (asMednafen)
+ 				{
+-					SynthUtils.SubQ_SynthChecksum(subQbuf, 0);
+-					subQbuf[10] ^= 0xFF;
+-					subQbuf[11] ^= 0xFF;
++					SynthUtils.SubQ_SynthChecksum(q, 0);
++					q[10] ^= 0xFF; q[11] ^= 0xFF;
+ 				}
+ 			}
++			var candidate = new SbiSectorSynthProvider(disc, parent, patches);
++			disc.Memos["sbi"] = sbi;
++			disc.SynthProvider = candidate;
+ 		}
+ 	}
+ }
+diff --git a/src/BizHawk.Emulation.DiscSystem/Internal/SectorSynth.cs b/src/BizHawk.Emulation.DiscSystem/Internal/SectorSynth.cs
+--- a/src/BizHawk.Emulation.DiscSystem/Internal/SectorSynth.cs
++++ b/src/BizHawk.Emulation.DiscSystem/Internal/SectorSynth.cs
+@@ -205,6 +205,13 @@
+ 	}
+ 
+ 
++	// A mount-local overlay; it borrows the same Disc and its existing provider/resources.
++	internal sealed class SbiSectorSynthProvider(Disc owner, ISectorSynthProvider parent, Dictionary<int, SS_PatchQ> patches) : ISectorSynthProvider
++	{
++		public ISectorSynthJob2448 Get(int lba)
++			=> owner.IsDisposed ? null : patches.TryGetValue(lba, out var patch) ? patch : parent.Get(lba);
++	}
++
+ 	internal class SS_PatchQ : ISectorSynthJob2448
+ 	{
+ 		public ISectorSynthJob2448 Original;
+@@ -217,9 +224,13 @@
+ 			if ((job.Parts & ESectorSynthPart.SubchannelQ) == 0)
+ 				return;
+ 
+-			//apply patched subQ
+-			for (var i = 0; i < 12; i++)
+-				job.DestBuffer2448[2352 + 12 + i] = Buffer_SubQ[i];
++			var start = job.DestOffset + 2352;
++			if ((job.Parts & ESectorSynthPart.SubcodeDeinterleave) != 0)
++				Buffer.BlockCopy(Buffer_SubQ, 0, job.DestBuffer2448, start + 12, 12);
++			else
++				for (var i = 0; i < 96; i++)
++					job.DestBuffer2448[start + i] = (byte)((job.DestBuffer2448[start + i] & 0xBF)
++						| (((Buffer_SubQ[i / 8] >> (7 - i % 8)) & 1) << 6));
+ 		}
+ 	}
+ 
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+@@ -136,7 +136,6 @@
+ 				var sbiPath = Path.ChangeExtension(IN_FromPath, ".sbi");
+ 				if (File.Exists(sbiPath) && SBI.SBIFormat.QuickCheckISSBI(sbiPath))
+ 				{
+-					if (OUT_Disc.Puae6NrgDao != null) throw new NotSupportedException("SBI on sparse NRG DAO is not supported");
+ 					var loadSbiJob = new SBI.LoadSBIJob(sbiPath);
+ 					loadSbiJob.Run();
+ 					var applySbiJob = new ApplySBIJob();

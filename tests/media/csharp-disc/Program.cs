@@ -292,9 +292,9 @@ internal static unsafe partial class Program
  }
  sealed class NrgCountBlob(IBlob original) : IBlob
  {
-  public int Calls,Fault;
+  public int Calls,Fault,FailAt;
   public int Read(long at,byte[] output,int offset,int count) {
-   ++Calls; if(Fault==1) throw new EndOfStreamException("Injected backing EOF"); if(Fault==2) throw new IOException("Injected sparse IO");
+   ++Calls; if(Fault==1&&(FailAt==0||Calls==FailAt)) throw new EndOfStreamException("Injected backing EOF"); if(Fault==2&&(FailAt==0||Calls==FailAt)) throw new IOException("Injected sparse IO");
    return original.Read(at,output,offset,count);
   }
   public void Dispose() { }
@@ -340,9 +340,57 @@ internal static unsafe partial class Program
    }
    disc.Dispose(); Require(disc.IsDisposed&&NrgHandles(path)==before); absent(layout.Tracks[0].Index0); disc.Dispose();
   }
-  catch(Exception e) when(args[0]=="nrg-sparse-refuse"&&e is IOException or NRG_Format.NRGParseException or NotSupportedException) { Console.WriteLine("rejected "+e.GetType().Name); }
+  catch(Exception e) when(args[0]=="nrg-sparse-refuse"&&e is IOException or InvalidDataException or BizHawk.Emulation.DiscSystem.SBI.SBIParseException or NRG_Format.NRGParseException or NotSupportedException) { Console.WriteLine("rejected "+e.GetType().Name); }
   finally { disc?.Dispose(); }
   Require(NrgHandles(path)==before);
+ }
+ static void NrgSbi(string[] args)
+ {
+  string path=args[1]; int before=NrgHandles(path);
+  using(var disc=DiscMountJob.MountPuae6Nrg(path)) {
+   var layout=disc.Puae6NrgDao; var original=disc.SynthProvider;
+   var reader=new DiscSectorReader(disc); var output=new byte[2464];
+   if(args[0]=="nrg-sbi-faults") {
+    var field=original.GetType().GetField("blob",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+    var counter=new NrgCountBlob((IBlob)field.GetValue(original)); field.SetValue(original,counter);
+    object memo=new(); disc.Memos["sbi"]=memo;
+    BizHawk.Emulation.DiscSystem.SBI.SubQPatchData Data(params int[] abas) {
+     var data=new BizHawk.Emulation.DiscSystem.SBI.SubQPatchData { subq=Enumerable.Repeat((short)-1,abas.Length*12).ToArray() };
+     foreach(int aba in abas) data.ABAs.Add(aba); data.subq[0]=0x99; return data;
+    }
+    var bad=new[]{Data(150,161),Data(150,int.MinValue),Data(150)};
+    bad[2].subq[11]=256;
+    var shortData=Data(150); shortData.subq=new short[11];
+    foreach(var data in bad.Append(shortData)) {
+     int calls=counter.Calls;
+     try { new ApplySBIJob().Run(disc,data,false); throw new Exception("Accepted malformed SBI"); }
+     catch(Exception e) when(e is InvalidDataException or OverflowException) { }
+     Require(counter.Calls==calls&&ReferenceEquals(original,disc.SynthProvider)&&ReferenceEquals(memo,disc.Memos["sbi"]));
+    }
+    Require(reader.ReadLBA_SubQ(0,output,0)==12); var q=output[..12];
+    counter.Fault=2; counter.FailAt=counter.Calls+2;
+    try { new ApplySBIJob().Run(disc,Data(150,182),false); throw new Exception("Accepted SBI backing failure"); } catch(IOException) { }
+    Require(counter.Calls==counter.FailAt&&ReferenceEquals(original,disc.SynthProvider)&&ReferenceEquals(memo,disc.Memos["sbi"]));
+    counter.Fault=0; Require(reader.ReadLBA_SubQ(0,output,0)==12&&output.AsSpan(0,12).SequenceEqual(q));
+    new ApplySBIJob().Run(disc,Data(150),false);
+    Require(!ReferenceEquals(original,disc.SynthProvider)); int done=counter.Calls;
+    disc.Dispose(); Require(disc.IsDisposed&&NrgHandles(path)==before);
+    foreach(int lba in new[]{0,1}) Require(disc.SynthProvider.Get(lba)==null);
+    Require(counter.Calls==done); disc.Dispose();
+   } else {
+    if(args.Length>2) { var load=new BizHawk.Emulation.DiscSystem.SBI.LoadSBIJob(args[2]); load.Run(); new ApplySBIJob().Run(disc,load.OUT_Data,args[3]=="true"); }
+    using var wire=new MemoryStream(); using var interleaved=new MemoryStream();
+    foreach(var t in layout.Tracks) for(int lba=t.Index0;lba<t.End;++lba) {
+     foreach(bool deinterleaved in new[]{true,false}) {
+      reader.Policy.DeinterleavedSubcode=deinterleaved; Array.Fill(output,(byte)0xcc);
+      Require(reader.ReadLBA_2448(lba,output,8)==2448&&output.Take(8).Concat(output.Skip(2456)).All(b=>b==0xcc));
+      (deinterleaved?wire:interleaved).Write(output,8,2448);
+     }
+    }
+    File.WriteAllBytes(path+".actual",wire.ToArray()); File.WriteAllBytes(path+".interleaved",interleaved.ToArray());
+   }
+  }
+  Require(NrgHandles(path)==before); Console.WriteLine("SBI provider PASS");
  }
  static void NrgTao(string[] args)
  {
@@ -375,6 +423,7 @@ internal static unsafe partial class Program
  static void Main(string[] args) {
   if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
   if(args.Length>=3&&args[0]=="nrg-metadata") { NrgMetadata(args); return; }
+  if(args.Length>=2&&args[0].StartsWith("nrg-sbi")) { NrgSbi(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-sparse")) { NrgSparse(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
