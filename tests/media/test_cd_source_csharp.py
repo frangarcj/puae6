@@ -24,7 +24,12 @@ def build_disc_source(work, *, legacy_xa=False, legacy_first_pregap=False):
         target = work / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
-    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch", "0010-disc-chd-host.patch", "0012-chd-first-track-pregap.patch"):
+    # 0014 extends the official DiscMountJob after0011; the other0011 paths are outside this source-only harness.
+    public_patch=(ROOT/'integration/bizhawk/patches/0011-public-puae6-chd.patch').read_bytes()
+    block=next(b for b in public_patch.split(b'diff --git ')[1:] if b.split(b'\n',1)[0].endswith(b'b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs'))
+    subprocess.run(['patch','-p1','--fuzz=0','--no-backup-if-mismatch'],input=b'diff --git '+block,cwd=work,check=True,capture_output=True,timeout=30)
+    subprocess.run(['patch','-p1','--fuzz=0','-R','--dry-run'],input=b'diff --git '+block,cwd=work,check=True,capture_output=True,timeout=30)
+    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch", "0010-disc-chd-host.patch", "0012-chd-first-track-pregap.patch", "0014-canonical-nrg-tao.patch"):
         if legacy_first_pregap and name == "0012-chd-first-track-pregap.patch": continue
         subprocess.run(["patch", "-p1", "--no-backup-if-mismatch", "-i", str(ROOT / "integration/bizhawk/patches" / name)],
                        cwd=work, check=True, capture_output=True, timeout=30)

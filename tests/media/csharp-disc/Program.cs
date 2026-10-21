@@ -235,7 +235,49 @@ internal static unsafe partial class Program
   Refused(probe,()=>source.ReadAt(0,probe,1,2448));
   replacement.Dispose(); Refused(probe,()=>source.ReadAt(0,probe,1,2448));
  }
+ static int NrgHandles(string path)
+ {
+  path=Path.GetFullPath(path);
+  if(OperatingSystem.IsMacOS()) {
+   using var query=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("/usr/sbin/lsof",$"-a -p {Environment.ProcessId} -Fn") { UseShellExecute=false,RedirectStandardOutput=true });
+   string files=query.StandardOutput.ReadToEnd(); query.WaitForExit(); Require(query.ExitCode==0);
+   return files.Split('\n').Count(line=>line=="n"+path);
+  }
+  int count=0;
+  foreach(string entry in Directory.GetFiles("/dev/fd"))
+   try { if(File.ResolveLinkTarget(entry,true)?.FullName==path) ++count; } catch(IOException) { }
+  return count;
+ }
+ static void NrgTao(string[] args)
+ {
+  string mode=args[0],path=args[1]; int before=NrgHandles(path);
+  try {
+   using var disc=mode.Contains("default")?Mount(path):DiscMountJob.MountPuae6Nrg(path);
+   if(mode.EndsWith("refuse")) throw new Exception("Accepted unsupported/malformed NRG");
+   var source=new Puae6DiscSource(disc); var identity=source.ContentId;
+   Console.WriteLine(Convert.ToHexString(identity));
+   for(int n=1;n<=disc.Session1.InformationTrackCount;++n) Console.WriteLine($"track {n} {disc.Session1.Tracks[n].LBA}");
+   Console.WriteLine($"leadout {source.Leadout}");
+   if(disc.Regions.Count!=0) { var descriptor=source.DescriptorV2(); File.WriteAllBytes(path+".descriptor",new ReadOnlySpan<byte>(&descriptor,sizeof(P6CdInfoV2)).ToArray()); }
+   var wire=new byte[source.Length];
+   for(int at=0;at<wire.Length;at+=2448) Require(source.ReadAt((ulong)at,wire,at,2448));
+   File.WriteAllBytes(path+".actual",wire); Require(NrgHandles(path)==before+1);
+   var output=new byte[2464]; Refused(output,()=>source.ReadAt(source.Length,output,8,1));
+   for(int at=2441;at+2448<wire.Length;at+=2448) {
+    Array.Fill(output,(byte)0xcc); Require(source.ReadAt((ulong)at,output,8,2448)&&output.AsSpan(8,2448).SequenceEqual(wire.AsSpan(at,2448)));
+    Require(output.Take(8).Concat(output.Skip(2456)).All(b=>b==0xcc));
+   }
+   if(args.Length>2) {
+    using var other=DiscMountJob.MountPuae6Nrg(args[2]); bool accepted=args[3]=="same";
+    Require(source.Rebind(other)==accepted&&source.ContentId.SequenceEqual(identity));
+    Require(source.ReadAt(0,output,8,2448)&&output.AsSpan(8,2448).SequenceEqual(wire.AsSpan(0,2448)));
+   }
+  }
+  catch(Exception e) when(mode.EndsWith("refuse")&&e is IOException or NRG_Format.NRGParseException or NotSupportedException) { Console.WriteLine("rejected "+e.GetType().Name); }
+  Require(NrgHandles(path)==before);
+ }
  static void Main(string[] args) {
+  if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-regional") { ChdUnits(args[1],true); return; }

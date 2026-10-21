@@ -2005,3 +2005,17 @@ una sola sesion conserva su resultado anterior. Las consultas no hacen IO y
 sus errores conservan la salida. MED01 prueba estas propiedades en el componente;
 NRG multisesion, el dispositivo publico, el transporte Waterbox y su restauracion
 completa conservan sus puertas posteriores. No se modifica el ABI publico.
+
+T66l8 ofrece MountPuae6Nrg opt-in: ETNF/ETN2 compactos de una sesion,
+modos00/02/03/07 y strides mezclados. Reutiliza el parser y los sintetizadores
+DiscSystem fijados; coteja packed-sector, offsets/longitudes, alineacion,
+reservas y contiguidad antes de construir la fuente. Metadata<=64KiB,
+256chunks/99pistas. Canonical150 atribuido a libMirage a9d6a204/GNU/VCDImager:
+INDEX01 inicial0, siguientes packed+n*150; los gaps no consumen archivo.
+Mode2 fija XA=false/Form1 en gap; audio conserva bytes, sin swapCHD.
+Default/DAO conservan su ruta; opt-in DAO se clasifica y delega sin fallback.
+La lectura comun NERO revierte BE32 antes de ampliar a long: DAOv1 anterior
+fallaba al revertir64bits; su fixture original conserva geometria/bytes esperados.
+Regiones/identidad V2 cubren la materializacion canonica; no recuperan pregaps
+originales. TINF/multisesion/otrosmodos siguen pendientes. MED01 y target real
+no acreditan todavia seleccion publica ni ejecucion/restore Waterbox.
