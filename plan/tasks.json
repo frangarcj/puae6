@@ -20734,7 +20734,7 @@
         "El cartucho se activa de forma determinista."
       ],
       "stop": "Sin ROMs no autorizadas.",
-      "blocked_reason": "HRTMon completo por T69a/b/c1-c4, incluida activacion y futuro deterministas en nativo, libretro y Waterbox/BK2/TAS. Action Replay comercial requiere su propia ROM autorizada y codec/validacion por modelo; no hay asset aportado y la pregunta de ruta sigue pendiente. No descargar ROMs comerciales ni atribuir los modelos AR a las pruebas de HRTMon."
+      "blocked_reason": "HRTMon completo por T69a/b/c1-c4. AR2/3 tiene propietario privado T69d1; codec completo en T69d2 aun pendiente. El usuario autoriza descargar Action Replay si no aparece localmente: AR3 v3.17 ya disponible en build/assets/action-replay con SHA1 reconocido ID30=5d4987c2e3ffea8b1b02e31430ef190f2db76542, fuera de Git. Quedan activacion/futuro real por modelo, conexion publica y AR1/AR1200; no atribuir esos modelos a HRTMon o a fixtures AR2/3."
     },
     {
       "milestone": "FUTURE",
