@@ -232,15 +232,15 @@ internal static unsafe partial class Program
 
 #if PUBLIC_CHD
  static object Hidden(object target, string name, params object[] args) => target.GetType().GetMethod(name, BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,args);
- static void HostCheck(bool value, string phase) { if(!value) throw new Exception("Public CHD host: "+phase); }
+ static void HostCheck(bool value, string phase) { if(!value) throw new Exception("Public CD host: "+phase); }
  static XmlGame Xml(string path) { using var file=new HawkFile(path); return XmlGame.Create(file); }
- static int OpenChd(string path)
+ static int OpenCdFile(string path)
  {
   using var ls=Process.Start(new ProcessStartInfo("/usr/sbin/lsof",$"-a -p {Environment.ProcessId} -Fn") { UseShellExecute=false, RedirectStandardOutput=true });
   string files=ls.StandardOutput.ReadToEnd(); ls.WaitForExit(); HostCheck(ls.ExitCode==0,"host file descriptor query");
   return files.Split('\n').Count(line=>line=="n"+path);
  }
- static void HostChd(string path)
+ static void HostCd(string path)
  {
   string database=Path.GetDirectoryName(path); File.WriteAllText(Path.Combine(database,"mame_machines.txt"),"");
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(database);
@@ -251,10 +251,11 @@ internal static unsafe partial class Program
   var loader=new RomLoader(config,null);
   loader.OnLoadSettings+=(_,e)=>e.Settings=new Puae6Settings();
   loader.OnLoadSyncSettings+=(_,e)=>e.Settings=new Puae6SyncSettings();
-  var xml=Xml(path); string chd=xml.Assets[0].Path;
+  var xml=Xml(path); string image=xml.Assets[0].Path, extension=Path.GetExtension(image).ToLowerInvariant();
+  bool nrg=extension==".nrg"; string selector=nrg?"UsePuae6Cd":"UsePuae6Chd", directSelector=nrg?"UsePuae6DirectCd":"UsePuae6DirectChd";
   HostCheck(xml.GI.System=="Amiga"&&xml.Assets[0].FileData.Length==0,"standard XML");
   foreach(var item in new[] { ("Amiga",(string)null,true),("Amiga","PUAE6",true),("Amiga","UAE",false),("PSX",(string)null,false),((string)null,"PUAE6",true),((string)null,(string)null,false) })
-   HostCheck((bool)Hidden(loader,"UsePuae6Chd",chd,item.Item1,item.Item2)==item.Item3,"selection");
+   HostCheck((bool)Hidden(loader,selector,image,item.Item1,item.Item2)==item.Item3,"selection");
   var assets=(List<IDiscAsset>)Hidden(loader,"LoadXmlDiscAssets",xml,null);
   var lease=(IOwnedDiscAsset)assets.Single();
   try
@@ -292,20 +293,20 @@ internal static unsafe partial class Program
    HostCheck(catalogClone.CdSlots.SequenceEqual(new[]{0,1,0})&&((byte[])Hidden(catalogClone,"CdIdentity")).SequenceEqual((byte[])Hidden(Puae6WhdLoad.Resolve(catalogClone),"CdIdentity")),"catalog clone");
    var legacyBytes=new byte[2448]; HostCheck(catalogClone.ReadCdCatalog(1,0,legacyBytes,2448)&&legacyBytes[15]==1,"mixed catalog real ISO read");
    assets.RemoveRange(1,2);
-   int opened=OpenChd(chd); HostCheck(opened==1,"one owned CHD handle"); lease.Dispose();
-   HostCheck(OpenChd(chd)==0,"real FD closed"); lease.Dispose();
-   HostCheck(OpenChd(chd)==0,"lease idempotent");
+   int opened=OpenCdFile(image); HostCheck(opened==1,"one owned CD handle"); lease.Dispose();
+   HostCheck(OpenCdFile(image)==0,"real FD closed"); lease.Dispose();
+   HostCheck(OpenCdFile(image)==0,"lease idempotent");
    var refused=Enumerable.Repeat((byte)0xa5,2448).ToArray(); HostCheck(!p.ReadCd(0,refused,2448)&&refused.All(b=>b==0xa5),"disposed source");
    firmware.Refuse=true; var errors=new List<string>(); loader.OnLoadError+=(_,e)=>errors.Add(e.Message);
-   opened=OpenChd(chd);
+   opened=OpenCdFile(image);
    HostCheck(!loader.LoadRom(path,comm,null),"constructor failure");
    HostCheck(errors.Any(e=>e.Contains("host-stop-before-guest")),"constructor cause: "+string.Join(" | ",errors));
-   HostCheck(OpenChd(chd)==opened,"failed construction closes owner");
-   string badXml=path+".bad.xml"; File.WriteAllText(badXml,$"<BizHawk-XMLGame System=\"Amiga\" Name=\"bad\"><LoadAssets><LoadAsset FileName=\"{Path.GetFileName(chd)}\"/><LoadAsset FileName=\"bad.chd\"/></LoadAssets></BizHawk-XMLGame>");
-   File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(path),"bad.chd"),new byte[12]);
-   opened=OpenChd(chd);
-   try { Hidden(loader,"LoadXmlDiscAssets",Xml(badXml),null); throw new Exception("Accepted broken second CHD"); } catch(TargetInvocationException e) when(e.InnerException is IOException) { }
-   HostCheck(OpenChd(chd)==opened,"partial mount cleanup");
+   HostCheck(OpenCdFile(image)==opened,"failed construction closes owner");
+   string badXml=path+".bad.xml"; File.WriteAllText(badXml,$"<BizHawk-XMLGame System=\"Amiga\" Name=\"bad\"><LoadAssets><LoadAsset FileName=\"{Path.GetFileName(image)}\"/><LoadAsset FileName=\"bad{extension}\"/></LoadAssets></BizHawk-XMLGame>");
+   File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(path),"bad"+extension),new byte[12]);
+   opened=OpenCdFile(image);
+   try { Hidden(loader,"LoadXmlDiscAssets",Xml(badXml),null); throw new Exception("Accepted broken second CD"); } catch(TargetInvocationException e) when(e.InnerException is IOException or NRG_Format.NRGParseException) { }
+   HostCheck(OpenCdFile(image)==opened,"partial mount cleanup");
    string cue=path+".bad.cue"; File.WriteAllText(cue,"FILE \"missing.bin\" BINARY\n TRACK 01 MODE1/2352\n INDEX 01 00:00:00\n");
    var reported=new List<string>(); loader.OnLoadError+=(_,e)=>reported.Add(e.AttemptedCoreLoad);
    HostCheck(Hidden(loader,"MountDiscAsset",cue,"PSX",null)==null&&reported.SequenceEqual(new[]{"PSX"}),"legacy XML error system");
@@ -315,30 +316,30 @@ internal static unsafe partial class Program
     ("PSX","PUAE6",(string)null,false),("Amiga","UAE",(string)null,false),
     ("Amiga","PUAE6",(string)null,true),("Amiga","PUAE6","UAE",false),
     ((string)null,"UAE","PUAE6",true),("PSX","UAE","PUAE6",true) }) {
-    config.PreferredPlatformsForExtensions.Remove(".chd");
-    if(item.Item1!=null) config.PreferredPlatformsForExtensions[".chd"]=item.Item1;
+    config.PreferredPlatformsForExtensions.Remove(extension);
+    if(item.Item1!=null) config.PreferredPlatformsForExtensions[extension]=item.Item1;
     config.PreferredCores["Amiga"]=item.Item2;
-    foreach(string name in new[] { chd,Path.ChangeExtension(chd,".CHD") })
-     HostCheck((bool)Hidden(loader,"UsePuae6DirectChd",name,item.Item3)==item.Item4,"direct explicit selection");
-    HostCheck(!(bool)Hidden(loader,"UsePuae6DirectChd",cue,item.Item3),"direct selection is CHD only");
+    foreach(string name in new[] { image,Path.ChangeExtension(image,extension.ToUpperInvariant()) })
+     HostCheck((bool)Hidden(loader,directSelector,name,item.Item3)==item.Item4,"direct explicit selection");
+    HostCheck(!(bool)Hidden(loader,directSelector,cue,item.Item3),"direct selection is supported CD only");
    }
-   config.PreferredPlatformsForExtensions.Remove(".chd");
-   config.PreferredPlatformsForExtensions[".CHD"]="Amiga"; config.PreferredCores["Amiga"]="PUAE6";
-   HostCheck(!(bool)Hidden(loader,"UsePuae6DirectChd",chd,null),"config extension keys keep their lowercase contract");
-   config.PreferredPlatformsForExtensions.Remove(".CHD");
+   config.PreferredPlatformsForExtensions.Remove(extension);
+   config.PreferredPlatformsForExtensions[extension.ToUpperInvariant()]="Amiga"; config.PreferredCores["Amiga"]="PUAE6";
+   HostCheck(!(bool)Hidden(loader,directSelector,image,null),"config extension keys keep their lowercase contract");
+   config.PreferredPlatformsForExtensions.Remove(extension.ToUpperInvariant());
    foreach(string forced in new[] { (string)null,"PUAE6" }) {
     // Forced PUAE6 supplies Amiga even if the extension preference names another platform.
-    config.PreferredPlatformsForExtensions[".chd"]=forced==null?"Amiga":"PSX";
+    config.PreferredPlatformsForExtensions[extension]=forced==null?"Amiga":"PSX";
     errors.Clear(); reported.Clear(); firmware.Asked.Clear();
-    HostCheck(!loader.LoadRom(chd,comm,null,forced),"direct constructor failure");
+    HostCheck(!loader.LoadRom(image,comm,null,forced),"direct constructor failure");
     HostCheck(errors.Count==1&&errors[0].Contains("host-stop-before-guest"),"direct reaches PUAE6 without another core");
     HostCheck(reported.SequenceEqual(new[] { "Amiga" })&&firmware.Asked.SequenceEqual(new[] { "CD32" }),"direct Amiga inventory");
-    HostCheck(OpenChd(chd)==opened,"direct failed construction closes owner");
+    HostCheck(OpenCdFile(image)==opened,"direct failed construction closes owner");
     errors.Clear(); reported.Clear(); firmware.Asked.Clear();
-    string invalid=Path.Combine(database,"bad.chd");
-    HostCheck(!loader.LoadRom(invalid,comm,null,forced),"direct invalid CHD refusal");
+    string invalid=Path.Combine(database,"bad"+extension);
+    HostCheck(!loader.LoadRom(invalid,comm,null,forced),"direct invalid CD refusal");
     HostCheck(errors.Count==1&&reported.SequenceEqual(new[] { "Amiga" })&&firmware.Asked.Count==0,"mount failure retains Amiga before firmware");
-    HostCheck(OpenChd(chd)==opened&&OpenChd(invalid)==0,"invalid direct mount closes all owners");
+    HostCheck(OpenCdFile(image)==opened&&OpenCdFile(invalid)==0,"invalid direct mount closes all owners");
    }
   }
   finally { lease.Dispose(); }
@@ -348,8 +349,9 @@ internal static unsafe partial class Program
  static void Main(string[] args)
  {
 #if PUBLIC_CHD
-  if(args.Length==2&&args[0]=="host-chd") { HostChd(args[1]); return; }
-  if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicChd(args); return; }
+  if(args.Length==2&&args[0] is "host-chd" or "host-nrg") { HostCd(args[1]); return; }
+  if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicCd(args,".chd"); return; }
+  if(args.Length>=8&&args[5].StartsWith("nrgpublic")) { PublicCd(args,".nrg"); return; }
 #endif
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");

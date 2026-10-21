@@ -2041,3 +2041,13 @@ todo el candidato. MED01 observa la tabla, limites, errores y formatos legacy.
 CdNrg rechaza varias sesiones antes de bindings, hash del archivo o payload;
 un probe VFS cuenta y rechaza esos intentos. Proveedor, dispositivo, transporte
 y restauracion publica multisesion siguen pendientes; esta hoja no los habilita.
+
+
+T66l9 conecta NRG canonico por RomLoader a MountPuae6Nrg: XML Amiga con
+PUAE6 preferido/forzado; directo requiere .nrg=Amiga y PUAE6 preferido o
+PUAE6 forzado. No se prueba otro decoder tras un fallo ni se cambia la ruta
+de otros cores. Reutiliza lease, transporte V2 e identidad canonica de CD.
+MED01 ejecuta selector, bytes y cierres antes del firmware en Client.Common
+real. WB03/WB08/DET02 restauran EEPROM/snapshot/futuro en owner y proceso
+nuevos, con ETNF y ETN2 equivalentes y negativos de payload/geometria.
+El fixture sintetico no acredita arranque de una aplicacion ni TAO general.

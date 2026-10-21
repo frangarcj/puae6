@@ -1,0 +1,60 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+index 2e0006a7..4b9fd507 100644
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -30,23 +30,30 @@ namespace BizHawk.Client.Common
+ 			private bool _disposed;
+ 			public void Dispose() { if (!_disposed) { _disposed = true; DiscData.Dispose(); } }
+ 		}
+-		private bool UsePuae6Chd(string path, string system, string forcedCoreName)
++		private bool UsePuae6Cd(string path, string system, string forcedCoreName)
+ 		{
+-			if (!".chd".EqualsIgnoreCase(Path.GetExtension(path)) || system != null && system != VSystemID.Raw.Amiga) return false;
++			if (!(".chd".EqualsIgnoreCase(Path.GetExtension(path)) || ".nrg".EqualsIgnoreCase(Path.GetExtension(path)))
++				|| system != null && system != VSystemID.Raw.Amiga) return false;
+ 			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
+ 			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && preferred == CoreNames.PUAE6;
+ 		}
++		private bool UsePuae6Chd(string path, string system, string forcedCoreName)
++			=> ".chd".EqualsIgnoreCase(Path.GetExtension(path)) && UsePuae6Cd(path, system, forcedCoreName);
+ 		// Direct content has no XML system. Only an explicit platform/core choice may select this backend.
+-		private bool UsePuae6DirectChd(string path, string forcedCoreName)
++		private bool UsePuae6DirectCd(string path, string forcedCoreName)
+ 		{
+-			if (!".chd".EqualsIgnoreCase(Path.GetExtension(path))) return false;
++			var extension = Path.GetExtension(path).ToLowerInvariant();
++			if (extension is not (".chd" or ".nrg")) return false;
+ 			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
+-			return _config.TryGetChosenSystemForFileExt(".chd", out var system) && UsePuae6Chd(path, system, null);
++			return _config.TryGetChosenSystemForFileExt(extension, out var system) && UsePuae6Cd(path, system, null);
+ 		}
++		private bool UsePuae6DirectChd(string path, string forcedCoreName)
++			=> ".chd".EqualsIgnoreCase(Path.GetExtension(path)) && UsePuae6DirectCd(path, forcedCoreName);
+ 		private IDiscAsset MountDiscAsset(string path, string system, string forcedCoreName)
+ 		{
+-			bool own = UsePuae6Chd(path, system, forcedCoreName);
+-			var disc = own ? DiscMountJob.MountPuae6Chd(path)
++			bool own = UsePuae6Cd(path, system, forcedCoreName);
++			var disc = own
++				? ".chd".EqualsIgnoreCase(Path.GetExtension(path)) ? DiscMountJob.MountPuae6Chd(path) : DiscMountJob.MountPuae6Nrg(path)
+ 				: DiscExtensions.CreateAnyType(path, str => DoLoadErrorCallback(str, system ?? "???", LoadErrorType.DiscError));
+ 			if (disc == null) return null;
+ 			try
+@@ -374,7 +381,7 @@ namespace BizHawk.Client.Common
+ 
+ 		private bool LoadDisc(string path, CoreComm nextComm, HawkFile file, string ext, string forcedCoreName, out IEmulator nextEmulator, out GameInfo game)
+ 		{
+-			bool puae6 = UsePuae6DirectChd(path, forcedCoreName);
++			bool puae6 = UsePuae6DirectCd(path, forcedCoreName);
+ 			// Preserve the declared system if mounting or identification throws before core construction.
+ 			game = puae6 ? new GameInfo { System = VSystemID.Raw.Amiga } : null;
+ 			var asset = MountDiscAsset(path, puae6 ? VSystemID.Raw.Amiga : null, forcedCoreName);
+@@ -885,7 +892,7 @@ namespace BizHawk.Client.Common
+ 				game = xmlGame.GI;
+ 
+ 				var system = game.System;
+-				puae6 = xmlGame.Assets.Any(p => UsePuae6Chd(p.Path, system, forcedCoreName));
++				puae6 = xmlGame.Assets.Any(p => UsePuae6Cd(p.Path, system, forcedCoreName));
+ 				var roms = xmlGame.Assets
+ 						.Where(pfd => !IsDiscForXML(system, pfd.Filename))
+ 						.Select(IRomAsset (pfd) => new RomAsset

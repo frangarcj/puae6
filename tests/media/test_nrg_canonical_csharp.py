@@ -13,6 +13,27 @@ from tests.media import test_cd_source_csharp as source, test_nrg_metadata as me
 from tests.media.test_chd_canonical_csharp import subq
 
 
+def nrg_fixture(modes=(0,2,3),*,wide=False,payload=0,lengths=(3,4,5)):
+    tail,directory,_=meta.etnf(modes,lengths,etn2=wide)
+    data=bytearray(); wire=bytearray(); records=[]; cursor=0; rows=[]
+    for n,(kind,count) in enumerate(zip(modes,lengths),1):
+        stride=2048 if kind in (0,2) else 2336 if kind==3 else 2352
+        one=cursor+(150 if n>1 else 0); end=one+count; mode=0 if kind==7 else 1 if kind==0 else 2; control=0 if kind==7 else 4
+        records.append((cursor,one,end,mode,control,0,int(n>1),0,0,7 if n>1 else 3,mode if n>1 else 0,control if n>1 else 0))
+        rows.append(f'track {n} {one}')
+        for lba in range(cursor,one):
+            body=bytes(2352) if kind==7 else chd.mode1(bytes(2048),lba) if kind==0 else nrg.mode2_header(lba)+bytes(2336)
+            wire+=body+subq(n,0,lba,one,control)
+        for k in range(count):
+            raw=bytes((n*43+k+i+payload)&255 for i in range(stride)); data+=raw
+            body=chd.mode1(raw,one+k) if kind==0 else nrg.mode2_header(one+k)+(nrg.form1_body(raw) if kind==2 else raw) if kind in (2,3) else raw
+            wire+=body+subq(n,1,one+k,one,control)
+        cursor=end
+    assert len(data)==directory
+    metadata=b'P6CD2448\0'+struct.pack('<3I',2,cursor,len(modes))+b''.join(struct.pack('<12I',*t) for t in records)
+    return bytes(data)+tail,bytes(wire),records,[hashlib.sha256(metadata+wire).hexdigest().upper(),*rows,f'leadout {cursor}']
+
+
 class NrgCanonicalCSharpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -26,24 +47,9 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
         return result.stdout.splitlines()
 
     def fixture(self,name,modes=(0,2,3),*,wide=False,payload=0):
-        lengths=(3,4,5); tail,directory,_=meta.etnf(modes,lengths,etn2=wide)
-        data=bytearray(); wire=bytearray(); records=[]; cursor=0; rows=[]
-        for n,(kind,count) in enumerate(zip(modes,lengths),1):
-            stride=2048 if kind in (0,2) else 2336 if kind==3 else 2352
-            one=cursor+(150 if n>1 else 0); end=one+count; mode=0 if kind==7 else 1 if kind==0 else 2; control=0 if kind==7 else 4
-            records.append((cursor,one,end,mode,control,0,int(n>1),0,0,7 if n>1 else 3,mode if n>1 else 0,control if n>1 else 0))
-            rows.append(f'track {n} {one}')
-            for lba in range(cursor,one):
-                body=bytes(2352) if kind==7 else chd.mode1(bytes(2048),lba) if kind==0 else nrg.mode2_header(lba)+bytes(2336)
-                wire+=body+subq(n,0,lba,one,control)
-            for k in range(count):
-                raw=bytes((n*43+k+i+payload)&255 for i in range(stride)); data+=raw
-                body=chd.mode1(raw,one+k) if kind==0 else nrg.mode2_header(one+k)+(nrg.form1_body(raw) if kind==2 else raw) if kind in (2,3) else raw
-                wire+=body+subq(n,1,one+k,one,control)
-            cursor=end
-        self.assertEqual(len(data),directory); path=self.work/(name+'.nrg'); path.write_bytes(data+tail)
-        metadata=b'P6CD2448\0'+struct.pack('<3I',2,cursor,len(modes))+b''.join(struct.pack('<12I',*t) for t in records)
-        return path,bytes(wire),records,[hashlib.sha256(metadata+wire).hexdigest().upper(),*rows,f'leadout {cursor}']
+        image,wire,records,expected=nrg_fixture(modes,wide=wide,payload=payload)
+        path=self.work/(name+'.nrg'); path.write_bytes(image)
+        return path,wire,records,expected
 
     def test_etnf_etn2_four_modes_mixed_stride_toc_q_stream_and_identity(self):
         for modes in ((0,0,0),(2,2,2),(3,3,3),(7,7,7),(0,2,3),(7,0,7)):
