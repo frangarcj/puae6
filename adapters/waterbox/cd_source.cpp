@@ -91,6 +91,7 @@ template<class Info> int prepare(const Info *info, uint32_t index, bool rebind, 
 template<class Info> int bind_catalog(const Info *info, uint32_t count, bool indexed, uint32_t rebind)
 {
  if (!info || !count || count > p6_cd::kDeviceMaxDiscs || rebind > 1) return P6_ERROR_BAD_ARGUMENT;
+ if (p6_session::session.config.machine == p6_bridge::kCdtvMachine && (indexed || count != 1)) return P6_ERROR_UNSUPPORTED;
  if (!rebind && p6_session::session.started) return P6_ERROR_BAD_STATE;
  if (bool(rebind) != cd_bound || (rebind && (count != cd_count || indexed != cd_indexed || wire_version(info) != cd_version))) return P6_ERROR_BAD_STATE;
  if (p6_cd::device_catalog_size() != (cd_bound ? count : 0)) return P6_ERROR_BAD_STATE;
@@ -158,6 +159,7 @@ ECL_EXPORT int32_t p6w_cd_change(uint32_t index, uint32_t inserted)
  if (!guard.ok) return P6_ERROR_BUSY;
  if (inserted > 1 || index >= cd_count) return P6_ERROR_BAD_ARGUMENT;
  if (!cd_activated || p6_session::session.state != p6_session::State::Loaded) return P6_ERROR_BAD_STATE;
+ if (p6_session::session.config.machine == p6_bridge::kCdtvMachine) return P6_ERROR_UNSUPPORTED;
  if (index != selected() && (p6_cd::device_inserted() || p6_cd::device_select(index) != p6_cd::Result::Ok)) return P6_ERROR_BAD_STATE;
  return p6_akiko_media_set(inserted != 0) ? P6_OK : P6_ERROR_BAD_STATE;
 }
@@ -176,7 +178,13 @@ ECL_EXPORT int32_t p6w_cd_activate(void)
  if (!guard.ok) return P6_ERROR_BUSY;
  const auto &s = p6_session::session;
  if (!cd_bound || cd_activated || s.state != p6_session::State::Loaded || s.started
-  || s.config.machine != p6_bridge::kCd32Machine) return P6_ERROR_BAD_STATE;
+  || (s.config.machine != p6_bridge::kCd32Machine && s.config.machine != p6_bridge::kCdtvMachine)) return P6_ERROR_BAD_STATE;
+ if (s.config.machine == p6_bridge::kCdtvMachine) {
+  if (cd_indexed || cd_count != 1) return P6_ERROR_UNSUPPORTED;
+  // The first APPLY resets the original CDTV autoconfig card after the post-Seal
+  // binding. Do not reset its service, demand an open unit, or initialize Akiko.
+  cd_activated = true; return P6_OK;
+ }
  // p6_load ran before Seal, without external CD metadata. Reopen through the
  // real device lifecycle before any CPU advance; registrations deduplicate.
  p6_akiko_controller_state state{};

@@ -16,6 +16,7 @@
     <Compile Include="$(Puae6Root)/integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs;$(Puae6Root)/tests/media/csharp-disc/Program.cs" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Waterbox.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cdtv.cs" />
     <ProjectReference Include="$(Puae6Root)/integration/bizhawk/core/Puae6.Core.csproj" />
   </ItemGroup>
 </Project>

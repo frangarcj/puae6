@@ -277,6 +277,7 @@ internal static unsafe partial class Program
   Require(NrgHandles(path)==before);
  }
  static void Main(string[] args) {
+  if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }

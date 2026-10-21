@@ -2068,6 +2068,16 @@ rechazar el estadoA por identidad sin tocar fullsave, contador, ciclos ni IO.
 Los assets y resultados del escenario viven solo en temporales build; esta
 puerta privada no acredita frontend publico ni snapshot Waterbox.
 
+T67c3c incorpora el escenario privado Waterbox con machine 10 numerico y transporte
+CD V1. Tras Seal/Bind, Activate deja la inicializacion CDTV a la primera APPLY y
+su autoconfig original; no llama Akiko ni private_start. Catalogo y cambio CDTV
+devuelven Unsupported sin mutar el sandbox. El probe exige nonce DOS y contador
+Delay antes de 1000 unidades, snapshot local y frio en sandbox/proceso nuevos
+sin run previo, futuro de 16 unidades de ChipRAM/video/PCM/metadata/ticks y snapshot completo.
+La identidad incluye configuracion numerica, firmware y stream CD; identidad
+ajena se rechaza antes de cargar. Su puerta WB03/DET02 requiere el guest actual
+real y no expone un modelo C# publico ni acredita cambio de CDTV.
+
 ## Propietario NRG multisesion privado (T66v3)
 
 CdNrg exige NrgSessionPolicy::ExplicitPrivate para construir un propietario DAO
