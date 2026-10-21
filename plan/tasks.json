@@ -18192,7 +18192,7 @@
       "title": "Restaurar CDTV privado con P6CT scheduler audio e identidad completos",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67b1",
         "T15",
@@ -18229,7 +18229,8 @@
         "STATE01/DET02 CdtvStateTests.test_cold_restore_and_future, misma fixture una vez. Writer/reader con siete cortes: parser parcial, respuesta parcial, SEEK con cola, DMA real de dos sectores antes de terminal (416hsync sin cuotas), IRQ latched, CDA playing con SUB/event14 activo, pausa/stop con fase retenida. Mismo dueno y nuevo dueno/proceso sin run previo: save exacto al restaurar y futuro MMIO/RAM/AV/PCM/ticks mas save final completo. Rechazos de campo/evento sin dueno/identidad preservan estado, callbacks y reads.",
         "Reutilizar exe/helpers de b1. Regresiones cortas: modo local b1, CdtvLinkTests, AkikoLinkTests y CPUinterrupt relevante, una sola union; inventario estatico de componentes. No duplicar siete cortes ni afirmar Waterbox por native. Padre T67 queda pendiente de perfil, firmware extendido, autoconfig y ambos frontends. Si no cabe400, parar antes de ampliar; no excepcion retrospectiva.",
         "Ampliacion previa de scope: tests/state/test_components.py enumera exactamente los11chunks base yP6AK. Al agregar P6CT, actualizar esa asercion para incluir su propietario explicito y exigir el nuevo componente causal en inventario; conservar todos los anteriores y sus verificaciones. No relajar el set ni marcar un componente out_of_profile como codec. Son11rutas, sin ampliar el presupuesto manual de la hoja.",
-        "Ampliacion previa de scope: cdtv_link_probe.cpp conserva el rechazo UNSUPPORTED introducido por T67a. Una vez completo P6CT, sustituir solo esos cinco asserts por bound/save/load validos con buffer acotado por bound; conservar todos los comandos, DMA, IRQ, canarios de RAM, lifecycle y futuro. Doce rutas, mismo limite395; no se recorta regresion ni se afirma codec antes de la puerta completa."
+        "Ampliacion previa de scope: cdtv_link_probe.cpp conserva el rechazo UNSUPPORTED introducido por T67a. Una vez completo P6CT, sustituir solo esos cinco asserts por bound/save/load validos con buffer acotado por bound; conservar todos los comandos, DMA, IRQ, canarios de RAM, lifecycle y futuro. Doce rutas, mismo limite395; no se recorta regresion ni se afirma codec antes de la puerta completa.",
+        "Integrado d98842b5 y fixture corregida0a684bbc: doce rutas, 394 lineas añadidas. Primer corte0 PASS; union17 metodos dio16 PASS y detecto negativo que cambiaba BindingID pero conservaba Layout.content_id (el Disc no era ajeno bajo contrato). Corregido solo el fixture con IDs de Disc1/2, manteniendo rechazo y no mutacion; corte6 writer/read PASS y CdtvStateTests completo siete cortes PASS16.958s. Modo local, CdtvLink, AkikoLink y13inventario ya PASS en union42.405s, sin repetir por cambio solo de fixture nativa. Regresion CPU dirigida reutiliza first_divergence de CpuModesTests: vsync exacto SAME/NEW, ambasPASS; un metodo en100.517s incluida reconstruccion state-opt. STATE01/DET02 comparten la misma puerta siete cortes; snapshots completos inmediatos/futuros, MMIO/RAM/AV/PCM/ticks y negativos pasan. Sin perfil publico ni atribucion Waterbox; temporales eliminados."
       ],
       "checks": [
         "STATE01",
@@ -18245,7 +18246,7 @@
       "title": "Cargar firmware y mapa de un perfil CDTV privado sin publicar frontends",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T67b2",
         "T50"
