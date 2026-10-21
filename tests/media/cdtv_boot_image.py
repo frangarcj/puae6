@@ -49,13 +49,15 @@ def program():
     def relative(op, label):
         words(op); fixups.append((len(code), label)); words(0)
     words(0x48e7, 0x3c22, 0x2c78, 4)  # preserve d2-d5/a2/a6; ExecBase
-    relative(0x43fa, 'dos'); words(0x7000, 0x4eae, -552, 0x4a80)  # OpenLibrary v0
+    relative(0x45fa, 'data'); words(0x52aa, 36)  # diagnostic stage1: actual entry
+    relative(0x43fa, 'dos'); words(0x7000, 0x4eae, -552, 0x2540, 40, 0x52aa, 36, 0x4a80)  # OpenLibrary v0; result/stage2
     relative(0x6700, 'end'); words(0x2c40)
-    relative(0x45fa, 'data'); relative(0x41fa, 'path')
-    words(0x2208, 0x243c, 0, 1005, 0x4eae, -30, 0x2a00)  # Open OLD; d5=fh
+    relative(0x41fa, 'path')
+    words(0x2208, 0x243c, 0, 1005, 0x4eae, -30, 0x2540, 44, 0x52aa, 36, 0x2a00)  # Open OLD; result/stage3; d5=fh
     relative(0x6700, 'close')
-    words(0x2205, 0x41ea, 16, 0x2408, 0x7610, 0x4eae, -42, 0x2800, 0x2205, 0x4eae, -36)
+    words(0x2205, 0x41ea, 16, 0x2408, 0x7610, 0x4eae, -42, 0x2540, 48, 0x52aa, 36, 0x2800, 0x2205, 0x4eae, -36)
     words(0x0c84, 0, 16); relative(0x6600, 'close')
+    words(0x52aa, 36)  # stage5: read length checked, about to call Delay
     labels['loop'] = len(code)
     words(0x7201, 0x4eae, -198, 0x52aa, 32)  # Delay(1), then ++private counter
     relative(0x6000, 'loop')
@@ -63,7 +65,7 @@ def program():
     words(0x224e, 0x2c78, 4, 0x4eae, -414)
     labels['end'] = len(code)
     words(0x7014, 0x4cdf, 0x443c, 0x4e75)
-    for name, data in (('dos', b'dos.library\0'), ('path', b'SYS:P6DATA\0'), ('data', MAGIC + bytes(20))):
+    for name, data in (('dos', b'dos.library\0'), ('path', b'SYS:P6DATA\0'), ('data', MAGIC + bytes(36))):
         labels[name] = len(code); code.extend(data); code.extend(bytes(len(code) % 2))
     for at, label in fixups: struct.pack_into('>h', code, at, labels[label] - at)
     code.extend(bytes(-len(code) % 4)); n = len(code) // 4
