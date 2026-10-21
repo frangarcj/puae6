@@ -2221,9 +2221,9 @@ Los sintetizadores existentes leen offsets/stride fisicos; 2448 conserva los
 subcanales almacenados, los otros modos generan Q del LBA y pista declarados.
 Q generado exige MSF representable; un timestamp TOC no puede desbordar int.
 Disc.IsDisposed pertenece al mismo owner y evita reabrir Blob_RawFile tras cerrar;
-Dispose repetido es inocuo. Una SBI valida acompanante se rechaza claramente antes
-de publicacion y cierra el owner, pues ApplySBI requiere sectores densos; una
-firma SBI invalida conserva el comportamiento historico de ignorarla.
+Dispose repetido es inocuo. La limitacion inicial de SBI sobre esta fuente
+queda resuelta por el overlay de T66v13 descrito debajo; una firma SBI invalida
+conserva el comportamiento historico de ignorarla.
 
 MED01 compara bytes/Q, TOCs y metadata de ambas sesiones, padding fisico, huecos
 sin IO, canarios, lecturas cortas/excepciones, truncado y cierre/reapertura de FD.
