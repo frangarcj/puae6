@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35",
@@ -11655,7 +11655,8 @@
         "Integracion de CDTV: la lane funcional ahora selecciona el probe con firmware autorizado de T67c1. Exigir P6_CDTV_ROM_MAIN y P6_CDTV_ROM_EXT antes de preparar imagenes/compilar; verificar negativos tempranos junto a A4000/CD32 y documentar el par fijo. Root limita esta vertical a tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md; la puerta acumulada completa sigue pendiente de candidata estable, sin atribuir CI real por tests de infraestructura.",
         "Integracion acotada del dispatcher: conectar los selectores host publicos ya ejecutados de T66t15c a BUILD01/MED01/STATE01, que sin registro responden NOT_IMPLEMENTED. Solo tools/check.py y comprobacion de importacion/casos no vacios, sin repetir builds ni acreditar CI acumulada. Volver pending al terminar esta vertical mientras se completa CDTV.",
         "Renovar la preview local despues de integrar DAO multisesion, ETN2 compacto con strides mezclados y CHD con HTOA. Actualizar solo docs/user/native-preview.md dentro del alcance previo; usar tools/package.py build con los fuentes limpios y comprobar el ZIP extraido mediante su smoke existente, sin repetir matriz ni declarar release formal.",
-        "La primera lane sanitizer de la candidata detecta desacuerdos concretos config(seed19/7,iter1716) y model(floppy_multidrive,seed1/2). Ampliar touch exclusivamente a ambos fuzzers y su test existente: contrastar oraculos independientes con contrato/codigo actual, corregir solo la causa demostrada y retener witnesses/negativos que detecten un fallo real. busy_reference investiga aislado sin metadata ni motor/guest; root integra y ejecuta solo config/model afectados, no repite state/hardfile/trackdisk que terminaron sin fallo. No acreditar lane completa ni IPF decoder que no llegaron al gate."
+        "La primera lane sanitizer de la candidata detecta desacuerdos concretos config(seed19/7,iter1716) y model(floppy_multidrive,seed1/2). Ampliar touch exclusivamente a ambos fuzzers y su test existente: contrastar oraculos independientes con contrato/codigo actual, corregir solo la causa demostrada y retener witnesses/negativos que detecten un fallo real. busy_reference investiga aislado sin metadata ni motor/guest; root integra y ejecuta solo config/model afectados, no repite state/hardfile/trackdisk que terminaron sin fallo. No acreditar lane completa ni IPF decoder que no llegaron al gate.",
+        "22oct usuarioordenaCIhostedLinuxsiMacOScobra: cd_swapaisladopreparagateLinuxnativorealensolo4rutaspermitidas/workflow+script+testinfra+guia,ubuntu24.04estandar,j2/timeoutacotado/sinROMcomercial/secretos/artifactos/reportes ni cachesGitHubde pago. ConservarPR/nightly/releaseWaterboxDarwinysuschecksoriginales, LinuxnoacreditaWB13..15 ni perfDarwin. LeerrecetasLinuxyaejecutadasT25 yreusarheadless/libretro/restorepropio; rootintegrayserializacompilaciones/publicacion. InstalacionrunnerMaclocalNOautorizada; norepreguntarporella. Verificarcuotaminutosantesdeejectuarremotoonoactivarfacturacion/serviciospago,pendientesremotosexplicitos."
       ],
       "checks": [
         "PLAN01",
@@ -11672,8 +11673,7 @@
         "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
         "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
       ],
-      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
-      "blocked_reason": "Repositorio privado frangarcj/puae6 creado y main sincronizada, workflow manual presente; API GitHub informa cero runners. La autorizacion para descargar/preparar un runner temporal en este Mac esta solicitada y pendiente. La CI remota y union acumulada/nightly conservan todas sus puertas; no se acreditan por los checks dirigidos locales. GitHubsi ofrece macOSARM64hostedprivado; self-hosted es configuracionactual, no limitacionplataforma. Elusuario pregunta por alternativaenlanube yNOautoriza aúninstalacionrunnerlocal. Preparar entorno/pins/sysroot/runtime/assets para hosted sin asumir../MacHawk presente; ninguna ejecucionremota acreditada."
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
     },
     {
       "id": "T39",
