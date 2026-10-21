@@ -18640,6 +18640,50 @@
       "stop": "No contabilizar decoderpuro como ejecucionWaterbox ni habilitarloaderpublico; no tocar cd_source.cpp/C# fuera de ficha y dividirantes400lineas."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v7",
+      "title": "Conectar transporte V3 privado y snapshot Waterbox multisesion",
+      "status": "in_progress",
+      "depends": [
+        "T66v6",
+        "T67c3c"
+      ],
+      "touch": [
+        "adapters/waterbox/cd_source.cpp",
+        "integration/bizhawk/core/Puae6/CdHost.cs",
+        "tests/media/csharp-disc/Cd32.cs",
+        "tests/waterbox-media/test_cd_source.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cinco rutas290..370lineas manuales, cd_swap aislado despuesV6/C3cDONE. Root metadata y guestbuild-j2; agente soloC#offline/sintaxis ycommit. No nuevo parserNRG/loaderpublico ni Puae6Guest/CMake/Program/csproj; si no cabe400 dividirantes sin perder gates.",
+        "Exports layout_v3 devuelve18u64 (prefijoregional10, count/tablaoffsets, Session size y5offsets), bind_v3/catalog_bind_v3 reusan prepare/bind_catalog con wire_version3/decodeV3. Contextospermanentes/callbackpublicado solotrasvalidacion, nocruceversion rebind. Conservar guardsCDTVdeC3c y V1/V2/ABI1 exactos.",
+        "P6CdInfoV3 y Session20B reales en CdHost, constructor/arrayclonados, BindV3/BindCatalogV3 y ABI Attach; mismos slots/callbacks ydispatch LoadSnapshot/Restore/faultlatch. Evitar wrapperproduccion paralelo; solo IntPtrsentinel para negativo antesvalidacion como probeexistente.",
+        "Extender harnessCd32Waterbox modo cd32sessions OpenV3 reusaRun/Save/Ram/Restore. PythonentregaDTO/streamcanonico conocidos, C#no interpretaNRG/DiscSystem y omiteMount. IDprivadoversionado calculado sobretodoscampos/tabla+payloadlegible; noprobarparsing/bootjuego. Ambassesiones0/4/6/11 y30/32/39, Qbytesindependientes, huecos11/20/29 sin callback/salida; guestReadSector real.",
+        "WB03/DET02 mismo selector tests.waterbox-media.test_cd_source.Cd32SessionWaterboxTests.test_private_v3_cold_snapshot_and_rebind. Writer2frames/cut+5futuroAV/PCM/ticks/RAM/reads/fullsnapshotfinal/local; reader nuevo proceso/sandboxantesprimerRun, snapshotinmediato/futuroexactos. RebindtablaalteradaIDigual rechaza antespublicarsentinel y rawsnapshotigual, OtherMediaIDpropio antesLoad, faultlatch. Single ycatalog1V3 mismasgarantias, doscallbacks. RegresiondirigidaV1Cd32WaterboxTests yV2Cd32RegionalWaterboxTests pordispatchcomun, nocatalogo/TASacumulado.",
+        "Sin guestactual/runner receiptvalido puertaBLOCKED. Parsing/cargarestauracionpublica multisesion siguenrequeridos posteriores antesT66; identidadprivada de fixture no acredita normalizacionhost real."
+      ],
+      "checks": [
+        "WB03",
+        "DET02"
+      ],
+      "acceptance": [
+        "TransporteV3 y CdHost real conservan tabla/huecos/rebind/identidad y snapshot frio antesprimerRun exactos en Waterbox, single/catalog1 yV1/V2regresiones pasan; carga publica multisesion permanece rechazada."
+      ],
+      "stop": "No contarC#offline/probepuro comoWaterbox; no tocarfueraTouch ni aplicar callbacks externos antesvalidar, dividirantes400lineas."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18734,7 +18778,8 @@
         "T66v3",
         "T66v4",
         "T66v5",
-        "T66v6"
+        "T66v6",
+        "T66v7"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -19331,7 +19376,7 @@
       ],
       "id": "T67c3c",
       "title": "Arrancar CDTV privado en Waterbox y restaurar snapshot frio",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67c3a",
         "T66r2",
@@ -19351,7 +19396,8 @@
         "Vertical privada275..325lineas manuales en seis rutas, cd32_close aislado desde rootactual. Machine10 numerico con perfil existente, sin modelo/enum C#publico; reutilizar ISO/HUNK/TM autorizados de C3a y transporteV1 Puae6DiscSource. Root metadata y builds guest/motor serializados-j2; agente solo sintaxis/C#ligero y commit, no compilar guest WT.",
         "p6w_cd_activate admite machine10 sin akiko_init ni private_start: p6_load prepara cadena, primera APPLY ejecuta reset/autoconfigC2 tras Bind posterior Seal, como orden nativo acreditado. Unitnum puede seguir-1 antesprimer run: no exigir0 ni reinicializar controlador. Lifecycle existente cdtv_init/free y shutdown limpian unidad. Rechazar catalogo/cambioCDTV antes de p6_akiko_media_set, sin simular cambios.",
         "tests.waterbox-media.test_cdtv_boot.CdtvWaterboxBootTests.test_original_iso_hunk_cold_snapshot_and_full_future usa EXT256+MAIN256, nonceDOS unico y contadorDelay positivo/creciente, lecturas reales, limite1000. Tras cut,16frames RAM completa/video/PCM/metadata/ticks/fullsnapshot. Restaurar local, sandboxnuevo y proceso nuevo antesprimer run; identidadajena rechazada transaccional y teardown. Temporales solo build, limpiar al terminar.",
-        "WB03/DET02 mismo selector una sola ejecucion; regresion CD32V1 dirigida mismo guest actualizado. Verificar receipt/hash/sourceidentity reales antes de ejecutar; sin runner puerta BLOCKED. PASS nativo no sustituye Waterbox. Publicacion BizHawk y cambioCDTV siguen hojas obligatorias posteriores del padreT67; esta hoja no cambia schema wrapper:false."
+        "WB03/DET02 mismo selector una sola ejecucion; regresion CD32V1 dirigida mismo guest actualizado. Verificar receipt/hash/sourceidentity reales antes de ejecutar; sin runner puerta BLOCKED. PASS nativo no sustituye Waterbox. Publicacion BizHawk y cambioCDTV siguen hojas obligatorias posteriores del padreT67; esta hoja no cambia schema wrapper:false.",
+        "Guest real actual773533a16c152aa6...58103080bytes construido-j2; CdtvWaterboxBootTests+Cd32WaterboxTests2PASS17.510s, sin skips. Runtime/guest receipt y sourceidentity estrictos verificados. Nonce/Delay, local/sandboxnuevo/procesonuevo, futuro16fullsnapshot, identidad/operaciones/teardown yregresionV1pasan. No enumC#publico."
       ],
       "checks": [
         "WB03",
