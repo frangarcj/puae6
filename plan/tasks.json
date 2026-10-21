@@ -19725,7 +19725,7 @@
       "title": "Exponer HRTMon Freeze y restauracion de peliculas en BizHawk",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69c3",
         "T21",
