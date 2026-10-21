@@ -421,13 +421,6 @@
       "scenarios": [],
       "subsystems": []
     },
-    "0350-z3-physical-autoconfig-state": {
-      "effect": "inert",
-      "why": "The reference corpus has no Z3 board. Only a guest-configured Z3 board changes its recorded base/access masks, and the native-state accessors gain its mapping and window.",
-      "test": "tests.state.test_z3",
-      "scenarios": [],
-      "subsystems": []
-    },
     "0376-frestore040-unimp-fields": {
       "effect": "inert",
       "why": "REF01 does not offer CPU040. The directed fpp probe restores independently built rev40/41 UNIMP frames, checks fields, arithmetic priority, bus accesses and subsequent instructions.",
@@ -512,6 +505,7 @@
     "0361-nrg-metadata-only": "The required MDS metadata patch0388 extends the NRG compile guard and decoder branch, and required NRG extensions0389/0391/0392 need this parser. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate NRG parsing. Directed metadata/provider tests cover its layouts and failures; no corpus golden is changed.",
     "0356-cue-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
     "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
-    "0367-cd32-combined-firmware": "Required CDTV firmware patch0401 extends this combined-ROM branch. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate CD32/CDTV firmware loading. Directed firmware/profile tests retain exact pair, map and rejection checks; no corpus golden is changed."
+    "0367-cd32-combined-firmware": "Required CDTV firmware patch0401 extends this combined-ROM branch. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate CD32/CDTV firmware loading. Directed firmware/profile tests retain exact pair, map and rejection checks; no corpus golden is changed.",
+    "0350-z3-physical-autoconfig-state": "Required CDTV autoconfig patch0402 extends the shared expansion-state accessors and their Z3-aware signature/window reconstruction introduced here. Retain this behavior patch as an explicit dependency; REF01 has no Z3 board and does not independently ablate or validate Z3 mapping. Directed Z3 tests retain their own physical-board and restore gates; no corpus golden is changed."
   }
 }

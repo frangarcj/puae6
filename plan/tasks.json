@@ -18297,7 +18297,7 @@
       "title": "Restaurar autoconfig CDTV y unidad vacia por la cadena real del motor",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67c1",
         "T67b2",
@@ -18356,7 +18356,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T67c2",
         "T15",
