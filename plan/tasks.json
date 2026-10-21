@@ -18891,7 +18891,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T67c2",
         "T15",
@@ -18921,7 +18921,8 @@
         "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes.",
         "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente.",
         "Reproducer MED01 actual: CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce. Conservar el selector completo CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives como puerta pendiente; el reproducer de arranque no sustituye STATE01/DET02 ni implementa restore. Revisar disponibilidad del ejecutable MacHawk existente solo lectura como control independiente antes de pedir otro asset; cualquier salida temporal solo build y limpiar al terminar.",
-        "Nuevo control autorizado por el usuario: Cannon Fodder local, track01 MODE1/2352, PVD CDTV y TM declarado22152/LBA21/cdtv35.2. Extender lector temporal del TM a sectores raw sin copiar headers; conservar Brian MODE1/2048 y sus pins. Esta nueva fuente justifica retomar el reproducer de nonce una vez, sin atribuir todavia arranque de Cannon ni restauracion completa."
+        "Nuevo control autorizado por el usuario: Cannon Fodder local, track01 MODE1/2352, PVD CDTV y TM declarado22152/LBA21/cdtv35.2. Extender lector temporal del TM a sectores raw sin copiar headers; conservar Brian MODE1/2048 y sus pins. Esta nueva fuente justifica retomar el reproducer de nonce una vez, sin atribuir todavia arranque de Cannon ni restauracion completa.",
+        "Dato nuevo independiente antes de retomar: Blower1.0.1 del autor (commit03a91c4201e093e5a31c7fc55cf1b7638ce5dce4, ISO SHA2567b6b93ef116b2399f197b6d170b396ef744e10bea85543622ce6fd918a89b4c6) declara CDTV boot y1MiBChip, no incluye Kickstart; TM exacto de Cannon. Control MacHawk fijo1000unidades muestra logo500/negro750/azul1000, sin acreditar juego. El limite600 de nuestro probe puede ser anterior a esa transicion. Añadir argumento diagnostico acotado hasta1000 sin cambiar default600; ejecutar una vez la fixture nonce original con ese limite, sin tocar firmware, CPU ni avanzar por relojhost. Si no ejecuta, conservar bloqueo e hipotesis; si ejecuta, completar restore/negativos antes de done."
       ],
       "checks": [
         "MED01",
