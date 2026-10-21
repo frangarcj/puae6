@@ -186,7 +186,7 @@ p6_result validate_input(const p6_input &in, p6_error *error)
     if (in.abi_version == P6_INPUT_VERSION_2) {
         const auto &extended = *reinterpret_cast<const p6_input_v2 *>(&in);
         if (extended.commands & ~P6_COMMAND_FREEZE) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown input commands");
-        if (extended.commands && !hrtmon_bound()) return p6_fail(error, P6_ERROR_UNSUPPORTED, "Freeze requires HRTMon");
+        if (extended.commands && !hrtmon_bound() && !ar_bound()) return p6_fail(error, P6_ERROR_UNSUPPORTED, "Freeze requires HRTMon or AR2/3");
         for (const auto &port : extended.parallel) {
             if (port.type > P6_PORT_JOYSTICK || port.reserved || port.dx || port.dy ||
                 (port.buttons & ~(P6_BUTTON_1 | kDirections)) || (port.type == P6_PORT_NONE && port.buttons))
@@ -233,7 +233,7 @@ unsigned apply_input(const p6_input &in)
     }
     p6_input_parallel(parallel, buttons, directions);
     const uint32_t commands = in.abi_version == P6_INPUT_VERSION_2 ? reinterpret_cast<const p6_input_v2 *>(&in)->commands : 0;
-    if ((commands & ~applied.commands) & P6_COMMAND_FREEZE) request_hrtmon_freeze();
+    if ((commands & ~applied.commands) & P6_COMMAND_FREEZE) request_cartridge_freeze();
     applied.commands = commands; // Consume even during monitor/first boot; a held level is never a pending action.
     if (p6_input_engine_released_keys) {       // a chord ended inside this packet
         p6_input_engine_released_keys = 0;

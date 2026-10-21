@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "p6.h"
 #ifdef __cplusplus
+#include <type_traits>
 #define CHECK static_assert
 #define ALIGN alignof
 #else
@@ -14,6 +15,12 @@
     CHECK(ALIGN(type) == (alignment), #type " alignment")
 #define OFFSET(type, field, offset) CHECK(offsetof(type, field) == (offset), #type "." #field)
 CHECK(sizeof(void *) == 8, "This probe validates the native 64-bit ABI only");
+#ifdef __cplusplus
+CHECK((std::is_same<decltype(&p6_cartridge_bind),p6_result (*)(uint32_t,p6_buffer,p6_error *)>::value), "cartridge C ABI signature");
+#else
+CHECK(_Generic(&p6_cartridge_bind,p6_result (*)(uint32_t,p6_buffer,p6_error *):1,default:0), "cartridge C ABI signature");
+#endif
+CHECK(P6_CAP_AR23 == (UINT64_C(1)<<12) && P6_CARTRIDGE_AR2==2 && P6_CARTRIDGE_AR3==3, "cartridge ABI values");
 LAYOUT(p6_result, 4, 4);
 LAYOUT(p6_error, 264, 4);
 LAYOUT(p6_caps, 32, 8);

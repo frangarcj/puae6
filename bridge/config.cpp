@@ -108,8 +108,8 @@ p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_STATE, "bind one cartridge before load");
     if (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000 || resolve_cpu_multiplier(c) != 2 ||
         c.cpu_compatibility == P6_CPU_NORMAL || c.fpu_model || c.z3_memory || c.flags || c.hdf_controller || !memory_is_preset(c))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private AR requires stock compatible A500/68000");
-    if (model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "private AR supports models2/3");
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "AR requires stock compatible A500/68000");
+    if (model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "AR supports models2/3");
     if (!image.data || image.bytes != (model == 2 ? 131072u : 262144u) || !memcmp(image.data, "ATZ!HRT!", 8))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected raw AR2/3 image of matching size");
     if (p6_blob_register(kActionReplayId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
@@ -134,6 +134,13 @@ static bool hrtmon_ready()
 }
 
 bool request_hrtmon_freeze() { return hrtmon_ready() && action_replay_freeze(); }
+bool request_cartridge_freeze()
+{
+    if (hrtmon_bound()) return request_hrtmon_freeze();
+    const auto &s=p6_session::session;
+    return ar_bound() && s.state==p6_session::State::Loaded && s.started && s.unit_index && !s.reset_queued &&
+        s.config.machine==P6_MACHINE_A500 && (armodel==2 || armodel==3) && action_replay_flag==ACTION_REPLAY_IDLE && action_replay_freeze();
+}
 
 p6_result freeze_hrtmon(p6_error *error)
 {
@@ -820,3 +827,8 @@ p6_result check_loaded_firmware(p6_error *error)
 }
 
 }  // namespace p6_bridge
+
+extern "C" p6_result p6_cartridge_bind(uint32_t model,p6_buffer image,p6_error *error)
+{
+    return p6_bridge::bind_action_replay(model,image,error); // The shared owner takes exactly one Guard.
+}

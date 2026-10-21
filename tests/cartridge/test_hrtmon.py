@@ -105,12 +105,11 @@ class ArOwnerTests(unittest.TestCase):
             self.assertIn('AR2/3 copied owner/banks/refusals/cleanup PASS',result.stdout)
 
 
-class ArStateTests(unittest.TestCase):
-    def test_complete_ar23_semantic_cold_state_and_refusals(self):
-        from tests.fixtures.test_microrom import builder
-        # Original byte-only boot, stack within stock Chip RAM. TST.B waits for
-        # the host signal; the first long write is deferred until after cut0.
-        source='''entry:
+def ar_state_firmware():
+    from tests.fixtures.test_microrom import builder
+    # Original byte-only boot, stack within stock Chip RAM. TST.B waits for
+    # the host signal; the first long write is deferred until after cut0.
+    source='''entry:
     MOVE.W #$2700,SR
     MOVEA.L #$7F000,A7
     MOVE.B #3,$BFE201.L
@@ -122,9 +121,14 @@ count:
     .word $52B9,$0001,$1000
     BRA.S count
 '''
+    return builder.build(source)
+
+
+class ArStateTests(unittest.TestCase):
+    def test_complete_ar23_semantic_cold_state_and_refusals(self):
         exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
         with tempfile.TemporaryDirectory(prefix='ar-state-',dir=ROOT/'build') as tmp:
-            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(source))
+            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(ar_state_firmware())
             twins=[]
             for mode in ('ar-write','ar-read'):
                 result=subprocess.run([str(exe),str(firmware),'-',mode,tmp],capture_output=True,text=True,timeout=180,
@@ -133,3 +137,27 @@ count:
                 twins.append([line for line in result.stdout.splitlines() if line.startswith('AR continuation ')])
                 self.assertEqual(len(twins[-1]),36)
             self.assertEqual(*twins)
+
+
+class NativeArTests(unittest.TestCase):
+    def test_public_ar23_freeze_return_real_firmware_and_cold_state(self):
+        names=('P6_KICKSTART_A500_ROM','P6_ACTION_REPLAY2_ROM','P6_ACTION_REPLAY3_ROM')
+        assets=[os.environ.get(name) for name in names]
+        if not all(assets):
+            self.skipTest('BLOCKED: set authorized local '+', '.join(names))
+        for path in assets:
+            self.assertTrue(Path(path).is_file(),path)
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar-public-',dir=ROOT/'build') as tmp:
+            own=Path(tmp)/'original.rom'; own.write_bytes(ar_state_firmware())
+            for kind,firmware,cart,count in (('own',str(own),'-',2),('real2',assets[0],assets[1],2),('real3',assets[0],assets[2],2)):
+                twins=[]
+                for mode in ('write','read'):
+                    result=subprocess.run([str(exe),firmware,cart,'ar-public-'+kind+'-'+mode,tmp],capture_output=True,text=True,timeout=360,
+                                          env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                    self.assertEqual(result.returncode,0,kind+'/'+mode+'\n'+result.stdout[-2500:]+result.stderr[-4000:])
+                    twins.append([line for line in result.stdout.splitlines() if line.startswith('AR public continuation ')])
+                    self.assertEqual(len(twins[-1]),count)
+                    if kind=='own':
+                        self.assertIn('AR public bind/copy/commands/held/reset/ABI/refusals PASS',result.stdout)
+                self.assertEqual(*twins,kind)

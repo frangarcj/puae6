@@ -70,7 +70,7 @@ static void step(int units=1,int key=-1)
 static void command(const char *text,bool enter=true)
 {
     for(;*text;++text) {
-        int key=*text=='o'?AK_O:*text=='x'?AK_X:*text=='a'?AK_A:*text==' '?AK_SPC:
+        int key=*text=='o'?AK_O:*text=='x'?AK_X:*text=='g'?AK_G:*text=='a'?AK_A:*text==' '?AK_SPC:
             *text=='0'?AK_0:*text>='1'&&*text<='9'?*text-'0':-1;
         assert(key>=0); step(3,key); step(3);
     }
@@ -503,10 +503,146 @@ static void ar_continuations(const std::vector<uint8_t> &rom,const char *directo
     }
     cpu_mode=P6_CPU_EXACT;
 }
+static void public_ar_start(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,unsigned model,bool negatives=false)
+{
+    input_v2=false; command_level=0; auto e=error(); auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e);
+    if(negatives) {
+        for(unsigned bad:{1u,1200u}) assert(p6_cartridge_bind(bad,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
+        assert(p6_cartridge_bind(model,{nullptr,cart.size()},&e)==P6_ERROR_WRONG_MEDIA);
+        assert(p6_cartridge_bind(model,{cart.data(),cart.size()-1},&e)==P6_ERROR_WRONG_MEDIA);
+        p6_error unusable{}; unusable.abi_version=99; unusable.message[0]='x'; const auto before=unusable;
+        assert(p6_cartridge_bind(model,{cart.data(),cart.size()},&unusable)==P6_ERROR_BAD_ARGUMENT && !memcmp(&before,&unusable,sizeof before));
+        { p6_session::Guard busy; assert(busy.ok); assert(p6_cartridge_bind(model,{cart.data(),cart.size()},&e)==P6_ERROR_BUSY); }
+    }
+    auto copy=cart; call(p6_cartridge_bind(model,{copy.data(),copy.size()},model==3?nullptr:&e),e); copy.assign(copy.size(),0);
+    uint8_t bytes[16]; size_t got=0; assert(p6_blob_pread("p6-action-replay.rom",0,bytes,sizeof bytes,&got)==P6_BLOB_OK && got==16 && !memcmp(bytes,cart.data(),16));
+    assert(p6_cartridge_bind(model,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_STATE);
+    assert(p6_bridge::bind_hrtmon({nullptr,0},&e)==P6_ERROR_BAD_STATE);
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); p6_sha256_init(&observed);
+}
+static void public_ar_stop()
+{
+    auto e=error(); call(p6_shutdown(&e),e); input_v2=false; command_level=0;
+    assert(!p6_bridge::ar_bound() && !armodel && !(regs.spcflags&SPCFLAG_ACTION_REPLAY));
+}
+static void ar_packet_refusals(const std::vector<uint8_t> &state)
+{
+    same_state(state); reject_commands(2,P6_ERROR_BAD_ARGUMENT); reject_commands(3,P6_ERROR_BAD_ARGUMENT);
+    auto bad=state; bad[fields.at("applied.commands")]=2;
+    reseal(bad,p6_state::current_identity()); reject(bad,P6_ERROR_CORRUPT_STATE);
+}
+static void public_ar_own_setup()
+{
+    for(unsigned n=0;n<16;++n)put_byte(0x11000+n,0);
+    put_byte(0x11005,0xfe); const uint8_t vector[]={0,1,0x23,0x40};
+    for(unsigned n=0;n<4;++n)put_byte(0x7c+n,vector[n]);
+    put_byte(0x12340,0x4e); put_byte(0x12341,0x73);
+}
+static void public_ar_own(const std::vector<uint8_t> &rom,const char *directory,bool writing)
+{
+    auto e=error(); const auto first=ar_cart(2);
+    assert(p6_cartridge_bind(2,{first.data(),first.size()},&e)==P6_ERROR_BAD_STATE);
+    for(unsigned model:{2u,3u}) {
+        const auto cart=ar_cart(model); public_ar_start(rom,cart,model,true);
+        const auto path=std::string(directory)+"/ar-public-own-"+std::to_string(model)+".state";
+        std::vector<uint8_t> state;
+        if(writing) {
+            level(1,2); assert(held_command()==1 && action_replay_flag==ACTION_REPLAY_WAITRESET);
+            public_ar_own_setup();
+            put_byte(0x1100c,1); put_long(0x11008,1); level(1);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE); ar_exit(); level(1,3);
+            assert(action_replay_flag==ACTION_REPLAY_IDLE); level(0); level(1);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE); state=save();
+            FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f);
+        } else { state=file(path.c_str()); load(state); }
+        ar_packet_refusals(state);
+        std::array<uint8_t,32> twin{};
+        for(unsigned replay=0;replay<2;++replay) {
+            load(state); same_state(state); input_v2=true; command_level=1; assert(held_command()==1);
+            p6_sha256_init(&observed); const auto counter=get_long(0x11000); level(1,4); assert(get_long(0x11000)==counter);
+            ar_exit(); level(1,4); assert(action_replay_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>counter);
+            input_v2=false; step(); assert(!held_command()); level(1);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE); ar_exit(); level(1,3);
+            const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{}; p6_sha256_final(&observed,digest.data());
+            if(replay) assert(digest==twin); else twin=digest;
+        }
+        printf("AR public continuation own/%u/0 ",model); for(auto byte:twin)printf("%02x",byte); puts("");
+        if(writing) {
+            call(p6_reset(&e),e); level(1,2); assert(held_command()==1 && action_replay_flag==ACTION_REPLAY_WAITRESET);
+            public_ar_own_setup(); put_byte(0x1100c,1); put_long(0x11008,1); level(1);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE && ar_control().mode_read==3); ar_exit(); level(1,3);
+            assert(action_replay_flag==ACTION_REPLAY_IDLE && held_command()==1);
+        }
+        public_ar_stop();
+    }
+    auto c=config(P6_MACHINE_A1200); call(p6_init(&c,&e),e);
+    assert(p6_cartridge_bind(2,{first.data(),first.size()},&e)==P6_ERROR_UNSUPPORTED); call(p6_shutdown(&e),e);
+    c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e); call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e);
+    p6_sha256_init(&observed); level(0); reject_commands(1,P6_ERROR_UNSUPPORTED); reject_commands(2,P6_ERROR_BAD_ARGUMENT); public_ar_stop();
+    puts("AR public bind/copy/commands/held/reset/ABI/refusals PASS");
+}
+static void real_ar_loop()
+{
+    // Loaded while the real monitor is paused; execution starts only through its G command.
+    const uint8_t program[]={0x52,0xb9,0,1,0x10,0,0x60,0xf8};
+    for(unsigned n=0;n<4;++n)put_byte(0x11000+n,0);
+    for(unsigned n=0;n<sizeof program;++n)put_byte(0x12000+n,program[n]);
+    command("g 12000");
+    if(action_replay_flag!=ACTION_REPLAY_IDLE || !get_long(0x11000))
+        fprintf(stderr,"AR G failed model=%d flag=%d PC=%08x counter=%u\n",armodel,action_replay_flag,m68k_getpc(),get_long(0x11000));
+    assert(action_replay_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>0);
+}
+static void real_ar_boot()
+{
+    // Primary boot help in both authorized ROMs names F10 as exit to monitor.
+    level(1,300); step(3,AK_F10); step(24); real_ar_loop();
+    level(1,4); assert(action_replay_flag==ACTION_REPLAY_IDLE); // Held boot level was consumed.
+}
+static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,unsigned model,const char *directory,bool writing)
+{
+    std::vector<std::vector<uint8_t>> cuts; auto e=error();
+    if(writing) {
+        public_ar_start(rom,cart,model); real_ar_boot(); level(0); level(1,80);
+        assert(action_replay_flag==ACTION_REPLAY_ACTIVE && held_command()==1); cuts.push_back(save());
+        command("x",false); cuts.push_back(save()); public_ar_stop();
+    }
+    for(unsigned cut=0;cut<2;++cut) {
+        const auto path=std::string(directory)+"/ar-public-real-"+std::to_string(model)+"-"+std::to_string(cut)+".state";
+        const auto state=writing?cuts[cut]:file(path.c_str()); public_ar_start(rom,cart,model);
+        load(state); ar_packet_refusals(state); std::array<uint8_t,32> twin{};
+        for(unsigned replay=0;replay<2;++replay) {
+            load(state); same_state(state); input_v2=true; command_level=1; assert(held_command()==1);
+            p6_sha256_init(&observed); const auto counter=get_long(0x11000); level(1,8);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE && get_long(0x11000)==counter);
+            if(cut) { step(3,AK_RET); step(12); } else command("x");
+            level(1,5); assert(action_replay_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>counter);
+            input_v2=false; step(); assert(!held_command()); level(1,80);
+            assert(action_replay_flag==ACTION_REPLAY_ACTIVE); command("x"); step(8);
+            assert(action_replay_flag==ACTION_REPLAY_IDLE);
+            const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{}; p6_sha256_final(&observed,digest.data());
+            if(replay) assert(twin==digest); else twin=digest;
+        }
+        if(writing) { FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f); }
+        printf("AR public continuation real/%u/%u ",model,cut); for(auto byte:twin)printf("%02x",byte); puts(""); public_ar_stop();
+    }
+    if(writing) {
+        public_ar_start(rom,cart,model); load(cuts[0]); input_v2=true; command_level=1;
+        call(p6_reset(&e),e); real_ar_boot(); assert(held_command()==1);
+        level(0); level(1,80); assert(action_replay_flag==ACTION_REPLAY_ACTIVE); command("x"); step(8);
+        assert(action_replay_flag==ACTION_REPLAY_IDLE); public_ar_stop();
+    }
+}
 int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5);
+    if(!strncmp(argv[3],"ar-public-",10)) {
+        const std::string mode=argv[3]; const bool writing=mode.size()>=5 && mode.substr(mode.size()-5)=="write";
+        if(mode.find("own")!=std::string::npos) public_ar_own(file(argv[1]),argv[4],writing);
+        else public_ar_real(file(argv[1]),file(argv[2]),mode.find("real2")!=std::string::npos?2:3,argv[4],writing);
+        return 0;
+    }
+
     if(!strcmp(argv[3],"ar-owner")) { ar_owner(file(argv[1])); return 0; }
     if(!strcmp(argv[3],"ar-write") || !strcmp(argv[3],"ar-read")) {
         ar_continuations(file(argv[1]),argv[4],!strcmp(argv[3],"ar-write")); return 0;

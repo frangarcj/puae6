@@ -69,7 +69,7 @@ p6_result validate_config(const p6_config &config, p6_error *error);
 p6_result validate_memory(const p6_config &config, p6_error *error);
 p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_error *error);
 
-// Private AR2/3 raw owner; no native codec or public option yet.
+// Shared AR2/3 raw owner, used by the public bind and the private codec probe.
 p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error);
 bool ar_bound();
 bool ar_identity(uint8_t out[32]);
@@ -83,6 +83,7 @@ bool hrtmon_identity(uint8_t out[32]);
 p6_result load_builtin_hrtmon(p6_error *error);
 // Internal boundary action, without Guard. An ineligible press is consumed by input, never queued.
 bool request_hrtmon_freeze();
+bool request_cartridge_freeze();
 
 // Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the
 // overrides of the profile file, then upstream fixup_prefs). Touches only preference globals. `ide` is ide_attached(config, hard files of the list): the preset then has Gayle's IDE port.

@@ -360,8 +360,8 @@ void visit_input(Archive &a)
     }
     if (a.mode() == Mode::Save) a.require(bool(r.parallel_enabled) == parallel, "parallel adapter mode and the bridge disagree");
     if (a.applying()) r.parallel_enabled = parallel;
-    // Only HRTMon owns this input history. A restore copies the level without re-emitting Freeze.
-    if (p6_bridge::hrtmon_bound()) field<uint8_t>(a, ap.commands, 0, 1, "applied.commands");
+    // Bound cartridge history only; Apply copies the level without re-emitting Freeze.
+    if (p6_bridge::hrtmon_bound() || p6_bridge::ar_bound()) field<uint8_t>(a, ap.commands, 0, 1, "applied.commands");
     if (checks) {
         a.require(!(optical[0] && optical[1]), "only one optical sensor is supported");
         if (pointer) {
