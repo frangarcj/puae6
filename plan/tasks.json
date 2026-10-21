@@ -18243,7 +18243,7 @@
       "title": "Cargar firmware y mapa de un perfil CDTV privado sin publicar frontends",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67b2",
         "T50"
@@ -18292,6 +18292,62 @@
       "stop": "No exponer schema antes de completar autoconfig/restauracion, usar private_start para fingir hardware publico, confundir dump256 con banco512 ni relajar ROMs permitidas. Cambios del motor solo patch0401."
     },
     {
+      "id": "T67c2",
+      "title": "Restaurar autoconfig CDTV y unidad vacia por la cadena real del motor",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T67c1",
+        "T67b2",
+        "T15"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0402-cdtv-autoconfig-state.patch",
+        "ports/portable/cdtv_state.h",
+        "bridge/state.h",
+        "bridge/state.cpp",
+        "bridge/state_cdtv.cpp",
+        "bridge/lifecycle.cpp",
+        "tests/media/cdtv_state_probe.cpp",
+        "tests/media/test_cdtv_state.py",
+        "tests/media/cdtv_boot_probe.cpp",
+        "manifests/state-inventory.json",
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Agregar la entrada ORIGINAL cdtvdmac al array portable expansionroms: ROMTYPE_CDTVDMAC|NOT, cdtv_init, Z2, INTERNAL|DMA24. Sin SCSI/SRAM/CR ni private_start. El preset real ya publica esa ROMTYPE mediante cfgfile_compatibility_romtype; mantener tabla/card/forwarding originales, no un atajo que mapee E9.",
+        "P6RM debe visitar expansion tambien para perfil kCdtv sin Fast/Z3, con una card. E8 sigue expamem_bank wrapper y su forwarding al dmac_bank actual se representa por discriminador2 derivado del card real, nunca ptr serializado. Mantener ecard/cardno/hi/lo/mapfunc/pointer/size/PROM explicitos, reconstruir desde cards[ecard]->aci.addrbank y exigir propietario CDTV. No expamem_next/shutup durante Apply. P6RM vive en state.cpp; si resulta necesaria state_upstream.cpp, solicitar ampliacion antes de editar.",
+        "Cruzar fase candidata P6RM con P6CT antes de Apply: contexto0 legado A500,1pendiente,2terminado. CT conserva configured0 sin asignar, -1 shut-up o byte base Z2 valido (20..9F oE9..EF); nunca E9 fijo. Desmapear solo la direccion antigua cuando todavia es su DMAC, comprobar destino ajeno antes de reset/mutacion y mapear solo al estar asignado. DTO Validate permanece puro; runtime preflight separado. E8/PROM/cadena pertenecen P6RM y base/configured/NVRAM a P6CT. Reset head original reconstruye propietarios antes de aplicar valores.",
+        "Unidad vacia real: cdtv_init inicia servicio sin Disc y unitnum=-1; admitirla solo con DeviceState.bound0/opens0/audio vacio/selector0 y contextdisc null. No inventar apertura ni alterar cd_device para simular exito. AA55/MODEL/status son comandos reales; capacidad/read/play sin medio dan error y preservan canarios. Hsync respeta configured como upstream. Identidad contempla catalogo vacio del perfil antes de publicarlo.",
+        "MED01/STATE01/DET02 comparten CdtvAutoconfigTests.test_guest_assignment_shutup_empty_and_cold_restore, mismo exe bus-write/bus-read y firmware autorizado de C1. Tres cortes vacios (E8/PROM pendiente, baseEA por escritura guest E80048, shut-up por guest E8004c) y configurado con Disc para opens/identidad. Programa RAM breve provoca escrituras CPU bajo p6_run_frame; no producir fases mediante private_start/map_banks/cdtv_init. Confirmar pendiente observable; si firmware ya termino antes de capturar, diagnosticar fixture y no fingir el estado.",
+        "Owner/proceso nuevo antes de primer run: save exacto inmediato y futuro MMIO/RAM/AV/PCM/ticks/fullsave, mapa E8/EA o ausencia tras shut-up. Aplicacion sin callbacks/I/O/IRQ. Negativos fase/PROM/discriminador/base ajena se rechazan sin mutar. Regresiones una union: CdtvFirmwareTests, siete CdtvStateTests, componente local, CdtvLinkTests e inventario StateComponentTests. No repetir gates por sus etiquetas. Habilitar codec y capacidad real del perfil solo al pasar puerta completa: lifecycle.cpp deja de desactivar profile_state_supported y boot_probe sustituye exclusivamente expectativas UNSUPPORTED, conservando sus otros asserts.",
+        "cd_swap implementa aislado: once rutas de implementacion, objetivo330-380 lineas manuales y limite400. Serie/clasificacion/tests/test_plan.py son metadata solo root. Patch0402 reservado; root integra/materializa y serializa compilacion -j2. Sin schema/opciones nuevas ni atribucion de menu/bootCD/Waterbox. Padre T67 conserva publicacion ABI y arranque/restauracion real antes de las conexiones frontend. Si no cabe, dividir antes de ampliar."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "CDTV privado usa la cadena DMAC original y restaura fase E8, base guest asignada y shut-up, vacio o con Disc real, en frio entre owners/procesos con futuro exacto y negativos transaccionales. Capacidad y codec se habilitan juntos; no se atribuye perfil publico ni bootCD."
+      ],
+      "stop": "No hardcodeE9, private_start como autoconfig, ptr persistido, apertura ficticia, fase fingida ni efectos durante Apply. Preflight de destino antes de reset; ampliar scope antes de nuevas rutas o400 lineas."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -18303,7 +18359,8 @@
         "T67a",
         "T67b1",
         "T67b2",
-        "T67c1"
+        "T67c1",
+        "T67c2"
       ],
       "read": [
         "docs/01-architecture.md",
