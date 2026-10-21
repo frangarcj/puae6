@@ -50,6 +50,8 @@ internal static unsafe partial class Program
   bool direct=Path.GetExtension(xml).Equals(".chd",StringComparison.OrdinalIgnoreCase);
   byte[] seed=Enumerable.Range(0,1024).Select(n=>(byte)(n*17+9)).ToArray();
   File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
+  File.WriteAllText(Path.Combine(work,"gamedb.txt"),"");
+  Database.InitializeDatabase(work,work,true); // Direct disc identification acquires the real game database.
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
   Require(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(work,"warm.zip")));
   Puae6Core Open(string path, byte[] nvram)
