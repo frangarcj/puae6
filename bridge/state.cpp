@@ -52,6 +52,7 @@ struct VisitContext {
     MediaPlan media;
     int64_t scheduler_cycle = -1;
     uint32_t media_count;       // how many media the manifest of the state had: every medium its bodies name is below it (the live manifest may have grown since)
+    uint32_t cdtv_phase = 0;
     uint32_t cpu_flags = 0;
 };
 VisitContext *g_context = nullptr;
@@ -146,7 +147,8 @@ void visit_expansion(Archive &a, uint32_t fast)
     const unsigned words = z3 ? kExpansionWords : 13;
     // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init); on Gayle's IDE (T56) it adds one card instead, the IDE port itself (not autoconfig either)
     const bool ide = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count());
-    const uint32_t cards = (fast ? 1u : 0u) + (z3 ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
+    const bool cdtv = session.config.machine == p6_bridge::kCdtvMachine;
+    const uint32_t cards = (cdtv ? 1u : 0u) + (fast ? 1u : 0u) + (z3 ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
@@ -155,7 +157,7 @@ void visit_expansion(Archive &a, uint32_t fast)
     get<uint8_t>(a, w[1], cards, cards, "ram.fast_cardno");
     const uint8_t chipdone = get<uint8_t>(a, w[2], 0, 1, "ram.fast_chipdone");
     const uint8_t map_set = get<uint8_t>(a, w[3], 0, 1, "ram.fast_map_set");
-    const uint8_t bank_current = get<uint8_t>(a, w[4], 0, 1, "ram.fast_bank_current");
+    const uint8_t bank_current = get<uint8_t>(a, w[4], 0, cdtv ? 2 : 1, "ram.fast_bank_current");
     get<uint8_t>(a, w[5], 0, 0, "ram.fast_autoconfig_mode");
     const uint16_t hi = get<uint16_t>(a, w[6], 0, 0xffff, "ram.fast_hi");
     const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
@@ -175,6 +177,14 @@ void visit_expansion(Archive &a, uint32_t fast)
         a.require(!w[15] || (w[13] >= 0x10000000 && uint64_t(w[13]) + z3 <= 0xf0000000), "Z3: mapped base outside the bus");
     }
     if (a.mode() == Mode::Measure) return;
+    if (cdtv) {
+        a.require(!map_set && !hi && !lo && (ecard == 0 ? bank_current == 2 : bank_current == 0), "CDTV autoconfig phase is invalid");
+        for (unsigned n = 0; n < 256; ++n) {
+            const uint8_t expected = ecard ? 255 : n == 0 ? 0xc0 : n == 2 ? 0x10 : n == 6 ? 0xcf : n == 8 ? 0xbf : (n == 0x12 || n == 0x16) ? 0xdf : 255;
+            a.require(ac[n] == expected, "CDTV autoconfig PROM is invalid");
+        }
+        if (a.reading() && a.ok() && g_context) g_context->cdtv_phase = ecard ? 2 : 1;
+    }
     // The base of the board: none (0), a shut-up board ($FFFFFFFF) or an address in 64 KiB steps, the slot the chain suggests or the one the guest gave it. Where the board answers it
     // lies inside $200000-$9FFFFF (the guest decides; an 8 MiB board can only be at $200000).
     a.require(start == 0 || start == 0xffffffffu || !(start & 0xffff), "the Fast RAM board is at an address it cannot have");
@@ -233,7 +243,7 @@ void visit_ram(Archive &a)
     }
     visit_hrtmon(a);
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
-    if (!fast && !z3) return;
+    if (!fast && !z3 && session.config.machine != p6_bridge::kCdtvMachine) return;
     if (fast) {
         a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
         if (a.mode() == Mode::Save || a.applying())
@@ -251,6 +261,13 @@ void visit_ram(Archive &a)
 
 }  // namespace
 
+uint32_t cdtv_bus_phase(Mode mode)
+{
+    if (session.config.machine != p6_bridge::kCdtvMachine) return 0;
+    if (mode != Mode::Save) return g_context ? g_context->cdtv_phase : 0;
+    uint32_t words[13]; uint8_t bytes[256];
+    return p6_expansion_state_get(words, 13, bytes) ? (words[0] ? 2u : 1u) : UINT32_MAX;
+}
 void publish_cpu_spc(uint32_t spc) { if (g_context) g_context->cpu_flags=spc; }
 uint32_t cpu_spc(Mode mode) { return mode==Mode::Save ? uint32_t(regs.spcflags) : g_context ? g_context->cpu_flags : 0; }
 
@@ -276,7 +293,7 @@ const Chunk kChunks[kMaxChunkCount + 1] = {
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
     {"P6AK", "akiko", 1, visit_akiko, nullptr},
-    {"P6CT", "cdtv", 1, visit_cdtv, nullptr},
+    {"P6CT", "cdtv", 1, visit_cdtv, nullptr, cdtv_matches_destination},
 };
 
 namespace {
@@ -462,9 +479,7 @@ p6_result gate(const Options &options, p6_error *error)
 {
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
-    if (session.config.machine == p6_bridge::kCdtvMachine)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV profile state awaits causal autoconfig");
-    if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500)
+    if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500 && session.config.machine != p6_bridge::kCdtvMachine)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV state requires its A500 test owner");
     uint8_t cartridge[32];
     if (p6_bridge::hrtmon_bound() && !p6_bridge::hrtmon_identity(cartridge))

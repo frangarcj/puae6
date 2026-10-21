@@ -28,3 +28,16 @@ class CdtvStateTests(unittest.TestCase):
                 run = subprocess.run([str(exe), str(rom), role, tmp], capture_output=True, text=True, timeout=240)
                 self.assertEqual(0, run.returncode, run.stdout + run.stderr)
                 self.assertEqual(7, run.stdout.count(f'{role} exact'))
+
+
+class CdtvAutoconfigTests(unittest.TestCase):
+    def test_guest_assignment_shutup_empty_and_cold_restore(self):
+        import os
+        main, ext = os.environ.get('P6_CDTV_ROM_MAIN'), os.environ.get('P6_CDTV_ROM_EXT')
+        if not main or not ext: raise RuntimeError('BLOCKED: authorized CDTV main/extension required')
+        exe = build_targets(ROOT / 'build/link-audit', ['p6_cdtv_state_probe'])['p6_cdtv_state_probe']
+        with tempfile.TemporaryDirectory(prefix='cdtv-bus-', dir=ROOT / 'build') as tmp:
+            for role in ('bus-write', 'bus-read'):
+                run = subprocess.run([str(exe), main, ext, role, tmp], capture_output=True, text=True, timeout=240)
+                self.assertEqual(0, run.returncode, run.stdout + run.stderr)
+                self.assertEqual(4, run.stdout.count(f'{role} exact'))

@@ -1,0 +1,142 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -4192,17 +4192,22 @@
+ 	return b.allocated_size && b.start >= 0x10000000 && b.start < 0xf0000000 && &get_mem_bank(b.start) == &b;
+ }
+ 
++static bool p6_cdtv_current_card(uint32_t index)
++{
++	return currprefs.cs_cdtvcd && index < uint32_t(cardno) && cards[index]->initrc == cdtv_init;
++}
++
+ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+ {
+ 	if (!w || n != P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u) || !autoconfig)
+ 		return false;
+-	if (expamem_bank_current && expamem_bank_current != &expamem_bank)
+-		return false;
++	if (expamem_bank_current && expamem_bank_current != &expamem_bank &&
++		(!p6_cdtv_current_card(ecard) || expamem_bank_current != cards[ecard]->aci.addrbank)) return false;
+ 	w[0] = ecard;
+ 	w[1] = cardno;
+ 	w[2] = chipdone ? 1 : 0;
+ 	w[3] = expamem_map ? 1 : 0;
+-	w[4] = expamem_bank_current ? 1 : 0;
++	w[4] = !expamem_bank_current ? 0 : expamem_bank_current == &expamem_bank ? 1 : 2;
+ 	w[5] = expamem_autoconfig_mode;
+ 	w[6] = expamem_hi;
+ 	w[7] = expamem_lo;
+@@ -4228,8 +4233,9 @@
+ 		return false;
+ 	const uint32_t size = fastmem_bank[0].allocated_size;
+ 	const uint32_t start = w[10];
+-	if (w[1] != uint32_t(cardno) || w[0] > w[1] || w[2] > 1 || w[3] > 1 || w[4] > 1 || w[5] > 1 || w[11] != size || w[12] > 1)
++	if (w[1] != uint32_t(cardno) || w[0] > w[1] || w[2] > 1 || w[3] > 1 || w[4] > 2 || w[5] > 1 || w[11] != size || w[12] > 1)
+ 		return false;
++	if (w[4] == 2 && (!p6_cdtv_current_card(w[0]) || !cards[w[0]]->aci.addrbank)) return false;
+ 	if (!size && (w[10] || w[12]))
+ 		return false; // no Fast RAM board (T29c: the chain of a machine with only the UAEFS board): words 10 to 12 are zero
+ 	if (w[0] >= w[1] && (w[3] || w[4] || w[5]))
+@@ -4286,7 +4292,7 @@
+ 		if (!currprefs.address_space_24)
+ 			map_banks(z3 ? &expamemz3_bank : &dummy_bank, AUTOCONFIG_Z3 >> 16, 1, 0);
+ 	}
+-	expamem_bank_current = w[4] ? &expamem_bank : NULL;
++	expamem_bank_current = w[4] == 2 ? cards[ecard]->aci.addrbank : w[4] ? &expamem_bank : NULL;
+ 	return true;
+ }
+ 
+@@ -4580,6 +4586,11 @@
+ 		false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_IDE,
+ 		0, 0, 0, false, NULL, false, 1
+ 	},
++	{
++		_T("cdtvdmac"), _T("CDTV DMAC"), _T("Commodore"),
++		NULL, cdtv_init, NULL, NULL, ROMTYPE_CDTVDMAC | ROMTYPE_NOT, 0, 0, BOARD_AUTOCONFIG_Z2, true,
++		NULL, 0, false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_DMA24
++	},
+ 	{ NULL }
+ };
+ static const struct cpuboardsubtype dummy_sub[] = { { NULL } };
+diff --git a/cdtv.cpp b/cdtv.cpp
+--- a/cdtv.cpp
++++ b/cdtv.cpp
+@@ -1697,7 +1697,7 @@
+ 	service_running = false; request_head = request_size = 0;
+ 	seek_deadline = 0;
+ 	close_unit();
+-	if (&get_mem_bank(0xe90000) == &dmac_bank) map_banks(&dummy_bank, 0xe9, 1, 0);
++	if (configured > 0 && &get_mem_bank(configured << 16) == &dmac_bank) map_banks(&dummy_bank, configured, 1, 0);
+ 	configured = 0;
+ }
+ 
+@@ -1810,9 +1810,9 @@
+ template<CdtvOp op, class S> static bool cdtv_fields(S &s)
+ {
+     bool ok = true;
+-    ok &= cdtv_field<op>(s.configured, configured, 233, 233);
++    ok &= cdtv_field<op>(s.configured, configured, -1, 239);
+     ok &= cdtv_field<op>(s.cdtvscsi, cdtvscsi, 0, 0);
+-    ok &= cdtv_field<op>(s.unitnum, unitnum, 0, 0);
++    ok &= cdtv_field<op>(s.unitnum, unitnum, -1, 0);
+     ok &= cdtv_field<op>(s.dma_mask, dma_mask, 16777215, 16777215);
+     ok &= cdtv_field<op>(s.service_running, service_running, 1, 1);
+     ok &= cdtv_field<op>(s.callback_mode, callback_mode, 0, 2);
+@@ -1917,12 +1917,14 @@
+     if constexpr (op == CdtvOp::Capture) memcpy(s.sub, subcodebuffer, sizeof s.sub); else memcpy(subcodebuffer, s.sub, sizeof s.sub);
+     if constexpr (op == CdtvOp::Capture) memcpy(s.transfer, subtransferbuf, sizeof s.transfer); else memcpy(subtransferbuf, s.transfer, sizeof s.transfer);
+ }
+-static bool cdtv_ready() { return service_running && currprefs.cs_cdtvcd && !currprefs.cs_cdtvcr && unitnum == 0; }
++static bool cdtv_ready() { return service_running && currprefs.cs_cdtvcd && !currprefs.cs_cdtvcr && unitnum >= -1 && unitnum <= 0; }
++static bool cdtv_base(int base) { return (base >= 0x20 && base < 0xa0) || (base >= 0xe9 && base < 0xf0); }
+ uint64_t p6_cdtv_callback_observations() { return callback_observations; }
+ void (*p6_cdtv_subcode_handler())(uint32_t) { return subcode_interrupt; }
+ bool p6_cdtv_state_get(p6_cdtv_state *s)
+ {
+-    if (!s || !cdtv_ready() || &get_mem_bank(0xe90000) != &dmac_bank) return false;
++    if (!s || !cdtv_ready()) return false;
++    if (configured > 0 && (!cdtv_base(configured) || &get_mem_bank(configured << 16) != &dmac_bank)) return false;
+     memset(s, 0, sizeof *s);
+     if (!p6_cd::device_capture(&s->device)) return false;
+     if (!cdtv_fields<CdtvOp::Capture>(*s)) return false;
+@@ -1935,7 +1937,9 @@
+ bool p6_cdtv_state_validate(const p6_cdtv_state *s, const p6_cdtv_context &c)
+ {
+     if (!s || c.cycle < 0 || c.ntsc > 1 || c.cda_period != (c.ntsc ? 41558u : 41179u) || !cdtv_fields<CdtvOp::Validate>(*s) ||
+-        !s->device.bound || !s->device.opens || !p6_cd::device_validate(s->device, c.disc, c.cda_period)) return false;
++        (s->unitnum == -1 ? (s->device.bound || s->device.opens) : (!s->device.bound || !s->device.opens)) || !p6_cd::device_validate(s->device, c.disc, c.cda_period)) return false;
++    if (c.bus_phase > 2 || (c.bus_phase == 0 && s->configured != 0xe9) ||
++        (c.bus_phase == 1 && s->configured != 0) || (c.bus_phase == 2 && s->configured != -1 && !cdtv_base(s->configured))) return false;
+     if (s->callback_mode > 2 || s->device.audio.callbacks != (s->callback_mode ? 3u : 0u) || (s->dmac_acr & 1) ||
+         (s->cdrom_offset & 1) || (s->cdrom_length & 1) || s->cdrom_offset > INT32_MAX - s->cdrom_length ||
+         (s->seek_deadline && (s->seek_deadline < uint64_t(c.cycle) || s->seek_deadline - c.cycle > uint64_t(c.ntsc ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL) * CYCLE_UNIT / 2))) return false;
+@@ -1951,16 +1955,26 @@
+     }
+     return true;
+ }
++bool p6_cdtv_state_preflight(const p6_cdtv_state *s)
++{
++    if (!s || s->configured < -1 || (s->configured > 0 && !cdtv_base(s->configured))) return false;
++    if (s->configured > 0) {
++        auto *bank = &get_mem_bank(s->configured << 16);
++        if (bank != &dummy_bank && bank != &dmac_bank) return false;
++    } else if (!s->configured && &get_mem_bank(0xe80000) != &dummy_bank && &get_mem_bank(0xe80000) != &expamem_bank) return false;
++    return true;
++}
+ bool p6_cdtv_state_apply(const p6_cdtv_state *s, const p6_cdtv_context &c)
+ {
+     if (!cdtv_ready() || get_cycles() != c.cycle || !p6_cdtv_state_validate(s, c) ||
+-        (&get_mem_bank(0xe90000) != &dmac_bank && &get_mem_bank(0xe90000) != &dummy_bank)) return false;
++        !p6_cdtv_state_preflight(s)) return false;
+     auto status = s->callback_mode == 2 ? statusfunc_imm : s->callback_mode == 1 ? statusfunc : nullptr;
+     auto sub = s->callback_mode ? subfunc : nullptr;
+     if (!p6_cd::device_can_restore(s->device, c.disc, status, sub) || !p6_cd::device_restore(s->device, c.disc, status, sub)) return false;
++    if (configured > 0 && &get_mem_bank(configured << 16) == &dmac_bank) map_banks(&dummy_bank, configured, 1, 0);
+     cdtv_fields<CdtvOp::Apply>(*s); cdtv_buffers<CdtvOp::Apply>(*s);
+     request_head = 0; memcpy(requests, s->queue, sizeof requests);
+-    if (&get_mem_bank(0xe90000) != &dmac_bank) map_banks(&dmac_bank, 0xe9, 1, 0);
++    if (configured > 0) map_banks_z2(&dmac_bank, configured, 1);
+     return true;
+ }
+ 

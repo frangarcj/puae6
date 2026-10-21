@@ -1873,6 +1873,17 @@ y checksum principal antes de cargar. Vistas acotadas separan ambas mitades;
 el banco extendido ocupa512KiB en F0-F7, con el relleno/checksum que genera
 WinUAE, y nunca contiene bytes de MAIN. La principal conserva su alias256KiB.
 El probe acredita preferencias, mapas, ejecucion y teardown/recarga A500;
-no acredita autoconfig DMAC ni arranque CD/menu. El estado de este nuevo owner
-devuelve UNSUPPORTED y su capacidad permanece apagada hasta la hoja causal de
-autoconfig P6RM/P6CT. El codec privado A500 de T67b2 conserva su propio gate.
+no acredita autoconfig DMAC ni arranque CD/menu. El codec privado A500 de T67b2 conserva su propio gate. T67c2 activa el estado
+nativo del perfil junto con su capacidad, manteniendo el perfil fuera del ABI publico.
+
+T67c2 usa la entrada DMAC original y el forwarding de E8. P6RM conserva la
+cadena/PROM y un discriminador del banco actual (0 ninguno, 1 expansor, 2 DMAC
+resuelto desde la tarjeta real); P6CT conserva configured: 0 pendiente, -1 shut-up
+o una base Z2 legal asignada por el guest. La validacion pura cruza ambos candidatos.
+Un preflight separado rechaza destinos ocupados por otro banco antes del reset;
+Apply reconstruye los propietarios y mapas sin ejecutar autoconfig ni hardware.
+La unidad sin Disc conserva unitnum=-1, bound=0 y opens=0: AA55/status funcionan;
+READ/capacidad/play no producen datos ficticios. Cuatro cortes prueban pendiente,
+base EA, shut-up y EA con Disc, tambien antes del primer run de otro proceso.
+Los futuros comparan MMIO/RAM/AV/PCM/ticks y el estado completo. No acredita
+arranque de CD/menu ni snapshots Waterbox, y no promete compatibilidad entre builds.

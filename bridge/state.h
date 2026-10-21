@@ -59,6 +59,8 @@ void publish_cpu_spc(uint32_t);
 uint32_t cpu_spc(Mode);
 void visit_akiko(Archive &);
 void visit_cdtv(Archive &);
+uint32_t cdtv_bus_phase(Mode);
+const char *cdtv_matches_destination(const uint8_t *, uint64_t, MediaPlan &);
 
 // The chunk visitors that live outside state.cpp (state_cpu.cpp, state_devices.cpp).
 void visit_cpu(Archive &a);

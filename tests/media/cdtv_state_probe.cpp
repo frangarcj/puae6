@@ -5,6 +5,8 @@
 #include "options.h"
 #include "memory.h"
 #include "events.h"
+#include "newcpu.h"
+#include "../../bridge/config.h"
 #include "p6_state_access.h"
 #include "cdtv_state.h"
 #include "media/cd_device.h"
@@ -17,6 +19,8 @@
 #include "../../bridge/session.h"
 static p6_error error{P6_ABI_VERSION, sizeof error};
 static unsigned reads;
+static uint64_t *future_hash;
+static void observe(uint64_t &, const void *, size_t);
 static bool image_read(const void *, uint64_t at, void *out, size_t size, size_t *got)
 {
     ++reads; for (size_t n = 0; n < size; ++n) static_cast<uint8_t *>(out)[n] = uint8_t((at + n) * 13);
@@ -25,7 +29,10 @@ static bool image_read(const void *, uint64_t at, void *out, size_t size, size_t
 static void frames(unsigned count = 1)
 {
     p6_input in{P6_ABI_VERSION, sizeof in}; p6_frame out{P6_ABI_VERSION, sizeof out};
-    while (count--) assert(p6_run_frame(&in, P6_RENDER_AUDIO, &out, &error) == P6_OK);
+    while (count--) {
+        assert(p6_run_frame(&in, future_hash ? P6_RENDER_VIDEO | P6_RENDER_AUDIO : P6_RENDER_AUDIO, &out, &error) == P6_OK);
+        if (future_hash) { observe(*future_hash,out.video,out.video_bytes); observe(*future_hash,out.audio,out.audio_frames*4); observe(*future_hash,&out.master_ticks,sizeof out.master_ticks); }
+    }
 }
 static void local(const p6_cd::Disc &disc, unsigned mode)
 {
@@ -195,13 +202,115 @@ static void native(const std::vector<uint8_t> &rom, const p6_config &config, con
     }
 }
 
+static void bus_program()
+{
+    // Poll RAM command; CPU writes $E80048=EA or $E8004C=0, then clears it.
+    const uint16_t code[] = {0x4a39,1,0,0x67f8,0x0c39,1,1,0,0x670a,0x13fc,0,0xe8,0x4c,0x6008,
+                             0x13fc,0xea,0xe8,0x48,0x4239,1,0,0x60d4};
+    for (unsigned n = 0; n < sizeof code / sizeof *code; ++n) put_word(0x12000 + n * 2, code[n]);
+    put_byte(0x10000, 0); regs.sr = 0x2700; MakeFromSR(); m68k_setpc_normal(0x12000); fill_prefetch(); frames();
+}
+static uint64_t bus_future(unsigned cut)
+{
+    uint64_t hash = 1469598103934665603ull; future_hash = &hash;
+    if (cut == 0) { put_byte(0x10000, 1); frames(); }
+    if (cut != 2) {
+        for (auto word : {0x80u, 0u}) put_byte(0xea00a1, word); frames();
+        unsigned reply = get_byte(0x10000); assert(reply == 0); // The CPU consumed its command.
+        assert(get_byte(0xea00a1) == 0xaa && get_byte(0xea00a1) == 0x55);
+        put_byte(0xea00a1, 0x81); frames(); const unsigned status = get_byte(0xea00a1);
+        assert(bool(status & 0x40) == (cut == 3)); observe(hash, &status, sizeof status);
+        for (auto byte : {0x83u,0u,0u,0u,0u,0u,0u}) put_byte(0xea00a1, byte); frames();
+        for (char byte : "MATSHITA0.96") if (byte) assert(get_byte(0xea00a1) == unsigned(byte));
+        if (cut != 3) {
+            const unsigned prior_reads = reads; auto empty = std::make_unique<p6_cdtv_state>();
+            put_byte(0xea00a1, 0x86); frames();
+            assert(p6_cdtv_state_get(empty.get()) && empty->cd_error && empty->cdrom_command_size_out == -1);
+            for (auto byte : {0x0bu,1u,1u,0u,0u,0u,0u}) put_byte(0xea00a1, byte); frames();
+            assert(p6_cdtv_state_get(empty.get()) && empty->cd_error && !empty->device.audio.bound && reads == prior_reads);
+        }
+        for (auto byte : {2u,0u,0u,0u,0u,1u,0u}) put_byte(0xea00a1, byte); frames();
+        put_word(0x1fffe, 0x6a7b); put_word(0x20000, 0xbeef); put_word(0x20002, 0x8c9d);
+        for (unsigned n = 0; n < 4; ++n) { put_byte(0xea0080 + n, 1u >> (24 - n * 8)); put_byte(0xea0084 + n, 0x20000u >> (24 - n * 8)); }
+        put_byte(0xea0043, 0x90); put_byte(0xea00e0, 0); frames();
+        assert(get_word(0x1fffe) == 0x6a7b && get_word(0x20002) == 0x8c9d && get_word(0x20000) == (cut == 3 ? 0x000d : 0xbeef));
+        auto current = std::make_unique<p6_cdtv_state>(); assert(p6_cdtv_state_get(current.get()));
+        assert(current->configured == 0xea && current->unitnum == (cut == 3 ? 0 : -1));
+        assert(current->device.opens == (cut == 3 ? 1u : 0u) && bool(current->cd_error) == (cut != 3));
+    } else {
+        auto current = std::make_unique<p6_cdtv_state>(); assert(p6_cdtv_state_get(current.get()) && current->configured == -1);
+        assert(&get_mem_bank(0xe80000) == &dummy_bank && &get_mem_bank(0xea0000) == &dummy_bank);
+    }
+    frames(2); observe(hash, chipmem_bank.baseaddr, chipmem_bank.allocated_size); auto final = save();
+    observe(hash, final.data(), final.size()); future_hash = nullptr; return hash;
+}
+struct BusFields { uint64_t bank = 0, prom = 0, configured = 0; };
+static void bus_field(void *context, uint32_t, uint64_t at, uint64_t, const char *name)
+{
+    auto &f = *static_cast<BusFields *>(context);
+    if (!strcmp(name, "ram.fast_bank_current")) f.bank = at;
+    if (!strcmp(name, "ram.fast_autoconfig")) f.prom = at;
+    if (!strcmp(name, "cdtv.configured")) f.configured = at;
+}
+static void bus_refusals()
+{
+    BusFields fields; p6_state::Options options; options.on_field = bus_field; options.on_field_context = &fields;
+    auto state = save(options); const auto cycle = get_cycles(); const auto callbacks = p6_cdtv_callback_observations(); const unsigned prior_reads = reads;
+    for (auto offset : {fields.bank, fields.prom, fields.configured}) {
+        assert(offset); auto bad = state; bad[offset] = offset == fields.configured ? 0xa0 : bad[offset] ^ 3;
+        p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::chunk_count(), p6_state::current_identity(),
+                       p6_session::session.unit_index, p6_session::session.master_ticks);
+        assert(p6_state_load(bad.data(), bad.size(), &error) == P6_ERROR_CORRUPT_STATE && save() == state);
+    }
+    assert(cycle == get_cycles() && callbacks == p6_cdtv_callback_observations() && reads == prior_reads);
+}
+static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *role, const char *directory)
+{
+    config.machine = p6_bridge::kCdtvMachine; const bool writer = !strcmp(role, "bus-write");
+    p6_cd::Layout layout{}; layout.content_id[0] = 8; layout.tracks = 1; layout.leadout = 2;
+    layout.track[0] = {0,0,2,0,2048,0,p6_cd::Mode::Mode1_2048,1,4,false};
+    p6_cd::Binding binding{{{8},4096,2048},image_read,nullptr}; p6_cd::Disc disc;
+    assert(disc.bind(layout, &binding, 1) == p6_cd::Result::Ok);
+    const char *selected = getenv("P6_CDTV_BUS_CUT"); const unsigned first = selected ? unsigned(strtoul(selected,nullptr,10)) : 0;
+    const unsigned last = selected ? first + 1 : 4; assert(first < 4);
+    for (unsigned cut = first; cut < last; ++cut) {
+        assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(),rom.size()},nullptr,0,&error) == P6_OK);
+        if (cut == 3) assert(p6_cd::device_bind(&disc) == p6_cd::Result::Ok);
+        const std::string path = std::string(directory) + "/bus" + std::to_string(cut);
+        if (writer) {
+            frames(); auto pending = std::make_unique<p6_cdtv_state>(); assert(p6_cdtv_state_get(pending.get()));
+            fprintf(stderr, "CDTV first unit configured=%d PC=%x\n", pending->configured, m68k_getpc()); assert(pending->configured == 0);
+            assert(get_byte(0xe80000) == 0xc0 && get_byte(0xe80002) == 0x10); bus_program();
+            if (cut) { put_byte(0x10000, cut == 2 ? 2 : 1); frames(); }
+        }
+        auto state = writer ? save() : file_bytes(path + ".state");
+        if (!writer) {
+            if (cut == 1 || cut == 3) {
+                map_banks(&chipmem_bank,0xea,1,0); const auto cycle = get_cycles(); const unsigned prior_reads = reads;
+                const auto callbacks = p6_cdtv_callback_observations();
+                assert(p6_state_load(state.data(),state.size(),&error) == P6_ERROR_INCOMPATIBLE);
+                assert(get_cycles() == cycle && reads == prior_reads && callbacks == p6_cdtv_callback_observations() && &get_mem_bank(0xea0000) == &chipmem_bank);
+                map_banks(&dummy_bank,0xea,1,0);
+            }
+            assert(p6_state_load(state.data(),state.size(),&error) == P6_OK && save() == state);
+        }
+        bus_refusals(); const auto result = bus_future(cut);
+        assert(p6_state_load(state.data(),state.size(),&error) == P6_OK && save() == state && bus_future(cut) == result);
+        if (writer) { write_bytes(path+".state",state.data(),state.size()); write_bytes(path+".future",&result,sizeof result); }
+        else { auto expected=file_bytes(path+".future"); assert(expected.size()==sizeof result && !memcmp(expected.data(),&result,sizeof result)); }
+        assert(p6_shutdown(&error)==P6_OK && !p6_cd::device_open_count()); p6_cd::device_unbind();
+        printf("CDTV bus cut %u %s exact\n",cut,role);
+    }
+}
+
 int main(int argc, char **argv)
 {
-    assert(argc == 3 || argc == 4); FILE *f = fopen(argv[1], "rb"); assert(f);
+    assert(argc == 3 || argc == 4 || argc == 5); FILE *f = fopen(argv[1], "rb"); assert(f);
     assert(!fseek(f, 0, SEEK_END)); long size = ftell(f); assert(size > 0); rewind(f);
     std::vector<uint8_t> rom(size); assert(fread(rom.data(), 1, rom.size(), f) == rom.size()); fclose(f);
     p6_config c{P6_ABI_VERSION, sizeof c}; c.machine = P6_MACHINE_A500; c.audio_rate_hz = 48000; c.video_standard = P6_VIDEO_PAL;
     c.random_seed = 1; c.rtc_epoch_seconds = 946684800;
+    if (argc == 5) { auto combined = file_bytes(argv[2]); combined.insert(combined.end(),rom.begin(),rom.end()); bus(combined,c,argv[3],argv[4]); return 0; }
     if (argc == 4) { native(rom, c, argv[2], argv[3]); return 0; }
     assert(p6_init(&c, &error) == P6_OK);
     assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();

@@ -16,11 +16,8 @@ template<class T, size_t N> void value(Archive &a, T (&v)[N], const char *name)
     for (auto &element : v) value(a, element, name);
 }
 }
-void visit_cdtv(Archive &a)
+static void fields(Archive &a, p6_cdtv_state &c)
 {
-    std::unique_ptr<p6_cdtv_state> state(new (std::nothrow) p6_cdtv_state{});
-    a.require(state != nullptr, "CDTV staging allocation failed"); if (!a.ok()) return; auto &c = *state;
-    if (a.mode() == Mode::Save) a.require(p6_cdtv_state_get(&c), "CDTV owner cannot be captured");
     value(a, c.configured, "cdtv.configured");
     value(a, c.cdtvscsi, "cdtv.cdtvscsi");
     value(a, c.unitnum, "cdtv.unitnum");
@@ -158,11 +155,24 @@ void visit_cdtv(Archive &a)
         value(a, channel.current, "cdtv.channel.current"); value(a, channel.previous, "cdtv.channel.previous");
         value(a, channel.accumulator, "cdtv.channel.accumulator"); value(a, channel.cycles, "cdtv.channel.cycles");
     }
+}
+void visit_cdtv(Archive &a)
+{
+    std::unique_ptr<p6_cdtv_state> state(new (std::nothrow) p6_cdtv_state{});
+    a.require(state != nullptr, "CDTV staging allocation failed"); if (!a.ok()) return; auto &c = *state;
+    if (a.mode() == Mode::Save) a.require(p6_cdtv_state_get(&c), "CDTV owner cannot be captured");
+    fields(a, c);
     if (a.mode() == Mode::Measure) return;
     a.finish(); if (!a.ok()) return;
     const uint32_t ntsc = p6_session::session.config.video_standard == P6_VIDEO_NTSC;
-    const p6_cdtv_context context{scheduler_cycle(a.mode()), ntsc, ntsc ? 41558u : 41179u, p6_cd::device_resolve_disc(d.disc_id)};
+    const p6_cdtv_context context{scheduler_cycle(a.mode()), ntsc, ntsc ? 41558u : 41179u, p6_cd::device_resolve_disc(c.device.disc_id), cdtv_bus_phase(a.mode())};
     a.require(p6_cdtv_state_validate(&c, context), "CDTV candidate is invalid");
     if (a.applying() && a.ok()) a.require(p6_cdtv_state_apply(&c, context), "CDTV destination is unavailable");
+}
+const char *cdtv_matches_destination(const uint8_t *body, uint64_t size, MediaPlan &)
+{
+    std::unique_ptr<p6_cdtv_state> state(new (std::nothrow) p6_cdtv_state{}); if (!state) return "CDTV staging allocation failed";
+    auto archive = Archive::validator(body, size); fields(archive, *state); archive.finish();
+    return archive.ok() && p6_cdtv_state_preflight(state.get()) ? nullptr : "CDTV destination bank is foreign";
 }
 }

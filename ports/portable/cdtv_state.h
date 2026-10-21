@@ -85,9 +85,10 @@ struct p6_cdtv_state {
     p6_cd::DeviceState device;
 };
 namespace p6_cd { class Disc; }
-struct p6_cdtv_context { int64_t cycle; uint32_t ntsc, cda_period; const p6_cd::Disc *disc; };
+struct p6_cdtv_context { int64_t cycle; uint32_t ntsc, cda_period; const p6_cd::Disc *disc; uint32_t bus_phase = 0; };
 bool p6_cdtv_state_get(p6_cdtv_state *);
 bool p6_cdtv_state_validate(const p6_cdtv_state *, const p6_cdtv_context &);
+bool p6_cdtv_state_preflight(const p6_cdtv_state *); // Runtime destination only; no reset or mutation.
 bool p6_cdtv_state_apply(const p6_cdtv_state *, const p6_cdtv_context &);
 uint64_t p6_cdtv_callback_observations(); // Diagnostic only, never state.
 void (*p6_cdtv_subcode_handler())(uint32_t); // Stable callback binding, never serialized.

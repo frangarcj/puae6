@@ -37,13 +37,13 @@ static p6_result load_readonly(const std::vector<uint8_t> &rom)
     auto copy = rom; auto result = p6_load({copy.data(), copy.size()}, nullptr, 0, &error); assert(copy == rom); return result;
 #endif
 }
-static void unavailable()
+static void available(bool started = false)
 {
-    p6_caps caps{P6_ABI_VERSION, sizeof caps}; ok(p6_query_caps(&caps, &error)); assert(!(caps.flags & P6_CAP_STATE));
+    p6_caps caps{P6_ABI_VERSION, sizeof caps}; ok(p6_query_caps(&caps, &error)); assert(caps.flags & P6_CAP_STATE);
     uint64_t bound = 9, written = 9; uint8_t data[64]; memset(data, 0xa5, sizeof data);
-    assert(p6_state_bound(&bound, &error) == P6_ERROR_UNSUPPORTED && bound == 9);
-    assert(p6_state_save(data, sizeof data, &written, &error) == P6_ERROR_UNSUPPORTED && !written);
-    assert(p6_state_load(data, sizeof data, &error) == P6_ERROR_UNSUPPORTED);
+    assert(p6_state_bound(&bound, &error) == P6_OK && bound > 9);
+    assert(p6_state_save(data, sizeof data, &written, &error) == (started ? P6_ERROR_CAPACITY : P6_ERROR_BAD_STATE) && !written);
+    assert(p6_state_load(data, sizeof data, &error) == P6_ERROR_CORRUPT_STATE);
     for (auto b : data) assert(b == 0xa5);
 }
 static uint32_t frames()
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
             assert(load_readonly(bad) == P6_ERROR_WRONG_MEDIA);
             assert(kickmem_bank.baseaddr == old_main && extendedkickmem_bank.baseaddr == old_ext && get_cycles() == cycles);
         }
-        ok(load_readonly(rom)); maps(main, ext); unavailable();
+        ok(load_readonly(rom)); maps(main, ext); available();
         if (!repeat) {
 #define PREF(name, value) printf("pref %s %u\n", name, unsigned(value))
             PREF("chip_kib", currprefs.chipmem.size/1024); PREF("slow_kib", currprefs.bogomem.size/1024); PREF("fast_kib", currprefs.fastmem[0].size/1024);
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
             FIELD(cs_compatible); FIELD(keyboard_mode); FIELD(cs_resetwarning); FIELD(cs_cdtvcd); FIELD(cs_cdtvram); FIELD(cs_cdtvcr); FIELD(cs_rtc); FIELD(cs_ciaoverlay); FIELD(cs_ksmirror_e0); FIELD(cs_ide); FIELD(cs_pcmcia);
             assert(!currprefs.flashfile[0] && !currprefs.romextfile[0] && !currprefs.romextfile2[0]);
         }
-        auto next = frames(); if (repeat) assert(pc == next); pc = next; maps(main, ext); unavailable(); ok(p6_shutdown(&error));
+        auto next = frames(); if (repeat) assert(pc == next); pc = next; maps(main, ext); available(true); ok(p6_shutdown(&error));
         assert(!kickmem_bank.baseaddr && !extendedkickmem_bank.baseaddr);
     }
     auto c = config(P6_MACHINE_A500); ok(p6_init(&c, &error)); ok(load_readonly(main)); frames();
