@@ -18415,6 +18415,54 @@
       "stop": "No habilitar lecturas multisesion por un parser que solo almacena fronteras; preservar rechazo explicito hasta integrar proveedor, dispositivo y restore."
     },
     {
+      "id": "T66l9",
+      "title": "Cargar NRG canonico por RomLoader y restaurar en Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l8",
+        "T66t19",
+        "T66t18"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0015-public-puae6-nrg.patch",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "tests/waterbox-media/test_chd_public.py",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Conectar proveedor T66l8 al loader publico: XML Amiga con PUAE6 preferido/forzado; directo solo por seleccion explicita .nrg=Amiga y core PUAE6, o core forzado PUAE6. Mantener reglas CHD y sus tests, DAO/default de otros cores y extensiones ajenas. Lease existente y contexto Amiga antes del inventario; no fallback tras fallo seleccionado. Seis rutas de implementacion200..300lineas, agente busy_reference aislado, root metadata y compilaciones pesadas.",
+        "Parche0015 solo RomLoader derivado de cola0014: compartir la decision estrecha de backend si evita duplicacion, conservando wrappers existentes usados por pruebas CHD. MountPuae6Nrg clasifica DAO y conserva su ruta. Sin nueva ABI ni decoder, ni cambios a MacHawk.",
+        "Reusar arnes publico de CD de T16/T18/T19 para NRG V2 de una sesion. Extraer fixture NRG pura a funcion del modulo existente para evitar construir un TestCase o duplicar oraculos; el gate semantico conserva las mismas expectativas. Fixtures ETNF/ETN2 equivalentes, negativo de payload y geometria; lectura por ReadAt y exportsector real en fronteras representativas. EEPROM, cold owner/proceso nuevo, futuro exacto y snapshot entero, supresion y FDclose por el mismo escenario. No afirmar boot de aplicacion con fixture sintetica.",
+        "MED01 selector real previo a firmware con matriz de preferencias/forced/ext mayuscula y rechazos sin fugas; WB03/WB08/DET02 escenario publico una vez y regresiones CHD de la clase reutilizada. Agente no inicia guest/native: root renueva recibos y compila una candidata estable antes del runner real; no usar guest obsoleto."
+      ],
+      "checks": [
+        "MED01",
+        "WB03",
+        "WB08",
+        "DET02"
+      ],
+      "acceptance": [
+        "RomLoader selecciona PUAE6 para NRG solo por contexto explicito y conserva ownership, descriptor/bytes e identidad canonicos; Waterbox real restaura en owner y proceso nuevos con futuro/snapshot exactos, EEPROM y rechazo transaccional. CHD y DAO existentes conservan sus puertas."
+      ],
+      "stop": "Sin guest actual no acreditar WB. No confundir TAO canonico acotado con TINF, multisesion u otros modos; no reutilizar mensajes de exito CHD para presentar otro escenario sin aclararlo."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18504,7 +18552,8 @@
         "T66t19",
         "T66v1",
         "T66l8",
-        "T66v2"
+        "T66v2",
+        "T66l9"
       ],
       "read": [
         "docs/01-architecture.md",
