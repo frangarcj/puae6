@@ -2151,10 +2151,9 @@ con sesiones, Q/TOCs, limites, canarios y fallos de proveedor; no activa exports
 loader publico, C# ni snapshots Waterbox.
 
 
-T67c3d distingue el nuevo propietario CDTV del RESET de hardware. Antes de
-custom_init, start_engine inicializa explicitamente los registros de display y
-Copper y los latches DIW/DDF/secuenciador a sus valores BSS cero. El reset head
-conserva su orden y genera la paleta sin cambios; blitter, disco y latch de bus
-no se borran. p6_reset y loadstate no llaman al hook. El reproducer1032x2 sin
-restore y la puerta de boot/restore conservan comparaciones exactas de ticks,
-RAM, video y PCM: no se adapta el estado anterior ni se tolera el desfase.
+Un nuevo propietario CDTV debe reproducir el inicio de un proceso frio. RESET
+de hardware conserva registros y no basta para esa propiedad. La puerta1032x2
+sin restore y la de boot/restore exigen ticks, RAM, video y PCM exactos. Una
+limpieza parcial del display no acredita la inicializacion completa; mantener
+la publicacion pendiente mientras siga un desfase causal. El warmreset no debe
+convertirse en un power-on ni tolerar o adaptar los estados para ocultarlo.

@@ -19260,7 +19260,7 @@
       ],
       "id": "T67c3d",
       "title": "Restablecer display CDTV en nuevo power-on sin alterar warm reset",
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T67c3a",
         "T66r8"
@@ -19290,7 +19290,8 @@
       "acceptance": [
         "Primerarranque CDTV conserva observables previos; nuevoowner tras sesionlarga reproduce exactamente ticks/RAM/AV/PCM yboot/restores, con hookcold exclusivo y warmreset/otrosmodelos intactos."
       ],
-      "stop": "No tolerancias/golden cambiados ni reset ciego de todochipset. Gatepublico C3b sigue bloqueado hasta esta correccion y frio pendientes."
+      "stop": "No tolerancias/golden cambiados ni reset ciego de todochipset. Gatepublico C3b sigue bloqueado hasta esta correccion y frio pendientes.",
+      "blocked_reason": "Hook0406 elimina delta169 pero gate exacto vuelve a fallar en623:22586638848 vs22586634752(-4096), AV/PCM iguales. Primerownerprefijo1032 completo antes/despues es exacto. Correccion parcial apartada en rama codex/cdtv-display-power-on-wip, sin tocar warmreset ni tolerancias; reproducer --cycles2 permanece. H1: blitter retenido puede consumirse al inicializar graficos posteriores; verificar P6CH/BLTX/BLTP en622 y futuro623. H2: cursor/fase de eventos secundarios ya difiere en168 y puede influir al coincidir eventos posteriores; verificar P6SC completo en622 sin cambiar orden del scheduler. No mas campaña ni ampliar hook hasta atribucioncausal623."
     },
     {
       "id": "T67c3b",
@@ -19358,7 +19359,7 @@
         "CDTV acreditado porC3a arranca mediante retro_load_game y conserva futuro tras restore/recarga, rechaza operaciones fuera del dominio sin efectos y soporta firmware fijo transaccional; ABI/schema/headless corresponden a lo disponible, BizHawk/WB y cambiosCDTV siguen pendientes."
       ],
       "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores.",
-      "blocked_reason": "Gate publico local/cycles2 falla: desde169 segundoowner suma1024ticks tras sesionlarga, incluso sinrestore. Controles y cruce P6CH/display demuestran causalidad display/Copper; blitter descartado. Correccion coldpoweron T67c3d requerida; firmware/VFS/fixedmedia, CD32CUE345 yABI yaPASS, no repetir sin cambio relevante."
+      "blocked_reason": "Gatepublico cold/cycles2 pendiente: tras sesionlarga diverge ticks, independiente de restore. T67c3d bloqueada: candidato display elimina169 pero revela623; parcial retiradoaWIP. Firmware/VFS/fixedmedia,CD32CUE345 yABI pasaron; conservar reproducer exacto y no declarar publicacion acreditada."
     },
     {
       "milestone": "M3",

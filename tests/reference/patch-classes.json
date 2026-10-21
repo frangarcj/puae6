@@ -226,8 +226,7 @@
     "0402-cdtv-autoconfig-state": "required",
     "0403-nrg-etnf-mixed-stride": "required",
     "0404-nrg-etn2-canonical-pregap": "required",
-    "0405-nrg-dao-sessions-metadata": "required",
-    "0406-cdtv-display-power-on": "required"
+    "0405-nrg-dao-sessions-metadata": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
