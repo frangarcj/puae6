@@ -17999,6 +17999,52 @@
       "stop": "Sin apropiarse CHD de otros sistemas, reintento por otro core tras error, owner duplicado ni acreditacion WB por compile. Dividir antes de400; no instalar ni modificar MacHawk."
     },
     {
+      "id": "T66t16",
+      "title": "CHD publico BizHawk con SaveRAM y restauracion fria",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t15c",
+        "T66t12",
+        "T66u5",
+        "T66r4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/Cd32Loader.csproj",
+        "tests/waterbox-media/test_chd_public.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cerrar la puerta Waterbox publica obligatoria conservada por T66t15c: RomLoader.LoadRom real sobre XML Amiga con preferencia PUAE6, backend host CHD comprimido y LoadedEmulator. Fixture legal cdzl existente, sin repetir cuatro codecs ni atribuir arranque de juego a un CD de audio. Guest/runtime coordinados y verificados; copia temporal del guest bajo dll del ensamblado de prueba, sin modificar parametros privados ni referencias hermanas.",
+        "Comprobar regiones y bytes conocidos mediante P6CdHost.ReadAt y export/callback/decoder reales. StoreSaveRam con NVRAM no cero recrea sandbox conservando owner CHD; CloneSaveRam, dirty y reapertura durable. Corte300/futuro15 compara RAM, AV/PCM/ticks y snapshot completo en mismo core, owner/sandbox nuevo y proceso nuevo antes del primer frame. Medio distinto rechazado sin mutar snapshot/NVRAM; cerrar FD al disponer.",
+        "Escenario ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore compartido por WB03/WB08/DET02, union una vez. Cinco rutas de implementacion, 220..300 lineas manuales; root registra tools/check.py y tests/test_plan.py. Agente cd32_close aislado, sin metadata ni builds pesados; root serializa target Client.Common/analyzers y runtime real. Si aparece defecto de producto ampliar scope antes de editar; no cerrar por host solamente."
+      ],
+      "checks": [
+        "WB03",
+        "WB08",
+        "DET02"
+      ],
+      "acceptance": [
+        "La carga XML publica consume CHD real dentro de Waterbox y conserva fuente/NVRAM/futuro exacto tras SaveRAM reopen, snapshot frio y otro proceso, con rechazo transaccional de otro medio y sin handles perdidos."
+      ],
+      "stop": "Runtime o asset ausente/fallido deja BLOCKED; no sustituir loader real por ParametersFrom manual ni Waterbox por host/nativo."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18079,7 +18125,8 @@
         "T66t14",
         "T66t15a",
         "T66t15b",
-        "T66t15c"
+        "T66t15c",
+        "T66t16"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -19319,7 +19366,7 @@
       "title": "Validar inicio real de peliculas PowerOn y SaveRAM con ADF HDF y volumen",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T20",
         "T66r5",
@@ -19678,7 +19725,7 @@
       "title": "Exponer HRTMon Freeze y restauracion de peliculas en BizHawk",
       "milestone": "FUTURE",
       "required": false,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T69c3",
         "T21",
@@ -19714,7 +19761,7 @@
         "CombinarC4yC5enunaverticalatomicapublica300..380manuales(9rutasmanuales+2generadas), depsC3GENflagscompuestosestable. CartridgeDisabled/HrtMon enum0/2, defaultoffsoloA1200, validarantesguest. P6flagsORwrites1/HRT2; nuevoSyncSettingrebootyschemawrappercartridgeofrecido, retirarwrapper_not_offered correspondiente, headlessaunexplicito. Generar2outputsconherramienta,nomanual.",
         "Controller.DefineagregaFreezeunicamenteconcartOn;FrameAdvanceP6InputV2.Commands=1porboollevel yABI2/108concommandsaunparallel0. Releasesv1equivale0enbridgeC2; sinhistoriaC#extra/edgequeoculteheld. ABI.layoutcommands104enC#/Cintacto. MakeIdentitycondicional ;cartridge=hrtmon;cartsha=15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5; testcontraRAW_SHAhelperpin, offidentidadintacta. SnapshotEnvelopepreflightestrictoon/offsinmutacion. Heapsdefaultspreservados; medirbudgetOnymutable1MiB,reservaadicionalsiexigidapormmapreal,nuncainvisible.",
         "GEN01schema/parityyscript--check, STATE01HrtMonManagedConfigTestscompilacionmanagedrealoffline+default/off/controls/ABI108offset104/ORflags/heap/SHA. ReusarmoduleMediaMoviescacheporcontenidoanadido105a78cc, sin CallerArgumentExpression ambiguonet48/net8. testsffiSessionvalidaconfig/controlcampossincrearhostenmodohrtconfig siadecuado. Avisarantesextrascope400.",
-        "WB03/WB04/WB09mismaclaseHrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process, unionuna vez. PublicoA1200Kickstartautorizado/buttonFreeze/tecladorealcomandoRAM5a/x, hold/release/rearm/snapshotheld, owner/sandbox/procesonuevo, BK2/TASyseekreservado(marcador6postStartparacorte5segunAPI). AV/PCM/ticks/RAM/fullsnapshotigual, on/offrechazaprevioLoadSnapshot. NohelperFreezeprivado ni fallbacknativo. Guestbedde522actualC2no cambiaporestosmanaged. PuertaWBactualhostmallocconocidobloqueadaT80b/T12: preparar/validartodoloindependienteyno repetirbateriaigual; escenarionuevopublicopuedeintentarseunavezconguestverificado yquedaBLOCKEDsifallahost.",
+        "WB03/WB04/WB09mismaclaseHrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process, unionuna vez. PublicoA1200Kickstartautorizado/buttonFreeze/tecladorealcomandoRAM5a/x, hold/release/rearm/snapshotheld, owner/sandbox/procesonuevo, BK2/TASyseekreservado(marcador6postStartparacorte5segunAPI). AV/PCM/ticks/RAM/fullsnapshotigual, on/offrechazaprevioLoadSnapshot. NohelperFreezeprivado ni fallbacknativo. Retomar con guest actual verificado y runtime local corregido por T28c, tras el cierre real de T80b; ejecutar una sola union, sin repetir por etiqueta.",
         "busy_referenceworktreeaisladoactualizaaestemain, nometadatani motor/guest; rootserializapesados-j2yintegragates. C3LR01realrootPASS(HrtMon/cut380/futuro/newprocess/off) yGEN01/IN01exactos68testsagentPASSen476572c8bytesintegrados73135556. STATE01C3esmismafixtureLR01,norepetir. PadreT69conservaARcomercialasset/codec propio yningunacapacidadWBseacreditapornativo.",
         "GEN01WrapperParitydosfallosdeclaranCartridgeDisabled=0/HrtMon=2: ampliar12arutatest_parity.pysoloparserdenombresenumconasignacion(comoZ3)sinrelajaresperados/checks. Flagsregexseconservapasando_syncSettings.CartridgeexplicitoalhelperConfigFlags. STATE01realnet48compilaciondep0008fallaMA0015ArgumentNullExceptionsinparam; ampliar13aruta0008paraROOTsoloseparar3guardasnameof(chdf/chdBlob/IN_DiscMountPolicy),mismorechazoprenullsinmodificarSynth/metadata. Agentenoedita13aruta,rootenviaSHA; analisadorespermanecenobligatorios. SourcevalidfixtureT13igual, noguestbuildportipografia."
       ],
@@ -19728,8 +19775,7 @@
       "acceptance": [
         "BizHawkofreceHRTMonporSyncSettingyFreezelevel, identidadeinmutabilidadcorrectas; BK2/TASreplay/seekheldysnapshotnewprocesspasanenWaterboxreal. HostfallidomarcaBLOCKED,sinDONEporcompilacion."
       ],
-      "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos.",
-      "blocked_reason": "GEN01 y STATE01 managed pasan; WB03/WB04/WB09 publico llega a HRTMon held durante 380 unidades pero aborta SIGBUS en host xzone/CoreCLR CodeFragmentHeap.RealAllocAlignedMem/VirtualCallStubManager, antes de futuro/BK2/TAS/seek nuevo proceso. Guest bedde522/93 fuentes; heaps dentro del presupuesto. IPS010814 escribe en mappedfile de solo lectura; x28=x8 no demuestra TLS filtrado. Snapshot no serializa Context host: repone guest_rsp/thread_area y recupera registros host de pila viva. Control independiente con guest/managed PUAE5 de MacHawk y runtime fijado cf45 completa save/load y 60 firmas de video iguales; no prueba estabilidad, PCM ni cierre del port. H1: mapa/protecciones/interop o guest altera metadatos malloc; localizar primer puntero invalido. H2: CoreCLR/macOS xzone al resolver llamadas virtuales tardias; aislar managed minimo. Conservar reproducer y gates; no repetir knobs ni baterias agotadas b8be1be3 sin causa nueva."
+      "stop": "Sin serializarpunteros/overrideStateEnvelope/historiafrontendFreezeduplicada, sininscribirgateWBporenginehostnativo ni relajaridentidad/heap paraapagarfallos."
     },
     {
       "id": "T69",
