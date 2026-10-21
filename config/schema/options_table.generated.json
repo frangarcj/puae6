@@ -14,7 +14,8 @@
         8,
         11,
         9,
-        12
+        12,
+        10
       ],
       "names": {
         "A500": 1,
@@ -27,7 +28,8 @@
         "A2000": 8,
         "A4030": 11,
         "CD32": 9,
-        "A4040": 12
+        "A4040": 12,
+        "CDTV": 10
       },
       "option": "machine",
       "class": "reboot"
@@ -1693,7 +1695,8 @@
           "A2000": "a2000",
           "A4030": "a4030",
           "A4040": "a4040",
-          "CD32": "cd32"
+          "CD32": "cd32",
+          "CDTV": "cdtv"
         }
       },
       "wrapper": {
@@ -1705,7 +1708,10 @@
       "libretro_default": "auto",
       "libretro_extra_values": {
         "auto": 0
-      }
+      },
+      "wrapper_not_offered": [
+        "CDTV"
+      ]
     },
     "video_standard": {
       "headless": {
@@ -2720,7 +2726,8 @@
         "A2000": 8,
         "A4030": 11,
         "CD32": 9,
-        "A4040": 12
+        "A4040": 12,
+        "CDTV": 10
       }
     },
     "model_hd": {
@@ -2737,7 +2744,8 @@
         "A2000": 8,
         "A4030": 11,
         "CD32": 9,
-        "A4040": 12
+        "A4040": 12,
+        "CDTV": 10
       }
     },
     "filename_tags": {

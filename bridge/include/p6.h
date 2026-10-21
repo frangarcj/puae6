@@ -150,7 +150,8 @@ typedef struct p6_config {
 #define P6_MACHINE_A1000 UINT32_C(6)     /* A1000: the 8361 Agnus and 8362 Denise of upstream's A1000 chipset, 512 KiB Chip, the Kickstart given to p6_load as a ROM (no boot ROM, no WOM). */
 #define P6_MACHINE_A2000OG UINT32_C(7)   /* A2000 with OCS: 512 KiB Chip + 512 KiB Slow, the A2000 chipset table (clock, mains-driven CIA TOD). */
 #define P6_MACHINE_A2000 UINT32_C(8)     /* A2000 with the ECS Agnus and the OCS Denise (PUAE5's), 1 MiB Chip, no Slow RAM. */
-#define P6_MACHINE_CD32 UINT32_C(9)      /* Stock CD32: 68EC020, AGA, 2 MiB Chip, Akiko, no floppy drives. ID10 reserved. */
+#define P6_MACHINE_CD32 UINT32_C(9)      /* Stock CD32: 68EC020, AGA, 2 MiB Chip, Akiko, no floppy drives. */
+#define P6_MACHINE_CDTV UINT32_C(10)    /* Stock CDTV: 68000 exact, ECS Agnus, 1 MiB Chip, fixed KS1.3 + EXT2.7, no floppy drives. */
 #define P6_MACHINE_A4030 UINT32_C(11)     /* A4000/030, 32-bit map, AGA, Ricoh RTC, 2 MiB Chip + 8 MiB Zorro II Fast. Normal CPU only; no MMU. */
 #define P6_MACHINE_A4040 UINT32_C(12)     /* Same motherboard, 68040 (optional 68060), Normal only, no MMU. Native API; frontend selectors remain gated by T55c. */
 #define P6_VIDEO_PAL    UINT32_C(1)

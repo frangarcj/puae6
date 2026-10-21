@@ -4,7 +4,7 @@ The model and the video standard are resolved before the machine exists (adapter
 names (the path of the content, then each disk of the playlist, then the members of an archive). What is checked:
   * every tag of the table of docs/options.md picks its machine, in PUAE5's order, and the same content picks the same machine in every new process;
   * a model, a preset or a video standard chosen by hand is never changed by a tag; File Name Tags off reads none;
-  * a tag of what this core does not have (68030, 68040, CDTV, MultiDrive, Arcadia) is a warning and never picks another machine;
+  * a tag unsupported for floppy/hard-disk content (68030, 68040, CDTV, MultiDrive, Arcadia) is a warning and never picks another machine;
   * the names of a playlist and of an archive count, in order; the content type decides without tags (floppy: A500, hard disk: A1200);
   * the resolved machine is the machine of the p6_config: a state of a content whose tag picked another machine is refused.
 """
@@ -53,6 +53,8 @@ int main() {
         const auto result = cd(name);
         assert(result.machine == P6_MACHINE_CD32 && result.fast_size == 0);
     }
+    for (const char *name : {"Disc CDTV.iso", "Disc (CDTV) (CD32FR).cue", "CDTV FastRAM.iso"})
+        assert(cd(name).machine == P6_MACHINE_CDTV && cd(name).fast_size == 0);
     Settings options;
     options.model_fd = P6_MACHINE_A600; options.model_hd = P6_MACHINE_A1200;
     assert(cd("Disc.iso", options).machine == P6_MACHINE_CD32);
@@ -65,8 +67,11 @@ int main() {
         assert(cd("Disc (CD32FR).cue", options).fast_size == fast);
         assert(cd("Disc (CD32NF).cue", options).fast_size == fast);
     }
+    options.filename_tags = 0;
+    assert(cd("Disc CDTV.iso", options).machine == P6_MACHINE_CD32);
     options = {}; options.machine = P6_MACHINE_CD32;
     assert(cd("Disc (CD32FR).cue", options).fast_size == 0);
+    assert(cd("Disc CDTV.iso", options).machine == P6_MACHINE_CD32);
     options.machine = P6_MACHINE_A1200;
     assert(cd("Disc (CD32FR).cue", options).machine == P6_MACHINE_A1200);
     options = {}; options.preset = p6_options::kPresetCd32Fast8; p6_options::apply_preset(&options);

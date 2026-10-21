@@ -2113,3 +2113,11 @@ rechazado con BAD_STATE y buffer intacto antes/despues del rechazo ajeno; se
 comparan CPU/RAM, reloj, contadores y propiedad sin avanzar un frame. El negativo
 con fullsave se conserva por separado en un destino que ya ejecuto una unidad.
 La factory publica conserva el rechazo; esta puerta no acredita Akiko fisico ni Waterbox.
+
+T67c3b publica CDTV ID 10 en ABI/nativo/libretro; schema wrapper:false conserva
+BizHawk excluido. Firmware fijo EXT 2.7 + KS 1.3 se construye transaccionalmente,
+tambien sin contenido, con VFS/descifrado existentes. Un unico CD se enlaza antes
+de p6_load y vive hasta shutdown; Disk Control CDTV rechaza cambios antes de
+mutar bandeja/eventos, sin llamar Akiko. LR01 reutiliza C3a y comprueba nonce
+DOS/Delay en ChipRAM, futuro de 16 unidades y snapshot entero local/cold/stdio con dos ciclos.
+Este contrato no habilita playlists multiples, cambios de CDTV ni Waterbox.

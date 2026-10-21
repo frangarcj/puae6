@@ -20,7 +20,7 @@
 // A bare word (PAL, NTSC, AGA, ECS, OCS, AmigaCD, CD32, CDTV) must not touch a letter or a digit on either side ("PALADIN" is not PAL; PUAE5's strstr finds it); a tag with
 // parentheses or an underscore marks itself. Matching is case sensitive and byte by byte: nothing depends on the locale.
 //
-// Unsupported automatic tags are warnings and never an error or another machine: (A4030) (030) (A4040) (040) CDTV _Arcadia.
+// Unsupported automatic tags are warnings and never an error or another machine: (A4030) (030) (A4040) (040) _Arcadia. CDTV only selects a model for direct CDs.
 // (CE) forces cycle-exact CPU timing even when a faster level was selected in the menu.
 #ifndef P6_LIBRETRO_MODEL_H
 #define P6_LIBRETRO_MODEL_H
@@ -98,6 +98,7 @@ constexpr ModelTag kModelTags[] = {
 
 // A direct CD has its own PUAE5 selection path; floppy CD32 tags keep the A1200 fallback above.
 constexpr ModelTag kCdModelTags[] = {
+    {"CDTV", true, Effect::Machine, P6_MACHINE_CDTV, "the stock CDTV"},
     {"(CD32FR)", false, Effect::Preset, p6_options::kPresetCd32Fast8, "the CD32 with 8 MiB of Fast RAM"},
     {"FastRAM", true, Effect::Preset, p6_options::kPresetCd32Fast8, "the CD32 with 8 MiB of Fast RAM"},
     {"(CD32)", false, Effect::Machine, P6_MACHINE_CD32, "the stock CD32"},
@@ -207,9 +208,9 @@ inline ModelResolution resolve_model(const p6_options::Settings &chosen, bool ha
                         }
             }
             // What this core cannot honour is said once per tag, for the first name that holds it.
-            if (!said_cdtv && has_tag(name, "CDTV", true)) {
+            if (!direct_cd && !said_cdtv && has_tag(name, "CDTV", true)) {
                 said_cdtv = true;
-                out.warnings.push_back("the tag CDTV in " + shown(name) + " is ignored: this core has no CDTV");
+                out.warnings.push_back("the tag CDTV in " + shown(name) + " is ignored for floppy/hard-disk content");
             }
             if (!direct_cd && !said_md && has_tag(name, "(MD)", false)) {
                 said_md = true;

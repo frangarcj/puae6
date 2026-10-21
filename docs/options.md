@@ -221,9 +221,9 @@ Opciones (todas `reboot`, no son campos de `p6_config`, salvo las dos primeras q
 
 | Clave | Valores (primero = defecto) | Que hace |
 |---|---|---|
-| `puae6_machine` | `auto`, `A500`, `A600`, `A1200`, `A500OG`, `A500PLUS`, `A1000`, `A2000OG`, `A2000` | `auto` = etiquetas y tipo de contenido; cualquier otro valor es el modelo y **ninguna etiqueta lo cambia**. Un `puae6_preset` distinto de `none` cuenta como modelo elegido. |
+| `puae6_machine` | `auto`, `A500`, `A600`, `A1200`, `A500OG`, `A500PLUS`, `A1000`, `A2000OG`, `A2000`, `CDTV` | `auto` = etiquetas y tipo de contenido; cualquier otro valor es el modelo y **ninguna etiqueta lo cambia**. Un `puae6_preset` distinto de `none` cuenta como modelo elegido. |
 | `puae6_video_standard` | `PAL auto`, `NTSC auto`, `PAL`, `NTSC` | `PAL auto` = la etiqueta de region si la hay, si no PAL; `NTSC auto` = igual con NTSC por defecto. `PAL`/`NTSC` fijan el estandar. |
-| `puae6_model_fd` | `A500` y los demas modelos | modelo de `auto` para disquetes o sin contenido. El CD directo tiene su propia seleccion CD32 descrita abajo. `puae_model_fd` de PUAE5. |
+| `puae6_model_fd` | `A500` y los demas modelos | modelo de `auto` para disquetes o sin contenido. El CD directo selecciona CD32 o CDTV segun sus etiquetas, descritas abajo. `puae_model_fd` de PUAE5. |
 | `puae6_model_hd` | `A1200` y los demas | modelo de `auto` para contenido **con** disco duro (`.hdf`, `.hdz`, directorio o `.lha` como volumen, solo o con disquetes). `puae_model_hd` de PUAE5; el disco duro pide un Kickstart 2.0 o posterior. |
 | `puae6_filename_tags` | `enabled`, `disabled` | `disabled`: no se lee ninguna etiqueta (el modelo sale de las opciones y del tipo de contenido, el estandar de la opcion). |
 | `puae6_kickstart` | `auto`, `kick33180.A500` (1.2), `kick34005.A500` (1.3), `kick37175.A500` (2.04), `kick37350.A600` (2.05), `kick40063.A600` (3.1 r40.063), `kick39106.A1200` (3.0), `kick40068.A1200` (3.1 r40.068) | T51, `puae_kickstart` de PUAE5 (mismos valores, sin los A4000 ni `aros`). `auto` busca los nombres del modelo; una version busca solo los nombres de esa version (los de `uae_kickstarts[]` de PUAE5: normal, Amiga Forever, TOSEC `[!]`, TOSEC) y la maquina la ejecuta si el contenido del ROM lo permite: un ROM que pide mas CPU que la maquina (el 3.1 del A1200 en una maquina con 68000) se rechaza con el motivo. No es un campo de `p6_config`: la identidad del firmware es el SHA-256 de sus bytes (un estado tomado con otro Kickstart se rechaza). Un ROM cifrado por Amiga Forever se descifra con el `rom.key` del mismo directorio de sistema, ver `docs/02-contracts.md` ("Kickstart alternativo y rom.key"). |
@@ -269,7 +269,7 @@ encuentra). Es la unica diferencia de lectura con PUAE5; las etiquetas entre par
 | `AGA`, `AmigaCD` / `ECS` / `OCS` | palabras de chipset, regla 3 | igual |
 | `NTSC`, `(USA)` | NTSC si `puae6_video_standard` es `PAL auto` o `NTSC auto` | igual (`NTSC`, `(USA)`) |
 | `PAL`, `(Europe)`, `(France)`, `(Germany)`, `(Italy)`, `(Spain)`, `(Finland)`, `(Denmark)`, `(Sweden)` | PAL, con la misma condicion | igual |
-| `CDTV` | **aviso**: CDTV no esta implementado | CDTV (solo con CD) |
+| `CDTV` | CDTV en CD directo; **aviso** en disquetes/discos duros | CDTV (solo con CD) |
 | `(MD)` | monta discos sucesivos en unidades separadas; Auto habilita DF0..DF3, un numero explicito limita el montaje | MultiDrive |
 | `_Arcadia` | **aviso**: no hay pad Arcadia | pad Arcadia |
 | `(CE)` | fuerza precision de CPU exacta al ciclo, incluso si el menu eligio compatible o normal | fuerza CE |
@@ -291,7 +291,7 @@ pendientes; el mismo conjunto renombrado se admite, pero otro orden, contenido o
 mapa de aliases se rechaza. Esta conexion no acredita aun cambio de CD en BizHawk
 ni su registro/replay TAS.
 
-### CD directo: stock y CD32FR
+### CD directo: CD32, CD32FR y CDTV
 
 Un CD directo con `puae6_machine=auto` parte de CD32, independientemente de
 `puae6_model_fd` y `puae6_model_hd`. Con File Name Tags activado, su tabla propia
@@ -299,6 +299,7 @@ elige la primera coincidencia en este orden dentro de cada nombre:
 
 | Etiqueta | Efecto |
 |---|---|
+| palabra `CDTV` | CDTV stock, antes de las etiquetas siguientes |
 | `(CD32FR)`, palabra `FastRAM` | CD32 con 8 MiB de Fast RAM cuando `puae6_fast_size` es Auto |
 | `(CD32)`, `(CD32NF)`, palabra `CD32` | CD32 stock cuando la memoria es Auto |
 
@@ -446,3 +447,17 @@ anade sprites contra bitplanes. Reducirlas puede romper juegos que leen CLXDAT.
 El importador `.uae` traduce `collision_level=none|sprites|playfields|full`.
 Auto y Full comparten identidad de estados y peliculas; los otros niveles son
 incompatibles entre si.
+
+
+### CDTV nativo y libretro (T67c3b)
+
+`puae6_machine=CDTV` permite un CD inicial fijo o ningun contenido, 68000 exacto,
+ECS Agnus y 1 MiB Chip. Automatic con etiqueta CDTV en un CD lo selecciona antes
+de CD32FR/FastRAM; modelo/preset explicito prevalece. Sin etiquetas, CD usa CD32;
+las etiquetas CDTV de disquetes mantienen su aviso y no eligen este modelo.
+Requiere KS1.3 `kick34005.A500` y EXT2.7 ID22: `kick34005.CDTV`,
+`amiga-os-130-cdtv-ext.rom` o `CDTV-Extended-ROMv2.7.rom`, 256 KiB cada ROM.
+Los nombres solo localizan; contenido/version se validan y no aceptan EXT1.0.
+No acepta ADF/HDF, Kickstart alternativo, listas de varios discos ni operaciones
+de cambio/eject/index/add/replace. Headless `--machine cdtv` recibe EXT+MAIN
+combinados y no carga un CD. BizHawk/Waterbox y cambio de CDTV siguen pendientes.

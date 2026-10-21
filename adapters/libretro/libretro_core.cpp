@@ -1163,9 +1163,9 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
             core.firmware.swap(rom);         // the decrypted image is the firmware: its SHA-256 is the identity of the states
             decrypted = true;
         }
-        if (core.cd) {
+        if (firmware.machine == P6_MACHINE_CD32 || firmware.machine == P6_MACHINE_CDTV) {
             std::string why;
-            if (!core.cd->extend_firmware(core.files, directory, &core.firmware, &why)) {
+            if (!CdSession::extend_firmware(firmware.machine, core.files, directory, &core.firmware, &why)) {
                 refusals += std::string(refusals.empty() ? "" : "; ") + why;
                 continue;
             }
@@ -1287,7 +1287,7 @@ void refresh_options()
 
 bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
 {
-    if (!core.loaded || core.faulted) return false;
+    if (!core.loaded || core.faulted || core.settings.machine == P6_MACHINE_CDTV) return false;
     return core.tray.set_ejected(ejected);
 }
 
@@ -1296,7 +1296,7 @@ unsigned RETRO_CALLCONV disk_get_image_index(void) { return core.tray.selected()
 
 bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 {
-    if (!core.loaded || core.faulted) return false;
+    if (!core.loaded || core.faulted || core.settings.machine == P6_MACHINE_CDTV) return false;
     if (!core.tray.select(index)) {
         log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open, and it must hold a disk");
         return false;
@@ -1380,7 +1380,7 @@ uint32_t register_added_disk(Medium &&medium)
 // the manifest holds uses that one). Only with the tray open, like the removal. The image stays registered for the rest of the session; nothing here touches the machine.
 bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_info *info)
 {
-    if (!core.loaded || core.cd) return false;
+    if (!core.loaded || core.cd || core.settings.machine == P6_MACHINE_CDTV) return false;
     if (!info) {
         if (!core.tray.remove(index)) {
             log(RETRO_LOG_WARN, "image %u cannot be removed (the tray must be open and the image must exist)", index);
@@ -1419,7 +1419,7 @@ bool RETRO_CALLCONV disk_replace_image_index(unsigned index, const retro_game_in
 // add_image_index (T17e): a new slot at the end of the list with no disk; replace_image_index gives it one. The list cannot outgrow what the adapter section of a state can name.
 bool RETRO_CALLCONV disk_add_image_index(void)
 {
-    if (!core.loaded || core.faulted) return false;
+    if (!core.loaded || core.faulted || core.settings.machine == P6_MACHINE_CDTV) return false;
     if (!core.can_append) {
         notify_error("this build of the core cannot add disks after the load");
         return false;
@@ -1920,6 +1920,9 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         } else if (game && p6_libretro::CdSession::content(game->path)) {
             cd_entries.push_back({game->path, p6_libretro::without_extension(p6_libretro::file_name(game->path))});
         }
+        if (core.settings.machine == P6_MACHINE_CDTV && game && cd_entries.empty()) {
+            notify_error("CDTV requires a fixed CD or no content, not floppy/HDF/config content"); stop_image(); return false;
+        }
         if (!cd_entries.empty()) {
             for (const auto &entry : cd_entries) {
                 if (entry.save_disk || !p6_libretro::CdSession::content(entry.path.c_str())) {
@@ -1929,8 +1932,8 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             }
             names.push_back(game->path);
             for (const auto &entry : cd_entries) names.push_back(entry.path);
-            if ((core.settings.machine != p6_options::kMachineAuto && core.settings.machine != P6_MACHINE_CD32) || core.settings.kickstart) {
-                notify_error("CD32 content requires Automatic or CD32 machine and Automatic Kickstart"); stop_image(); return false;
+            if ((core.settings.machine != p6_options::kMachineAuto && core.settings.machine != P6_MACHINE_CD32 && core.settings.machine != P6_MACHINE_CDTV) || core.settings.kickstart) {
+                notify_error("CD content requires Automatic or CD32 machine, or CDTV, and Automatic Kickstart"); stop_image(); return false;
             }
             core.cd.reset(new p6_libretro::CdSession);
             const auto resolved = p6_libretro::resolve_model(core.settings, false, names, true);
@@ -1961,6 +1964,9 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         if (!core.cd && core.settings.machine == P6_MACHINE_CD32) {
             notify_error("CD32 requires a direct CD image"); stop_image(); return false;
         }
+        if (core.settings.machine == P6_MACHINE_CDTV && (core.settings.kickstart || !core.media.empty() || configured)) {
+            notify_error("CDTV requires Automatic Kickstart and fixed CD or no content"); stop_image(); return false;
+        }
         // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
         unsigned initial = 0;
         if (core.have_initial) {
@@ -1968,7 +1974,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             if (matches) initial = core.initial_index;
             else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
         }
-        if (core.cd && !core.cd->open(cd_entries, initial, core.cd_vfs, &images, &why)) {
+        if (core.cd && !core.cd->open(core.settings.machine, cd_entries, initial, core.cd_vfs, &images, &why)) {
             notify_error("%s", why.c_str()); stop_image(); return false;
         }
         if (multidrive && core.settings.floppy_drive_count == 0) core.settings.floppy_drive_count = 4;
@@ -1984,7 +1990,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         config.abi_version = P6_ABI_VERSION;
         config.struct_size = sizeof config;
         p6_options::to_config(core.settings, &config);       // machine, standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
-        const p6_libretro::FirmwareNames *firmware = core.cd ? &p6_libretro::CdSession::firmware_names() : p6_libretro::firmware_for(config.machine);
+        const p6_libretro::FirmwareNames *firmware = p6_libretro::firmware_for(config.machine);
         if (!firmware) {            // the schema only produces the machines the table has: a mismatch is a build defect, not a configuration to run
             notify_error("the machine %u has no Kickstart names in this core", unsigned(config.machine));
             stop_image();

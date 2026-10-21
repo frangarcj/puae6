@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "profile": "deterministic-a500",
-  "machine": "CDTV-private",
+  "machine": "CDTV",
   "machine_id": 10,
   "upstream_preset": "default_prefs + built_in_prefs(model9, config0, compa0, romcheck0); CP_CDTV applied once then cs_compatible=0, fixed input/exact overrides + fixup_prefs",
   "firmware": "524288 bytes: extended256KiB ID22 (v2.7) + main256KiB ID6 (KS1.3); fixed rommgr SHA1 and main checksum",
@@ -27,5 +27,5 @@
     "cs_ide": 0,
     "cs_pcmcia": 0
   },
-  "limits": "Private firmware/map gate only. No schema/frontend selection, DMAC autoconfig, CD boot, native state or Waterbox acceptance. No CR/SCSI/SRAM card/Fast RAM or persistent NVRAM."
+  "limits": "Native/libretro fixed CD or no content; original DMAC autoconfig, CD boot and native state. No CD changes, BizHawk or Waterbox acceptance. No CR/SCSI/SRAM card/Fast RAM or persistent NVRAM."
 }

@@ -9,8 +9,8 @@ namespace p6_bridge {
 
 // Shared stock CD32 profile; the alias keeps device integration independent of frontend names.
 constexpr uint32_t kCd32Machine = P6_MACHINE_CD32;
-// Private firmware/map gate. ABI/schema publication follows causal autoconfig.
-constexpr uint32_t kCdtvMachine = 10;
+// Shared stock CDTV profile; the public identifier preserves the existing state identity.
+constexpr uint32_t kCdtvMachine = P6_MACHINE_CDTV;
 // Set only after validated init; restored on shutdown. Caps remains engine independent.
 extern bool profile_state_supported;
 

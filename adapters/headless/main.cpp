@@ -34,7 +34,7 @@ static int identity(void)
 {
     printf("core: puae6-headless\n");
     printf("profile: %s\n", P6_PROFILE);
-    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 CD32 (combined firmware only, no CD input) A4030 A4040 (Normal CPU only; no MMU)\n");
+    printf("machines: A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 CD32 CDTV (combined firmware only, no CD input) A4030 A4040 (Normal CPU only; no MMU)\n");
     printf("abi: %u\n", (unsigned)p6_abi_version());
     printf("upstream: WinUAE %s\n", P6_UPSTREAM_COMMIT);
     printf("patches: %s (%s)\n", P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256);
@@ -201,6 +201,7 @@ static int run(int argc, char **argv)
             else if (!strcmp(name, "a4030")) machine = P6_MACHINE_A4030;
             else if (!strcmp(name, "a4040")) machine = P6_MACHINE_A4040;
             else if (!strcmp(name, "cd32")) machine = P6_MACHINE_CD32;
+            else if (!strcmp(name, "cdtv")) machine = P6_MACHINE_CDTV;
             else return -1;
         }
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));

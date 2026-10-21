@@ -173,7 +173,7 @@ class WrapperParity(Schema):
                 self.assertEqual(kind, how["type"], f"{how['setting']} is a {kind}, the schema says {how['type']}")
                 if option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
-                    # A value the schema marks "wrapper": false is one the wrapper does not offer yet (none since T24f): the enum lists the others, in order.
+                    # A value the schema marks "wrapper": false is one the wrapper does not offer yet (CDTV while its wrapper gate is pending): the enum lists the others, in order.
                     offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
                     self.assertEqual([m.partition("=")[0].strip() for m in members[1].split(",")], offered,
                                      f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
@@ -243,7 +243,7 @@ class WrapperParity(Schema):
         machine = self.reboot["machine"]
         self.assertEqual(machine["wrapper"], {"how": "setting", "setting": "Machine", "type": "Puae6Machine"})
         self.assertEqual(machine["default"], "A500")
-        numbers = {v["value"]: v["abi"] for v in machine["values"]}
+        numbers = {v["value"]: v["abi"] for v in machine["values"] if v.get("wrapper") is not False}
         self.assertIn(f"const uint MachineA500 = {numbers['A500']}, MachineA600 = {numbers['A600']}, MachineA1200 = {numbers['A1200']}, MachineA500OG = {numbers['A500OG']}, "
                       f"MachineA500Plus = {numbers['A500PLUS']}, MachineA1000 = {numbers['A1000']}, MachineA2000OG = {numbers['A2000OG']}, MachineA2000 = {numbers['A2000']}, MachineA4030 = {numbers['A4030']}, MachineA4040 = {numbers['A4040']}, MachineCd32 = {numbers['CD32']};", self.abi)
         # T50: the number of every machine other than the default is a row of one switch (MachineNumber), and each row names the constant that has the schema's number
@@ -252,7 +252,7 @@ class WrapperParity(Schema):
         constants = {m[1]: int(m[2]) for m in re.finditer(r"(Machine\w+) = (\d+)", re.search(r"public const uint MachineA500 = .*?;", self.abi)[0])}
         self.assertEqual({name: constants[constant] for name, constant in rows.items()}, {name: number for name, number in numbers.items() if name != "A500"})
         # the three machines are offered, each with the FirmwareID of BizHawk's database that carries its name (tests/ffi/test_bizhawk_tree.py checks the database itself)
-        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], [])
+        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], ["CDTV"])
         self.assertIn("puae6-config-1;machine={machine};", self.core)
 
     def test_the_wrapper_fixes_the_audio_rate_at_the_schema_default_in_the_machine_and_in_the_identity(self):
@@ -375,7 +375,7 @@ class LibretroFirmware(Schema):
         for left, right in ((a500, a600), (a500, a1200), (a600, a1200)):
             self.assertFalse(set(left) & set(right), "a name that serves two machines would let one boot with the other's ROM")
         # T50: a name serves two machines only inside a family (the A500, the A500 OG, the A2000 OG and the A1000 boot the Kickstart 1.3), never across families
-        families = {"A500": "1.x", "A500OG": "1.x", "A2000OG": "1.x", "A1000": "1.x", "A500PLUS": "2.04", "A600": "2.05", "A1200": "3.1", "A2000": "3.1 r40.063", "A4030": "3.1 A4000", "A4040": "3.1 A4000", "CD32": "3.1 CD32"}
+        families = {"A500": "1.x", "A500OG": "1.x", "A2000OG": "1.x", "A1000": "1.x", "A500PLUS": "2.04", "A600": "2.05", "A1200": "3.1", "A2000": "3.1 r40.063", "A4030": "3.1 A4000", "A4040": "3.1 A4000", "CD32": "3.1 CD32", "CDTV": "1.x"}
         by_machine = {r[1]: set(self.names(r[3])) for r in rows}
         self.assertEqual(set(by_machine), set(families))
         for left in by_machine:
