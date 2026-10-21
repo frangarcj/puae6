@@ -81,7 +81,9 @@ struct BootImage {
     {
         auto &image = *const_cast<BootImage *>(static_cast<const BootImage *>(context)); *got = 0;
         if (at > image.bytes.size() || n > image.bytes.size() - at) return false;
-        memcpy(out, image.bytes.data() + at, n); ++image.reads; *got = n; return true;
+        memcpy(out, image.bytes.data() + at, n); ++image.reads; *got = n;
+        fprintf(stderr, "ISO read%u LBA=%llu offset=%u bytes=%zu\n", image.reads,
+                static_cast<unsigned long long>(at / 2048), unsigned(at % 2048), n); return true;
     }
 };
 static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex)
@@ -116,6 +118,16 @@ static void original_boot(const std::vector<uint8_t> &rom, const char *path, con
         ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error)); first = live();
     }
     fprintf(stderr, "CDTV original boot units=%u reads=%u PC=%x marker=%u\n", unit, image.reads, m68k_getpc(), first);
+    unsigned signatures = 0, zero = 0, positive = 0, matching = 0;
+    for (uint32_t at = 0; at + 36 <= chipmem_bank.allocated_size; at += 2) {
+        const auto *p = chipmem_bank.baseaddr + at;
+        if (memcmp(p, signature, 16)) continue;
+        ++signatures; bool count = p[32] || p[33] || p[34] || p[35]; count ? ++positive : ++zero;
+        matching += !memcmp(p + 16, nonce, 16);
+        fprintf(stderr, "HUNK signature RAM=%x counter=%02x%02x%02x%02x nonce=", at, p[32], p[33], p[34], p[35]);
+        for (unsigned n = 16; n < 32; ++n) fprintf(stderr, "%02x", p[n]); fputc('\n', stderr);
+    }
+    fprintf(stderr, "HUNK signatures=%u zero=%u positive=%u expected_nonce=%u\n", signatures, zero, positive, matching);
     assert(first && image.reads);
     for (unsigned n = 0; n < 16; ++n) ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error));
     assert(live() > first); ok(p6_shutdown(&error)); p6_cd::device_unbind();
