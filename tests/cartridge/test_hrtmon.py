@@ -253,3 +253,43 @@ class NativeAr1Tests(unittest.TestCase):
                 self.assertEqual(len(twins[-1]),4)
                 self.assertIn('AR1 public real commands/cold state/held/reset/refusals PASS',result.stdout)
             self.assertEqual(*twins)
+
+
+class Ar1200StateTests(unittest.TestCase):
+    def test_private_ar1200_owner_freeze_and_cold_state(self):
+        names=('P6_KICKSTART_A1200_ROM','P6_ACTION_REPLAY1200_ROM')
+        assets=[os.environ.get(name) for name in names]
+        if not all(assets):
+            self.skipTest('BLOCKED: set authorized local '+', '.join(names))
+        self.assertEqual(hashlib.sha1(Path(assets[1]).read_bytes()).hexdigest(),'0f6ab8342810094ac0642f62ba42f78bc0b07e6a')
+        from tests.fixtures.test_microrom import builder
+        source='''entry:
+    MOVE.W #$2700,SR
+    MOVEA.L #$1F0000,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.B #0,$1100C.L
+    MOVE.B #0,$11000.L
+    MOVE.B #0,$11001.L
+    MOVE.B #0,$11002.L
+    MOVE.B #0,$11003.L
+count:
+    .word $52B9,$0001,$1000
+    BRA.S count
+'''
+        # Own AR1200: bus-error vector, count entry, wait for byte signal, RTE.
+        cart=bytearray(262144); cart[:12]=b'ATZ!HRT!'+bytes.fromhex('00800100')
+        cart[0x100:0x116]=bytes.fromhex('52B9008801004A390001100C67F84E73')+bytes(6)
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar1200-',dir=ROOT/'build') as tmp:
+            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(source))
+            cartridge=Path(tmp)/'cartridge.rom'; cartridge.write_bytes(cart)
+            for kind,fw,raw,count in (('own',str(firmware),str(cartridge),3),('real',assets[0],assets[1],4)):
+                twins=[]
+                for mode in ('write','read'):
+                    result=subprocess.run([str(exe),fw,raw,'ar1200-'+kind+'-'+mode,tmp],capture_output=True,text=True,timeout=300,
+                                          env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                    self.assertEqual(result.returncode,0,kind+'/'+mode+'\n'+result.stdout[-2000:]+result.stderr[-4000:])
+                    twins.append([line for line in result.stdout.splitlines() if line.startswith('AR1200 continuation ')])
+                    self.assertEqual(len(twins[-1]),count)
+                self.assertEqual(*twins,kind)

@@ -76,6 +76,10 @@ p6_result bind_ar1(p6_buffer image, p6_error *error);
 bool ar_bound();
 bool ar_identity(uint8_t out[32]);
 
+// Private AR1200 shares the monitor slot, never the public AR2/3 bind.
+p6_result bind_ar1200(p6_buffer image, p6_error *error);
+bool ar1200_bound();
+
 // Private HRTMon vertical: the pinned raw builtin, copied before load; Freeze only at a running A1200 boundary.
 p6_result bind_hrtmon(p6_buffer image, p6_error *error);
 p6_result freeze_hrtmon(p6_error *error);

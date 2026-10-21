@@ -25,6 +25,7 @@
 #include "crc32.h"
 #include "ar.h"
 #include "rom_status.h"
+#include "p6_state_access.h"
 #include "sounddep/sound.h"
 #include "civil_time.h"
 #include "video_present.h"
@@ -40,6 +41,12 @@ namespace p6_bridge {
 namespace { const char *const kCartridgeId = "p6-cartridge.rom", *const kActionReplayId = "p6-action-replay.rom"; }
 bool ar_bound() { return p6_blob_exists(kActionReplayId) == P6_BLOB_OK; }
 bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
+
+bool ar1200_bound()
+{
+    uint64_t bytes=0; uint32_t kind=0;
+    return p6_blob_size(kCartridgeId,&bytes,&kind)==P6_BLOB_OK && kind==P6_BLOB_ROM && bytes==262144;
+}
 
 bool ar_identity(uint8_t out[32])
 {
@@ -60,8 +67,12 @@ bool ar_identity(uint8_t out[32])
 bool hrtmon_identity(uint8_t out[32])
 {
     uint64_t bytes=0; uint32_t kind=0;
-    if (p6_blob_size(kCartridgeId,&bytes,&kind)!=P6_BLOB_OK || bytes!=198732 || kind!=P6_BLOB_ROM) return false;
+    if (p6_blob_size(kCartridgeId,&bytes,&kind)!=P6_BLOB_OK || (bytes!=198732 && bytes!=262144) || kind!=P6_BLOB_ROM) return false;
     p6_sha256 hash; p6_sha256_init(&hash); uint8_t block[4096];
+    if (ar1200_bound()) {
+        const char domain[]="p6/cartridge/ar1200/v1"; const uint8_t model[]={0xb0,4,0,0};
+        p6_sha256_update(&hash,domain,sizeof domain); p6_sha256_update(&hash,model,sizeof model);
+    }
     for (uint64_t at=0;at<bytes;) {
         const size_t n=bytes-at<sizeof block ? size_t(bytes-at) : sizeof block; size_t got=0;
         if (p6_blob_pread(kCartridgeId,at,block,n,&got)!=P6_BLOB_OK || got!=n) return false;
@@ -95,6 +106,24 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
     if (p6_session::session.config.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private HRTMon requires A1200");
     return register_hrtmon(image, error);
+}
+
+p6_result bind_ar1200(p6_buffer image, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error); p6_session::Guard guard;
+    if (!guard.ok) return p6_fail(error,P6_ERROR_BUSY,"another call is active");
+    const auto &s=p6_session::session; const auto &c=s.config;
+    if (s.state!=p6_session::State::Initialized || ar_bound() || hrtmon_bound())
+        return p6_fail(error,P6_ERROR_BAD_STATE,"bind one monitor before load");
+    if (c.machine!=P6_MACHINE_A1200 || resolve_cpu(c)!=68020 || resolve_cpu_multiplier(c)!=4 ||
+        c.flags || c.fpu_model || c.z3_memory || c.hdf_controller || !memory_is_preset(c))
+        return p6_fail(error,P6_ERROR_UNSUPPORTED,"private AR1200 requires stock A1200/68EC020");
+    if (!image.data || image.bytes!=262144 || memcmp(image.data,"ATZ!HRT!",8))
+        return p6_fail(error,P6_ERROR_WRONG_MEDIA,"expected raw AR1200 image");
+    if (p6_blob_register(kCartridgeId,P6_BLOB_ROM,image.data,size_t(image.bytes))!=P6_BLOB_OK)
+        return p6_fail(error,P6_ERROR_CAPACITY,"cannot copy AR1200");
+    return P6_OK;
 }
 
 static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error)
@@ -819,6 +848,8 @@ p6_result check_loaded_firmware(p6_error *error)
         extendedkickmem_bank.reserved_size != 524288 || !extendedkickmem_bank.baseaddr ||
         !firmware_matches(extendedkickmem_bank.baseaddr, 262144, 22)))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "CDTV extended firmware is missing or corrupt");
+    if (hrtmon_bound() && (!p6_hrtmon_memory() || (ar1200_bound() && armodel!=1200)))
+        return p6_fail(error,P6_ERROR_WRONG_MEDIA,"monitor loader did not adopt the complete owner");
     if (ar_bound()) {
         uint64_t bytes = 0; uint32_t kind = 0;
         if (p6_blob_size(kActionReplayId, &bytes, &kind) != P6_BLOB_OK || kind != P6_BLOB_ROM ||

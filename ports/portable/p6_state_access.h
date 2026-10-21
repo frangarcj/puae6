@@ -77,9 +77,10 @@ struct p6_applied_raw {
     uint32_t parallel_type[2], parallel_buttons[2];
     int32_t axis[2][2];                              // joystick directions -1, 0, +1 (x, y) per port
 };
-// HRTMon control and write shadows; the separate memory accessor names an existing owner only.
+// HRTMon/AR1200 controls and write shadows. The accessor names the allocated 1MiB owner;
+// AR1200 maps at 800000 and has an immutable lower512KiB, unlike HRTMon at A10000.
 struct p6_hrtmon_raw {
-    uint32_t flag, triggered, mapped; // mapped:0 dummy,1 HRTMon,2 dummy A1..A7 + Kick A8..B0.
+    uint32_t flag, triggered, mapped; // mapped:0 dummy,1 monitor,2 HRTMon-only dummy A1..A7 + Kick A8..B0.
     uint8_t custom[512], ciaa[16], ciab[16];
 };
 uint8_t *p6_hrtmon_memory();

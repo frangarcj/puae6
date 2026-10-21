@@ -208,7 +208,7 @@ void visit_hrtmon(Archive &a)
     a.val<uint32_t>(0x100000,0x100000,0x100000,"hrt.size");
     h.flag=a.val<uint32_t>(h.flag,1,3,"hrt.flag");
     h.triggered=a.val<uint32_t>(h.triggered,0,1,"hrt.triggered");
-    h.mapped=a.val<uint32_t>(h.mapped,0,2,"hrt.mapped");
+    h.mapped=a.val<uint32_t>(h.mapped,0,p6_bridge::ar1200_bound()?1:2,"hrt.mapped");
     if (a.mode()!=Mode::Measure) {
         a.require(ram, "HRTMon has no allocated owner");
         a.require((h.flag!=ACTION_REPLAY_IDLE)==bool(cpu_spc(a.mode())&SPCFLAG_ACTION_REPLAY), "HRTMon and CPU pending flags disagree");
@@ -216,7 +216,9 @@ void visit_hrtmon(Archive &a)
         a.require(h.flag!=ACTION_REPLAY_ACTIVE || (h.triggered && h.mapped==1), "active HRTMon has no trigger or mapping");
     }
     a.bytes(h.custom,sizeof h.custom,"hrt.custom"); a.bytes(h.ciaa,sizeof h.ciaa,"hrt.ciaa"); a.bytes(h.ciab,sizeof h.ciab,"hrt.ciab");
-    a.bytes(ram,0x100000,"hrt.memory");
+    // AR1200's lower half is read-only ROM/padding reconstructed by its loader.
+    const uint32_t offset=p6_bridge::ar1200_bound()?0x80000:0;
+    a.bytes(ram?ram+offset:nullptr,0x100000-offset,"hrt.memory");
     if (a.applying() && a.ok()) p6_hrtmon_set(&h);
 }
 void rebuild_ram()
@@ -339,7 +341,7 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
     uint8_t cartridge[32];
     if (p6_bridge::hrtmon_identity(cartridge)) {
         const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
-        domain_hash("p6/media/hrtmon/v1",parts,lengths,2,out);
+        domain_hash(p6_bridge::ar1200_bound()?"p6/media/ar1200/v1":"p6/media/hrtmon/v1",parts,lengths,2,out);
     }
     if (p6_bridge::ar_identity(cartridge)) {
         const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};

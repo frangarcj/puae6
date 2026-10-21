@@ -1,0 +1,42 @@
+diff --git a/ar.cpp b/ar.cpp
+--- a/ar.cpp
++++ b/ar.cpp
+@@ -1783,6 +1783,9 @@
+ void action_replay_cleanup()
+ {
+ #ifdef P6_PORTABLE
++	// Retire this private owner before mapped_free, including direct memory_cleanup.
++	if (cart_type == CART_AR1200 && hrtmemory)
++		map_banks(&dummy_bank, hrtmem_start >> 16, hrtmem_size >> 16, 0);
+ 	// Shutdown calls cleanup directly. AR1 hide/unmap deliberately keeps these banks.
+ 	if (armodel == 1 && armemory_rom) {
+ 		map_banks(&dummy_bank, arrom_start >> 16, arrom_size >> 16, 0);
+@@ -2175,11 +2178,13 @@
+ }
+ void (*p6_ar_cia_handler())(uint32_t) { return armodel == 2 || armodel == 3 ? action_replay_cia_access_delay : NULL; }
+ 
+-// Private fixed HRTMon owner. No host pointer or reload path enters its state.
++// Fixed monitor owners. Geometry and immutable code are reconstructed from the bound blob.
+ uint8_t *p6_hrtmon_memory()
+ {
+-	return cart_type == CART_HRTMON && !armodel && hrtmemory && hrtmemory == hrtmem_bank.baseaddr &&
+-		hrtmem_start == 0xa10000 && hrtmem_size == 0x100000 && hrtmem_bank.allocated_size == 0x100000 && !hrtmem2_size && !hrtmem2_size2 &&
++	const bool hrt = cart_type == CART_HRTMON && !armodel && hrtmem_start == 0xa10000;
++	const bool ar1200 = cart_type == CART_AR1200 && armodel == 1200 && hrtmem_start == 0x800000;
++	return (hrt || ar1200) && hrtmemory && hrtmemory == hrtmem_bank.baseaddr &&
++		hrtmem_size == 0x100000 && hrtmem_bank.allocated_size == 0x100000 && !hrtmem2_size && !hrtmem2_size2 &&
+ 		!hrtmem3_size && !hrtmem_end && !hrtmem2_end && !hrtmem_rom && hrtmon_ciadiv == 256 &&
+ 		!hrtmon_zeropage && !armemory_rom && !armemory_ram && !hrtmon_lang ? hrtmemory : NULL;
+ }
+@@ -2187,9 +2192,9 @@
+ {
+ 	if (!out || !p6_hrtmon_memory() || hrtmon_flag < ACTION_REPLAY_IDLE || hrtmon_flag > ACTION_REPLAY_ACTIVE ||
+ 		triggered_once < 0 || triggered_once > 1) return false;
+-	// Three exact shapes: preboot dummy, HRTMon, or the A1200 Kickstart mirrors.
++	// AR1200 has only dummy/cart banks. Kickstart mirrors are HRTMon-only.
+ 	const unsigned mapped = &get_mem_bank(hrtmem_start) == &hrtmem_bank ? 1 :
+-		&get_mem_bank(0xa80000) == &kickmem_bank ? 2 : 0;
++		cart_type == CART_HRTMON && &get_mem_bank(0xa80000) == &kickmem_bank ? 2 : 0;
+ 	for (unsigned n = 0; n < 16; ++n) {
+ 		addrbank *expected = mapped == 1 ? &hrtmem_bank : mapped == 2 && n >= 7 ? &kickmem_bank : &dummy_bank;
+ 		if (&get_mem_bank(hrtmem_start + (n << 16)) != expected) return false;
