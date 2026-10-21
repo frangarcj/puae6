@@ -18786,7 +18786,8 @@
         "T66v10",
         "T66v11",
         "T66v12",
-        "T66v13"
+        "T66v13",
+        "T66v14"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -21710,12 +21711,13 @@
       ],
       "id": "T66v12",
       "title": "Conectar carga publica NRG multisesion y catalogos mixtos con restore Waterbox",
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T66v11",
         "T66l9",
         "T66v7",
-        "T66v13"
+        "T66v13",
+        "T66v14"
       ],
       "touch": [
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
@@ -21737,7 +21739,8 @@
         "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion.",
         "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto.",
         "IncluirSBIvalidocompañante enfixtureDAOmulti paraacreditarV13real: Qpatcheada/identidadmismomediopayloadtable ySBIajeno rechazado, local/coldrestore/fullfuture/snapshotenmismaunion, sinnuevoWBbuildni campañaextra.",
-        "Ampliacionprevia portargetreal net48: incluirPuae6DiscSource.cs parahexbytes compatibleconnet48 yaccesoindexado aultimaSesion (CA1826), sinmodificarcontratoID; factoryList.Exists sustituyeAny porMA0020. No relajar analyzers. PrepararClient.Commonunavezconfailfastantes3clasesparaevitarrebuildsdelmismofallodecompilacion; reutilizarcacheenunion."
+        "Ampliacionprevia portargetreal net48: incluirPuae6DiscSource.cs parahexbytes compatibleconnet48 yaccesoindexado aultimaSesion (CA1826), sinmodificarcontratoID; factoryList.Exists sustituyeAny porMA0020. No relajar analyzers. PrepararClient.Commonunavezconfailfastantes3clasesparaevitarrebuildsdelmismofallodecompilacion; reutilizarcacheenunion.",
+        "CierreFDdecatálogo real requiereV14leaselegacy: no rebajarasercion. Separarescenario XML/direct/catalogen3metodosdelamismaclaseconhelpersintactos para repetirsolocatalogotrasfallo; previosXML/direct yaejecutaronambosPID yasserts. Nuevosmetodos test_xml_multisession_cold_restore, test_direct_multisession_cold_restore, test_mixed_catalog_cold_restore. Mismoscasos/aceptacion, sinenvarquesilenciepuertas."
       ],
       "checks": [
         "MED01",
@@ -21791,6 +21794,47 @@
         "SBI sobreDAOmulti porLBA conserva P/RW/main yCRCcontractual, rechaza huecos/fallos transaccionalmente sinIO/publicacion/FDrevivido, y legacy/targetreal pasan; restorepublico permanece puertaV12."
       ],
       "stop": "No tocarfueraTouch ni superar400manualsin dividirantes; sinSparseOwnerDONE no activar. No repetir suitesacumuladas."
+    },
+    {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v14",
+      "title": "Adoptar lease de CD legacy al seleccionar PUAE6 en RomLoader",
+      "status": "in_progress",
+      "depends": [
+        "T66v11",
+        "T66v13",
+        "T66l9"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0021-puae6-legacy-disc-lease.patch",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference aislado, cuatro rutas100..170manuales; patch0021soloRomLoader.cs. SepararbackendtypedCHD/NRG deownershipcontext. ISOconCreateAnyTypesiguerutahistorica, peroOwnedDiscAssetMISMOleasecuandoXMLAmiga/prefPUAE6oforcedPUAE6conguarddesistema. No otroowner/decoder ni cambiosCoreParametersFrom/borroweddirecto.",
+        "LoadXML debe reconocercontextoPUAE6conalgunCDlegacy para cleanupnofallback constructor/falloparcial; otroscoresconservanDiscAssetborrowed ylegacybackend. Disc/CDlease.IsDisposedyDisposeidempotente antescallback, sinFDreabierto. DocumentaralcanceexplicitonocambiaPreferenciasglobales.",
+        "MED01/BUILD01 MISMOselector NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership ampliadoconISOrealpublico/otroscoresborrowed/directIDiscAssetborrowed/falloparcialconstructor/disposecallbacks sinFD. Client.Commonreal/analyzersunapreparacionfailfast. Rootunicosbuildspesados; agenteAST/sintaxisofflinepequeña. CatalogoWBfallidoV12acreditarácierrecompletoposterior, nootragateWB."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "RomLoadertransfiereleaseexistenteparaCDlegacyencontextoPUAE6explicito, cierratodosanteerror ydispose; conservaotroscores yassetsdirectosprestados. Hostreal/analyzerspasan, WBcatalogo quedaV12."
+      ],
+      "stop": "No superar400manual/otrasrutas sinficharantes. No aflojarFDassertni crearownersparalelos para pasar."
     }
   ],
   "max_in_progress": 4
