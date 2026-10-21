@@ -41,6 +41,21 @@ class CdtvLoadTests(lr.LibretroHarness):
             self.assertEqual(len(found),1,'unique executing HUNK marker, not a cached file'); result.append(found[0])
         return result
 
+    def same_frames(self,left,right,phase):
+        self.assertEqual(len(left),len(right),phase)
+        for index,(a,b) in enumerate(zip(left,right),1):
+            self.assertEqual(a,b,f'{phase}: first differing frame {index}: {a} != {b}')
+
+    def test_new_owner_after_long_session_matches_cold_power_on(self):
+        # 170x2 does not expose it: the preceding owner must reach the display
+        # programmed by the real firmware. No state load participates here.
+        out=self.play('--runs',1032,'--cycles',2,'--do','1032:memory')
+        chunks=re.split(r'cycle \d+ end[^\n]*\n',out)[:2]
+        observations=lambda chunk:[tuple(r[k] for k in ('unit','ticks','hash','ahash','audio')) for r in self.runs(chunk)]
+        self.assertEqual([len(self.runs(c)) for c in chunks],[1032,1032])
+        self.same_frames(observations(chunks[0]),observations(chunks[1]),'cold power-on after long owner')
+        self.assertEqual(re.findall(r'^memory hash (.*)$',chunks[0],re.M),re.findall(r'^memory hash (.*)$',chunks[1],re.M))
+
     def test_original_cd_boot_serialize_and_cold_reload(self):
         work=self.work(); cut,end,again,cold=(work/n for n in ('cut','end','again','cold'))
         out=self.play('--runs',1032,'--cycles',2,'--do','1000:save:s','--do',f'1000:savefile:{cut}',
@@ -56,7 +71,7 @@ class CdtvLoadTests(lr.LibretroHarness):
             counters=self.markers(chunk); self.assertEqual(len(counters),3)
             self.assertGreater(counters[0],0); self.assertGreater(counters[1],counters[0]); self.assertEqual(counters[1],counters[2])
             memory=re.findall(r'^memory hash (.*)$',chunk,re.M); self.assertEqual(len(memory),2); self.assertEqual(*memory)
-        self.assertEqual([view(r) for r in self.runs(chunks[0])],[view(r) for r in self.runs(chunks[1])])
+        self.same_frames([view(r) for r in self.runs(chunks[0])],[view(r) for r in self.runs(chunks[1])],'independent owners with local restore')
         fresh=self.play('--runs',16,'--no-vfs','--set','puae6_machine=CDTV','--do',f'0:loadfile:{cut}:pos=1000',
                         '--do','0:peek:0:1048576','--do','16:memory','--do','16:peek:0:1048576','--do',f'16:savefile:{cold}')
         self.assertIn(f'state load {cut} pos=1000 ok=1',fresh)

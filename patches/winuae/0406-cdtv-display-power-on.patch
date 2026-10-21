@@ -1,0 +1,35 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7246,6 +7246,31 @@
+ 	return 0;
+ }
+ 
++#ifdef P6_PORTABLE
++// A new CDTV owner is a power-on, not RESET. These display registers and latches
++// start at BSS zero in a fresh process; custom_reset deliberately retains them.
++// Do not use the register writers: e.g. calcvdiw and DDFSTRT would derive a
++// different initial window/fetch latch. The normal reset head initializes its
++// own fields afterwards, including palette, sprites, mode and DMA enables.
++void p6_custom_display_power_on(void)
++{
++	cop1lc = cop2lc = 0;
++	diwstrt = diwstop = 0;
++	plffirstline = plflastline = 0;
++	need_vdiw_check = false;
++	diw_change = 0;
++	ddfstrt = ddfstop = ddfstrt_saved = ddfstop_saved = 0;
++	ddfstrt_val = ddfstrt_val_old = ddfstop_old = 0;
++	ddfstrt_cycle = ddfstop_cycle = 0;
++	bplcon1 = bplcon2 = bplcon1_saved = bplcon2_saved = 0;
++	bpl1mod = bpl2mod = 0;
++	for (int i = 0; i < MAX_PLANES; ++i)
++		bplpt[i] = 0;
++	bprun = bprun_cycle = ddf_stopping = ddf_enable_on = 0;
++	ddf_limit_in = ddf_limit_out = ddf_limit = ddfstrt_match = hwi_old = false;
++}
++#endif
++
+ int custom_init(void)
+ {
+ 

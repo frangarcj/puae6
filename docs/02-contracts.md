@@ -2149,3 +2149,12 @@ semantica completa incluso con ID inalterado. El calculo autenticado del ID por
 el host sigue pendiente y no se atribuye al decoder. Esta puerta pura usa MED01
 con sesiones, Q/TOCs, limites, canarios y fallos de proveedor; no activa exports,
 loader publico, C# ni snapshots Waterbox.
+
+
+T67c3d distingue el nuevo propietario CDTV del RESET de hardware. Antes de
+custom_init, start_engine inicializa explicitamente los registros de display y
+Copper y los latches DIW/DDF/secuenciador a sus valores BSS cero. El reset head
+conserva su orden y genera la paleta sin cambios; blitter, disco y latch de bus
+no se borran. p6_reset y loadstate no llaman al hook. El reproducer1032x2 sin
+restore y la puerta de boot/restore conservan comparaciones exactas de ticks,
+RAM, video y PCM: no se adapta el estado anterior ni se tolera el desfase.
