@@ -7,6 +7,8 @@
 #include "memory.h"
 #include "newcpu.h"
 #include "events.h"
+#include "media/cd_device.h"
+#include "media/sha256.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -72,10 +74,58 @@ static void maps(const std::vector<uint8_t> &main, const std::vector<uint8_t> &e
     for (unsigned page = 0xf8; page < 0x100; ++page) assert(&get_mem_bank(page << 16) == &kickmem_bank);
     assert(&get_mem_bank(0xe00000) != &extendedkickmem_bank && &get_mem_bank(0xe90000) != &extendedkickmem_bank);
 }
+struct BootImage {
+    std::vector<uint8_t> bytes;
+    unsigned reads = 0;
+    static bool read(const void *context, uint64_t at, void *out, size_t n, size_t *got)
+    {
+        auto &image = *const_cast<BootImage *>(static_cast<const BootImage *>(context)); *got = 0;
+        if (at > image.bytes.size() || n > image.bytes.size() - at) return false;
+        memcpy(out, image.bytes.data() + at, n); ++image.reads; *got = n; return true;
+    }
+};
+static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex)
+{
+    BootImage image; FILE *f = fopen(path, "rb"); assert(f && !fseek(f, 0, SEEK_END));
+    const long size = ftell(f); assert(size > 0 && size <= 1048576 && size % 2048 == 0); rewind(f);
+    image.bytes.resize(size); assert(fread(image.bytes.data(), 1, size, f) == size); fclose(f);
+    uint8_t nonce[16]; assert(strlen(nonce_hex) == 32);
+    for (unsigned n = 0; n < 16; ++n) { char hex[3]{nonce_hex[n*2], nonce_hex[n*2+1], 0}; nonce[n] = uint8_t(strtoul(hex, nullptr, 16)); }
+    p6_cd::Layout layout{}; layout.tracks = 1; layout.leadout = uint32_t(size / 2048);
+    layout.track[0] = {0, 0, layout.leadout, 0, 2048, 0, p6_cd::Mode::Mode1_2048, 1, 4, true};
+    p6_cd::Binding source{}; source.identity.bytes = size; source.identity.sector_bytes = 2048;
+    p6_sha256_hash(image.bytes.data(), size, source.identity.content_id);
+    memcpy(layout.content_id, source.identity.content_id, 32); source.read = BootImage::read; source.context = &image;
+    p6_cd::Disc disc; assert(disc.bind(layout, &source, 1) == p6_cd::Result::Ok);
+    auto c = config(); ok(p6_init(&c, &error)); ok(load_readonly(rom));
+    assert(p6_cd::device_bind(&disc) == p6_cd::Result::Ok);
+    const char signature[16] = "P6CDTV_BOOT_v1!";
+    auto live = [&]() {
+        unsigned found = 0; uint32_t counter = 0;
+        const auto *ram = chipmem_bank.baseaddr;
+        for (uint32_t at = 0; at + 36 <= chipmem_bank.allocated_size; at += 2)
+            if (!memcmp(ram + at, signature, 16) && !memcmp(ram + at + 16, nonce, 16)) {
+                const auto *p = ram + at + 32; const uint32_t value = uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+                if (value) { ++found; counter = value; }
+            }
+        assert(found <= 1); return counter;
+    };
+    p6_input input{P6_ABI_VERSION, sizeof input}; p6_frame out{P6_ABI_VERSION, sizeof out};
+    uint32_t first = 0; unsigned unit = 0;
+    for (; unit < 600 && !first; ++unit) {
+        ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error)); first = live();
+    }
+    fprintf(stderr, "CDTV original boot units=%u reads=%u PC=%x marker=%u\n", unit, image.reads, m68k_getpc(), first);
+    assert(first && image.reads);
+    for (unsigned n = 0; n < 16; ++n) ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error));
+    assert(live() > first); ok(p6_shutdown(&error)); p6_cd::device_unbind();
+    puts("CDTV original ISO/HUNK nonce read and guest Delay counter advanced");
+}
 int main(int argc, char **argv)
 {
-    assert(argc == 3); const auto main = file(argv[1]), ext = file(argv[2]);
+    assert(argc == 3 || argc == 5); const auto main = file(argv[1]), ext = file(argv[2]);
     auto rom = ext; rom.insert(rom.end(), main.begin(), main.end());
+    if (argc == 5) { original_boot(rom, argv[3], argv[4]); return 0; }
     for (unsigned n = 0; n < 11; ++n) {
         auto c = config();
         if (n == 0) c.chip_kib = 2048; if (n == 1) c.slow_kib = 512; if (n == 2) c.fast_kib = 1024;
