@@ -21538,7 +21538,7 @@
       ],
       "id": "T66v8",
       "title": "Validar metadata DAO multisesion en parser C# existente",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v7",
         "T66l8",
@@ -21556,7 +21556,8 @@
       "steps": [
         "cd32_close aislado, cinco rutas280..350lineas manuales. Reservar0017 para firmwareCDTV. Parser unicoNRG_format.cs derivado: ParsePuae6Nrg(Stream) devuelve NRGFile existente validado, sin DTO/parser paralelo; solo añadir SessionHint/CatalogRaw13/IsrcRaw12 y conservar strings legacy.",
         "Acotar directorio/chunks/END/footer/versiones y grupos ordinales completos; hasta99tracks globalesconsecutivos; SINF/First/Last/CUE coherentes; CUE0/A2/INDEX00/01 explicitos con prevA2<=nextCUE0<=nextINDEX00. Extents fisicos ordenados/alineados sin solapar dentro payload yduracionvsLBA. Catalogo/hint/ISRCexactos; hintno cuenta sesiones. Parse sin leerpayload.",
-        "MED01 metodos nuevos metadata_exact_groups_and_global_tracks y metadata_invalid_and_no_payload en NrgCanonicalCSharpTests, fixture nrg_sessions existentev1/v2 con huecos11/20/30 ychunksreordenados; guardedstream ynegativos transaccionales. RegresionDAOsingle exactID existente. BUILD01 targetDiscSystem/analyzers real una vez. Sin Mount/provider/carga publica; normalizacion/restorepublico permanecen obligatorios."
+        "MED01 metodos nuevos metadata_exact_groups_and_global_tracks y metadata_invalid_and_no_payload en NrgCanonicalCSharpTests, fixture nrg_sessions existentev1/v2 con huecos11/20/30 ychunksreordenados; guardedstream ynegativos transaccionales. RegresionDAOsingle exactID existente. BUILD01 targetDiscSystem/analyzers real una vez. Sin Mount/provider/carga publica; normalizacion/restorepublico permanecen obligatorios.",
+        "Integrado775d0240comoa7efc335: cinco rutas+307/-1 concontextopatch. Dosmetodosmetadata+regresionDAOsingle3PASS8.422s C#offline, rootDiscSystemtargetreal/analyzers1PASS11.060s. Metadata noPayload, gruposreordenados/99sesiones/298chunks/raws/>4GiB/negativos pasan; legacyinconsistenciaSINFsolo aceptadaporentradaoriginal demuestra seam estricto. No repetir MED01root."
       ],
       "checks": [
         "MED01",
@@ -21627,7 +21628,7 @@
       ],
       "id": "T66v10",
       "title": "Montar DAO multisesion privado con proveedor disperso por offsets",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v8"
       ],
