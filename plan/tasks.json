@@ -20647,7 +20647,8 @@
         "T69c1",
         "T69c2",
         "T69c3",
-        "T69c4"
+        "T69c4",
+        "T69d1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -20665,7 +20666,8 @@
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario.",
         "Prioridad confirmada por el usuario: primera version utilizable. Esta funcion opcional queda fuera de la ruta critica de la preview; conservar sus criterios originales para una iteracion posterior, sin presentarla como terminada.",
         "Para la ruta HRTMon puede usarse el builtin ya contenido en el snapshotWinUAE fijado (hrtmon.rom.cpp), extraido solo a build/ durante tests; no requiere descargar una ROM comercial. La guia primaria del autor declara GPL: https://github.com/wepl/hrtmon/blob/master/HRTmon.guide. Procedencia de bytes sigue SHA del snapshot, no master como inputrelease. ActionReplay comercial requiere asset autorizado aparte; HRTMon no acredita todos los modelosAR ni elimina criterios de activacion/estado.",
-        "T69a integraHRTMonprivadoreal; padreconservacodeccompletoyconexionespublicas posteriores yloscartuchosARautorizados. No cerrarporcompilar/PCenROM ni estadowrapperparcial."
+        "T69a integraHRTMonprivadoreal; padreconservacodeccompletoyconexionespublicas posteriores yloscartuchosARautorizados. No cerrarporcompilar/PCenROM ni estadowrapperparcial.",
+        "Separar la carga privada AR2/AR3 por bytes en T69d1: fixture original permite implementar y comprobar propiedad/mapeo/limpieza sin ROM comercial. El padre conserva AR1/AR1200, codec completo, activacion/futuro y conexiones publicas con ROM autorizada; no cerrar por una carga privada ni atribuir compatibilidad comercial al programa de prueba."
       ],
       "checks": [
         "DET02"
@@ -21839,6 +21841,54 @@
         "RomLoadertransfiereleaseexistenteparaCDlegacyencontextoPUAE6explicito, cierratodosanteerror ydispose; conservaotroscores yassetsdirectosprestados. Hostreal/analyzerspasan, WBcatalogo quedaV12."
       ],
       "stop": "No superar400manual/otrasrutas sinficharantes. No aflojarFDassertni crearownersparalelos para pasar."
+    },
+    {
+      "id": "T69d1",
+      "title": "Cargar Action Replay 2/3 privado desde bytes y cerrar su propietario con seguridad",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69b",
+        "T24"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "patches/winuae/0407-action-replay-blob-owner.patch",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "manifests/codegen.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference aislado en action-replay-owner, raiz metadata/integracion y builds pesados serializados. Seis rutas de implementacion atomicas (bind, preferencias, rechazo de estados, parche y arnes existente), objetivo250..350lineas manuales; sin nuevo target/ABI publico ni editar upstream. Si supera400 o requiere otras rutas, avisar antes. 0406 sigue reservado al WIP CDTV, usar0407 para ar.cpp.",
+        "Leer ar.cpp fijado y hooks0394/0398 antes de editar. Reutilizar action_replay_load/init, banco ROM/RAM y blob_io existentes. Bind privado explicito modelo2/3 con raw128/256KiB exactos, copia de bytes y exclusividad con HRTMon; solo A500 stock68000 compatible, sinflags/opciones/frontend nuevos. Sin adivinar el sistema por extensiones, decoder duplicado ni usar FS host en ejecucion. El cartucho comercial aportado sera una puerta posterior.",
+        "Cargar por nombre virtual separado de HRTMon; validar lecturas completas y allocaciones del loader portable, rollback propietario ante fallo sin recursos parciales. Reiniciar solamente variables AR pertinentes a sus valores BSS/iniciales documentados para nuevo owner, conservar HRT/default. Guard en state::gate rechaza todo estado AR como Unsupported hasta codec, antes de tocar buffers o aplicar datos; ni bound ni un SPCflag limpio deben permitir un snapshot parcial.",
+        "MED01/LIFE01 ArOwnerTests.test_private_ar23_owner_loads_copied_rom_and_refuses_states en test_hrtmon.py y modo del p6_hrtmon_probe ya existente. Firmware de sistema y ROMcart son programas propios generados, no requiere asset comercial. Probar ambos tamaños/modelos, copia inmutable, contenido ROM y RAM real por bancos, mutacion del buffer host sin efecto, argumentos/tamaños/modelos/plataformas y doblebind transaccionales, coexistenciaHRT rechazada, lecturas cortas/alloc si seam actual lo permite, fallos y destroy/recreate sin campos heredados. State bound/save/load Unsupported con canarios/estado intactos. No afirmar freeze/retorno/restore/compatibilidad de juego por estos checks.",
+        "No compilar motor/guest ni bateria en agente. Preparar sintaxis/parche aplicable y commit; raiz registra serie/clasificacion/receipt antes de gate, reutiliza objetos actuales por identidad. Comparacion default/HRT dirigida solo si cambia su camino; no repetir Waterbox ni juegos. Codec AR y activacion/ROM real conservan puertas posteriores y AR1/AR1200 siguen requeridos en T69."
+      ],
+      "checks": [
+        "MED01",
+        "LIFE01"
+      ],
+      "acceptance": [
+        "La ruta privada adopta bytes AR2/3 con recursos y mapas coherentes, copia inmutable y limpieza sin contaminacion entre propietarios; fuentes prestadas/default/HRT permanecen intactos. Todas las operaciones de estado AR se rechazan explicitamente sin mutar hasta codec completo. No acredita firmware comercial ni cartucho publico."
+      ],
+      "stop": "No descargar ROMs comerciales, habilitar interfaces publicas ni aprobar snapshot parcial. Preservar formato/semantica original de los modelos restantes en el padre; no mas de400manuales ni otra ruta sin ampliar antes."
     }
   ],
   "max_in_progress": 4

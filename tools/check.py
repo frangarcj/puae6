@@ -710,6 +710,9 @@ TASK_SUITES[('GEN01', 'T69c3')] = {'schema': 'tests.config.test_schema', 'fronte
 TASK_SUITES[('IN01', 'T69c3')] = {'mapper_levels': 'tests.libretro-ui.test_mapper.MapperProbeTests.test_the_mapper_holds_its_own_checks', 'composed_flags': 'tests.libretro-ui.test_hrtmon.HrtMonOptionTests'}
 for _gate in ('LR01', 'STATE01'):
     TASK_SUITES[(_gate, 'T69c3')] = {'real_libretro_hrtmon': 'tests.libretro-ui.test_hrtmon.HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process'}
+for _gate in ('MED01', 'LIFE01'):
+    TASK_SUITES[(_gate, 'T69d1')] = {'private_ar_owner': 'tests.cartridge.test_hrtmon.ArOwnerTests.test_private_ar23_owner_loads_copied_rom_and_refuses_states'}
+
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
 for _gate in ('WB03', 'WB04', 'WB09'):
