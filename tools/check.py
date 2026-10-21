@@ -713,6 +713,9 @@ for _gate in ('LR01', 'STATE01'):
 for _gate in ('MED01', 'LIFE01'):
     TASK_SUITES[(_gate, 'T69d1')] = {'private_ar_owner': 'tests.cartridge.test_hrtmon.ArOwnerTests.test_private_ar23_owner_loads_copied_rom_and_refuses_states'}
 
+for _gate in ('STATE01', 'STATE02', 'DET02'):
+    TASK_SUITES[(_gate, 'T69d2')] = {'complete_ar23_native': 'tests.cartridge.test_hrtmon.ArStateTests.test_complete_ar23_semantic_cold_state_and_refusals'}
+
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
 for _gate in ('WB03', 'WB04', 'WB09'):

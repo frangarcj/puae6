@@ -8054,6 +8054,58 @@
         }
       },
       {
+        "id": "cartridge-ar23-native",
+        "subsystem": "ram",
+        "component": "Private copied AR2/3 on stock A500; complete 64 KiB RAM owner",
+        "owner": "build/upstream/ar.cpp (patches 0407 and 0408), bridge/state.cpp",
+        "chunk": null,
+        "save": "visit_ar within visit_ram (P6RM), cartridge SPC in P6CP and CIA event15 in P6SC",
+        "restore": "same field visitor with candidate validation before Apply",
+        "reset": "Original cartridge reset/enter/hide flow; owner cleanup resets AR latches and releases blobs.",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "All 65536 RAM bytes, action_replay_flag, armode_read/write, saved vector artemp[4], hardreset, independent ar_hide/ar_hidden/ar_mapped and actual ROM/RAM map, custom[512] and both CIA[16] shadows. P6CP owns CPU/interrupt pipeline, Chip RAM owns the live IRQ7 vector/stack; P6SC owns pending CIA event15 with data0/1.",
+        "omitted": "AR1 wait_for_pc/ar_wait_pop never execute for AR2/3; ar_state1/2 serve excluded legacy .uss restore. triggered_once is only read by HRTMon/legacy .uss. Immutable ROM/model/geometry belong to the copied owner. AR1/AR1200 and public cartridge gates remain separate.",
+        "pointers": "No pointer or host path travels. Identity hashes the copied raw ROM and explicit model in p6/cartridge/ar23/v1, folded into p6/media/ar23/v1; mutable cartridge RAM is separate.",
+        "rebuild": "Apply maps original ROM/RAM or dummy banks from validated shape, then restores the independent latches and shadows. PC is rebound after P6RM without filling prefetch. No I/O, NMI or event scheduling occurs in Apply.",
+        "evidence": [
+          "patches/winuae/0408-action-replay-native-state.patch",
+          "bridge/state.cpp",
+          "bridge/state_cpu.cpp",
+          "tests/cartridge/hrtmon_probe.cpp"
+        ],
+        "proof": {
+          "task": "T69d2",
+          "checks": [
+            "STATE01",
+            "STATE02",
+            "DET02"
+          ],
+          "status": "pending",
+          "what": "Original IRQ7/RTE fixture compares exact saved state and complete continuation across pending reset/freeze/CIA events, active and both hidden map shapes, locally and in a new process; field/map/SPC/owner corruptions are transactional."
+        },
+        "waterbox": "This is a native semantic codec; public and Waterbox cartridge acceptance remain separate gates.",
+        "native_state": {
+          "task": "T69d2",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/cartridge/test_hrtmon.py:ArStateTests",
+          "notes": "P6CP publishes incoming SPC for cartridge validation; P6SC validates the original CIA handler as ID15 with data0/1 and an AR owner."
+        },
+        "probe": {
+          "probe": "private p6_hrtmon_probe, including full final native state",
+          "status": "implemented",
+          "task": "T69d2",
+          "covers": [
+            "AR2/3 RAM and control/vector/shadows",
+            "independent ROM/RAM bank and visibility state",
+            "CPU SPC and pending CIA callback"
+          ]
+        }
+      },
+      {
         "id": "cdtv-controller-transport-audio", "subsystem": "disk",
         "component": "Private stock CDTV DMAC/6525, FIFO/SUB, NVRAM and owned CDA",
         "owner": "build/upstream/cdtv.cpp", "chunk": "P6CT",
@@ -8177,7 +8229,7 @@
           "CONF",
           "LOG "
         ],
-        "reason": "HRTM/ACTR are excluded legacy .uss codecs with host paths. Private HRTMon uses complete semantic P6RM/P6CP and immutable raw identity instead; commercial Action Replay still needs its own authorized asset and proof. Arcade/laserdisc boards, debugger watch points, configuration text and log remain outside the profile.",
+        "reason": "HRTM/ACTR are excluded legacy .uss codecs with host paths. Private HRTMon and AR2/3 use semantic P6RM/P6CP and immutable raw identity; AR2/3 CIA events belong to P6SC. Commercial activation, AR1/AR1200 and public cartridge support retain their own gates. Arcade/laserdisc boards, debugger watch points, configuration text and log remain outside the profile.",
         "evidence": [
           "bridge/config.cpp",
           "patches/winuae/0394-hrtmon-port.patch",

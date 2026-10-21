@@ -5920,6 +5920,38 @@
           "after_sha256": "490fe5528811121f082c533ef1f107ba8450659afc006f4c9746b8f03391dcbb"
         }
       ]
+    },
+    {
+      "id": "0408-action-replay-native-state",
+      "file": "patches/winuae/0408-action-replay-native-state.patch",
+      "sha256": "8562d5fba58cccdcdba028941fb96ab6ebe5440a52bbefcaa3980980e76d22f9",
+      "title": "Expose complete private AR2/3 native control and bank state",
+      "reason": "T69d2: semantic cartridge state includes independent map/visibility latches, saved IRQ7 vector, shadows, RAM and pending CIA handler identity. Restore rebuilds existing banks without triggering NMI or I/O. Native CPU boundary admits the supported private AR2/3 pending phases; no public cartridge option or commercial compatibility is implied.",
+      "category": "native cartridge state access",
+      "order": 223,
+      "symbols": [
+        "p6_ar_memory",
+        "p6_ar_get",
+        "p6_ar_validate",
+        "p6_ar_set",
+        "p6_ar_cia_handler",
+        "p6_cpu_boundary"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "490fe5528811121f082c533ef1f107ba8450659afc006f4c9746b8f03391dcbb",
+          "after_sha256": "ccae80397516fb682d69770f5c1d4d77a2118285defe1e1551348f6dc6b85a2b"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "72a0b1f29d14c296ac1b50861db0427155dddb757d00e12bb69eaff704393290",
+          "after_sha256": "6aa75bc2c753d259ab704bdffdbfb2b67a86429eceb51836ae84a77d9e9e1fe3"
+        }
+      ]
     }
   ]
 }
