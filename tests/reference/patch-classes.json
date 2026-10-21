@@ -427,13 +427,6 @@
       "scenarios": [],
       "subsystems": []
     },
-    "0367-cd32-combined-firmware": {
-      "effect": "inert",
-      "why": "REF01 profiles contain no CD32. Only the private stock CD32 profile takes the new one-MiB combined firmware branch; other ROM envelopes are unchanged.",
-      "test": "tests/media/test_cd32_boot.py",
-      "scenarios": [],
-      "subsystems": []
-    },
     "0376-frestore040-unimp-fields": {
       "effect": "inert",
       "why": "REF01 does not offer CPU040. The directed fpp probe restores independently built rev40/41 UNIMP frames, checks fields, arithmetic priority, bus accesses and subsequent instructions.",
@@ -517,6 +510,7 @@
     "0383-state-pending-config": "BEAM endpoint word count must remain paired with bridge/state_upstream.cpp. The preference countdown is causal even under fixed preferences; native early-cut and real CD32 cross-owner restore exercise it. REF01 does not load native states.",
     "0361-nrg-metadata-only": "The required MDS metadata patch0388 extends the NRG compile guard and decoder branch, and required NRG extensions0389/0391/0392 need this parser. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate NRG parsing. Directed metadata/provider tests cover its layouts and failures; no corpus golden is changed.",
     "0356-cue-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
-    "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks."
+    "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
+    "0367-cd32-combined-firmware": "Required CDTV firmware patch0401 extends this combined-ROM branch. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate CD32/CDTV firmware loading. Directed firmware/profile tests retain exact pair, map and rejection checks; no corpus golden is changed."
   }
 }
