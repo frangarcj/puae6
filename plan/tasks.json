@@ -19200,16 +19200,65 @@
       "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md"
+      ],
+      "id": "T67c3d",
+      "title": "Restablecer display CDTV en nuevo power-on sin alterar warm reset",
+      "status": "in_progress",
+      "depends": [
+        "T67c3a",
+        "T66r8"
+      ],
+      "touch": [
+        "patches/winuae/0406-cdtv-display-power-on.patch",
+        "bridge/lifecycle.cpp",
+        "tests/libretro-host/test_cdtv_load.py",
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "manifests/codegen.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Bloqueo C3b acreditado:1032x2 sinrestore difiere1024ticks desde169,170x2 no; controlescoldfirst/second168 recrean delta. Trasplantar P6CH y luego dominio display/Copper a first168 reproduce exactamente+1024, dominio coherente blitter no. CPU/RAM/RTC/AV iguales en168, diferencia causal display heredada de sesionlarga. Mantener reproducer --cycles2 y todas comparaciones exactas. Datos/scripts diagnosticos solo build y limpiar al terminar.",
+        "busy_reference implementa aislado100..160lineas nuevas en cuatro rutas producto, patch0406 reservado solo custom.cpp materializado; no upstream directo. Root serie/hash/clasificacionrequired/codegen recibos y builds-j2. Ninguna fuente root cambia durante guestbuild/test activo.",
+        "Hook privado P6_PORTABLE p6_custom_display_power_on, solo start_engine config.machine==kCdtvMachine inmediatamente antes custom_init despuesmemoria/firmwareverificados. Inicializar explicitamente a sus valores BSS documentados COP1/2LC, DIW/DDF/latches saved/old/cycle, BPLCON1/2 y saved, BPL1/2MOD/BPLxPT y secuenciador bprun/ddf/plffirst/plflast. No memset de estructuras ni borrarblitter/disk/buslatch/paleta/sprites; campos ya reseteados mantienenruta. No invocar en custom_reset/p6_reset/loadstate ni añadir scheduler.",
+        "LR01 test_original_cd_boot_serialize_and_cold_reload conserva --cycles2, exactfuture/fullstate ycold. Mejorar diagnostico primeradiferencia sin relajarassert. Contraste acotado de nuevo power-on sinrestore1032x2 y comparar primerowner antes/despues con binario congelado en build (observables/ticks169/futuro, no compatibilidaddeestadosentrebuilds); limpiar ese binario alterminar. No repetir firmware/VFS,CD32niABI yaPASS salvo cambio relevante.",
+        "GEN01 verificar aplicacion0406 y los29outputs CPU existentes porgenerador/refreshreceipt exacto; no editar generados. Si el hook coherente no resuelve, no ampliaraotrosdominios: preservar test y doshipotesis verificables, blocked y elegir otra tarea."
+      ],
+      "checks": [
+        "LR01",
+        "GEN01"
+      ],
+      "acceptance": [
+        "Primerarranque CDTV conserva observables previos; nuevoowner tras sesionlarga reproduce exactamente ticks/RAM/AV/PCM yboot/restores, con hookcold exclusivo y warmreset/otrosmodelos intactos."
+      ],
+      "stop": "No tolerancias/golden cambiados ni reset ciego de todochipset. Gatepublico C3b sigue bloqueado hasta esta correccion y frio pendientes."
+    },
+    {
       "id": "T67c3b",
       "title": "Publicar CDTV nativo y libretro con CD inicial fijo",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T67c3a",
         "T66r1",
         "T66m7",
-        "T66r9"
+        "T66r9",
+        "T67c3d"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -19263,7 +19312,8 @@
       "acceptance": [
         "CDTV acreditado porC3a arranca mediante retro_load_game y conserva futuro tras restore/recarga, rechaza operaciones fuera del dominio sin efectos y soporta firmware fijo transaccional; ABI/schema/headless corresponden a lo disponible, BizHawk/WB y cambiosCDTV siguen pendientes."
       ],
-      "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores."
+      "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores.",
+      "blocked_reason": "Gate publico local/cycles2 falla: desde169 segundoowner suma1024ticks tras sesionlarga, incluso sinrestore. Controles y cruce P6CH/display demuestran causalidad display/Copper; blitter descartado. Correccion coldpoweron T67c3d requerida; firmware/VFS/fixedmedia, CD32CUE345 yABI yaPASS, no repetir sin cambio relevante."
     },
     {
       "milestone": "M3",
