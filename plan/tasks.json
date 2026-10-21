@@ -19782,7 +19782,7 @@
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T24",
         "T69a",
@@ -19816,7 +19816,8 @@
       "acceptance": [
         "El cartucho se activa de forma determinista."
       ],
-      "stop": "Sin ROMs no autorizadas."
+      "stop": "Sin ROMs no autorizadas.",
+      "blocked_reason": "HRTMon completo por T69a/b/c1-c4, incluida activacion y futuro deterministas en nativo, libretro y Waterbox/BK2/TAS. Action Replay comercial requiere su propia ROM autorizada y codec/validacion por modelo; no hay asset aportado y la pregunta de ruta sigue pendiente. No descargar ROMs comerciales ni atribuir los modelos AR a las pruebas de HRTMon."
     },
     {
       "milestone": "FUTURE",
