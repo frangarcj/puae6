@@ -18386,6 +18386,7 @@
         "patches/winuae/0405-nrg-dao-sessions-metadata.patch",
         "ports/portable/media/cd_nrg_metadata.h",
         "adapters/libretro/cd_nrg.cpp",
+        "tests/media/nrg_metadata_probe.cpp",
         "tests/media/test_nrg_metadata.py",
         "tests/media/test_cd_nrg.py",
         "docs/02-contracts.md",
@@ -18395,10 +18396,11 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "Separar metadata ejecutable del proveedor/dispositivo: hasta 99 sesiones/pistas DAO con CUE explicito, grupos CUE/DAO/SINF coherentes y limites previos. Agente cd_swap aislado desde root actual; coordinador posee metadata y registra patch0405 tras entrega SHA/before/after. Seis rutas de implementacion, objetivo 300..380 lineas logicas; dividir antes de400 o ampliar antes de otras rutas.",
+        "Separar metadata ejecutable del proveedor/dispositivo: hasta 99 sesiones/pistas DAO con CUE explicito, grupos CUE/DAO/SINF coherentes y limites previos. Agente cd_swap aislado desde root actual; coordinador posee metadata y registra patch0405 tras entrega SHA/before/after. Siete rutas de implementacion, objetivo 300..380 lineas logicas; dividir antes de400 o ampliar antes de otras rutas.",
         "Antes de editar acordar DTO y validacion con coordinador. Contrastar libMirage a9d6a204 image-nrg/parser.c:697..722 y DiscSystem fijado ParseFrom/LoadNRGToDisc: conservar CUE0 y A2 por sesion, numeros globales, offsets fisicos DAO y separaciones declaradas. No sustituir direcciones por constantes 4500/6750/2250 ni trasladar por analogia politica ETNF/ETN2.",
         "Preservar metadata e identidades de una sesion DAO/ETNF/ETN2 exactas. Nuevos campos inactivos a cero; descartar candidato completo ante inconsistencia, overflow, duplicado o lectura corta. Proveedor CdNrg debe rechazar explicitamente metadata multisesion antes de publicar lectores o consumir payload, hasta hoja de conexion posterior; no aplanar sesiones accidentalmente.",
-        "MED01 comparte NrgMetadataTests y CdNrgTests: fixtures DAO v1/v2 con dos sesiones y direcciones independientes, metadata virtual sin payload grande, conteos/SINF/CUE/A2/offsets malformados y limites; regresiones legacy y rechazo del proveedor bajo ASan/UBSan. Sin motor ni guest ni declaracion publica de soporte multisesion."
+        "MED01 comparte NrgMetadataTests y CdNrgTests: fixtures DAO v1/v2 con dos sesiones y direcciones independientes, metadata virtual sin payload grande, conteos/SINF/CUE/A2/offsets malformados y limites; regresiones legacy y rechazo del proveedor bajo ASan/UBSan. Sin motor ni guest ni declaracion publica de soporte multisesion.",
+        "Contrato acordado antes de editar: NrgDaoSession conserva Session, session_hint sin significado inferido y catalogo13 por grupo. Tabla nueva solo en multisesion; una sesion deja nuevos campos a cero. El probe existente muestra esos campos solo en multisesion para observacion independiente desde Python, sin generar otro probe oculto. Globales heredados usan primer grupo y leadout final; la tabla conserva todas las fronteras por grupo."
       ],
       "checks": [
         "MED01"
