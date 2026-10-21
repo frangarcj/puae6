@@ -85,9 +85,10 @@ struct p6_hrtmon_raw {
 uint8_t *p6_hrtmon_memory();
 bool p6_hrtmon_get(p6_hrtmon_raw *);
 void p6_hrtmon_set(const p6_hrtmon_raw *);
-// AR2/3 only. Map latch, visibility and actual banks are independent causal inputs.
+// AR1/2/3. Map latch, visibility and actual banks are independent causal inputs.
 struct p6_ar_raw {
     int32_t flag, mapped;
+    uint32_t wait_pop, wait_pc; // AR1 only; appended to its semantic body, never to AR2/3.
     uint32_t mode_read, mode_write, hardreset, hide, hidden, banks;
     uint8_t vector[4], custom[512], ciaa[16], ciab[16];
 };

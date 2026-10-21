@@ -44,10 +44,10 @@ bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
 bool ar_identity(uint8_t out[32])
 {
     uint64_t bytes=0; uint32_t kind=0;
-    if (p6_blob_size(kActionReplayId,&bytes,&kind)!=P6_BLOB_OK || kind!=P6_BLOB_ROM || (bytes!=131072 && bytes!=262144)) return false;
-    const uint8_t model[4]={uint8_t(bytes==131072?2:3),0,0,0};
-    p6_sha256 hash; p6_sha256_init(&hash); const char domain[]="p6/cartridge/ar23/v1";
-    p6_sha256_update(&hash,domain,sizeof domain); p6_sha256_update(&hash,model,sizeof model);
+    if (p6_blob_size(kActionReplayId,&bytes,&kind)!=P6_BLOB_OK || kind!=P6_BLOB_ROM || (bytes!=65536 && bytes!=131072 && bytes!=262144)) return false;
+    const uint8_t model[4]={uint8_t(bytes==65536?1:bytes==131072?2:3),0,0,0};
+    p6_sha256 hash; p6_sha256_init(&hash); const char *domain=bytes==65536?"p6/cartridge/ar1/v1":"p6/cartridge/ar23/v1";
+    p6_sha256_update(&hash,domain,strlen(domain)+1); p6_sha256_update(&hash,model,sizeof model);
     uint8_t block[4096];
     for (uint64_t at=0;at<bytes;) {
         const size_t n=bytes-at<sizeof block ? size_t(bytes-at) : sizeof block; size_t got=0;
@@ -97,7 +97,7 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
     return register_hrtmon(image, error);
 }
 
-p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
+static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error, bool private_ar1)
 {
     if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
     p6_error_clear(error);
@@ -109,13 +109,18 @@ p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
     if (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000 || resolve_cpu_multiplier(c) != 2 ||
         c.cpu_compatibility == P6_CPU_NORMAL || c.fpu_model || c.z3_memory || c.flags || c.hdf_controller || !memory_is_preset(c))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "AR requires stock compatible A500/68000");
-    if (model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "AR supports models2/3");
-    if (!image.data || image.bytes != (model == 2 ? 131072u : 262144u) || !memcmp(image.data, "ATZ!HRT!", 8))
-        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected raw AR2/3 image of matching size");
+    if (!(private_ar1 && model == 1) && model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "AR supports models2/3");
+    if (!image.data || image.bytes != (model == 1 ? 65536u : model == 2 ? 131072u : 262144u) || !memcmp(image.data, "ATZ!HRT!", 8))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected raw Action Replay image of matching size");
     if (p6_blob_register(kActionReplayId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
         return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy Action Replay image");
     return P6_OK;
 }
+
+p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
+{ return bind_ar(model,image,error,false); }
+p6_result bind_ar1(p6_buffer image, p6_error *error)
+{ return bind_ar(1,image,error,true); }
 
 p6_result load_builtin_hrtmon(p6_error *error)
 {
@@ -139,7 +144,7 @@ bool request_cartridge_freeze()
     if (hrtmon_bound()) return request_hrtmon_freeze();
     const auto &s=p6_session::session;
     return ar_bound() && s.state==p6_session::State::Loaded && s.started && s.unit_index && !s.reset_queued &&
-        s.config.machine==P6_MACHINE_A500 && (armodel==2 || armodel==3) && action_replay_flag==ACTION_REPLAY_IDLE && action_replay_freeze();
+        s.config.machine==P6_MACHINE_A500 && (armodel>=1 && armodel<=3) && action_replay_flag==ACTION_REPLAY_IDLE && action_replay_freeze();
 }
 
 p6_result freeze_hrtmon(p6_error *error)
@@ -817,7 +822,7 @@ p6_result check_loaded_firmware(p6_error *error)
     if (ar_bound()) {
         uint64_t bytes = 0; uint32_t kind = 0;
         if (p6_blob_size(kActionReplayId, &bytes, &kind) != P6_BLOB_OK || kind != P6_BLOB_ROM ||
-            (bytes != 131072 && bytes != 262144) || armodel != (bytes == 131072 ? 2 : 3))
+            (bytes != 65536 && bytes != 131072 && bytes != 262144) || armodel != (bytes == 65536 ? 1 : bytes == 131072 ? 2 : 3))
             return p6_fail(error, P6_ERROR_WRONG_MEDIA, "Action Replay loader did not adopt the complete owner");
     }
     // The decoded image must be intact.

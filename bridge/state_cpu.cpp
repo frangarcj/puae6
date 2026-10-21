@@ -114,7 +114,7 @@ uint8_t scheduler_handler_id(evfunc2 f)
     if (f == p6_custom_event2_handler(3)) return 12;
     if (f == p6_custom_event2_handler(4)) return 13;
     if (f == p6_cdtv_subcode_handler()) return 14;
-    if (f == p6_ar_cia_handler()) return 15;
+    if (p6_ar_cia_handler() && f == p6_ar_cia_handler()) return 15;
     return 0;
 }
 
@@ -620,7 +620,7 @@ void visit_scheduler(Archive &a)
                 a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
                 a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
                 if (sec_id[i] == 14) a.require(currprefs.cs_cdtvcd && sec_data[i] == 0, "CDTV subcode event has no owner or invalid data");
-                if (sec_id[i] == 15) a.require(p6_bridge::ar_bound() && sec_data[i] <= 1, "AR CIA event has no owner or invalid data");
+                if (sec_id[i] == 15) a.require(p6_ar_cia_handler() && sec_data[i] <= 1, "AR CIA event has no owner or invalid data");
                 if (sec_id[i] == 13) a.require(sec_data[i] <= 255, "optical event horizontal position is out of range");
                 any = true;
                 if (sec_time[i] < earliest) earliest = sec_time[i];

@@ -124,6 +124,70 @@ count:
     return builder.build(source)
 
 
+def ar1_images():
+    from tests.fixtures.test_microrom import builder
+    firmware = builder.build("""entry:
+    MOVE.W #$2700,SR
+    MOVEA.L #$7F000,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVE.L #0,$11000.L
+    MOVE.L #0,$11010.L
+    MOVE.B #0,$11014.L
+    MOVEA.L #main,A5
+    .word $4EF9,$00F0,$0002
+main:
+    .word $52B9,$0001,$1000
+    BRA.S main
+""")
+    cart = bytearray(65536); cart[:8] = bytes.fromhex('11114ef900f00100')
+    # Bootstrap installs vector0x60 from cartridge code, so it is not a chipwrite trigger.
+    bootstrap = builder.assemble("""wait:
+    .word $4A39,$0001,$1010,$67F8
+    MOVE.L #$F00200,$60.L
+    .word $1039,$00F0,$0000,$4ED5
+""")
+    irq = builder.assemble("""irq:
+    .word $52B9,$009F,$0100
+wait:
+    .word $4A39,$0001,$1011,$67F8
+    .word $4A39,$0001,$1012,$6708
+    .word $3039,$00F0,$0000
+    BRA.S marked
+byte:
+    .word $1039,$00F0,$0000
+marked:
+    MOVE.B #1,$11013.L
+hold:
+    .word $4A39,$0001,$1014,$67F8
+    MOVE.B #0,$11011.L
+    MOVE.B #0,$11014.L
+    RTE
+""")
+    cart[0x100:0x100+len(bootstrap)] = bootstrap; cart[0x200:0x200+len(irq)] = irq
+    # AR1 sums signed big-endian words up to its last nonzero long (ar.cpp).
+    checksum = sum(int.from_bytes(cart[n:n+2],'big',signed=True) for n in range(0,len(cart)-4,2)) & 0xffffffff
+    assert checksum
+    cart[-4:] = checksum.to_bytes(4,'big')
+    return firmware,bytes(cart)
+
+
+class Ar1StateTests(unittest.TestCase):
+    def test_complete_ar1_private_owner_wait_pc_cold_state_and_refusals(self):
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar1-state-',dir=ROOT/'build') as tmp:
+            firmware,cart=ar1_images(); firmware_path=Path(tmp)/'original.rom'; cart_path=Path(tmp)/'ar1.rom'
+            firmware_path.write_bytes(firmware); cart_path.write_bytes(cart); twins=[]
+            for mode in ('ar1-write','ar1-read'):
+                result=subprocess.run([str(exe),str(firmware_path),str(cart_path),mode,tmp],capture_output=True,text=True,timeout=180,
+                                      env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,result.stdout[-2500:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('AR1 continuation ')])
+                self.assertEqual(len(twins[-1]),16)
+                self.assertIn('AR1 private owner/cuts/refusals/teardown PASS',result.stdout)
+            self.assertEqual(*twins)
+
+
 class ArStateTests(unittest.TestCase):
     def test_complete_ar23_semantic_cold_state_and_refusals(self):
         exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']

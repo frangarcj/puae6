@@ -71,6 +71,8 @@ p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_erro
 
 // Shared AR2/3 raw owner, used by the public bind and the private codec probe.
 p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error);
+// Private AR1 codec probe; the public cartridge ABI still admits models2/3 only.
+p6_result bind_ar1(p6_buffer image, p6_error *error);
 bool ar_bound();
 bool ar_identity(uint8_t out[32]);
 

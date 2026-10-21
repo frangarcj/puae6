@@ -237,6 +237,10 @@ void visit_ar(Archive &a)
     h.hidden=a.val<uint32_t>(h.hidden,"ar.hidden"); h.banks=a.val<uint32_t>(h.banks,"ar.banks");
     a.bytes(h.vector,sizeof h.vector,"ar.vector"); a.bytes(h.custom,sizeof h.custom,"ar.custom");
     a.bytes(h.ciaa,sizeof h.ciaa,"ar.ciaa"); a.bytes(h.ciab,sizeof h.ciab,"ar.ciab");
+    if (armodel==1) {
+        h.wait_pop=a.val<uint32_t>(h.wait_pop,"ar.wait_pop");
+        h.wait_pc=a.val<uint32_t>(h.wait_pc,"ar.wait_pc");
+    }
     if (a.mode()!=Mode::Measure) a.require(ram && p6_ar_validate(&h,cpu_spc(a.mode())), "AR control/map/CPU candidate is invalid");
     a.bytes(ram,0x10000,"ar.memory");
     if (a.applying() && a.ok()) p6_ar_set(&h);
@@ -339,7 +343,7 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
     }
     if (p6_bridge::ar_identity(cartridge)) {
         const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
-        domain_hash("p6/media/ar23/v1",parts,lengths,2,out);
+        domain_hash(armodel==1?"p6/media/ar1/v1":"p6/media/ar23/v1",parts,lengths,2,out);
     }
     // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
