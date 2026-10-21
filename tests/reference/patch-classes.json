@@ -222,7 +222,8 @@
     "0398-hrtmon-native-state": "instrumentation",
     "0399-cdtv-cooperative-service": "required",
     "0400-cdtv-component-state": "required",
-    "0401-cdtv-combined-firmware": "required"
+    "0401-cdtv-combined-firmware": "required",
+    "0402-cdtv-autoconfig-state": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
