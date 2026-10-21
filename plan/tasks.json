@@ -17384,7 +17384,7 @@
       "title": "Conectar catalogo CD a loader, botones e identidad publica BizHawk",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66u4",
         "T66r3",
@@ -17430,7 +17430,7 @@
       "title": "Grabar y reproducir cambio CD en peliculas BK2 y TAS",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66u5",
         "T66r5"
@@ -19319,7 +19319,7 @@
       "title": "Validar inicio real de peliculas PowerOn y SaveRAM con ADF HDF y volumen",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T20",
         "T66r5",
@@ -19347,7 +19347,7 @@
         "PowerOnignoraimportaciondurableprevia; SRAMseleccionadoBfrentegrabadorimportadoA usaBreal. CloneSaveRamnull algrabarStartsFromSaveRam se normalizaPowerOn antesflags/header, noficheroSRAMtruncadoaceptado. StateEnvelopeestricto no serelaja. State-startsinbaseimportadaconservavalidacion; state-startconbaseimportadanecesitatransportebinarioseparado requeridoenT80 porqueBK2IOeligeCorestateelseMovieSaveRam.",
         "STATE01 MediaMovieIdentityTests purohost canonizaP6SR conbasesADF/HDF/volumen sinteticas, hash/bytes sinpadding ybasesvolumenequivalentesZIP/LHA. Sinanuncio dereplay. WB09/WB03 comparten MediaMovieStartTests: MovieSessionnet48realBK2/TAS, PowerOn/SRAM, RunQueuedMovie,12unidades, Pagedseekdesde5,guardar/reabrirenprocesonuevo; A/V/ticks/snapshotcompleto yexportadostresmediosiguales. Mutarbase/headers/blob/checksumrechazaantesAttach ysesion/corequedanintactos.",
         "Ochorutas atomicas objetivo330..390lineas; identidad/preflight/hooks/escenariorealdebenacoplarse. Avisarantes400sinfragmentartestsartificialmente. busy_referenceaislado noeditar metadata ni buildmotor/guest. Reusar fixtures existenteshdf_rom.loop_rom/rdb_image/volumefixtures/ADFlibre. Rootserializa guestcompartido trasB+contratoCD. NoejecutarWBguestobsoleto ni repetirporlabelWB09/WB03. Si hostSIGBUS o runnerausente, BLOCKEDhonesto; STATE01nobastaDONE. PadreT80conservaUIreal/stateimportado.",
-        "Lectura causal adicional del bloqueo compartido, sin nuevos experimentos: host.rs activa memoria antes de _start, por lo que los crashes historicos pre_start excluyen la ruta clone/spawn. Para los posteriores no hay evidencia de que spawn corrompa memoria; ausencia de simbolos pthread/__clone en bedde522 no demuestra ausencia absoluta de syscalls indirectas. ABI parent_tid/frame96/child_tid coherente con musl fijada. No aplicar guardas especulativas como supuesto arreglo ni repetir baterias sin causa nueva."
+        "Retomar la puerta real una vez tras T28c: el runtime Darwin local preserva TPIDR_EL0 y ya supera restauracion privada/publica CD en nuevos sandboxes y procesos. Esta causa nueva justifica ejecutar el reproducer conservado; no acredita por si sola peliculas ADF/HDF/volumen ni permite repetir diagnosticos de GC o malloc."
       ],
       "checks": [
         "STATE01",
@@ -19357,8 +19357,7 @@
       "acceptance": [
         "PeliculasPowerOn/SaveRAMnoCD32 conADF/HDF/volumenproyectanla identidad inicialcorrecta, usanbasesefectivas yreplay/seek realenWaterboxyotroproceso determinista, conrechazospreviosaAttach transaccionales."
       ],
-      "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox.",
-      "blocked_reason": "GuestpostC2bedde52289dadad9566b3091591995e4477b644315f24c1e4c41f60a65483d92/93fuentesrecetasELF/TLS/importsactuales. SetupmixtoWHDDisabled yreservamarker6postStartparacorte5corregidos; serdehistorypreAttach añadida. ReintentoWB03realtrascambioscaeSIGBUSenhost_xzm_xzone_malloc_tiny(addrMALLOCguardpage,x28=84)alabrirTAS, sincompletarreplay/seek/newprocess/rechazos. Mismofallofondot28a/U4/T12, nomarcarDONEporSTATE01hostni repetirWB09claseidéntica. H1presionmemoriaaltaactual,contrastarmismaguestconmenorpresionnatural; H2punteros/mapa/proteccionesdeinteropruntime/.NET, contrasteminimoC/managedmismosheaps. Tiered/GC/mallocknobsyaensayadossinresolver, nootraigualbateria. Correccionesfixturenoacreditanpuertarealcompleta."
+      "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox."
     },
     {
       "id": "T80",
