@@ -18565,7 +18565,7 @@
       ],
       "id": "T66v5",
       "title": "Restaurar CD32 privado con NRG multisesion en proceso nuevo",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v3",
         "T66v4",
@@ -18585,7 +18585,8 @@
         "NrgFixture ownerExplicitPrivate, Disc y contadores Binding con lifetime estable. Dos cortes: CDDA pista1 [0,4) activo y detenido tras rawread real pista3 LBA32/pos33. TOC virtual globalV4 cacheado y tabla2sesiones exacta. Writer savecut/future5frames AV/PCM/ticks/lecturas y bytes/TOCs/Q ambas sesiones/fullsavefinal, restorelocal exacto inmediato y futuro.",
         "Reader proceso nuevo abre copia renombrada ownernuevo y carga tras p6_load antes del primer run. Mismo cut/futuro/fullsave exactos. Negativos catalogo segunda sesion distinto y payload segunda sesion distinto, P6_ERROR_INCOMPATIBLE con save/cycles/callbacks intactos, tambien readerfrio. Huecos11/20/29 sinIO/salida intacta; no simular DMA ni atribuir precision hardware.",
         "STATE01/DET02 mismo selector tests.media.test_cd32_state.Cd32NrgStateTests.test_private_multisession_restore_new_process una sola ejecucion. Regresion Cd32StateTests por plantilla compartida y metodo V3 que use helper extraido; no metadata completa ni buildguest. Formato/transporte/cargapublica Waterbox multisesion siguen requeridos posteriores antes de padreT66.",
-        "Primer gate root: legacyPASS; V5 falla porque helper reject intenta save antes de primer frame, prohibido por contrato. Corregir solo oraculo, sin tocar bridge ni avanzar frame para ocultarlo: cold_reject exige BAD_STATE/written0/bufferintacto en save antes/despues, identidad ajena rechazada y started/unit/ticks/ciclos/RAM/CPU/owner/opens/inserted/callbacks intactos sinrun. Separadamente ejecutar framepropio del alien y conservar reject fullsave transaccional iniciado. Positivo cold y futuro exacto intactos. Repetir solo V5, no legacy recienpasado; presupuesto acumulado225manuales."
+        "Primer gate root: legacyPASS; V5 falla porque helper reject intenta save antes de primer frame, prohibido por contrato. Corregir solo oraculo, sin tocar bridge ni avanzar frame para ocultarlo: cold_reject exige BAD_STATE/written0/bufferintacto en save antes/despues, identidad ajena rechazada y started/unit/ticks/ciclos/RAM/CPU/owner/opens/inserted/callbacks intactos sinrun. Separadamente ejecutar framepropio del alien y conservar reject fullsave transaccional iniciado. Positivo cold y futuro exacto intactos. Repetir solo V5, no legacy recienpasado; presupuesto acumulado225manuales.",
+        "Correccion del oraculo integrada41fdc307: repetir solo nuevo metodo1PASS14.692s; positivo cold/mismoowner y negativo frio y fullsave iniciado pasan. Regresion legacy1PASS en campaña inicial14.094s, no repetida porque no cambio helper compartido. FixtureV3 dirigida1PASS2.938s ASan/UBSan y sintaxisPASS. Codigo/codec intactos, temporales eliminados."
       ],
       "checks": [
         "STATE01",
