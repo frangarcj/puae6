@@ -2190,3 +2190,17 @@ de audio/datos y exige restore local y frio antes del primer run, futuro de
 16 unidades, RAM/AV/PCM/ticks y fullstate exactos, ademas de rechazo transaccional
 de otra metadata o payload de la segunda sesion. No acredita boot de juego,
 Session Info fisico ni loader publico C#/Waterbox.
+
+## Metadata DAO multisesion C# (T66v8)
+
+`NRG_Format.ParsePuae6Nrg(Stream)` valida metadata sin montar ni leer payload,
+reutilizando NRGFile y el parser fijado. Adopta/cierra el stream como ParseFrom.
+El dominio de esta entrada es DAOI/CUES o DAOX/CUEX, SINF y END: maximo 64 KiB
+de directorio, 298 chunks (99 grupos CUE/DAO/SINF mas END) y 99 pistas globales;
+otras familias devuelven Unsupported.
+Se empareja el grupo ordinal de cada familia, preservando CUE0/A2, catalogo de 13 bytes,
+hint opaco e ISRC de 12 bytes exactos. Los extents y duraciones deben corresponder a los
+LBAs; no se infieren 4500/6750/2250 sectores entre sesiones. El resultado mantiene
+el modelo mutable historico: el futuro owner debe copiar sus valores antes de
+instalar callbacks. Este seam no cambia el montaje single, sus IDs ni otros cores;
+normalizacion, owner V3 y restauracion publica conservan sus puertas pendientes.

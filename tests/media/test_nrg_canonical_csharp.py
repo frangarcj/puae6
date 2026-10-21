@@ -98,6 +98,69 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
             self.assertEqual(wire,expected); self.assertEqual(self.run_nrg(path),before)
             self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
 
+    def metadata(self,data,base,fault=''):
+        path=self.work/'metadata.nrg'; path.write_bytes(data)
+        result=subprocess.run([source.DOTNET,str(self.dll),'nrg-metadata',str(path),str(base),fault],
+                              env=self.env,capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
+        return result.stdout.splitlines()
+
+    def test_dao_multisession_metadata_exact_groups_and_global_tracks(self):
+        for version, prefix in ((1,0),(2,2**32+7)):
+            data,base,expected,blocks=meta.nrg_sessions(version,prefix)
+            expected += ['isrc '+b'US1234567890'.hex()]*3
+            self.assertEqual(self.metadata(data,base),expected)
+            # Ordinal within each family binds sessions; physical interleaving is immaterial.
+            reordered=[]
+            for kind in ('SIN','CUE','DAO'):
+                for block in blocks:
+                    at=block[kind]; length=struct.unpack_from('>I',data,at+4)[0]
+                    reordered.append(data[at:at+8+length])
+            self.assertEqual(self.metadata(b''.join(reordered)+data[data.index(b'END!'):],base),expected)
+        groups=tuple((-150 if n==0 else (n-1)*10+2,n*10+2,
+                      ((n+1,0,-150 if n==0 else n*10,0 if n==0 else n*10+1,n*10+2),),
+                      0,255,bytes((0,255))+b'12345678901') for n in range(99))
+        data,base,expected,blocks=meta.nrg_sessions(groups=groups)
+        data=bytearray(data); raw=bytes(range(12)); at=blocks[-1]['DAO']+30; data[at:at+12]=raw
+        expected += ['isrc '+b'US1234567890'.hex()]*98+['isrc '+raw.hex()]
+        self.assertEqual(self.metadata(data,base),expected) # 298 chunks, hints are opaque, raw bytes survive ASCII strings.
+
+    def test_dao_multisession_metadata_invalid_and_no_payload(self):
+        for version in (1,2):
+            data,base,_,blocks=meta.nrg_sessions(version); first,second=blocks
+            invalid=[data[:-1],data+b'x',bytes(65536)+data,data.replace(b'END!'+bytes(4),meta.chunk('END!',b'x'))]
+            def change(at,value,fmt='I'):
+                bad=bytearray(data); struct.pack_into('>'+fmt,bad,at,value); invalid.append(bad)
+            change(first['SIN']+8,3)
+            # Existing parser accepts this mismatched SINF; the new metadata seam must reject it.
+            self.assertTrue(self.metadata(invalid[-1],base,'legacy')[0].startswith('nrg '))
+            change(second['DAO']+28,4,'B'); change(second['DAO']+29,4,'B'); change(first['DAO']+28,0,'B')
+            for value in (9,31):
+                at=second['CUE']+12
+                if version==2: change(at,value)
+                else:
+                    bad=bytearray(data); bad[at:at+4]=bytes((0,0,2,value)); invalid.append(bad)
+            for index in (0,1): # Missing CUE0 or A2.
+                at=first['CUE']; length=struct.unpack_from('>I',data,at+4)[0]; entry=0 if index==0 else length-8
+                bad=bytearray(data); struct.pack_into('>I',bad,at+4,length-8); del bad[at+8+entry:at+16+entry]; invalid.append(bad)
+            for offset,value in ((first['CUE']+9,0x9a),(first['CUE']+10,1),(first['CUE']+8,0),
+                                 (first['CUE']+26,0),(first['CUE']+24,0x41)):
+                change(offset,value,'B')
+            at=second['SIN']; invalid.append(data[:at]+data[at+12:])
+            width=8 if version==2 else 4; record=second['DAO']+30
+            for field,value in ((18,376544-2352),(18+width,381248+1),(18+2*width,2**(width*8)-1)):
+                change(record+field,value,'Q' if version==2 else 'I')
+            change(first['DAO']+30+12,0,'H'); change(first['CUE']+4,65537)
+            bad=bytearray(data); bad[first['DAO']:first['DAO']+4]=b'DAOI' if version==2 else b'DAOX'; invalid.append(bad)
+            end=data.index(b'END!'); at=first['DAO']; length=struct.unpack_from('>I',data,at+4)[0]
+            invalid.append(data[:end]+data[at:at+8+length]+data[end:])
+            invalid.append(data[:end]+meta.etnf()[0][:68]+data[end:])
+            invalid.append(data[:-width]+bytes([255])*width)
+            for bad in invalid:
+                self.assertTrue(self.metadata(bad,base)[0].startswith('rejected '))
+            self.assertEqual(self.metadata(data,base,'io'),['rejected IOException'])
+            self.assertEqual(self.metadata(data,base,'short'),['rejected NRGParseException'])
+
     def test_real_discsystem_target_and_analyzers(self):
         spec=importlib.util.spec_from_file_location('nrg_recipe',source.ROOT/'integration/bizhawk/patches/build_tree.py')
         recipe=importlib.util.module_from_spec(spec); spec.loader.exec_module(recipe)

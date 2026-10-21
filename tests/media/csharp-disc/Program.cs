@@ -248,6 +248,48 @@ internal static unsafe partial class Program
    try { if(File.ResolveLinkTarget(entry,true)?.FullName==path) ++count; } catch(IOException) { }
   return count;
  }
+ sealed class NrgMetadataStream(byte[] directory, long start, string fault) : Stream
+ {
+  long position; int reads; public bool Closed;
+  public override bool CanRead => true; public override bool CanSeek => true; public override bool CanWrite => false;
+  public override long Length => start + directory.Length;
+  public override long Position { get => position; set => position=value; }
+  public override int Read(byte[] output,int offset,int count)
+  {
+   if(position<start||position>Length) throw new InvalidOperationException("NRG parser read payload");
+   if(++reads==2) { if(fault=="io") throw new IOException("Injected metadata IO error"); if(fault=="short") return 0; }
+   int take=(int)Math.Min(count,Length-position); Buffer.BlockCopy(directory,(int)(position-start),output,offset,take); position+=take; return take;
+  }
+  public override long Seek(long offset,SeekOrigin origin) => Position=(origin==SeekOrigin.Begin?0:origin==SeekOrigin.Current?Position:Length)+offset;
+  public override void Flush() { }
+  public override void SetLength(long value) => throw new NotSupportedException();
+  public override void Write(byte[] buffer,int offset,int count) => throw new NotSupportedException();
+  protected override void Dispose(bool disposing) { Closed=true; base.Dispose(disposing); }
+ }
+ static void NrgMetadata(string[] args)
+ {
+  using var input=new NrgMetadataStream(File.ReadAllBytes(args[1]),long.Parse(args[2]),args.Length>3?args[3]:"");
+  NRG_Format.NRGFile parsed=null;
+  try { parsed=args.Length>3&&args[3]=="legacy"?NRG_Format.ParseFrom(input):NRG_Format.ParsePuae6Nrg(input); }
+  catch(Exception e) when(e is IOException or NRG_Format.NRGParseException or NotSupportedException)
+   { Require(parsed==null&&input.Closed); Console.WriteLine("rejected "+e.GetType().Name); return; }
+  Require(input.Closed);
+  var first=parsed.DAOTrackInfos[0]; var last=parsed.Cues.Last().TrackIndices.Single(c=>c.Track.BCDValue==0xaa);
+  Console.WriteLine($"nrg {(parsed.FileID=="NER5"?2:1)} {parsed.DAOTrackInfos.Sum(d=>d.Tracks.Count)} {parsed.FileOffset} {parsed.Cues[0].TrackIndices.Single(c=>c.Track.BCDValue==0).LBA} {last.LBA} {first.DiskType} {first.SessionHint}");
+  for(int group=0;group<parsed.DAOTrackInfos.Count;++group) {
+   var dao=parsed.DAOTrackInfos[group]; var cues=parsed.Cues[group].TrackIndices;
+   Console.WriteLine($"session {group+1} {dao.FirstTrack} {dao.LastTrack} {dao.DiskType} {cues.Single(c=>c.Track.BCDValue==0).LBA} {cues.Single(c=>c.Track.BCDValue==0xaa).LBA} {dao.SessionHint} {Convert.ToHexString(dao.CatalogRaw).ToLowerInvariant()}");
+  }
+  for(int group=0;group<parsed.DAOTrackInfos.Count;++group) {
+   var dao=parsed.DAOTrackInfos[group]; var cues=parsed.Cues[group].TrackIndices;
+   for(int n=0;n<dao.Tracks.Count;++n) {
+    var t=dao.Tracks[n]; var q=cues.Single(c=>c.Track.DecimalValue==dao.FirstTrack+n&&c.Index.BCDValue==1);
+    var zero=cues.SingleOrDefault(c=>c.Track.DecimalValue==dao.FirstTrack+n&&c.Index.BCDValue==0);
+    Console.WriteLine($"track {t.PregapFileOffset} {t.TrackStartFileOffset} {t.TrackEndFileOffset} {t.SectorSize} {t.Mode} {zero?.LBA??0} {q.LBA} {(zero==null?0:1)} {q.ADRControl&15} {q.ADRControl>>4}");
+   }
+  }
+  foreach(var dao in parsed.DAOTrackInfos) foreach(var t in dao.Tracks) Console.WriteLine("isrc "+Convert.ToHexString(t.IsrcRaw).ToLowerInvariant());
+ }
  static void NrgTao(string[] args)
  {
   string mode=args[0],path=args[1]; int before=NrgHandles(path);
@@ -278,6 +320,7 @@ internal static unsafe partial class Program
  }
  static void Main(string[] args) {
   if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
+  if(args.Length>=3&&args[0]=="nrg-metadata") { NrgMetadata(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }

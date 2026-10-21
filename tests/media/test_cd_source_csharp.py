@@ -29,7 +29,7 @@ def build_disc_source(work, *, legacy_xa=False, legacy_first_pregap=False):
     block=next(b for b in public_patch.split(b'diff --git ')[1:] if b.split(b'\n',1)[0].endswith(b'b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs'))
     subprocess.run(['patch','-p1','--fuzz=0','--no-backup-if-mismatch'],input=b'diff --git '+block,cwd=work,check=True,capture_output=True,timeout=30)
     subprocess.run(['patch','-p1','--fuzz=0','-R','--dry-run'],input=b'diff --git '+block,cwd=work,check=True,capture_output=True,timeout=30)
-    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch", "0010-disc-chd-host.patch", "0012-chd-first-track-pregap.patch", "0014-canonical-nrg-tao.patch"):
+    for name in ("0002-disc-blob-exact-reads.patch", "0003-disc-chd-cross-hunk.patch", "0008-disc-chd-regions-and-xa.patch", "0010-disc-chd-host.patch", "0012-chd-first-track-pregap.patch", "0014-canonical-nrg-tao.patch", "0018-canonical-nrg-dao-metadata.patch"):
         if legacy_first_pregap and name == "0012-chd-first-track-pregap.patch": continue
         subprocess.run(["patch", "-p1", "--no-backup-if-mismatch", "-i", str(ROOT / "integration/bizhawk/patches" / name)],
                        cwd=work, check=True, capture_output=True, timeout=30)
