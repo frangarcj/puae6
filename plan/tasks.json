@@ -21674,7 +21674,7 @@
       ],
       "id": "T66v11",
       "title": "Normalizar DAO multisesion en descriptor V3 e identidad canonica",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v10",
         "T66v7"
@@ -21690,7 +21690,8 @@
       "steps": [
         "Cuatro rutas150..300manuales. Puae6DiscSource multi soloDisc.Puae6NrgDao validado; Source.SessionCount0legacy/>=2optin yDescriptorV3, V1/V2rechazanmulti. Tracks porordinalglobal atravesSesioneslocales; regiones/huecos porrangos sincontigüidadinventada.",
         "ReadAt preflightTODASLBAsantesIO/staging,incluidonoalineadoquefinalizaenhueco; ReadSector/Qhuecorechazo sinseleccionmutable. Rebind crea candidato/IDentero antescambiarreader; conserva borrowed/leaseIsDisposed existentes.",
-        "Identidad P6CD2448 NUL/version3: tabla+rangos+limites/CUE0/A2/format+catalogo/hint/ISRCcrudos yhashcanonicodeintervalosrespaldados ordenados,incluidoprimerprefijonegativoalmacenado. No rellenar/hashhuecos. RamaV1/V2singleexacta; no igualdadconP6NRGMnativo. MED01 descriptor_v3_and_canonical_identity y rebind_lease_and_transactional_failures +singleexactID sinrepetirporlabel. Pythonhashindependiente/renamedowner yforeignmetadata/payload/salidanoIO."
+        "Identidad P6CD2448 NUL/version3: tabla+rangos+limites/CUE0/A2/format+catalogo/hint/ISRCcrudos yhashcanonicodeintervalosrespaldados ordenados,incluidoprimerprefijonegativoalmacenado. No rellenar/hashhuecos. RamaV1/V2singleexacta; no igualdadconP6NRGMnativo. MED01 descriptor_v3_and_canonical_identity y rebind_lease_and_transactional_failures +singleexactID sinrepetirporlabel. Pythonhashindependiente/renamedowner yforeignmetadata/payload/salidanoIO.",
+        "Integrado07a11832comof2b66040; cuatro rutas226+/35-confixtureextraida. Dosnuevos+legacy3PASS17.651s; IDPythonindependiente yreubicacion/padding/chunkorder/NEROequivalente, metadata/payload/prefixforeign ypreflight/rebind/disposed pasan. MergeconSBI conservaamboshelpers/casos ybuildofflineProgramcompiladoenrootgateposterior. Noengine/WB."
       ],
       "checks": [
         "MED01"
@@ -21713,7 +21714,7 @@
       ],
       "id": "T66v12",
       "title": "Conectar carga publica NRG multisesion y catalogos mixtos con restore Waterbox",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v11",
         "T66l9",
@@ -21763,7 +21764,7 @@
       ],
       "id": "T66v13",
       "title": "Aplicar SBI por proveedor disperso y conservar subcanales",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v10"
       ],
@@ -21782,7 +21783,8 @@
         "Preflightcantidad12*ABAs.Count checked,valores-1..255, ABA-LBAchecked yTODASdireccionesconprovider antesIO/candidato: huecorechaza sinlecturas. LuegoQoriginal ybuffersprivados, duplicadoscomponenenordenexistente, publicarsynthprovider+memo solotrasexito; falloconservaambos. Dominiolegacydirectosnoseamplia porleadoutwrapper. OverlaymismoDisc consultaIsDisposedantesretornarpatch/delegado; catchmontajecierraFD.",
         "CorregirSS_PatchQ causal: DestOffsetrespetado; deinterleavedexactos12bytesQ, interleavedsolobitQdecada96simbolospreservaP/RW/main. CRCoriginalasMednafenfalse; recomputadoinvertido truecomocontratoexistente. No soportarSBIgeneralporintuicion.",
         "MED01unaunion NrgCanonicalCSharpTests.test_sbi_sparse_sessions_q_precedence_offsets_and_interleave y test_sbi_preflight_read_failure_and_owner_cleanup_transactionally +DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind. Tipos1/2/3,duplicados,ambassesiones,Qstored/synth/CRC/offsets/canarios,ultimoregistroenhuecosinIO,datosinvalidos,readfailure sinpublicacion/FDsinreabrir. BUILD01 targetreal/analyzers existenteunavez. V12fixtureSBIenmismaunionWB acreditaidentidad/restorepatcheados, noWBextra.",
-        "Ampliacion antesfixroot: BUILD01integrado falla BHI3100 porFirstOrDefaultdePuae6DaoTrackstruct en0019. Añadirsolo patch0019aTouch; sustituirbusqueda porprimercandidatocubiertomedianteforeachsinotroscambios, conservandoNumber0sentinel. RepetirsoloBUILD01fallido ymetodoAquepruebalecturas/TOCs/sietevariantes; noSBI/Bsuitecompleta."
+        "Ampliacion antesfixroot: BUILD01integrado falla BHI3100 porFirstOrDefaultdePuae6DaoTrackstruct en0019. Añadirsolo patch0019aTouch; sustituirbusqueda porprimercandidatocubiertomedianteforeachsinotroscambios, conservandoNumber0sentinel. RepetirsoloBUILD01fallido ymetodoAquepruebalecturas/TOCs/sietevariantes; noSBI/Bsuitecompleta.",
+        "Integradoaa8768b8como796d968d, cinco rutas+257/-5inclcontextopatch. MED01dosSBI+ISO/CUElegacy3PASS30.040s sinrepetirroot. BUILD01integrado detectoBHI3100enlookupA; fixdb2b3d54 exponebusqueda equivalente foreach. RepeticionunicamenteAbytes/TOCs+DiscSystemreal/analyzers2PASS39.118s. RootresolvioappendconflictsB/SBI conservandohelpers/dispatch/casos. Noengine/guestnuevo."
       ],
       "checks": [
         "MED01",
