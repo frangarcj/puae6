@@ -5784,7 +5784,7 @@
     {
       "id": "0402-cdtv-autoconfig-state",
       "file": "patches/winuae/0402-cdtv-autoconfig-state.patch",
-      "sha256": "4862525e34a2280b68523a749007df0f9c9b38a99e251f6c50465c29670e2f74",
+      "sha256": "0267bdd104a4527af14226824e04d0346815961ca65788f03a19a61d8e46a364",
       "title": "Restore original CDTV autoconfig chain and empty unit without host effects",
       "reason": "T67c2: retain the original DMAC card and forwarding, capture pending/assigned/shut-up phases, validate candidate phase and destination before mutation, and restore the real empty unit. Native private profile only; public CD boot and Waterbox remain gated.",
       "category": "CDTV autoconfig state boundary",
@@ -5810,7 +5810,22 @@
         {
           "path": "cdtv.cpp",
           "before_sha256": "80ad61295bb5777afdc049483414770d13f5934226cdc5101d967cb751ad4191",
-          "after_sha256": "e8b0fcf7108f5fa6be280662f98a79427056742a378583743499d1d32296b293"
+          "after_sha256": "1eb76ddb956e73b30a6952b394ce67d345d0760e9ddd1ea22ef61e3e6665de78"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "dff70c94ec68d8d4c3029d61ffea9e0ed1363e708e7294aefc29f4e59f0f27a0",
+          "after_sha256": "f45fb70d4fe86a37f075266803a0ea4015b8c4bf5e16f68bae567da7f0832668"
+        },
+        {
+          "path": "devices.cpp",
+          "before_sha256": "daaef6e12c5c714b89b9bfbbcd39d750dcbe1d7ad1c056e3a98d36ca313e4e93",
+          "after_sha256": "f73ea6810e32c9ba8f389327f2a3c7815076289824d97738b82cf61518ed1071"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "84478829180bf5e6b42fdb90b7375e5c8424f3be1df5b0b186ec592af841cfcb",
+          "after_sha256": "02208997a8771e9d85f584682f64ee07c546622a8b5adfb825917d13f79e591a"
         }
       ]
     }

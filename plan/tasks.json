@@ -18327,7 +18327,8 @@
         "docs/02-contracts.md",
         "patches/winuae/series.json",
         "tests/reference/patch-classes.json",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "tools/check.py"
       ],
       "steps": [
         "Agregar la entrada ORIGINAL cdtvdmac al array portable expansionroms: ROMTYPE_CDTVDMAC|NOT, cdtv_init, Z2, INTERNAL|DMA24. Sin SCSI/SRAM/CR ni private_start. El preset real ya publica esa ROMTYPE mediante cfgfile_compatibility_romtype; mantener tabla/card/forwarding originales, no un atajo que mapee E9.",
@@ -18337,7 +18338,8 @@
         "Unidad vacia real: cdtv_init inicia servicio sin Disc y unitnum=-1; admitirla solo con DeviceState.bound0/opens0/audio vacio/selector0 y contextdisc null. No inventar apertura ni alterar cd_device para simular exito. AA55/MODEL/status son comandos reales; capacidad/read/play sin medio dan error y preservan canarios. Hsync respeta configured como upstream. Identidad contempla catalogo vacio del perfil antes de publicarlo.",
         "MED01/STATE01/DET02 comparten CdtvAutoconfigTests.test_guest_assignment_shutup_empty_and_cold_restore, mismo exe bus-write/bus-read y firmware autorizado de C1. Tres cortes vacios (E8/PROM pendiente, baseEA por escritura guest E80048, shut-up por guest E8004c) y configurado con Disc para opens/identidad. Programa RAM breve provoca escrituras CPU bajo p6_run_frame; no producir fases mediante private_start/map_banks/cdtv_init. Confirmar pendiente observable; si firmware ya termino antes de capturar, diagnosticar fixture y no fingir el estado.",
         "Owner/proceso nuevo antes de primer run: save exacto inmediato y futuro MMIO/RAM/AV/PCM/ticks/fullsave, mapa E8/EA o ausencia tras shut-up. Aplicacion sin callbacks/I/O/IRQ. Negativos fase/PROM/discriminador/base ajena se rechazan sin mutar. Regresiones una union: CdtvFirmwareTests, siete CdtvStateTests, componente local, CdtvLinkTests e inventario StateComponentTests. No repetir gates por sus etiquetas. Habilitar codec y capacidad real del perfil solo al pasar puerta completa: lifecycle.cpp deja de desactivar profile_state_supported y boot_probe sustituye exclusivamente expectativas UNSUPPORTED, conservando sus otros asserts.",
-        "cd_swap implementa aislado: once rutas de implementacion, objetivo330-380 lineas manuales y limite400. Serie/clasificacion/tests/test_plan.py son metadata solo root. Patch0402 reservado; root integra/materializa y serializa compilacion -j2. Sin schema/opciones nuevas ni atribucion de menu/bootCD/Waterbox. Padre T67 conserva publicacion ABI y arranque/restauracion real antes de las conexiones frontend. Si no cabe, dividir antes de ampliar."
+        "cd_swap implementa aislado: once rutas de implementacion, objetivo330-380 lineas manuales y limite400. Serie/clasificacion/tests/test_plan.py son metadata solo root. Patch0402 reservado; root integra/materializa y serializa compilacion -j2. Sin schema/opciones nuevas ni atribucion de menu/bootCD/Waterbox. Padre T67 conserva publicacion ABI y arranque/restauracion real antes de las conexiones frontend. Si no cabe, dividir antes de ampliar.",
+        "Root registra el selector CdtvAutoconfigTests y las regresiones cercanas en tools/check.py para que las tres etiquetas usen el mismo caso real; registra tambien el selector de firmware C1 que antes solo se ejecutaba directamente. La union se ejecuta una vez al integrar, sin duplicarla por etiqueta."
       ],
       "checks": [
         "MED01",

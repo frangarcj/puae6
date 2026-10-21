@@ -339,6 +339,10 @@ for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
 TASK_SUITES[('MED01', 'T66t7')] = {**TASK_SUITES[('MED01', 'T66t5')], 'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t8')] = dict(TASK_SUITES[('MED01', 'T66t7')])
 TASK_SUITES[('STATE01', 'T80a')] = {'darwin_host_state_buffers': 'tests.bizhawk-movies.test_host_states.DarwinHostStateTests'}
+for _gate in ('MED01', 'BUILD01'):
+    TASK_SUITES[(_gate, 'T67c1')] = {'cdtv_firmware': 'tests.media.test_cdtv_boot.CdtvFirmwareTests'}
+for _gate in ('MED01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T67c2')] = {'cdtv_autoconfig_cold_restore': 'tests.media.test_cdtv_state.CdtvAutoconfigTests'}
 TASK_SUITES[('MED01', 'T67b1')] = {'cdtv_component': 'tests.media.test_cdtv_state.CdtvStateComponentTests.test_local_roundtrip_and_transactional_refusals', 'cdtv_link_regression': 'tests.media.test_cdtv_link.CdtvLinkTests'}
 for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T67b2')] = {'cdtv_cold_state': 'tests.media.test_cdtv_state.CdtvStateTests.test_cold_restore_and_future'}
