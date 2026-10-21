@@ -5894,6 +5894,32 @@
           "after_sha256": "bda4fba80c3016f1b2ebd60e7aa05572fdd7a95718d7feba520b874658ff169e"
         }
       ]
+    },
+    {
+      "id": "0407-action-replay-blob-owner",
+      "file": "patches/winuae/0407-action-replay-blob-owner.patch",
+      "sha256": "03629580687ef8e02b52663bc69eae3a7e895e93515a1736fc31eb5b49e9121a",
+      "title": "Bound raw Action Replay cartridge reads and reset private owner latches",
+      "reason": "T69d1: privately copied AR2/3 blobs use the original loader and banks. Reject incomplete reads and malformed checksum extents before adoption, guard allocation failures and reset AR owner latches on cleanup. Native snapshots remain explicitly unsupported until a full semantic codec exists; no public cartridge compatibility is claimed.",
+      "category": "cartridge ownership boundary",
+      "order": 222,
+      "symbols": [
+        "action_replay_load",
+        "action_replay_cleanup",
+        "action_replay_calculate_checksum",
+        "disable_rom_test",
+        "action_replay_version"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "0266006ee5e83dd7ee7dbd989f1286004053069f77716d2f88b7099becca2d55",
+          "after_sha256": "490fe5528811121f082c533ef1f107ba8450659afc006f4c9746b8f03391dcbb"
+        }
+      ]
     }
   ]
 }
