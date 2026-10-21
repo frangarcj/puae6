@@ -6000,9 +6000,9 @@
     {
       "id": "0410-action-replay1-native-state",
       "file": "patches/winuae/0410-action-replay1-native-state.patch",
-      "sha256": "e7af81764d26d0eb1e87ab995526b5840b31c5e99f478dbe5d5c2f1f87894e8c",
+      "sha256": "1a1f5bad8b24401bec1e316b938b376dfc80f7318fa5a3a9fb61a7f4d1715dba",
       "title": "Preserve AR1 wait-PC state and release its always-present banks",
-      "reason": "T69e1: private AR1 snapshots preserve wait_pop and wait_for_pc with reachable byte/word strobe SPC forms. Teardown removes ROM/RAM banks before freeing the owner; AR2/3 state bodies and the public cartridge ABI remain unchanged.",
+      "reason": "T69e1: private AR1 snapshots preserve wait_pop and wait_for_pc with reachable byte/word strobe SPC forms. Cleanup, also called directly by memory_cleanup, removes ROM/RAM banks before freeing the owner; AR2/3 state bodies and the public cartridge ABI remain unchanged.",
       "category": "native cartridge state access",
       "order": 225,
       "symbols": [
@@ -6021,7 +6021,7 @@
         {
           "path": "ar.cpp",
           "before_sha256": "ccae80397516fb682d69770f5c1d4d77a2118285defe1e1551348f6dc6b85a2b",
-          "after_sha256": "665f4e775351e9595582d5ae46fee5f24fec1376bb778d3935138a0363d7e968"
+          "after_sha256": "fd60aa62a9d94ac8d245cbfa7a4c62e9000b39d986ebfbc7f579cc57fe0ce5b4"
         },
         {
           "path": "newcpu.cpp",
