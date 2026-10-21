@@ -18610,7 +18610,7 @@
       ],
       "id": "T66v6",
       "title": "Decodificar descriptor privado Waterbox V3 con sesiones completas",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v5"
       ],
@@ -18628,7 +18628,8 @@
         "p6w_cd_session campos uint32first/last/format,int32cue0,uint32a2:20B. InfoV3 conserva campos/tracksV2 hasta4808, session_count offset4808, sessions99 offset4812, size6792/alineacion8. Version3/size exactos, activos validados antesestrechar aSession12B, inactivos0 porcampos. Cero sesiones conserva legacy. Decoderregionalcomun construye next y anade tabla antes Disc.bind, sin reinterpretcast ni validar primero comoV2 pues rechazariahuecos. V2exacto.",
         "OffsetsLBA*2448, bytes=leadout*2448 dominio virtual conhuecos, no datos inventados. HuecosA2..INDEX00 Range sincallback/salida; ID confiado host se copia y rebind compara tabla completa inclusoIDigual. Calculo autenticadoID por futurohost sigue deudaexplicita, no atribuiblealdecoder.",
         "MED01 CdDiscTests nuevo test_waterbox_v3_descriptor_sessions_gaps_identity_and_rebind y regresion test_waterbox_v2_descriptor_layout_regions_and_rebind bajoASan/UBSan. GeometriaV3/V5pistas1/2+3,A2primero11,CUE0segundo20,INDEX00=30/INDEX01=32,A2final39; ambaslecturas/Q/TOCs,huecos11/20/29,ceroIO,paridadV2/max99/negativosversion/size/count/rangos/format/CUE0/A2/cobertura/inactivos/binding con salidaA5, freshcallback/rebind/fallosprovider. No bateriascompletas.",
-        "Conectar bind_v3/layout_v3/exports y pruebas reales snapshot/managed en hoja posterior trasC3c integrado; carga y restorepublicos multi siguenrequeridos antesT66."
+        "Conectar bind_v3/layout_v3/exports y pruebas reales snapshot/managed en hoja posterior trasC3c integrado; carga y restorepublicos multi siguenrequeridos antesT66.",
+        "Integrado f3debf3a cinco rutas+189/-3: V3/V2dos metodos2PASS2.190s ASan/UBSan. C11staticassert layouts/alineacion/offsets y sintaxisC++/Python/diffPASS. Decoderpuro no acredita guest/hostidentity ni carga publica; siguientes puertas intactas."
       ],
       "checks": [
         "MED01"
