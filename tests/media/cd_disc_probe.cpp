@@ -420,6 +420,121 @@ static int waterbox_v2_descriptor()
     return 0;
 }
 
+static int waterbox_v3_descriptor()
+{
+    static_assert(sizeof(p6w_cd_session)==20 && offsetof(p6w_cd_session,first_track)==0 &&
+        offsetof(p6w_cd_session,last_track)==4 && offsetof(p6w_cd_session,format)==8 &&
+        offsetof(p6w_cd_session,cue0)==12 && offsetof(p6w_cd_session,a2)==16,"V3 session ABI");
+    static_assert(sizeof(p6w_cd_info_v3)==6792 && alignof(p6w_cd_info_v3)==8 &&
+        offsetof(p6w_cd_info_v3,bytes)==40 && offsetof(p6w_cd_info_v3,tracks)==56 &&
+        offsetof(p6w_cd_info_v3,session_count)==4808 && offsetof(p6w_cd_info_v3,sessions)==4812,"V3 info ABI");
+    p6w_cd_info_v3 wire{}; wire.version=3; wire.size=sizeof wire; wire.id[0]=0x73;
+    wire.count=3; wire.leadout=39; wire.bytes=39*2448; wire.session_count=2;
+    wire.tracks[0]={0,0,4,0,0,0,1,0,0,1,0,0};
+    wire.tracks[1]={4,6,11,1,4,0,1,0,0,1,1,4};
+    wire.tracks[2]={30,32,39,2,4,0,1,0,0,1,2,4};
+    wire.sessions[0]={1,2,0,-150,11}; wire.sessions[1]={3,3,0x20,20,39};
+    Provider p{wire.bytes,0,0,2448,0}; Binding binding{{{0x73},wire.bytes,1},provide,&p};
+    struct Guarded { uint64_t before; Layout layout; uint64_t after; } guarded;
+    memset(&guarded,0xa5,sizeof guarded);
+    CHECK(p6_waterbox::cd_descriptor_v3(&wire,binding,&guarded.layout)==Result::Ok&&!p.calls);
+    CHECK(guarded.before==UINT64_C(0xa5a5a5a5a5a5a5a5)&&guarded.after==guarded.before);
+    const auto base=guarded.layout; CHECK(base.sessions==2&&base.tracks==3&&!memcmp(base.content_id,wire.id,32));
+    for(unsigned n=0;n<99;++n) {
+        const auto &s=base.session[n]; const auto &w=wire.sessions[n];
+        CHECK(s.first_track==w.first_track&&s.last_track==w.last_track&&s.format==w.format&&s.cue0==w.cue0&&s.a2==w.a2);
+    }
+    Disc disc; CHECK(disc.bind(base,&binding,1)==Result::Ok&&!p.calls);
+    cd_toc_head global; CHECK(akiko_toc(disc,&global)==Result::Ok&&global.tracks==3&&global.points==6&&
+        global.toc[3].point==3&&global.toc[3].paddress==32&&global.toc[5].point==0xa2&&global.lastaddress==39);
+    for(unsigned n=1;n<=2;++n) {
+        SessionToc toc{}; CHECK(akiko_session_toc(disc,n,&toc)==Result::Ok);
+        CHECK(toc.toc.first_track==int(n==1?1:3)&&toc.toc.last_track==int(n==1?2:3));
+        CHECK(toc.toc.firstaddress==int(n==1?0:30)&&toc.toc.lastaddress==int(n==1?11:39));
+    }
+    CHECK(!p.calls);
+    uint8_t out[2464];
+    for(uint32_t lba : {11u,20u,29u}) {
+        for(unsigned view : {2048u,2352u,2448u}) {
+            memset(out,0xa5,sizeof out);
+            CHECK(canonical_read(disc,lba,view,out+8,view)==Result::Range&&filled(out,sizeof out,0xa5));
+        }
+        CHECK(read_subchannel(disc,lba,out,sizeof out)==Result::Range&&filled(out,sizeof out,0xa5));
+        CHECK(!p.calls);
+    }
+    for(uint32_t lba : {0u,3u,4u,5u,6u,10u,30u,31u,32u,38u}) {
+        memset(out,0xa5,sizeof out);
+        CHECK(canonical_read(disc,lba,2448,out+8,2448)==Result::Ok&&filled(out,8,0xa5)&&filled(out+2456,8,0xa5));
+        for(unsigned n=0;n<2352;++n) CHECK(out[8+n]==byte(p,uint64_t(lba)*2448+n));
+        const auto calls=p.calls; CHECK(read_subchannel(disc,lba,out,96)==Result::Ok&&p.calls==calls);
+        printf("wire3 %u ",lba); for(unsigned n=0;n<96;++n) printf("%02x",out[n]); puts("");
+    }
+    for(unsigned bad=0;bad<30;++bad) {
+        auto other=wire; auto b=binding;
+        switch(bad) {
+        case 0: other.version=2; break; case 1: --other.size; break;
+        case 2: other.session_count=100; break; case 3: other.session_count=0; break;
+        case 4: other.session_count=1; break; case 5: other.sessions[0].first_track=0; break;
+        case 6: other.sessions[0].first_track=257; break; case 7: other.sessions[1].last_track=259; break;
+        case 8: other.sessions[0].last_track=1; break; case 9: other.sessions[1].first_track=2; break;
+        case 10: other.sessions[1].format=1; break; case 11: other.sessions[1].format=0x120; break;
+        case 12: other.sessions[0].cue0=1; break; case 13: other.sessions[1].cue0=10; break;
+        case 14: other.sessions[1].cue0=31; break; case 15: ++other.sessions[0].a2; break;
+        case 16: --other.sessions[1].a2; break; case 17: other.sessions[2].first_track=1; break;
+        case 18: other.sessions[98].last_track=1; break; case 19: other.sessions[98].format=0x10; break;
+        case 20: other.sessions[98].cue0=INT32_MIN; break; case 21: other.sessions[98].a2=1; break;
+        case 22: other.count=100; break; case 23: other.tracks[1].reserved=1; break;
+        case 24: other.tracks[2].mode=3; break; case 25: other.tracks[98].end=1; break;
+        case 26: ++b.identity.bytes; break; case 27: b.identity.sector_bytes=2048; break;
+        case 28: b.identity.content_id[0]^=1; break; case 29: b.read=nullptr; break;
+        }
+        memset(&guarded,0xa5,sizeof guarded); const auto calls=p.calls;
+        CHECK(p6_waterbox::cd_descriptor_v3(&other,b,&guarded.layout)==Result::Invalid);
+        CHECK(filled(reinterpret_cast<uint8_t *>(&guarded),sizeof guarded,0xa5)&&p.calls==calls);
+    }
+    CHECK(p6_waterbox::cd_descriptor_v3(nullptr,binding,&guarded.layout)==Result::Invalid);
+    CHECK(p6_waterbox::cd_descriptor_v3(&wire,binding,nullptr)==Result::Invalid);
+    Provider fresh=p; fresh.calls=0; auto b=binding; b.context=&fresh;
+    CHECK(p6_waterbox::cd_descriptor_v3(&wire,b,&guarded.layout)==Result::Ok&&!fresh.calls);
+    CHECK(disc.rebind(guarded.layout,&b,1)==Result::Ok&&!fresh.calls); p.fault=2;
+    for(unsigned change=0;change<5;++change) {
+        auto other=wire; auto candidate=b;
+        if(change==0) other.sessions[0].cue0=-149;
+        if(change==1) other.sessions[1].cue0=21;
+        if(change==2) other.sessions[0].format=0x10;
+        if(change==3) other.sessions[1].format=0x10;
+        if(change==4) { other.id[0]^=1; candidate.identity.content_id[0]^=1; }
+        const auto calls=fresh.calls;
+        CHECK(p6_waterbox::cd_descriptor_v3(&other,candidate,&guarded.layout)==Result::Ok&&fresh.calls==calls);
+        CHECK(disc.rebind(guarded.layout,&candidate,1)==Result::Incompatible&&fresh.calls==calls);
+        for(uint32_t lba : {0u,32u}) {
+            CHECK(canonical_read(disc,lba,2352,out,sizeof out)==Result::Ok);
+            for(unsigned n=0;n<2352;++n) CHECK(out[n]==byte(fresh,uint64_t(lba)*2448+n));
+        }
+    }
+    for(int fault : {1,2,3}) for(uint32_t lba : {0u,32u}) {
+        fresh.fault=fault; memset(out,0xa5,sizeof out);
+        CHECK(canonical_read(disc,lba,2448,out+8,2448)==Result::ReadError&&filled(out,sizeof out,0xa5));
+    }
+    fresh.fault=0;
+    auto single=wire; single.count=1; single.leadout=4; single.bytes=4*2448; single.session_count=0;
+    memset(single.sessions,0,sizeof single.sessions); memset(single.tracks+1,0,sizeof single.tracks-sizeof single.tracks[0]);
+    p6w_cd_info_v2 v2{}; v2.version=2; v2.size=sizeof v2; v2.count=1; v2.leadout=4; v2.bytes=single.bytes;
+    memcpy(v2.id,single.id,32); memcpy(v2.tracks,single.tracks,sizeof v2.tracks);
+    b.identity.bytes=single.bytes; Layout legacy; Disc one;
+    CHECK(p6_waterbox::cd_descriptor_v2(&v2,b,&legacy)==Result::Ok&&one.bind(legacy,&b,1)==Result::Ok);
+    CHECK(p6_waterbox::cd_descriptor_v3(&single,b,&guarded.layout)==Result::Ok&&!guarded.layout.sessions);
+    CHECK(one.rebind(guarded.layout,&b,1)==Result::Ok); // Complete semantic parity, without comparing padding.
+    auto maximum=wire; maximum.count=maximum.leadout=maximum.session_count=99; maximum.bytes=99*2448;
+    for(unsigned n=0;n<99;++n) {
+        maximum.tracks[n]={n,n,n+1,1,4,0,0,0,0,0,0,0};
+        maximum.sessions[n]={n+1,n+1,0,n?int32_t(n):-150,n+1};
+    }
+    b.identity.bytes=maximum.bytes; const auto calls=fresh.calls;
+    CHECK(p6_waterbox::cd_descriptor_v3(&maximum,b,&guarded.layout)==Result::Ok&&fresh.calls==calls&&guarded.layout.sessions==99);
+    return 0;
+}
+
 static int explicit_regions()
 {
     using R = Track::Regions;
@@ -628,6 +743,7 @@ int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
     if (!strcmp(argv[1], "sessions")) return sessions();
+    if (!strcmp(argv[1], "wire-v3")) return waterbox_v3_descriptor();
     if (!strcmp(argv[1], "wire-v2")) return waterbox_v2_descriptor();
     if (!strcmp(argv[1], "regions")) return explicit_regions();
     if (!strcmp(argv[1], "reads")) return reads();

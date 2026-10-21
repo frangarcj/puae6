@@ -7,11 +7,12 @@ namespace p6_waterbox {
 // Pure preflight for a single canonical LBA2448 binding. Borrowed arguments do
 // not escape. Disc validates geometry/regions without invoking binding.read;
 // only a fully validated layout is published. This does not bind a sandbox.
-inline p6_cd::Result cd_descriptor_v2(const p6w_cd_info_v2 *info,
-                                    const p6_cd::Binding &binding, p6_cd::Layout *out)
+template<class Info>
+inline p6_cd::Result cd_descriptor_regions(const Info *info, const p6_cd::Binding &binding,
+ p6_cd::Layout *out, uint32_t version, const p6w_cd_session *sessions=nullptr, uint32_t count=0)
 {
  using namespace p6_cd;
- if (!info || !out || info->version != 2 || info->size != sizeof *info ||
+ if (!info || !out || info->version != version || info->size != sizeof *info ||
      !info->count || info->count > 99 || info->bytes != uint64_t(info->leadout)*2448 ||
      binding.identity.bytes != info->bytes || binding.identity.sector_bytes != 1 ||
      memcmp(binding.identity.content_id,info->id,32)) return Result::Invalid;
@@ -36,10 +37,32 @@ inline p6_cd::Result cd_descriptor_v2(const p6w_cd_info_v2 *info,
   next.track[n].regions={t.flags,active ? mode(t.pregap_mode) : Mode::Mode1_2048,t.pregap_control};
   if (!active && t.pregap_mode) return Result::Invalid;
  }
+ if (count>99) return Result::Invalid;
+ next.sessions=count;
+ if (sessions) for(uint32_t n=0;n<99;++n) {
+  const auto &s=sessions[n];
+  if (n>=count) {
+   if (s.first_track || s.last_track || s.format || s.cue0 || s.a2) return Result::Invalid;
+  } else {
+   if (s.first_track>99 || s.last_track>99 || (s.format!=0 && s.format!=0x10 && s.format!=0x20)) return Result::Invalid;
+   next.session[n]={uint8_t(s.first_track),uint8_t(s.last_track),uint8_t(s.format),s.cue0,s.a2};
+  }
+ }
  Disc validation;
  const auto result=validation.bind(next,&binding,1);
  if (result==Result::Ok) *out=next;
  return result;
 }
+inline p6_cd::Result cd_descriptor_v2(const p6w_cd_info_v2 *info,
+                                    const p6_cd::Binding &binding, p6_cd::Layout *out)
+ { return cd_descriptor_regions(info,binding,out,2); }
+inline p6_cd::Result cd_descriptor_v3(const p6w_cd_info_v3 *info,
+                                    const p6_cd::Binding &binding, p6_cd::Layout *out)
+{
+ // Check the fixed prefix before reading any V3-only field.
+ if (!info || info->version!=3 || info->size!=sizeof *info) return p6_cd::Result::Invalid;
+ return cd_descriptor_regions(info,binding,out,3,info->sessions,info->session_count);
+}
+
 }
 #endif

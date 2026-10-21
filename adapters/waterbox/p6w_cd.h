@@ -29,6 +29,23 @@ typedef struct p6w_cd_info_v2 {
  uint32_t count, leadout;
  p6w_cd_track_v2 tracks[99];
 } p6w_cd_info_v2;
+/* V3 adds explicit ordered sessions to the unchanged regional track prefix.
+ * bytes is the virtual LBA2448 extent, including unreadable inter-session gaps.
+ * Zero sessions retains legacy geometry; every inactive session field is zero. */
+typedef struct p6w_cd_session {
+ uint32_t first_track, last_track, format;
+ int32_t cue0;
+ uint32_t a2;
+} p6w_cd_session;
+typedef struct p6w_cd_info_v3 {
+ uint32_t version, size;
+ uint8_t id[32];
+ uint64_t bytes;
+ uint32_t count, leadout;
+ p6w_cd_track_v2 tracks[99];
+ uint32_t session_count;
+ p6w_cd_session sessions[99];
+} p6w_cd_info_v3;
 /* flags share the Disc regional policy: Explicit=1, program SUB96=2,
  * pregap SUB96=4, stored postgap=8, postgap SUB96=16, INDEX02 postgap=32.
  * flags0 selects legacy behavior and requires zero pregap_mode/control. */

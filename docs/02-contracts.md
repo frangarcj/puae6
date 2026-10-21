@@ -2131,3 +2131,21 @@ de p6_load y vive hasta shutdown; Disk Control CDTV rechaza cambios antes de
 mutar bandeja/eventos, sin llamar Akiko. LR01 reutiliza C3a y comprueba nonce
 DOS/Delay en ChipRAM, futuro de 16 unidades y snapshot entero local/cold/stdio con dos ciclos.
 Este contrato no habilita playlists multiples, cambios de CDTV ni Waterbox.
+
+
+## Descriptor privado Waterbox V3 (T66v6)
+
+V3 conserva el prefijo regional hasta 4808 y anade session_count uint32 y 99 registros
+first/last/format uint32, CUE0 int32 y A2 uint32: registro 20B, tabla offset 4812,
+tamano 6792/alineacion 8. Version 3 y size son exactos; la tabla inactiva es cero por
+campos. Cero sesiones conserva la geometria legacy V2. Las sesiones se validan
+antes de estrechar campos y antes de publicar el Layout, sin IO ni punteros
+prestados persistentes. V1/V2 conservan layout y comportamiento.
+
+bytes=leadout*2448 define un dominio virtual por LBA, no materializa datos entre
+sesiones. Los huecos A2..INDEX00 devuelven Range sin callback ni salida parcial.
+El decoder copia el ID confiado del host y toda la tabla; rebind exige igualdad
+semantica completa incluso con ID inalterado. El calculo autenticado del ID por
+el host sigue pendiente y no se atribuye al decoder. Esta puerta pura usa MED01
+con sesiones, Q/TOCs, limites, canarios y fallos de proveedor; no activa exports,
+loader publico, C# ni snapshots Waterbox.

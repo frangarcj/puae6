@@ -67,6 +67,18 @@ class CdDiscTests(unittest.TestCase):
             expected=(b'\xff' if pre or post else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
             self.assertEqual(bytes.fromhex(row[2]),expected)
 
+    def test_waterbox_v3_descriptor_sessions_gaps_identity_and_rebind(self):
+        rows=self.run_probe('wire-v3').splitlines()
+        self.assertEqual([0,3,4,5,6,10,30,31,32,38],[int(row.split()[1]) for row in rows])
+        def bcd(n): return n//10*16+n%10
+        def clock(n): return bytes(map(bcd,(n//4500,n//75%60,n%75)))
+        for row in map(str.split,rows):
+            lba=int(row[1]); track=1 if lba<4 else 2 if lba<11 else 3
+            index1=(0,6,32)[track-1]; pre=lba<index1; control=0 if track==1 else 4
+            q=bytes((control*16+1,track,int(not pre)))+clock(abs(lba-index1))+b'\0'+clock(lba+150)
+            expected=(b'\xff' if pre else b'\0')*12+q+(binascii.crc_hqx(q,0)^0xffff).to_bytes(2,'big')+bytes(72)
+            self.assertEqual(bytes.fromhex(row[2]),expected)
+
     def test_rejections_faults_and_rebind_are_transactional(self):
         self.run_probe("failures")
 
