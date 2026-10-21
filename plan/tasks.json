@@ -21711,7 +21711,7 @@
       ],
       "id": "T66v12",
       "title": "Conectar carga publica NRG multisesion y catalogos mixtos con restore Waterbox",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v11",
         "T66l9",
@@ -21808,7 +21808,7 @@
       ],
       "id": "T66v14",
       "title": "Adoptar lease de CD legacy al seleccionar PUAE6 en RomLoader",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v11",
         "T66v13",
