@@ -20826,7 +20826,8 @@
         "T69d3",
         "T69e1",
         "T69e2",
-        "T69f1"
+        "T69f1",
+        "T69f2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22175,6 +22176,61 @@
         "AR1200 privado restaura la totalidad de su estado mutable y bancos con identidad de ROM/modelo propia, confirma comandos reales y retorno del programa con futuro local/frio exacto y rechazos transaccionales, preservando HRTMon."
       ],
       "stop": "No codec parcial ni omitir memoria writable, ni simular exito. Publico/frontend/Waterbox del padre sigue pendiente; ningun hostPC/flags/IRQ ni ROM comercial en Git."
+    },
+    {
+      "id": "T69f2",
+      "title": "Publicar AR1200 nativo con Freeze por nivel y estados frios",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69f1",
+        "T69e2",
+        "T69c2"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "tests/host/bridge_caps_probe.cpp",
+        "tests/contracts/layout_probe.c",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference reutiliza t66-cd-swap aislado desde fb1fd6af; root posee metadata, contrato, inventario y dispatcher y compila j2. Siete rutas de implementacion atomicas (config.cpp, p6.h, caps.cpp, caps_probe, layout_probe.c y ambos hrtmon tests), objetivo150-250 y limite400 lineas manuales; config.h de root solo para actualizar comentario del helper. No motor/guest ni baterias en agente; no cambiar codec ni parche0411.",
+        "Ampliar p6_cartridge_bind existente a P6_CARTRIDGE_AR1200=1200, P6_CAP_AR1200 bit14 separado de AR1/AR23. Discriminar antes del binder A500 y llamar al propietario completo existente con un solo Guard; copiar raw262144 ATZ!HRT!, stock A1200, sin nuevo flag/configuracion ni alterar identidades/cuerpos. Preservar exclusividad, errores/canarios/BUSY/rollback. Ajustar solo negativos antiguos que llaman1200 desconocido a1201 y añadir rechazo1200 en perfil A500 como Unsupported. Sin selectores frontend en esta hoja.",
+        "Nuevo selector NativeAr1200Tests.test_public_ar1200_freeze_level_and_cold_state usa ROM AR1200 y Kick A1200 autorizadas ya locales. Reusar READY que acredita STOP directo o frame IRQ3 vivo, comando real r pc 73728 y x. Public binder y inputV2 Freeze por flanco (no freeze_hrtmon privado), inputV1 suelta el nivel. Primera unidad y monitor activo consumen sin cola; held tras salir/reset/load no rearma, release/repress si. Negativos de bits/ABI/identity preservan estado, buffers y ticks. No PC/prefetch/NMI/flags host ni esperas de pared.",
+        "Dos cortes comerciales: Freeze mantenido en editor y comando parcial. Repeticion local y writer/reader en proceso nuevo antes primer run, save-load-save y futuro completo CPU/RAM/cartRAM/bancos/vector/video/PCM/ticks/estado final exactos, reset mantenido, canarios/copia/cleanup. Reutilizar helpers privados sin modificar su semantica; si necesita nuevas rutas o mas400 avisar antes.",
+        "Root ejecuta una sola union ABI C/C++ y caps mas selector publico nuevo. T69f1 ya paso own write/read, cuatro cortes comerciales write/read y HrtMonTests completo en0411; no repetir ese codec, AR1/AR23 comercial, HRT, Waterbox o matriz por etiqueta. Si se toca realmente una ruta compartida registrar regresion cercana necesaria antes de ejecutar. Dos intentos razonados del mismo fallo: conservar reproducer y dos hipotesis, blocked y otro frente.",
+        "Padre conserva conexiones libretro/BizHawk y toda su aceptacion. No anunciar cartuchos en frontends ni acreditar Waterbox por este gate nativo. Temporales solo build y eliminados, sin informes ni ROMs comerciales en fuentes/paquetes."
+      ],
+      "checks": [
+        "ABI01",
+        "IN01",
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "La API nativa publica AR1200 con copia/identidad/limites correctos y ROM autorizada ejecuta comandos reales, retorna y conserva el futuro tras estados locales/frios y Freeze held/reset/rearm transaccional, sin alterar modelos anteriores ni ampliar frontends."
+      ],
+      "stop": "No cerrar por carga/pantalla, ni duplicar owner/scheduler/codec o usar control host del PC. Preservar todos los casos y gates originales del padre."
     }
   ],
   "max_in_progress": 4
