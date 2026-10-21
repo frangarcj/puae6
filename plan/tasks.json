@@ -19035,14 +19035,15 @@
       ],
       "id": "T67c3a2",
       "title": "Restaurar CDTV propio en frio y rechazar medios incorrectos",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67c3a1"
       ],
       "steps": [
         "Continuacion atomica tras arranque acreditado: cuatro rutas existentes, incremento110..180lineas manuales, sin nuevo motor/CMake ni ABI; busy_reference aislado desde26cbe712. Root metadata y compilaciones pesadas serializadas. No dividir restore local/cold/negativos que comparten cut, futuro y owner.",
         "Reutilizar APIs p6_state_bound/save/load: cut tras marcador,16frames de futuro RAM/AV/PCM/ticks/fullsave, restauracion mismoowner y proceso nuevo antes de su primer run exactos. Sin Startup no marcador al mismo limite1000; nonceB ejecutaB y rechaza estadoA por identidad sin mutar estado. CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives comparte MED01/STATE01/DET02 en una ejecucion.",
-        "Usar limite1000 explicitamente por defecto en el gate completo sin exigir variable nueva. Mantener diagnostico original acotado600..1000. No repetir baterias no relacionadas; fixtures y salidas solo build y limpiar al terminar."
+        "Usar limite1000 explicitamente por defecto en el gate completo sin exigir variable nueva. Mantener diagnostico original acotado600..1000. No repetir baterias no relacionadas; fixtures y salidas solo build y limpiar al terminar.",
+        "Gate completo en root con KS1.3/EXT2.7 y TM Cannon: CdtvBootRestoreTests y TrademarkSourceTests2PASS17.945s. Una ejecucion comparte MED01/STATE01/DET02: bootA/local/coldnuevo proceso antesprimer run/futuro16fullstate y RAM/AV/PCM/ticks/IO, sinStartup y nonceB/rechazoA transaccional. Sintaxis C++/Python/diff PASS; temporales eliminados."
       ],
       "checks": [
         "MED01",
@@ -19059,7 +19060,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T67c2",
         "T15",
@@ -19094,7 +19095,8 @@
         "Nuevo control autorizado por el usuario: Cannon Fodder local, track01 MODE1/2352, PVD CDTV y TM declarado22152/LBA21/cdtv35.2. Extender lector temporal del TM a sectores raw sin copiar headers; conservar Brian MODE1/2048 y sus pins. Esta nueva fuente justifica retomar el reproducer de nonce una vez, sin atribuir todavia arranque de Cannon ni restauracion completa.",
         "Dato nuevo independiente antes de retomar: Blower1.0.1 del autor (commit03a91c4201e093e5a31c7fc55cf1b7638ce5dce4, ISO SHA2567b6b93ef116b2399f197b6d170b396ef744e10bea85543622ce6fd918a89b4c6) declara CDTV boot y1MiBChip, no incluye Kickstart; TM exacto de Cannon. Control MacHawk fijo1000unidades muestra logo500/negro750/azul1000, sin acreditar juego. El limite600 de nuestro probe puede ser anterior a esa transicion. Añadir argumento diagnostico acotado hasta1000 sin cambiar default600; ejecutar una vez la fixture nonce original con ese limite, sin tocar firmware, CPU ni avanzar por relojhost. Si no ejecuta, conservar bloqueo e hipotesis; si ejecuta, completar restore/negativos antes de done.",
         "Resultado del experimento acotado: CdtvOriginalBootTests.test_original_iso_hunk_executes_nonce PASS con P6_CDTV_BOOT_LIMIT=1000, KS1.3/EXT2.7 y TM Cannon; firma/nonce leido por DOS y contador Delay creciente. El limite600 era insuficiente; usar1000 explicito en la puerta completa. No acredita aun restore/negativos, frontend publico ni Waterbox. Completar esos criterios antes de done.",
-        "Division por presupuesto: T67c3a1 acredita el arranque ya probado; T67c3a2 implementa en un cambio pequeno y atomico restore local/cold y negativos. Este padre mantiene toda la aceptacion y no se cierra hasta la union."
+        "Division por presupuesto: T67c3a1 acredita el arranque ya probado; T67c3a2 implementa en un cambio pequeno y atomico restore local/cold y negativos. Este padre mantiene toda la aceptacion y no se cierra hasta la union.",
+        "Cierre por union de arranque acreditado T67c3a1 y continuidad completa T67c3a2; mismo selector conjunto para MED01/STATE01/DET02 pasa. No habilita por si solo frontend publico ni Waterbox."
       ],
       "checks": [
         "MED01",
@@ -19111,7 +19113,7 @@
       "title": "Publicar CDTV nativo y libretro con CD inicial fijo",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T67c3a",
         "T66r1",
@@ -19154,7 +19156,7 @@
         "Firmware fijo KS1.3 ID6 y EXT2.7 ID22,256KiB cada una; helper estatico por maquina produce EXT+MAIN tambien sin contenido. Preservar validacion/descifrado/VFS y publicacion transaccional. Automatic+CD directo con tagCDTV selecciona CDTV; modelo/presetexplicito prevalece ytagsdisabled fallbackCD32. CDTV precede CD32FR/FastRAM enmismonombre; disquetes conservan semantica previa.",
         "CD inicial fijo o sincontenido, binding antesp6_load y ownersvivos hasta shutdown, autoconfigoriginalC2. Rechazar ADF/HDF/Kickstartalternativo/playlistsmultimedio/eject/index/add/replace antes de bandeja/eventos; no exito ficticio niAkiko paraCDTV. CambioCDTV yconexionBizHawk/WB quedan hojas obligatoriasposteriores.",
         "Reutilizar integra puerta nativa C3a MED01/STATE01/DET02 sin duplicar probe. LR01/DET02 CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload usa fixtureC3a, marcador firma/nonce/contador creciente buscado enChipRAM mediante peek existente, save/load/futuroRAM/AV/PCM/ticks, --cycles2 yrestorecoldprocesonuevo. CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals cubreAutomatic/explicito/tagsdisabled/sincontenido/VFSstdio/firmwareincompletoalterado/modelosincompatibles/refusalsconestadoybandejaintactos/handlescerrados.",
-        "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. cd32_close implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe.",
+        "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. busy_reference implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe.",
         "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente."
       ],
       "checks": [
