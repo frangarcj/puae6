@@ -1740,7 +1740,7 @@ de juego conservan sus puertas en T66.
 
 ## Carga publica CD32 BizHawk (T66r3)
 
-El loader toma un unico Disc prestado hasta Dispose del core, rechaza mezclas y
+El loader toma1..16 slots Disc prestados hasta Dispose del core, rechaza mezclas con Roms y
 selecciona CD32 en una copia de SyncSettings. Pide Amiga/CD32 y, si no recibe
 un combinado de 1 MiB, Amiga/CD32ext: dos mitades de 512 KiB EXT+MAIN. El bridge valida
 los bytes. El CD se lee por offset sin alojarlo entero en el guest.
@@ -1748,8 +1748,8 @@ P6_MACHINE_CD32=9 y Machine.CD32 comparten el esquema; los ordinales C# anterior
 se conservan. Headless acepta firmware combinado, sin entrada de CD.
 
 Cada BootGuest crea su binding, copia firmware antes de Seal y conecta/activa
-el dispositivo despues. El wrapper no tiene disqueteras; la seleccion inactiva
-es 0 y sus cuatro slots permanecen vacios. La identidad añade el ID completo de
+el dispositivo despues. El wrapper no tiene disqueteras; sus cuatro slots DF permanecen vacios. La
+seleccion CD se describe en T66u5. La identidad añade el ID completo de
 TOC/2448 del CD al hash de medios; los modelos sin CD conservan su calculo.
 LoadStateBinary valida sobre y campos, restaura el sandbox y rebindea antes de
 permitir frames. Un fallo de snapshot/rebind bloquea ejecucion y guardado hasta
@@ -1900,3 +1900,22 @@ bootstrap/CDFS/LoadSeg siguen abiertas. Boot y su puerta de restore/negativos
 completos permanecen bloqueados; los cortes de autoconfig no los sustituyen.
 Startup-Sequence conserva el case mixto y version ISO del disco original, y
 el directorio raiz mantiene el orden ISO9660.
+
+
+## Catalogo publico CD BizHawk (T66u5)
+
+El loader deduplica IDs normalizados en primer orden, conserva el mapa de aliases
+A/B/A y copia nombres. Un CD conserva CdInfo/CdInfoV2+ReadCd; un catalogo usa
+un array homogéneoV1/V2 y lector por ordinal. Si contiene regiones, los legacy
+se elevan aV2 con flags0 (politicaV1 completa); CHD conserva sus regionesV2.
+Los leases del loader viven hasta Dispose final, tambien al reabrir por SaveRAM.
+Next Slot, Eject Disk e Insert Disk son botones IController por flanco al inicio
+de FrameAdvance, sin Next Drive. Insertar otro ordinal expulsa primero; una tecla
+retenida no repite. Seleccion frontend, ordinal aplicado, presencia, latches y
+contador de peticiones atendidas viajan en WrapperState. Los ultimos5 bytes
+son ordinalCD int32LE y presencia bool; los campos anteriores conservan offset. Un LOAD rebindea el
+catalogo restaurado y aplica los campos C# despues del exito, sin seleccionar.
+Identidad incluye IDs unicos ordenados y mapa completo; no nombres, rutas ni
+seleccion. Otro catalogo/mapa se rechaza antes del snapshot y del IO. La puerta
+WB03 exige datosB reales, A/B/ausente y futuro completo en owners/proceso nuevos;
+no acredita aun la grabacion/replayTAS de cambios (T66u6).

@@ -90,6 +90,12 @@ class Cd32PublicCoreTests(Cd32WaterboxTests):
                 self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-3000:])
                 self.assertIn('Public BizHawk CD32', result.stdout)
 
+class Cd32CatalogCoreTests(Cd32PublicCoreTests):
+    public_modes = ('catalogsave', 'catalogload')
+    def setUp(self):
+        super().setUp()
+        self.names = ('device.iso',)
+
 class Cd32FastCoreTests(Cd32PublicCoreTests):
     public_modes = ('frsave', 'frload')
 

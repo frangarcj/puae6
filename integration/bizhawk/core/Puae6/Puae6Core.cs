@@ -29,23 +29,64 @@ public sealed class Puae6Parameters
 	public P6CdInfo? CdInfo { get; set; }
 	public P6CdInfoV2? CdInfoV2 { get; set; }
 	public Func<ulong, byte[], int, bool>? ReadCd { get; set; }
+	/// <summary>Fixed unique descriptors, in first occurrence order; choose either V1 or V2, never both or a single descriptor.</summary>
+	public P6CdInfo[]? CdCatalog { get; set; }
+	public P6CdInfoV2[]? CdCatalogV2 { get; set; }
+	public Func<uint, ulong, byte[], int, bool>? ReadCdCatalog { get; set; }
+	public int[] CdSlots { get; set; } = [ ];
+	public string[] CdNames { get; set; } = [ ];
+	internal int CdCount => CdCatalog?.Length ?? CdCatalogV2?.Length ?? (CdInfo.HasValue || CdInfoV2.HasValue ? 1 : 0);
+	internal int CdSlotCount => ReadCdCatalog is not null ? CdSlots.Length : CdCount;
 	// Only the public loader supplies a lease; direct API sources remain borrowed.
 	internal IDisposable? CdOwner { get; set; }
-	internal P6CdHost? CreateCdHost() => CdInfoV2 is { } v2 ? new P6CdHost(v2, ReadCd!)
+	internal P6CdHost? CreateCdHost() => CdCatalog is { } c1 ? new P6CdHost(c1, ReadCdCatalog!)
+		: CdCatalogV2 is { } c2 ? new P6CdHost(c2, ReadCdCatalog!) : CdInfoV2 is { } v2 ? new P6CdHost(v2, ReadCd!)
 		: CdInfo is { } v1 ? new P6CdHost(v1, ReadCd!) : null;
 	internal unsafe byte[]? CdIdentity()
 	{
+		if (ReadCdCatalog is not null)
+		{
+			using var stream = new MemoryStream();
+			using (var writer = new BinaryWriter(stream, Encoding.ASCII, true))
+			{
+				writer.Write(Encoding.ASCII.GetBytes("PUAE6 CD catalog/v1")); writer.Write(CdCount);
+				for (int n = 0; n < CdCount; ++n) writer.Write(CatalogId(n));
+				writer.Write(CdSlots.Length); foreach (var slot in CdSlots) writer.Write(slot);
+			}
+			return StateEnvelope.Sha256(stream.ToArray());
+		}
 		if (!CdInfo.HasValue && !CdInfoV2.HasValue) return null;
 		var id = new byte[32];
 		if (CdInfoV2 is { } v2) for (int i = 0; i < 32; ++i) id[i] = v2.Id[i];
 		else if (CdInfo is { } v1) for (int i = 0; i < 32; ++i) id[i] = v1.Id[i];
 		return id;
 	}
+	unsafe byte[] CatalogId(int ordinal)
+	{
+		var id = new byte[32];
+		if (CdCatalog is { } c1) { var info = c1[ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
+		else { var info = CdCatalogV2![ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
+		return id;
+	}
+
 	internal void ValidateCd()
 	{
-		bool cd = CdInfo.HasValue || CdInfoV2.HasValue;
-		if (CdInfo.HasValue && CdInfoV2.HasValue || cd != (ReadCd is not null) || !cd && CdOwner is not null)
-			throw new InvalidOperationException("Exactly one CD descriptor and reader must be provided together");
+		int single = (CdInfo.HasValue ? 1 : 0) + (CdInfoV2.HasValue ? 1 : 0);
+		int catalog = (CdCatalog is not null ? 1 : 0) + (CdCatalogV2 is not null ? 1 : 0);
+		bool cd = single + catalog != 0;
+		if (single + catalog > 1 || (single == 1) != (ReadCd is not null) || (catalog == 1) != (ReadCdCatalog is not null)
+			|| !cd && CdOwner is not null || CdSlots is null || CdNames is null || catalog == 0 && (CdSlots.Length != 0 || CdNames.Length != 0))
+			throw new InvalidOperationException("Choose one single CD or one fixed catalog with its matching reader");
+		if (catalog == 1)
+		{
+			if (CdCount is < 1 or > 16 || CdSlots.Length is < 1 or > 16 || CdNames.Length != CdSlots.Length)
+				throw new InvalidOperationException("CD catalog requires 1..16 slots and names");
+			int next = 0;
+			foreach (int slot in CdSlots) { if (slot < 0 || slot > next || slot >= CdCount) throw new InvalidOperationException("Invalid CD slot map"); if (slot == next) ++next; }
+			if (next != CdCount) throw new InvalidOperationException("CD catalog has an unused ordinal");
+			if (Enumerable.Range(0, CdCount).Select(n => BitConverter.ToString(CatalogId(n))).Distinct().Count() != CdCount)
+				throw new InvalidOperationException("CD catalog IDs must be unique");
+		}
 		if ((cd || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
 			|| Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || SyncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
 			throw new InvalidOperationException("CD32 requires its own model with no floppy drives, hard files or volumes");
@@ -251,6 +292,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	readonly IReadOnlyList<string> _hardFileNames;
 	readonly int[] _driveDisk = [ -1, -1, -1, -1 ];
 	int _currentDrive, _currentSlot;
+	int _cdOrdinal;
+	bool _cdPresent;
 	bool _ejectHeld, _insertHeld, _slotHeld, _driveHeld;
 	ulong _mediaSequence;
 	StateIdentity _identity = null!;            // what a state is valid for: this guest build, these heaps, these settings, this firmware, these disks
@@ -294,9 +337,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
 			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2,
 			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
+			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
+			CdSlots = (int[])parameters.CdSlots.Clone(), CdNames = (string[])parameters.CdNames.Clone(),
 		};
 		_mediaNames = parameters.MediaNames;
-		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
+		ControllerDefinition = Controllers.Define(_syncSettings, Math.Max(_media.Count, _parameters.CdSlotCount));
 		// The buffer the machine announces at the load (ADR 0006): 760 columns and 576 rows for the profile's raster, except an OCS machine in NTSC (the A500, the A500 OG, the A1000 and the A2000 OG cannot leave their
 		// standard); the ECS and AGA machines keep the PAL height in NTSC too so that a programmed PAL beam fits. The raster options scale it (T72). The first picture replaces it with the size that was really drawn.
 		BufferWidth = RasterWidth(_syncSettings);
@@ -324,7 +369,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		var guest = _parameters.PinnedGuestSha256 is { } pin
 			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps, cd)
 			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps, cd);
-		var previous = (Guest: _guest, Sequence: _mediaSequence, Disks: (int[])_driveDisk.Clone(), Imported: _imported);
+		var previous = (Guest: _guest, Sequence: _mediaSequence, Disks: (int[])_driveDisk.Clone(), Imported: _imported, CdOrdinal: _cdOrdinal, CdPresent: _cdPresent);
 		try
 		{
 			_guest = guest;
@@ -337,6 +382,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			var domains = CreateMemoryDomains();
 			guest.Seal();
 			if (cd is not null && cd.Activate(guest) != P6.Ok) throw new InvalidOperationException("CD32 device activation refused");
+			_cdOrdinal = 0; _cdPresent = cd is not null;
 			_identity = identity;
 			_domains = domains;
 		}
@@ -345,7 +391,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			_guest = previous.Guest;
 			_mediaSequence = previous.Sequence;
 			previous.Disks.CopyTo(_driveDisk, 0);
-			_imported = previous.Imported;
+			_imported = previous.Imported; _cdOrdinal = previous.CdOrdinal; _cdPresent = previous.CdPresent;
 			guest.Dispose();
 			throw;
 		}
@@ -448,6 +494,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The disk buttons, by edge. Selection first (Next Drive, Next Slot), then the action on what is selected (Eject, else Insert), at the head of the unit.
 	void ApplyDiskButtons(IController controller)
 	{
+		if (_parameters.CdSlotCount != 0) { ApplyCdButtons(controller); return; }
 		if (_media.Count == 0) return;
 		bool drive = controller.IsPressed(Controllers.NextDrive), slot = controller.IsPressed(Controllers.NextSlot);
 		bool eject = controller.IsPressed(Controllers.EjectDisk), insert = controller.IsPressed(Controllers.InsertDisk);
@@ -474,6 +521,30 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			CoreComm.Notify($"Inserted drive DF{_currentDrive}: {DiskName(_currentSlot)}", 4);
 		}
 		_driveHeld = drive; _slotHeld = slot; _ejectHeld = eject; _insertHeld = insert;
+	}
+
+	void ApplyCdButtons(IController controller)
+	{
+		bool slot = controller.IsPressed(Controllers.NextSlot), eject = controller.IsPressed(Controllers.EjectDisk), insert = controller.IsPressed(Controllers.InsertDisk);
+		if (slot && !_slotHeld)
+		{
+			_currentSlot = (_currentSlot + 1) % _parameters.CdSlotCount;
+			CoreComm.Notify($"Selected CD slot {_currentSlot}: {(_parameters.CdNames.Length == 0 ? "CD" : _parameters.CdNames[_currentSlot])}", 4);
+		}
+		void Change(int ordinal, bool present)
+		{
+			int result = _guest.Cd!.Change(_guest, (uint)ordinal, present);
+			if (result != P6.Ok) { _faulted = true; throw new InvalidOperationException($"CD change refused: {P6.ResultName(result)}"); }
+			_cdOrdinal = ordinal; _cdPresent = present; ++_mediaSequence;
+		}
+		if (eject && !_ejectHeld) Change(_cdOrdinal, false);
+		else if (insert && !_insertHeld)
+		{
+			int ordinal = _parameters.ReadCdCatalog is not null ? _parameters.CdSlots[_currentSlot] : 0;
+			if (_cdPresent && ordinal != _cdOrdinal) Change(_cdOrdinal, false);
+			Change(ordinal, true);
+		}
+		_slotHeld = slot; _ejectHeld = eject; _insertHeld = insert;
 	}
 
 	StateIdentity MakeIdentity(byte[] firmware, byte[]? initialNvramHash = null)
@@ -817,6 +888,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		public ulong MediaSequence;
 		public bool Mouse2Known;
 		public int Mouse2X, Mouse2Y;
+		public int CdOrdinal;
+		public bool CdPresent;
 	}
 
 	WrapperState Capture() => new()
@@ -826,7 +899,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		MouseKnown = _mouseKnown, MouseX = _mouseReferenceX, MouseY = _mouseReferenceY, CapsLatched = _capsLatched, CapsHeld = _capsHeld,
 		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], Disk2 = _driveDisk[2], Disk3 = _driveDisk[3], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
 		EjectHeld = _ejectHeld, InsertHeld = _insertHeld, SlotHeld = _slotHeld, DriveHeld = _driveHeld, MediaSequence = _mediaSequence,
-		Mouse2Known = _mouse2Known, Mouse2X = _mouse2ReferenceX, Mouse2Y = _mouse2ReferenceY,
+		Mouse2Known = _mouse2Known, Mouse2X = _mouse2ReferenceX, Mouse2Y = _mouse2ReferenceY, CdOrdinal = _cdOrdinal, CdPresent = _cdPresent,
 	};
 
 	static void Write(BinaryWriter w, WrapperState s)
@@ -836,7 +909,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		w.Write(s.MouseKnown); w.Write(s.MouseX); w.Write(s.MouseY); w.Write(s.CapsLatched); w.Write(s.CapsHeld);
 		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.Disk2); w.Write(s.Disk3); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
 		w.Write(s.EjectHeld); w.Write(s.InsertHeld); w.Write(s.SlotHeld); w.Write(s.DriveHeld); w.Write(s.MediaSequence);
-		w.Write(s.Mouse2Known); w.Write(s.Mouse2X); w.Write(s.Mouse2Y);
+		w.Write(s.Mouse2Known); w.Write(s.Mouse2X); w.Write(s.Mouse2Y); w.Write(s.CdOrdinal); w.Write(s.CdPresent);
 	}
 
 	WrapperState Parse(BinaryReader r)
@@ -851,7 +924,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 				AspectDen = r.ReadInt32(), DriveLightOn = r.ReadBoolean(), MouseKnown = r.ReadBoolean(), MouseX = r.ReadInt32(), MouseY = r.ReadInt32(),
 				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), Disk2 = r.ReadInt32(), Disk3 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
 				EjectHeld = r.ReadBoolean(), InsertHeld = r.ReadBoolean(), SlotHeld = r.ReadBoolean(), DriveHeld = r.ReadBoolean(), MediaSequence = r.ReadUInt64(),
-				Mouse2Known = r.ReadBoolean(), Mouse2X = r.ReadInt32(), Mouse2Y = r.ReadInt32(),
+				Mouse2Known = r.ReadBoolean(), Mouse2X = r.ReadInt32(), Mouse2Y = r.ReadInt32(), CdOrdinal = r.ReadInt32(), CdPresent = r.ReadBoolean(),
 			};
 		}
 		catch (EndOfStreamException)
@@ -863,7 +936,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			&& s.Disk2 >= -1 && s.Disk2 < _media.Count && s.Disk3 >= -1 && s.Disk3 < _media.Count
 			&& (ConnectedFloppyDrives > 0 || s.Disk0 == -1) && (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
 			&& (ConnectedFloppyDrives > 2 || s.Disk2 == -1) && (ConnectedFloppyDrives > 3 || s.Disk3 == -1)
-			&& s.CurrentDrive >= 0 && s.CurrentDrive < Math.Max(1, ConnectedFloppyDrives) && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, _media.Count)
+			&& s.CurrentDrive >= 0 && s.CurrentDrive < Math.Max(1, ConnectedFloppyDrives) && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, Math.Max(_media.Count, _parameters.CdSlotCount))
+			&& s.CdOrdinal >= 0 && s.CdOrdinal < Math.Max(1, _parameters.CdCount) && (_parameters.CdCount != 0 || !s.CdPresent)
 			&& s.Mouse2X is >= 0 and <= Controllers.MouseFieldWidth && s.Mouse2Y is >= 0 and <= Controllers.MouseFieldHeight
 			&& (s.Mouse2Known || (s.Mouse2X == 0 && s.Mouse2Y == 0));
 		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
@@ -876,7 +950,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		BufferWidth = s.BufferWidth; BufferHeight = s.BufferHeight; VsyncNumerator = s.VsyncNumerator; VsyncDenominator = s.VsyncDenominator;
 		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = s.DriveLightOn;
 		_mouseKnown = s.MouseKnown; _mouseReferenceX = s.MouseX; _mouseReferenceY = s.MouseY; _capsLatched = s.CapsLatched; _capsHeld = s.CapsHeld;
-		_mouse2Known = s.Mouse2Known; _mouse2ReferenceX = s.Mouse2X; _mouse2ReferenceY = s.Mouse2Y;
+		_mouse2Known = s.Mouse2Known; _mouse2ReferenceX = s.Mouse2X; _mouse2ReferenceY = s.Mouse2Y; _cdOrdinal = s.CdOrdinal; _cdPresent = s.CdPresent;
 		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _driveDisk[2] = s.Disk2; _driveDisk[3] = s.Disk3; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
 		_ejectHeld = s.EjectHeld; _insertHeld = s.InsertHeld; _slotHeld = s.SlotHeld; _driveHeld = s.DriveHeld; _mediaSequence = s.MediaSequence;
 		_soundFrames = 0;                          // pending output of the timeline that was left is not part of this one

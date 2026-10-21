@@ -19,6 +19,12 @@ internal static unsafe partial class Program
   public DiscType DiscType => default;
   public string DiscName { get; set; } = "CD32";
  }
+ sealed class MixedRom : IRomAsset
+ {
+  public byte[] FileData { get; } = new byte[P6.AdfBytes]; public byte[] RomData => FileData;
+  public string Extension => ".adf"; public string RomPath => "mixed.adf"; public GameInfo Game => null;
+ }
+
  sealed class Firmware(byte[] main, byte[] ext, bool combined) : ICoreFileProvider
  {
   internal readonly List<string> Asked = new();
@@ -125,6 +131,98 @@ internal static unsafe partial class Program
   Check(core); using var freshDisc = Mount(args[1]); using var next = open(freshDisc); Check(next);
   Console.WriteLine("Public BizHawk CD32 Brian gameplay/Right interaction/active audio/ticks/full snapshot/new sandbox/new process PASS");
  }
+ sealed class CdButtons(ControllerDefinition definition, params string[] pressed) : IController
+ {
+  public ControllerDefinition Definition => definition;
+  public bool IsPressed(string name) => pressed.Contains(name);
+  public int AxisValue(string name) => Definition.Axes.TryGetValue(name,out var axis) ? axis.Neutral : 0;
+  public IReadOnlyCollection<(string Name,int Strength)> GetHapticsSnapshot() => Array.Empty<(string,int)>();
+  public void SetHapticChannelStrength(string name,int strength) { }
+ }
+ static Puae6Guest Guest(Puae6Core core) => (Puae6Guest)typeof(Puae6Core).GetField("_guest",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
+ static void CatalogCore(string[] args, byte[] main, byte[] ext)
+ {
+  string a=args[1], b=Path.Combine(args[0],"catalog-b.iso"), alias=Path.Combine(args[0],"alias-a.iso");
+  File.WriteAllBytes(b,Enumerable.Repeat((byte)0x6d,512*2048).ToArray()); File.Copy(a,alias,true);
+  using var da=Mount(a); using var db=Mount(b); using var daa=Mount(alias);
+  long reads=0; var messages=new List<string>();
+  Puae6Core Open(params Disc[] discs)
+  {
+   var comm=new CoreComm(m=>messages.Add(m),(_,_)=>{},new Firmware(main,ext,true),CoreComm.CorePreferencesFlags.None,null);
+   var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
+   for(int n=0;n<discs.Length;++n) lp.Discs.Add(new DiscAsset(discs[n]) { DiscName="label"+n });
+   var method=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.NonPublic|BindingFlags.Static);
+   var p=(Puae6Parameters)method.Invoke(null,new object[]{lp});
+   Require(p.CdCatalog.Length==2&&p.CdSlots.SequenceEqual(discs[2]==discs[1]?new[]{0,1,1}:new[]{0,1,0}));
+   var mixed=Puae6WhdLoad.Resolve(p); mixed.CdInfo=new P6CdInfo();
+   try { Puae6WhdLoad.Resolve(mixed); throw new Exception("Mixed CD binding modes accepted"); } catch(InvalidOperationException) { }
+   p.GuestDirectory=Path.GetDirectoryName(args[3]); p.GuestFileName=Path.GetFileName(args[3]); p.PinnedGuestSha256=args[4];
+   var read=p.ReadCdCatalog; p.ReadCdCatalog=(ordinal,at,data,count)=>{ ++reads; return read(ordinal,at,data,count); };
+   var core=new Puae6Core(comm,p);
+   // The caller's parameter arrays and UI names cannot mutate the captured catalog.
+   p.CdSlots[0]=1; p.CdNames[1]="mutated"; fixed(P6CdInfo* info=p.CdCatalog) info[0].Id[0]^=1;
+   Require(!core.ControllerDefinition.BoolButtons.Contains(Controllers.NextDrive));
+   Require(new[]{Controllers.NextSlot,Controllers.EjectDisk,Controllers.InsertDisk}.All(core.ControllerDefinition.BoolButtons.Contains));
+   return core;
+  }
+  uint[] Status(Puae6Core c) { var values=new uint[4]; Require(Guest(c).Cd.Status(Guest(c),values)==P6.Ok); return values; }
+  void Data(Puae6Core c,uint ordinal,bool present)
+  {
+   var g=Guest(c); var data=Enumerable.Repeat((byte)0xcc,2048).ToArray(); long before=reads;
+   using var active=g.Host.EnterExit(); fixed(byte* p=data) {
+    Require(g.Lib.p6w_cd_read_sector(0,2048,(IntPtr)p,2048)==(present?P6.Ok:P6.BadState));
+   }
+   Require(present?data.All(v=>v==(ordinal==0?0:0x6d)):data.All(v=>v==0xcc)&&reads==before);
+  }
+  void Buttons(Puae6Core c,params string[] names) => Run(c,1,new CdButtons(c.ControllerDefinition,names));
+  using var core=Open(da,db,daa);
+  byte[] initial=Save(core);
+  foreach(string cut in new[]{"a","b","empty-b"})
+  {
+   string file=Path.Combine(args[0],"public-catalog-"+cut);
+   bool present=cut!="empty-b"; uint ordinal=cut=="a"?0u:1u;
+   string[] held=cut=="a"?new[]{Controllers.NextSlot}:new[]{present?Controllers.InsertDisk:Controllers.EjectDisk};
+   if(args[5]=="catalogsave") {
+    Restore(core,initial); Run(core,300); Require(reads>0);
+    if(cut!="a") { Buttons(core,Controllers.NextSlot); Buttons(core); Buttons(core,Controllers.EjectDisk); if(present) { Buttons(core); Buttons(core,Controllers.InsertDisk); } }
+    else Buttons(core,Controllers.NextSlot);
+    Require(Status(core).Take(3).SequenceEqual(new uint[]{2,ordinal,present?1u:0u})); Data(core,ordinal,present);
+    File.WriteAllBytes(file,Save(core)); ulong requests=core.MediaEventsSent;
+    File.WriteAllLines(file+".future",Run(core,15,new CdButtons(core.ControllerDefinition,held)));
+    Require(core.MediaEventsSent==requests); File.WriteAllBytes(file+".end",Save(core));
+   }
+   void Check(Puae6Core target)
+   {
+    for(int n=0; n<3&&(Status(target)[1]!=1||Status(target)[2]==0); ++n) { Buttons(target); Buttons(target,Controllers.NextSlot); Buttons(target); Buttons(target,Controllers.InsertDisk); }
+    Require(Status(target)[1]==1&&Status(target)[2]==1); Data(target,1,true); // Restore really replaces an inserted B.
+    Restore(target,File.ReadAllBytes(file));
+    Require(Status(target).Take(3).SequenceEqual(new uint[]{2,ordinal,present?1u:0u})); Data(target,ordinal,present);
+    Require(Run(target,15,new CdButtons(target.ControllerDefinition,held)).SequenceEqual(File.ReadAllLines(file+".future")));
+    Require(Save(target).SequenceEqual(File.ReadAllBytes(file+".end")));
+   }
+   Check(core);
+   using var freshA=Mount(a); using var freshB=Mount(b); using var freshAlias=Mount(alias); using var fresh=Open(freshAlias,freshB,freshA); Check(fresh);
+  }
+  // Slot2 aliases A: selection changes independently of the applied canonical ordinal.
+  Restore(core,initial); Buttons(core,Controllers.NextSlot); Buttons(core); Buttons(core,Controllers.NextSlot); Buttons(core);
+  Buttons(core,Controllers.EjectDisk); Buttons(core); Buttons(core,Controllers.InsertDisk); Data(core,0,true);
+  Require(Status(core)[1]==0&&messages.Any(m=>m.Contains("label1"))&&!messages.Any(m=>m.Contains("mutated")));
+  foreach(var discs in new[]{new[]{db,da,db},new[]{da,db,db}}) {
+   using var wrong=Open(discs); var before=Save(wrong); long beforeReads=reads;
+   try { Restore(wrong,initial); throw new Exception("Other catalog/map accepted"); } catch(StateRejectedException e) { Require(e.Reason==StateRejection.OtherMedia); }
+   try { Puae6Movie.Validate(Puae6Movie.Header(core),wrong); throw new Exception("Other movie catalog/map accepted"); } catch(MovieRejectedException e) { Require(e.Reason==MovieRejection.OtherMedia); }
+   Require(reads==beforeReads&&before.SequenceEqual(Save(wrong)));
+  }
+  using(var raw=new MemoryStream(initial)) using(var reader=new BinaryReader(raw)) {
+   var payload=StateEnvelope.Read(reader,core.Identity); Buffer.BlockCopy(BitConverter.GetBytes(2),0,payload,Puae6Core.WrapperStateBytes-5,4);
+   using var state=new MemoryStream(); using(var writer=new BinaryWriter(state,System.Text.Encoding.UTF8,true)) StateEnvelope.Write(writer,core.Identity,payload);
+   var before=Save(core); long beforeReads=reads;
+   try { Restore(core,state.ToArray()); throw new Exception("Invalid CD ordinal accepted"); } catch(StateRejectedException e) { Require(e.Reason==StateRejection.BadFields); }
+   Require(before.SequenceEqual(Save(core))&&beforeReads==reads);
+  }
+  Console.WriteLine("Public BizHawk CD32 catalog A/B/A-alias/buttons/held/absent/future/fullsnapshot/newowners/process/identity PASS");
+ }
+
 #if PUBLIC_CHD
  static object Hidden(object target, string name, params object[] args) => target.GetType().GetMethod(name, BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,args);
  static void HostCheck(bool value, string phase) { if(!value) throw new Exception("Public CHD host: "+phase); }
@@ -176,6 +274,15 @@ internal static unsafe partial class Program
    }
    var legacy=new Puae6Parameters { CdInfo=new P6CdInfo { Version=1, Size=(uint)sizeof(P6CdInfo) }, ReadCd=p.ReadCd, Firmware=p.Firmware, SyncSettings=p.SyncSettings.Clone() };
    HostCheck(Puae6WhdLoad.Resolve(legacy).CdInfoV2==null&&((byte[])Hidden(legacy,"CdIdentity")).All(b=>b==0),"legacy identity");
+   string iso=path+".legacy.iso"; File.WriteAllBytes(iso,new byte[512*2048]); using var legacyDisc=Mount(iso);
+   assets.Add(new DiscAsset(legacyDisc)); assets.Add(assets[0]);
+   var catalog=(Puae6Parameters)factory.Invoke(null,new object[] { lp });
+   HostCheck(catalog.CdInfo==null&&catalog.CdInfoV2==null&&catalog.CdCatalog==null&&catalog.CdCatalogV2.Length==2&&catalog.CdSlots.SequenceEqual(new[]{0,1,0}),"mixed regional/legacy catalog");
+   var legacyInfo=catalog.CdCatalogV2[1]; HostCheck(legacyInfo.Version==2&&legacyInfo.Tracks[6]==1&&legacyInfo.Tracks[9]==0,"V1 policy in V2 transport");
+   var catalogClone=Puae6WhdLoad.Resolve(catalog); catalog.CdSlots[1]=0;
+   HostCheck(catalogClone.CdSlots.SequenceEqual(new[]{0,1,0})&&((byte[])Hidden(catalogClone,"CdIdentity")).SequenceEqual((byte[])Hidden(Puae6WhdLoad.Resolve(catalogClone),"CdIdentity")),"catalog clone");
+   var legacyBytes=new byte[2448]; HostCheck(catalogClone.ReadCdCatalog(1,0,legacyBytes,2448)&&legacyBytes[15]==1,"mixed catalog real ISO read");
+   assets.RemoveRange(1,2);
    int opened=OpenChd(chd); HostCheck(opened==1,"one owned CHD handle"); lease.Dispose();
    HostCheck(OpenChd(chd)==0,"real FD closed"); lease.Dispose();
    HostCheck(OpenChd(chd)==0,"lease idempotent");
@@ -206,6 +313,7 @@ internal static unsafe partial class Program
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");
   byte[] main = File.ReadAllBytes(args[6]), ext = File.ReadAllBytes(args[7]);
+  if (args[5].StartsWith("catalog")) { CatalogCore(args, main, ext); return; }
   using var disc = Mount(args[1]);
   long reads = 0;
   var seed = Enumerable.Range(0, 1024).Select(i => (byte)(i * 17 + 9)).ToArray();
@@ -217,10 +325,14 @@ internal static unsafe partial class Program
    lp.Discs.Add(new DiscAsset(image));
    var method = typeof(Puae6Core).GetMethod("ParametersFrom", BindingFlags.NonPublic | BindingFlags.Static);
    Puae6Parameters Resolve() => (Puae6Parameters)method.Invoke(null, new object[] { lp });
-   lp.Discs.Add(lp.Discs[0]);
-   try { Resolve(); throw new Exception("Multiple CDs accepted"); }
+   lp.Discs.AddRange(Enumerable.Repeat(lp.Discs[0], 16));
+   try { Resolve(); throw new Exception("More than16 CD slots accepted"); }
    catch (TargetInvocationException e) when (e.InnerException is NotSupportedException) { Require(firmware.Asked.Count == 0); }
-   lp.Discs.RemoveAt(1);
+   lp.Discs.RemoveRange(1, 16);
+   lp.Roms.Add(new MixedRom());
+   try { Resolve(); throw new Exception("CD/floppy mixture accepted"); }
+   catch (TargetInvocationException e) when (e.InnerException is NotSupportedException) { Require(firmware.Asked.Count == 0); }
+   lp.Roms.Clear();
    var p = Resolve();
    Require(original.Machine == Puae6Machine.A500 && p.SyncSettings.Machine == Puae6Machine.CD32);
    Require(p.SyncSettings.FastMemory == original.FastMemory);

@@ -2,6 +2,7 @@
 
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Common;
@@ -27,13 +28,23 @@ public sealed partial class Puae6Core
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
-		if (lp.Discs.Count > 1 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
-			throw new NotSupportedException("CD32 loads one CD without other media");
-		Puae6DiscSource? cd = null;
-		if (lp.Discs.Count == 1)
+		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
+			throw new NotSupportedException("CD32 loads 1..16 CD slots without other media");
+		var sources = new List<Puae6DiscSource>();
+		var slots = new List<int>();
+		var typed = new List<bool>();
+		foreach (var asset in lp.Discs)
+		{
+			var source = new Puae6DiscSource(asset.DiscData);
+			int ordinal = sources.FindIndex(s => s.ContentId.SequenceEqual(source.ContentId));
+			if (ordinal < 0) { ordinal = sources.Count; sources.Add(source); typed.Add(asset.DiscData.Regions.Count != 0); }
+			slots.Add(ordinal);
+		}
+		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Any(a => a.DiscData.Regions.Count != 0);
+		Puae6DiscSource? cd = lp.Discs.Count == 1 ? sources[0] : null;
+		if (lp.Discs.Count != 0)
 		{
 			settings.Machine = Puae6Machine.CD32;
-			cd = new Puae6DiscSource(lp.Discs[0].DiscData);
 		}
 		byte[] Firmware(Puae6Machine machine)
 		{
@@ -59,7 +70,11 @@ public sealed partial class Puae6Core
 			SyncSettings = settings,
 			CdInfo = cd is not null && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
 			CdInfoV2 = cd is not null && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,
-			CdOwner = lp.Discs.Count == 1 ? lp.Discs[0] as IOwnedDiscAsset : null,
+			CdOwner = lp.Discs.Count == 1 ? lp.Discs[0] as IOwnedDiscAsset : lp.Discs.OfType<IOwnedDiscAsset>().Any() ? new CdOwners(lp.Discs.OfType<IOwnedDiscAsset>().Distinct().ToArray()) : null,
+			CdCatalog = catalog && !regional ? sources.Select(s => s.Descriptor()).ToArray() : null,
+			CdCatalogV2 = catalog && regional ? sources.Select((s, n) => RegionalDescriptor(s, typed[n])).ToArray() : null,
+			CdSlots = catalog ? slots.ToArray() : [ ], CdNames = catalog ? lp.Discs.Select(a => a.DiscName).ToArray() : [ ],
+			ReadCdCatalog = catalog ? (ordinal, at, data, count) => ordinal < sources.Count && sources[(int)ordinal].ReadAt(at, data, 0, count) : null,
 			ReadCd = cd is null ? null : (at, data, count) => cd.ReadAt(at, data, 0, count),
 			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),
@@ -70,6 +85,26 @@ public sealed partial class Puae6Core
 			VolumeNames = volumes.Select(NameOf).ToList(),
 		}, Firmware,
 			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
+	}
+
+	static unsafe P6CdInfoV2 RegionalDescriptor(Puae6DiscSource source, bool regional)
+	{
+		if (regional) return source.DescriptorV2();
+		var legacy = source.Descriptor();
+		var result = new P6CdInfoV2 { Version = 2, Size = (uint)sizeof(P6CdInfoV2), Bytes = legacy.Bytes, Count = legacy.Count, Leadout = legacy.Leadout };
+		for (int i = 0; i < 32; ++i) result.Id[i] = legacy.Id[i];
+		for (int n = 0; n < legacy.Count; ++n)
+		{
+			for (int i = 0; i < 5; ++i) result.Tracks[n * 12 + i] = legacy.Tracks[n * 6 + i];
+			result.Tracks[n * 12 + 6] = 1; // Stored INDEX00; flags0 selects the complete V1 policy in cd_descriptor_v2.
+		}
+		return result;
+	}
+
+	sealed class CdOwners(IOwnedDiscAsset[] owners) : IDisposable
+	{
+		bool _disposed;
+		public void Dispose() { if (_disposed) return; _disposed = true; foreach (var owner in owners) owner.Dispose(); }
 	}
 
 	/// <summary>The entry of BizHawk's firmware database for each machine (FirmwareDatabase.cs, Amiga): "A500" is Kickstart 1.3 (1.2 and the 3.1 r40.063 are its other options), "A600" Kickstart 2.05 (2.04 of the A500+ and the 3.1
