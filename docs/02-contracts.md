@@ -316,6 +316,9 @@ flanco anterior: solo solicita la entrada al monitor despues de arrancar una uni
 con la maquina cargada, sin reset y con el cartucho preparado. El estado nativo conserva
 RAM, mapas, latches, IRQ y eventos del cartucho, ademas del nivel de commands.
 Esta capacidad no anuncia AR1/AR1200 ni selectores de libretro o BizHawk.
+La puerta de firmware real sigue abierta: Freeze alcanza el monitor AR2/AR3,
+pero el escenario de comando `g` aun no ejecuta el programa de prueba.
+No se acredita su salida ni su futuro restaurado con esas ROMs hasta resolverlo.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
