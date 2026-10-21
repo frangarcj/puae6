@@ -321,7 +321,7 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
     // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
     const uint32_t discs = p6_cd::device_catalog_size();
-    if (session.config.machine == p6_bridge::kCd32Machine || discs) {
+    if (session.config.machine == p6_bridge::kCd32Machine || session.config.machine == p6_bridge::kCdtvMachine || discs) {
         uint8_t count_le[4]; put32(count_le, discs);
         const uint8_t *parts[p6_cd::kDeviceMaxDiscs + 2] = {out, count_le};
         uint64_t lengths[p6_cd::kDeviceMaxDiscs + 2] = {32, 4};
