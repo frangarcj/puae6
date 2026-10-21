@@ -19276,14 +19276,15 @@
         "docs/options.md"
       ],
       "id": "T67c3d",
-      "title": "Restablecer display CDTV en nuevo power-on sin alterar warm reset",
-      "status": "blocked",
+      "title": "Restablecer display y fase DMA de disco CDTV en nuevo power-on",
+      "status": "in_progress",
       "depends": [
         "T67c3a",
         "T66r8"
       ],
       "touch": [
         "patches/winuae/0406-cdtv-display-power-on.patch",
+        "patches/winuae/0409-cdtv-floppy-power-on.patch",
         "bridge/lifecycle.cpp",
         "tests/libretro-host/test_cdtv_load.py",
         "docs/02-contracts.md",
@@ -19299,7 +19300,8 @@
         "Hook privado P6_PORTABLE p6_custom_display_power_on, solo start_engine config.machine==kCdtvMachine inmediatamente antes custom_init despuesmemoria/firmwareverificados. Inicializar explicitamente a sus valores BSS documentados COP1/2LC, DIW/DDF/latches saved/old/cycle, BPLCON1/2 y saved, BPL1/2MOD/BPLxPT y secuenciador bprun/ddf/plffirst/plflast. No memset de estructuras ni borrarblitter/disk/buslatch/paleta/sprites; campos ya reseteados mantienenruta. No invocar en custom_reset/p6_reset/loadstate ni añadir scheduler.",
         "LR01 test_original_cd_boot_serialize_and_cold_reload conserva --cycles2, exactfuture/fullstate ycold. Mejorar diagnostico primeradiferencia sin relajarassert. Contraste acotado de nuevo power-on sinrestore1032x2 y comparar primerowner antes/despues con binario congelado en build (observables/ticks169/futuro, no compatibilidaddeestadosentrebuilds); limpiar ese binario alterminar. No repetir firmware/VFS,CD32niABI yaPASS salvo cambio relevante.",
         "GEN01 verificar aplicacion0406 y los29outputs CPU existentes porgenerador/refreshreceipt exacto; no editar generados. Si el hook coherente no resuelve, no ampliaraotrosdominios: preservar test y doshipotesis verificables, blocked y elegir otra tarea.",
-        "Revision causal sololectura21oct: start_engine/m68k_go_unit/custom_reset6831/devices_reset225/init_eventtab6790/clear_events540..548 reiniciaidx/cnt/restart/next. P6SC168distinto puede serefecto, no prueba de cursor omitido. cycles_to_add_remain0..511noreseteadoen clear_events perosolo do_cycles_slow; CPUCDTVexact usaextra_cycle quesereinicia custom_reset6936. Sin prueba de remanenteno0/consumocaunuevo, nojustifica tercerreset/campaña. H1/H2 siguen hipótesis, fichabloqueada yreproducerintacto."
+        "Revision causal sololectura21oct: start_engine/m68k_go_unit/custom_reset6831/devices_reset225/init_eventtab6790/clear_events540..548 reiniciaidx/cnt/restart/next. P6SC168distinto puede serefecto, no prueba de cursor omitido. cycles_to_add_remain0..511noreseteadoen clear_events perosolo do_cycles_slow; CPUCDTVexact usaextra_cycle quesereinicia custom_reset6936. Sin prueba de remanenteno0/consumocaunuevo, nojustifica tercerreset/campaña. H1/H2 siguen hipótesis, fichabloqueada yreproducerintacto.",
+        "21oct: contraste causal con0406, sinnuevoreset: en622 P6CP155bytesexactos,SCsolocursoresdistintos. Cuatroreplayscold1unidad: controlesreproducenestado623completobyteexacto; SCtrasplantadonoalteradelta; P6DK+soloCHIP.DSKPTdeowner2enowner1reproduceexactamente−4096ticks yP6CP/P6RM623owner2. UnicasdiferenciasDK bitoffset10/12 yDSKLEN0x269/0x26b, DSKPT0xe01a/0xe016, DMAREADactivo/FIFO[1,1,0]. Ampliacionexplicitaatomica0409disk.cpp+lifecycleademas0406custom: restablecer solo faseBSScausalbitoffset0 alpower-onCDTV antescustom_init; DISK_resetmantienefasewarm porhardware. Leerconsumidoresdoreaddma/DISK_dmal yBSSanteseditar; noresetpaleta/blitter/cursor ni hardwareporframe. cd32_closeaisladocdtv-phase, fuente/fixturesolamente; rootserie/clasificacion/codegen ybuildj2. ChecksLR01unionlongnewowner+bootrestoreuna vez,GEN01aplicacion+29outputs, primerownerexactoconvariante0406congelada. Siaparecenotroscamposnecesariosavisarantesdeampliar, nodoneporquitardeltaenunafrontera."
       ],
       "checks": [
         "LR01",
@@ -19308,8 +19310,7 @@
       "acceptance": [
         "Primerarranque CDTV conserva observables previos; nuevoowner tras sesionlarga reproduce exactamente ticks/RAM/AV/PCM yboot/restores, con hookcold exclusivo y warmreset/otrosmodelos intactos."
       ],
-      "stop": "No tolerancias/golden cambiados ni reset ciego de todochipset. Gatepublico C3b sigue bloqueado hasta esta correccion y frio pendientes.",
-      "blocked_reason": "0406 corrige169 pero resta delta623(-4096), AV/PCM iguales; WIP codex/cdtv-display-power-on-wip conserva prefijo first-owner exacto. Observacion sin modificar el baseline sin0406: UNIT_END623 coincide22586630656 y retorno diverge22586638848/22586634752; en622 ambos pares de tiempos son iguales. La diferencia observable esta despues de render: MOVEM4CDF/PCFE5896 frente RTS4E75/PCFE589A al marcar623, IPL3/0 frente0/0 con mismo pin3/mask3. Esto no demuestra equivalencia del WIP ni identifica el campo retenido. H1: fase/pipelineIRQ heredado cambia entrada/cola de CPU; comparar P6CP e instantes IPL antes de la primera diferencia de PC. H2: estado display/DMA heredado cambia el progreso de instrucciones dentro del campo; comparar P6CH y accesos/bus hasta ese primer PC distinto. No reset adicional ni campaña amplia hasta atribuir el estado causal; reproducer --cycles2 intacto."
+      "stop": "No tolerancias/golden cambiados ni reset ciego de todochipset. Gatepublico C3b sigue bloqueado hasta esta correccion y frio pendientes."
     },
     {
       "id": "T67c3b",
