@@ -22,7 +22,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0396-chd-mode2-form2-edc'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata','0396-chd-mode2-form2-edc'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -39,7 +39,7 @@ class CdImageTests(unittest.TestCase):
             out=subprocess.run(common+['-DP6_'+kind.upper()+'_METADATA','-c',str(cls.work/'blkdev_cdimage.cpp'),'-o',str(obj)],capture_output=True,text=True,timeout=60)
             if out.returncode: raise AssertionError(out.stderr)
         sources=['tests/media/cd_image_probe.cpp']+['adapters/libretro/'+name+'.cpp' for name in ('cd_image','cd_cue','cd_ccd','cd_nrg','cd_mds','cd_chd')]
-        sources+=['ports/portable/media/'+name for name in ('cd_source.cpp','cd_wave.cpp','cd_disc.cpp','cd_read.cpp','cd_subchannel.cpp','cd_utilities.cpp','sha256.c')]
+        sources+=['ports/portable/media/'+name for name in ('cd_source.cpp','cd_wave.cpp','cd_disc.cpp','cd_read.cpp','cd_subchannel.cpp','cd_akiko.cpp','cd_utilities.cpp','sha256.c')]
         paths=[ROOT/p for p in sources]+[cls.work/'cdrom.cpp']+list(map(Path,objects))
         includes=[cls.work/'include']+[ROOT/p for p in ('ports/portable','references/libretro-api/include','upstream/winuae/include')]
         (cls.work/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.21)\nproject(factory C CXX)\n'+
@@ -107,6 +107,31 @@ class CdImageTests(unittest.TestCase):
             renamed.write_bytes(data+b'opaque tail') # Valid container/streams; complete file identity must still differ.
             self.assertEqual(self.run_image(original,rebind=renamed,vfs=True)[-2],before.replace('rebind 0 ','rebind 2 '))
             renamed.write_bytes(data[:100]); self.assertTrue(self.run_image(renamed,code=2,vfs=True)[0].startswith('error '))
+
+    def test_dao_multisession_factory_virtual_toc_identity_and_vfs(self):
+        for version in (1,2):
+            path,raw,streams,directory,blocks=test_cd_nrg.nrg_multisession_fixture(self.work,'multi'+str(version),version)
+            lines=self.run_image(path); self.assertEqual(lines,self.run_image(path,vfs=True))
+            whole=path.read_bytes(); digest=hashlib.sha256
+            identity=b'P6NRGM'+struct.pack('<Q',len(whole))+digest(whole).digest()
+            identity+=struct.pack('<QIIiiII',directory,version,3,-150,39,0,1)+b'1234567890123'
+            for r,stream in zip(raw,streams):
+                identity+=struct.pack('<QQQiiIIIII',*(r[i] for i in (0,1,2,5,6,3,4,8,9,7)))+b'US1234567890'+digest(stream).digest()
+            identity+=struct.pack('<II',1,2)
+            for first,last,fmt,cue0,a2,hint,catalog in ((1,2,0,-150,11,1,b'1234567890123'),(3,3,32,20,39,7,b'ABCDEFGHIJKLM')):
+                identity+=struct.pack('<IIIIII',first,last,fmt,cue0&0xffffffff,a2,hint)+catalog
+            self.assertEqual(lines[0],f'disc 3 39 3 {digest(identity).hexdigest()}')
+            self.assertEqual([r for r in lines if r.startswith('toc ')],['toc 160 1 0 0','toc 1 1 0 0','toc 2 2 6 4','toc 3 3 32 4','toc 161 3 39 0','toc 162 0 39 0'])
+            self.assertEqual([r for r in lines if r.startswith('session ')],['session 1 1 2 0 -150 11','session 2 3 3 32 20 39'])
+            self.assertEqual([r for r in lines if r.startswith('gap ')],['gap 11','gap 20','gap 29'])
+            for n in (0,2):
+                r=raw[n]; at=r[1]-r[0]
+                self.assertIn(f'sector {r[6]} {digest(streams[n][at:at+2352]).hexdigest()}',lines)
+            renamed=test_cd_nrg.nrg_multisession_fixture(self.work,'same'+str(version),version)[0]
+            baseline=self.run_image(path,rebind=renamed,vfs=True)[-2]; self.assertTrue(baseline.startswith('rebind 0 '))
+            for at in (directory+blocks[1]['DAO']+12,raw[2][1]+17):
+                changed=bytearray(whole); changed[at]^=1; renamed.write_bytes(changed)
+                self.assertEqual(self.run_image(path,rebind=renamed,vfs=True)[-2],baseline.replace('rebind 0 ','rebind 2 '))
 
     def test_mds_delegates_with_four_parsers_identity_vfs_and_fresh_owner(self):
         path,payload=self.iso(); data,_,at=mds_ref.mds(modes=((0xaa,2048,0),),name='disc.ISO')

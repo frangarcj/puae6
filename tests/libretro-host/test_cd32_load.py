@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_libretro as lr
 from tests.build_support import ROOT, build_targets
 from tests.media import test_mds_metadata as mds_ref, test_chd_reader as chd_ref, test_cd_chd as chd_provider
+from tests.media import test_cd_nrg as nrg_ref
 
 
 class Cd32Session(lr.LibretroHarness):
@@ -40,6 +41,56 @@ class Cd32Session(lr.LibretroHarness):
         self.assertIn('vfs closed live=0', result.stdout)
         self.assertNotIn('VIOLATION', result.stdout)
         return result.stdout
+
+
+class Cd32NrgMultisessionTests(Cd32Session):
+    def test_dao_multisession_direct_load_restore_cold_and_identity(self):
+        work=self.work()
+        content,raw,_,directory,blocks=nrg_ref.nrg_multisession_fixture(work,'public')
+        renamed=nrg_ref.nrg_multisession_fixture(work,'renamed')[0]
+        cut,end,again,fresh=(work/name for name in ('cut','end','again','fresh'))
+        # Original synthetic audio/data, not an application or a boot claim.
+        original=self.run_cd('--runs',332,'--cycles',2,'--do','300:save:s','--do',f'300:savefile:{cut}',
+                             '--do','316:memory','--do',f'316:savefile:{end}','--do','316:load:s',
+                             '--do','332:memory','--do',f'332:savefile:{again}',content=content)
+        self.assertIn('machine CD32',original); self.assertEqual(end.read_bytes(),again.read_bytes())
+        view=lambda r:tuple(r[k] for k in ('unit','ticks','hash','ahash','audio'))
+        chunks=re.split(r'cycle \d+ end[^\n]*\n',original)[:2]
+        futures=[]
+        for chunk in chunks:
+            runs=self.runs(chunk); self.assertEqual(len(runs),332)
+            future=[view(r) for r in runs[300:316]]; futures.append(future)
+            self.assertEqual(future,[view(r) for r in runs[316:332]])
+            memory=re.findall(r'^memory hash (.*)$',chunk,re.M); self.assertEqual(len(memory),2); self.assertEqual(*memory)
+        self.assertEqual(futures[0],futures[1])
+        self.assertEqual([view(r) for r in self.runs(chunks[0])],[view(r) for r in self.runs(chunks[1])])
+        accepted=self.run_cd('--no-vfs','--set','puae6_machine=CD32','--runs',16,
+                             '--do',f'0:loadfile:{cut}:pos=300','--do','0:images',
+                             '--do','16:memory','--do',f'16:savefile:{fresh}',content=renamed)
+        self.assertIn(f'state load {cut} pos=300 ok=1',accepted)
+        self.assertIn('state images count=1 index=0 eject=0',accepted)
+        self.assertEqual(futures[0],[view(r) for r in self.runs(accepted)])
+        self.assertEqual(re.findall(r'^memory hash (.*)$',accepted,re.M),re.findall(r'^memory hash (.*)$',chunks[0],re.M)[:1])
+        self.assertEqual(end.read_bytes(),fresh.read_bytes())
+        expected_id=None
+        for path in (cut,end,again,fresh):
+            device,body=Cd32PlaylistTests.device(self,path,controller=True)
+            if expected_id is None: expected_id=device[0]
+            self.assertEqual(device[:3],(expected_id,1,1))
+            # P6AK semantic LE codec, shared with the HTOA test below.
+            at=8+156+64+64+1339+16
+            self.assertEqual(struct.unpack_from('<8i',body,at),(1,1,3,3,0,39,3,6))
+            entries=[struct.unpack_from('<8B2i',body,at+32+n*16) for n in range(6)]
+            self.assertEqual([(e[3],e[4],e[-1],e[1]) for e in entries],
+                             [(160,1,0,0),(1,1,0,0),(2,2,6,4),(3,3,32,4),(161,3,39,0),(162,0,39,0)])
+        source=content.read_bytes()
+        for n,at in enumerate((directory+blocks[1]['DAO']+12,raw[2][1]+17)):
+            changed=bytearray(source); changed[at]^=1
+            foreign=work/('foreign'+str(n)+'.nrg'); foreign.write_bytes(changed)
+            before,after=work/('before'+str(n)),work/('after'+str(n))
+            refused=self.run_cd('--runs',1,'--do',f'1:savefile:{before}','--do',f'1:loadfile:{cut}',
+                                '--do',f'1:savefile:{after}',content=foreign)
+            self.assertIn(f'state load {cut} exact ok=0',refused); self.assertEqual(before.read_bytes(),after.read_bytes())
 
 
 class Cd32LoadTests(Cd32Session):

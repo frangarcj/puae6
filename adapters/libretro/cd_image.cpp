@@ -52,9 +52,9 @@ struct CdImage::Data {
         layout = &iso_layout; bindings = &iso_binding; count = 1;
         return Result::Ok;
     }
-    template<class Owner> Result use(Owner &owner, const char *path, const retro_vfs_interface *vfs)
+    template<class Owner, class... Policy> Result use(Owner &owner, const char *path, const retro_vfs_interface *vfs, Policy... policy)
     {
-        const auto result = owner.open(path, vfs);
+        const auto result = owner.open(path, vfs, policy...);
         if (result == Result::Ok) { layout = owner.layout(); bindings = owner.bindings(); count = owner.sources(); }
         return result;
     }
@@ -68,7 +68,7 @@ Result CdImage::open(const char *path, const retro_vfs_interface *vfs)
     const auto result = extension(path, "iso") ? candidate->open_iso(path, vfs) :
         extension(path, "cue") ? candidate->use(candidate->cue, path, vfs) :
         extension(path, "ccd") ? candidate->use(candidate->ccd, path, vfs) :
-        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs) :
+        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs, NrgSessionPolicy::ExplicitSessions) :
         extension(path, "mds") ? candidate->use(candidate->mds, path, vfs) :
         extension(path, "chd") ? candidate->use(candidate->chd, path, vfs) : Result::Unsupported;
     if (result == Result::Ok) data_ = std::move(candidate);

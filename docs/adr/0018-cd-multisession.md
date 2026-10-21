@@ -1,7 +1,7 @@
 # ADR 0018: TOC global virtual de CD multisesion
 
-Estado: aceptada para el dispositivo privado; carga/restauracion y transportes
-publicos multisesion conservan sus puertas pendientes.
+Estado: aceptada para el dispositivo y la fabrica nativa/libretro (T66v9);
+el loader publico C#/Waterbox conserva su puerta pendiente.
 
 ## Contexto y fuentes
 
@@ -41,5 +41,7 @@ seleccion, TOC y comportamiento de huecos del hardware CD32/CDTV real.
 
 MED01 prueba TOC numerico, comparacion legacy byte exacta, consultas independientes,
 lecturas de ambas sesiones y rechazo sin IO por el dispositivo real, con
-ASan/UBSan. CdNrg conserva SingleOnly por defecto; el opt-in privado, identidad
-y rebind de T66v3 no habilitan carga publica multisesion.
+ASan/UBSan. CdNrg conserva SingleOnly por defecto; CdImage usa el opt-in
+ExplicitSessions, alias de valor 1 de ExplicitPrivate, con la identidad y rebind
+de T66v3 intactos. LR01 comprueba load/serialize/restore frio y futuro exacto;
+la fixture no acredita boot de aplicacion ni el comportamiento de hardware.

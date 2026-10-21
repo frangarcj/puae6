@@ -21,6 +21,11 @@ el usuario tenga seleccionado; las fases mecanicas si se restauran.
 Libretro acepta CD directo ISO/CUE/CCD/NRG DAO/ETNF/MDS v1 con `puae6_machine=auto|CD32`
 y Kickstart Automatic. Requiere las mitades de 512 KiB `kick40060.CD32` y
 `kick40060.CD32.ext` en el directorio de sistema (tambien sus alias Amiga Forever).
+NRG DAO admite varias sesiones explicitas: conserva LBAs y huecos y presenta
+un TOC virtual con pistas globales y leadout final (ADR 0018), sin seleccion
+mutable de sesion ni sectores inventados entre sesiones. La identidad incluye
+tabla y archivo completos; esta conexion nativa/libretro no publica el loader
+multisesion de BizHawk ni acredita Session Info/FullTOC fisicos.
 NRG DAO admite tambien Mode2 codigo03 con cuerpo de 2336 bytes: reconstruye
 solo la cabecera MSF por LBA y conserva subheader, datos y EDC/ECC. Mode02
 admite payload de2048 bytes: sintetiza subheader cero y EDC/ECC de Mode2 Form1,

@@ -2003,8 +2003,8 @@ es INDEX00 inicial y lastaddress/A2 conservan la direccion explicita. El TOC
 global sigue la proyeccion virtual de T66v4; una tabla explicita de una sola
 sesion conserva su resultado anterior byte exacto. Las consultas no hacen IO y
 sus errores conservan la salida. MED01 prueba estas propiedades en el componente;
-NRG multisesion, el dispositivo publico, el transporte Waterbox y su restauracion
-completa conservan sus puertas posteriores. No se modifica el ABI publico.
+El loader C# y la restauracion publica Waterbox multisesion conservan sus
+puertas posteriores. No se modifica el ABI publico.
 
 T66l8 ofrece MountPuae6Nrg opt-in: ETNF/ETN2 compactos de una sesion,
 modos00/02/03/07 y strides mezclados. Reutiliza el parser y los sintetizadores
@@ -2080,8 +2080,8 @@ real y no expone un modelo C# publico ni acredita cambio de CDTV.
 
 ## Propietario NRG multisesion privado (T66v3)
 
-CdNrg exige NrgSessionPolicy::ExplicitPrivate para construir un propietario DAO
-multisesion. SingleOnly sigue siendo el default usado por la factory publica y
+CdNrg exige NrgSessionPolicy::ExplicitSessions (alias de valor 1 de ExplicitPrivate)
+para construir un propietario DAO multisesion. SingleOnly sigue siendo el default directo y
 rechaza el caso antes de bindings, hash o payload. Una politica desconocida es
 Invalid antes de abrir el archivo. El opt-in copia la tabla validada y conserva
 los LBAs, offsets e intervalos originales; no selecciona sesiones. Las consultas
@@ -2089,15 +2089,16 @@ privadas devuelven los TOCs particulares y los intervalos
 sin datos siguen siendo Range sin IO ni cambios en la salida.
 
 La identidad multi tiene dominio P6NRGM seguido del mismo archivo completo,
-metadata global, pistas crudas e IDs de fuentes que DAO. Anade politica privada
-1, cantidad de sesiones y, por cada una, first/last/format/CUE0/A2/hint en LE32
+metadata global, pistas crudas e IDs de fuentes que DAO. Conserva la politica
+1 de T66v3, cantidad de sesiones y, por cada una, first/last/format/CUE0/A2/hint en LE32
 mas sus 13 bytes de catalogo. No incluye rutas, punteros, cursores ni padding.
 DAO/ETNF/ETN2 de una sesion conservan sus dominios e identidades byte exactos,
 tambien con opt-in. Rebind valida todo antes de reemplazar lectores; errores
 mantienen el propietario anterior. MED01 contrasta ambas sesiones con payloads
 distintos, TOCs, huecos, identidad matematica, fallos VFS y propietarios nuevos.
-La carga y restauracion publicas multisesion conservan puertas posteriores;
-no se atribuye este comportamiento al hardware ni se altera sys_command_info_session.
+T66v9 conecta esta politica a la fabrica nativa/libretro; el loader publico
+Waterbox sigue pendiente. No se atribuye comportamiento al hardware ni se
+altera sys_command_info_session.
 
 T66v4 conecta al dispositivo privado un TOC global virtual: pistas globales
 1..N, INDEX01 en LBA absoluto y leadout final, sin seleccionar una sesion.
@@ -2105,7 +2106,7 @@ A0/A1/A2 agregados no representan un lead-in fisico (ADR 0018). TOC e informacio
 no leen payload ni alteran apertura, posicion o medio. Antes de leer un burst
 multisesion se describe todo su rango: un hueco devuelve Range sin IO y conserva
 salida y posicion. Session Info y FullTOC fisico quedan fuera de la API actual;
-SingleOnly sigue rechazando NRG multi por defecto en la factory publica.
+CdNrg directo conserva SingleOnly; CdImage elige ExplicitSessions sin fallback.
 
 
 ## Restauracion nativa del propietario NRG multisesion (T66v5)
@@ -2122,7 +2123,8 @@ antes de mutar estado, reloj o callbacks. En destino frio, save debe seguir
 rechazado con BAD_STATE y buffer intacto antes/despues del rechazo ajeno; se
 comparan CPU/RAM, reloj, contadores y propiedad sin avanzar un frame. El negativo
 con fullsave se conserva por separado en un destino que ya ejecuto una unidad.
-La factory publica conserva el rechazo; esta puerta no acredita Akiko fisico ni Waterbox.
+Esta puerta no acredita Akiko fisico ni Waterbox; la conexion publica nativa
+posterior se especifica en T66v9.
 
 T67c3b publica CDTV ID 10 en ABI/nativo/libretro; schema wrapper:false conserva
 BizHawk excluido. Firmware fijo EXT 2.7 + KS 1.3 se construye transaccionalmente,
@@ -2175,3 +2177,16 @@ AV/PCM/ticks/RAM/lecturas tras restore local y frio antes del primer frame en
 sandbox/proceso nuevos. Identidad ajena se rechaza antes de LoadSnapshot y una
 tabla distinta con ID conservado no publica callbacks. Esto no habilita loader
 publico multisesion ni acredita normalizacion de imagenes o hardware Akiko.
+
+
+## Fabrica NRG multisesion nativa/libretro (T66v9)
+
+CdImage conserva la tabla DAO explicita y los LBAs mediante ExplicitSessions;
+no selecciona sesiones ni rellena huecos entre A2 e INDEX00. El TOC virtual de
+ADR 0018 contiene todas las pistas y el leadout final. El identificador P6NRGM
+y las identidades de una sesion no cambian. VFS y stdio usan el mismo propietario,
+que vive hasta shutdown. La prueba publica reutiliza una fixture sintetica
+de audio/datos y exige restore local y frio antes del primer run, futuro de
+16 unidades, RAM/AV/PCM/ticks y fullstate exactos, ademas de rechazo transaccional
+de otra metadata o payload de la segunda sesion. No acredita boot de juego,
+Session Info fisico ni loader publico C#/Waterbox.

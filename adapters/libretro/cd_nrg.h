@@ -5,14 +5,14 @@
 #include <memory>
 struct retro_vfs_interface;
 namespace p6_libretro {
-enum class NrgSessionPolicy { SingleOnly, ExplicitPrivate };
+enum class NrgSessionPolicy { SingleOnly, ExplicitSessions, ExplicitPrivate = ExplicitSessions };
 class CdNrg {
 public:
     CdNrg();
     ~CdNrg();
     CdNrg(const CdNrg &) = delete;
     CdNrg &operator=(const CdNrg &) = delete;
-    // Factory callers retain SingleOnly; private opt-in preserves the explicit session table.
+    // Direct opens retain SingleOnly; the factory explicitly preserves the session table.
     p6_cd::Result open(const char *, const retro_vfs_interface * = nullptr,
                       NrgSessionPolicy = NrgSessionPolicy::SingleOnly);
     const p6_cd::Layout *layout() const;
