@@ -18553,7 +18553,7 @@
       "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T67c2",
         "T15",
@@ -18593,7 +18593,8 @@
       "acceptance": [
         "ISO y programa originales ejecutan lectura real CDFS/AmigaDOS bajo firmware CDTV autorizado y producen resultado RAM dependiente del fichero; restore local y cold nuevo proceso reproducen futuro completo, negativos no arrancan ni mutan estado al rechazar identidad."
       ],
-      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
+      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis.",
+      "blocked_reason": "Cannon Fodder autorizado aporta TM real22152/LBA21/cdtv35.2, SHA bf7b79d89e981cca68eeced34f9c01c12d4065df02ad439678dafb9904c1c5cb. Fixture propia con ese TM termina600f/60lecturas/nonce0 sin HUNK; no acredita entrada. Control independiente PUAE5/Waterbox Release de MacHawk: Cannon original1000f y fixture600f terminan en el mismo PNG de logo CDTV, sin audio ni aplicacion acreditada, con KS1.3/EXT2.7. H1: configuracion/firmware o ruta CDTV de la referencia no valida para este disco; confirmar si el arranque conocido era CDTV o CD32. H2: fixture CDFS/Startup/HUNK tiene otro defecto, pero el control que tampoco arranca no lo distingue. Mantener reproducer y restauracion/negativos pendientes; no repetir esta campaña sin dato nuevo."
     },
     {
       "id": "T67c3b",

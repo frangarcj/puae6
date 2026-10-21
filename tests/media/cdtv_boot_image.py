@@ -16,7 +16,7 @@ def trademark(cue):
     """Read only the first data-track PVD and its declared TM extent, bounded."""
     cue = Path(cue)
     if cue.stat().st_size > 65536: raise ValueError('CUE too large')
-    source = None
+    source = stride = None
     for line in cue.read_text(encoding='latin1').splitlines():
         parts = shlex.split(line)
         if parts and parts[0].upper() == 'FILE': source = cue.parent / parts[1]
@@ -24,7 +24,7 @@ def trademark(cue):
             if parts[2] not in ('MODE1/2048','MODE1/2352'): raise ValueError('TM fixture requires Mode1 track01')
             stride, header = (2048,0) if parts[2] == 'MODE1/2048' else (2352,16)
             break
-    if source is None: raise ValueError('Missing data track')
+    if source is None or stride is None: raise ValueError('Missing data track')
     with source.open('rb') as stream:
         def user(lba, count):
             data = bytearray()

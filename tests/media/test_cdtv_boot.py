@@ -10,6 +10,22 @@ from tests.build_support import ROOT, build_targets
 from tests.media import cdtv_boot_image
 
 
+class TrademarkSourceTests(unittest.TestCase):
+    def test_cooked_and_raw_tracks_extract_only_the_declared_cross_sector_tm(self):
+        tm=bytes((n*17+3)&255 for n in range(22152)); iso=cdtv_boot_image.image(tm)
+        with tempfile.TemporaryDirectory(prefix='cdtv-tm-',dir=ROOT/'build') as directory:
+            work=Path(directory)
+            for mode in ('MODE1/2048','MODE1/2352'):
+                source=work/'track.bin'; cue=work/'disc.cue'
+                data=iso if mode=='MODE1/2048' else b''.join(bytes(16)+iso[n:n+2048]+bytes(288) for n in range(0,len(iso),2048))
+                source.write_bytes(data);cue.write_text(f'FILE "track.bin" BINARY\n TRACK 01 {mode}\n INDEX 01 00:00:00\n')
+                self.assertEqual(cdtv_boot_image.trademark(cue),tm)
+                source.write_bytes(data[:24*(2048 if mode=='MODE1/2048' else 2352)])
+                with self.assertRaises(ValueError):cdtv_boot_image.trademark(cue)
+            cue.write_text('FILE "track.bin" BINARY\n')
+            with self.assertRaises(ValueError):cdtv_boot_image.trademark(cue)
+
+
 class CdtvFirmwareTests(unittest.TestCase):
     def test_private_firmware_maps_execution_and_rejections(self):
         main=os.environ.get('P6_CDTV_ROM_MAIN'); ext=os.environ.get('P6_CDTV_ROM_EXT')
