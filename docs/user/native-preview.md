@@ -22,7 +22,7 @@ core. Los errores de firmware o contenido se comunican al frontend.
 
 ## CD32 y A4000 experimentales
 
-Para CD32, abre directamente un ISO, CUE, CCD, NRG DAO/ETNF, MDS v1 o CHD, con modelo
+Para CD32, abre directamente un ISO, CUE, CCD, NRG DAO/ETNF/ETN2, MDS v1 o CHD, con modelo
 y Kickstart en Automatic. Tambien puedes abrir una M3U con hasta16 entradas CD. Pon `kick40060.CD32` y `kick40060.CD32.ext` en el directorio de
 sistema; ambos son necesarios. El preset `cd32_fast8` añade 8 MiB de Fast RAM.
 En Automatic, `(CD32FR)` o la palabra `FastRAM` en el nombre del CD tambien
@@ -30,13 +30,17 @@ activan esos 8 MiB; los ajustes explicitos y File Name Tags tienen prioridad.
 CD32 guarda su NVRAM mediante SaveRAM del frontend. Se ha probado arranque,
 partida y restauracion de Brian the Lion; no se promete compatibilidad con todos
 los juegos. MDS admite una sesion y un MDF compartido; abre el MDS conservando
-su MDF al lado. NRG ETNF usa pregaps canonicos de150 sectores y exige una sesion
-y un mismo tamaño de sector por disco; ETN2 y multisesion siguen pendientes.
+su MDF al lado. NRG DAO admite varias sesiones con sus direcciones y huecos
+explicitos; presenta las pistas globales y el leadout final en un TOC virtual,
+sin seleccion mutable de sesion. ETNF y ETN2 admiten una sesion con tamaños de
+sector mezclados, datos contiguos y posiciones compactas; reconstruyen pregaps
+canonicos de 150 sectores. TAO multisesion y TINF siguen pendientes.
 Para cambiar CD, abre la bandeja con Disk Control, elige otro indice y cierra
 la bandeja. El cambio se aplica en el siguiente frame y la seleccion se restaura
 con el estado. La lista de CD es fija: no admite añadir, quitar o reemplazar
 entradas durante la sesion, ni mezclar CD/disquetes o usar #SAVEDISK. CHD admite
-CDv5 sin parent con codecs none/cdzl/cdlz/cdfl; HTOA, CDI, GD y DVD quedan fuera.
+CDv5 sin parent con codecs none/cdzl/cdlz/cdfl y pregap inicial almacenado (HTOA);
+CDI, GD y DVD quedan fuera.
 Se ha probado la misma partida/restauracion con Brian convertido localmente a CHD.
 
 A4000 usa `kick40068.A4000` en el mismo directorio de sistema. Los presets
