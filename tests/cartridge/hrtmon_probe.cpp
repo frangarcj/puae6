@@ -594,8 +594,22 @@ static void real_ar_loop()
 }
 static void real_ar_boot()
 {
-    // Primary boot help in both authorized ROMs names F10 as exit to monitor.
-    level(1,300); step(3,AK_F10); step(24); real_ar_loop();
+    auto phase=[](const char *name) {
+        const auto h=ar_control();
+        fprintf(stderr,"AR %s model=%d flag=%d PC=%08x mode=%u hidden=%u banks=%u held=%u counter=%u\n",
+            name,armodel,action_replay_flag,m68k_getpc(),h.mode_read,h.hidden,h.banks,held_command(),get_long(0x11000));
+    };
+    level(1,300); phase("boot");
+    // F1 is the primary ROM's "continue booting" command, only for its reset menu.
+    // A cart which already returned to Kickstart needs an explicit Freeze edge.
+    if(action_replay_flag!=ACTION_REPLAY_IDLE) {
+        assert(action_replay_flag==ACTION_REPLAY_ACTIVE || action_replay_flag==ACTION_REPLAY_HIDE);
+        step(3,AK_F1); step(24); phase("continue");
+    }
+    assert(action_replay_flag==ACTION_REPLAY_IDLE);
+    level(0); level(1,80); phase("freeze");
+    assert(action_replay_flag==ACTION_REPLAY_ACTIVE && ar_control().mode_read==0);
+    real_ar_loop(); phase("G");
     level(1,4); assert(action_replay_flag==ACTION_REPLAY_IDLE); // Held boot level was consumed.
 }
 static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,unsigned model,const char *directory,bool writing)
