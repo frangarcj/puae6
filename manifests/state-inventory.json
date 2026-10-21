@@ -8106,6 +8106,58 @@
         }
       },
       {
+        "id": "cartridge-ar1-native",
+        "subsystem": "ram",
+        "component": "Private copied AR1 on stock A500; ROM F00000 and complete 64 KiB RAM at 9F0000",
+        "owner": "build/upstream/ar.cpp (patch 0410), bridge/state.cpp",
+        "chunk": null,
+        "save": "visit_ar within P6RM and cartridge SPC in P6CP; no AR2/3 CIA event15",
+        "restore": "same field visitor with candidate validation before Apply",
+        "reset": "Original AR1 bootstrap and byte/word strobe flow; teardown explicitly removes both banks before free.",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "All 65536 RAM bytes and shared AR controls/vector/shadows, plus AR1 ar_wait_pop and wait_for_pc. Banks remain mapped, hidden is zero, hide may be one. ACTIVE clears SPC; WAIT_PC and ACTIVATE require it; word strobe can leave IDLE with SPC.",
+        "omitted": "Legacy .uss ar_state1/2 do not execute. Immutable ROM/model/geometry belong to the copied owner; no public AR1 or commercial compatibility is claimed.",
+        "pointers": "No host pointer or path travels. Separate p6/cartridge/ar1/v1 and p6/media/ar1/v1 domains bind model and immutable copied ROM.",
+        "rebuild": "Pure validation followed by copying controls/RAM and restoring existing banks; no NMI, I/O, scheduling or prefetch fill. CIA handler15 is rejected for AR1.",
+        "evidence": [
+          "patches/winuae/0410-action-replay1-native-state.patch",
+          "bridge/state.cpp",
+          "bridge/state_cpu.cpp",
+          "tests/cartridge/hrtmon_probe.cpp"
+        ],
+        "proof": {
+          "task": "T69e1",
+          "checks": [
+            "STATE01",
+            "STATE02",
+            "DET02"
+          ],
+          "status": "pending",
+          "what": "Original AR1 byte/word strobe fixture covers eight causal cuts, Exact/Compatible and same/new process with full state/future and transactional refusals."
+        },
+        "waterbox": "Private native semantic codec only; commercial, public and Waterbox acceptance remain separate.",
+        "native_state": {
+          "task": "T69e1",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/cartridge/test_hrtmon.py:Ar1StateTests",
+          "notes": "AR1 appends wait_pop/wait_pc only to its own body; AR2/3 layouts and identities remain identical."
+        },
+        "probe": {
+          "probe": "private p6_hrtmon_probe including full final native state",
+          "status": "implemented",
+          "task": "T69e1",
+          "covers": [
+            "AR1 RAM, control, vector and shadows",
+            "byte WAIT_PC and word IDLE+SPC",
+            "always-present banks and teardown"
+          ]
+        }
+      },
+      {
         "id": "cdtv-controller-transport-audio", "subsystem": "disk",
         "component": "Private stock CDTV DMAC/6525, FIFO/SUB, NVRAM and owned CDA",
         "owner": "build/upstream/cdtv.cpp", "chunk": "P6CT",

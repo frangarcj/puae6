@@ -5996,6 +5996,39 @@
           "after_sha256": "ce03deb72a5e8d305b171875acdc1bb22a7bdaa0bb7f6e27bc0e0e03953a9e81"
         }
       ]
+    },
+    {
+      "id": "0410-action-replay1-native-state",
+      "file": "patches/winuae/0410-action-replay1-native-state.patch",
+      "sha256": "e7af81764d26d0eb1e87ab995526b5840b31c5e99f478dbe5d5c2f1f87894e8c",
+      "title": "Preserve AR1 wait-PC state and release its always-present banks",
+      "reason": "T69e1: private AR1 snapshots preserve wait_pop and wait_for_pc with reachable byte/word strobe SPC forms. Teardown removes ROM/RAM banks before freeing the owner; AR2/3 state bodies and the public cartridge ABI remain unchanged.",
+      "category": "native cartridge state access",
+      "order": 225,
+      "symbols": [
+        "p6_ar_memory",
+        "p6_ar_validate",
+        "p6_ar_get",
+        "p6_ar_set",
+        "p6_ar_cia_handler",
+        "action_replay_unload",
+        "p6_cpu_boundary"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "ccae80397516fb682d69770f5c1d4d77a2118285defe1e1551348f6dc6b85a2b",
+          "after_sha256": "665f4e775351e9595582d5ae46fee5f24fec1376bb778d3935138a0363d7e968"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "6aa75bc2c753d259ab704bdffdbfb2b67a86429eceb51836ae84a77d9e9e1fe3",
+          "after_sha256": "4e22c67d3b44443c15c97e54832e3e2b6d361a0df52fefc5fa9bdde9377d0d4b"
+        }
+      ]
     }
   ]
 }

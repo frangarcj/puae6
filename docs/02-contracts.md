@@ -322,6 +322,15 @@ editor activo de esas ROMs antes de enviar teclas; ACTIVE tambien abarca su
 inicializacion. Conserva futuro y estado completos en proceso nuevo desde
 Freeze mantenido y un comando parcial, incluidos reset y liberacion del nivel.
 
+T69e1 conserva AR1 en un propietario privado para probar su codec nativo. P6RM
+anade `ar_wait_pop` y `wait_for_pc` solo para ese modelo, con identidad propia;
+los cuerpos e identidades AR2/3 no cambian. AR1 mantiene ROM y RAM mapeadas:
+el strobe byte puede dejar WAIT_PC con SPC y el word IDLE con SPC. La entrada
+ACTIVE quita ese bit. Apply restaura esos campos sin ejecutar interrupciones,
+IO ni scheduling; el evento CIA15 sigue exclusivo de AR2/3. Destruir el owner
+retira los bancos antes de liberar memoria. La API publica sigue admitiendo 2/3;
+el fixture original no acredita firmware comercial AR1 ni sus frontends.
+
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
 - Teclado: siempre conectado, sea cual sea el dispositivo de los puertos. Cada RETROK_* se mapea por simbolo sin Shift (en un teclado US, la posicion

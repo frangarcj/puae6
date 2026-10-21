@@ -230,7 +230,8 @@
     "0407-action-replay-blob-owner": "required",
     "0408-action-replay-native-state": "instrumentation",
     "0406-cdtv-display-power-on": "required",
-    "0409-cdtv-floppy-power-on": "required"
+    "0409-cdtv-floppy-power-on": "required",
+    "0410-action-replay1-native-state": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
