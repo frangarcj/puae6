@@ -18551,6 +18551,49 @@
       "stop": "No atribuir la proyeccion virtual a hardware CD32/CDTV real ni implementar FullTOC/SessionInfo ficticios. No habilitar publicamente antes de restauracion/transportes propios."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v5",
+      "title": "Restaurar CD32 privado con NRG multisesion en proceso nuevo",
+      "status": "pending",
+      "depends": [
+        "T66v3",
+        "T66v4",
+        "T66u2",
+        "T15"
+      ],
+      "touch": [
+        "tests/media/cd32_state_probe.cpp",
+        "tests/media/test_cd32_state.py",
+        "tests/media/test_cd_nrg.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Activar tras V4DONE, cd_swap aislado; cuatro rutas de implementacion180..240lineas manuales, target existente ya enlaza p6_cd_images+p6_state, sin codec/CMake nuevos. Extraer fixture Python V3 a helper puro y reutilizar start/future/reject del probe via plantillas sin cambiar sus cuerpos legacy. Usar build/state-opt para target existente y prueba legacy para reutilizar compilacion root; solo sintaxis/tests pequenos en WT, motor root-j2.",
+        "NrgFixture ownerExplicitPrivate, Disc y contadores Binding con lifetime estable. Dos cortes: CDDA pista1 [0,4) activo y detenido tras rawread real pista3 LBA32/pos33. TOC virtual globalV4 cacheado y tabla2sesiones exacta. Writer savecut/future5frames AV/PCM/ticks/lecturas y bytes/TOCs/Q ambas sesiones/fullsavefinal, restorelocal exacto inmediato y futuro.",
+        "Reader proceso nuevo abre copia renombrada ownernuevo y carga tras p6_load antes del primer run. Mismo cut/futuro/fullsave exactos. Negativos catalogo segunda sesion distinto y payload segunda sesion distinto, P6_ERROR_INCOMPATIBLE con save/cycles/callbacks intactos, tambien readerfrio. Huecos11/20/29 sinIO/salida intacta; no simular DMA ni atribuir precision hardware.",
+        "STATE01/DET02 mismo selector tests.media.test_cd32_state.Cd32NrgStateTests.test_private_multisession_restore_new_process una sola ejecucion. Regresion Cd32StateTests por plantilla compartida y metodo V3 que use helper extraido; no metadata completa ni buildguest. Formato/transporte/cargapublica Waterbox multisesion siguen requeridos posteriores antes de padreT66."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "CD32 privado con NRG opt-in conserva dos sesiones y causalidad CDDA/transporte al restaurar local y proceso nuevo antesprimer run, con futuro/fullstate exactos y rechazos de identidad transaccionales; legacy compartido pasa y fabrica publica multi sigue rechazada."
+      ],
+      "stop": "No cerrar por owner aislado ni cambiar codec/target fuera de ficha. Si falla tras dos intentos razonados preservar reproducer y dos hipotesis, bloquear."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18643,7 +18686,8 @@
         "T66v2",
         "T66l9",
         "T66v3",
-        "T66v4"
+        "T66v4",
+        "T66v5"
       ],
       "read": [
         "docs/01-architecture.md",
