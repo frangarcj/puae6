@@ -103,3 +103,19 @@ class ArOwnerTests(unittest.TestCase):
                                   env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
             self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
             self.assertIn('AR2/3 copied owner/banks/refusals/cleanup PASS',result.stdout)
+
+
+class ArStateTests(unittest.TestCase):
+    def test_complete_ar23_semantic_cold_state_and_refusals(self):
+        from tests.fixtures.test_microrom import builder, SOURCE
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar-state-',dir=ROOT/'build') as tmp:
+            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(SOURCE))
+            twins=[]
+            for mode in ('ar-write','ar-read'):
+                result=subprocess.run([str(exe),str(firmware),'-',mode,tmp],capture_output=True,text=True,timeout=180,
+                                      env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('AR continuation ')])
+                self.assertEqual(len(twins[-1]),36)
+            self.assertEqual(*twins)

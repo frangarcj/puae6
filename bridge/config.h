@@ -72,6 +72,7 @@ p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_erro
 // Private AR2/3 raw owner; no native codec or public option yet.
 p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error);
 bool ar_bound();
+bool ar_identity(uint8_t out[32]);
 
 // Private HRTMon vertical: the pinned raw builtin, copied before load; Freeze only at a running A1200 boundary.
 p6_result bind_hrtmon(p6_buffer image, p6_error *error);

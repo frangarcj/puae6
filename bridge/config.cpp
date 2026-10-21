@@ -41,6 +41,22 @@ namespace { const char *const kCartridgeId = "p6-cartridge.rom", *const kActionR
 bool ar_bound() { return p6_blob_exists(kActionReplayId) == P6_BLOB_OK; }
 bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
 
+bool ar_identity(uint8_t out[32])
+{
+    uint64_t bytes=0; uint32_t kind=0;
+    if (p6_blob_size(kActionReplayId,&bytes,&kind)!=P6_BLOB_OK || kind!=P6_BLOB_ROM || (bytes!=131072 && bytes!=262144)) return false;
+    const uint8_t model[4]={uint8_t(bytes==131072?2:3),0,0,0};
+    p6_sha256 hash; p6_sha256_init(&hash); const char domain[]="p6/cartridge/ar23/v1";
+    p6_sha256_update(&hash,domain,sizeof domain); p6_sha256_update(&hash,model,sizeof model);
+    uint8_t block[4096];
+    for (uint64_t at=0;at<bytes;) {
+        const size_t n=bytes-at<sizeof block ? size_t(bytes-at) : sizeof block; size_t got=0;
+        if (p6_blob_pread(kActionReplayId,at,block,n,&got)!=P6_BLOB_OK || got!=n) return false;
+        p6_sha256_update(&hash,block,n); at+=n;
+    }
+    p6_sha256_final(&hash,out); return true;
+}
+
 bool hrtmon_identity(uint8_t out[32])
 {
     uint64_t bytes=0; uint32_t kind=0;

@@ -222,7 +222,24 @@ void visit_hrtmon(Archive &a)
 void rebuild_ram()
 {
     // P6CP precedes the restored bank map. Rebind a Normal CPU without refilling its saved queue.
-    if (p6_bridge::hrtmon_bound()) m68k_setpc_normal(m68k_getpc());
+    if (p6_bridge::hrtmon_bound() || p6_bridge::ar_bound()) m68k_setpc_normal(m68k_getpc());
+}
+
+void visit_ar(Archive &a)
+{
+    if (!p6_bridge::ar_bound()) return;
+    p6_ar_raw h{}; auto *ram=p6_ar_memory();
+    if (a.mode()==Mode::Save) a.require(p6_ar_get(&h), "AR owner or bank shape is invalid");
+    a.val<uint32_t>(0x10000,0x10000,0x10000,"ar.size");
+    h.flag=a.val<int32_t>(h.flag,"ar.flag"); h.mapped=a.val<int32_t>(h.mapped,"ar.mapped");
+    h.mode_read=a.val<uint32_t>(h.mode_read,"ar.mode_read"); h.mode_write=a.val<uint32_t>(h.mode_write,"ar.mode_write");
+    h.hardreset=a.val<uint32_t>(h.hardreset,"ar.hardreset"); h.hide=a.val<uint32_t>(h.hide,"ar.hide");
+    h.hidden=a.val<uint32_t>(h.hidden,"ar.hidden"); h.banks=a.val<uint32_t>(h.banks,"ar.banks");
+    a.bytes(h.vector,sizeof h.vector,"ar.vector"); a.bytes(h.custom,sizeof h.custom,"ar.custom");
+    a.bytes(h.ciaa,sizeof h.ciaa,"ar.ciaa"); a.bytes(h.ciab,sizeof h.ciab,"ar.ciab");
+    if (a.mode()!=Mode::Measure) a.require(ram && p6_ar_validate(&h,cpu_spc(a.mode())), "AR control/map/CPU candidate is invalid");
+    a.bytes(ram,0x10000,"ar.memory");
+    if (a.applying() && a.ok()) p6_ar_set(&h);
 }
 
 void visit_ram(Archive &a)
@@ -243,6 +260,7 @@ void visit_ram(Archive &a)
         if (a.applying() && a.ok()) p6_mbres_set(r);
     }
     visit_hrtmon(a);
+    visit_ar(a);
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
     if (!fast && !z3 && session.config.machine != p6_bridge::kCdtvMachine) return;
     if (fast) {
@@ -318,6 +336,10 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
     if (p6_bridge::hrtmon_identity(cartridge)) {
         const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
         domain_hash("p6/media/hrtmon/v1",parts,lengths,2,out);
+    }
+    if (p6_bridge::ar_identity(cartridge)) {
+        const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
+        domain_hash("p6/media/ar23/v1",parts,lengths,2,out);
     }
     // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
@@ -478,8 +500,6 @@ Plan make_plan()
 // asked for placeholders).
 p6_result gate(const Options &options, p6_error *error)
 {
-    if (p6_bridge::ar_bound())
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Action Replay native codec is not implemented");
     if (session.state != State::Loaded)
         return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
     if (currprefs.cs_cdtvcd && session.config.machine != P6_MACHINE_A500 && session.config.machine != p6_bridge::kCdtvMachine)
@@ -487,6 +507,8 @@ p6_result gate(const Options &options, p6_error *error)
     uint8_t cartridge[32];
     if (p6_bridge::hrtmon_bound() && !p6_bridge::hrtmon_identity(cartridge))
         return p6_fail(error, P6_ERROR_BAD_STATE, "HRTMon immutable owner is invalid");
+    if (p6_bridge::ar_bound() && !p6_bridge::ar_identity(cartridge))
+        return p6_fail(error, P6_ERROR_BAD_STATE, "Action Replay immutable owner is invalid");
     char missing[160];
     if (!options.allow_placeholders && !complete(missing, sizeof missing)) {
         char text[P6_ERROR_TEXT_CAPACITY];
