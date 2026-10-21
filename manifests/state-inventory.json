@@ -8082,7 +8082,7 @@
             "STATE02",
             "DET02"
           ],
-          "status": "pending",
+          "status": "done",
           "what": "Original IRQ7/RTE fixture compares exact saved state and complete continuation across pending reset/freeze/CIA events, active and both hidden map shapes, locally and in a new process; field/map/SPC/owner corruptions are transactional."
         },
         "waterbox": "This is a native semantic codec; public and Waterbox cartridge acceptance remain separate gates.",

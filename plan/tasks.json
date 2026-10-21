@@ -20643,7 +20643,7 @@
       "title": "Restaurar Action Replay 2/3 privado con identidad, bancos y NMI completos",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69d1",
         "T15"
