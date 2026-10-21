@@ -21632,7 +21632,7 @@
       ],
       "id": "T66v10",
       "title": "Montar DAO multisesion privado con proveedor disperso por offsets",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v8"
       ],
@@ -21650,7 +21650,8 @@
         "Disc.Puae6NrgDao tipado publicNRG_Format.Puae6DaoLayout {get;internalset;} copiadoal adoptarowner, readonlystructs/read-onlyarrays ystringshexrawsin NRGFilecapturado/static/CWT. Sessions FirstTrack/LastTrack/Format/Cue0/A2/SessionHint/CatalogHex26; Tracks Number/Index0/Index1/End/Mode/Adr/Control/Offset0/Offset1/EndOffset/Stride/IsrcHex24. Index0negativoalmacenadopreservado.",
         "SS_Mode1_2048/Mode2Form1/2336/2352/2448 existentes; Get(lba) sparse porrangos devuelve nullenhuecos, DiscSession/TOCreales. MED01 nuevos sparse_offsets_tocs_and_stored_subchannels y gaps_faults_and_owner_cleanup +regresionDAOsingleexactID. Bytes/Qdeambassesiones offsets vsfixtureV3; gaps0sinoutput/IO, truncado/fault/dispose/FD. NoPuae6DiscSource ni cargaWBpublica acreditada.",
         "Disc.IsDisposed readonlypublic consetterprivado yDisposeidempotente fijaantesrecursos; proveedoroptinconsulta MISMOowner antesBlob_RawFile paraevitarreapertura perezosatrasDispose, sin cambiar providerslegacy/ownersparalelos. Gateowner_cleanupexigecierre ynoFDreaparece.",
-        "Ajuste previo porcodigo: omitirSS_Leadoutenvoltura SOLOcuandoPuae6NrgDao!=null parafinalA2/huecosRange sinIO. ApplySBIJob indexa_Sectorsdensos: rechazar SBIvalidocompañanteexplicitamenteNotSupported antesaplicacion/publicacion enesta ruta, connegativeowner_cleanup/cierreFD; noignorarlo ni alterarlegacy ni SBIinvalido. SBIparaDAOmulti queda deuda requerida delpadre posterior, noexclusion."
+        "Ajuste previo porcodigo: omitirSS_Leadoutenvoltura SOLOcuandoPuae6NrgDao!=null parafinalA2/huecosRange sinIO. ApplySBIJob indexa_Sectorsdensos: rechazar SBIvalidocompañanteexplicitamenteNotSupported antesaplicacion/publicacion enesta ruta, connegativeowner_cleanup/cierreFD; noignorarlo ni alterarlegacy ni SBIinvalido. SBIparaDAOmulti queda deuda requerida delpadre posterior, noexclusion.",
+        "Integrado02a78f35como2117667c cinco rutas+301/-1inclcontextopatch. NuevosdosMED01PASS9.364s ysingle/defaultexactIDPASS4.503senunionprevia,norepetido. Sietemodos/padding,99sesionesreordenadas,EOFreal/IO/gapsnoIO/dispose/FD/SBIrefusal pasan; ParseFromclasificacion298solodaoMetadatao>1DAO, TAO/single256sinampliar. Patchapply/reversefuzz0 yPythonsyntaxPASS. Noengine/guest/cargapublica."
       ],
       "checks": [
         "MED01"
@@ -21673,7 +21674,7 @@
       ],
       "id": "T66v11",
       "title": "Normalizar DAO multisesion en descriptor V3 e identidad canonica",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v10",
         "T66v7"
@@ -21762,7 +21763,7 @@
       ],
       "id": "T66v13",
       "title": "Aplicar SBI por proveedor disperso y conservar subcanales",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v10"
       ],
