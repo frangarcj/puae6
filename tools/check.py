@@ -379,6 +379,8 @@ for _gate in ('LR01', 'DET02'):
     TASK_SUITES.setdefault((_gate, 'T67c3b'), {}).update({'public_cdtv_load': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests', 'cd32_cue345_regression': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner'})
 TASK_SUITES[('GEN01', 'T67c3b')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('ABI01', 'T67c3b')] = {'native_layout': 'tests.contracts.test_api.NativeContractTests', 'model_parity': 'tests.config.test_parity'}
+for _gate in ('WB03', 'DET02'):
+    TASK_SUITES[(_gate, 'T67c3c')] = {'private_cdtv_snapshot': 'tests.waterbox-media.test_cdtv_boot.CdtvWaterboxBootTests.test_original_iso_hunk_cold_snapshot_and_full_future', 'cd32_v1_regression': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests'}
 for _gate in ('MED01', 'BUILD01'):
     TASK_SUITES[(_gate, 'T67c1')] = {'cdtv_firmware': 'tests.media.test_cdtv_boot.CdtvFirmwareTests'}
 for _gate in ('MED01', 'STATE01', 'DET02'):
