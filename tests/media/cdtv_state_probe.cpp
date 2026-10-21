@@ -245,20 +245,22 @@ static uint64_t bus_future(unsigned cut)
     frames(2); observe(hash, chipmem_bank.baseaddr, chipmem_bank.allocated_size); auto final = save();
     observe(hash, final.data(), final.size()); future_hash = nullptr; return hash;
 }
-struct BusFields { uint64_t bank = 0, prom = 0, configured = 0; };
+struct BusFields { uint64_t bank = 0, prom = 0, configured = 0, mask = 0; };
 static void bus_field(void *context, uint32_t, uint64_t at, uint64_t, const char *name)
 {
     auto &f = *static_cast<BusFields *>(context);
     if (!strcmp(name, "ram.fast_bank_current")) f.bank = at;
     if (!strcmp(name, "ram.fast_autoconfig")) f.prom = at;
     if (!strcmp(name, "cdtv.configured")) f.configured = at;
+    if (!strcmp(name, "cdtv.dma_mask")) f.mask = at;
 }
 static void bus_refusals()
 {
     BusFields fields; p6_state::Options options; options.on_field = bus_field; options.on_field_context = &fields;
     auto state = save(options); const auto cycle = get_cycles(); const auto callbacks = p6_cdtv_callback_observations(); const unsigned prior_reads = reads;
-    for (auto offset : {fields.bank, fields.prom, fields.configured}) {
+    for (auto offset : {fields.bank, fields.prom, fields.configured, fields.mask}) {
         assert(offset); auto bad = state; bad[offset] = offset == fields.configured ? 0xa0 : bad[offset] ^ 3;
+        if (offset == fields.mask) for (unsigned n = 0; n < 4; ++n) bad[offset + n] = n == 3; // Invalid intermediate 0x01000000.
         p6_state::seal(bad.data(), bad.size() - p6_state::kHeaderSize, p6_state::chunk_count(), p6_state::current_identity(),
                        p6_session::session.unit_index, p6_session::session.master_ticks);
         assert(p6_state_load(bad.data(), bad.size(), &error) == P6_ERROR_CORRUPT_STATE && save() == state);
@@ -286,7 +288,7 @@ static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *r
                         pending->dma_mask,pending->unitnum,pending->configured,pending->service_running,expansion,w[0],w[1],w[4],prom[0],prom[2]);
             }
             assert(captured);
-            fprintf(stderr, "CDTV first unit configured=%d PC=%x\n", pending->configured, m68k_getpc()); assert(pending->configured == 0);
+            fprintf(stderr, "CDTV first unit configured=%d PC=%x\n", pending->configured, m68k_getpc()); assert(pending->configured == 0 && pending->dma_mask == UINT32_MAX);
             assert(get_byte(0xe80000) == 0xc0 && get_byte(0xe80002) == 0x10); bus_program();
             if (cut) { put_byte(0x10000, cut == 2 ? 2 : 1); frames(); }
         }
