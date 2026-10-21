@@ -297,6 +297,8 @@ internal static unsafe partial class Program
    HostCheck(OpenCdFile(image)==0,"real FD closed"); lease.Dispose();
    HostCheck(OpenCdFile(image)==0,"lease idempotent");
    var refused=Enumerable.Repeat((byte)0xa5,2448).ToArray(); HostCheck(!p.ReadCd(0,refused,2448)&&refused.All(b=>b==0xa5),"disposed source");
+   HostCheck(!catalogClone.ReadCdCatalog(0,0,refused,2448)&&refused.All(b=>b==0xa5),"disposed catalog source");
+   HostCheck(OpenCdFile(image)==0,"disposed reads never reopen the source");
    firmware.Refuse=true; var errors=new List<string>(); loader.OnLoadError+=(_,e)=>errors.Add(e.Message);
    opened=OpenCdFile(image);
    HostCheck(!loader.LoadRom(path,comm,null),"constructor failure");

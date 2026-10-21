@@ -31,13 +31,14 @@ public sealed partial class Puae6Core
 		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
 			throw new NotSupportedException("CD32 loads 1..16 CD slots without other media");
 		var sources = new List<Puae6DiscSource>();
+		var owners = new List<IOwnedDiscAsset?>();
 		var slots = new List<int>();
 		var typed = new List<bool>();
 		foreach (var asset in lp.Discs)
 		{
 			var source = new Puae6DiscSource(asset.DiscData);
 			int ordinal = sources.FindIndex(s => s.ContentId.SequenceEqual(source.ContentId));
-			if (ordinal < 0) { ordinal = sources.Count; sources.Add(source); typed.Add(asset.DiscData.Regions.Count != 0); }
+			if (ordinal < 0) { ordinal = sources.Count; sources.Add(source); owners.Add(asset as IOwnedDiscAsset); typed.Add(asset.DiscData.Regions.Count != 0); }
 			slots.Add(ordinal);
 		}
 		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Exists(a => a.DiscData.Regions.Count != 0);
@@ -74,8 +75,8 @@ public sealed partial class Puae6Core
 			CdCatalog = catalog && !regional ? sources.Select(s => s.Descriptor()).ToArray() : null,
 			CdCatalogV2 = catalog && regional ? sources.Select((s, n) => RegionalDescriptor(s, typed[n])).ToArray() : null,
 			CdSlots = catalog ? slots.ToArray() : [ ], CdNames = catalog ? lp.Discs.Select(a => a.DiscName).ToArray() : [ ],
-			ReadCdCatalog = catalog ? (ordinal, at, data, count) => ordinal < sources.Count && sources[(int)ordinal].ReadAt(at, data, 0, count) : null,
-			ReadCd = cd is null ? null : (at, data, count) => cd.ReadAt(at, data, 0, count),
+			ReadCdCatalog = catalog ? (ordinal, at, data, count) => ordinal < sources.Count && owners[(int)ordinal]?.IsDisposed != true && sources[(int)ordinal].ReadAt(at, data, 0, count) : null,
+			ReadCd = cd is null ? null : (at, data, count) => owners[0]?.IsDisposed != true && cd.ReadAt(at, data, 0, count),
 			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),
 			MediaNames = floppies.Select(NameOf).ToList(),
