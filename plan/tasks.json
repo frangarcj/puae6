@@ -18324,7 +18324,7 @@
       "title": "Montar NRG ETNF y ETN2 canonicos mediante DiscSystem opt-in",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66l7",
         "T66t17",
