@@ -336,7 +336,9 @@ con ROM raw de 64 KiB y el perfil A500 Exact/Compatible. Comparte la propiedad,
 identidad y nivel Freeze descritos arriba. La ROM AR1 v1.00 usa sus comandos
 `g`/`x` y un editor de 40 columnas. Su primer Freeze pasa por WAIT_PC y reentrada
 antes de abrir el editor; READY comprueba sus frames vivos y fila vacia, incluido
-el tag C5 de sus retornos. No se anuncia disponibilidad de AR1 en los frontends.
+el tag C5 de sus retornos. La puerta comercial compara dos cortes y futuro completo
+local y en proceso nuevo en Exact/Compatible, incluidos comandos, reset y nivel
+Freeze mantenido. No se anuncia disponibilidad de AR1 en los frontends.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
