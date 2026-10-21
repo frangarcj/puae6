@@ -1932,3 +1932,14 @@ handles pertenecen al mismo gate WB03/DET02. WB08 compara ticks y las salidas
 activas al suprimir video/audio por separado o juntos, y el futuro completo
 tras esos tramos. Un fallo del runner lo deja
 BLOCKED. Este CD de audio no acredita arranque de juego ni peliculas CHD.
+
+## Cambio CD en peliculas BizHawk (T66u6)
+
+BK2/TAS registran Next Slot/Eject Disk/Insert Disk mediante MovieSession real,
+con A/B/aliasA y ausencia. Los cortes3/5/8 conservan botones retenidos; TAS reserva
+4/6/9 tras StartNewRecording y exige historia deserializada antes de Attach.
+La puerta WB09 compara seleccion, ordinal/presencia/datosB, AV/PCM/ticks/NVRAM y
+snapshot completo tras replay/seek/rama en owners y proceso nuevos, tambien al
+suprimir AV. Orden/ID/mapa ajenos fallan antes de Attach/importacionSRAM/restore.
+La prueba conserva las seis variantes de inicio y usa Zwinder configurado real;
+no acredita por ello Paged ni la UI WinForms. No cambia el formato de pelicula.

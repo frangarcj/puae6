@@ -140,6 +140,13 @@ internal static unsafe partial class Program
   public void SetHapticChannelStrength(string name,int strength) { }
  }
  static Puae6Guest Guest(Puae6Core core) => (Puae6Guest)typeof(Puae6Core).GetField("_guest",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
+ static Puae6Parameters CatalogParameters(CoreComm comm, params Disc[] discs)
+ {
+  var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
+  for(int n=0;n<discs.Length;++n) lp.Discs.Add(new DiscAsset(discs[n]) { DiscName="label"+n });
+  var method=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.NonPublic|BindingFlags.Static);
+  return (Puae6Parameters)method.Invoke(null,new object[]{lp});
+ }
  static void CatalogCore(string[] args, byte[] main, byte[] ext)
  {
   string a=args[1], b=Path.Combine(args[0],"catalog-b.iso"), alias=Path.Combine(args[0],"alias-a.iso");
@@ -149,10 +156,7 @@ internal static unsafe partial class Program
   Puae6Core Open(params Disc[] discs)
   {
    var comm=new CoreComm(_=>{},(m,_)=>messages.Add(m),new Firmware(main,ext,true),CoreComm.CorePreferencesFlags.None,null);
-   var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
-   for(int n=0;n<discs.Length;++n) lp.Discs.Add(new DiscAsset(discs[n]) { DiscName="label"+n });
-   var method=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.NonPublic|BindingFlags.Static);
-   var p=(Puae6Parameters)method.Invoke(null,new object[]{lp});
+   var p=CatalogParameters(comm,discs);
    Require(p.CdCatalog.Length==2&&p.CdSlots.SequenceEqual(discs[2]==discs[1]?new[]{0,1,1}:new[]{0,1,0}));
    var mixed=Puae6WhdLoad.Resolve(p); mixed.CdInfo=new P6CdInfo();
    try { Puae6WhdLoad.Resolve(mixed); throw new Exception("Mixed CD binding modes accepted"); } catch(InvalidOperationException) { }
@@ -317,6 +321,9 @@ internal static unsafe partial class Program
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");
   byte[] main = File.ReadAllBytes(args[6]), ext = File.ReadAllBytes(args[7]);
+#if MOVIES
+  if (args[5].StartsWith("movieswap")) { SwapMovies(args, main, ext); return; }
+#endif
   if (args[5].StartsWith("catalog")) { CatalogCore(args, main, ext); return; }
   using var disc = Mount(args[1]);
   long reads = 0;
