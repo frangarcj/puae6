@@ -20828,7 +20828,8 @@
         "T69e2",
         "T69f1",
         "T69f2",
-        "T69g1"
+        "T69g1",
+        "T69g2"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22293,6 +22294,59 @@
       ],
       "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas.",
       "blocked_reason": "Implementacion libretro integrada en 0aab4e76. GEN01 68 tests puros y generacion/sintaxis PASS; mapper ASan/UBSan PASS; errores/reload/retry con ADF PASS; AR1/2/3 completan cold state15 con estados y AV/PCM/ticks exactos; HRTMon real PASS en union49.096s. AR1200 falla solo el oracle de causa en active_cart: esperaba status4 y obtuvo8. ROM pin en800210 copia status a8802ce,80021a aplica AND4 y80023c escribe8. Correccion dirigida exige savedcause4/status8; segundo intento soloAR1200 falla savedcause0 en11.372s. Conservar reproducer check_system_rom_freeze_and_cold_state(3); no acreditar G1 ni repetir casos ya verdes. H1: la inicializacion posterior borra8802ce; verificar sus stores/rangos de limpieza en ROM y comparar corte antes/despues. H2: ROM ya estaba ACTIVE antes de hotkey331 y el nivel se consume; verificar P6RM/P6IN en unidad330 y transicion tras331, sin relajar assertions ni tocar motor. Tras dos intentos, detener esta correccion y pasar a transporte Waterbox independiente."
+    },
+    {
+      "id": "T69g2",
+      "title": "Transportar los cuatro Action Replay al inicializador Waterbox sin cambiar el layout",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69d3",
+        "T69e2",
+        "T69f2",
+        "T69c4"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w.h",
+        "adapters/waterbox/puae6_guest.cpp",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "tests/ffi/Program.cs",
+        "tests/ffi/Cartridges.cs",
+        "tests/waterbox-state/test_cartridge_transport.py",
+        "docs/03-waterbox.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference implementa en worktree t66-cd-swap limpio desde el commit de esta ficha. Seis rutas manuales atomicas de transporte mas root docs/dispatcher/metadata; objetivo330-390 y limite400 lineas logicas, avisar antes de ampliar. No UI, schema, Settings, FirmwareDatabase, movies ni motor/codec en esta hoja. Root serializa build guest y managed j2; agente solo sintaxis/checks ligeros.",
+        "Export aditivo p6w_init_machine_cartridge(p6w_init*,uint32_t,const void*,uint64_t) e import C# equivalente. p6w_init_machine existente y nuevo comparten un unico inicializador, sin cambiar p6w_init/P6W_LAYOUT v1. Validar args/loaded igual; nuevo ejecuta init, binder publico de los cuatro modelos y load con shutdown al fallo. Bytes ROM prestados solo durante llamada: binder copia al blob mmap antes de Seal; no segunda copia sealed ni punteros externos persistentes.",
+        "Nuevo dispatch cartridges en tests/ffi/Program.cs y parcial Cartridges.cs reutilizan Open/Guarded, EnterExit, p6w_memory_access Chip, frame_advance inputV2 y snapshots reales de Host. Fixtures originales pequenos para los cuatro modelos juntos; reutilizar ar1_images/ar_state_firmware y extender programa IRQ/Exception2 propio para copiar contador y sentinela del final de cartRAM a Chip, AR1200 causa4, antes de salir por strobe/reentry propio. Cortes causales pre-trigger y ACTIVE esperando senal, no editor comercial ni timeout ciego.",
+        "CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state prueba Freeze/held/soltarV1/rearm, mutable cartRAM completa mediante sentinelas, copia de callerROM tras mutarla y cleanup. Save-load-repeat local y writer/reader en proceso/sandbox nuevos con solo init+Seal antes del primer frame al cargar, futuros completos AV/PCM/ticks/markers y snapshot exactos. Negativos ABI/modelo/perfil/tamano/cabecera y BAD_STATE init repetido/loaded con canarios y rollback; BUSY ya probado por binder nativo, sin hooks de reentrada artificiales.",
+        "ABI01 reutiliza GuestAbiTests.test_the_layout_the_managed_harness_was_written_for_is_the_one_the_header_compiles_to y llamada real del nuevo export. WB03/WB04/WB15 comparten el nuevo test de transporte una sola vez. Preflight receipt/SHA/ELF/TLS/runtime actual obligatorio y medir uso real normal/mmap/sealed con presupuestos existentes y margen, sin invisible. Root materializa/build guest actual una vez incluyendo0410/0411 y este transporte; no atribuir ejecucion Waterbox a pruebas nativas.",
+        "G1 libretro no es dependencia causal y su oracle AR1200 bloqueado no impide este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente."
+      ],
+      "checks": [
+        "ABI01",
+        "WB03",
+        "WB04",
+        "WB15"
+      ],
+      "acceptance": [
+        "Los cuatro modelos pueden inicializarse por el nuevo export en Waterbox ARM64 real conservando layout v1, propiedad de ROM, rollback y snapshots frios completos con Freeze por nivel; los gates dirigidos pasan sin duplicar codec o scheduler."
+      ],
+      "stop": "No cerrar por build o ejecucion nativa; no ampliar ABI v1 ni copiar ROM extra en sealed, introducir observadores artificiales o anunciar UI/movies comerciales sin su puerta."
     }
   ],
   "max_in_progress": 4
