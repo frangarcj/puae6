@@ -17430,7 +17430,7 @@
       "title": "Grabar y reproducir cambio CD en peliculas BK2 y TAS",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66u5",
         "T66r5"
