@@ -20823,7 +20823,9 @@
         "T69d1",
         "T69d2",
         "T69d3",
-        "T69e1"
+        "T69e1",
+        "T69e2",
+        "T69f1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22064,6 +22066,113 @@
         "La ruta privada adopta bytes AR2/3 con recursos y mapas coherentes, copia inmutable y limpieza sin contaminacion entre propietarios; fuentes prestadas/default/HRT permanecen intactos. Todas las operaciones de estado AR se rechazan explicitamente sin mutar hasta codec completo. No acredita firmware comercial ni cartucho publico."
       ],
       "stop": "No descargar ROMs comerciales, habilitar interfaces publicas ni aprobar snapshot parcial. Preservar formato/semantica original de los modelos restantes en el padre; no mas de400manuales ni otra ruta sin ampliar antes."
+    },
+    {
+      "id": "T69e2",
+      "title": "Activar Action Replay I publico con comandos reales y restauracion fria",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69e1",
+        "T69d3"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/include/p6.h",
+        "bridge/caps.cpp",
+        "tests/host/bridge_caps_probe.cpp",
+        "tests/contracts/layout_probe.c",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close trabaja aislado en t53-cpu, desde la candidata integrada 91935d48; root posee plan, dispatcher, documentacion e integracion y serializa builds j2. Excepcion atomica de siete rutas de codigo mas contrato para la API, capacidades y su prueba real; objetivo 230-300 lineas manuales, limite400. Avisar antes de superar o ampliar rutas; no nuevo parche motor ni builds del agente.",
+        "Ampliar p6_cartridge_bind existente al modelo1 con constante P6_CARTRIDGE_AR1=1 y capacidad P6_CAP_AR1 bit13 separada de AR23. Reutilizar owner, codec completo e identidad AR1 de T69e1, Guard unico, copia immutable y Freeze P6inputv2/P6IN. Conservar A500 stock68000 Exact/Compatible, exclusividad, negativos transaccionales y valores ABI anteriores. Ajustar solo assertions antiguas de model1 rechazado a un modelo desconocido; no exponer AR1200 ni selectores de libretro/BizHawk.",
+        "Usar AR1 v1.00 autorizada SHA1 1ead9dda2dad29146441f5ef7218375022e01248 y Kick1.3 local, fuera de Git. Atribuir G y X a sus handlers F01930/F0198E y READY al editor real de 40 columnas: savedSP9FE0FA, retorno externoF0018C, editorF012BA y lector/render F0126A/F0126E bajo D0. Exigir frames live, ACTIVE, marcador9FE088 cero y fila vacia acotada con cursor/base9FE076/078/07E y blanco fontcode46. F1 aqui es Clr+Home; no usar arranque F1 ni READY AR23. Limite en unidades emuladas, nunca sleep, host PC/prefetch/NMI/flags.",
+        "NativeAr1Tests.test_public_ar1_real_monitor_commands_and_cold_state arranca la ROM por la ruta original, espera IDLE, activa por flanco Freeze, espera editor, inicia programa propio en RAM mediante G12000 y vuelve mediante X. Demostrar contador y retorno reales, secuencia WAIT_PC/reentrada propia sin inferirla del fixture. Dos cortes comerciales (editor vacio y X parcial), save-load-save local y reader en nuevo PID antes del primer run, futuro completo CPU/RAM/cartRAM/mapas/vector/video/PCM/ticks/fullstate exactos, held/release/repress/reset y canarios/identidad/copia/cleanup.",
+        "Root ejecuta una sola union: ABI C/C++ y caps, nuevo selector comercial y Ar1StateTests cercano tras ajustar la API. No repetir pruebas reales AR23/HRTMon por etiqueta; no se modifica su codec. Sintaxis y lectura permitidas en agente, compilacion/ejecucion real solo coordinador. Tras dos intentos razonados del mismo fallo, reproducer y dos hipotesis verificables, blocked y otro frente independiente.",
+        "El padre conserva AR1200 y todas las conexiones frontend, sin declarar el cartucho disponible en libretro/BizHawk por esta hoja nativa. Temporales en build y eliminados al terminar; sin informes ni firmware comercial en fuentes/paquetes."
+      ],
+      "checks": [
+        "ABI01",
+        "IN01",
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "La API nativa publica AR1 carga la ROM autorizada y demuestra activacion, comando real, retorno, flanco Freeze y restauracion local/fria deterministas con rechazos transaccionales, sin ampliar frontend ni alterar AR2/AR3."
+      ],
+      "stop": "No cerrar por PC en ROM o pantalla; mantener limites, comandos reales y futuro completo. Ningun control host del PC/IRQ/prefetch ni ROM comercial versionada."
+    },
+    {
+      "id": "T69f1",
+      "title": "Restaurar Action Replay 1200 privado y ejecutar sus comandos reales",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69b",
+        "T69e1",
+        "T24"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0411-action-replay1200-native-state.patch",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "ports/portable/p6_state_access.h",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "manifests/codegen.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "busy_reference trabaja aislado en t66-cd-swap desde91935d48; root mantiene metadata/serie/inventario/contrato/dispatcher y compila j2. Excepcion atomica de siete rutas de implementacion y hasta400 lineas manuales (propuesta330-390); avisar antes de superarlo o tocar otra ruta. Reservar0411 y aplicar despues0410; no editar upstream directamente ni codigo generado, sin builds/ejecuciones de motor en agente.",
+        "Agregar bind_ar1200 privado que copia raw262144 con cabecera ATZ!HRT! y perfil A1200 stock, sin selector/capacidad ni modelo publico1200. Reusar slot blob de monitor con discriminador explicito y exclusividad/Guard/rollback existentes, sin relajar hash fijo del HRTMon builtin. Identidad propia modelo+raw y dominio separado; HRTMon conserva identidad y cuerpo byteidenticos.",
+        "Leer ar.cpp completo: CART_AR1200 asigna1MiB en800000, bloquea escrituras CPU en los512KiB inferiores y configura shadows en la mitad superior. Probar/inventariar inmutabilidad inferior (ROM+paddingFF) y reconstruir de su copia; serializar todos los512KiB superiores mutables y controles/shadows/trigger. Aceptar solo mapas dummy0/cart1, rechazar espejoKick2 propio deHRTMon. Get/Validate puros; Apply copia y mapea sin Exception/NMI/IO/eventos ni reloj. Cleanup retira bancos antes de liberar aun por memory_cleanup directo, sin alterar HRTMon.",
+        "Freeze AR1200 usa Exception(2), causa4 en8c0000 y vector temporalVBR+8, no IRQ7. Firmware/cartucho propio primero para owner/copia/exclusividad/rollback/identidad/estado/canarios y bancos. Nuevo selector Ar1200StateTests.test_private_ar1200_owner_freeze_and_cold_state contiene cortes IDLE, ACTIVATE, ACTIVE y comando parcial, repeticion local y proceso nuevo, save-load-save y futuro completo CPU/RAM/cartRAM/mapas/vector/video/PCM/ticks/fullstate exactos, reset y teardown; CPU solo p6_run_frame.",
+        "Con ROM autorizada SHA1 0f6ab8342810094ac0642f62ba42f78bc0b07e6a y Kick3.1 A1200 local, probar comando real r pc 73728 seguido x (literal decimal equivale12000hex). Parser8032c0/80436c reconocePC y guarda88004a; X802d56, salida800412 yRTE800486. READY: ACTIVE, STOP8008e2 conPC8008e6, SP88fffc y retorno80038e, flags exit8802d2/gfx8802d7/busy880307 cero, cola88030e vacia; puede sumar fila ASCII80 acotada. No usar G deAR23, F1 inventado ni instalar PC por host. Programa propio incrementa contador y demuestra salida/Freeze real.",
+        "Root ejecuta una sola union del selector nuevo y HrtMonTests (codec/mapas espejos compartidos). No repetir AR23comercial, Waterbox, matriz ni corpus por etiqueta. Puerta publica/managed/libretro AR1200 sigue en el padre; esta hoja solo acredita owner privado, codec y comandos reales autorizados. Tras dos intentos razonados del mismo fallo, reproducer y dos hipotesis verificables, blocked y otro frente; temporales solo build y limpiar, sin informes."
+      ],
+      "checks": [
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "AR1200 privado restaura la totalidad de su estado mutable y bancos con identidad de ROM/modelo propia, confirma comandos reales y retorno del programa con futuro local/frio exacto y rechazos transaccionales, preservando HRTMon."
+      ],
+      "stop": "No codec parcial ni omitir memoria writable, ni simular exito. Publico/frontend/Waterbox del padre sigue pendiente; ningun hostPC/flags/IRQ ni ROM comercial en Git."
     }
   ],
   "max_in_progress": 4

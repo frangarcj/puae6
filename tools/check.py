@@ -729,6 +729,18 @@ for _gate in ('STATE01', 'STATE02', 'DET02'):
         'shared_ar23_codec_regression': 'tests.cartridge.test_hrtmon.ArStateTests',
         'shared_hrtmon_owner_regression': 'tests.cartridge.test_hrtmon.HrtMonBuiltinTests.test_public_config_builtin_load_restore_identity_and_teardown'}
 
+TASK_SUITES[('ABI01', 'T69e2')] = {
+    'native_c_cpp_signature': 'tests.contracts.test_api.NativeContractTests',
+    'exact_capabilities': 'tests.host.test_bridge_caps.BridgeCapsTests'}
+for _gate in ('IN01', 'STATE01', 'STATE02', 'DET02'):
+    TASK_SUITES[(_gate, 'T69e2')] = {
+        'public_ar1_real_commands': 'tests.cartridge.test_hrtmon.NativeAr1Tests.test_public_ar1_real_monitor_commands_and_cold_state',
+        'nearby_ar1_codec_regression': 'tests.cartridge.test_hrtmon.Ar1StateTests'}
+for _gate in ('STATE01', 'STATE02', 'DET02'):
+    TASK_SUITES[(_gate, 'T69f1')] = {
+        'private_ar1200_cold_state': 'tests.cartridge.test_hrtmon.Ar1200StateTests.test_private_ar1200_owner_freeze_and_cold_state',
+        'shared_hrtmon_codec_regression': 'tests.cartridge.test_hrtmon.HrtMonTests'}
+
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
 for _gate in ('WB03', 'WB04', 'WB09'):
