@@ -18184,7 +18184,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "id": "T66l7",
       "title": "Leer NRG ETN2 de una sesion con offsets de64bits",
       "depends": [
@@ -18218,7 +18218,8 @@
       "steps": [
         "NER5 con registrosETN2 de32bytes: offsetBE64@0,longitudBE64@8,modoBE32@16,sectorBE32@20,reservados24..31cero. Contrastar WinUAE6030parsenrg,DiscSystem9b627NRG_format.cs490..496 ylibMiragea9d6a2 parser373..383/load_session_tao835..883; estosultimos respaldan directamente normalizacion150 compartida conETNF. No copiar type3->2048 ni lastlba por+28 deWinUAE, que contradicen esos lectores.",
         "Una sesion1..99pistas modos00/02/03/07 y mezclascompactas: fisico/logico contiguos independientes, alineacionporpista y limites previos. Etn2Canonical150 y dominioP6ETN2 explicitos; identidadesETNF/DAO anterioresexactas. Padding,multisesion,TINF y cargaTAOenDiscSystem permanecen deudas separadas delpadre, no se acreditan por este proveedor.",
-        "Ocho rutas de implementacion220..300manuales, patch0404solo blkdev_cdimage.cpp derivado actual0403; no editar upstream/generados. Agente cd_swap aislado entregaSHA/beforeafter ycommit, rootserie/clasificacion/plan/checks. MED01 mismas3clasesNrgMetadataTests/CdNrgTests/CdImageTests unaunion bajoASan/UBSan; mezcla/inverso, Q/fronteras, virtual64bits>4GiB sin asignarpayload, overflow/truncado/reservado, identidad/VFS/rebind/freshowner. Sin motor/guest poragente."
+        "Ocho rutas de implementacion220..300manuales, patch0404solo blkdev_cdimage.cpp derivado actual0403; no editar upstream/generados. Agente cd_swap aislado entregaSHA/beforeafter ycommit, rootserie/clasificacion/plan/checks. MED01 mismas3clasesNrgMetadataTests/CdNrgTests/CdImageTests unaunion bajoASan/UBSan; mezcla/inverso, Q/fronteras, virtual64bits>4GiB sin asignarpayload, overflow/truncado/reservado, identidad/VFS/rebind/freshowner. Sin motor/guest poragente.",
+        "Cierre2026-10-21: union dirigida NrgMetadataTests/CdNrgTests/CdImageTests26metodos PASS59.475s con ASan/UBSan, ETN2/ETNF/DAO, offsets virtuales>4GiB, sectores/Q, identidad/VFS y rebind transaccional. No acredita TAOpublico ni multisesion."
       ],
       "checks": [
         "MED01"
