@@ -107,10 +107,23 @@ class ArOwnerTests(unittest.TestCase):
 
 class ArStateTests(unittest.TestCase):
     def test_complete_ar23_semantic_cold_state_and_refusals(self):
-        from tests.fixtures.test_microrom import builder, SOURCE
+        from tests.fixtures.test_microrom import builder
+        # Original byte-only boot, stack within stock Chip RAM. TST.B waits for
+        # the host signal; the first long write is deferred until after cut0.
+        source='''entry:
+    MOVE.W #$2700,SR
+    MOVEA.L #$7F000,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+wait:
+    .word $4A39,$0001,$100C,$67F8
+count:
+    .word $52B9,$0001,$1000
+    BRA.S count
+'''
         exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
         with tempfile.TemporaryDirectory(prefix='ar-state-',dir=ROOT/'build') as tmp:
-            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(SOURCE))
+            firmware=Path(tmp)/'original.rom'; firmware.write_bytes(builder.build(source))
             twins=[]
             for mode in ('ar-write','ar-read'):
                 result=subprocess.run([str(exe),str(firmware),'-',mode,tmp],capture_output=True,text=True,timeout=180,

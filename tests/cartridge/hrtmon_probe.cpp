@@ -411,7 +411,7 @@ static void ar_exit(bool breakpoint=false)
 static std::array<uint8_t,32> ar_future()
 {
     p6_sha256_init(&observed);
-    if(action_replay_flag==ACTION_REPLAY_WAITRESET) put_long(0x11008,1);
+    if(action_replay_flag==ACTION_REPLAY_WAITRESET) { put_byte(0x1100c,1); put_long(0x11008,1); }
     if(action_replay_flag==ACTION_REPLAY_HIDE) ar_exit();
     if(action_replay_flag==ACTION_REPLAY_IDLE) {
         bool pending=false; for(const auto &e:eventtab2) pending=pending||(e.active && e.handler==p6_ar_cia_handler());
@@ -438,16 +438,15 @@ static void ar_continuations(const std::vector<uint8_t> &rom,const char *directo
         const auto cart=ar_cart(model); std::vector<std::vector<uint8_t>> cuts;
         if(writing) {
             ar_start(rom,cart,model); step(); assert(action_replay_flag==ACTION_REPLAY_WAITRESET);
-            // Byte writes do not trip the AR2/3 first-write detector. Stack fits stock512KiB.
-            const uint8_t loop[]={0x46,0xfc,0x27,0,0x2e,0x7c,0,7,0xf0,0,0x52,0xb9,0,1,0x10,0,0x60,0xf8};
-            for(size_t n=0;n<sizeof loop;++n) put_byte(0x12000+n,loop[n]);
+            // The original ROM waits on1100c without word/long RAM writes.
+            // Configure only byte data; PC/prefetch advance solely in p6_run_frame.
             for(unsigned n=0;n<16;++n) put_byte(0x11000+n,0);
             put_byte(0x11005,0xfe); put_byte(0x12340,0x4e); put_byte(0x12341,0x73);
             const uint8_t vector[]={0,1,0x23,0x40}; for(unsigned n=0;n<4;++n) put_byte(0x7c+n,vector[n]);
-            regs.sr=0x2700; MakeFromSR(); m68k_setpc_normal(0x12000); fill_prefetch();
             for(unsigned n=0;n<512;++n)ar_custom[n]=uint8_t(n*7);
-            memset(ar_ciaa,0x39,16); memset(ar_ciab,0xb6,16); cuts.push_back(save());
-            put_long(0x11008,1); assert(action_replay_flag==ACTION_REPLAY_DORESET); cuts.push_back(save());
+            memset(ar_ciaa,0x39,16); memset(ar_ciab,0xb6,16);
+            step(); assert(action_replay_flag==ACTION_REPLAY_WAITRESET); cuts.push_back(save());
+            put_byte(0x1100c,1); put_long(0x11008,1); assert(action_replay_flag==ACTION_REPLAY_DORESET); cuts.push_back(save());
             step(); assert(action_replay_flag==ACTION_REPLAY_ACTIVE); cuts.push_back(save());
             ar_exit(); cuts.push_back(save()); assert(action_replay_freeze()); cuts.push_back(save());
             step(); put_byte(0x400001,0xfe); assert(action_replay_flag==ACTION_REPLAY_HIDE); cuts.push_back(save());
