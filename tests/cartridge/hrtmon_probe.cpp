@@ -953,8 +953,25 @@ static void ar1200_ready()
     // A7=$88fffc and return $80038e. $8008e2 STOP #$2000 is its empty-key wait.
     for(unsigned elapsed=0;elapsed<600;++elapsed) {
         const auto ram=p6_hrtmon_memory(); assert(ram);
-        if(hrtmon_flag==ACTION_REPLAY_ACTIVE && regs.stopped && m68k_getpc()==0x8008e6 && m68k_areg(regs,7)==0x88fffc &&
-            do_get_mem_long(ram+0x8fffc)==0x80038e && !ram[0x802d2] && !ram[0x802d7] && !ram[0x80307] && !do_get_mem_word(ram+0x8030e)) return;
+        const uint32_t pc=m68k_getpc(),sp=m68k_areg(regs,7);
+        const bool stopped=regs.stopped && pc==0x8008e6 && sp==0x88fffc;
+        // Unit boundaries may cut IRQ3 while the editor's STOP is suspended.
+        // VBR $8000e4 vector $6c enters $800c38 (15-register MOVEM); calls
+        // $800cc2/$800cc6 draw the left/right bars through $800db2/$800d64.
+        // Their renderer $805690 saves five registers. Validate live returns,
+        // not an old exception frame or an arbitrary PC somewhere in the ROM.
+        const auto right=do_get_mem_long(ram+0x8ffb4)==0x800cca;
+        const auto left=do_get_mem_long(ram+0x8ffb4)==0x800cc6;
+        const bool irq=!regs.stopped && regs.intmask==3 && sp>=0x880000 && sp<=0x88fff4 && !(sp&1) &&
+            do_get_mem_word(ram+0x8fff4)==0x2000 && do_get_mem_long(ram+0x8fff6)==0x8008e6 && do_get_mem_word(ram+0x8fffa)==0x006c &&
+            ((pc>=0x800c38 && pc<=0x800cd4 && (sp==0x88fff4 || sp==0x88ffb8)) ||
+             (pc>=0x800d64 && pc<=0x800db0 && right && (sp==0x88ffb4 || sp==0x88ffa0)) ||
+             (pc>=0x800db2 && pc<=0x800e42 && left && (sp==0x88ffb4 || sp==0x88ff9c)) ||
+             (pc>=0x805690 && pc<=0x805706 &&
+              ((right && (sp==0x88ff9c || sp==0x88ff88) && do_get_mem_long(ram+0x8ff9c)==0x800da6) ||
+               (left && (sp==0x88ff98 || sp==0x88ff84) && do_get_mem_long(ram+0x8ff98)==0x800e38))));
+        if(hrtmon_flag==ACTION_REPLAY_ACTIVE && (stopped || irq) && do_get_mem_long(ram+0x8fffc)==0x80038e &&
+            !ram[0x802d2] && !ram[0x802d7] && !ram[0x80307] && !do_get_mem_word(ram+0x8030e)) return;
         step();
     }
     fprintf(stderr,"AR1200 READY failed flag=%d PC=%08x SP=%08x stopped=%d\n",hrtmon_flag,m68k_getpc(),m68k_areg(regs,7),regs.stopped); abort();
