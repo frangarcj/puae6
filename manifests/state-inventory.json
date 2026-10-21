@@ -8160,7 +8160,7 @@
       {
         "id": "cartridge-ar1200-native",
         "subsystem": "ram",
-        "component": "Private copied Action Replay 1200 owner at 800000 on stock A1200",
+        "component": "Copied Action Replay 1200 owner at 800000 on stock A1200",
         "owner": "build/upstream/ar.cpp (patch 0411), bridge/state.cpp",
         "chunk": null,
         "save": "visit_hrtmon within visit_ram (P6RM), SPC in P6CP and ordinary CPU/Chip state",
@@ -8170,7 +8170,7 @@
         "upstream_compiled": false,
         "policy": "serialize_extended",
         "saved_fields": "All 524288 writable bytes at 880000..8fffff, hrtmon_flag, triggered_once, actual all-dummy or all-cart bank map, custom[512] and both CIA[16] shadows. CPU owns bus-exception frame/pipeline; Chip RAM owns the temporary vector and guest stack.",
-        "omitted": "Lower 512 KiB is immutable ROM plus FF padding reconstructed from the copied raw blob; all CPU byte/word/long writes below offset80000 are rejected by the original bank. HRTMon-only map2 is invalid for AR1200. Public AR1200 and frontend acceptance remain separate.",
+        "omitted": "Lower 512 KiB is immutable ROM plus FF padding reconstructed from the copied raw blob; all CPU byte/word/long writes below offset80000 are rejected by the original bank. HRTMon-only map2 is invalid for AR1200. Public Freeze level semantics are gated by T69f2; frontend acceptance remains separate.",
         "pointers": "No host pointer or path travels. Explicit model1200 and copied raw bytes use p6/cartridge/ar1200/v1, folded into p6/media/ar1200/v1; HRTMon identity and body remain unchanged.",
         "rebuild": "Apply copies all mutable state and restores the validated dummy/cart map, without I/O, exception, IRQ or scheduling. Real Freeze uses Exception(2) and cause4 at8c0000; it is never emitted during Apply.",
         "evidence": [
@@ -8189,7 +8189,7 @@
           "status": "done",
           "what": "Original and authorized real fixtures compare complete cold future, own-RAM independent full-half pattern, immutable ROM/padding, transactional refusals, reset, map and cleanup; real READY and R PC/X return."
         },
-        "waterbox": "Private native semantic codec only; no public AR1200 or Waterbox acceptance claim.",
+        "waterbox": "Native semantic codec; frontend and Waterbox acceptance remain separate.",
         "native_state": {
           "task": "T69f1",
           "chunk": "P6RM",

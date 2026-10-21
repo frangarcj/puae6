@@ -349,7 +349,16 @@ solo copia y reconstruye bancos. El codec y la identidad HRTMon conservan sus
 bytes anteriores. La ROM autorizada ejecuta un programa propio con `r pc 73728`
 y `x`; el futuro completo coincide tras cuatro cortes locales y frios. READY
 reconoce tambien su STOP suspendido por el frame IRQ3 de dibujo VBL. Esta ruta
-privada no anuncia un modelo o selector publico.
+privada no anuncia un selector de frontend.
+
+T69f2 anade `P6_CAP_AR1200` (bit14) y `P6_CARTRIDGE_AR1200=1200` a
+`p6_cartridge_bind`, para el mismo propietario en A1200 stock/68EC020. Un unico
+Guard protege la copia y la exclusividad. Freeze conserva el nivel P6IN y el
+contrato de flanco descrito arriba, incluidos input v1, reset y restauracion.
+La puerta publica compara dos cortes y su futuro completo local y en un proceso
+nuevo, con ROM autorizada y nivel mantenido durante salida, carga y reset.
+Los modelos AR1/2/3 mantienen sus valores y perfiles; no se anuncia aun AR1200
+en libretro o BizHawk.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

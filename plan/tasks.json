@@ -22182,7 +22182,7 @@
       "title": "Publicar AR1200 nativo con Freeze por nivel y estados frios",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69f1",
         "T69e2",
