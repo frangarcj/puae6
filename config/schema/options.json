@@ -54,7 +54,7 @@
       {"value": "toggle_statusbar", "abi": 17, "label": "Toggle Statusbar", "const": "ToggleStatusbar"},
       {"value": "toggle_crop", "abi": 21, "label": "Toggle Crop", "const": "ToggleCrop"},
       {"value": "reset", "abi": 22, "label": "Reset (Ctrl-Amiga-Amiga)", "const": "Reset"},
-      {"value": "freeze", "abi": 23, "label": "HRTMon Freeze", "const": "Freeze"},
+      {"value": "freeze", "abi": 23, "label": "Cartridge Freeze", "const": "Freeze"},
       {"value": "key_grave", "abi": 256, "label": "Key Grave"},
       {"value": "key_1", "abi": 257, "label": "Key 1"},
       {"value": "key_2", "abi": 258, "label": "Key 2"},
@@ -633,7 +633,13 @@
       ],
       "libretro": {
         "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
-        "info": "The pinned GPL HRTMon monitor for A1200. Activate it with the Freeze hotkey or mapper target."
+        "info": "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load.",
+        "extra_values": [
+          {"value": "ar1", "abi": 3, "label": "Action Replay I (A500)", "const": "Ar1"},
+          {"value": "ar2", "abi": 4, "label": "Action Replay II (A500)", "const": "Ar2"},
+          {"value": "ar3", "abi": 5, "label": "Action Replay III (A500)", "const": "Ar3"},
+          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200"}
+        ]
       },
       "headless": {"how": "fixed"},
       "wrapper": {"how": "setting", "setting": "Cartridge", "type": "Puae6Cartridge"}
@@ -1544,8 +1550,8 @@
       "default": "---",
       "values_from": "hotkey_key",
       "libretro": {
-        "key": "puae6_hotkey_freeze", "category": "hotkey", "label": "HRTMon Freeze",
-        "info": "Activate the monitor when Cartridge is HRTMon. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga."
+        "key": "puae6_hotkey_freeze", "category": "hotkey", "label": "Cartridge Freeze",
+        "info": "Activate the selected HRTMon or Action Replay monitor. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga."
       },
       "headless": {"how": "none"},
       "wrapper": {"how": "none"}

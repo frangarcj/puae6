@@ -2028,7 +2028,14 @@
         "setting": "Cartridge",
         "type": "Puae6Cartridge"
       },
-      "libretro": "puae6_cartridge"
+      "libretro": "puae6_cartridge",
+      "libretro_default": "disabled",
+      "libretro_extra_values": {
+        "ar1": 3,
+        "ar2": 4,
+        "ar3": 5,
+        "ar1200": 6
+      }
     },
     "floppy_speed": {
       "headless": {

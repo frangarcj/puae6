@@ -341,7 +341,7 @@ class LibretroParity(Schema):
     def test_the_core_fills_p6_config_from_the_options_and_types_no_value_of_its_own(self):
         assigned = set(re.findall(r"\bconfig\.(\w+) = ", self.core_source))
         self.assertEqual(assigned, FIXED_ASSIGNMENTS, "libretro_core.cpp sets a p6_config field by hand: it belongs to the schema")
-        self.assertIn("p6_options::to_config(core.settings, &config);", self.core_source)
+        self.assertEqual(self.core_source.count("p6_options::to_config(p6_libretro::canonical_settings(core.settings), &config);"), 2)
         for stale in ("kSeed", "kRtcEpoch", "kAudioRateHz", "946684800", "48000"):
             self.assertNotIn(stale, self.core_source, f"libretro_core.cpp still has a literal of its own: {stale}")
         for option in self.reboot.values():
@@ -352,6 +352,16 @@ class LibretroParity(Schema):
     def test_the_machine_the_core_runs_follows_the_options_in_av_info_and_region(self):
         self.assertIn("core.settings.video_standard == P6_VIDEO_NTSC", self.core_source)
         self.assertIn("info->timing.sample_rate = core.settings.audio_rate_hz;", self.core_source)
+
+
+    def test_cartridge_extras_are_libretro_bindings_not_native_or_managed_flags(self):
+        cartridge=self.options['cartridge']
+        self.assertEqual([(v['value'],v['abi']) for v in cartridge['values']], [('disabled',0),('hrtmon',2)])
+        self.assertEqual({v['value']:v['abi'] for v in cartridge['libretro']['extra_values']},
+                         {'ar1':3,'ar2':4,'ar3':5,'ar1200':6})
+        self.assertEqual(self.table['p6_config']['flags']['allowed'],[0,1,2,3])
+        self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2 }',read(SETTINGS_CS))
+        self.assertIn('if (cartridge_choice(settings.cartridge)) settings.cartridge = 0;',read(FIRMWARE))
 
 
 class LibretroFirmware(Schema):

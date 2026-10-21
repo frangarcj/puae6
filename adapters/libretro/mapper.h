@@ -27,7 +27,7 @@
 #define P6_LIBRETRO_MAPPER_H
 
 #include "libretro.h"
-#include "options_generated.h"
+#include "firmware.h"
 #include "p6.h"
 #include "present.h"
 #include "vkbd.h"
@@ -105,7 +105,7 @@ struct InputMemory {
 
 // The options that shape the input, read from the settings at every run (they change at once, in the menu).
 struct InputConfig {
-    bool hrtmon = false;
+    bool freeze = false;
     uint32_t mapper[kMapperInputs] = {};          // the schema's mapper_target number of each input (0 = default function)
     uint32_t hotkey_code[kHotkeyCount] = {};      // the RETROK_* code of each hotkey, 0 = none
     unsigned analog_mouse = 0;                    // bit 0 the left stick, bit 1 the right one
@@ -124,7 +124,7 @@ struct InputConfig {
 inline InputConfig input_config(const p6_options::Settings &s)
 {
     InputConfig c;
-    c.hrtmon = s.cartridge == P6_CONFIG_HRTMON;
+    c.freeze = s.cartridge == P6_CONFIG_HRTMON || cartridge_choice(s.cartridge);
     const uint32_t mapper[kMapperInputs] = {s.mapper_b, s.mapper_y, s.mapper_select, s.mapper_start, s.mapper_up, s.mapper_down, s.mapper_left, s.mapper_right,
                                             s.mapper_a, s.mapper_x, s.mapper_l, s.mapper_r, s.mapper_l2, s.mapper_r2, s.mapper_l3, s.mapper_r3,
                                             s.mapper_lu, s.mapper_ld, s.mapper_ll, s.mapper_lr, s.mapper_ru, s.mapper_rd, s.mapper_rl, s.mapper_rr};
@@ -271,7 +271,7 @@ inline void apply_target(uint32_t target, bool mouse_mode, const InputConfig &co
         }
     }
     switch (target) {
-    case kMapperTargetFreeze: if (config.hrtmon) out->commands |= P6_COMMAND_FREEZE; break;
+    case kMapperTargetFreeze: if (config.freeze) out->commands |= P6_COMMAND_FREEZE; break;
     case kMapperTargetJoyUp: out->joy |= P6_BUTTON_UP; break;
     case kMapperTargetJoyDown: out->joy |= P6_BUTTON_DOWN; break;
     case kMapperTargetJoyLeft: out->joy |= P6_BUTTON_LEFT; break;
@@ -383,7 +383,7 @@ inline void mapper_step(const Controls &controls, const InputConfig &config, boo
         if (edges >> input & 1) run_action(target_of(input));
     for (unsigned k = 0; k < kHotkeyCount; ++k) {
         if (edges >> (kHotkeyBit + k) & 1) run_action(kHotkeyTargets[k]);
-        if (config.hrtmon && kHotkeyTargets[k] == kMapperTargetFreeze && (controls.down >> (kHotkeyBit + k) & 1)) out->commands |= P6_COMMAND_FREEZE;
+        if (config.freeze && kHotkeyTargets[k] == kMapperTargetFreeze && (controls.down >> (kHotkeyBit + k) & 1)) out->commands |= P6_COMMAND_FREEZE;
     }
     const bool mouse_mode = memory->dpad_mouse && mouse_port;
     const bool turbo_on = config.turbo != memory->turbo_toggled;

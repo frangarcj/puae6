@@ -374,7 +374,7 @@ static void schema_defaults()
 static int16_t freeze_key(unsigned, unsigned device, unsigned, unsigned id) { return device == RETRO_DEVICE_KEYBOARD && id == RETROK_F11; }
 static void freeze_levels()
 {
-    InputConfig c; InputMemory m; c.hrtmon=true;
+    InputConfig c; InputMemory m; c.freeze=true;
     const auto hot=pressing(bit(31));
     for(unsigned n=0;n<10;++n) CHECK(step(hot,c,&m).commands==P6_COMMAND_FREEZE);
     CHECK(!step(pressing(0),c,&m).commands);
@@ -383,11 +383,21 @@ static void freeze_levels()
     CHECK(step(pressing(3),c,&m).commands==1 && step(pressing(2),c,&m).commands==1 && !step(pressing(0),c,&m).commands);
     m.vkbd_open=true;
     CHECK(!step(pressing(1),c,&m).commands && step(hot,c,&m).commands==1); // VKBD owns pad, not physical hotkeys.
-    c.hrtmon=false; CHECK(!step(hot,c,&m).commands); m.vkbd_open=false; CHECK(!step(pressing(1),c,&m).commands);
+    c.freeze=false; CHECK(!step(hot,c,&m).commands); m.vkbd_open=false; CHECK(!step(pressing(1),c,&m).commands);
     Settings s; s.cartridge=P6_CONFIG_HRTMON; s.hotkey_freeze=RETROK_F11;
     unsigned device[kPortCount]={}; InputMemory keys;
     const auto packet=read_input_v2(freeze_key,device,input_config(s),&keys);
     CHECK(packet.base.abi_version==2 && packet.base.struct_size==108 && packet.commands==1 && !packet.parallel[0].type && !packet.parallel[1].type);
+    for(const auto &choice : p6_libretro::kCartridges) {
+        s.cartridge=choice.selection;
+        for(unsigned writes:{0u,1u}) {
+            s.floppy_writes=writes; p6_config config{};
+            to_config(p6_libretro::canonical_settings(s),&config); CHECK(config.flags==writes && s.cartridge==choice.selection);
+        }
+        CHECK(read_input_v2(freeze_key,device,input_config(s),&keys).commands==1);
+        auto cfg=input_config(s); cfg.mapper[0]=kMapperTargetFreeze;
+        CHECK(step(pressing(1),cfg,&m).commands==1 && !step(pressing(0),cfg,&m).commands);
+    }
     s.cartridge=0; CHECK(!read_input_v2(freeze_key,device,input_config(s),&keys).commands);
     for(unsigned flags=0;flags<4;++flags) {
         s.floppy_writes=flags&1; s.cartridge=flags&2; p6_config config{}; config.flags=UINT32_MAX;

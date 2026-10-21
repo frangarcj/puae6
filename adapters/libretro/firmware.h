@@ -9,11 +9,31 @@
 #define P6_LIBRETRO_FIRMWARE_H
 
 #include "p6.h"
+#include "options_generated.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
 namespace p6_libretro {
+
+// Local libretro selections are not p6_config flags or native cartridge IDs.
+struct CartridgeChoice { uint32_t selection, model; size_t bytes; const char *names[2]; };
+constexpr CartridgeChoice kCartridges[] = {
+    {p6_options::kCartridgeAr1, P6_CARTRIDGE_AR1, 65536, {"ar1.rom", "Action_Replay_I_v1.00.rom"}},
+    {p6_options::kCartridgeAr2, P6_CARTRIDGE_AR2, 131072, {"ar2.rom", "Action_Replay_II_v2.14.rom"}},
+    {p6_options::kCartridgeAr3, P6_CARTRIDGE_AR3, 262144, {"ar3.rom", "Action_Replay_III_v3.17.rom"}},
+    {p6_options::kCartridgeAr1200, P6_CARTRIDGE_AR1200, 262144, {"ar1200.rom", "Action_Replay_1200.rom"}},
+};
+inline const CartridgeChoice *cartridge_choice(uint32_t selection)
+{
+    for (const auto &entry : kCartridges) if (entry.selection == selection) return &entry;
+    return nullptr;
+}
+inline p6_options::Settings canonical_settings(p6_options::Settings settings)
+{
+    if (cartridge_choice(settings.cartridge)) settings.cartridge = 0;
+    return settings; // The original selection remains latched for reboot/input/LR state.
+}
 
 struct FirmwareNames {
     uint32_t machine;                // P6_MACHINE_*

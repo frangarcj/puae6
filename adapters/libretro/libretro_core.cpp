@@ -307,7 +307,7 @@ p6_video_geometry running_geometry(bool ntsc)
     p6_config config = {};
     config.abi_version = P6_ABI_VERSION;
     config.struct_size = sizeof config;
-    p6_options::to_config(core.settings, &config);
+    p6_options::to_config(p6_libretro::canonical_settings(core.settings), &config);
     if (p6_query_video(&config, &geometry, nullptr) == P6_OK) return geometry;
     geometry.buffer_width = 760;
     geometry.buffer_height = ntsc ? 486 : 576;
@@ -1113,7 +1113,7 @@ bool load_disks(const retro_game_info *game, const std::vector<p6_libretro::Play
 // T51: `chosen` is the version puae6_kickstart names (nullptr: Automatic, the machine's own names); then only the names of that version are tried, and the bridge says from the bytes whether this
 // machine can run it. A file Amiga Forever encrypted (AMIROMTYPE1) is decrypted with the rom.key of the same system directory before p6_load; the decrypted image is the firmware.
 bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNames &firmware, const p6_libretro::KickstartChoice *chosen,
-                   const p6_libretro::WhdLoadContent &pack)
+                   const p6_libretro::WhdLoadContent &pack, const p6_config &config)
 {
     using namespace p6_libretro;
     const char *directory = nullptr;
@@ -1124,6 +1124,33 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
     if (strlen(directory) > kMaxPathBytes) {
         notify_error("the system directory path is too long");
         return false;
+    }
+    const auto *cartridge = cartridge_choice(core.settings.cartridge);
+    std::vector<uint8_t> cart; std::string cart_name;
+    if (cartridge) {
+        for (const char *name : cartridge->names) {
+            const auto read = core.files.read(join_path(directory, name), cartridge->bytes, &cart);
+            if (read == ReadResult::CannotOpen) {
+                // VFS1/2 cannot distinguish absent from unreadable. Never escape
+                // its namespace through FileReader's POSIX directory fallback.
+                if (core.files.uses_vfs() && !core.files.lists_with_vfs()) {
+                    notify_error("cannot open cartridge %s: VFS cannot prove absence; provide the primary ROM name", name); return false;
+                }
+                std::vector<DirEntry> entries;
+                if (core.files.list(directory, 4096, &entries) != ListResult::Ok) {
+                    notify_error("cannot inspect cartridge directory for %s (unreadable or over 4096 entries)", name); return false;
+                }
+                for (const auto &entry : entries) if (entry.name == name) {
+                    notify_error("cartridge %s is present but cannot be opened", name); return false;
+                }
+                continue; // Only demonstrated absence permits the next alias.
+            }
+            if (read != ReadResult::Ok || cart.size() != cartridge->bytes) {
+                notify_error("cartridge %s is not usable: %s", name, read == ReadResult::Ok ? "wrong raw ROM size" : describe(read)); return false;
+            }
+            cart_name = name; break; // First present file decides; do not hide corruption behind an alias.
+        }
+        if (cart_name.empty()) { notify_error("missing cartridge ROM %s in the system directory", cartridge->names[0]); return false; }
     }
     const char *const *names = chosen ? chosen->names : firmware.names;
     const size_t count = chosen ? chosen->count : firmware.count;
@@ -1195,14 +1222,27 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
             log(RETRO_LOG_INFO, "WHDLoad: three in-memory volumes, ButtonWait %s; source and DATA stay immutable", core.settings.whdload_buttonwait ? "on" : "off");
         }
         p6_error error = make_error();
+        if (cartridge) {
+            const auto bound = p6_cartridge_bind(cartridge->model, {cart.data(), cart.size()}, &error);
+            if (bound != P6_OK) { notify_error("cartridge %s refused: %s", cart_name.c_str(), error.message); return false; }
+        }
         const p6_result result = p6_load(p6_buffer{core.firmware.data(), core.firmware.size()}, manifest.data(), uint32_t(manifest.size()), &error);
         if (result == P6_OK) {
+            if (cartridge) log(RETRO_LOG_INFO, "cartridge %s copied through %s", cart_name.c_str(), core.files.uses_vfs() ? "VFS" : "stdio");
             log(RETRO_LOG_INFO, "Kickstart %s%s, %s", name, decrypted ? " (decrypted with rom.key)" : "", core.files.uses_vfs() ? "read through the frontend VFS" : "read with stdio");
             return true;
         }
         report("p6_load", result, error);
         refusals += refusals.empty() ? "" : "; ";
-        refusals += std::string(name) + " refused (" + error.message + ")";
+        refusals += std::string(name) + " refused (" + error.message + (cartridge ? "; cartridge " + cart_name : "") + ")";
+        if (cartridge) {
+            // Validation may retain a preload owner, startup failure may release it.
+            // Restart the public lifecycle, then rebind the same bytes next time.
+            // core.media/manifest survive; WHD bundles are rebuilt above per candidate.
+            auto restarted = p6_shutdown(&error);
+            if (restarted == P6_OK) restarted = p6_init(&config, &error);
+            if (restarted != P6_OK) { report("cartridge retry", restarted, error); return false; }
+        }
     }
     core.firmware.clear();
     if (refusals.empty() && chosen)
@@ -1974,6 +2014,10 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             if (matches) initial = core.initial_index;
             else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
         }
+        if (p6_libretro::cartridge_choice(core.settings.cartridge) &&
+            (core.cd || core.settings.machine == P6_MACHINE_CD32 || core.settings.machine == P6_MACHINE_CDTV)) {
+            notify_error("Action Replay requires A500 or A1200 without a CD catalog"); stop_image(); return false;
+        }
         if (core.cd && !core.cd->open(core.settings.machine, cd_entries, initial, core.cd_vfs, &images, &why)) {
             notify_error("%s", why.c_str()); stop_image(); return false;
         }
@@ -1989,7 +2033,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         p6_config config = {};
         config.abi_version = P6_ABI_VERSION;
         config.struct_size = sizeof config;
-        p6_options::to_config(core.settings, &config);       // machine, standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
+        p6_options::to_config(p6_libretro::canonical_settings(core.settings), &config);       // machine, standard, audio rate, seed and clock epoch: the schema's values, none of them typed here
         const p6_libretro::FirmwareNames *firmware = p6_libretro::firmware_for(config.machine);
         if (!firmware) {            // the schema only produces the machines the table has: a mismatch is a build defect, not a configuration to run
             notify_error("the machine %u has no Kickstart names in this core", unsigned(config.machine));
@@ -2005,7 +2049,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             return false;
         }
         core.initialized = true;
-        if (!load_firmware(manifest, *firmware, p6_libretro::kickstart_choice(core.settings.kickstart), pack)) {
+        if (!load_firmware(manifest, *firmware, p6_libretro::kickstart_choice(core.settings.kickstart), pack, config)) {
             stop_image();
             return false;
         }
