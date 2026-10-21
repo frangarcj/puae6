@@ -18138,7 +18138,7 @@
     {
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "id": "T66t18",
       "title": "Restaurar HTOA CHD mediante cargas publicas libretro y Waterbox",
       "depends": [
@@ -18168,7 +18168,8 @@
         "Reusar htoa_fixture(P200,NONE), segunda Mode1, variantes payload/P y rutas renombradas. Cuatro rutas de implementacion180..220lineas; sin produccion nueva salvo defecto demostrado y scope ampliado antes. Agente busy_reference aislado, metadata root y compilaciones pesadas/guest serializadas.",
         "WB carga XML por RomLoader real y comprueba descriptorV2 con INDEX01=P/count2, Statuscount1/ordinal0/presente y bytes0/P-1/P por ReadAt y export ReadSector reales. Reusar T16 StoreSaveRam en EEPROM existente, durable en core nuevo, cut300/futuro15, owner/sandbox/proceso nuevo antes del primer frame, snapshot entero y tres tramos de supresion. OtherMedia transaccional y FDclose se conservan.",
         "LR usa retro_load_game real, TOC semantica serializada P6AK y discoID/presencia con identidad matematica,15futuro/newprocess y negativos sin mutar. No hay endpoint retro_* de lectura sectorial: este gate no atribuye tres lecturas independientes a libretro; los bytes se acreditan en WB y proveedor nativo compartido. No inventar exports debug ni usar hash de estado como lectura.",
-        "Selectores Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity y ChdPublicWaterboxTests.test_xml_chd_htoa_saveram_and_cold_restore; LR01/WB03/WB08/DET02 comparten la union sin repetir por etiqueta. Root actualiza una vez guest/recibos tras0403 antes de runner real."
+        "Selectores Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity y ChdPublicWaterboxTests.test_xml_chd_htoa_saveram_and_cold_restore; LR01/WB03/WB08/DET02 comparten la union sin repetir por etiqueta. Root actualiza una vez guest/recibos tras0403 antes de runner real.",
+        "Cierre2026-10-21: LR HTOA publico PASS98.630s en core nativo actual; gate WB XML HTOA y regresion XML legacy PASS en guest0404/runtimeactuales. Bytes0/199/200 por ReadAt y exportsector, TOC/ID, EEPROM, supresion y restores frios/proceso nuevo/futuro/snapshot entero y rechazos payload/P. Union unica cubre LR01/WB03/WB08/DET02, sin lectura retro_* inexistente ni arranque de aplicacion."
       ],
       "checks": [
         "LR01",

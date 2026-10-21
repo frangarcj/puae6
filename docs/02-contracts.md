@@ -1098,7 +1098,8 @@ T66t14 conecta `CdChd` a `CdImage` y a la carga libretro directa/M3U por extensi
 `.chd`, sin fallback. Enlaza estaticamente el lector verificado offline, con
 las mismas identidades P6CHD1/P6CHR1 y las mismas reglas VFS, catalogo y estado.
 Admite CDv5 sin parent y codecs none/cdzl/cdlz/cdfl dentro de los limites del
-lector; HTOA, CDI, GD y DVD siguen siendo Unsupported. MED01 prueba los cuatro
+lector; el HTOA almacenado se añade en T66t17/T66t18; CDI, GD y DVD siguen
+siendo Unsupported. MED01 prueba los cuatro
 codecs por la factory; LR01 usa un CHD sintetico para restauracion en otro
 proceso y Brian convertido localmente para juego/interaccion con el oraculo
 existente. El ISO sintetico no es una aplicacion bootable. Esta conexion nativa
@@ -1961,7 +1962,7 @@ TOC/Q y descriptorV2 conservan INDEX01 real, CONTROL y SUB almacenado incluso
 si contradice la TOC; no infieren direcciones de Q. El primer pregap no almacenado
 continua Unsupported en nuestros proveedores hasta su contrato propio.
 MED01 contrasta P1/149/150/151/200, bytes/hash/rebind/VFS y carga host XML real;
-no acredita aun restore publico HTOA en libretro/Waterbox, pendiente del padreT66.
+esta puerta de proveedor se complementa con restore publico en T66t18.
 
 
 T66t18 comprueba HTOA publico P200 con la misma fixture original de T17.
