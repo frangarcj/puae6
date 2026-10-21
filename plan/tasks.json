@@ -19222,6 +19222,53 @@
       "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md"
+      ],
+      "id": "T67c3c",
+      "title": "Arrancar CDTV privado en Waterbox y restaurar snapshot frio",
+      "status": "in_progress",
+      "depends": [
+        "T67c3a",
+        "T66r2",
+        "T15"
+      ],
+      "touch": [
+        "adapters/waterbox/cd_source.cpp",
+        "tests/media/csharp-disc/Cdtv.cs",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/csharp-disc/DiscSource.csproj",
+        "tests/waterbox-media/test_cdtv_boot.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical privada275..325lineas manuales en seis rutas, cd32_close aislado desde rootactual. Machine10 numerico con perfil existente, sin modelo/enum C#publico; reutilizar ISO/HUNK/TM autorizados de C3a y transporteV1 Puae6DiscSource. Root metadata y builds guest/motor serializados-j2; agente solo sintaxis/C#ligero y commit, no compilar guest WT.",
+        "p6w_cd_activate admite machine10 sin akiko_init ni private_start: p6_load prepara cadena, primera APPLY ejecuta reset/autoconfigC2 tras Bind posterior Seal, como orden nativo acreditado. Unitnum puede seguir-1 antesprimer run: no exigir0 ni reinicializar controlador. Lifecycle existente cdtv_init/free y shutdown limpian unidad. Rechazar catalogo/cambioCDTV antes de p6_akiko_media_set, sin simular cambios.",
+        "tests.waterbox-media.test_cdtv_boot.CdtvWaterboxBootTests.test_original_iso_hunk_cold_snapshot_and_full_future usa EXT256+MAIN256, nonceDOS unico y contadorDelay positivo/creciente, lecturas reales, limite1000. Tras cut,16frames RAM completa/video/PCM/metadata/ticks/fullsnapshot. Restaurar local, sandboxnuevo y proceso nuevo antesprimer run; identidadajena rechazada transaccional y teardown. Temporales solo build, limpiar al terminar.",
+        "WB03/DET02 mismo selector una sola ejecucion; regresion CD32V1 dirigida mismo guest actualizado. Verificar receipt/hash/sourceidentity reales antes de ejecutar; sin runner puerta BLOCKED. PASS nativo no sustituye Waterbox. Publicacion BizHawk y cambioCDTV siguen hojas obligatorias posteriores del padreT67; esta hoja no cambia schema wrapper:false."
+      ],
+      "checks": [
+        "WB03",
+        "DET02"
+      ],
+      "acceptance": [
+        "CDTV propio ejecuta programa original dentro de Waterbox y conserva futuro completo tras snapshot local/sandboxnuevo/procesonuevo sin run previo, rechaza identidad y operaciones fuera de dominio sin mutaciones y libera callbacks; CD32V1 sigue pasando."
+      ],
+      "stop": "No atribuir runtime por build cruzado, no usar private_start/Akiko ficticio ni exponer modelo publico antes de su puerta propia. Si supera400lineas dividir antes de ampliar."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -19236,7 +19283,8 @@
         "T67c1",
         "T67c2",
         "T67c3a",
-        "T67c3b"
+        "T67c3b",
+        "T67c3c"
       ],
       "read": [
         "docs/01-architecture.md",
