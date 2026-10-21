@@ -581,13 +581,52 @@ static void public_ar_own(const std::vector<uint8_t> &rom,const char *directory,
     p6_sha256_init(&observed); level(0); reject_commands(1,P6_ERROR_UNSUPPORTED); reject_commands(2,P6_ERROR_BAD_ARGUMENT); public_ar_stop();
     puts("AR public bind/copy/commands/held/reset/ABI/refusals PASS");
 }
+static bool real_ar_editor_ready()
+{
+    const auto h=ar_control();
+    if(h.flag!=ACTION_REPLAY_ACTIVE || h.mode_read!=0) return false;
+    const auto ram=p6_ar_memory(); assert(ram && (armodel==2 || armodel==3));
+    // Fixed ROMs checked in test_hrtmon.py. Freeze resets A7 to $450000
+    // (AR2 $400892 / AR3 $40104a); init calls overwrite its old top frames.
+    // The interpreter then saves A7 at $44f56a/$44f568 and calls the editor
+    // at $401946/$4024d6. Its live return is $40194a/$4024da, below which
+    // the editor saves D0 and calls its key reader or renderer. A saved SP
+    // or a PC inside the ROM alone also occurs while credits are printing.
+    const uint32_t saved=do_get_mem_long(ram+(armodel==2?0xf56a:0xf568));
+    const uint32_t sp=m68k_areg(regs,7);
+    if(saved!=0x44fffc || sp<0x440000 || sp>saved-12 || (sp&1)) return false;
+    if(do_get_mem_long(ram+(saved-0x440000-4))!=(armodel==2?0x40194a:0x4024da)) return false;
+    const auto inner=do_get_mem_long(ram+(saved-0x440000-12));
+    if(inner!=(armodel==2?0x4018a0:0x40240c) && inner!=(armodel==2?0x4018c8:0x402444)) return false;
+    // Both editors use 80-column rows, font codes in AR2 and ASCII in AR3.
+    // Require the current empty input row, not the preceding printed prompt.
+    if(do_get_mem_word(ram+0xf29a)!=0) return false;
+    const uint64_t row=uint64_t(do_get_mem_long(ram+0xf2a2))+80u*do_get_mem_word(ram+0xf29c);
+    if(row<0x440000 || row+80>0x450000) return false;
+    for(unsigned n=0;n<80;++n) if(ram[row-0x440000+n]!=(armodel==2?0x46:0x20)) return false;
+    return true;
+}
+static void real_ar_wait_editor()
+{
+    // A fail bound, not a delay or a readiness oracle. Advance only emulated units.
+    for(unsigned elapsed=0;elapsed<600;++elapsed) {
+        if(real_ar_editor_ready()) return;
+        level(1);
+    }
+    if(real_ar_editor_ready()) return;
+    const auto ram=p6_ar_memory(); assert(ram);
+    fprintf(stderr,"AR editor not ready model=%d flag=%d PC=%08x SP=%08x savedSP=%08x x=%u y=%u after 600 units\n",
+        armodel,action_replay_flag,m68k_getpc(),m68k_areg(regs,7),
+        do_get_mem_long(ram+(armodel==2?0xf56a:0xf568)),do_get_mem_word(ram+0xf29a),do_get_mem_word(ram+0xf29c));
+    abort();
+}
 static void real_ar_loop()
 {
     // Loaded while the real monitor is paused; execution starts only through its G command.
     const uint8_t program[]={0x52,0xb9,0,1,0x10,0,0x60,0xf8};
     for(unsigned n=0;n<4;++n)put_byte(0x11000+n,0);
     for(unsigned n=0;n<sizeof program;++n)put_byte(0x12000+n,program[n]);
-    command("g 12000");
+    real_ar_wait_editor(); command("g 12000");
     if(action_replay_flag!=ACTION_REPLAY_IDLE || !get_long(0x11000))
         fprintf(stderr,"AR G failed model=%d flag=%d PC=%08x counter=%u\n",armodel,action_replay_flag,m68k_getpc(),get_long(0x11000));
     assert(action_replay_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>0);
@@ -607,7 +646,7 @@ static void real_ar_boot()
         step(3,AK_F1); step(24); phase("continue");
     }
     assert(action_replay_flag==ACTION_REPLAY_IDLE);
-    level(0); level(1,80); phase("freeze");
+    level(0); level(1); real_ar_wait_editor(); phase("freeze");
     assert(action_replay_flag==ACTION_REPLAY_ACTIVE && ar_control().mode_read==0);
     real_ar_loop(); phase("G");
     level(1,4); assert(action_replay_flag==ACTION_REPLAY_IDLE); // Held boot level was consumed.
@@ -616,7 +655,7 @@ static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uin
 {
     std::vector<std::vector<uint8_t>> cuts; auto e=error();
     if(writing) {
-        public_ar_start(rom,cart,model); real_ar_boot(); level(0); level(1,80);
+        public_ar_start(rom,cart,model); real_ar_boot(); level(0); level(1); real_ar_wait_editor();
         assert(action_replay_flag==ACTION_REPLAY_ACTIVE && held_command()==1); cuts.push_back(save());
         command("x",false); cuts.push_back(save()); public_ar_stop();
     }
@@ -628,9 +667,9 @@ static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uin
             load(state); same_state(state); input_v2=true; command_level=1; assert(held_command()==1);
             p6_sha256_init(&observed); const auto counter=get_long(0x11000); level(1,8);
             assert(action_replay_flag==ACTION_REPLAY_ACTIVE && get_long(0x11000)==counter);
-            if(cut) { step(3,AK_RET); step(12); } else command("x");
+            if(cut) { step(3,AK_RET); step(12); } else { real_ar_wait_editor(); command("x"); }
             level(1,5); assert(action_replay_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>counter);
-            input_v2=false; step(); assert(!held_command()); level(1,80);
+            input_v2=false; step(); assert(!held_command()); level(1); real_ar_wait_editor();
             assert(action_replay_flag==ACTION_REPLAY_ACTIVE); command("x"); step(8);
             assert(action_replay_flag==ACTION_REPLAY_IDLE);
             const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{}; p6_sha256_final(&observed,digest.data());
@@ -642,7 +681,7 @@ static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uin
     if(writing) {
         public_ar_start(rom,cart,model); load(cuts[0]); input_v2=true; command_level=1;
         call(p6_reset(&e),e); real_ar_boot(); assert(held_command()==1);
-        level(0); level(1,80); assert(action_replay_flag==ACTION_REPLAY_ACTIVE); command("x"); step(8);
+        level(0); level(1); real_ar_wait_editor(); assert(action_replay_flag==ACTION_REPLAY_ACTIVE); command("x"); step(8);
         assert(action_replay_flag==ACTION_REPLAY_IDLE); public_ar_stop();
     }
 }

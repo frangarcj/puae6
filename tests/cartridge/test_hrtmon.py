@@ -147,6 +147,10 @@ class NativeArTests(unittest.TestCase):
             self.skipTest('BLOCKED: set authorized local '+', '.join(names))
         for path in assets:
             self.assertTrue(Path(path).is_file(),path)
+        # The editor call-frame addresses in the real-ROM fixture are version-specific.
+        for path,expected in zip(assets[1:],('255d6df63a4eab0a838eb1a16a267b0959dff634',
+                                             '5d4987c2e3ffea8b1b02e31430ef190f2db76542')):
+            self.assertEqual(hashlib.sha1(Path(path).read_bytes()).hexdigest(),expected,path)
         exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
         with tempfile.TemporaryDirectory(prefix='ar-public-',dir=ROOT/'build') as tmp:
             own=Path(tmp)/'original.rom'; own.write_bytes(ar_state_firmware())
