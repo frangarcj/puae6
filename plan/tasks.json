@@ -21721,6 +21721,7 @@
         "tests/media/csharp-disc/Cd32Chd.cs",
         "tests/waterbox-media/test_chd_public.py",
         "docs/02-contracts.md",
+        "docs/options.md",
         "tools/check.py",
         "tests/test_plan.py"
       ],
@@ -21728,7 +21729,8 @@
         "Verticalatomica siete rutas240..350manuales porpublicacioncompleta, sinparser/RomLoaderpatch/guestnuevo siV7actual. Params CdInfoV3/CdCatalogV3, count/create/identity/catalogID/validate yclonesCore/WhdLoad; seis modos mutuamenteexclusivos, limites/mapa/IDunicos/borrowed ylease intactos.",
         "Factorysinglemulti usaV3. Si cualquierfuente SessionCount>=2 todo catalogopromueveV3: V2copia12words/tablecount0 yV1usaRegionalDescriptorexistente storedpregap1/flags0. IDsinrecalcular; identidadcatalogo PUAE6 CD catalog/v1+IDs/slots anterior exacta. Sinmulti rutaV1/V2identica; leaseIsDisposedantescallback, sinownerparalelo.",
         "MED01/WB03/DET02 unionunaejecucion: nuevo NrgMultiPublicWaterboxTests.test_public_multisession_and_mixed_catalog_cold_restore +ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore +NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Harness/Run/Save/Restore/loaderrealexistentes, no nuevocore/probealterno.",
-        "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion."
+        "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion.",
+        "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto."
       ],
       "checks": [
         "MED01",
