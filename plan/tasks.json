@@ -21769,6 +21769,7 @@
       ],
       "touch": [
         "integration/bizhawk/patches/0020-provider-sbi-overlay.patch",
+        "integration/bizhawk/patches/0019-canonical-nrg-dao-sessions.patch",
         "tests/media/csharp-disc/Program.cs",
         "tests/media/test_nrg_canonical_csharp.py",
         "tests/media/test_cd_source_csharp.py",
@@ -21780,7 +21781,8 @@
         "busy_reference aislado trasV10DONE, cinco rutas240..350manuales. Patch0020targetsApplySBIJob.cs,Internal/SectorSynth.cs,DiscMountJob.cs. ReutilizarLoadSBIJob/SS_PatchQ; quitarunicamente rechazo temporalSBI sparse. Rootmetadata/buildspesados; parser/owner/inventarioparalelo prohibidos.",
         "Preflightcantidad12*ABAs.Count checked,valores-1..255, ABA-LBAchecked yTODASdireccionesconprovider antesIO/candidato: huecorechaza sinlecturas. LuegoQoriginal ybuffersprivados, duplicadoscomponenenordenexistente, publicarsynthprovider+memo solotrasexito; falloconservaambos. Dominiolegacydirectosnoseamplia porleadoutwrapper. OverlaymismoDisc consultaIsDisposedantesretornarpatch/delegado; catchmontajecierraFD.",
         "CorregirSS_PatchQ causal: DestOffsetrespetado; deinterleavedexactos12bytesQ, interleavedsolobitQdecada96simbolospreservaP/RW/main. CRCoriginalasMednafenfalse; recomputadoinvertido truecomocontratoexistente. No soportarSBIgeneralporintuicion.",
-        "MED01unaunion NrgCanonicalCSharpTests.test_sbi_sparse_sessions_q_precedence_offsets_and_interleave y test_sbi_preflight_read_failure_and_owner_cleanup_transactionally +DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind. Tipos1/2/3,duplicados,ambassesiones,Qstored/synth/CRC/offsets/canarios,ultimoregistroenhuecosinIO,datosinvalidos,readfailure sinpublicacion/FDsinreabrir. BUILD01 targetreal/analyzers existenteunavez. V12fixtureSBIenmismaunionWB acreditaidentidad/restorepatcheados, noWBextra."
+        "MED01unaunion NrgCanonicalCSharpTests.test_sbi_sparse_sessions_q_precedence_offsets_and_interleave y test_sbi_preflight_read_failure_and_owner_cleanup_transactionally +DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind. Tipos1/2/3,duplicados,ambassesiones,Qstored/synth/CRC/offsets/canarios,ultimoregistroenhuecosinIO,datosinvalidos,readfailure sinpublicacion/FDsinreabrir. BUILD01 targetreal/analyzers existenteunavez. V12fixtureSBIenmismaunionWB acreditaidentidad/restorepatcheados, noWBextra.",
+        "Ampliacion antesfixroot: BUILD01integrado falla BHI3100 porFirstOrDefaultdePuae6DaoTrackstruct en0019. Añadirsolo patch0019aTouch; sustituirbusqueda porprimercandidatocubiertomedianteforeachsinotroscambios, conservandoNumber0sentinel. RepetirsoloBUILD01fallido ymetodoAquepruebalecturas/TOCs/sietevariantes; noSBI/Bsuitecompleta."
       ],
       "checks": [
         "MED01",
