@@ -337,6 +337,11 @@ for _gate in ('WB03', 'WB08', 'DET02'):
     TASK_SUITES[(_gate, 'T66t16')] = {'public_chd_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('MED01', 'T66l7')] = dict(TASK_SUITES[('MED01', 'T66l6')])
+TASK_SUITES[('LR01', 'T66t18')] = {'public_htoa_restore': 'tests.libretro-host.test_cd32_load.Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity'}
+for _gate in ('WB03', 'WB08'):
+    TASK_SUITES[(_gate, 'T66t18')] = {'public_htoa_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_htoa_saveram_and_cold_restore'}
+TASK_SUITES[('DET02', 'T66t18')] = {**TASK_SUITES[('LR01', 'T66t18')], 'public_wb_htoa_restore': TASK_SUITES[('WB03', 'T66t18')]['public_htoa_restore']}
 TASK_SUITES[('MED01', 'T66t17')] = {
     'native_htoa': 'tests.media.test_cd_chd.CdChdTests.test_first_stored_pregap_htoa_addresses_toc_subq_and_rebind',
     'canonical_htoa': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_first_stored_pregap_keeps_visible_index1_and_full_stream',
@@ -360,6 +365,8 @@ for _gate in ('STATE01', 'DET02'):
 for _gate in ('MED01', 'DET02'):
     TASK_SUITES[(_gate, 'T67a')] = {'real_cdtv_dmac': 'tests.media.test_cdtv_link.CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle'}
 TASK_SUITES[('MED01', 'T66t15b')] = {'typed_regional_wire': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_regional_descriptor_materialization_identity_and_rejections', 'real_host_chd_regional': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership', 'legacy_source': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests'}
+TASK_SUITES[('BUILD01', 'T66t19')] = {'real_client_common_target': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_real_client_common_target_and_analyzers'}
+TASK_SUITES[('MED01', 'T66t19')] = {'direct_and_xml_public_selector': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_xml_amiga_public_selector_xa_and_parameters'}
 TASK_SUITES[('BUILD01', 'T66t15c')] = {'real_client_common_target': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_real_client_common_target_and_analyzers'}
 for _gate in ('MED01', 'STATE01'):
     TASK_SUITES[(_gate, 'T66t15c')] = {'public_xml_amiga_chd': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_xml_amiga_public_selector_xa_and_parameters', 'legacy_source': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests'}

@@ -18229,6 +18229,46 @@
       "stop": "No presentar TAO BizHawk ni multisesion como soportados; no inventarcampos64bits ni truncarlos. Dividir antes400 o ampliar scope antesotrasrutas."
     },
     {
+      "id": "T66t19",
+      "title": "Abrir CHD directo por plataforma Amiga y core PUAE6 explicitos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66t15c",
+        "T66t17"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0013-direct-puae6-chd-preference.patch",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Tres rutas de implementacion150..200lineas: parche RomLoader derivado de MacHawk fijado, matriz HostChd y contrato. Agente cd32_close aislado; coordinador metadata e integracion. No editar MacHawk ni build_tree/otras rutas sin ampliar ficha antes.",
+        "Seleccionar backend antes de MountDiscAsset solo para .chd con PreferredPlatformsForExtensions[.chd]=Amiga y core preferido PUAE6, o forcedCoreName=PUAE6. HawkFile.Extension ya normaliza minusculas. Sin lectura para adivinar plataforma ni fallback tras fallo seleccionado.",
+        "Fijar Game.System=Amiga antes de CoreInventory incluso con core forzado; preservar hash y el resto de rutas/XML. Evitar fast-fail de identificador solo en este camino explicito; errores conservan contexto Amiga y owners cierran.",
+        "Matriz pura del selector: ausencia/vacio/otro sistema/otro core, preferido/forzado y extension mayuscula. HostChd LoadRom real llega a rechazo de firmware CD32 previo al guest, tambien imagen seleccionada invalida; exige atribucion Amiga y FDclose. MED01 y BUILD01 comparten dos selectores existentes, sin acreditar ejecucion Waterbox. Root agregara gate publico directo al integrar candidato."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "CHD directo usa backend PUAE6 solo por seleccion explicita y llega al constructor CD32 en contexto Amiga; conserva rechazo/ownership sin fallback ni cambiar rutas ajenas. Compila Client.Common real con analyzers."
+      ],
+      "stop": "No inferir que todo CHD es Amiga ni atribuir ejecucion guest a un rechazo previo a firmware; preservar soporte de otros sistemas y rutas XML."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18314,7 +18354,8 @@
         "T66t17",
         "T66l6",
         "T66t18",
-        "T66l7"
+        "T66l7",
+        "T66t19"
       ],
       "read": [
         "docs/01-architecture.md",

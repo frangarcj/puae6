@@ -5850,6 +5850,28 @@
           "after_sha256": "1bd73795d20ed343aad6c46e882ff1a16b4665c3427490df214fc4db898a3949"
         }
       ]
+    },
+    {
+      "id": "0404-nrg-etn2-canonical-pregap",
+      "file": "patches/winuae/0404-nrg-etn2-canonical-pregap.patch",
+      "sha256": "3b6951ba230059b852dafb6c2b3266dc84c716b2c932cfdce99da813c9c59fc3",
+      "title": "Read bounded single-session NRG ETN2 with 64-bit extents",
+      "reason": "T66l7: DiscSystem9b627578 and libMiragea9d6a204 define ETN2 64-bit byte extents, 32-bit packed sectors and shared canonical150 gaps. Preserve independent compact coordinates and old DAO/ETNF identities; multisession and public DiscSystem TAO remain separate debts.",
+      "category": "NRG metadata boundary",
+      "order": 220,
+      "symbols": [
+        "nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "1bd73795d20ed343aad6c46e882ff1a16b4665c3427490df214fc4db898a3949",
+          "after_sha256": "cbdb07220d810e6279998c6e083bbbef0f33f7f1b10365a2c80ede202800431f"
+        }
+      ]
     }
   ]
 }
