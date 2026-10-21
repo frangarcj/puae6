@@ -2240,3 +2240,31 @@ El overlay consulta `Disc.IsDisposed` del mismo owner antes de devolver sectores
 sin otro propietario ni reapertura tras cierre. Los errores de montaje cierran
 los recursos. El parser y el dominio legacy de direcciones no se amplian; esto
 no acredita SBI general ni restore publico, cuya puerta sigue siendo V12.
+
+
+## Normalizacion DAO multisesion C# (T66v11)
+
+Puae6DiscSource acepta varias sesiones solo desde Disc.Puae6NrgDao congelado.
+SessionCount=0 conserva las ramas legacy V1/V2 y sus IDs; multi exige DescriptorV3,
+con tabla completa y regiones por pista global. Se transporta wire2448 con SUB96
+presente, pregap respaldado y sin postgap inventado. INDEX00 negativo del primer
+track se recorta a cero solo en el descriptor/callback, pero permanece en el hash.
+ReadAt valida cada LBA de la solicitud antes de IO, incluso un burst no alineado
+que acaba en un hueco; la salida solo se publica completa. Rebind calcula todo el
+candidato antes de cambiar reader/owner; Dispose del owner prestado impide IO.
+
+ID v3: bytes ASCII P6CD2448 NUL, u32 version=3/leadout/numTracks/numSessions.
+Little endian, sin padding: por sesion u32 first/last/format, i32 CUE0, u32 A2,
+u8 hint y 13 bytes catalogo; por pista los 12 u32 regionales del descriptor y
+12 bytes ISRC. Sigue u32 cantidad de intervalos respaldados y, por pista global,
+i32 INDEX00 original, i32 fin exclusivo y u64 longitud=(fin-INDEX00)*2448.
+Finalmente SHA256 sobre esa metadata seguida de los sectores canonicos completos,
+por intervalo y LBA ascendente, incluido el prefijo negativo almacenado. No se
+leen ni hashean huecos, offsets fisicos, stride, packing o orden de chunks. El ID
+no se equipara a P6NRGM. El modo logico deriva del modo NRG declarado, no del Q.
+
+MED01 verifica descriptor e ID con oraculo Python independiente, equivalencia al
+renombrar/reubicar/reordenar, cambios de metadata, payload de segunda sesion y
+prefijo, rechazo transaccional de candidato/fallo/owner cerrado y salida sin IO
+en huecos. El montaje single conserva su ID; loader publico y snapshot quedan
+para su propia puerta.

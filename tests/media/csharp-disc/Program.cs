@@ -392,6 +392,51 @@ internal static unsafe partial class Program
   }
   Require(NrgHandles(path)==before); Console.WriteLine("SBI provider PASS");
  }
+ static void NrgNormalized(string[] args)
+ {
+  string path=args[1]; int before=NrgHandles(path);
+  using(var disc=DiscMountJob.MountPuae6Nrg(path)) {
+   var source=new Puae6DiscSource(disc); var id=source.ContentId; var layout=disc.Puae6NrgDao;
+   Require(source.SessionCount==layout.Sessions.Count);
+   try { source.Descriptor(); throw new Exception("Multisession accepted V1"); } catch(InvalidOperationException) { }
+   try { source.DescriptorV2(); throw new Exception("Multisession accepted V2"); } catch(InvalidOperationException) { }
+   var descriptor=source.DescriptorV3(); File.WriteAllBytes(path+".descriptor",new ReadOnlySpan<byte>(&descriptor,sizeof(P6CdInfoV3)).ToArray());
+   Console.WriteLine(Convert.ToHexString(id));
+   var direct=new DiscSectorReader(disc); var output=new byte[2464]; using var wire=new MemoryStream();
+   foreach(var t in layout.Tracks) for(int lba=t.Index0;lba<t.End;++lba) {
+    Array.Fill(output,(byte)0xcc);
+    Require(lba<0?direct.ReadLBA_2448(lba,output,8)==2448:source.ReadAt((ulong)lba*2448,output,8,2448));
+    Require(output.Take(8).Concat(output.Skip(2456)).All(b=>b==0xcc)); wire.Write(output,8,2448);
+   }
+   File.WriteAllBytes(path+".actual",wire.ToArray());
+   var field=disc.SynthProvider.GetType().GetField("blob",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+   var counter=new NrgCountBlob((IBlob)field.GetValue(disc.SynthProvider)); field.SetValue(disc.SynthProvider,counter);
+   int calls=counter.Calls;
+   Refused(output,()=>source.ReadAt(11*2448,output,8,2448));
+   Refused(output,()=>source.ReadAt(11*2448-1,output,8,2));
+   Refused(output,()=>source.ReadSector(20,2448,output,8));
+   Require(counter.Calls==calls&&source.ReadAt(source.Length,Array.Empty<byte>(),0,0));
+   if(args.Length>2) {
+    string other=args[2]; int owners=NrgHandles(other);
+    using(var replacement=DiscMountJob.MountPuae6Nrg(other)) {
+     if(args[3]=="fault") {
+      var f=replacement.SynthProvider.GetType().GetField("blob",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+      f.SetValue(replacement.SynthProvider,new NrgCountBlob((IBlob)f.GetValue(replacement.SynthProvider)) { Fault=2 });
+     }
+     bool same=args[3]=="same"; Require(source.Rebind(replacement)==same&&source.ContentId.SequenceEqual(id));
+     Require(source.ReadSector(30,2448,output,8));
+     if(same) { disc.Dispose(); Require(source.ReadSector(30,2448,output,8)); replacement.Dispose(); Refused(output,()=>source.ReadAt(0,output,8,2448)); }
+     else { replacement.Dispose(); Require(!source.Rebind(replacement)&&source.ReadSector(30,2448,output,8)); }
+    }
+    Require(NrgHandles(other)==owners);
+   } else {
+    counter.Fault=2; Refused(output,()=>source.ReadAt(2439,output,8,2448)); counter.Fault=0;
+    Require(source.ReadSector(0,2448,output,8)); disc.Dispose(); calls=counter.Calls;
+    Refused(output,()=>source.ReadAt(0,output,8,2448)); Refused(output,()=>source.ReadSector(30,2448,output,8)); Require(counter.Calls==calls);
+   }
+  }
+  Require(NrgHandles(path)==before);
+ }
  static void NrgTao(string[] args)
  {
   string mode=args[0],path=args[1]; int before=NrgHandles(path);
@@ -424,6 +469,8 @@ internal static unsafe partial class Program
   if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
   if(args.Length>=3&&args[0]=="nrg-metadata") { NrgMetadata(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-sbi")) { NrgSbi(args); return; }
+
+  if(args.Length>=2&&args[0]=="nrg-normalized") { NrgNormalized(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-sparse")) { NrgSparse(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }

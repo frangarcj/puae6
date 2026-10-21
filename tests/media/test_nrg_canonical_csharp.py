@@ -51,6 +51,58 @@ def sbi_fixture(path, wire, entries, lbas, *, mednafen=True):
     path.write_bytes(file)
     return bytes(patched)
 
+def dao_fixture(work,name,version=2,modes=(7,0,6),padded=False,groups=None,prefix=0,reordered=False):
+    seed=tuple(7 if k==16 else 0 if k==15 else 6 if k==17 else k for k in modes)
+    if groups is None: groups=((-150,11,((1,seed[0],-150,0,4),(2,seed[1],4,6,11)),0,1,b'1234567890123'),
+            (20,39,((3,seed[2],30,32,39),),32,7,b'ABCDEFGHIJKLM'))
+    tail,_,_,blocks=meta.nrg_sessions(version,groups=groups); tail=bytearray(tail)
+    payload=bytearray([0x6d]*prefix); wire=bytearray(); rows=[]; ordinal=0; width=8 if version==2 else 4
+    sessions=[f'session {i} {g[2][0][0]} {g[2][-1][0]} {g[3]} {g[0]} {g[1]} {g[4]} {g[5].hex()}' for i,g in enumerate(groups,1)]
+    for group,g in enumerate(groups):
+        for local,(number,_,zero,one,end) in enumerate(g[2]):
+            kind=modes[ordinal]; ordinal+=1; control=0 if kind in (7,16) else 4
+            size=2448 if kind>=15 else 2048 if kind in (0,2) else 2336 if kind==3 else 2352
+            stride=2448 if padded and kind in (0,5,6,7) else size
+            offset=len(payload); start=offset+(one-zero)*stride; finish=start+(end-one)*stride
+            at=blocks[group]['DAO']+30+local*(18+3*width)
+            struct.pack_into('>H',tail,at+12,stride); tail[at+14]=kind
+            struct.pack_into('>QQQ' if version==2 else '>III',tail,at+18,offset,start,finish)
+            rows.append(f'track {number} {offset} {start} {finish} {stride} {kind} {zero} {one} {end} 1 {control} '+b'US1234567890'.hex())
+            for lba in range(zero,end):
+                raw=bytearray((number*53+lba-zero+k)&255 for k in range(size))
+                if kind in (5,6,15,17): raw[15]=1 if kind in (5,15) else 2
+                if kind>=15:
+                    pw=bytes((number*31+lba-zero+k)&255 for k in range(96)); raw[2352:]=nrg.interleave(pw); body=bytes(raw[:2352])+pw
+                else:
+                    body=chd.mode1(bytes(raw),lba) if kind==0 else nrg.mode2_header(lba)+(nrg.form1_body(bytes(raw)) if kind==2 else raw) if kind in (2,3) else bytes(raw)
+                    body+=subq(number,0 if lba<one else 1,lba,one,control)
+                payload+=raw+bytes([0xa5])*(stride-size); wire+=body
+    directory=len(payload)+123; struct.pack_into('>Q' if version==2 else '>I',tail,len(tail)-width,directory)
+    if len(groups)>2 or reordered: # SINF and CUE families precede DAO: the second DAO appears at chunk200.
+        tail=b''.join(tail[b[k]:b[k]+8+struct.unpack_from('>I',tail,b[k]+4)[0]] for k in ('SIN','CUE','DAO') for b in blocks)+tail[-12-width:]
+    path=Path(work)/(name+'.nrg'); path.write_bytes(payload+bytes([0x9c])*123+tail)
+    return path,bytes(wire),sessions+rows
+
+def dao_metadata(rows):
+    sessions=[]; records=[]; extents=[]; isrc=[]
+    for row in rows:
+        fields=row.split()[1:]
+        if row.startswith('session '): sessions.append((tuple(map(int,fields[1:7])),bytes.fromhex(fields[7])))
+        else:
+            number,off0,off1,endoff,stride,kind,zero,one,end,adr,control=map(int,fields[:11])
+            mode=0 if kind in (7,16) else 1 if kind in (0,5,15) else 2; start=max(0,zero); pg=one>start
+            records.append((start,one,end,mode,control,0,int(pg),0,0,3|(4 if pg else 0),mode if pg else 0,control if pg else 0))
+            extents.append((zero,end)); isrc.append(bytes.fromhex(fields[11]))
+    metadata=b'P6CD2448\0'+struct.pack('<4I',3,sessions[-1][0][4],len(records),len(sessions))
+    for fields,catalog in sessions: metadata+=struct.pack('<3IiIB',*fields)+catalog
+    for record,raw in zip(records,isrc): metadata+=struct.pack('<12I',*record)+raw
+    metadata+=struct.pack('<I',len(extents))+b''.join(struct.pack('<iiQ',a,b,(b-a)*2448) for a,b in extents)
+    return metadata,records,sessions
+
+
+def dao_identity(wire,rows):
+    return hashlib.sha256(dao_metadata(rows)[0]+wire).hexdigest().upper()
+
 
 class NrgCanonicalCSharpTests(unittest.TestCase):
     @classmethod
@@ -116,37 +168,8 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
             self.assertEqual(wire,expected); self.assertEqual(self.run_nrg(path),before)
             self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
 
-    def sparse_fixture(self,name,version=2,modes=(7,0,6),padded=False,groups=None):
-        seed=tuple(7 if k==16 else 0 if k==15 else 6 if k==17 else k for k in modes)
-        if groups is None: groups=((-150,11,((1,seed[0],-150,0,4),(2,seed[1],4,6,11)),0,1,b'1234567890123'),
-                (20,39,((3,seed[2],30,32,39),),32,7,b'ABCDEFGHIJKLM'))
-        tail,_,_,blocks=meta.nrg_sessions(version,groups=groups); tail=bytearray(tail)
-        payload=bytearray(); wire=bytearray(); rows=[]; ordinal=0; width=8 if version==2 else 4
-        sessions=[f'session {i} {g[2][0][0]} {g[2][-1][0]} {g[3]} {g[0]} {g[1]} {g[4]} {g[5].hex()}' for i,g in enumerate(groups,1)]
-        for group,g in enumerate(groups):
-            for local,(number,_,zero,one,end) in enumerate(g[2]):
-                kind=modes[ordinal]; ordinal+=1; control=0 if kind in (7,16) else 4
-                size=2448 if kind>=15 else 2048 if kind in (0,2) else 2336 if kind==3 else 2352
-                stride=2448 if padded and kind in (0,5,6,7) else size
-                offset=len(payload); start=offset+(one-zero)*stride; finish=start+(end-one)*stride
-                at=blocks[group]['DAO']+30+local*(18+3*width)
-                struct.pack_into('>H',tail,at+12,stride); tail[at+14]=kind
-                struct.pack_into('>QQQ' if version==2 else '>III',tail,at+18,offset,start,finish)
-                rows.append(f'track {number} {offset} {start} {finish} {stride} {kind} {zero} {one} {end} 1 {control} '+b'US1234567890'.hex())
-                for lba in range(zero,end):
-                    raw=bytearray((number*53+lba-zero+k)&255 for k in range(size))
-                    if kind in (5,6,15,17): raw[15]=1 if kind in (5,15) else 2
-                    if kind>=15:
-                        pw=bytes((number*31+lba-zero+k)&255 for k in range(96)); raw[2352:]=nrg.interleave(pw); body=bytes(raw[:2352])+pw
-                    else:
-                        body=chd.mode1(bytes(raw),lba) if kind==0 else nrg.mode2_header(lba)+(nrg.form1_body(bytes(raw)) if kind==2 else raw) if kind in (2,3) else bytes(raw)
-                        body+=subq(number,0 if lba<one else 1,lba,one,control)
-                    payload+=raw+bytes([0xa5])*(stride-size); wire+=body
-        directory=len(payload)+123; struct.pack_into('>Q' if version==2 else '>I',tail,len(tail)-width,directory)
-        if len(groups)>2: # SINF and CUE families precede DAO: the second DAO appears at chunk200.
-            tail=b''.join(tail[b[k]:b[k]+8+struct.unpack_from('>I',tail,b[k]+4)[0]] for k in ('SIN','CUE','DAO') for b in blocks)+tail[-12-width:]
-        path=self.work/(name+'.nrg'); path.write_bytes(payload+bytes([0x9c])*123+tail)
-        return path,bytes(wire),sessions+rows
+    def sparse_fixture(self,name,version=2,modes=(7,0,6),**options):
+        return dao_fixture(self.work,name,version,modes,**options)
 
     def sparse(self,path,mode='nrg-sparse',faults=False):
         result=subprocess.run([source.DOTNET,str(self.dll),mode,str(path)]+(['faults'] if faults else []),env=self.env,capture_output=True,text=True,timeout=30)
@@ -206,6 +229,41 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
         companion.unlink()
         self.assertEqual(self.sparse(path),rows) # Both failed mounts released their backing files.
         self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+
+    def normalized(self,path,other=None,kind='same'):
+        result=subprocess.run([source.DOTNET,str(self.dll),'nrg-normalized',str(path)]+([] if other is None else [str(other),kind]),
+                              env=self.env,capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
+        return result.stdout.strip()
+
+    def test_dao_multisession_descriptor_v3_and_canonical_identity(self):
+        for version,modes in ((1,(7,0,6)),(2,(2,3,5)),(2,(16,15,17))):
+            path,wire,rows=dao_fixture(self.work,f'normalized{version}-{modes}',version,modes)
+            self.assertEqual(self.normalized(path),dao_identity(wire,rows)); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+            descriptor=Path(str(path)+'.descriptor').read_bytes(); metadata,records,sessions=dao_metadata(rows)
+            self.assertEqual(len(descriptor),6792); self.assertEqual(struct.unpack_from('<II',descriptor),(3,6792))
+            self.assertEqual(descriptor[8:40].hex().upper(),dao_identity(wire,rows)); self.assertEqual(struct.unpack_from('<QII',descriptor,40),(39*2448,3,39))
+            for n,record in enumerate(records): self.assertEqual(struct.unpack_from('<12I',descriptor,56+n*48),record)
+            self.assertEqual(descriptor[56+3*48:4808],bytes(96*48)); self.assertEqual(struct.unpack_from('<I',descriptor,4808),(2,))
+            for n,(fields,catalog) in enumerate(sessions): self.assertEqual(struct.unpack_from('<3IiI',descriptor,4812+n*20),fields[:5])
+            self.assertEqual(descriptor[4812+40:],bytes(97*20))
+
+    def test_dao_multisession_rebind_lease_and_transactional_failures(self):
+        path,wire,rows=dao_fixture(self.work,'identity-base'); expected=dao_identity(wire,rows)
+        same,wire2,rows2=dao_fixture(self.work,'relocated-reordered',1,padded=True,prefix=37,reordered=True)
+        self.assertEqual(wire,wire2); self.assertEqual(expected,dao_identity(wire2,rows2))
+        self.assertEqual(self.normalized(path,same),expected)
+        self.assertEqual(self.normalized(path,same,'fault'),expected) # Failed candidate hashing preserves the previous reader.
+        data=path.read_bytes(); directory=struct.unpack_from('>Q',data,len(data)-8)[0]; blocks=meta.nrg_sessions()[3]
+        changes=[(0,b'\xff'), # Backed negative prefix is invisible to ReadAt but belongs to identity.
+                 (int(rows[-1].split()[3]),b'\xff'),
+                 (directory+blocks[1]['CUE']+12,struct.pack('>i',21)),
+                 (directory+blocks[0]['DAO']+12,b'X'),
+                 (directory+blocks[0]['DAO']+27,b'\x02'),
+                 (directory+blocks[1]['DAO']+30,b'Z')]
+        for n,(at,value) in enumerate(changes):
+            alien=self.work/f'identity-alien{n}.nrg'; altered=bytearray(data); altered[at:at+len(value)]=value; alien.write_bytes(altered)
+            self.assertEqual(self.normalized(path,alien,'other'),expected)
 
     def metadata(self,data,base,fault=''):
         path=self.work/'metadata.nrg'; path.write_bytes(data)
