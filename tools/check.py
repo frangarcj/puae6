@@ -339,6 +339,10 @@ TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadat
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66v1')] = {'private_session_layout_toc': 'tests.media.test_cd_disc.CdDiscTests'}
+TASK_SUITES[('MED01', 'T66l9')] = {'public_nrg_selection': 'tests.waterbox-media.test_chd_public.NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership'}
+for _gate in ('WB03', 'WB08', 'DET02'):
+    TASK_SUITES[(_gate, 'T66l9')] = {'xml_nrg_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore',
+        'direct_nrg_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_direct_nrg_canonical_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66l8')] = {
     'canonical_tao': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_etnf_etn2_four_modes_mixed_stride_toc_q_stream_and_identity',
     'canonical_identity_and_failures': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_rebind_and_malformed_inputs_close_sources_transactionally',

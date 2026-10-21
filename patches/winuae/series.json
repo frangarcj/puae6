@@ -5872,6 +5872,28 @@
           "after_sha256": "cbdb07220d810e6279998c6e083bbbef0f33f7f1b10365a2c80ede202800431f"
         }
       ]
+    },
+    {
+      "id": "0405-nrg-dao-sessions-metadata",
+      "file": "patches/winuae/0405-nrg-dao-sessions-metadata.patch",
+      "sha256": "4a9931df4c661c3e98d916b02a5504e8579d33139c1e32f860b63bd897032365",
+      "title": "Preserve bounded NRG DAO session metadata before enabling its provider",
+      "reason": "T66v2: pair CUE/DAO/SINF groups by ordinal following libMirage a9d6a204; preserve explicit CUE0/A2, global tracks, catalogs and raw hints. Retain single-session identities. CdNrg still rejects multisession before payload reads pending device and restore integration.",
+      "category": "NRG metadata boundary",
+      "order": 221,
+      "symbols": [
+        "nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "cbdb07220d810e6279998c6e083bbbef0f33f7f1b10365a2c80ede202800431f",
+          "after_sha256": "bda4fba80c3016f1b2ebd60e7aa05572fdd7a95718d7feba520b874658ff169e"
+        }
+      ]
     }
   ]
 }
