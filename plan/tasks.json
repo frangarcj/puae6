@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -11594,7 +11594,8 @@
         "Preflight del paquete de candidata: reproducer mostraba PASS de receta conZIPdeotrarevision. Exigir manifiesto acotado64KiB/local-preview/macos-arm64 yrevision del checkoutlimpio antes de imagenes/build, reutilizando clean_revision del empaquetador. tests.ci.test_nightly17PASS incluyen rechazo temprano, JSON/ZIPinvalidos yfuentesdirty; la prueba instalada completa sigue seleccionada y no se acredita CIreal/remota.",
         "Integracion de dependencias: source_identity del arnes omite third_party aunque compila MAME/IPF y ahora se preparaCHD. Ampliar touch a tests/build_support.py ytests/test_build_support.py; incluir bytes de dependencias en identidad y probar invalidacion de cache/receipt con contenido cambiado y mtime conservado, sin compilar emulador ni alterar testsfuncionales.",
         "Integracion REF01: al ablar0356/0357/0361 se elimina la cadena de guards/parsers CUE/CCD/NRG del que0388 y0389/0391/0392 dependen; materializacion de referencia falla antes de compilar. Mantener0356/0357/0361 como behavior retenidos con razon explicita de dependencia, sin fingir ablation ni cambiar resultados golden. Reutilizar tests de clasificacion y materializacion exacta existentes; ampliar touch solo tests/reference/patch-classes.json. Puerta acumulada permanece para candidata.",
-        "La candidata acumulada se difiere hasta integrar las funciones en curso; T39b vuelve a pending sin quitar puertas. El coordinador retoma la correccion independiente T55c11 en worktree aislado; se mantienen cuatro responsables activos como maximo."
+        "La candidata acumulada se difiere hasta integrar las funciones en curso; T39b vuelve a pending sin quitar puertas. El coordinador retoma la correccion independiente T55c11 en worktree aislado; se mantienen cuatro responsables activos como maximo.",
+        "Integracion de CDTV: la lane funcional ahora selecciona el probe con firmware autorizado de T67c1. Exigir P6_CDTV_ROM_MAIN y P6_CDTV_ROM_EXT antes de preparar imagenes/compilar; verificar negativos tempranos junto a A4000/CD32 y documentar el par fijo. Root limita esta vertical a tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md; la puerta acumulada completa sigue pendiente de candidata estable, sin atribuir CI real por tests de infraestructura."
       ],
       "checks": [
         "PLAN01",
