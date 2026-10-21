@@ -47,6 +47,7 @@ internal static unsafe partial class Program
   byte[] main=File.ReadAllBytes(args[6]), ext=File.ReadAllBytes(args[7]);
   byte[] expected=File.ReadAllBytes(Path.Combine(work,"wire.bin"));
   int pregap=args.Length>8?int.Parse(args[8]):0;
+  bool direct=Path.GetExtension(xml).Equals(".chd",StringComparison.OrdinalIgnoreCase);
   byte[] seed=Enumerable.Range(0,1024).Select(n=>(byte)(n*17+9)).ToArray();
   File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
@@ -54,6 +55,7 @@ internal static unsafe partial class Program
   Puae6Core Open(string path, byte[] nvram)
   {
    var config=new Config(); config.PreferredCores["Amiga"]="PUAE6";
+   if(direct) config.PreferredPlatformsForExtensions[".chd"]="Amiga";
    var loader=new RomLoader(config,null); var errors=new List<string>();
    loader.OnLoadSettings+=(_,e)=>e.Settings=new Puae6Settings();
    loader.OnLoadSyncSettings+=(_,e)=>e.Settings=new Puae6SyncSettings();
@@ -61,7 +63,7 @@ internal static unsafe partial class Program
    var firmware=new Firmware(main,ext,false);
    var comm=new CoreComm(_=>{},(_,_)=>{},firmware,CoreComm.CorePreferencesFlags.None,null);
    if(!loader.LoadRom(path,comm,null)) throw new Exception("Public CHD load: "+string.Join(" | ",errors));
-   var core=loader.LoadedEmulator as Puae6Core ?? throw new Exception("XML did not select PUAE6");
+   var core=loader.LoadedEmulator as Puae6Core ?? throw new Exception("CHD load did not select PUAE6");
    try {
     Require(core.GetSyncSettings().Machine==Puae6Machine.CD32 && core.Frame==0);
     Require(firmware.Asked.SequenceEqual(new[] { "CD32", "CD32ext" }));
@@ -118,7 +120,7 @@ internal static unsafe partial class Program
   using(var durable=Open(xml,File.ReadAllBytes(file+".nvram"))) ChdRead(durable,expected,pregap);
   Require(OpenChd(image)==0);
   foreach(string name in pregap==0?new[] { "other" }:new[] { "other","shifted" }) {
-  string otherXml=Path.Combine(Path.GetDirectoryName(xml),name+".xml"), otherImage=Path.ChangeExtension(otherXml,".chd");
+  string otherXml=Path.Combine(Path.GetDirectoryName(xml),name+(direct?".chd":".xml")), otherImage=Path.ChangeExtension(otherXml,".chd");
   using(var other=Open(otherXml,seed)) {
    var before=Save(other); var nvram=other.CloneSaveRam(false);
    try { Restore(other,File.ReadAllBytes(file)); throw new Exception("Other CHD accepted"); }

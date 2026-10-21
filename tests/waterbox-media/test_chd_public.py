@@ -59,9 +59,9 @@ class ChdPublicWaterboxTests(unittest.TestCase):
         (work / 'dll').mkdir(); shutil.copy2(guest, work / 'dll/puae6.wbx')
         cls.prepared=(work,env,guest,sha,runtime,main,ext,output)
 
-    def scenario(self, htoa=False):
+    def scenario(self, htoa=False, direct=False):
         base,env,guest,sha,runtime,main,ext,output=self.prepared
-        work=base/('htoa' if htoa else 'legacy'); work.mkdir()
+        work=base/('direct' if direct else 'htoa' if htoa else 'legacy'); work.mkdir()
         if htoa:
             fixture,wire=chd.htoa_fixture(work,'disc',200)
             (work/'wire.bin').write_bytes(wire)
@@ -84,7 +84,7 @@ class ChdPublicWaterboxTests(unittest.TestCase):
             (work/(name+'.xml')).write_text(f'<BizHawk-XMLGame System="Amiga" Name="legal"><LoadAssets>'
                                            f'<LoadAsset FileName="{name}.chd"/></LoadAssets></BizHawk-XMLGame>')
         for mode in ('chdpublicsave','chdpublicload'):
-            xml=work/'disc.xml'
+            xml=work/('disc.chd' if direct else 'disc.xml')
             if htoa and mode.endswith('load'):
                 # New absolute paths, same immutable inputs in the second process.
                 renamed=work/'renamed'; renamed.mkdir()
@@ -103,3 +103,6 @@ class ChdPublicWaterboxTests(unittest.TestCase):
 
     def test_xml_chd_htoa_saveram_and_cold_restore(self):
         self.scenario(htoa=True)
+
+    def test_direct_chd_preference_saveram_and_cold_restore(self):
+        self.scenario(direct=True)
