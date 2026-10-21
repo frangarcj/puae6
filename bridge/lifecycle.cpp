@@ -48,6 +48,8 @@ extern void (*p6_counter_restart_hook)(void);   // newcpu.cpp, patch 0073: calle
 extern void p6_cia_session_begin(void);          // cia.cpp, patch 0074: the CIA's per-frame state is a clean process's at the start of a load
 extern void p6_input_session_begin(void);        // inputdevice.cpp, patch 0075: the counters a session of mouse input leaves behind
 extern void p6_custom_ce020_extra_set(int);      // custom.cpp 0108: a new power-on starts at sub-CCK phase zero
+extern void p6_custom_display_power_on(void);    // custom.cpp 0406: CDTV display latches begin at their BSS values
+extern void p6_disk_power_on(void);              // disk.cpp 0409: CDTV disk read shifter begins at BSS phase zero
 
 using p6_session::Guard;
 using p6_session::State;
@@ -152,6 +154,10 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
     // Before 1.3 (version 33) the board is not found by autoconfig: the engine patches PutMsg and DoIO (the "boot hack"), which this profile does not test.
     if (p6_bridge::hard_files_in(media, media_count) && kickstart_version < 34)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "a hard file needs Kickstart 1.3 or later");
+    if (config.machine == p6_bridge::kCdtvMachine) {
+        p6_custom_display_power_on();
+        p6_disk_power_on();
+    }
     custom_init();
     // A load is a new power-on. A clean process starts with the CPU registers and the beam at zero, but the reset head keeps
     // D0-D7/A0-A6 and lets the beam run on, so whatever the previous session left there would decide how the new one begins
