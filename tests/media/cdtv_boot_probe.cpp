@@ -102,7 +102,7 @@ int main(int argc, char **argv)
             PREF("chip_kib", currprefs.chipmem.size/1024); PREF("slow_kib", currprefs.bogomem.size/1024); PREF("fast_kib", currprefs.fastmem[0].size/1024);
 #define FIELD(name) PREF(#name, currprefs.name)
             FIELD(cpu_model); FIELD(address_space_24); FIELD(cpu_cycle_exact); FIELD(cpu_clock_multiplier); FIELD(chipset_mask); FIELD(nr_floppies);
-            FIELD(cs_compatible); FIELD(cs_cdtvcd); FIELD(cs_cdtvram); FIELD(cs_cdtvcr); FIELD(cs_rtc); FIELD(cs_ciaoverlay); FIELD(cs_ksmirror_e0); FIELD(cs_ide); FIELD(cs_pcmcia);
+            FIELD(cs_compatible); FIELD(keyboard_mode); FIELD(cs_resetwarning); FIELD(cs_cdtvcd); FIELD(cs_cdtvram); FIELD(cs_cdtvcr); FIELD(cs_rtc); FIELD(cs_ciaoverlay); FIELD(cs_ksmirror_e0); FIELD(cs_ide); FIELD(cs_pcmcia);
             assert(!currprefs.flashfile[0] && !currprefs.romextfile[0] && !currprefs.romextfile2[0]);
         }
         auto next = frames(); if (repeat) assert(pc == next); pc = next; maps(main, ext); unavailable(); ok(p6_shutdown(&error));

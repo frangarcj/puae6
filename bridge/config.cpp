@@ -196,7 +196,7 @@ namespace {
 
 // What each machine is: the upstream preset it comes from (built_in_prefs model and configuration), its own memory, CPU and chipset, and whether Gayle is declared absent.
 // `compatible` is the cs_compatible value the finished preset must carry: the chipset table upstream applies for the machine, or 0 where the table is applied once and then cleared (A600 and A1200:
-// no Gayle; A1000 and A2000: the reset warning, see build_preferences).
+// no Gayle; A1000, A2000 and private CDTV: the reset warning, see build_preferences).
 struct MachineInfo {
     uint32_t machine;
     const char *name;
@@ -220,7 +220,7 @@ const MachineInfo kMachines[] = {
     {P6_MACHINE_A4030, "A4030", 6, 0, {2048, 0, 8192}, 68030, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
     {P6_MACHINE_A4040, "A4040", 6, 1, {2048, 0, 8192}, 68040, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, 0, false},
     {P6_MACHINE_CD32, "CD32", 8, 0, {2048, 0, 0}, 68020, CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA, CP_CD32, false},
-    {kCdtvMachine, "CDTV", 9, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, CP_CDTV, false},
+    {kCdtvMachine, "CDTV", 9, 0, {1024, 0, 0}, 68000, CSMASK_ECS_AGNUS, 0, false},
 };
 
 const MachineInfo *find_machine(uint32_t machine)
@@ -574,9 +574,9 @@ void build_preferences(const p6_config &c, bool ide)
             clear_device_rom(&currprefs, ROMTYPE_MB_IDE, 0, true);      // upstream's table lists Gayle's IDE among the boards of the motherboard (currprefs.expansionboard): not without a hard file
     }
     if (machine.compatible == 0) {
-        // The chipset table has been applied once, by built_in_prefs (A600, A1200) or just above (A2000, whose base preset is the A500). With cs_compatible = 0 the fixup_prefs calls of the
+        // The chipset table has been applied once, by built_in_prefs (A600, A1200, CDTV) or just above (A2000, whose base preset is the A500). With cs_compatible = 0 the fixup_prefs calls of the
         // lifecycle leave the rest of the table (ECS mirrors, CIA type, E clock phase, clock, mains TOD) as it is; with the table's value every one of them applies it again, and the tables
-        // do what the profile does not have: Gayle, IDE and PCMCIA on the A600 and the A1200; the reset warning handshake on the A1000 and the A2000 (cs_resetwarning, which pin_input clears
+        // do what the profile does not have: Gayle, IDE and PCMCIA on the A600 and the A1200; the reset warning handshake on the A1000, A2000 and CDTV (cs_resetwarning, which pin_input clears
         // and the input boundary of the state refuses).
         currprefs.cs_compatible = 0;
     }

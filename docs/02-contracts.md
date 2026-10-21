@@ -1864,7 +1864,10 @@ y snapshots Waterbox siguen pendientes; no hay compatibilidad entre builds.
 
 T67c1 añade un perfil CDTV privado ID10, fuera del ABI/schema y los frontends.
 Parte del preset WinUAE model9/config0: 68000 exacto, ECS Agnus/OCS Denise,
-Chip1MiB, RTC1 y sin disquetes ni expansiones. Solo admite el combinado
+Chip1MiB, RTC1 y sin disquetes ni expansiones.
+El modelo aplica CP_CDTV una vez y conserva sus campos con `cs_compatible=0`:
+la entrada fija usa teclado CIA y reset inmediato, sin el warning handshake
+que la reaplicacion de esa tabla volveria a activar. Solo admite el combinado
 EXT256KiB v2.7 (ID22) + KS1.3 de256KiB (ID6), validado por hashes de la tabla
 y checksum principal antes de cargar. Vistas acotadas separan ambas mitades;
 el banco extendido ocupa512KiB en F0-F7, con el relleno/checksum que genera

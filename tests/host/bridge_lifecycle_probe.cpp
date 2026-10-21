@@ -113,7 +113,7 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     }
     c = make_config(3);                                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    c = make_config(); c.flags = 2;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // P6_CONFIG_FLOPPY_WRITES (1) is the only flag
+    c = make_config(); c.flags = 4;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // FloppyWrites=1 and HRTMon=2 are known; 0x4 is unknown.
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.reserved8[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
