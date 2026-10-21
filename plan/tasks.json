@@ -18507,6 +18507,49 @@
       "stop": "No habilitar publicamente por analogia del backend previo ni fabricar sectores entre sesiones. Si supera400lineas, dividir antes de ampliar."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v4",
+      "title": "Definir TOC global virtual multisesion y acceso privado del dispositivo",
+      "status": "pending",
+      "depends": [
+        "T66v3"
+      ],
+      "touch": [
+        "ports/portable/media/cd_akiko.cpp",
+        "ports/portable/media/cd_akiko.h",
+        "ports/portable/media/cd_device.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/cd_device_probe.cpp",
+        "tests/media/cd_nrg_probe.cpp",
+        "docs/02-contracts.md",
+        "docs/adr/0018-cd-multisession.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Politica virtual documentada en ADR, no fidelidad hardware acreditada: READ_TOC_EX oficial formato0 incluye todas las sesiones completas y AA leadout final; ECMA168 C.3 numeracion global continua. Proyeccion cd_toc_head pistas1..N/LBAs absolutos/leadoutfinal, sin confundir agregados A0/A1/A2 con lead-in fisico. Consultas por sesion siguen puras; SessionInfo y FullTOC fisico no forman parte de API actual y quedan explicitamente sin implementar. Fuentes primarias: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddcdrm/ns-ntddcdrm-_cdrom_read_toc_ex y ECMA168 2nd1994 anexoC.",
+        "Activar solo despues de V3DONE; cd32_close aislado, <=250lineas manuales en rutas indicadas, root metadata. El cuerpo actual akiko_toc ya produce proyeccionglobal: retirar rechazo multi y ajustar comentario/contrato. Mantener byteexacto legacy/una sesion y fabrica publica NRG multisesion rechazada; no ABI, guest, firmware ni codecs en esta hoja.",
+        "Preflight Disc.describe de todo burst solo para layouts multisesion antes de ReadFn: cruce huecoRange con ceroIO/salida y posicion intactas. Probar dispositivo real con lecturas ambas sesiones, fronteras/huecos, TOC global exacta y consulta por sesion que no cambia global; inspeccionar cd_nrg_probe y actualizar solo asercion de rechazo global ahora superada, conservando rechazo factory default.",
+        "MED01 union dirigida CdDiscTests, CdDeviceTests y CdNrgTests ASan/UBSan. No build guest ni baterias completas. Registrar ADR como decision util, sin informe por tarea; coldrestore/publico/transporte multisesion siguen hojas requeridas posteriores antes de padreT66."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Dispositivo privado expone proyeccion global virtual documentada con todas las pistas y leadoutfinal, mantiene consultas independientes y lee ambas sesiones; huecos/cruces fallan sin IO ni mutacion, legacy exacto y carga publica multi sigue rechazada."
+      ],
+      "stop": "No atribuir la proyeccion virtual a hardware CD32/CDTV real ni implementar FullTOC/SessionInfo ficticios. No habilitar publicamente antes de restauracion/transportes propios."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18598,7 +18641,8 @@
         "T66l8",
         "T66v2",
         "T66l9",
-        "T66v3"
+        "T66v3",
+        "T66v4"
       ],
       "read": [
         "docs/01-architecture.md",
