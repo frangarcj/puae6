@@ -47,8 +47,8 @@ internal static unsafe partial class Program
     Require(core.GetSyncSettings().Machine==Puae6Machine.CD32 && core.Frame==0);
     Require(firmware.Asked.SequenceEqual(new[] { "CD32", "CD32ext" }));
     var guest=ChdGuest(core);
-    core.StoreSaveRam(nvram); // Actual BootGuest replacement, with the same owned CHD reader.
-    Require(!ReferenceEquals(guest,ChdGuest(core)) && core.Frame==0);
+    core.StoreSaveRam(nvram); // CD32 imports EEPROM in place; immutable CD data and its owner stay bound.
+    Require(ReferenceEquals(guest,ChdGuest(core)) && core.Frame==0);
     Require(core.CloneSaveRam(false).SequenceEqual(nvram) && !core.SaveRamModified);
     Require(OpenChd(Path.ChangeExtension(path,".chd"))==1);
     return core;
