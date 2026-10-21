@@ -18275,6 +18275,96 @@
       "stop": "No inferir que todo CHD es Amiga ni atribuir ejecucion guest a un rechazo previo a firmware; preservar soporte de otros sistemas y rutas XML."
     },
     {
+      "id": "T66v1",
+      "title": "Representar sesiones privadas y consultar su TOC sin perder fronteras",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66b",
+        "T66g1",
+        "T66t9",
+        "T66u2"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_disc.h",
+        "ports/portable/media/cd_disc.cpp",
+        "ports/portable/media/cd_akiko.h",
+        "ports/portable/media/cd_akiko.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Contrato privado ejecutable de sesiones, sin habilitar proveedor/formato ni ABI publico. Siete rutas atomicas260..350lineas: layout/validacion/TOC/probe/test/contrato. Agente cd_swap aislado, coordinador metadata e integracion; sin builds pesados ni generados. Avisar antes400lineas o mas rutas.",
+        "Tabla inmutable con primera/ultima pista, formato, CUE0 y A2 por sesion; cero sesiones explicitas conserva layout y TOC legacy exactos. Direcciones explicitas segun libMiragea9d6a204 parser697..722, no reemplazarlas por constantes de leadin/leadout DiscSystem. Validar orden/pertenencia/limites y contiguidad dentro de sesion; solo sesiones declaradas permiten intervalo sin datos. Error definido sin IO en ese intervalo; no fabricar pregap o datos.",
+        "Consulta privada produce A0/A1/A2 y numeros globales de cada sesion; TOC global antiguo devuelve Unsupported para multisesion hasta conectar dispositivo. Rebind valida tabla completa antes de publicar lector. No simular sys_command_info_session upstream que ignora su argumento.",
+        "MED01 CdDiscTests bajo sanitizers, dos sesiones de direcciones fijas independientes, fronteras/crossings/lecturas/TOC/Q y ceroIO en intervalo, rechazo transaccional de fronteras/formato/pertenencia. ProveedorNRG sigue Unsupported para multisesion hasta hojas posteriores de parser/dispositivo/transporte/restauracion."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Representacion privada y TOC por sesion conservan fronteras explicitas y rebind transaccional con regresion legacy exacta; ninguna declaracion publica de multisesion por esta hoja."
+      ],
+      "stop": "No cortar solo el guard ni rellenar intervalos con sectores falsos; no inventar semantica del dispositivo/ABI publico. Antes de editar cerrar contrato concreto con coordinador."
+    },
+    {
+      "id": "T66l8",
+      "title": "Montar NRG ETNF y ETN2 canonicos mediante DiscSystem opt-in",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l7",
+        "T66t17",
+        "T66t15a"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0014-canonical-nrg-tao.patch",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_cd_source_csharp.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cinco rutas de implementacion330..390manuales atomicas proveedor/parseroptin+sintetizadores+oraculo. Agente busy_reference aislado, root metadata; no editar MacHawk ni builder sin ampliar ficha antes. Dividir antes de400lineas.",
+        "MountPuae6Nrg opt-in reutiliza ParseEtnChunk, Blob y sintetizadores existentes; ParseFrom fijado exige CUE/TOCT aunque ETNF/ETN2canonicos no los tienen. Resolver solo en camino opt-in: una sesion, modos00/02/03/07 compactos incluyendo mezcla de strides, offsets64ETN2 y StartLBA32, reservas cero, limites/contiguidad/alineacion antes de publicar. DAO y loader predeterminado intactos; un fallo seleccionado no prueba otro formato.",
+        "Canonical150 segun libMiragea9d6a204 y GNU/VCDImager fijados por0392/0403/0404: primeraINDEX01=0, siguientes packed+n*150. Mode2 fija XA=false. AudioNRG conserva bytes sin swapCHD. No afirmar pregap original recuperado, TAOgeneral,TINF ni multisesion. Cierre de Blob/FD ante todo fallo.",
+        "MED01 nueva NrgCanonicalCSharpTests con ETNF/ETN2 trespistas, cuatro modos y mezcla, TOC/Q, stream2448completo, Form1ECC/EDC/cruces, identidad y malformed/ownership. BUILD01 ensamblado DiscSystem real con analyzers; scope no acredita loaderpublico ni ejecucion Waterbox, pendientes hoja posterior. Sin builds hasta ventana root."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Proveedor DiscSystem opt-in reproduce geometria/bytes/subcanales canonicos de ETNF/ETN2 soportados, rechaza malformados sin publicar owners y conserva DAO/default; buildreal con analyzers."
+      ],
+      "stop": "No solo eliminar throwTAO; conservar checks parser y contratos; no fallback ni segundo decoder C++/ABI sin necesidad demostrada."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18361,7 +18451,9 @@
         "T66l6",
         "T66t18",
         "T66l7",
-        "T66t19"
+        "T66t19",
+        "T66v1",
+        "T66l8"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18409,7 +18501,8 @@
         "T66t1 prepara libchdr standalone fijado y sus codecs offline; reader ReadFn/hardening, proveedor CD y carga publica siguen pendientes explicitos. No copiar motor antiguo ni anunciar CHD por un build de dependencia.",
         "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales.",
         "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre.",
-        "CHDnormalizacion restante trasproveedor inicialT66t6: Mode1cookedconsubcode, Mode2/2336/MIX/Form1/2048, Form2/2324conEDCreal, HTOA/postgap yPGTYPE/PGSUBdistintos (requierencontratoCONTROL/vista2048/subcanalescomun). Sonpuertas requeridaspendientes, noexclusionesdealcance ni cierredelpadre; carga publica/restauracion despuesdeproveedor completo."
+        "CHDnormalizacion restante trasproveedor inicialT66t6: Mode1cookedconsubcode, Mode2/2336/MIX/Form1/2048, Form2/2324conEDCreal, HTOA/postgap yPGTYPE/PGSUBdistintos (requierencontratoCONTROL/vista2048/subcanalescomun). Sonpuertas requeridaspendientes, noexclusionesdealcance ni cierredelpadre; carga publica/restauracion despuesdeproveedor completo.",
+        "Deudas explicitas restantes: tras T66v1 dividir parserNRG multisesion DAO conCUE, proveedor/dispositivo/restauracionnativa y transporte/publicoWaterbox, con direcciones CUE0/A2 primarias. Tras T66l8 conectar seleccionpublica y restoreTAO en hoja propia. No cerrar padre por solo completar estos proveedores privados. ETNF/ETN2multisesion requiere contrato propio antes de habilitarlo."
       ],
       "checks": [
         "MED01",

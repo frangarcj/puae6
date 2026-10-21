@@ -337,6 +337,9 @@ for _gate in ('WB03', 'WB08', 'DET02'):
     TASK_SUITES[(_gate, 'T66t16')] = {'public_chd_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('MED01', 'T66v1')] = {'private_session_layout_toc': 'tests.media.test_cd_disc.CdDiscTests'}
+TASK_SUITES[('MED01', 'T66l8')] = {'canonical_nrg_disc_system': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests'}
+TASK_SUITES[('BUILD01', 'T66l8')] = {'canonical_nrg_real_target': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_real_discsystem_target_and_analyzers'}
 TASK_SUITES[('MED01', 'T66l7')] = dict(TASK_SUITES[('MED01', 'T66l6')])
 TASK_SUITES[('LR01', 'T66t18')] = {'public_htoa_restore': 'tests.libretro-host.test_cd32_load.Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity'}
 for _gate in ('WB03', 'WB08'):
