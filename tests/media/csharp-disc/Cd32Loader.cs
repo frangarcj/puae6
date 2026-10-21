@@ -148,7 +148,7 @@ internal static unsafe partial class Program
   long reads=0; var messages=new List<string>();
   Puae6Core Open(params Disc[] discs)
   {
-   var comm=new CoreComm(m=>messages.Add(m),(_,_)=>{},new Firmware(main,ext,true),CoreComm.CorePreferencesFlags.None,null);
+   var comm=new CoreComm(_=>{},(m,_)=>messages.Add(m),new Firmware(main,ext,true),CoreComm.CorePreferencesFlags.None,null);
    var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
    for(int n=0;n<discs.Length;++n) lp.Discs.Add(new DiscAsset(discs[n]) { DiscName="label"+n });
    var method=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.NonPublic|BindingFlags.Static);
@@ -184,9 +184,12 @@ internal static unsafe partial class Program
    string[] held=cut=="a"?new[]{Controllers.NextSlot}:new[]{present?Controllers.InsertDisk:Controllers.EjectDisk};
    if(args[5]=="catalogsave") {
     Restore(core,initial); Run(core,300); Require(reads>0);
-    if(cut!="a") { Buttons(core,Controllers.NextSlot); Buttons(core); Buttons(core,Controllers.EjectDisk); if(present) { Buttons(core); Buttons(core,Controllers.InsertDisk); } }
+    if(cut!="a") { Buttons(core,Controllers.NextSlot); Buttons(core); Buttons(core,Controllers.InsertDisk);
+     if(!present) { Buttons(core); Buttons(core,Controllers.EjectDisk); } }
     else Buttons(core,Controllers.NextSlot);
-    Require(Status(core).Take(3).SequenceEqual(new uint[]{2,ordinal,present?1u:0u})); Data(core,ordinal,present);
+    if(!Status(core).Take(3).SequenceEqual(new uint[]{2,ordinal,present?1u:0u}))
+     throw new Exception($"CD cut {cut}: status {string.Join(",",Status(core))}");
+    Data(core,ordinal,present);
     File.WriteAllBytes(file,Save(core)); ulong requests=core.MediaEventsSent;
     File.WriteAllLines(file+".future",Run(core,15,new CdButtons(core.ControllerDefinition,held)));
     Require(core.MediaEventsSent==requests); File.WriteAllBytes(file+".end",Save(core));
