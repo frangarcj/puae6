@@ -1,22 +1,20 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
-@@ -1541,7 +1541,14 @@
- 	action_replay_flag = ACTION_REPLAY_INACTIVE;
- 	hrtmon_flag = ACTION_REPLAY_INACTIVE;
- 	action_replay_unsetbanks ();
--	action_replay_unmap_banks ();
+@@ -1782,6 +1782,13 @@
+ /* This only deallocates memory, it is not suitable for unloading roms and continuing */
+ void action_replay_cleanup()
+ {
 +#ifdef P6_PORTABLE
-+	// Hiding AR1 deliberately keeps its banks mapped; destroying its owner must not.
-+	if (armodel == 1) {
++	// Shutdown calls cleanup directly. AR1 hide/unmap deliberately keeps these banks.
++	if (armodel == 1 && armemory_rom) {
 +		map_banks(&dummy_bank, arrom_start >> 16, arrom_size >> 16, 0);
 +		map_banks(&dummy_bank, arram_start >> 16, arram_size >> 16, 0);
-+	} else
++	}
 +#endif
-+		action_replay_unmap_banks ();
- 	hrtmon_unmap_banks ();
- 	/* Make sure you unmap everything before you call action_replay_cleanup() */
- 	action_replay_cleanup ();
+ 	if (armemory_rom)
+ 		free (armemory_rom);
+ 	if (armemory_ram)
 @@ -2107,16 +2114,29 @@
  }
  
