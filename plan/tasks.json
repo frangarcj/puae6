@@ -17406,12 +17406,15 @@
         "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
         "tests/media/csharp-disc/Cd32Loader.cs",
         "tests/waterbox-media/test_cd_source.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "tools/check.py"
       ],
       "steps": [
         "Loader acepta1..16lp.Discs sinRoms, ownersDiscSystem prestados hastaDispose. Deduplicar porIDnormalizado enprimerorden, conservar slots/aliases/nombres copiados. Mantener camposlegacyCdInfo/ReadCd para1CD, rechazar ambosmodos a la vez; clone y WhdLoad.Resolve transportancatalogo.",
         "Identidad estado/pelicula incluyeIDsunicos ordenados+mapaslots, no rutas/seleccion. StateEnvelope/campos validan antes del sandbox, Attach/SRAM oIO. ControllerDefinition CD añadeNextSlot/EjectDisk/InsertDisk sinNextDrive; aplicar alinicioFrameAdvance usandoIController grabable. Serializarvalidar latches, seleccion/ausencia/aplicado ypeticiones; applywrapperdespues de restoreexitoso, rebindU4 respetaordinalguardado.",
-        "Cd32CatalogCoreTests conloaderpublico+IController: A/B/A-alias, datorealB, heldbuttons sinrepeticion, A->B->restoreA ycorteausente enownersnuevos/sandbox/proceso; catalogo/mapa distintosrechazados sinmutacion. Antigua negativa2CD pasa a >16/mezcla, conservar singleCD/SRAM. WB03 clase nueva+Cd32PublicCoreTests; GEN01 registro/layout/referenciaMacHawk existentes. Sieterutas atomicas240..360manuales, rootbuildguestcoordinado; pelicula decambio sigueU6."
+        "Cd32CatalogCoreTests conloaderpublico+IController: A/B/A-alias, datorealB, heldbuttons sinrepeticion, A->B->restoreA ycorteausente enownersnuevos/sandbox/proceso; catalogo/mapa distintosrechazados sinmutacion. Antigua negativa2CD pasa a >16/mezcla, conservar singleCD/SRAM. WB03 clase nueva+Cd32PublicCoreTests; GEN01 registro/layout/referenciaMacHawk existentes. Sieterutas atomicas240..360manuales, rootbuildguestcoordinado; pelicula decambio sigueU6.",
+        "Integracion: inventariar CdOrdinal/CdPresent como estado causal del wrapper y registrar su prueba por reflexion junto al target BizHawk y regresion de catalogo mixto CHD/ISO. Estas dos rutas adicionales son necesarias para mantener la clasificacion completa y la puerta ejecutable; no modifican motor ni guest."
       ],
       "checks": [
         "GEN01",
@@ -17715,7 +17718,7 @@
       "title": "Conectar transporte regional CD WBv2 y restauracion real de sandbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66t11",
         "T66u2",
@@ -17739,7 +17742,7 @@
         "docs/02-contracts.md"
       ],
       "steps": [
-        "Añadir exports p6w_cd_bind_v2/catalog_bind_v2/layout_v2 usando contrato/conversorT11. V1size2432/layout31/ABI1yslotscallback0/1permanecenintactos. Versionenlazadacapturadaensandboximpiderebindv1↔v2; catalogocompletosevalidaantespublicarcallbacks/owners. Preservarseleccion/presencia/opens trasrestore. UsacatalogonativovalidadoT66u2;T66u4sigueBLOCKEDypuertaWBcomunno seelimina.",
+        "Añadir exports p6w_cd_bind_v2/catalog_bind_v2/layout_v2 usando contrato/conversorT11. V1size2432/layout31/ABI1yslotscallback0/1permanecenintactos. Versionenlazadacapturadaensandboximpiderebindv1↔v2; catalogocompletosevalidaantespublicarcallbacks/owners. Preservarseleccion/presencia/opens trasrestore. UsacatalogonativovalidadoT66u2;T66u4 conserva su puerta WB comun.",
         "P6CdHostconstructoresV2 individual/catalogocopiansusdescriptores yverificanlayoutV2; Bind/Seal/Restoresiguenrutasactualeselegidasporversion. Ningúnslotdelegateadicional/retenertemporales. Estado no serializapunteros; rebindvalidatodasregiones/orden/identidadantesmutarcallback.",
         "EscenariorealenCd32.cs agrega cd32regionalsave/load ycd32regionalcatalogsave/load; Program.csyaenrutaprefijocd32sinmodificarlo. ISOexistente+colaregionalnumerica tienePGaudio→Mode1,sintetico/materializado,SUBopaca/postgapsintetico eidentidadincorporaregiones/stream. NodependeaúnDiscSystemtyped. Run300/corte/futuro15 comparaA/V/PCM/ticks/RAM/snapshotcompleto yrestauraowner/sandbox/procesonuevo. CatálogoA/B/ausencia/opens; lecturaregionalconcanarios ysinIOsintetico; rebindfalsoincluidaversionrechazasincambiarsnapshot/callback.",
         "Seisrutas atomicasobjetivo340..390lineas;avisarantes400. cd32_closeaislado solocompilacionC#dirigidaoffline ysyntaxsinmotor/guest. RootcompilaunWBXcompartidotrasBfix+transporteestable, nuncausarreciboviejo. ABI01CdLayoutTests/MED01CdDiscTests; WB03nuevaclaseCd32RegionalWaterboxTests+CdTransportTests+Cd32CatalogWaterboxTests+Cd32WaterboxTests, unionunavez. HostSIGBUS/runnerausentemarcaBLOCKEDhonesto, noDONEpornativo. MetadatatipeadaDiscSystem/publicloaderCHDsiguenrequeridosenT66."
