@@ -10,7 +10,7 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs b/src/Bi
  						throw new NRGParseException("NRG metadata extent exceeds input");
  					if (daoMetadata && (chunkSize > footer - stream.Position)) throw new NRGParseException("DAO chunk crosses footer");
  					if (daoMetadata && chunkID is not ("CUES" or "CUEX" or "DAOI" or "DAOX" or "SINF" or "END!"))
-@@ -1018,10 +1018,101 @@
+@@ -1018,10 +1018,103 @@
  		}
  
  
@@ -61,7 +61,9 @@ diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs b/src/Bi
 +			public ISectorSynthJob2448 Get(int lba)
 +			{
 +				if(owner.IsDisposed) return null;
-+				var t=owner.Puae6NrgDao.Tracks.FirstOrDefault(t=>lba>=t.Index0&&lba<t.End);
++				Puae6DaoTrack t=default;
++				foreach(var candidate in owner.Puae6NrgDao.Tracks)
++					if(lba>=candidate.Index0&&lba<candidate.End) { t=candidate; break; }
 +				if(t.Number==0) return null; // Includes every inter-session hole and the final A2.
 +				if(t.Mode<15 && (lba < -150 || (long)lba+150>449999 || Math.Abs((long)lba-t.Index1)>449999))
 +					throw new NotSupportedException("Canonical NRG subchannel exceeds MSF range");
