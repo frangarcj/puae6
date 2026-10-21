@@ -167,7 +167,8 @@ void visit_expansion(Archive &a, uint32_t fast)
     const uint32_t size = a.val<uint32_t>(w[9], 0, board_limit, "ram.fast_board_size");
     const uint32_t start = a.val<uint32_t>(w[10], 0, fast ? 0xffffffffu : 0u, "ram.fast_start");
     const uint8_t mapped = get<uint8_t>(a, w[12], 0, fast ? 1 : 0, "ram.fast_mapped");
-    a.bytes(ac, sizeof ac, "ram.fast_autoconfig");
+    if (cdtv) for (auto &byte : ac) byte = a.val<uint8_t>(byte, "ram.fast_autoconfig");
+    else a.bytes(ac, sizeof ac, "ram.fast_autoconfig");
     if (z3) {
         w[13] = a.val<uint32_t>(w[13], "ram.z3_start");
         a.val<uint32_t>(z3, z3, z3, "ram.z3_allocated");

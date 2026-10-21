@@ -254,7 +254,7 @@ static void bus_field(void *context, uint32_t, uint64_t at, uint64_t, const char
 {
     auto &f = *static_cast<BusFields *>(context);
     if (!strcmp(name, "ram.fast_bank_current")) f.bank = at;
-    if (!strcmp(name, "ram.fast_autoconfig")) f.prom = at;
+    if (!strcmp(name, "ram.fast_autoconfig") && !f.prom) f.prom = at;
     if (!strcmp(name, "cdtv.configured")) f.configured = at;
     if (!strcmp(name, "cdtv.dma_mask")) f.mask = at;
 }
