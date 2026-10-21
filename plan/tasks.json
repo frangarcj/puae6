@@ -11673,7 +11673,7 @@
         "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
       ],
       "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
-      "blocked_reason": "Repositorio privado frangarcj/puae6 creado y main sincronizada, workflow manual presente; API GitHub informa cero runners. La autorizacion para descargar/preparar un runner temporal en este Mac esta solicitada y pendiente. La CI remota y union acumulada/nightly conservan todas sus puertas; no se acreditan por los checks dirigidos locales."
+      "blocked_reason": "Repositorio privado frangarcj/puae6 creado y main sincronizada, workflow manual presente; API GitHub informa cero runners. La autorizacion para descargar/preparar un runner temporal en este Mac esta solicitada y pendiente. La CI remota y union acumulada/nightly conservan todas sus puertas; no se acreditan por los checks dirigidos locales. GitHubsi ofrece macOSARM64hostedprivado; self-hosted es configuracionactual, no limitacionplataforma. Elusuario pregunta por alternativaenlanube yNOautoriza aúninstalacionrunnerlocal. Preparar entorno/pins/sysroot/runtime/assets para hosted sin asumir../MacHawk presente; ninguna ejecucionremota acreditada."
     },
     {
       "id": "T39",
@@ -19277,7 +19277,7 @@
       ],
       "id": "T67c3d",
       "title": "Restablecer display y fase DMA de disco CDTV en nuevo power-on",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67c3a",
         "T66r8"
@@ -19301,7 +19301,8 @@
         "LR01 test_original_cd_boot_serialize_and_cold_reload conserva --cycles2, exactfuture/fullstate ycold. Mejorar diagnostico primeradiferencia sin relajarassert. Contraste acotado de nuevo power-on sinrestore1032x2 y comparar primerowner antes/despues con binario congelado en build (observables/ticks169/futuro, no compatibilidaddeestadosentrebuilds); limpiar ese binario alterminar. No repetir firmware/VFS,CD32niABI yaPASS salvo cambio relevante.",
         "GEN01 verificar aplicacion0406 y los29outputs CPU existentes porgenerador/refreshreceipt exacto; no editar generados. Si el hook coherente no resuelve, no ampliaraotrosdominios: preservar test y doshipotesis verificables, blocked y elegir otra tarea.",
         "Revision causal sololectura21oct: start_engine/m68k_go_unit/custom_reset6831/devices_reset225/init_eventtab6790/clear_events540..548 reiniciaidx/cnt/restart/next. P6SC168distinto puede serefecto, no prueba de cursor omitido. cycles_to_add_remain0..511noreseteadoen clear_events perosolo do_cycles_slow; CPUCDTVexact usaextra_cycle quesereinicia custom_reset6936. Sin prueba de remanenteno0/consumocaunuevo, nojustifica tercerreset/campaña. H1/H2 siguen hipótesis, fichabloqueada yreproducerintacto.",
-        "21oct: contraste causal con0406, sinnuevoreset: en622 P6CP155bytesexactos,SCsolocursoresdistintos. Cuatroreplayscold1unidad: controlesreproducenestado623completobyteexacto; SCtrasplantadonoalteradelta; P6DK+soloCHIP.DSKPTdeowner2enowner1reproduceexactamente−4096ticks yP6CP/P6RM623owner2. UnicasdiferenciasDK bitoffset10/12 yDSKLEN0x269/0x26b, DSKPT0xe01a/0xe016, DMAREADactivo/FIFO[1,1,0]. Ampliacionexplicitaatomica0409disk.cpp+lifecycleademas0406custom: restablecer solo faseBSScausalbitoffset0 alpower-onCDTV antescustom_init; DISK_resetmantienefasewarm porhardware. Leerconsumidoresdoreaddma/DISK_dmal yBSSanteseditar; noresetpaleta/blitter/cursor ni hardwareporframe. cd32_closeaisladocdtv-phase, fuente/fixturesolamente; rootserie/clasificacion/codegen ybuildj2. ChecksLR01unionlongnewowner+bootrestoreuna vez,GEN01aplicacion+29outputs, primerownerexactoconvariante0406congelada. Siaparecenotroscamposnecesariosavisarantesdeampliar, nodoneporquitardeltaenunafrontera."
+        "21oct: contraste causal con0406, sinnuevoreset: en622 P6CP155bytesexactos,SCsolocursoresdistintos. Cuatroreplayscold1unidad: controlesreproducenestado623completobyteexacto; SCtrasplantadonoalteradelta; P6DK+soloCHIP.DSKPTdeowner2enowner1reproduceexactamente−4096ticks yP6CP/P6RM623owner2. UnicasdiferenciasDK bitoffset10/12 yDSKLEN0x269/0x26b, DSKPT0xe01a/0xe016, DMAREADactivo/FIFO[1,1,0]. Ampliacionexplicitaatomica0409disk.cpp+lifecycleademas0406custom: restablecer solo faseBSScausalbitoffset0 alpower-onCDTV antescustom_init; DISK_resetmantienefasewarm porhardware. Leerconsumidoresdoreaddma/DISK_dmal yBSSanteseditar; noresetpaleta/blitter/cursor ni hardwareporframe. cd32_closeaisladocdtv-phase, fuente/fixturesolamente; rootserie/clasificacion/codegen ybuildj2. ChecksLR01unionlongnewowner+bootrestoreuna vez,GEN01aplicacion+29outputs, primerownerexactoconvariante0406congelada. Siaparecenotroscamposnecesariosavisarantesdeampliar, nodoneporquitardeltaenunafrontera.",
+        "Integracion0406+0409: LR01 longnewowner1032x2sinrestore yboot/serialize/localreload/coldnewprocessPASS; todos1032observables completos delprimerowner exactamenteigualesavariante0406congelada. GEN01 aplicacionexacta/hashchain y29salidasgeneradasbyteidenticas; helperselectedcallers+ClassificationTests+plan completan44testsPASS51.844s enunion. No tolerancias/golden alterados, warmreset/restore no llamanpower-on. Datosdiagnosticos temporales eliminados tras aceptacion, sininforme."
       ],
       "checks": [
         "LR01",
@@ -19317,7 +19318,7 @@
       "title": "Publicar CDTV nativo y libretro con CD inicial fijo",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "done",
       "depends": [
         "T67c3a",
         "T66r1",
@@ -19364,7 +19365,8 @@
         "Reutilizar integra puerta nativa C3a MED01/STATE01/DET02 sin duplicar probe. LR01/DET02 CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload usa fixtureC3a, marcador firma/nonce/contador creciente buscado enChipRAM mediante peek existente, save/load/futuroRAM/AV/PCM/ticks, --cycles2 yrestorecoldprocesonuevo. CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals cubreAutomatic/explicito/tagsdisabled/sincontenido/VFSstdio/firmwareincompletoalterado/modelosincompatibles/refusalsconestadoybandejaintactos/handlescerrados.",
         "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. busy_reference implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe.",
         "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente.",
-        "Ampliacion previa por codigo real: tests/config/test_parity.py asume wrapper:false vacio y todos modelos en Puae6Machine. Ajustar filtro wrapper:false y familia1.x para CDTV sin publicarlo BizHawk. Presupuesto real producto100..125 +schema/profile/docs25..35 +testsconfig/model40..55 +LR140..165, total305..380 manuales y2generados. Si supera400, detener antes y dividir vertical sin suprimir checks."
+        "Ampliacion previa por codigo real: tests/config/test_parity.py asume wrapper:false vacio y todos modelos en Puae6Machine. Ajustar filtro wrapper:false y familia1.x para CDTV sin publicarlo BizHawk. Presupuesto real producto100..125 +schema/profile/docs25..35 +testsconfig/model40..55 +LR140..165, total305..380 manuales y2generados. Si supera400, detener antes y dividir vertical sin suprimir checks.",
+        "Cierreintegrado21oct trasT67c3dDONE: se resuelvelaunicapuertapendientecold/cycles2. LR01publicolongowners+boot/restauracion/frioPASSactual, conprimerowner1032observablesexactoscontra0406congelado. Acumularfirmware/VFS/fixedmedia,CD32CUE345,GEN01schema/paridad yABI yavalidados,sinrepetirlosporlaetiqueta; MED01/STATE01/DET02 reutilizanverticalnativaC3aDONEycodecintacto. ModeloC#ycambioCDTVcontinuanenelpadre, noanunciarWBporLR."
       ],
       "checks": [
         "MED01",
@@ -19377,8 +19379,7 @@
       "acceptance": [
         "CDTV acreditado porC3a arranca mediante retro_load_game y conserva futuro tras restore/recarga, rechaza operaciones fuera del dominio sin efectos y soporta firmware fijo transaccional; ABI/schema/headless corresponden a lo disponible, BizHawk/WB y cambiosCDTV siguen pendientes."
       ],
-      "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores.",
-      "blocked_reason": "Gatepublico cold/cycles2 pendiente: tras sesionlarga diverge ticks, independiente de restore. T67c3d bloqueada: candidato display elimina169 pero revela623; parcial retiradoaWIP. Firmware/VFS/fixedmedia,CD32CUE345 yABI pasaron; conservar reproducer exacto y no declarar publicacion acreditada."
+      "stop": "No publicacion antes deboot/restoreC3a, simular Akiko, devolver exito para cambios no soportados ni menu BizHawkprematuro. Dividir antes400, mantener puertasposteriores."
     },
     {
       "milestone": "M3",
