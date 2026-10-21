@@ -18364,6 +18364,51 @@
       "stop": "No solo eliminar throwTAO; conservar checks parser y contratos; no fallback ni segundo decoder C++/ABI sin necesidad demostrada."
     },
     {
+      "id": "T66v2",
+      "title": "Leer metadata NRG DAO multisesion con CUE0 y A2 explicitos",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66v1",
+        "T66l7",
+        "T66l2"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0405-nrg-dao-sessions-metadata.patch",
+        "ports/portable/media/cd_nrg_metadata.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Separar metadata ejecutable del proveedor/dispositivo: hasta 99 sesiones/pistas DAO con CUE explicito, grupos CUE/DAO/SINF coherentes y limites previos. Agente cd_swap aislado desde root actual; coordinador posee metadata y registra patch0405 tras entrega SHA/before/after. Seis rutas de implementacion, objetivo 300..380 lineas logicas; dividir antes de400 o ampliar antes de otras rutas.",
+        "Antes de editar acordar DTO y validacion con coordinador. Contrastar libMirage a9d6a204 image-nrg/parser.c:697..722 y DiscSystem fijado ParseFrom/LoadNRGToDisc: conservar CUE0 y A2 por sesion, numeros globales, offsets fisicos DAO y separaciones declaradas. No sustituir direcciones por constantes 4500/6750/2250 ni trasladar por analogia politica ETNF/ETN2.",
+        "Preservar metadata e identidades de una sesion DAO/ETNF/ETN2 exactas. Nuevos campos inactivos a cero; descartar candidato completo ante inconsistencia, overflow, duplicado o lectura corta. Proveedor CdNrg debe rechazar explicitamente metadata multisesion antes de publicar lectores o consumir payload, hasta hoja de conexion posterior; no aplanar sesiones accidentalmente.",
+        "MED01 comparte NrgMetadataTests y CdNrgTests: fixtures DAO v1/v2 con dos sesiones y direcciones independientes, metadata virtual sin payload grande, conteos/SINF/CUE/A2/offsets malformados y limites; regresiones legacy y rechazo del proveedor bajo ASan/UBSan. Sin motor ni guest ni declaracion publica de soporte multisesion."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Parser acotado conserva metadata DAO multisesion y sus fronteras explicitas con errores transaccionales; el proveedor sigue Unsupported para multisesion y mantiene formatos previos exactos."
+      ],
+      "stop": "No habilitar lecturas multisesion por un parser que solo almacena fronteras; preservar rechazo explicito hasta integrar proveedor, dispositivo y restore."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18452,7 +18497,8 @@
         "T66l7",
         "T66t19",
         "T66v1",
-        "T66l8"
+        "T66l8",
+        "T66v2"
       ],
       "read": [
         "docs/01-architecture.md",

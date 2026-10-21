@@ -337,6 +337,7 @@ for _gate in ('WB03', 'WB08', 'DET02'):
     TASK_SUITES[(_gate, 'T66t16')] = {'public_chd_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66v1')] = {'private_session_layout_toc': 'tests.media.test_cd_disc.CdDiscTests'}
 TASK_SUITES[('MED01', 'T66l8')] = {'canonical_nrg_disc_system': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests'}
 TASK_SUITES[('BUILD01', 'T66l8')] = {'canonical_nrg_real_target': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_real_discsystem_target_and_analyzers'}
