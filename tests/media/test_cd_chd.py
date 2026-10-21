@@ -51,6 +51,39 @@ def form2_body(payload, subheader=b'\0\0\x20\0\0\0\x20\0'):
     struct.pack_into('<I',body,2332,edc); return bytes(body)
 
 
+def htoa_fixture(work, name, gap, *, sub='NONE', payload=0, stored=True):
+    # MAME cdrom_open(CHD), libMirage add_redbook_pregap and DiscSystem SaveChd:
+    # physical CHD frame0 is visible LBA0; the separate -150..0 never consumes it.
+    frames=gap+3; stride=2352 if sub=='NONE' else 2448
+    tracks=[[0,gap,frames,0,stride,0,3,1,0,int(stored),0 if stored else gap,0],
+            [frames,frames,frames+9,1,2048,0,0,1,4,0,0,0]]
+    units=[]; audio=bytearray(); wire=bytearray()
+    for k in range(frames):
+        samples=[(k*211+i*13+payload)%65536-32768 for i in range(1176)]
+        raw=struct.pack('>1176h',*samples); body=struct.pack('<1176h',*samples)
+        # Usable CRC with deliberately contradictory INDEX01, never a TOC oracle.
+        q=mds.subq([0,0,frames,0,stride,0,3],k,1)
+        audio+=body+(q if sub!='NONE' else b'')
+        wire+=body+(q if sub!='NONE' else mds.subq(tracks[0][:7],k,1))
+        units.append((raw+(nrg.interleave(q) if sub=='RW_RAW' else q) if sub!='NONE' else raw).ljust(2448,b'\x9d'))
+    units += [bytes([0xa7])*2448]*((-frames)&3)
+    data=b''.join(bytes((n*31+i+payload)&255 for i in range(2048)) for n in range(9))
+    for k in range(9):
+        units.append(data[k*2048:(k+1)*2048]+bytes(400))
+        wire+=mode1(data[k*2048:(k+1)*2048],frames+k)+mds.subq(tracks[1][:7],frames+k,2)
+    units += [bytes([0xb8])*2448]*3; logical=len(units)*2448
+    raw_units=b''.join(units); units += [bytes(2448)]*((-len(units))&7)
+    image=reader.cd_map([(4,b''.join(units[n:n+8])) for n in range(0,len(units),8)],sector=bytes(19584))
+    struct.pack_into('>Q',image,32,logical)
+    records=[f'TRACK:1 TYPE:AUDIO SUBTYPE:{sub} FRAMES:{frames} PREGAP:{gap} PGTYPE:{"V" if stored else ""}AUDIO PGSUB:{sub} POSTGAP:0'.encode(),
+             b'TRACK:2 TYPE:MODE1 SUBTYPE:NONE FRAMES:9 PREGAP:0 PGTYPE:MODE1 PGSUB:NONE POSTGAP:0']
+    path=work/(name+'.chd'); path.write_bytes(reader.metadata_chain(image,records,tag=0x43485432))
+    spec=[[7,2 if sub=='NONE' else 1,frames,gap,7,2 if sub=='NONE' else 1,int(stored),0],[0,2,9,0,0,2,0,0]]
+    path.with_suffix('.json').write_text(json.dumps({'tracks':spec,'xaGap':False}))
+    path.with_suffix('.units').write_bytes(raw_units)
+    return (path,tracks,[bytes(audio),data]),bytes(wire)
+
+
 class CdChdTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -68,7 +101,7 @@ class CdChdTests(unittest.TestCase):
             for record in entry['files']: assert hashlib.sha256((cls.work/record['path']).read_bytes()).hexdigest() == record['after_sha256']
         target = cls.work/'cdrom.cpp'
         paths = [ROOT/'tests/media/cd_chd_probe.cpp',ROOT/'adapters/libretro/cd_chd.cpp',target]
-        paths += [ROOT/'ports/portable/media'/name for name in ('sha256.c','cd_source.cpp','cd_wave.cpp','cd_disc.cpp','cd_read.cpp','cd_subchannel.cpp','cd_utilities.cpp')]
+        paths += [ROOT/'ports/portable/media'/name for name in ('sha256.c','cd_source.cpp','cd_wave.cpp','cd_disc.cpp','cd_read.cpp','cd_subchannel.cpp','cd_utilities.cpp','cd_akiko.cpp')]
         (cls.work/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.19)\nproject(provider C CXX)\n'+f'include("{ROOT}/cmake/Chd.cmake")\n'+
             'add_executable(probe '+ ' '.join('"'+str(p)+'"' for p in paths)+')\n'+
             'target_link_libraries(probe PRIVATE p6_chd_reader)\ntarget_compile_options(probe PRIVATE -Wall -Wextra -Werror "$<$<COMPILE_LANGUAGE:CXX>:-include;cstring>")\n'+
@@ -200,6 +233,7 @@ class CdChdTests(unittest.TestCase):
         mode,control=(pgmode,pgcontrol) if f and pre else (t[6],t[8]); at=(lba-first)*t[4]
         stored=not synthetic and (bool(f&(4 if pre else 2)) if f else t[4]==2448)
         body=streams[n][at:at+2352] if not synthetic else bytes(2352) if mode==3 else mode1(bytes(2048),lba) if mode==1 else nrg.mode2_header(lba)+bytes(2336)
+        if mode==0: body=mode1(streams[n][at:at+2048] if not synthetic else bytes(2048),lba)
         if stored: sub=streams[n][at+2352:at+2448]
         else:
             def bcd(n): return n//10*16+n%10
@@ -341,3 +375,28 @@ class CdChdTests(unittest.TestCase):
             other=self.regional_fixture('regional-rebind'+str(n),**options); self.verify_regional(other)
             self.assertEqual(self.run_chd(first[0],rebind=other[0])[-1],f'rebind {2 if n else 0} {expected}')
         for fault in (1,2,3,4): self.assertEqual(self.run_chd(first[0],code=2,vfs=True,fault=fault),['error 4'])
+
+    def test_first_stored_pregap_htoa_addresses_toc_subq_and_rebind(self):
+        for gap in (1,149,150,151,200):
+            for sub in ('NONE','RW_RAW'):
+                fixture,wire=htoa_fixture(self.work,f'htoa-{gap}-{sub}',gap,sub=sub)
+                if gap>150:
+                    regions=[[1|(6 if sub!='NONE' else 0),3,0],[0,0,0]]
+                    rows=self.verify_regional((*fixture,regions))
+                    self.assertEqual(rows,self.verify_regional((*fixture,regions),True))
+                else:
+                    rows=self.verify(fixture); self.assertEqual(rows,self.verify(fixture,True))
+                self.assertIn(f'toc 1 1 0 1 {gap}',rows)
+                self.assertIn(f'toc 2 1 4 2 {gap+3}',rows)
+                self.assertIn(f'toc 162 1 0 0 {gap+12}',rows)
+                for lba in (0,gap-1,gap,gap+2,gap+3):
+                    expected=hashlib.sha256(wire[lba*2448:(lba+1)*2448]).hexdigest()
+                    self.assertIn(f'sector {lba} 2448 0 {expected}',rows)
+                other,_=htoa_fixture(self.work,f'htoa-rebind-{gap}-{sub}',gap,sub=sub,payload=1)
+                digest=hashlib.sha256(wire).hexdigest()
+                self.assertEqual(self.run_chd(fixture[0],rebind=fixture[0])[-1],f'rebind 0 {digest}')
+                self.assertEqual(self.run_chd(fixture[0],rebind=other[0])[-1],f'rebind 2 {digest}')
+        for fault in (1,2,3,4):
+            self.assertEqual(self.run_chd(fixture[0],vfs=True,fault=fault,code=2),['error 4'])
+        synthetic,_=htoa_fixture(self.work,'htoa-not-stored',1,stored=False)
+        self.assertEqual(self.run_chd(synthetic[0],code=2),['error 5'])

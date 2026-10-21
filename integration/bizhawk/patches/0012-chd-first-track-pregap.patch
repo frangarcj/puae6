@@ -1,0 +1,17 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+index e58d8fd2..999549ff 100644
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+@@ -816,7 +816,11 @@ namespace BizHawk.Emulation.DiscSystem
+ 						pregapLength = 150;
+ 					}
+ 
+-					var prevTrackPadding = cdMetadata.Track == 1 ? 0 : metadata[(int)cdMetadata.Track - 2].Padding;
++					// Stored first-track PREGAP is visible HTOA from LBA0 (MAME/SaveChd).
++					// Red Book -150..0 is separate: synthesize it without consuming CHD units.
++					var prevTrackPadding = cdMetadata.Track == 1
++						? (cdMetadata.PregapInChd ? 150u : 0u)
++						: metadata[(int)cdMetadata.Track - 2].Padding;
+ 					pregapLength += prevTrackPadding;
+ 
+ 					var pregapStart = disc._Sectors.Count - 150;

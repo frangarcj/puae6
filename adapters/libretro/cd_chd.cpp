@@ -86,8 +86,8 @@ struct CdChd::Data {
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n]; const auto kind = packing(r.type);
             const auto pgkind = packing(r.pgtype+r.stored_pregap);
-            // First-track pregaps/HTOA and CDI need their own public address/session contract.
-            if (kind == Packing::Invalid || (!n && r.pregap) || (r.pregap && pgkind == Packing::Invalid)) return Result::Unsupported;
+            // Stored first pregap starts at LBA0; INDEX01=P. Red Book -150..0 is not in CHD.
+            if (kind == Packing::Invalid || (!n && r.pregap && !r.stored_pregap) || (r.pregap && pgkind == Packing::Invalid)) return Result::Unsupported;
             const bool regional = r.postgap || r.pregap > 150 || (r.pregap && (pgkind != kind || r.pg_data_bytes != r.data_bytes ||
                 strcmp(r.pgsub,r.stored_pregap ? r.subtype : "NONE")));
             const uint64_t index1 = cursor+r.pregap, end = index1+r.frames-(r.stored_pregap ? r.pregap : 0)+r.postgap;

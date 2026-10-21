@@ -136,3 +136,22 @@ class ChdCanonicalCSharpTests(unittest.TestCase):
         self.assertNotEqual(before,expected)
         self.assertEqual(self.run_fixture(path),expected)
         self.assertEqual(path.with_suffix('.actual').read_bytes(),correct)
+
+    def test_first_stored_pregap_keeps_visible_index1_and_full_stream(self):
+        baseline=self.work/'first-pregap-baseline'; baseline.mkdir()
+        old,_=source.build_disc_source(baseline,legacy_first_pregap=True)
+        for gap in (0,1,149,150,151,200):
+            for sub in ('NONE','RW_RAW'):
+                fixture,wire=chd.htoa_fixture(self.work,f'htoa-{gap}-{sub}',gap,sub=sub,stored=gap!=0)
+                path=fixture[0].with_suffix('.json'); st=2 if sub=='NONE' else 1
+                regions=([f'region 0 {gap} 1 0 0 0 0 7 {st}'] if gap else [])
+                regions += [f'region {gap} {gap+3} 1 1 0 0 0 7 {st}',f'region {gap+3} {gap+12} 2 1 1 4 0 0 2']
+                expected=regions+[f'sector {lba} {hashlib.sha256(wire[lba*2448:(lba+1)*2448]).hexdigest().upper()}' for lba in range(gap+12)]
+                if gap in (0,200):
+                    before=self.run_fixture(path,old)
+                    if gap==0: self.assertEqual(before,expected) # Bytes/geometry without HTOA stay exact.
+                    else:
+                        self.assertNotEqual(before,expected) # Old reader loses 150 visible sectors.
+                        self.assertIn(f'region 0 {gap-150} 1 0 0 0 0 7 {st}',before)
+                self.assertEqual(self.run_fixture(path),expected)
+                self.assertEqual(path.with_suffix('.actual').read_bytes(),wire)

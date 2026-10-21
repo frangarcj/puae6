@@ -1943,3 +1943,16 @@ snapshot completo tras replay/seek/rama en owners y proceso nuevos, tambien al
 suprimir AV. Orden/ID/mapa ajenos fallan antes de Attach/importacionSRAM/restore.
 La prueba conserva las seis variantes de inicio y usa Zwinder configurado real;
 no acredita por ello Paged ni la UI WinForms. No cambia el formato de pelicula.
+
+
+T66t17 admite primer pregap CHD almacenado (HTOA): P sectores en LBA0..P-1,
+INDEX01=P y programa hasta FRAMES; los150 Red Book negativos se sintetizan
+aparte y no consumen fuente. MAME/WinUAE6030 cdrom_open(CHD), libMirage a9d6a2
+create_track/add_redbook_pregap y DiscSystem9b627 SaveChd atribuyen esta base.
+0012 corrige MountDiscSystem, que antes perdia150 sectores visibles: antepone
+solo el lead-in sintetico al storedP, sin alterar imagenes sin HTOA. Layout,
+TOC/Q y descriptorV2 conservan INDEX01 real, CONTROL y SUB almacenado incluso
+si contradice la TOC; no infieren direcciones de Q. El primer pregap no almacenado
+continua Unsupported en nuestros proveedores hasta su contrato propio.
+MED01 contrasta P1/149/150/151/200, bytes/hash/rebind/VFS y carga host XML real;
+no acredita aun restore publico HTOA en libretro/Waterbox, pendiente del padreT66.

@@ -43,7 +43,8 @@ class ChdHostCSharpTests(unittest.TestCase):
     def test_real_client_common_target_and_analyzers(self):
         self.assertTrue(self.public_target().is_file())
 
-    def test_xml_amiga_public_selector_xa_and_parameters(self):
+    def public_runner(self):
+        if hasattr(type(self),'public_output'): return self.public_output
         assembly=self.public_target(); work=self.work/'public-host'; work.mkdir()
         project=work/'Cd32Loader.csproj'; shutil.copy2(source.ROOT/'tests/media/csharp-disc/Cd32Loader.csproj',project)
         result=subprocess.run([source.DOTNET,'build',str(project),'-m:1','-v:q',f'-p:Puae6Root={source.ROOT}',
@@ -51,6 +52,11 @@ class ChdHostCSharpTests(unittest.TestCase):
             env=self.env,capture_output=True,text=True,timeout=180)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         output=work/'bin/Debug/net8.0'; shutil.copy2(self.library,output/self.library.name)
+        type(self).public_output=output
+        return output
+
+    def test_xml_amiga_public_selector_xa_and_parameters(self):
+        output=self.public_runner(); work=output.parents[2]
         # One independent Mode2 synthetic gap checks the explicit XA policy; four legal codec fixtures check routing.
         units=[(bytes((i+n*11)&255 for i in range(2048))+bytes(400)) for n in range(3)]+[bytes(2448)]
         units += [bytes((i+n*19)&255 for i in range(2336))+bytes(112) for n in range(3)]+[bytes(2448)]
@@ -137,3 +143,17 @@ class ChdHostCSharpTests(unittest.TestCase):
             self.assertEqual(list(track[:8]),[1,96,1,40,0,0,0,0]); self.assertEqual(bytes(track)[48:54],b'AUDIO\0')
         finally: lib.p6_chd_host_close(owner)
         self.assertEqual(len(os.listdir('/dev/fd')),descriptors)
+
+    def test_first_stored_pregap_public_v2_identity_and_ownership(self):
+        output=self.public_runner()
+        for gap in (1,149,150,151,200):
+            for sub in ('NONE','RW_RAW'):
+                fixture,wire=chd.htoa_fixture(self.work,f'public-htoa-{gap}-{sub}',gap,sub=sub)
+                image=fixture[0]; xml=image.with_suffix('.xml')
+                xml.write_text(f'<BizHawk-XMLGame System="Amiga" Name="HTOA"><LoadAssets><LoadAsset FileName="{image.name}"/></LoadAssets></BizHawk-XMLGame>')
+                result=subprocess.run([source.DOTNET,str(output/'Cd32Loader.dll'),'host-chd',str(xml)],env=self.env,capture_output=True,text=True,timeout=90)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertEqual(Path(str(xml)+'.actual').read_bytes(),wire)
+                records=[(0,gap,gap+3,0,0,0,1,0,0,7,0,0),(gap+3,gap+3,gap+12,1,4,0,0,0,0,3,0,0)]
+                metadata=b'P6CD2448\0'+struct.pack('<3I',2,gap+12,2)+b''.join(struct.pack('<12I',*t) for t in records)
+                self.assertIn(hashlib.sha256(metadata+wire).hexdigest().upper(),result.stdout.splitlines())

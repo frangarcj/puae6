@@ -1,5 +1,6 @@
 #include "../../adapters/libretro/cd_chd.h"
 #include "cd_read.h"
+#include "cd_akiko.h"
 #include "sha256.h"
 #include "libretro.h"
 #include "uae/cdrom.h"
@@ -46,6 +47,11 @@ int main(int argc, char **argv) {
     CHECK(disc.bind(*owner->layout(),owner->bindings(),owner->sources()) == Result::Ok);
     const auto &id = *owner->container_identity(); printf("container %llu ",(unsigned long long)id.bytes); print_id(id.content_id); puts("");
     const auto &layout = disc.layout(); printf("disc %u %u ",layout.tracks,layout.leadout); print_id(layout.content_id); puts("");
+    cd_toc_head toc{}; CHECK(akiko_toc(disc,&toc) == Result::Ok);
+    for (int n=0; n<toc.points; ++n) {
+        const auto &t=toc.toc[n];
+        printf("toc %u %u %u %u %d\n",unsigned(t.point),unsigned(t.adr),unsigned(t.control),unsigned(t.track),t.paddress);
+    }
     uint8_t out[2464]; size_t got = 123;
     for (unsigned n = 0; n < owner->sources(); ++n) {
         const auto &b = owner->bindings()[n]; const auto &t = layout.track[n];
@@ -80,7 +86,8 @@ int main(int argc, char **argv) {
     if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448) {
         uint8_t saved[2448]; const auto &t = layout.track[n]; const auto &b = owner->bindings()[n];
         // Choose a different CHD hunk even for the final source before inducing I/O failure.
-        const auto evict = layout.track[n+1 < layout.tracks ? layout.tracks-1 : 0].index1;
+        const auto &other = layout.track[n+1 < layout.tracks ? layout.tracks-1 : 0];
+        const auto evict = n+1 < layout.tracks ? other.end-other.postgap-1 : other.index1;
         for (uint32_t lba : {t.stored_pregap ? t.index0 : t.index1,t.index1}) {
             SectorInfo info; CHECK(disc.describe(lba,&info)==Result::Ok);
             CHECK(canonical_read(disc,lba,2448,saved,sizeof saved) == Result::Ok);

@@ -35,7 +35,7 @@ int p6_chd_host_open(const char *path, void **out, p6_chd_host_info *info) {
     uint64_t end=0;
     for(unsigned i=0;i<owner->metadata.tracks;++i) {
         const auto &t=owner->metadata.track[i];
-        if((!i && t.pregap) || !strcmp(t.type,"CDI/2352") || !strcmp(t.pgtype+t.stored_pregap,"CDI/2352")) return int(Result::Unsupported);
+        if((!i && t.pregap && !t.stored_pregap) || !strcmp(t.type,"CDI/2352") || !strcmp(t.pgtype+t.stored_pregap,"CDI/2352")) return int(Result::Unsupported);
         end+=uint64_t(t.pregap)+t.frames-(t.stored_pregap?t.pregap:0)+t.postgap;
         if(end>100*60*75-150) return int(Result::Unsupported);
     }
