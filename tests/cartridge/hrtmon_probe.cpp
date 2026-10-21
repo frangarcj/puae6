@@ -614,7 +614,8 @@ static void public_ar_start(const std::vector<uint8_t> &rom,const std::vector<ui
 {
     input_v2=false; command_level=0; auto e=error(); auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e);
     if(negatives) {
-        for(unsigned bad:{0u,1200u}) assert(p6_cartridge_bind(bad,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
+        for(unsigned bad:{0u,1201u}) assert(p6_cartridge_bind(bad,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
+        assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),cart.size()},&e)==P6_ERROR_UNSUPPORTED);
         assert(p6_cartridge_bind(model,{nullptr,cart.size()},&e)==P6_ERROR_WRONG_MEDIA);
         assert(p6_cartridge_bind(model,{cart.data(),cart.size()-1},&e)==P6_ERROR_WRONG_MEDIA);
         p6_error unusable{}; unusable.abi_version=99; unusable.message[0]='x'; const auto before=unusable;
@@ -1052,12 +1053,99 @@ static void ar1200_continuations(const std::vector<uint8_t> &rom,const std::vect
         action_replay_cleanup(); assert(!p6_hrtmon_memory() && &get_mem_bank(0x800000)!=bank); ar1200_stop();
     }
 }
+static void ar1200_public_start(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,bool checks=false)
+{
+    input_v2=false; command_level=0; auto e=error(); auto c=config(); call(p6_init(&c,&e),e);
+    if(checks) {
+        ar_state_contract(); p6_error bad{}; bad.abi_version=99; const auto before=bad;
+        assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),cart.size()},&bad)==P6_ERROR_BAD_ARGUMENT && !memcmp(&bad,&before,sizeof bad));
+        assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{nullptr,cart.size()},&e)==P6_ERROR_WRONG_MEDIA);
+        for(size_t n:{cart.size()-1,cart.size()+1}) assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),n},&e)==P6_ERROR_WRONG_MEDIA);
+        auto invalid=cart; invalid[0]^=1;
+        assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{invalid.data(),invalid.size()},&e)==P6_ERROR_WRONG_MEDIA);
+        { p6_session::Guard busy; assert(busy.ok); assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),cart.size()},&e)==P6_ERROR_BUSY); }
+    }
+    auto copy=cart; call(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{copy.data(),copy.size()},&e),e); copy.assign(copy.size(),0);
+    assert(p6_bridge::ar1200_bound() && !p6_bridge::ar_bound());
+    assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_STATE);
+    assert(p6_cartridge_bind(P6_CARTRIDGE_AR2,{nullptr,0},&e)==P6_ERROR_BAD_STATE);
+    assert(p6_bridge::bind_hrtmon({nullptr,0},&e)==P6_ERROR_BAD_STATE);
+    if(checks) ar_state_contract();
+    call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); p6_sha256_init(&observed);
+    if(checks) ar_state_contract();
+}
+static void ar1200_public(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,const char *directory,bool writing)
+{
+    auto e=error(); std::vector<std::vector<uint8_t>> cuts;
+    if(writing) {
+        ar1200_public_start(rom,cart,true); level(1,300);
+        assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_IDLE); // First-boundary press was consumed.
+        level(0); level(1); ar1200_ready(); ar1200_immutable(cart);
+        const uint8_t code[]={0x52,0xb9,0,1,0x10,0,0x60,0xf8};
+        for(unsigned n=0;n<sizeof code;++n) put_byte(0x12000+n,code[n]);
+        for(unsigned n=0;n<4;++n) put_byte(0x11000+n,0);
+        command("r pc 73728"); assert(get_long(0x88004a)==0x12000); ar1200_ready(); command("x"); level(1,8);
+        assert(hrtmon_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>0);
+        level(1,4); assert(hrtmon_flag==ACTION_REPLAY_IDLE); // Held exit does not retrigger.
+        level(0); level(1); ar1200_ready(); cuts.push_back(save());
+        command("x",false); cuts.push_back(save()); ar1200_stop();
+    }
+    for(unsigned cut=0;cut<2;++cut) {
+        const auto path=std::string(directory)+"/ar1200-public-"+std::to_string(cut)+".state";
+        const auto state=writing?cuts[cut]:file(path.c_str()); ar1200_public_start(rom,cart);
+        auto foreign=state; auto id=p6_state::current_identity(); id.media_manifest_hash[0]^=1; reseal(foreign,id); const auto bytes=foreign;
+        assert(p6_state_load(foreign.data(),foreign.size(),&e)==P6_ERROR_INCOMPATIBLE && foreign==bytes && !p6_session::session.started);
+        load(state); ar_packet_refusals(state); ar1200_immutable(cart);
+        // ABI refusal must not consume a unit, alter either packet or touch outputs.
+        p6_input_v2 invalid{}; invalid.base.abi_version=99; invalid.base.struct_size=sizeof invalid; invalid.commands=1;
+        uint8_t packet[sizeof invalid]; memcpy(packet,&invalid,sizeof invalid);
+        p6_frame output; memset(&output,0xa5,sizeof output); output.abi_version=P6_ABI_VERSION; output.struct_size=sizeof output;
+        uint8_t guarded[sizeof output]; memcpy(guarded,&output,sizeof output); const auto ticks=p6_session::session.master_ticks;
+        assert(p6_run_frame(&invalid.base,3,&output,&e)==P6_ERROR_BAD_ARGUMENT);
+        assert(!memcmp(&invalid,packet,sizeof packet) && !memcmp(&output,guarded,sizeof output) && p6_session::session.master_ticks==ticks); same_state(state);
+        std::array<uint8_t,32> twin{};
+        for(unsigned replay=0;replay<2;++replay) {
+            load(state); same_state(state); input_v2=true; command_level=1; assert(held_command()==1);
+            p6_sha256_init(&observed); const auto counter=get_long(0x11000); level(1,4);
+            assert(hrtmon_flag==ACTION_REPLAY_ACTIVE && get_long(0x11000)==counter);
+            level(0); level(1,4); // A fresh edge inside the monitor is consumed, never queued.
+            assert(hrtmon_flag==ACTION_REPLAY_ACTIVE && get_long(0x11000)==counter);
+            if(cut) { step(3,AK_RET); step(12); } else { ar1200_ready(); command("x"); }
+            level(1,8); assert(hrtmon_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>counter);
+            level(1,4); assert(hrtmon_flag==ACTION_REPLAY_IDLE && held_command()==1);
+            input_v2=false; step(); assert(!held_command()); level(1); ar1200_ready();
+            const auto frozen=get_long(0x11000); level(1,4); assert(get_long(0x11000)==frozen);
+            command("x"); level(1,8); assert(hrtmon_flag==ACTION_REPLAY_IDLE && get_long(0x11000)>frozen);
+            const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{}; p6_sha256_final(&observed,digest.data());
+            if(replay) assert(twin==digest); else twin=digest;
+        }
+        if(writing) { FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f); }
+        printf("AR1200 public continuation %u ",cut); for(auto b:twin) printf("%02x",b); puts(""); ar1200_stop();
+    }
+    auto other=cart; other[0x20000]^=1; ar1200_public_start(rom,other);
+    const auto state=file((std::string(directory)+"/ar1200-public-0.state").c_str());
+    assert(p6_state_load(state.data(),state.size(),&e)==P6_ERROR_INCOMPATIBLE && !p6_session::session.started); ar1200_stop();
+    if(writing) {
+        ar1200_public_start(rom,cart); load(cuts[0]); input_v2=true; command_level=1;
+        call(p6_reset(&e),e); level(1,300); assert(held_command()==1 && hrtmon_flag==ACTION_REPLAY_IDLE);
+        level(1,4); assert(hrtmon_flag==ACTION_REPLAY_IDLE); level(0); level(1); ar1200_ready();
+        command("x"); level(1,8); assert(hrtmon_flag==ACTION_REPLAY_IDLE); ar1200_stop();
+        for(unsigned bad:{P6_MACHINE_A500,P6_MACHINE_A1200}) {
+            auto c=config(bad); if(bad==P6_MACHINE_A1200) c.flags=P6_CONFIG_HRTMON;
+            call(p6_init(&c,&e),e); assert(p6_cartridge_bind(P6_CARTRIDGE_AR1200,{cart.data(),cart.size()},&e)==P6_ERROR_UNSUPPORTED); ar1200_stop();
+        }
+    }
+    puts("AR1200 public level/copy/ABI/refusals/reset/cold PASS");
+}
 int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5);
     if(!strcmp(argv[3],"ar1-public-write") || !strcmp(argv[3],"ar1-public-read")) {
         public_ar1_real(file(argv[1]),file(argv[2]),argv[4],!strcmp(argv[3],"ar1-public-write")); return 0;
+    }
+    if(!strcmp(argv[3],"ar1200-public-write") || !strcmp(argv[3],"ar1200-public-read")) {
+        ar1200_public(file(argv[1]),file(argv[2]),argv[4],!strcmp(argv[3],"ar1200-public-write")); return 0;
     }
     if(!strncmp(argv[3],"ar1200-",7)) {
         const std::string mode=argv[3];

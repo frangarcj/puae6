@@ -293,3 +293,24 @@ count:
                     twins.append([line for line in result.stdout.splitlines() if line.startswith('AR1200 continuation ')])
                     self.assertEqual(len(twins[-1]),count)
                 self.assertEqual(*twins,kind)
+
+
+class NativeAr1200Tests(unittest.TestCase):
+    def test_public_ar1200_freeze_level_and_cold_state(self):
+        names=('P6_KICKSTART_A1200_ROM','P6_ACTION_REPLAY1200_ROM')
+        assets=[os.environ.get(name) for name in names]
+        if not all(assets):
+            self.skipTest('BLOCKED: set authorized local '+', '.join(names))
+        self.assertTrue(Path(assets[0]).is_file())
+        self.assertEqual(hashlib.sha1(Path(assets[1]).read_bytes()).hexdigest(),'0f6ab8342810094ac0642f62ba42f78bc0b07e6a')
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar1200-public-',dir=ROOT/'build') as tmp:
+            twins=[]
+            for mode in ('ar1200-public-write','ar1200-public-read'):
+                result=subprocess.run([str(exe),*assets,mode,tmp],capture_output=True,text=True,timeout=300,
+                                      env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,mode+'\n'+result.stdout[-2500:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('AR1200 public continuation ')])
+                self.assertEqual(len(twins[-1]),2)
+                self.assertIn('AR1200 public level/copy/ABI/refusals/reset/cold PASS',result.stdout)
+            self.assertEqual(*twins)

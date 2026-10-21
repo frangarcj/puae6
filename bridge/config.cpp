@@ -118,7 +118,7 @@ p6_result bind_ar1200(p6_buffer image, p6_error *error)
         return p6_fail(error,P6_ERROR_BAD_STATE,"bind one monitor before load");
     if (c.machine!=P6_MACHINE_A1200 || resolve_cpu(c)!=68020 || resolve_cpu_multiplier(c)!=4 ||
         c.flags || c.fpu_model || c.z3_memory || c.hdf_controller || !memory_is_preset(c))
-        return p6_fail(error,P6_ERROR_UNSUPPORTED,"private AR1200 requires stock A1200/68EC020");
+        return p6_fail(error,P6_ERROR_UNSUPPORTED,"AR1200 requires stock A1200/68EC020");
     if (!image.data || image.bytes!=262144 || memcmp(image.data,"ATZ!HRT!",8))
         return p6_fail(error,P6_ERROR_WRONG_MEDIA,"expected raw AR1200 image");
     if (p6_blob_register(kCartridgeId,P6_BLOB_ROM,image.data,size_t(image.bytes))!=P6_BLOB_OK)
@@ -866,5 +866,6 @@ p6_result check_loaded_firmware(p6_error *error)
 
 extern "C" p6_result p6_cartridge_bind(uint32_t model,p6_buffer image,p6_error *error)
 {
-    return p6_bridge::bind_action_replay(model,image,error); // The shared owner takes exactly one Guard.
+    // Each owner takes exactly one Guard. Route before the A500-only validator.
+    return model==P6_CARTRIDGE_AR1200 ? p6_bridge::bind_ar1200(image,error) : p6_bridge::bind_action_replay(model,image,error);
 }

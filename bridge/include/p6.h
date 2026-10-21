@@ -48,6 +48,7 @@ typedef struct p6_caps {
  * (p6_config.video_resolution, video_line_mode) delivers the buffer p6_query_video reports for it. */
 #define P6_CAP_INPUT_V2         (UINT64_C(1) << 10)  /* p6_input_v2: two additional parallel-port joysticks */
 #define P6_CAP_HRTMON           (UINT64_C(1) << 11)  /* P6_CONFIG_HRTMON and restorable Freeze input level */
+#define P6_CAP_AR1200           (UINT64_C(1) << 14)  /* copied AR1200 owner and restorable Freeze input level */
 #define P6_CAP_AR1              (UINT64_C(1) << 13)  /* copied AR1 owner and restorable Freeze input level */
 #define P6_CAP_AR23             (UINT64_C(1) << 12)  /* copied AR2/3 owner and restorable Freeze input level */
 #define P6_CAP_STATE            (UINT64_C(1) << 0)
@@ -246,7 +247,7 @@ typedef struct p6_input {
  * memory declared by struct_size; the engine retains no pointer.
  * Parallel ports accept NONE or JOYSTICK with D-pad and BUTTON_1 only. */
 #define P6_INPUT_VERSION_2 UINT32_C(2)
-#define P6_COMMAND_FREEZE UINT32_C(1) /* Level, rising edge only; requires bound HRTMon or AR2/3. v1 releases it. */
+#define P6_COMMAND_FREEZE UINT32_C(1) /* Level, rising edge only; requires bound HRTMon or AR1/2/3/1200. v1 releases it. */
 typedef struct p6_input_v2 {
     p6_input base;
     p6_port_input parallel[2];
@@ -415,9 +416,11 @@ p6_result p6_init(const p6_config *config, p6_error *error);
 #define P6_CARTRIDGE_AR1 UINT32_C(1)
 #define P6_CARTRIDGE_AR2 UINT32_C(2)
 #define P6_CARTRIDGE_AR3 UINT32_C(3)
-/* Bind once after init/before load: copies raw AR1(64KiB)/AR2(128KiB)/AR3(256KiB).
- * Stock A500/68000 Exact or Compatible only, exclusive with HRTMon. Unload
- * releases the copy. Other models are BAD_ARGUMENT; wrong raw size is WRONG_MEDIA. */
+#define P6_CARTRIDGE_AR1200 UINT32_C(1200)
+/* Bind once after init/before load: copies raw AR1(64KiB)/AR2(128KiB)/AR3(256KiB)
+ * on stock A500/68000 Exact or Compatible, or AR1200(256KiB ATZ!HRT!) on stock
+ * A1200/68EC020. Exclusive with every cartridge/HRTMon; unload releases the copy.
+ * Other models are BAD_ARGUMENT; wrong raw size is WRONG_MEDIA. */
 p6_result p6_cartridge_bind(uint32_t model, p6_buffer image, p6_error *error);
 p6_result p6_load(p6_buffer firmware, const p6_media *media,
                   uint32_t media_count, p6_error *error);
