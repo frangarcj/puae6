@@ -1079,9 +1079,15 @@ su identidad politica1 exacta. No conecta el loader publico ni acredita Waterbox
 T66t15c conecta el host publico mediante XML estandar
 `<BizHawk-XMLGame System="Amiga" Name="Juego"><LoadAssets><LoadAsset FileName="disc.chd"/></LoadAssets></BizHawk-XMLGame>`.
 Con PUAE6 preferido o forzado monta CHD por el backend acotado y fija XA=false;
-otros sistemas/cores conservan su loader. CHD directo requiere core forzado
-PUAE6 (tambien al reabrir una movie); la preferencia sola en apertura directa
-permanece pendiente. Un fallo seleccionado no prueba SNES ni otro core.
+otros sistemas/cores conservan su loader. T66t19 selecciona CHD directo antes
+del montaje si `PreferredPlatformsForExtensions[".chd"]="Amiga"` y el core
+preferido de Amiga es PUAE6, o si se fuerza PUAE6 (tambien al reabrir una movie).
+La extension del archivo se normaliza a minusculas; la clave incluye el punto.
+El sistema declarado Amiga llega al inventario incluso si el contenido parece
+de otro sistema. Sin esa seleccion explicita conserva el loader anterior, sin
+sondear CHD para adivinar plataforma. Un fallo seleccionado conserva contexto
+Amiga, cierra su owner y no prueba SNES ni otro core. El check host alcanza el
+rechazo de firmware previo al guest; la ejecucion directa WB tiene otra puerta.
 CdInfo/CdInfoV2 son exclusivos y comparten lector; clones, identidad y reapertura
 SaveRAM conservan descriptor/owner. Solo el asset nuevo ofrece una lease:
 el loader la posee hasta construir el core, que la libera al disponer el guest

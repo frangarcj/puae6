@@ -245,6 +245,8 @@ internal static unsafe partial class Program
   string database=Path.GetDirectoryName(path); File.WriteAllText(Path.Combine(database,"mame_machines.txt"),"");
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(database);
   HostCheck(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(database,"warm.zip")),"client database init");
+  File.WriteAllText(Path.Combine(database,"gamedb.txt"),"");
+  Database.InitializeDatabase(database,database,true); // MakeGameFromDisc uses the real database acquisition barrier.
   var config=new Config(); config.PreferredCores["Amiga"]="PUAE6";
   var loader=new RomLoader(config,null);
   loader.OnLoadSettings+=(_,e)=>e.Settings=new Puae6Settings();
@@ -307,6 +309,37 @@ internal static unsafe partial class Program
    string cue=path+".bad.cue"; File.WriteAllText(cue,"FILE \"missing.bin\" BINARY\n TRACK 01 MODE1/2352\n INDEX 01 00:00:00\n");
    var reported=new List<string>(); loader.OnLoadError+=(_,e)=>reported.Add(e.AttemptedCoreLoad);
    HostCheck(Hidden(loader,"MountDiscAsset",cue,"PSX",null)==null&&reported.SequenceEqual(new[]{"PSX"}),"legacy XML error system");
+   // No content probing: the explicit platform/core pair selects the direct backend before mounting.
+   foreach(var item in new[] {
+    ((string)null,"PUAE6",(string)null,false),("","PUAE6",(string)null,false),
+    ("PSX","PUAE6",(string)null,false),("Amiga","UAE",(string)null,false),
+    ("Amiga","PUAE6",(string)null,true),("Amiga","PUAE6","UAE",false),
+    ((string)null,"UAE","PUAE6",true),("PSX","UAE","PUAE6",true) }) {
+    config.PreferredPlatformsForExtensions.Remove(".chd");
+    if(item.Item1!=null) config.PreferredPlatformsForExtensions[".chd"]=item.Item1;
+    config.PreferredCores["Amiga"]=item.Item2;
+    foreach(string name in new[] { chd,Path.ChangeExtension(chd,".CHD") })
+     HostCheck((bool)Hidden(loader,"UsePuae6DirectChd",name,item.Item3)==item.Item4,"direct explicit selection");
+    HostCheck(!(bool)Hidden(loader,"UsePuae6DirectChd",cue,item.Item3),"direct selection is CHD only");
+   }
+   config.PreferredPlatformsForExtensions.Remove(".chd");
+   config.PreferredPlatformsForExtensions[".CHD"]="Amiga"; config.PreferredCores["Amiga"]="PUAE6";
+   HostCheck(!(bool)Hidden(loader,"UsePuae6DirectChd",chd,null),"config extension keys keep their lowercase contract");
+   config.PreferredPlatformsForExtensions.Remove(".CHD");
+   foreach(string forced in new[] { (string)null,"PUAE6" }) {
+    // Forced PUAE6 supplies Amiga even if the extension preference names another platform.
+    config.PreferredPlatformsForExtensions[".chd"]=forced==null?"Amiga":"PSX";
+    errors.Clear(); reported.Clear(); firmware.Asked.Clear();
+    HostCheck(!loader.LoadRom(chd,comm,null,forced),"direct constructor failure");
+    HostCheck(errors.Count==1&&errors[0].Contains("host-stop-before-guest"),"direct reaches PUAE6 without another core");
+    HostCheck(reported.SequenceEqual(new[] { "Amiga" })&&firmware.Asked.SequenceEqual(new[] { "CD32" }),"direct Amiga inventory");
+    HostCheck(OpenChd(chd)==opened,"direct failed construction closes owner");
+    errors.Clear(); reported.Clear(); firmware.Asked.Clear();
+    string invalid=Path.Combine(database,"bad.chd");
+    HostCheck(!loader.LoadRom(invalid,comm,null,forced),"direct invalid CHD refusal");
+    HostCheck(errors.Count==1&&reported.SequenceEqual(new[] { "Amiga" })&&firmware.Asked.Count==0,"mount failure retains Amiga before firmware");
+    HostCheck(OpenChd(chd)==opened&&OpenChd(invalid)==0,"invalid direct mount closes all owners");
+   }
   }
   finally { lease.Dispose(); }
  }

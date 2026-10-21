@@ -1,0 +1,48 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -36,6 +36,13 @@
+ 			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
+ 			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && preferred == CoreNames.PUAE6;
+ 		}
++		// Direct content has no XML system. Only an explicit platform/core choice may select this backend.
++		private bool UsePuae6DirectChd(string path, string forcedCoreName)
++		{
++			if (!".chd".EqualsIgnoreCase(Path.GetExtension(path))) return false;
++			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
++			return _config.TryGetChosenSystemForFileExt(".chd", out var system) && UsePuae6Chd(path, system, null);
++		}
+ 		private IDiscAsset MountDiscAsset(string path, string system, string forcedCoreName)
+ 		{
+ 			bool own = UsePuae6Chd(path, system, forcedCoreName);
+@@ -367,7 +374,10 @@
+ 
+ 		private bool LoadDisc(string path, CoreComm nextComm, HawkFile file, string ext, string forcedCoreName, out IEmulator nextEmulator, out GameInfo game)
+ 		{
+-			var asset = MountDiscAsset(path, null, forcedCoreName);
++			bool puae6 = UsePuae6DirectChd(path, forcedCoreName);
++			// Preserve the declared system if mounting or identification throws before core construction.
++			game = puae6 ? new GameInfo { System = VSystemID.Raw.Amiga } : null;
++			var asset = MountDiscAsset(path, puae6 ? VSystemID.Raw.Amiga : null, forcedCoreName);
+ 			var disc = asset?.DiscData;
+ 			if (disc == null)
+ 			{
+@@ -378,7 +388,8 @@
+ 
+ 			try
+ 			{
+-				game = MakeGameFromDisc(disc, ext, Path.GetFileNameWithoutExtension(file.Name));
++				game = MakeGameFromDisc(disc, ext, Path.GetFileNameWithoutExtension(file.Name), fastFailUnsupportedSystems: !puae6);
++				if (puae6) game.System = VSystemID.Raw.Amiga;
+ 
+ 				var cip = new CoreInventoryParameters(this)
+ 				{
+@@ -389,7 +400,7 @@
+ 							asset,
+ 						},
+ 				};
+-				nextEmulator = MakeCoreFromCoreInventory(cip, forcedCoreName);
++				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? CoreNames.PUAE6 : forcedCoreName);
+ 				return true;
+ 			}
+ 			catch { (asset as IOwnedDiscAsset)?.Dispose(); throw; }
