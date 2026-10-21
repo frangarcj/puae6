@@ -5894,6 +5894,28 @@
           "after_sha256": "bda4fba80c3016f1b2ebd60e7aa05572fdd7a95718d7feba520b874658ff169e"
         }
       ]
+    },
+    {
+      "id": "0406-cdtv-display-power-on",
+      "file": "patches/winuae/0406-cdtv-display-power-on.patch",
+      "sha256": "dfd2b4f4b59518674bf8295d5d7447297e7cad1c0cb7654108861bb5edb4c4a3",
+      "title": "Reset retained CDTV display latches only on a new power-on",
+      "reason": "T67c3d: two long independent owners diverge by1024ticks at169; transplanting the display/Copper state reproduces it, blitter does not. Restore BSS-zero display state before custom_init only on CDTV power-on, preserving warm reset and first-owner behavior.",
+      "category": "cold session boundary",
+      "order": 222,
+      "symbols": [
+        "p6_custom_display_power_on"
+      ],
+      "test": "tests/libretro-host/test_cdtv_load.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "f45fb70d4fe86a37f075266803a0ea4015b8c4bf5e16f68bae567da7f0832668",
+          "after_sha256": "65d6df9088b7c1117852b06da495183f0bb0b30decca4db693832121e9a56f9b"
+        }
+      ]
     }
   ]
 }
