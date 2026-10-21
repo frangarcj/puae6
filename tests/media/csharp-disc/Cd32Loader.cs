@@ -312,6 +312,7 @@ internal static unsafe partial class Program
  {
 #if PUBLIC_CHD
   if(args.Length==2&&args[0]=="host-chd") { HostChd(args[1]); return; }
+  if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicChd(args); return; }
 #endif
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");

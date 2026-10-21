@@ -1919,3 +1919,13 @@ Identidad incluye IDs unicos ordenados y mapa completo; no nombres, rutas ni
 seleccion. Otro catalogo/mapa se rechaza antes del snapshot y del IO. La puerta
 WB03 exige datosB reales, A/B/ausente y futuro completo en owners/proceso nuevos;
 no acredita aun la grabacion/replayTAS de cambios (T66u6).
+
+T66t16 concentra la puerta CHD publica de Waterbox en un escenario XML Amiga:
+RomLoader selecciona PUAE6 y entrega LoadedEmulator, con el backend CHD regional
+real y un fixture cdzl legal de audio. Las lecturas por el export del guest
+contrastan el wire2448 independiente, tambien tras StoreSaveRam que recrea el
+sandbox conservando el owner. El corte300 y futuro15 comparan RAM, AV/PCM,
+ticks y snapshot completo en el mismo core, otro owner y otro proceso antes
+del primer frame. NVRAM durable, rechazo OtherMedia sin mutacion y cierre de
+handles pertenecen al mismo gate WB03/WB08/DET02; un fallo del runner lo deja
+BLOCKED. Este CD de audio no acredita arranque de juego ni peliculas CHD.
