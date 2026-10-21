@@ -18689,7 +18689,7 @@
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T24",
         "T70",
@@ -18836,9 +18836,9 @@
         "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales.",
         "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre.",
         "CHDnormalizacion restante trasproveedor inicialT66t6: Mode1cookedconsubcode, Mode2/2336/MIX/Form1/2048, Form2/2324conEDCreal, HTOA/postgap yPGTYPE/PGSUBdistintos (requierencontratoCONTROL/vista2048/subcanalescomun). Sonpuertas requeridaspendientes, noexclusionesdealcance ni cierredelpadre; carga publica/restauracion despuesdeproveedor completo.",
-        "Deudas explicitas restantes: tras T66v1 dividir parserNRG multisesion DAO conCUE, proveedor/dispositivo/restauracionnativa y transporte/publicoWaterbox, con direcciones CUE0/A2 primarias. Tras T66l8 conectar seleccionpublica y restoreTAO en hoja propia. No cerrar padre por solo completar estos proveedores privados. ETNF/ETN2multisesion requiere contrato propio antes de habilitarlo.",
+        "DAO multisesion conecta parser, proveedor por offset, dispositivo, fabrica publica nativa y transporte/publico Waterbox mediante T66v1..T66v14. TAO single conserva su ruta publica de T66l9. TAO multisesion y TINF requieren un contrato propio antes de habilitarlos; no cerrar el padre solo por DAO.",
         "Pendiente requerido antescierre incluso despuesDAOmultiV12: TAOmulti/TINF no tienen contrato de direcciones primario. libMiragea9d6a204 parser.c317..365/733..831/980..999 lee start_sector pero no lo usa al montar grupos; GNUlibcdio68ea374f nrg.c608..831 rechaza segundoETN yVCDImager23f07386emiteunETNF/SINF. H1start_sectorglobalovsreinicioporSesion requiereproductorDOSsesiones conTOCoriginal; no inferirCUE0/A2/huecos delectorqueignoracampo. H2TINFoffsetINDEX01vsINDEX00/pregap requiereproductor/documentacion/fixtureatribuida; registro12sinLBAyloaderDiscSystemUnsupported no resuelven. Mantener rechazos visibles; sin nueva campaña/decoder/pretendercierreporDAO.",
-        "Deuda requerida trasproveedorsparseDAOmulti: adaptarSBIporLBAsinArray_Sectorsdensos, conprecedenciadelQalmacenado/patched/CRC yrestorepublicopropio; V10deberechazar SBIvalidocompañanteexplicito sinpublicarownerparcial, noignorar. NocerrarpadreporDAOmientrasesta puertaestependiende."
+        "El overlay SBI de T66v13 usa LBAs dispersos y el mismo owner, conserva la precedencia Q/CRC y rechaza huecos antes de IO. T66v12 incluye su identidad y snapshot publico en la misma puerta de carga multisesion; no hace falta una campaña SBI Waterbox separada."
       ],
       "checks": [
         "MED01",
@@ -18850,7 +18850,8 @@
       "acceptance": [
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
-      "stop": "No cargar el CD entero en memoria del guest."
+      "stop": "No cargar el CD entero en memoria del guest.",
+      "blocked_reason": "Falta el contrato primario de direcciones para NRG TAO multisesion y TINF. Las referencias fijadas ignoran start_sector al montar grupos o rechazan un segundo ETN. H1: determinar si start_sector es global o reinicia por sesion mediante un productor de dos sesiones con TOC original. H2: determinar si TINF.offset apunta a INDEX01 o INDEX00 y como representa el pregap mediante productor, documentacion o fixture atribuida. Se conservan los rechazos explicitos y los reproducers existentes; DAO multisesion no acredita estas variantes."
     },
     {
       "id": "T67a",
@@ -21711,7 +21712,7 @@
       ],
       "id": "T66v12",
       "title": "Conectar carga publica NRG multisesion y catalogos mixtos con restore Waterbox",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v11",
         "T66l9",
@@ -21735,7 +21736,7 @@
       "steps": [
         "Verticalatomica siete rutas240..350manuales porpublicacioncompleta, sinparser/RomLoaderpatch/guestnuevo siV7actual. Params CdInfoV3/CdCatalogV3, count/create/identity/catalogID/validate yclonesCore/WhdLoad; seis modos mutuamenteexclusivos, limites/mapa/IDunicos/borrowed ylease intactos.",
         "Factorysinglemulti usaV3. Si cualquierfuente SessionCount>=2 todo catalogopromueveV3: V2copia12words/tablecount0 yV1usaRegionalDescriptorexistente storedpregap1/flags0. IDsinrecalcular; identidadcatalogo PUAE6 CD catalog/v1+IDs/slots anterior exacta. Sinmulti rutaV1/V2identica; leaseIsDisposedantescallback, sinownerparalelo.",
-        "MED01/WB03/DET02 unionunaejecucion: nuevo NrgMultiPublicWaterboxTests.test_public_multisession_and_mixed_catalog_cold_restore +ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore +NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Harness/Run/Save/Restore/loaderrealexistentes, no nuevocore/probealterno.",
+        "MED01/WB03/DET02 comparten NrgMultiPublicWaterboxTests (XML, directo y catalogo mixto), ChdPublicWaterboxTests.test_xml_nrg_canonical_saveram_and_cold_restore y NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership. Reutilizar harness, Run/Save/Restore y loader reales; no crear core o probe alternativo.",
         "Nuevo: XML/directoexplicitodos sesiones/Q/sectores/huecos sinIO/canarios, SaveRAM, local/coldownerprocesoantesprimerRun/futuroAVPCM/RAM/ticks/fullsnapshot. Catalogomixto[multi,ISOV1,CHDV2,aliasmulti] mapa0,1,2,0 IDs3; promocionfiel, seleccionCHD yrestoretrasotroordinal. Hostarraysclonados/exclusividad/leaseDispose/falloconstructor/FDsinreabrir; metadata/payload/order/mapsajenosOtherMedia antesLoadconestado/NVRAM/IO intactos. Nojuego/matrizCPU; candidateBrian posteriorunaunion.",
         "Ampliacion previa solo docs/options.md para retirar limites ya obsoletos: TAOpublicosingleT66l9, cambioCD/catalogoT66u5u6 yjuegoT66r7r8. Actualizar texto con soporteDAOmultiV3real trasgate, manteniendo limitesETN/TINF/hardware ysinprometercierrepadre. Ocho rutas totalesporestaverdadusuario, mismopresupuesto.",
         "IncluirSBIvalidocompañante enfixtureDAOmulti paraacreditarV13real: Qpatcheada/identidadmismomediopayloadtable ySBIajeno rechazado, local/coldrestore/fullfuture/snapshotenmismaunion, sinnuevoWBbuildni campañaextra.",
