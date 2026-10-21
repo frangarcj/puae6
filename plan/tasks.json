@@ -22089,6 +22089,7 @@
       ],
       "touch": [
         "bridge/config.cpp",
+        "bridge/config.h",
         "bridge/include/p6.h",
         "bridge/caps.cpp",
         "tests/host/bridge_caps_probe.cpp",
@@ -22100,7 +22101,7 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "cd32_close trabaja aislado en t53-cpu, desde la candidata integrada 91935d48; root posee plan, dispatcher, documentacion e integracion y serializa builds j2. Excepcion atomica de siete rutas de codigo mas contrato para la API, capacidades y su prueba real; objetivo 230-300 lineas manuales, limite400. Avisar antes de superar o ampliar rutas; no nuevo parche motor ni builds del agente.",
+        "cd32_close trabaja aislado en t53-cpu, desde la candidata integrada 91935d48; root posee plan, dispatcher, documentacion e integracion y serializa builds j2. Excepcion atomica de siete rutas de codigo mas contrato para la API, capacidades y su prueba real; objetivo 230-300 lineas manuales, limite400. Avisar antes de superar o ampliar rutas; no nuevo parche motor ni builds del agente. Root amplia solo bridge/config.h para corregir el comentario obsoleto del helper privado sobre los modelos publicos; ninguna firma cambia.",
         "Ampliar p6_cartridge_bind existente al modelo1 con constante P6_CARTRIDGE_AR1=1 y capacidad P6_CAP_AR1 bit13 separada de AR23. Reutilizar owner, codec completo e identidad AR1 de T69e1, Guard unico, copia immutable y Freeze P6inputv2/P6IN. Conservar A500 stock68000 Exact/Compatible, exclusividad, negativos transaccionales y valores ABI anteriores. Ajustar solo assertions antiguas de model1 rechazado a un modelo desconocido; no exponer AR1200 ni selectores de libretro/BizHawk.",
         "Usar AR1 v1.00 autorizada SHA1 1ead9dda2dad29146441f5ef7218375022e01248 y Kick1.3 local, fuera de Git. Atribuir G y X a sus handlers F01930/F0198E y READY al editor real de 40 columnas: savedSP9FE0FA, retorno externoF0018C, editorF012BA y lector/render F0126A/F0126E bajo D0. Exigir frames live, ACTIVE, marcador9FE088 cero y fila vacia acotada con cursor/base9FE076/078/07E y blanco fontcode46. F1 aqui es Clr+Home; no usar arranque F1 ni READY AR23. Limite en unidades emuladas, nunca sleep, host PC/prefetch/NMI/flags.",
         "NativeAr1Tests.test_public_ar1_real_monitor_commands_and_cold_state arranca la ROM por la ruta original, espera IDLE, activa por flanco Freeze, espera editor, inicia programa propio en RAM mediante G12000 y vuelve mediante X. Demostrar contador y retorno reales, secuencia WAIT_PC/reentrada propia sin inferirla del fixture. Dos cortes comerciales (editor vacio y X parcial), save-load-save local y reader en nuevo PID antes del primer run, futuro completo CPU/RAM/cartRAM/mapas/vector/video/PCM/ticks/fullstate exactos, held/release/repress/reset y canarios/identidad/copia/cleanup.",

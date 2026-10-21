@@ -304,7 +304,7 @@ ascendente, despues de reset/medios/entrada y antes de ejecutar la unidad. Una p
 en la primera unidad o dentro del monitor se consume sin cola; mantenerla tras `x`,
 reset o restauracion no activa otra vez. Soltar y volver a pulsar si activa. Entrada v1
 equivale a commands0. Bits desconocidos dan BAD_ARGUMENT; Freeze sin owner da UNSUPPORTED
-antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 con HRTMon o AR2/AR3;
+antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 con HRTMon o AR1/AR2/AR3;
 Apply lo copia sin emitir accion. Reset del teclado conserva este flanco y unload/load lo borra.
 
 T69d3: `P6_CAP_AR23` (bit12) anuncia la API nativa aditiva
@@ -328,8 +328,15 @@ los cuerpos e identidades AR2/3 no cambian. AR1 mantiene ROM y RAM mapeadas:
 el strobe byte puede dejar WAIT_PC con SPC y el word IDLE con SPC. La entrada
 ACTIVE quita ese bit. Apply restaura esos campos sin ejecutar interrupciones,
 IO ni scheduling; el evento CIA15 sigue exclusivo de AR2/3. Destruir el owner
-retira los bancos antes de liberar memoria. La API publica sigue admitiendo 2/3;
-el fixture original no acredita firmware comercial AR1 ni sus frontends.
+retira los bancos antes de liberar memoria. El fixture original acredita su codec;
+el firmware comercial y sus frontends tienen puertas separadas.
+
+T69e2 anade `P6_CAP_AR1` (bit13) y `P6_CARTRIDGE_AR1=1` a la misma API nativa,
+con ROM raw de 64 KiB y el perfil A500 Exact/Compatible. Comparte la propiedad,
+identidad y nivel Freeze descritos arriba. La ROM AR1 v1.00 usa sus comandos
+`g`/`x` y un editor de 40 columnas. Su primer Freeze pasa por WAIT_PC y reentrada
+antes de abrir el editor; READY comprueba sus frames vivos y fila vacia, incluido
+el tag C5 de sus retornos. No se anuncia disponibilidad de AR1 en los frontends.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
