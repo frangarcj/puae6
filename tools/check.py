@@ -373,6 +373,12 @@ TASK_SUITES[('MED01', 'T67c3a1')] = {'original_cdtv_boot': 'tests.media.test_cdt
 for _gate in ('MED01', 'STATE01', 'DET02'):
     for _task in ('T67c3a2', 'T67c3a'):
         TASK_SUITES[(_gate, _task)] = {'original_cdtv_boot_restore': 'tests.media.test_cdtv_boot.CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives'}
+for _gate in ('MED01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T67c3b')] = dict(TASK_SUITES[(_gate, 'T67c3a')])
+for _gate in ('LR01', 'DET02'):
+    TASK_SUITES.setdefault((_gate, 'T67c3b'), {}).update({'public_cdtv_load': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests', 'cd32_cue345_regression': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner'})
+TASK_SUITES[('GEN01', 'T67c3b')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('ABI01', 'T67c3b')] = {'native_layout': 'tests.contracts.test_api.NativeContractTests', 'model_parity': 'tests.config.test_parity'}
 for _gate in ('MED01', 'BUILD01'):
     TASK_SUITES[(_gate, 'T67c1')] = {'cdtv_firmware': 'tests.media.test_cdtv_boot.CdtvFirmwareTests'}
 for _gate in ('MED01', 'STATE01', 'DET02'):
