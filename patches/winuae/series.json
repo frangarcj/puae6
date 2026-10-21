@@ -5757,6 +5757,29 @@
           "after_sha256": "80ad61295bb5777afdc049483414770d13f5934226cdc5101d967cb751ad4191"
         }
       ]
+    },
+    {
+      "id": "0401-cdtv-combined-firmware",
+      "file": "patches/winuae/0401-cdtv-combined-firmware.patch",
+      "sha256": "c6a7d49f9b6c1a45cc823bfd4fee2dbf9e0890378d50a2210f047925c377f0f4",
+      "title": "Load the verified private CDTV extended and main ROM through bounded views",
+      "reason": "T67c1: fixed ID22 extended256KiB plus ID6 main256KiB, with original extended bank padding and independent bounded views. No public CDTV profile, autoconfig or state claim.",
+      "category": "CDTV firmware boundary",
+      "order": 217,
+      "symbols": [
+        "read_kickstart",
+        "load_kickstart"
+      ],
+      "test": "tests/media/test_cdtv_boot.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "memory.cpp",
+          "before_sha256": "cc517c3ddde5e90be06711d7610df446f513e5dea89ec7b40b8a029bce32567c",
+          "after_sha256": "84478829180bf5e6b42fdb90b7375e5c8424f3be1df5b0b186ec592af841cfcb"
+        }
+      ]
     }
   ]
 }

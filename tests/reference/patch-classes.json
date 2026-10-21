@@ -221,7 +221,8 @@
     "0396-chd-mode2-form2-edc": "required",
     "0398-hrtmon-native-state": "instrumentation",
     "0399-cdtv-cooperative-service": "required",
-    "0400-cdtv-component-state": "required"
+    "0400-cdtv-component-state": "required",
+    "0401-cdtv-combined-firmware": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
