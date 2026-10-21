@@ -11622,7 +11622,10 @@
         "docs/user/native-preview.md",
         "tests/build_support.py",
         "tests/test_build_support.py",
-        "tests/reference/patch-classes.json"
+        "tests/reference/patch-classes.json",
+        "tests/fuzz/fuzz_probe.cpp",
+        "tests/fuzz/fuzz_content.cpp",
+        "tests/fuzz/test_fuzz.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11651,7 +11654,8 @@
         "La candidata acumulada se difiere hasta integrar las funciones en curso; T39b vuelve a pending sin quitar puertas. El coordinador retoma la correccion independiente T55c11 en worktree aislado; se mantienen cuatro responsables activos como maximo.",
         "Integracion de CDTV: la lane funcional ahora selecciona el probe con firmware autorizado de T67c1. Exigir P6_CDTV_ROM_MAIN y P6_CDTV_ROM_EXT antes de preparar imagenes/compilar; verificar negativos tempranos junto a A4000/CD32 y documentar el par fijo. Root limita esta vertical a tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md; la puerta acumulada completa sigue pendiente de candidata estable, sin atribuir CI real por tests de infraestructura.",
         "Integracion acotada del dispatcher: conectar los selectores host publicos ya ejecutados de T66t15c a BUILD01/MED01/STATE01, que sin registro responden NOT_IMPLEMENTED. Solo tools/check.py y comprobacion de importacion/casos no vacios, sin repetir builds ni acreditar CI acumulada. Volver pending al terminar esta vertical mientras se completa CDTV.",
-        "Renovar la preview local despues de integrar DAO multisesion, ETN2 compacto con strides mezclados y CHD con HTOA. Actualizar solo docs/user/native-preview.md dentro del alcance previo; usar tools/package.py build con los fuentes limpios y comprobar el ZIP extraido mediante su smoke existente, sin repetir matriz ni declarar release formal."
+        "Renovar la preview local despues de integrar DAO multisesion, ETN2 compacto con strides mezclados y CHD con HTOA. Actualizar solo docs/user/native-preview.md dentro del alcance previo; usar tools/package.py build con los fuentes limpios y comprobar el ZIP extraido mediante su smoke existente, sin repetir matriz ni declarar release formal.",
+        "La primera lane sanitizer de la candidata detecta desacuerdos concretos config(seed19/7,iter1716) y model(floppy_multidrive,seed1/2). Ampliar touch exclusivamente a ambos fuzzers y su test existente: contrastar oraculos independientes con contrato/codigo actual, corregir solo la causa demostrada y retener witnesses/negativos que detecten un fallo real. busy_reference investiga aislado sin metadata ni motor/guest; root integra y ejecuta solo config/model afectados, no repite state/hardfile/trackdisk que terminaron sin fallo. No acreditar lane completa ni IPF decoder que no llegaron al gate."
       ],
       "checks": [
         "PLAN01",
