@@ -240,7 +240,7 @@ internal static unsafe partial class Program
   string files=ls.StandardOutput.ReadToEnd(); ls.WaitForExit(); HostCheck(ls.ExitCode==0,"host file descriptor query");
   return files.Split('\n').Count(line=>line=="n"+path);
  }
- static void HostCd(string path)
+ static void HostCd(string path, string identifiedIso)
  {
   string database=Path.GetDirectoryName(path); File.WriteAllText(Path.Combine(database,"mame_machines.txt"),"");
   BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(database);
@@ -284,8 +284,17 @@ internal static unsafe partial class Program
    }
    var legacy=new Puae6Parameters { CdInfo=new P6CdInfo { Version=1, Size=(uint)sizeof(P6CdInfo) }, ReadCd=p.ReadCd, Firmware=p.Firmware, SyncSettings=p.SyncSettings.Clone() };
    HostCheck(Puae6WhdLoad.Resolve(legacy).CdInfoV2==null&&((byte[])Hidden(legacy,"CdIdentity")).All(b=>b==0),"legacy identity");
-   string iso=path+".legacy.iso"; File.WriteAllBytes(iso,new byte[512*2048]); using var legacyDisc=Mount(iso);
-   assets.Add(new DiscAsset(legacyDisc)); assets.Add(assets[0]);
+   string iso=path+".legacy.iso"; File.WriteAllBytes(iso,new byte[512*2048]);
+   using var legacyLease=(IOwnedDiscAsset)Hidden(loader,"MountDiscAsset",iso,"Amiga",null);
+   HostCheck(legacyLease.DiscData.Regions.Count==0&&!legacyLease.IsDisposed,"legacy ISO uses existing backend and owned lease");
+   foreach(var context in new[]{("PSX",(string)null),("Amiga","UAE"),("PSX","PUAE6"),((string)null,(string)null)}) {
+    var borrowed=(IDiscAsset)Hidden(loader,"MountDiscAsset",iso,context.Item1,context.Item2);
+    using var callerOwned=borrowed.DiscData;
+    HostCheck(borrowed is not IOwnedDiscAsset&&!callerOwned.IsDisposed,"other core remains borrowed");
+   }
+   using(var forced=(IOwnedDiscAsset)Hidden(loader,"MountDiscAsset",iso,null,"PUAE6"))
+    HostCheck(!forced.IsDisposed,"forced direct legacy ISO lease");
+   assets.Add(legacyLease); assets.Add(assets[0]);
    var catalog=(Puae6Parameters)factory.Invoke(null,new object[] { lp });
    HostCheck(catalog.CdInfo==null&&catalog.CdInfoV2==null&&catalog.CdCatalog==null&&catalog.CdCatalogV2.Length==2&&catalog.CdSlots.SequenceEqual(new[]{0,1,0}),"mixed regional/legacy catalog");
    var legacyInfo=catalog.CdCatalogV2[1]; HostCheck(legacyInfo.Version==2&&legacyInfo.Tracks[6]==1&&legacyInfo.Tracks[9]==0,"V1 policy in V2 transport");
@@ -293,12 +302,22 @@ internal static unsafe partial class Program
    HostCheck(catalogClone.CdSlots.SequenceEqual(new[]{0,1,0})&&((byte[])Hidden(catalogClone,"CdIdentity")).SequenceEqual((byte[])Hidden(Puae6WhdLoad.Resolve(catalogClone),"CdIdentity")),"catalog clone");
    var legacyBytes=new byte[2448]; HostCheck(catalogClone.ReadCdCatalog(1,0,legacyBytes,2448)&&legacyBytes[15]==1,"mixed catalog real ISO read");
    assets.RemoveRange(1,2);
-   int opened=OpenCdFile(image); HostCheck(opened==1,"one owned CD handle"); lease.Dispose();
+   int opened=OpenCdFile(image); HostCheck(opened==1&&OpenCdFile(iso)==1,"both owned CD handles");
+   var catalogOwner=(IDisposable)HiddenOwner(catalogClone); catalogOwner.Dispose(); catalogOwner.Dispose();
+   HostCheck(legacyLease.IsDisposed&&lease.IsDisposed&&OpenCdFile(iso)==0,"catalog closes the legacy ISO lease");
    HostCheck(OpenCdFile(image)==0,"real FD closed"); lease.Dispose();
    HostCheck(OpenCdFile(image)==0,"lease idempotent");
    var refused=Enumerable.Repeat((byte)0xa5,2448).ToArray(); HostCheck(!p.ReadCd(0,refused,2448)&&refused.All(b=>b==0xa5),"disposed source");
    HostCheck(!catalogClone.ReadCdCatalog(0,0,refused,2448)&&refused.All(b=>b==0xa5),"disposed catalog source");
-   HostCheck(OpenCdFile(image)==0,"disposed reads never reopen the source");
+   HostCheck(!catalogClone.ReadCdCatalog(1,0,refused,2448)&&refused.All(b=>b==0xa5),"disposed legacy catalog source");
+   HostCheck(OpenCdFile(image)==0&&OpenCdFile(iso)==0,"disposed reads never reopen either source");
+   using(var borrowed=Mount(iso)) {
+    var direct=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
+    direct.Discs.Add(new DiscAsset(borrowed));
+    var parameters=(Puae6Parameters)factory.Invoke(null,new object[]{direct});
+    HostCheck(HiddenOwner(parameters)==null&&parameters.ReadCd(0,new byte[2448],2448)&&!borrowed.IsDisposed,"direct API asset remains caller-owned");
+   }
+   HostCheck(OpenCdFile(iso)==0,"borrowed direct asset closed only by caller");
    firmware.Refuse=true; var errors=new List<string>(); loader.OnLoadError+=(_,e)=>errors.Add(e.Message);
    opened=OpenCdFile(image);
    HostCheck(!loader.LoadRom(path,comm,null),"constructor failure");
@@ -309,6 +328,21 @@ internal static unsafe partial class Program
    opened=OpenCdFile(image);
    try { Hidden(loader,"LoadXmlDiscAssets",Xml(badXml),null); throw new Exception("Accepted broken second CD"); } catch(TargetInvocationException e) when(e.InnerException is IOException or NRG_Format.NRGParseException) { }
    HostCheck(OpenCdFile(image)==opened,"partial mount cleanup");
+   string legacyXml=path+".legacy.xml";
+   File.WriteAllText(legacyXml,$"<BizHawk-XMLGame System=\"Amiga\" Name=\"legacy\"><LoadAssets><LoadAsset FileName=\"{Path.GetFileName(iso)}\"/></LoadAssets></BizHawk-XMLGame>");
+   errors.Clear(); firmware.Asked.Clear();
+   HostCheck(!loader.LoadRom(legacyXml,comm,null)&&errors.Count==1&&errors[0].Contains("host-stop-before-guest"),"legacy XML reaches selected core and closes on constructor failure");
+   HostCheck(firmware.Asked.SequenceEqual(new[]{"CD32"})&&OpenCdFile(iso)==0,"legacy XML failure keeps Amiga and closes FD");
+   File.WriteAllText(badXml,$"<BizHawk-XMLGame System=\"Amiga\" Name=\"bad\"><LoadAssets><LoadAsset FileName=\"{Path.GetFileName(iso)}\"/><LoadAsset FileName=\"bad{extension}\"/></LoadAssets></BizHawk-XMLGame>");
+   try { Hidden(loader,"LoadXmlDiscAssets",Xml(badXml),null); throw new Exception("Accepted broken second CD after ISO"); } catch(TargetInvocationException e) when(e.InnerException is IOException or NRG_Format.NRGParseException) { }
+   HostCheck(OpenCdFile(iso)==0,"partial mount closes preceding legacy ISO");
+   if(identifiedIso!=null) {
+    using(var recognized=Mount(identifiedIso)) HostCheck(new DiscIdentifier(recognized).DetectDiscType()==DiscType.Amiga,"original ISO identifies as Amiga by PVD");
+    config.PreferredPlatformsForExtensions.Remove(".iso"); errors.Clear(); firmware.Asked.Clear();
+    HostCheck(!loader.LoadRom(identifiedIso,comm,null),"identified direct ISO constructor refusal");
+    HostCheck(errors.Count==1&&errors[0].Contains("host-stop-before-guest")&&firmware.Asked.SequenceEqual(new[]{"CD32"}),"identified direct ISO follows preferred PUAE6 without another core");
+    HostCheck(OpenCdFile(identifiedIso)==0,"identified direct ISO closes adopted owner");
+   }
    string cue=path+".bad.cue"; File.WriteAllText(cue,"FILE \"missing.bin\" BINARY\n TRACK 01 MODE1/2352\n INDEX 01 00:00:00\n");
    var reported=new List<string>(); loader.OnLoadError+=(_,e)=>reported.Add(e.AttemptedCoreLoad);
    HostCheck(Hidden(loader,"MountDiscAsset",cue,"PSX",null)==null&&reported.SequenceEqual(new[]{"PSX"}),"legacy XML error system");
@@ -351,7 +385,7 @@ internal static unsafe partial class Program
  static void Main(string[] args)
  {
 #if PUBLIC_CHD
-  if(args.Length==2&&args[0] is "host-chd" or "host-nrg") { HostCd(args[1]); return; }
+  if((args.Length==2||args.Length==3)&&(args[0] is "host-chd" or "host-nrg")) { HostCd(args[1],args.Length>2?args[2]:null); return; }
   if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicCd(args,".chd"); return; }
   if(args.Length>=8&&(args[5].StartsWith("nrgpublic")||args[5].StartsWith("nrgmultipublic"))) { PublicCd(args,".nrg"); return; }
 #endif

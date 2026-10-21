@@ -2284,3 +2284,15 @@ comparten la prueba de SBI, huecos sin IO, SaveRAM y corte temprano/futuro 15, c
 restore antes del primer frame en nuevo sandbox/proceso y fullsnapshot exacto.
 Metadata CUE0, payload, SBI, orden o aliases ajenos se rechazan antes de cargar
 el sandbox. No se declara soporte TAO multisesion, Session Info ni FullTOC fisico.
+
+T66v14 separa el backend CHD/NRG de la propiedad de los discos. RomLoader usa
+el lease idempotente existente tambien para ISO/CUE y otros CD legacy cuando
+el contexto selecciona PUAE6: XML Amiga con preferencia PUAE6, o seleccion
+forzada compatible con el sistema. El montaje legacy no cambia. En contenido
+directo, un disco identificado como Amiga se adopta despues de identificarlo y
+antes del inventario si la preferencia selecciona PUAE6. No hay preprobe ni
+cambio de parser. El mismo Disc pasa al lease, que se conserva durante reopen
+y se cierra tras el guest o ante fallo de construccion/montaje parcial. Otros
+cores y los IDiscAsset prestados directamente a ParametersFrom conservan su
+propiedad anterior. La fixture ISO propia usa SystemID CDTV solo para probar
+identificacion/cleanup sin sandbox; no acredita arranque de hardware CDTV.

@@ -1,0 +1,57 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -31,13 +31,15 @@
+ 			public bool IsDisposed => _disposed;
+ 			public void Dispose() { if (!_disposed) { _disposed = true; DiscData.Dispose(); } }
+ 		}
+-		private bool UsePuae6Cd(string path, string system, string forcedCoreName)
+-		{
+-			if (!(".chd".EqualsIgnoreCase(Path.GetExtension(path)) || ".nrg".EqualsIgnoreCase(Path.GetExtension(path)))
+-				|| system != null && system != VSystemID.Raw.Amiga) return false;
++		private bool UsePuae6DiscContext(string system, string forcedCoreName)
++		{
++			if (system != null && system != VSystemID.Raw.Amiga) return false;
+ 			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
+ 			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && preferred == CoreNames.PUAE6;
+ 		}
++		private bool UsePuae6Cd(string path, string system, string forcedCoreName)
++			=> (".chd".EqualsIgnoreCase(Path.GetExtension(path)) || ".nrg".EqualsIgnoreCase(Path.GetExtension(path)))
++				&& UsePuae6DiscContext(system, forcedCoreName);
+ 		private bool UsePuae6Chd(string path, string system, string forcedCoreName)
+ 			=> ".chd".EqualsIgnoreCase(Path.GetExtension(path)) && UsePuae6Cd(path, system, forcedCoreName);
+ 		// Direct content has no XML system. Only an explicit platform/core choice may select this backend.
+@@ -52,8 +54,8 @@
+ 			=> ".chd".EqualsIgnoreCase(Path.GetExtension(path)) && UsePuae6DirectCd(path, forcedCoreName);
+ 		private IDiscAsset MountDiscAsset(string path, string system, string forcedCoreName)
+ 		{
+-			bool own = UsePuae6Cd(path, system, forcedCoreName);
+-			var disc = own
++			bool own = UsePuae6DiscContext(system, forcedCoreName);
++			var disc = UsePuae6Cd(path, system, forcedCoreName)
+ 				? ".chd".EqualsIgnoreCase(Path.GetExtension(path)) ? DiscMountJob.MountPuae6Chd(path) : DiscMountJob.MountPuae6Nrg(path)
+ 				: DiscExtensions.CreateAnyType(path, str => DoLoadErrorCallback(str, system ?? "???", LoadErrorType.DiscError));
+ 			if (disc == null) return null;
+@@ -398,6 +400,13 @@
+ 			{
+ 				game = MakeGameFromDisc(disc, ext, Path.GetFileNameWithoutExtension(file.Name), fastFailUnsupportedSystems: !puae6);
+ 				if (puae6) game.System = VSystemID.Raw.Amiga;
++				// Identification may discover an Amiga ISO after the unchanged legacy mount.
++				if (!puae6 && game.System == VSystemID.Raw.Amiga && UsePuae6DiscContext(game.System, forcedCoreName))
++				{
++					puae6 = true;
++					if (asset is not IOwnedDiscAsset)
++						asset = new OwnedDiscAsset { DiscData = disc, DiscType = asset.DiscType, DiscName = asset.DiscName };
++				}
+ 
+ 				var cip = new CoreInventoryParameters(this)
+ 				{
+@@ -893,7 +902,7 @@
+ 				game = xmlGame.GI;
+ 
+ 				var system = game.System;
+-				puae6 = xmlGame.Assets.Any(p => UsePuae6Cd(p.Path, system, forcedCoreName));
++				puae6 = UsePuae6DiscContext(system, forcedCoreName) && xmlGame.Assets.Any(p => IsDiscForXML(system, p.Path));
+ 				var roms = xmlGame.Assets
+ 						.Where(pfd => !IsDiscForXML(system, pfd.Filename))
+ 						.Select(IRomAsset (pfd) => new RomAsset

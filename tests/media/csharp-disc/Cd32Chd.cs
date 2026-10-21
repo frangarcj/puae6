@@ -224,7 +224,9 @@ internal static unsafe partial class Program
     try { Restore(other,File.ReadAllBytes(file)); throw new Exception("Other multisession CD accepted"); } catch(StateRejectedException e) { Require(e.Reason==StateRejection.OtherMedia); }
     Require(count==reads()&&before.SequenceEqual(Save(other))&&nvram.SequenceEqual(other.CloneSaveRam(false)));
    }
-   foreach(string path in Directory.GetFiles(Path.GetDirectoryName(xml)).Where(p=>new[]{".nrg",".iso",".chd"}.Contains(Path.GetExtension(p)))) Require(OpenCdFile(path)==0);
+   foreach(string path in Directory.GetFiles(Path.GetDirectoryName(xml)).Where(p=>new[]{".nrg",".iso",".chd"}.Contains(Path.GetExtension(p)))) {
+    int handles=OpenCdFile(path); HostCheck(handles==0,$"final FD close path={path} count={handles}");
+   }
    Console.WriteLine("Public NRG V3 multisession/mixed catalog/SBI/cold process/full future/FD close PASS"); return;
   }
   foreach(string name in pregap==0&&!nrg?new[] { "other" }:new[] { "other","shifted" }) {
