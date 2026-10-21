@@ -86,7 +86,7 @@ struct BootImage {
                 static_cast<unsigned long long>(at / 2048), unsigned(at % 2048), n); return true;
     }
 };
-static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex)
+static void original_boot(const std::vector<uint8_t> &rom, const char *path, const char *nonce_hex, unsigned limit)
 {
     BootImage image; FILE *f = fopen(path, "rb"); assert(f && !fseek(f, 0, SEEK_END));
     const long size = ftell(f); assert(size > 0 && size <= 1048576 && size % 2048 == 0); rewind(f);
@@ -114,7 +114,7 @@ static void original_boot(const std::vector<uint8_t> &rom, const char *path, con
     };
     p6_input input{P6_ABI_VERSION, sizeof input}; p6_frame out{P6_ABI_VERSION, sizeof out};
     uint32_t first = 0; unsigned unit = 0;
-    for (; unit < 600 && !first; ++unit) {
+    for (; unit < limit && !first; ++unit) {
         ok(p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error)); first = live();
     }
     fprintf(stderr, "CDTV original boot units=%u reads=%u PC=%x marker=%u\n", unit, image.reads, m68k_getpc(), first);
@@ -138,9 +138,13 @@ static void original_boot(const std::vector<uint8_t> &rom, const char *path, con
 }
 int main(int argc, char **argv)
 {
-    assert(argc == 3 || argc == 5); const auto main = file(argv[1]), ext = file(argv[2]);
+    assert(argc == 3 || argc == 5 || argc == 6); const auto main = file(argv[1]), ext = file(argv[2]);
     auto rom = ext; rom.insert(rom.end(), main.begin(), main.end());
-    if (argc == 5) { original_boot(rom, argv[3], argv[4]); return 0; }
+    if (argc >= 5) {
+        const unsigned limit = argc == 6 ? unsigned(strtoul(argv[5], nullptr, 10)) : 600;
+        assert(limit >= 600 && limit <= 1000);
+        original_boot(rom, argv[3], argv[4], limit); return 0;
+    }
     for (unsigned n = 0; n < 11; ++n) {
         auto c = config();
         if (n == 0) c.chip_kib = 2048; if (n == 1) c.slow_kib = 512; if (n == 2) c.fast_kib = 1024;

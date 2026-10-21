@@ -54,7 +54,8 @@ class CdtvOriginalBootTests(unittest.TestCase):
         exe=build_targets(ROOT/'build/state-opt',['p6_cdtv_boot_probe'],optimized=True)['p6_cdtv_boot_probe']
         with tempfile.TemporaryDirectory(prefix='cdtv-original-',dir=ROOT/'build') as directory:
             iso=Path(directory)/'original.iso'; iso.write_bytes(cdtv_boot_image.image(tm))
-            result=subprocess.run([str(exe),main,ext,str(iso),cdtv_boot_image.NONCE.hex()],
+            limit=os.environ.get('P6_CDTV_BOOT_LIMIT')
+            result=subprocess.run([str(exe),main,ext,str(iso),cdtv_boot_image.NONCE.hex(),*([limit] if limit else [])],
                                   capture_output=True,text=True,timeout=180)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertIn('nonce read and guest Delay counter advanced',result.stdout)
