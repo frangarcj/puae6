@@ -723,6 +723,11 @@ for _gate in ('IN01', 'STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T69d3')] = {
         'public_ar23_real_firmware': 'tests.cartridge.test_hrtmon.NativeArTests.test_public_ar23_freeze_return_real_firmware_and_cold_state',
         'shared_hrtmon_command_regression': 'tests.cartridge.test_hrtmon.HrtMonCommandTests'}
+for _gate in ('STATE01', 'STATE02', 'DET02'):
+    TASK_SUITES[(_gate, 'T69e1')] = {
+        'complete_private_ar1': 'tests.cartridge.test_hrtmon.Ar1StateTests.test_complete_ar1_private_owner_wait_pc_cold_state_and_refusals',
+        'shared_ar23_codec_regression': 'tests.cartridge.test_hrtmon.ArStateTests',
+        'shared_hrtmon_owner_regression': 'tests.cartridge.test_hrtmon.HrtMonBuiltinTests.test_public_config_builtin_load_restore_identity_and_teardown'}
 
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
