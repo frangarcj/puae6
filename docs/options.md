@@ -26,12 +26,17 @@ solo la cabecera MSF por LBA y conserva subheader, datos y EDC/ECC. Mode02
 admite payload de2048 bytes: sintetiza subheader cero y EDC/ECC de Mode2 Form1,
 con la cabecera excluida de ECC. Ambos entregan raw2352; la vista2048 de Mode2
 sigue sin soporte.
-NRG ETNF admite una sesion con pistas00/02 de2048 bytes (incluida su mezcla),
-03 de2336 o audio07 de2352. Exige datos contiguos y un mismo stride por disco.
-Reconstruye pregaps sinteticos de150 sectores por la politica interoperable
-GNU libcdio/VCDImager: ETNF omite sus bytes y no almacena la longitud original,
+NRG ETNF admite una sesion con pistas00/02 de2048 bytes,03 de2336 o audio07
+de2352, tambien mezcladas. Exige datos contiguos, longitudes alineadas al stride
+de cada pista y posiciones logicas compactas. Sectores y bytes se acumulan por
+separado: el offset de una pista no es su sector inicial por su propio stride.
+Este subconjunto sigue los fragmentos por pista de libMirage
+`a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e`, image-nrg/parser.c:835,853..883;
+libcdio `68ea374f` rechaza esas mezclas al exigir aquella igualdad homogenea.
+Reconstruye pregaps sinteticos de150 sectores, como libMirage y GNU
+libcdio/VCDImager: ETNF omite sus bytes y no almacena la longitud original,
 por lo que los pregaps no estandar no se pueden recuperar. La identidad incluye
-el archivo completo y esta politica canonica. ETN2, mezclas de stride y
+el archivo completo y esta politica canonica. ETN2, padding entre pistas y
 multisesion siguen sin soporte; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
 2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es

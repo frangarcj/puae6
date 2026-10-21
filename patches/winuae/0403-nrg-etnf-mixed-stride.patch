@@ -1,0 +1,22 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2508,10 +2508,16 @@
+                 t.start_sector = uint32_t(be(buf + 12, 4));
+                 if (be(buf + 16, 4)) return Result::Unsupported;
+                 t.stride = mode == 0 || mode == 2 ? 2048 : mode == 3 ? 2336 : mode == 7 ? 2352 : 0;
+-                if (!t.stride || (n && t.stride != candidate.track[0].stride)) return Result::Unsupported;
++                if (!t.stride) return Result::Unsupported;
+                 t.mode = uint8_t(mode); t.adr = 1; t.control = mode == 7 ? 0 : 4;
++                // libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e:
++                // image-nrg/parser.c:835,853..883 uses each track's byte offset,
++                // size/stride and a synthetic150 gap, independently of other strides.
++                // libcdio68ea374f:745 enforces start_sector*stride == offset;
++                // that homogeneous-only restriction is not the libMirage mapping.
++                // Admit its compact subset: sectors and bytes accumulate separately.
+                 if (!length || length % t.stride || t.start_sector != packed || t.offset1 != physical ||
+-                    uint64_t(t.start_sector) * t.stride != t.offset1 || t.offset1 > directory || length > directory - t.offset1) return invalid;
++                    t.offset1 > directory || length > directory - t.offset1) return invalid;
+                 packed += length / t.stride; physical += length; t.end = physical;
+                 if (packed + uint64_t(n) * 150 > INT32_MAX - 150) return invalid;
+                 t.index1 = int32_t(t.start_sector + uint64_t(n) * 150); t.index0 = t.index1 - 150;

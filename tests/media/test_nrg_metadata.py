@@ -65,7 +65,7 @@ class NrgMetadataTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='nrg-metadata-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); target = cls.work / 'blkdev_cdimage.cpp'; target.write_bytes((ROOT / 'upstream/winuae/blkdev_cdimage.cpp').read_bytes())
         entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -98,13 +98,41 @@ class NrgMetadataTests(unittest.TestCase):
             self.assertEqual(expected, self.run_nrg(data, directory))
 
     def test_etnf_packed_three_tracks_four_modes_mixed2048_and_track_limit(self):
-        for modes in ((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0)):
+        for modes in ((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0), (0, 3, 0), (7, 0, 7)):
             data, base, expected = etnf(modes)
             self.assertEqual(expected, self.run_nrg(data, base))
             tracks = [row.split() for row in expected[1:]]
             self.assertEqual([0, 450, 825], [int(row[7]) for row in tracks])
         data, base, expected = etnf((7,) * 99, (1,) * 99, version=2)
         self.assertEqual(expected, self.run_nrg(data, base))
+
+    def test_etnf_mixed_strides_match_independent_libmirage_fragments(self):
+        # libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e parser.c:
+        # 373..377 reads ETNF fields; 835,853..883 builds per-track fragments,
+        # 1073 sets disc origin -150. Fixed values below do not use fixture rows.
+        cases = (
+            ((0, 7, 3), 2019600, (
+                'track 0 0 614400 2048 0 -150 0 0 1 4',
+                'track 614400 614400 1143600 2352 7 300 450 0 1 0',
+                'track 1143600 1143600 2019600 2336 3 675 825 0 1 4')),
+            ((3, 7, 0), 1998000, (
+                'track 0 0 700800 2336 3 -150 0 0 1 4',
+                'track 700800 700800 1230000 2352 7 300 450 0 1 0',
+                'track 1230000 1230000 1998000 2048 0 675 825 0 1 4')),
+        )
+        for modes, physical, tracks in cases:
+            for version in (1, 2):
+                data, base, _ = etnf(modes, version=version)
+                self.assertEqual(physical, base)
+                self.assertEqual([f'nrg {version} 3 {physical} -150 1200 0 0', *tracks], self.run_nrg(data, base))
+                # Bad physical and logical coordinates are independent errors;
+                # libcdio's homogeneous product cannot replace byte contiguity.
+                second = int(tracks[1].split()[1])
+                for at, value in ((28, second + 1), (28, 300 * 2352),
+                                  (40, 301), (32, 225 * 2352 - 1),
+                                  (32, 226 * 2352), (52, 376 * (2336 if modes[2] == 3 else 2048))):
+                    bad = bytearray(data); struct.pack_into('>I', bad, at, value)
+                    self.run_nrg(bad, base, error=1)
 
     def test_etnf_bad_geometry_and_unsupported_contracts_leave_metadata_intact(self):
         data, base, _ = etnf(); invalid = [data[:-1], data[:4] + struct.pack('>I', 59) + data[8:]]
@@ -114,8 +142,6 @@ class NrgMetadataTests(unittest.TestCase):
         self.run_nrg(*etnf((7,) * 100, (1,) * 100)[:2], error=1)
         self.run_nrg(*etnf((), ())[:2], error=1)
         for fault in (1, 2, 3): self.run_nrg(data, base, fault=fault, error=4)
-        for modes in ((0, 3, 0), (7, 0, 7)):
-            d, b, _ = etnf(modes); self.run_nrg(d, b, error=5)
         for at, value in ((16, 4), (24, 1)):
             bad = bytearray(data); struct.pack_into('>I', bad, at, value); self.run_nrg(bad, base, error=5)
         for tag in (b'ETN2', b'TINF'):

@@ -66,7 +66,7 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -169,7 +169,8 @@ class CdNrgTests(unittest.TestCase):
         return lines
 
     def test_etnf_canonical_three_tracks_four_modes_and_mixed2048(self):
-        for number, modes in enumerate(((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0))):
+        for number, modes in enumerate(((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0),
+                                        (0, 7, 3), (3, 7, 0), (0, 3, 0), (7, 2, 7))):
             path, raw, streams = self.etnf_fixture('etnf' + str(number), modes)
             lines = self.run_nrg(path); self.assertEqual(lines, self.run_nrg(path, vfs=True))
             whole = path.read_bytes(); source = hashlib.sha256(whole).digest(); directory = sum(r[2] - r[0] for r in raw)
@@ -210,9 +211,25 @@ class CdNrgTests(unittest.TestCase):
         padded = self.work / 'padding.nrg'; data = bytearray(first.read_bytes()); directory = struct.unpack_from('>I', data, len(data) - 4)[0]
         data[directory:directory] = bytes(8); struct.pack_into('>I', data, len(data) - 4, directory + 8); padded.write_bytes(data)
         self.assertEqual(self.run_nrg(first, rebind=padded, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
-        for modes in ((0, 3, 0), (7, 2, 7)):
-            tail, directory, _ = etnf(modes); bad = self.work / 'mixed-stride.nrg'; bad.write_bytes(bytes(directory) + tail)
-            self.assertEqual(self.run_nrg(bad, code=2, vfs=True), ['error 5'])
+
+    def test_etnf_mixed_stride_rebind_identity_and_rejections_are_transactional(self):
+        for modes in ((0, 7, 3), (3, 7, 0)):
+            first, raw, _ = self.etnf_fixture('mixed-original', modes)
+            same = self.etnf_fixture('mixed-renamed', modes)[0]
+            baseline = self.run_nrg(first, rebind=same, vfs=True)[-1]
+            self.assertTrue(baseline.startswith('rebind 0 '))
+            # Bytes from every physical track participate in full identity.
+            original = same.read_bytes()
+            for record in raw:
+                changed = bytearray(original); changed[record[0] + 17] ^= 1
+                same.write_bytes(changed)
+                self.assertEqual(self.run_nrg(first, rebind=same, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+            same.write_bytes(original)
+            directory = sum(row[2] - row[0] for row in raw)
+            for at, value in ((28, raw[1][0] + 1), (40, 301), (32, 225 * 2352 - 1)):
+                changed = bytearray(original); struct.pack_into('>I', changed, directory + at, value)
+                same.write_bytes(changed)
+                self.assertEqual(self.run_nrg(same, code=2, vfs=True), ['error 1'])
 
     def test_mixed_dao_v1_v2_clipped_and_derived_pregaps_raw_subchannels_and_vfs_faults(self):
         for version, shift, missing in ((1, 0, False), (2, 75, False), (2, 0, True), (1, 0, 2), (2, 0, 2)):
