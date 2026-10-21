@@ -8186,7 +8186,7 @@
             "STATE02",
             "DET02"
           ],
-          "status": "pending",
+          "status": "done",
           "what": "Original and authorized real fixtures compare complete cold future, own-RAM independent full-half pattern, immutable ROM/padding, transactional refusals, reset, map and cleanup; real READY and R PC/X return."
         },
         "waterbox": "Private native semantic codec only; no public AR1200 or Waterbox acceptance claim.",

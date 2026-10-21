@@ -346,7 +346,10 @@ inmutables; P6RM conserva los 512 KiB superiores completos, controles, shadows y
 mapa dummy/cartucho. El espejo Kickstart de HRTMon se rechaza para AR1200.
 Freeze usa `Exception(2)`, vector temporal VBR+8 y causa4 en `$8c0000`; Apply
 solo copia y reconstruye bancos. El codec y la identidad HRTMon conservan sus
-bytes anteriores. Esta ruta privada no anuncia un modelo o selector publico.
+bytes anteriores. La ROM autorizada ejecuta un programa propio con `r pc 73728`
+y `x`; el futuro completo coincide tras cuatro cortes locales y frios. READY
+reconoce tambien su STOP suspendido por el frame IRQ3 de dibujo VBL. Esta ruta
+privada no anuncia un modelo o selector publico.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

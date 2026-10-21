@@ -22125,7 +22125,7 @@
       "title": "Restaurar Action Replay 1200 privado y ejecutar sus comandos reales",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69b",
         "T69e1",
@@ -22162,7 +22162,7 @@
         "Agregar bind_ar1200 privado que copia raw262144 con cabecera ATZ!HRT! y perfil A1200 stock, sin selector/capacidad ni modelo publico1200. Reusar slot blob de monitor con discriminador explicito y exclusividad/Guard/rollback existentes, sin relajar hash fijo del HRTMon builtin. Identidad propia modelo+raw y dominio separado; HRTMon conserva identidad y cuerpo byteidenticos.",
         "Leer ar.cpp completo: CART_AR1200 asigna1MiB en800000, bloquea escrituras CPU en los512KiB inferiores y configura shadows en la mitad superior. Probar/inventariar inmutabilidad inferior (ROM+paddingFF) y reconstruir de su copia; serializar todos los512KiB superiores mutables y controles/shadows/trigger. Aceptar solo mapas dummy0/cart1, rechazar espejoKick2 propio deHRTMon. Get/Validate puros; Apply copia y mapea sin Exception/NMI/IO/eventos ni reloj. Cleanup retira bancos antes de liberar aun por memory_cleanup directo, sin alterar HRTMon.",
         "Freeze AR1200 usa Exception(2), causa4 en8c0000 y vector temporalVBR+8, no IRQ7. Firmware/cartucho propio primero para owner/copia/exclusividad/rollback/identidad/estado/canarios y bancos. Nuevo selector Ar1200StateTests.test_private_ar1200_owner_freeze_and_cold_state contiene cortes IDLE, ACTIVATE, ACTIVE y comando parcial, repeticion local y proceso nuevo, save-load-save y futuro completo CPU/RAM/cartRAM/mapas/vector/video/PCM/ticks/fullstate exactos, reset y teardown; CPU solo p6_run_frame.",
-        "Con ROM autorizada SHA1 0f6ab8342810094ac0642f62ba42f78bc0b07e6a y Kick3.1 A1200 local, probar comando real r pc 73728 seguido x (literal decimal equivale12000hex). Parser8032c0/80436c reconocePC y guarda88004a; X802d56, salida800412 yRTE800486. READY: ACTIVE, STOP8008e2 conPC8008e6, SP88fffc y retorno80038e, flags exit8802d2/gfx8802d7/busy880307 cero, cola88030e vacia; puede sumar fila ASCII80 acotada. No usar G deAR23, F1 inventado ni instalar PC por host. Programa propio incrementa contador y demuestra salida/Freeze real.",
+        "Con ROM autorizada SHA1 0f6ab8342810094ac0642f62ba42f78bc0b07e6a y Kick3.1 A1200 local, probar comando real r pc 73728 seguido x (literal decimal equivale12000hex). Parser8032c0/80436c reconocePC y guarda88004a; X802d56, salida800412 yRTE800486. READY: ACTIVE, STOP8008e2 conPC8008e6, SP88fffc y retorno80038e, o ese STOP suspendido por el frame IRQ3 original SR2000/PC8008e6/vector006c, SP y retornos vivos en rangos ISR/barra/renderer atribuidos. Las unidades cortan el dibujado VBL en805694 conSP88ff88: no exigir STOP de CPU como unica muestra. Flags exit8802d2/gfx8802d7/busy880307 cero y cola88030e vacia se mantienen. No usar G deAR23, F1 inventado ni instalar PC por host. Programa propio incrementa contador y demuestra salida/Freeze real.",
         "Root ejecuta una sola union del selector nuevo y HrtMonTests (codec/mapas espejos compartidos). No repetir AR23comercial, Waterbox, matriz ni corpus por etiqueta. Puerta publica/managed/libretro AR1200 sigue en el padre; esta hoja solo acredita owner privado, codec y comandos reales autorizados. Tras dos intentos razonados del mismo fallo, reproducer y dos hipotesis verificables, blocked y otro frente; temporales solo build y limpiar, sin informes."
       ],
       "checks": [
