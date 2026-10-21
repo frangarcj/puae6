@@ -18466,6 +18466,47 @@
       "stop": "Sin guest actual no acreditar WB. No confundir TAO canonico acotado con TINF, multisesion u otros modos; no reutilizar mensajes de exito CHD para presentar otro escenario sin aclararlo."
     },
     {
+      "id": "T66v3",
+      "title": "Leer NRG DAO multisesion en propietario privado opt-in",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66v1",
+        "T66v2"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_nrg.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/test_cd_nrg.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Cinco rutas de implementacion180..260lineas: habilitacion privada explicita del propietario, tabla/lecturas/identidad y probe. Agente cd_swap aislado desde root actual, metadata exclusiva coordinador; no otra ruta sin ampliar antes. Sin motor/guest ni backend publico habilitado por esta hoja.",
+        "CdNrg por defecto sigue rechazando varias sesiones antes de payload; opt-in privado copia tabla validada de T66v2 y conserva todos los LBAs/offsets. Intervalos sin datos devuelven Range sin IO ni salida publicada; consultas privadas de sesion exactas de T66v1, TOC global multi sigue Unsupported. Factory publica usa default y conserva su rechazo.",
+        "Identidad condicional P6NRGM para varias sesiones con tabla completa, catalogos/hints y archivo/fuentes; DAO/ETNF/ETN2 de una sesion conservan identidades exactas. Rebind valida todo antes de reemplazar lectores; owner nuevo conserva lecturas y fallos transaccionales. No seleccion mutable de sesion ni promesa hardware.",
+        "MED01 CdNrgTests bajo ASan/UBSan: dos sesiones con pistas1/2 y3, A2 primero11, CUE0 segundo20, INDEX00=30/INDEX01=32 y A2final39; bytes distintos en sesiones, fronteras/huecos, TOCs particulares y VFS/freshowner/rebind, default aun Unsupported. Sintaxis antes de gate y ninguna bateria completa. La politica publica necesita ADR posterior: WinUAE/PUAE fijados sobrescriben tracks por grupo, sys_command_info_session ignora argumento y Akiko/CDTV solo consultan TOC global; no copiarlos como oraculo."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Propietario privado opt-in lee las dos sesiones y conserva fronteras, consultas e identidad/rebind con regresion legacy exacta; la factory publica sigue rechazando multisesion hasta politica de dispositivo y restore propios."
+      ],
+      "stop": "No habilitar publicamente por analogia del backend previo ni fabricar sectores entre sesiones. Si supera400lineas, dividir antes de ampliar."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18556,7 +18597,8 @@
         "T66v1",
         "T66l8",
         "T66v2",
-        "T66l9"
+        "T66l9",
+        "T66v3"
       ],
       "read": [
         "docs/01-architecture.md",
