@@ -340,6 +340,14 @@ el tag C5 de sus retornos. La puerta comercial compara dos cortes y futuro compl
 local y en proceso nuevo en Exact/Compatible, incluidos comandos, reset y nivel
 Freeze mantenido. No se anuncia disponibilidad de AR1 en los frontends.
 
+T69f1 incorpora un propietario privado AR1200 para A1200, con identidad separada
+de HRTMon. El banco ocupa `$800000..$8fffff`: ROM y padding FF inferiores son
+inmutables; P6RM conserva los 512 KiB superiores completos, controles, shadows y
+mapa dummy/cartucho. El espejo Kickstart de HRTMon se rechaza para AR1200.
+Freeze usa `Exception(2)`, vector temporal VBR+8 y causa4 en `$8c0000`; Apply
+solo copia y reconstruye bancos. El codec y la identidad HRTMon conservan sus
+bytes anteriores. Esta ruta privada no anuncia un modelo o selector publico.
+
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):
 - Teclado: siempre conectado, sea cual sea el dispositivo de los puertos. Cada RETROK_* se mapea por simbolo sin Shift (en un teclado US, la posicion

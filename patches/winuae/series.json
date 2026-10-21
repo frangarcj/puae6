@@ -6029,6 +6029,30 @@
           "after_sha256": "4e22c67d3b44443c15c97e54832e3e2b6d361a0df52fefc5fa9bdde9377d0d4b"
         }
       ]
+    },
+    {
+      "id": "0411-action-replay1200-native-state",
+      "file": "patches/winuae/0411-action-replay1200-native-state.patch",
+      "sha256": "e2020569e0f87ed05776d04f4697e4ba99a61bb284c948c145455253f3a9691a",
+      "title": "Expose complete private AR1200 monitor state and retire its banks on cleanup",
+      "reason": "T69f1: explicitly recognize the AR1200 owner geometry and its dummy/cart map shapes, preserving HRTMon mirrors. Cleanup removes all sixteen banks before freeing the private owner, including direct memory_cleanup. The bridge keeps ROM/padding immutable and serializes every writable upper-half byte with independent ROM/model identity.",
+      "category": "native cartridge state access",
+      "order": 226,
+      "symbols": [
+        "action_replay_cleanup",
+        "p6_hrtmon_memory",
+        "p6_hrtmon_get"
+      ],
+      "test": "tests/cartridge/test_hrtmon.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ar.cpp",
+          "before_sha256": "fd60aa62a9d94ac8d245cbfa7a4c62e9000b39d986ebfbc7f579cc57fe0ce5b4",
+          "after_sha256": "337a1bb6c9f1fa0dcae4e4bac0b512007e3269a996e61bd0d85e6e2b3959000e"
+        }
+      ]
     }
   ]
 }

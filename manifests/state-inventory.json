@@ -8158,6 +8158,58 @@
         }
       },
       {
+        "id": "cartridge-ar1200-native",
+        "subsystem": "ram",
+        "component": "Private copied Action Replay 1200 owner at 800000 on stock A1200",
+        "owner": "build/upstream/ar.cpp (patch 0411), bridge/state.cpp",
+        "chunk": null,
+        "save": "visit_hrtmon within visit_ram (P6RM), SPC in P6CP and ordinary CPU/Chip state",
+        "restore": "same field visitor with candidate validation before Apply",
+        "reset": "Original monitor reset/freeze/hide; direct cleanup removes sixteen banks before mapped_free.",
+        "in_profile": true,
+        "upstream_compiled": false,
+        "policy": "serialize_extended",
+        "saved_fields": "All 524288 writable bytes at 880000..8fffff, hrtmon_flag, triggered_once, actual all-dummy or all-cart bank map, custom[512] and both CIA[16] shadows. CPU owns bus-exception frame/pipeline; Chip RAM owns the temporary vector and guest stack.",
+        "omitted": "Lower 512 KiB is immutable ROM plus FF padding reconstructed from the copied raw blob; all CPU byte/word/long writes below offset80000 are rejected by the original bank. HRTMon-only map2 is invalid for AR1200. Public AR1200 and frontend acceptance remain separate.",
+        "pointers": "No host pointer or path travels. Explicit model1200 and copied raw bytes use p6/cartridge/ar1200/v1, folded into p6/media/ar1200/v1; HRTMon identity and body remain unchanged.",
+        "rebuild": "Apply copies all mutable state and restores the validated dummy/cart map, without I/O, exception, IRQ or scheduling. Real Freeze uses Exception(2) and cause4 at8c0000; it is never emitted during Apply.",
+        "evidence": [
+          "patches/winuae/0411-action-replay1200-native-state.patch",
+          "bridge/state.cpp",
+          "bridge/config.cpp",
+          "tests/cartridge/hrtmon_probe.cpp"
+        ],
+        "proof": {
+          "task": "T69f1",
+          "checks": [
+            "STATE01",
+            "STATE02",
+            "DET02"
+          ],
+          "status": "pending",
+          "what": "Original and authorized real fixtures compare complete cold future, own-RAM independent full-half pattern, immutable ROM/padding, transactional refusals, reset, map and cleanup; real READY and R PC/X return."
+        },
+        "waterbox": "Private native semantic codec only; no public AR1200 or Waterbox acceptance claim.",
+        "native_state": {
+          "task": "T69f1",
+          "chunk": "P6RM",
+          "file": "bridge/state.cpp",
+          "visitor": "visit_ram",
+          "proves": "tests/cartridge/test_hrtmon.py:Ar1200StateTests",
+          "notes": "The raw monitor owner remains1MiB; only AR1200 serializes upper512KiB. HRTMon retains its1MiB body and map2 mirrors."
+        },
+        "probe": {
+          "probe": "private p6_hrtmon_probe including full final native state",
+          "status": "implemented",
+          "task": "T69f1",
+          "covers": [
+            "all upper512KiB mutable bytes and monitor controls",
+            "ROM/padding invariance and exact bank shapes",
+            "original bus exception and real monitor command continuations"
+          ]
+        }
+      },
+      {
         "id": "cdtv-controller-transport-audio", "subsystem": "disk",
         "component": "Private stock CDTV DMAC/6525, FIFO/SUB, NVRAM and owned CDA",
         "owner": "build/upstream/cdtv.cpp", "chunk": "P6CT",
