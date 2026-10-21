@@ -1,5 +1,32 @@
 # Opciones del core libretro (UX de T31)
 
+## Cartuchos y Freeze
+
+`puae6_cartridge` requiere recargar el contenido. `disabled` es el defecto;
+`hrtmon` usa el monitor incluido en A1200. Los valores Action Replay necesitan
+una ROM raw propia en el directorio de sistema del frontend. La comprobacion de
+Freeze y estado frio de AR1200 en libretro sigue pendiente:
+
+| Valor | Maquina | Tamano | Nombre principal | Alias |
+|---|---|---|---|---|
+| `ar1` | A500 stock, 68000 Exact/Compatible | 64 KiB | `ar1.rom` | `Action_Replay_I_v1.00.rom` |
+| `ar2` | A500 stock, 68000 Exact/Compatible | 128 KiB | `ar2.rom` | `Action_Replay_II_v2.14.rom` |
+| `ar3` | A500 stock, 68000 Exact/Compatible | 256 KiB | `ar3.rom` | `Action_Replay_III_v3.17.rom` |
+| `ar1200` | A1200 stock, 68EC020 | 256 KiB | `ar1200.rom` | `Action_Replay_1200.rom` |
+
+Se usa el primer nombre presente. Una ROM ilegible o incorrecta detiene la carga;
+no se sustituye por el alias ni por otro monitor. Los aliases requieren poder
+listar el directorio (VFS3 o stdio); con VFS1/2 se pide el nombre principal si no
+abre, porque no se puede distinguir ausencia de falta de permiso. Los AR no admiten expansiones,
+escritura de disquete ni contenido CD en estos perfiles. El core conserva las
+opciones elegidas y explica una incompatibilidad al cargar.
+
+La accion `Freeze` del mapper o `puae6_hotkey_freeze` mantiene el nivel mientras
+se pulsa. Tras salir del monitor hay que soltar y volver a pulsar para entrar
+otra vez. Los estados conservan ese nivel y la identidad de la ROM; restaurarlos
+no vuelve a leer el fichero. Estos selectores son de libretro; BizHawk conserva
+su opcion HRTMon hasta integrar y probar alli los modelos AR.
+
 La fuente unica de las opciones es `config/schema/options.json`; `python3 tools/generate_options.py` genera de ella
 `adapters/libretro/options_generated.h` (lo que ve el frontend) y `config/schema/options_table.generated.json` (lo que
 deben respetar headless y el wrapper BizHawk). Este documento explica las opciones de la **interfaz de usuario libretro**

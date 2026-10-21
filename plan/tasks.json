@@ -22238,7 +22238,7 @@
       "title": "Conectar los cuatro Action Replay a libretro y conservar estados frios",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T69d3",
         "T69e2",
@@ -22277,7 +22277,8 @@
         "Al fallar un candidato Kickstart, shutdown/init con el mismo config canonico y rebind desde los bytes ya leidos antes del candidato siguiente. Preservar y volver a montar el manifiesto real, incluidos los bundles WHD reconstruidos dentro del bucle. Rechazar CD/CD32/CDTV+AR antes de bind/reintentos; no perder catalogos ni forzar perfiles/memorias/escritura que el binder no soporta.",
         "GEN01 usa schema/parity completos y generate_options --check; extender paridad para exigir ambas conversiones canonicas y que extras no lleguen a flags/C#. IN01 usa mapper_probe ASan/UBSan existente con los cuatro extras, HRT/off y composicion de flags. Agent ejecuta solo generacion/sintaxis/checks ligeros, root compila motor una vez.",
         "LR01/DET02/STATE01/STATE02 comparten LibretroCartridgeTests.test_system_roms_freeze_and_cold_state y test_missing_invalid_wrong_profile_and_reload_are_explicit. Usar los cuatro firmwares autorizados mediante frontend libretro real/systemdir/VFS, perfiles correspondientes, Freeze held y corte activo comprobado por P6RM/P6IN. Restaurar en otro proceso antes del primer run y comparar 15 unidades futuras completas RAM/AV/PCM/ticks y estado libretro final exacto. Negativos de ausencia/tamano/lectura/perfil, cambio diferido hasta recarga, estado off/otra ROM transaccional y cleanup/exclusividad. Reproducer de primer Kick rechazado y segundo valido con manifiesto no vacio conservado; rechazo CD explicito. No repetir campanas nativas de comandos G/X.",
-        "Root ejecuta la union dirigida una vez con HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process como regresion cercana del loader/mapper compartido. No repetir codecs nativos, guest Waterbox ni matriz por etiquetas; BizHawk y cierre del padre siguen pendientes. Temporales solo en build y eliminados, sin informes ni ROMs comerciales versionadas. Dos intentos razonados de un fallo requieren reproducer y dos hipotesis verificables antes de blocked."
+        "Root ejecuta la union dirigida una vez con HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process como regresion cercana del loader/mapper compartido. No repetir codecs nativos, guest Waterbox ni matriz por etiquetas; BizHawk y cierre del padre siguen pendientes. Temporales solo en build y eliminados, sin informes ni ROMs comerciales versionadas. Dos intentos razonados de un fallo requieren reproducer y dos hipotesis verificables antes de blocked.",
+        "Decision del loader antes de implementar: CannotOpen no distingue ausencia de denegacion. En VFS3/stdio, usar listado existente y acotado para acreditar ausencia antes de probar alias; si el nombre esta presente pero no abre, fallar. En VFS1/2 sin listado, un CannotOpen del principal falla explicitamente y pide ese nombre, sin fallback POSIX fuera del namespace VFS. Listado fallido o excesivo tambien falla explicitamente. Probar alias con VFS3, principal VFS1 y nombre principal ilegible aun con alias valido; no ampliar FileReader ni el harness por esta distincion."
       ],
       "checks": [
         "GEN01",
@@ -22290,7 +22291,8 @@
       "acceptance": [
         "Libretro carga cada AR autorizado por VFS con errores explicitos y seleccion reboot sin contaminar config nativo o managed; Freeze mantenido y estado frio conservan futuro completo. Reintentos de firmware mantienen owner y manifiesto. Las puertas dirigidas pasan y HRTMon conserva su comportamiento."
       ],
-      "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas."
+      "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas.",
+      "blocked_reason": "Implementacion libretro integrada en 0aab4e76. GEN01 68 tests puros y generacion/sintaxis PASS; mapper ASan/UBSan PASS; errores/reload/retry con ADF PASS; AR1/2/3 completan cold state15 con estados y AV/PCM/ticks exactos; HRTMon real PASS en union49.096s. AR1200 falla solo el oracle de causa en active_cart: esperaba status4 y obtuvo8. ROM pin en800210 copia status a8802ce,80021a aplica AND4 y80023c escribe8. Correccion dirigida exige savedcause4/status8; segundo intento soloAR1200 falla savedcause0 en11.372s. Conservar reproducer check_system_rom_freeze_and_cold_state(3); no acreditar G1 ni repetir casos ya verdes. H1: la inicializacion posterior borra8802ce; verificar sus stores/rangos de limpieza en ROM y comparar corte antes/despues. H2: ROM ya estaba ACTIVE antes de hotkey331 y el nivel se consume; verificar P6RM/P6IN en unidad330 y transicion tras331, sin relajar assertions ni tocar motor. Tras dos intentos, detener esta correccion y pasar a transporte Waterbox independiente."
     }
   ],
   "max_in_progress": 4

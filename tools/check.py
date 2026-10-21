@@ -748,6 +748,16 @@ for _gate in ('IN01', 'STATE01', 'STATE02', 'DET02'):
     TASK_SUITES[(_gate, 'T69f2')] = {
         'public_ar1200_real_freeze': 'tests.cartridge.test_hrtmon.NativeAr1200Tests.test_public_ar1200_freeze_level_and_cold_state'}
 
+TASK_SUITES[('GEN01', 'T69g1')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('IN01', 'T69g1')] = {
+    'mapper_levels': 'tests.libretro-ui.test_mapper.MapperProbeTests.test_the_mapper_holds_its_own_checks',
+    'composed_flags': 'tests.libretro-ui.test_hrtmon.HrtMonOptionTests'}
+for _gate in ('LR01', 'STATE01', 'STATE02', 'DET02'):
+    TASK_SUITES[(_gate, 'T69g1')] = {
+        'system_cartridge_cold_state': 'tests.libretro-ui.test_hrtmon.LibretroCartridgeTests.test_system_roms_freeze_and_cold_state',
+        'cartridge_load_errors': 'tests.libretro-ui.test_hrtmon.LibretroCartridgeTests.test_missing_invalid_wrong_profile_and_reload_are_explicit',
+        'shared_hrtmon_frontend': 'tests.libretro-ui.test_hrtmon.HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process'}
+
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}
 for _gate in ('WB03', 'WB04', 'WB09'):

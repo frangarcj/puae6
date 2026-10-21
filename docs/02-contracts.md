@@ -304,7 +304,7 @@ ascendente, despues de reset/medios/entrada y antes de ejecutar la unidad. Una p
 en la primera unidad o dentro del monitor se consume sin cola; mantenerla tras `x`,
 reset o restauracion no activa otra vez. Soltar y volver a pulsar si activa. Entrada v1
 equivale a commands0. Bits desconocidos dan BAD_ARGUMENT; Freeze sin owner da UNSUPPORTED
-antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 con HRTMon o AR1/AR2/AR3;
+antes de mutar maquina o salida. P6IN guarda el nivel en un byte 0..1 con HRTMon o AR1/AR2/AR3/AR1200;
 Apply lo copia sin emitir accion. Reset del teclado conserva este flanco y unload/load lo borra.
 
 T69d3: `P6_CAP_AR23` (bit12) anuncia la API nativa aditiva
@@ -357,8 +357,17 @@ Guard protege la copia y la exclusividad. Freeze conserva el nivel P6IN y el
 contrato de flanco descrito arriba, incluidos input v1, reset y restauracion.
 La puerta publica compara dos cortes y su futuro completo local y en un proceso
 nuevo, con ROM autorizada y nivel mantenido durante salida, carga y reset.
-Los modelos AR1/2/3 mantienen sus valores y perfiles; no se anuncia aun AR1200
-en libretro o BizHawk.
+Los modelos AR1/2/3 mantienen sus valores y perfiles.
+
+T69g1 conecta los cuatro modelos a libretro mediante valores adicionales de
+`puae6_cartridge`. Son selectores locales de carga, separados de los bits de
+`p6_config.flags` y del enum managed. El adaptador lee una ROM raw por carga
+desde systemdir/VFS y llama al binder publico antes de cargar la maquina. Un
+reintento de Kickstart reinicializa y vuelve a enlazar los mismos bytes sin perder
+el manifiesto de medios. Freeze usa el mismo nivel de entrada y estado anterior;
+el frontend no conserva otra historia de flancos. Los nombres y perfiles estan
+en docs/options.md. La comprobacion causal de Freeze de AR1200 sigue pendiente
+en libretro; la conexion AR a BizHawk/Waterbox conserva su puerta propia.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

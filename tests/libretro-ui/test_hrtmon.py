@@ -142,7 +142,10 @@ class LibretroCartridgeTests(lr.LibretroHarness):
         if index==3:
             self.assertEqual(struct.unpack_from('<4I',ram,at),(0x100000,3,1,1))
             self.assertEqual(len(ram),at+560+0x80000)
-            self.assertEqual(struct.unpack_from('>H',ram,at+560+0x40000)[0],4)  # Real Exception(2) Freeze cause.
+            # The pinned ROM copies the bus-error Freeze cause at $800210,
+            # masks bit2 at $80021a, then writes status8 at $80023c.
+            self.assertEqual(struct.unpack_from('>H',ram,at+560+0x2ce)[0],4)
+            self.assertEqual(struct.unpack_from('>H',ram,at+560+0x40000)[0],8)
         else:
             size,flag,mapped,mode,_,_,hide,hidden,banks=struct.unpack_from('<9I',ram,at)
             self.assertEqual((size,flag,mapped,mode,hide,hidden,banks),(65536,3,1,0,0,0,1))
@@ -155,27 +158,30 @@ class LibretroCartridgeTests(lr.LibretroHarness):
     def test_system_roms_freeze_and_cold_state(self):
         for index,model in enumerate(self.models):
             with self.subTest(model=model):
-                work=self.work(); system=self.cart_system(index); cut=950; opts=self.cart_options(index)
-                script=['--key-at',f'331:{RETROK["F11"]}:1']
-                if index in (1,2): script+=['--key-at',f'301:{RETROK["F1"]}:1','--key-at',f'304:{RETROK["F1"]}:0']
-                before=work/'cut.state'
-                captures=lambda prefix,offset: [part for unit in range(1,16) for part in
-                    ('--do',f'{unit+offset}:savefile:{work/(prefix+str(unit))}')]
-                first=self.frontend('boot','--runs',cut+15,*opts,*script,
-                    '--do',f'{cut}:poke:0x11000:01020304','--do',f'{cut}:savefile:{before}',*captures('a',cut),system=system).stdout
-                self.active_cart(before,index)
-                second=self.frontend('boot','--runs',15,*opts,*script,'--do',f'0:loadfile:{before}:pos={cut}',
-                                     *captures('b',0),system=system).stdout
-                self.assertRegex(second,r'state load .* ok=1 ')
-                self.assertEqual(len(self.runs(first)),cut+15); self.assertEqual(len(self.runs(second)),15)
-                self.assertEqual([{k:v for k,v in r.items() if k!='n'} for r in self.runs(first)[cut:]],
-                                 [{k:v for k,v in r.items() if k!='n'} for r in self.runs(second)])
-                for unit in range(1,16):
-                    a,b=work/('a'+str(unit)),work/('b'+str(unit))
-                    self.active_cart(a,index); self.assertEqual(a.read_bytes(),b.read_bytes()); a.unlink(); b.unlink()
-                for out in (first,second):
-                    self.assertEqual(out.count('vfs open '+str(system/(model+'.rom'))+'\n'),1)
-                    self.assertIn('vfs closed live=0 run_reads=0',out)
+                self.check_system_rom_freeze_and_cold_state(index)
+
+    def check_system_rom_freeze_and_cold_state(self,index):
+        work=self.work(); system=self.cart_system(index); cut=950; opts=self.cart_options(index)
+        script=['--key-at',f'331:{RETROK["F11"]}:1']
+        if index in (1,2): script+=['--key-at',f'301:{RETROK["F1"]}:1','--key-at',f'304:{RETROK["F1"]}:0']
+        before=work/'cut.state'
+        captures=lambda prefix,offset: [part for unit in range(1,16) for part in
+            ('--do',f'{unit+offset}:savefile:{work/(prefix+str(unit))}')]
+        first=self.frontend('boot','--runs',cut+15,*opts,*script,
+            '--do',f'{cut}:poke:0x11000:01020304','--do',f'{cut}:savefile:{before}',*captures('a',cut),system=system).stdout
+        self.active_cart(before,index)
+        second=self.frontend('boot','--runs',15,*opts,*script,'--do',f'0:loadfile:{before}:pos={cut}',
+                             *captures('b',0),system=system).stdout
+        self.assertRegex(second,r'state load .* ok=1 ')
+        self.assertEqual(len(self.runs(first)),cut+15); self.assertEqual(len(self.runs(second)),15)
+        self.assertEqual([{k:v for k,v in r.items() if k!='n'} for r in self.runs(first)[cut:]],
+                         [{k:v for k,v in r.items() if k!='n'} for r in self.runs(second)])
+        for unit in range(1,16):
+            a,b=work/('a'+str(unit)),work/('b'+str(unit))
+            self.active_cart(a,index); self.assertEqual(a.read_bytes(),b.read_bytes()); a.unlink(); b.unlink()
+        for out in (first,second):
+            self.assertEqual(out.count('vfs open '+str(system/(model+'.rom'))+'\n'),1)
+            self.assertIn('vfs closed live=0 run_reads=0',out)
 
     def test_missing_invalid_wrong_profile_and_reload_are_explicit(self):
         opts=self.cart_options(0); primary='ar1.rom'; alias=self.aliases[0]
