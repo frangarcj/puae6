@@ -27,11 +27,26 @@ public sealed class Puae6Parameters
 	public byte[]? RomKey { get; set; }
 	/// <summary>Immutable CD descriptor and pure offset reader. The owner of the source must outlive this core.</summary>
 	public P6CdInfo? CdInfo { get; set; }
+	public P6CdInfoV2? CdInfoV2 { get; set; }
 	public Func<ulong, byte[], int, bool>? ReadCd { get; set; }
+	// Only the public loader supplies a lease; direct API sources remain borrowed.
+	internal IDisposable? CdOwner { get; set; }
+	internal P6CdHost? CreateCdHost() => CdInfoV2 is { } v2 ? new P6CdHost(v2, ReadCd!)
+		: CdInfo is { } v1 ? new P6CdHost(v1, ReadCd!) : null;
+	internal unsafe byte[]? CdIdentity()
+	{
+		if (!CdInfo.HasValue && !CdInfoV2.HasValue) return null;
+		var id = new byte[32];
+		if (CdInfoV2 is { } v2) for (int i = 0; i < 32; ++i) id[i] = v2.Id[i];
+		else if (CdInfo is { } v1) for (int i = 0; i < 32; ++i) id[i] = v1.Id[i];
+		return id;
+	}
 	internal void ValidateCd()
 	{
-		if (CdInfo.HasValue != (ReadCd is not null)) throw new InvalidOperationException("CD descriptor and reader must be provided together");
-		if ((CdInfo.HasValue || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
+		bool cd = CdInfo.HasValue || CdInfoV2.HasValue;
+		if (CdInfo.HasValue && CdInfoV2.HasValue || cd != (ReadCd is not null) || !cd && CdOwner is not null)
+			throw new InvalidOperationException("Exactly one CD descriptor and reader must be provided together");
+		if ((cd || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
 			|| Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || SyncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
 			throw new InvalidOperationException("CD32 requires its own model with no floppy drives, hard files or volumes");
 	}
@@ -277,7 +292,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
-			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, ReadCd = parameters.ReadCd,
+			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2,
+			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
 		};
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, _media.Count);
@@ -304,7 +320,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	void BootGuest(IReadOnlyList<byte[]> guestMedia, IReadOnlyList<byte[]> guestHardFiles, ImportedSaveRam? imported)
 	{
 		var heaps = Heaps(_syncSettings, _hardFiles.Select(image => image.LongLength));
-		var cd = _parameters.CdInfo is { } info ? new P6CdHost(info, _parameters.ReadCd!) : null;
+		var cd = _parameters.CreateCdHost();
 		var guest = _parameters.PinnedGuestSha256 is { } pin
 			? Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, pin, heaps, cd)
 			: Puae6Guest.Open(_parameters.GuestDirectory, _parameters.GuestFileName, heaps, cd);
@@ -520,11 +536,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			media.Add(BitConverter.GetBytes(_hardFiles.Count));
 			foreach (var image in _hardFiles) media.Add(StateEnvelope.Sha256(image));
 		}
-		if (_parameters.CdInfo is { } cd)
+		if (_parameters.CdIdentity() is { } cdId)
 		{
-			var id = new byte[32];
-			for (int i = 0; i < id.Length; ++i) id[i] = cd.Id[i];
-			media.Add(Encoding.ASCII.GetBytes("CD2448")); media.Add(id);
+			media.Add(Encoding.ASCII.GetBytes("CD2448")); media.Add(cdId);
 		}
 		return new StateIdentity(_guest.Identity.Sha256, [ heaps.SbrkHeapSizeKB, heaps.SealedHeapSizeKB, heaps.InvisibleHeapSizeKB, heaps.PlainHeapSizeKB, heaps.MmapHeapSizeKB ],
 			ConfigHash(_syncSettings.Machine), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()), _syncSettings.Machine.ToString(), others);
@@ -920,7 +934,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		if (_disposed) return;
 		_disposed = true;
-		_guest.Dispose();
+		try { _guest.Dispose(); }
+		finally { _parameters.CdOwner?.Dispose(); }
 	}
 }
 

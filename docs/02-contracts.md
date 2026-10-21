@@ -1076,6 +1076,18 @@ identidad; cambios de geometria, politica o bytes la alteran. Rebind valida el
 candidato entero antes de publicar lector. ISO/CUE sin regiones conservan V1 y
 su identidad politica1 exacta. No conecta el loader publico ni acredita Waterbox.
 
+T66t15c conecta el host publico mediante XML estandar
+`<BizHawk-XMLGame System="Amiga" Name="Juego"><LoadAssets><LoadAsset FileName="disc.chd"/></LoadAssets></BizHawk-XMLGame>`.
+Con PUAE6 preferido o forzado monta CHD por el backend acotado y fija XA=false;
+otros sistemas/cores conservan su loader. CHD directo requiere core forzado
+PUAE6 (tambien al reabrir una movie); la preferencia sola en apertura directa
+permanece pendiente. Un fallo seleccionado no prueba SNES ni otro core.
+CdInfo/CdInfoV2 son exclusivos y comparten lector; clones, identidad y reapertura
+SaveRAM conservan descriptor/owner. Solo el asset nuevo ofrece una lease:
+el loader la posee hasta construir el core, que la libera al disponer el guest
+final. Los lectores API prestados siguen prestados. Los checks host no acreditan
+ejecucion ni snapshot Waterbox; su puerta publica permanece pendiente en T66.
+
 T66t14 conecta `CdChd` a `CdImage` y a la carga libretro directa/M3U por extension
 `.chd`, sin fallback. Enlaza estaticamente el lector verificado offline, con
 las mismas identidades P6CHD1/P6CHR1 y las mismas reglas VFS, catalogo y estado.

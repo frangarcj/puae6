@@ -4,6 +4,11 @@ using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores;
 using BizHawk.Emulation.DiscSystem;
 using Puae6;
+#if PUBLIC_CHD
+using System.Diagnostics;
+using BizHawk.Client.Common;
+using BizHawk.Common;
+#endif
 
 internal static unsafe partial class Program
 {
@@ -17,6 +22,7 @@ internal static unsafe partial class Program
  sealed class Firmware(byte[] main, byte[] ext, bool combined) : ICoreFileProvider
  {
   internal readonly List<string> Asked = new();
+  internal bool Refuse { get; set; }
   public string GetRetroSaveRAMDirectory(string p) => throw new NotSupportedException();
   public string GetRetroSystemPath(string p) => throw new NotSupportedException();
   public string GetUserPath(string s, bool temp) => throw new NotSupportedException();
@@ -26,6 +32,7 @@ internal static unsafe partial class Program
   public byte[] GetFirmwareOrThrow(FirmwareID id, string msg = null)
   {
    Asked.Add(id.Firmware);
+   if (Refuse) throw new InvalidOperationException("host-stop-before-guest");
    return id.Firmware switch { "CD32" => combined ? ext.Concat(main).ToArray() : main,
     "CD32ext" => ext, _ => throw new Exception("Wrong firmware request: " + id) };
   }
@@ -118,8 +125,84 @@ internal static unsafe partial class Program
   Check(core); using var freshDisc = Mount(args[1]); using var next = open(freshDisc); Check(next);
   Console.WriteLine("Public BizHawk CD32 Brian gameplay/Right interaction/active audio/ticks/full snapshot/new sandbox/new process PASS");
  }
+#if PUBLIC_CHD
+ static object Hidden(object target, string name, params object[] args) => target.GetType().GetMethod(name, BindingFlags.Instance|BindingFlags.NonPublic).Invoke(target,args);
+ static void HostCheck(bool value, string phase) { if(!value) throw new Exception("Public CHD host: "+phase); }
+ static XmlGame Xml(string path) { using var file=new HawkFile(path); return XmlGame.Create(file); }
+ static int OpenChd(string path)
+ {
+  using var ls=Process.Start(new ProcessStartInfo("/usr/sbin/lsof",$"-a -p {Environment.ProcessId} -Fn") { UseShellExecute=false, RedirectStandardOutput=true });
+  string files=ls.StandardOutput.ReadToEnd(); ls.WaitForExit(); HostCheck(ls.ExitCode==0,"host file descriptor query");
+  return files.Split('\n').Count(line=>line=="n"+path);
+ }
+ static void HostChd(string path)
+ {
+  string database=Path.GetDirectoryName(path); File.WriteAllText(Path.Combine(database,"mame_machines.txt"),"");
+  BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(database);
+  HostCheck(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(database,"warm.zip")),"client database init");
+  var config=new Config(); config.PreferredCores["Amiga"]="PUAE6";
+  var loader=new RomLoader(config,null);
+  loader.OnLoadSettings+=(_,e)=>e.Settings=new Puae6Settings();
+  loader.OnLoadSyncSettings+=(_,e)=>e.Settings=new Puae6SyncSettings();
+  var xml=Xml(path); string chd=xml.Assets[0].Path;
+  HostCheck(xml.GI.System=="Amiga"&&xml.Assets[0].FileData.Length==0,"standard XML");
+  foreach(var item in new[] { ("Amiga",(string)null,true),("Amiga","PUAE6",true),("Amiga","UAE",false),("PSX",(string)null,false),((string)null,"PUAE6",true),((string)null,(string)null,false) })
+   HostCheck((bool)Hidden(loader,"UsePuae6Chd",chd,item.Item1,item.Item2)==item.Item3,"selection");
+  var assets=(List<IDiscAsset>)Hidden(loader,"LoadXmlDiscAssets",xml,null);
+  var lease=(IOwnedDiscAsset)assets.Single();
+  try
+  {
+   var firmware=new Firmware(new byte[512*1024],new byte[512*1024],true);
+   var comm=new CoreComm(_=>{},(_,_)=>{},firmware,CoreComm.CorePreferencesFlags.None,null);
+   var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, Discs=assets, SyncSettings=new Puae6SyncSettings() };
+   var factory=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.Static|BindingFlags.NonPublic);
+   var p=(Puae6Parameters)factory.Invoke(null,new object[] { lp });
+   HostCheck(p.CdInfo==null&&p.CdInfoV2.HasValue&&p.SyncSettings.Machine==Puae6Machine.CD32&&lp.SyncSettings.Machine==Puae6Machine.A500,"factory V2");
+   var clone=Puae6WhdLoad.Resolve(p); var id=(byte[])Hidden(p,"CdIdentity");
+   HostCheck(ReferenceEquals(HiddenOwner(p),lease)&&ReferenceEquals(HiddenOwner(clone),lease),"owner clones");
+   HostCheck(((byte[])Hidden(clone,"CdIdentity")).SequenceEqual(id),"identity clone");
+   var host=(P6CdHost)Hidden(clone,"CreateCdHost");
+   HostCheck((bool)typeof(P6CdHost).GetField("regional",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(host),"reopen V2 host");
+   var descriptor=p.CdInfoV2.Value; var expectedId=new byte[32]; for(int i=0;i<32;++i) expectedId[i]=descriptor.Id[i];
+   HostCheck(id.SequenceEqual(expectedId),"identity source");
+   using(var output=File.Create(path+".actual")) {
+    var buffer=new byte[2448]; for(ulong at=0;at<descriptor.Bytes;at+=2448) { HostCheck(p.ReadCd(at,buffer,2448),"read"); output.Write(buffer); }
+   }
+   HostCheck(assets[0].DiscData.Regions.All(r=>r.Start>=0),"regions");
+   Console.WriteLine(Convert.ToHexString(id));
+   for(int bad=0;bad<3;++bad) {
+    var invalid=Puae6WhdLoad.Resolve(p); if(bad==0) invalid.CdInfo=new P6CdInfo(); else if(bad==1) invalid.ReadCd=null; else invalid.SyncSettings.Machine=Puae6Machine.A500;
+    try { Puae6WhdLoad.Resolve(invalid); throw new Exception("Accepted invalid CD params"); } catch(InvalidOperationException) { }
+   }
+   var legacy=new Puae6Parameters { CdInfo=new P6CdInfo { Version=1, Size=(uint)sizeof(P6CdInfo) }, ReadCd=p.ReadCd, Firmware=p.Firmware, SyncSettings=p.SyncSettings.Clone() };
+   HostCheck(Puae6WhdLoad.Resolve(legacy).CdInfoV2==null&&((byte[])Hidden(legacy,"CdIdentity")).All(b=>b==0),"legacy identity");
+   int opened=OpenChd(chd); HostCheck(opened==1,"one owned CHD handle"); lease.Dispose();
+   HostCheck(OpenChd(chd)==0,"real FD closed"); lease.Dispose();
+   HostCheck(OpenChd(chd)==0,"lease idempotent");
+   var refused=Enumerable.Repeat((byte)0xa5,2448).ToArray(); HostCheck(!p.ReadCd(0,refused,2448)&&refused.All(b=>b==0xa5),"disposed source");
+   firmware.Refuse=true; var errors=new List<string>(); loader.OnLoadError+=(_,e)=>errors.Add(e.Message);
+   opened=OpenChd(chd);
+   HostCheck(!loader.LoadRom(path,comm,null),"constructor failure");
+   HostCheck(errors.Any(e=>e.Contains("host-stop-before-guest")),"constructor cause: "+string.Join(" | ",errors));
+   HostCheck(OpenChd(chd)==opened,"failed construction closes owner");
+   string badXml=path+".bad.xml"; File.WriteAllText(badXml,$"<BizHawk-XMLGame System=\"Amiga\" Name=\"bad\"><LoadAssets><LoadAsset FileName=\"{Path.GetFileName(chd)}\"/><LoadAsset FileName=\"bad.chd\"/></LoadAssets></BizHawk-XMLGame>");
+   File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(path),"bad.chd"),new byte[12]);
+   opened=OpenChd(chd);
+   try { Hidden(loader,"LoadXmlDiscAssets",Xml(badXml),null); throw new Exception("Accepted broken second CHD"); } catch(TargetInvocationException e) when(e.InnerException is IOException) { }
+   HostCheck(OpenChd(chd)==opened,"partial mount cleanup");
+   string cue=path+".bad.cue"; File.WriteAllText(cue,"FILE \"missing.bin\" BINARY\n TRACK 01 MODE1/2352\n INDEX 01 00:00:00\n");
+   var reported=new List<string>(); loader.OnLoadError+=(_,e)=>reported.Add(e.AttemptedCoreLoad);
+   HostCheck(Hidden(loader,"MountDiscAsset",cue,"PSX",null)==null&&reported.SequenceEqual(new[]{"PSX"}),"legacy XML error system");
+  }
+  finally { lease.Dispose(); }
+ }
+ static object HiddenOwner(Puae6Parameters p) => typeof(Puae6Parameters).GetProperty("CdOwner",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(p);
+#endif
  static void Main(string[] args)
  {
+#if PUBLIC_CHD
+  if(args.Length==2&&args[0]=="host-chd") { HostChd(args[1]); return; }
+#endif
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");
   byte[] main = File.ReadAllBytes(args[6]), ext = File.ReadAllBytes(args[7]);

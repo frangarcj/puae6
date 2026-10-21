@@ -57,7 +57,9 @@ public sealed partial class Puae6Core
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			SyncSettings = settings,
-			CdInfo = cd?.Descriptor(),
+			CdInfo = cd is not null && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
+			CdInfoV2 = cd is not null && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,
+			CdOwner = lp.Discs.Count == 1 ? lp.Discs[0] as IOwnedDiscAsset : null,
 			ReadCd = cd is null ? null : (at, data, count) => cd.ReadAt(at, data, 0, count),
 			Settings = lp.Settings ?? new Puae6Settings(),
 			Media = floppies.Select(rom => rom.FileData).ToList(),

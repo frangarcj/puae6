@@ -42,7 +42,8 @@ public static class Puae6WhdLoad
 		var result = new Puae6Parameters
 		{
 			GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
-			Firmware = rom, CdInfo = p.CdInfo, ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
+			Firmware = rom, CdInfo = p.CdInfo, CdInfoV2 = p.CdInfoV2, CdOwner = p.CdOwner,
+			ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
 			HardFiles = p.HardFiles, HardFileNames = p.HardFileNames, Volumes = p.Volumes, VolumeNames = p.VolumeNames,
 		};
 		if (!pack) return result;

@@ -11,7 +11,7 @@ import struct
 import subprocess
 import tempfile
 import unittest
-from tests.media import test_cd_source_csharp as source, test_chd_reader as reader
+from tests.media import test_cd_source_csharp as source, test_chd_reader as reader, test_cd_chd as chd, test_cd_nrg as nrg
 from tests.media.test_chd_canonical_csharp import subq
 
 
@@ -26,6 +26,49 @@ class ChdHostCSharpTests(unittest.TestCase):
         recipe=importlib.util.module_from_spec(spec); spec.loader.exec_module(recipe); cls.recipe=recipe
         cls.library=recipe.build_chd_host(cls.dll.parent)
         cls.pattern=reader.dependency.load('chd_host_pattern',source.ROOT/'tests/fixtures/chd/generate.py')
+
+    @classmethod
+    def public_target(cls):
+        if hasattr(cls,'public_assembly'): return cls.public_assembly
+        recipe=cls.recipe; recipe.MACHAWK=Path(os.environ.get('P6_MACHAWK_REFERENCE',str(recipe.MACHAWK)))
+        recipe.git=functools.partial(recipe.git,cwd=recipe.MACHAWK)
+        receipt=Path(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT',str(source.ROOT/'build/waterbox/puae6/puae6-receipt.json')))
+        sha=json.loads(receipt.read_text())['guest']['sha256'] # Compile parameter, never a guest execution claim.
+        tree=cls.work/'real-client-common'; recipe.check_patches()
+        recipe.export_tree(tree,recipe.EXPORT_EMUHAWK); recipe.apply_patches(tree); recipe.install_sources(tree)
+        cls.public_assembly=recipe.build(sha,tree,'src/BizHawk.Client.Common/BizHawk.Client.Common.csproj',
+            'src/BizHawk.Client.Common/bin/Debug/BizHawk.Client.Common.dll')
+        (tree/'build.log').unlink(); return cls.public_assembly
+
+    def test_real_client_common_target_and_analyzers(self):
+        self.assertTrue(self.public_target().is_file())
+
+    def test_xml_amiga_public_selector_xa_and_parameters(self):
+        assembly=self.public_target(); work=self.work/'public-host'; work.mkdir()
+        project=work/'Cd32Loader.csproj'; shutil.copy2(source.ROOT/'tests/media/csharp-disc/Cd32Loader.csproj',project)
+        result=subprocess.run([source.DOTNET,'build',str(project),'-m:1','-v:q',f'-p:Puae6Root={source.ROOT}',
+            f'-p:CoreAssemblyDir={assembly.parent}','-p:DefineConstants=PUBLIC_CHD',f'-p:RestoreSources={source.CACHE}'],
+            env=self.env,capture_output=True,text=True,timeout=180)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        output=work/'bin/Debug/net8.0'; shutil.copy2(self.library,output/self.library.name)
+        # One independent Mode2 synthetic gap checks the explicit XA policy; four legal codec fixtures check routing.
+        units=[(bytes((i+n*11)&255 for i in range(2048))+bytes(400)) for n in range(3)]+[bytes(2448)]
+        units += [bytes((i+n*19)&255 for i in range(2336))+bytes(112) for n in range(3)]+[bytes(2448)]
+        metadata=[b'TRACK:1 TYPE:MODE1 SUBTYPE:NONE FRAMES:3 PREGAP:0 PGTYPE:MODE1 PGSUB:NONE POSTGAP:0',
+                  b'TRACK:2 TYPE:MODE2 SUBTYPE:NONE FRAMES:3 PREGAP:2 PGTYPE:MODE2 PGSUB:NONE POSTGAP:0']
+        gap=work/'gap.chd'; gap.write_bytes(reader.metadata_chain(reader.cd_map([(4,b''.join(units))],sector=bytes(19584)),metadata,tag=[0x43485432]*2))
+        expected=b''.join(chd.mode1(units[n][:2048],n)+subq(1,1,n,0,4) for n in range(3))
+        expected+=b''.join(nrg.mode2_header(n)+bytes(2336)+subq(2,0,n,5,4) for n in (3,4))
+        expected+=b''.join(nrg.mode2_header(n)+units[n-1][:2336]+subq(2,1,n,5,4) for n in (5,6,7))
+        fixtures=[(gap,expected)]
+        audio=self.pattern.audio(); wire=b''.join(audio[n*2352:(n+1)*2352]+subq(1,1,n,0,0) for n in range(40))
+        for codec in self.pattern.CODECS:
+            image=work/(codec+'.chd'); shutil.copy2(source.ROOT/'tests/fixtures/chd'/(codec+'.chd'),image); fixtures.append((image,wire))
+        for image,wanted in fixtures:
+            xml=image.with_suffix('.xml'); xml.write_text(f'<BizHawk-XMLGame System="Amiga" Name="legal"><LoadAssets><LoadAsset FileName="{image.name}"/></LoadAssets></BizHawk-XMLGame>')
+            result=subprocess.run([source.DOTNET,str(output/'Cd32Loader.dll'),'host-chd',str(xml)],env=self.env,capture_output=True,text=True,timeout=90)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertEqual(Path(str(xml)+'.actual').read_bytes(),wanted)
 
     def test_real_discsystem_target_and_analyzers(self):
         recipe=self.recipe
