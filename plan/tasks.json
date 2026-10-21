@@ -21851,7 +21851,7 @@
       "title": "Cargar Action Replay 2/3 privado desde bytes y cerrar su propietario con seguridad",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69b",
         "T24"
