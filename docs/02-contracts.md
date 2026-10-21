@@ -2172,6 +2172,12 @@ sin restore y la de boot/restore exigen ticks, RAM, video y PCM exactos. Una
 limpieza parcial del display no acredita la inicializacion completa; mantener
 la publicacion pendiente mientras siga un desfase causal. El warmreset no debe
 convertirse en un power-on ni tolerar o adaptar los estados para ocultarlo.
+T67c3d inicializa los latches de display y la fase `bitoffset` del lector de disco
+a sus valores BSS solo en `start_engine` de un nuevo CDTV, antes de `custom_init`.
+El DMA de disco puede seguir consumiendo bus sin una disquetera conectada;
+`DISK_reset` conserva esa fase como parte del reset de hardware. Los hooks de
+power-on no se ejecutan al restaurar estado ni en warm reset. El codec conserva
+la fase y los registros de la transferencia que realmente estaba en curso.
 
 ## Transporte privado Waterbox V3 (T66v7)
 
