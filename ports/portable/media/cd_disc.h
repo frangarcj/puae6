@@ -6,7 +6,7 @@ namespace p6_cd {
 constexpr uint32_t kMaxTracks = 99, kMaxSources = 99;
 enum class Mode { Mode1_2048, Mode1Raw, Mode2Raw, Audio };
 struct Track {
-    uint32_t index0, index1, end; // disc LBAs, end exclusive; next INDEX00 equals end
+    uint32_t index0, index1, end; // disc LBAs, end exclusive; contiguous within each session
     uint32_t source, stride;     // source ordinal; 2048, 2352 or 2448 bytes
     uint64_t offset;             // first stored sector: INDEX00 if stored_pregap, else INDEX01
     Mode mode;
@@ -20,10 +20,17 @@ struct Track {
         uint32_t pregap_control = 0;
     } regions{};
 };
+struct Session {
+    uint8_t first_track, last_track, format; // global 1..99; format 00/10/20
+    int32_t cue0;                           // explicit lead-in LBA, may be negative
+    uint32_t a2;                            // explicit program leadout LBA
+};
 struct Layout {
     uint8_t content_id[32];      // host verifies disc identity, including normalized TOC and sources
     uint32_t tracks, leadout;
     Track track[kMaxTracks];    // numbers 1..tracks; unused slots are ignored
+    uint32_t sessions = 0;      // zero retains the entire legacy single-session policy
+    Session session[kMaxTracks]{}; // in order; inactive fields must be zero
 };
 // Effective metadata never comes from stored Q, which may be intentionally invalid.
 struct SectorInfo {

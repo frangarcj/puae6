@@ -11,6 +11,7 @@
 using namespace p6_cd;
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 static_assert(sizeof(Disc) < 16384, "bounded metadata, never a disc-sized allocation");
+static_assert(sizeof(Session) == 12, "fixed private session metadata");
 struct Provider { uint64_t bytes, offset, last = 0; uint32_t stride, mode, calls = 0; int fault = 0; uint32_t boundary = 0, prefix_mode = 0; };
 static uint8_t byte(const Provider &p, uint64_t at)
 {
@@ -503,9 +504,117 @@ static int explicit_regions()
     return 0;
 }
 
+static int sessions()
+{
+    // Explicit CUE0/A2 positions, not fixed 4500/6750/2250 session padding.
+    // Session 2 has its own 200-sector data pregap after an inter-session hole.
+    Provider p[2] = {{4*2352,0,0,2352,0}, {4*2352,0,0,2352,1}};
+    Binding b[2] = {{{{1},p[0].bytes,1},provide,&p[0]}, {{{2},p[1].bytes,1},provide,&p[1]}};
+    Layout layout{}; layout.content_id[0]=0x66; layout.tracks=2; layout.leadout=224;
+    layout.track[0]={0,0,4,0,2352,0,Mode::Audio,1,0,true};
+    layout.track[1]={20,220,224,1,2352,0,Mode::Mode1Raw,1,4,false,200};
+    layout.sessions=2; layout.session[0]={1,1,0,-150,4}; layout.session[1]={2,2,0x20,10,224};
+    Disc disc; CHECK(disc.bind(layout,b,2)==Result::Ok&&p[0].calls==0&&p[1].calls==0);
+    SessionToc toc, unchanged; memset(&toc,0xa5,sizeof toc); memcpy(&unchanged,&toc,sizeof toc);
+    cd_toc_head global; memset(&global,0xa5,sizeof global);
+    CHECK(akiko_toc(disc,&global)==Result::Unsupported&&filled(reinterpret_cast<uint8_t*>(&global),sizeof global,0xa5));
+    for (uint32_t ordinal : {0u,3u}) {
+        CHECK(akiko_session_toc(disc,ordinal,&toc)==Result::Range&&!memcmp(&toc,&unchanged,sizeof toc));
+    }
+    CHECK(akiko_session_toc(disc,1,nullptr)==Result::Invalid);
+    for (uint32_t ordinal=1;ordinal<=2;++ordinal) {
+        CHECK(akiko_session_toc(disc,ordinal,&toc)==Result::Ok);
+        const auto &t=toc.toc; const auto &s=toc.session;
+        CHECK(s.first_track==ordinal&&s.last_track==ordinal&&s.format==(ordinal==1?0:0x20));
+        CHECK(s.cue0==(ordinal==1?-150:10)&&s.a2==(ordinal==1?4u:224u));
+        CHECK(t.first_track==int(ordinal)&&t.last_track==int(ordinal));
+        CHECK(t.first_track_offset==1&&t.last_track_offset==1&&t.tracks==1&&t.points==4);
+        CHECK(t.firstaddress==(ordinal==1?0:20)&&t.lastaddress==(ordinal==1?4:224));
+        CHECK(t.toc[0].point==0xa0&&t.toc[0].track==ordinal&&t.toc[0].paddress==0);
+        CHECK(t.toc[1].track==ordinal&&t.toc[1].point==ordinal&&t.toc[1].paddress==(ordinal==1?0:220));
+        CHECK(t.toc[2].point==0xa1&&t.toc[2].track==ordinal&&t.toc[2].paddress==t.lastaddress);
+        CHECK(t.toc[3].point==0xa2&&t.toc[3].paddress==t.lastaddress);
+        for(unsigned n=0;n<4;++n) CHECK(t.toc[n].adr==1&&t.toc[n].control==(ordinal==1?0:4));
+    }
+    CHECK(p[0].calls==0&&p[1].calls==0); // Queries do not read or select media.
+    uint8_t out[2448], saved[2448]; SectorInfo info{}; info.number=123;
+    for (uint32_t lba : {4u,9u,10u,19u}) {
+        CHECK(disc.describe(lba,&info)==Result::Range&&info.number==123);
+        for(unsigned view : {2048u,2352u,2448u}) {
+            memset(out,0xa5,sizeof out);
+            CHECK(canonical_read(disc,lba,view,out,sizeof out)==Result::Range&&filled(out,sizeof out,0xa5));
+        }
+        CHECK(read_subchannel(disc,lba,out,sizeof out)==Result::Range&&filled(out,sizeof out,0xa5));
+        CHECK(akiko_qcode(disc,lba,AUDIO_STATUS_NO_STATUS,true,out,sizeof out)==Result::Range&&filled(out,sizeof out,0xa5));
+        CHECK(p[0].calls==0&&p[1].calls==0);
+    }
+    for(uint32_t lba : {0u,3u,20u,219u,220u,223u}) {
+        CHECK(read_subchannel(disc,lba,out,sizeof out)==Result::Ok);
+        // Track 2 must never inherit the previous session's audio CONTROL.
+        CHECK(out[12]==(lba<4?1:0x41)&&out[13]==(lba<4?1:2));
+        printf("session-q %u ",lba); for(unsigned n=0;n<96;++n) printf("%02x",out[n]); puts("");
+    }
+    CHECK(p[0].calls==0&&p[1].calls==0);
+    CHECK(canonical_read(disc,3,2352,out,sizeof out)==Result::Ok&&p[0].last==3*2352);
+    CHECK(canonical_read(disc,20,2352,out,sizeof out)==Result::Ok&&p[1].calls==0);
+    CHECK(canonical_read(disc,220,2352,saved,sizeof saved)==Result::Ok&&p[1].last==0);
+    CHECK(canonical_read(disc,223,2352,out,sizeof out)==Result::Ok&&p[1].last==3*2352);
+    const auto calls=p[0].calls+p[1].calls;
+    for(unsigned bad=0;bad<15;++bad) {
+        auto other=layout;
+        if(bad==0) other.sessions=100;
+        if(bad==1) other.sessions=0;
+        if(bad==2) other.session[0].first_track=2;
+        if(bad==3) other.session[0].last_track=2;
+        if(bad==4) other.session[1].first_track=3;
+        if(bad==5) other.session[1].last_track=1;
+        if(bad==6) other.session[1].format=1;
+        if(bad==7) other.session[0].cue0=1;
+        if(bad==8) other.session[1].cue0=3;
+        if(bad==9) other.session[1].cue0=21;
+        if(bad==10) other.session[0].a2=5;
+        if(bad==11) other.session[1].a2=223;
+        if(bad==12) other.session[2].cue0=1;
+        if(bad==13) { other.sessions=1; other.session[0]={1,2,0,-150,224}; other.session[1]={}; }
+        if(bad==14) other.session[1].last_track=3;
+        Disc empty; CHECK(empty.bind(other,b,2)==Result::Invalid&&!empty.layout().tracks);
+        CHECK(disc.rebind(other,b,2)==Result::Invalid);
+        CHECK(p[0].calls+p[1].calls==calls);
+    }
+    for(unsigned field=0;field<3;++field) {
+        auto other=layout;
+        if(field==0) other.session[0].cue0=-149;
+        if(field==1) other.session[1].cue0=11;
+        if(field==2) other.session[1].format=0x10;
+        CHECK(disc.rebind(other,b,2)==Result::Incompatible&&p[0].calls+p[1].calls==calls);
+    }
+    CHECK(canonical_read(disc,220,2352,out,sizeof out)==Result::Ok&&!memcmp(out,saved,2352));
+    Provider fresh[2]={p[0],p[1]}; Binding rebound[2]={b[0],b[1]};
+    for(unsigned n=0;n<2;++n) rebound[n].context=&fresh[n];
+    CHECK(disc.rebind(layout,rebound,2)==Result::Ok); p[0].fault=p[1].fault=2;
+    CHECK(canonical_read(disc,220,2352,out,sizeof out)==Result::Ok&&!memcmp(out,saved,2352));
+    Fixture f; Disc legacy; CHECK(legacy.bind(f.layout,f.bindings,4)==Result::Ok);
+    cd_toc_head original, explicit_one;
+    CHECK(akiko_toc(legacy,&original)==Result::Ok);
+    memcpy(&toc,&unchanged,sizeof toc);
+    CHECK(akiko_session_toc(legacy,1,&toc)==Result::Unsupported&&!memcmp(&toc,&unchanged,sizeof toc));
+    f.layout.sessions=1; f.layout.session[0]={1,4,0,-150,13}; Disc one;
+    CHECK(one.bind(f.layout,f.bindings,4)==Result::Ok&&akiko_toc(one,&explicit_one)==Result::Ok);
+    CHECK(!memcmp(&original,&explicit_one,sizeof original));
+    f.layout.sessions=2; f.layout.session[0]={1,1,0,-150,3}; f.layout.session[1]={2,4,0,3,13}; Disc two;
+    CHECK(two.bind(f.layout,f.bindings,4)==Result::Ok);
+    auto partition=f.layout; partition.session[0]={1,2,0,-150,7}; partition.session[1]={3,4,0,7,13};
+    CHECK(two.rebind(partition,f.bindings,4)==Result::Incompatible);
+    partition.sessions=1; partition.session[0]={1,4,0,-150,13}; partition.session[1]={};
+    CHECK(two.rebind(partition,f.bindings,4)==Result::Incompatible);
+    Disc empty; CHECK(akiko_session_toc(empty,1,&toc)==Result::Invalid);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
+    if (!strcmp(argv[1], "sessions")) return sessions();
     if (!strcmp(argv[1], "wire-v2")) return waterbox_v2_descriptor();
     if (!strcmp(argv[1], "regions")) return explicit_regions();
     if (!strcmp(argv[1], "reads")) return reads();

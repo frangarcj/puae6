@@ -73,6 +73,19 @@ class CdDiscTests(unittest.TestCase):
     def test_akiko_toc_and_subchannels_use_real_upstream_layouts(self):
         self.run_probe("akiko")
 
+    def test_private_sessions_preserve_boundaries_toc_q_and_transactional_rebind(self):
+        rows = self.run_probe('sessions').splitlines()
+        self.assertEqual([0, 3, 20, 219, 220, 223], [int(row.split()[1]) for row in rows])
+        def bcd(n): return n // 10 * 16 + n % 10
+        def clock(n): return bytes(map(bcd, (n // 4500, n // 75 % 60, n % 75)))
+        for row in map(str.split, rows):
+            lba = int(row[1]); track = 1 if lba < 4 else 2
+            one = 0 if track == 1 else 220; pre = lba < one
+            q = bytes((1 if track == 1 else 0x41, track, 0 if pre else 1))
+            q += clock(abs(lba - one)) + b'\0' + clock(lba + 150)
+            expected = (b'\xff' if pre else b'\0') * 12 + q + (binascii.crc_hqx(q, 0) ^ 0xffff).to_bytes(2, 'big') + bytes(72)
+            self.assertEqual(bytes.fromhex(row[2]), expected)
+
     def test_canonical_stored_and_synthetic_sectors_and_pause_boundaries(self):
         self.run_probe("canonical")
 

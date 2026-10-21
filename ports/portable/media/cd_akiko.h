@@ -8,6 +8,10 @@ struct TrapContext;
 namespace p6_cd {
 // Derived metadata only; does not open a device or change playback state.
 Result akiko_toc(const Disc &disc, cd_toc_head *out);
+struct SessionToc { Session session; cd_toc_head toc; };
+// Explicit table only, ordinal 1-based. Carries format/CUE0 separately from the
+// real upstream TOC type. Pure, errors preserve output; no emulated selection.
+Result akiko_session_toc(const Disc &disc, uint32_t ordinal, SessionToc *out);
 // Explicit LBA and caller's audio status. Stored or synthesized subchannels.
 // all=true:96 P-W deinterleaved;
 // otherwise SUBQ_SIZE16 (status header + Q12). Errors preserve output.

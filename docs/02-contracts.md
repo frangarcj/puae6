@@ -1975,3 +1975,33 @@ P6AK e identidad matematica, futuro y estado completo tras proceso nuevo.
 No existe endpoint retro_* sectorial: LR no acredita tres lecturas independientes;
 los bytes quedan en el proveedor compartido y exports WB. No se añaden exports
 privados ni se atribuye arranque de aplicacion a esta fixture de audio/datos.
+
+## Sesiones privadas de CD (T66v1)
+
+`Layout.sessions=0` conserva la geometria y el TOC legacy exactos; la tabla
+inactiva debe estar a cero. Una tabla explicita tiene hasta 99 sesiones ordenadas,
+cada una con primera/ultima pista global, formato 00/10/20, CUE0 firmado y A2.
+Los formatos son metadata: no habilitan un decoder CDI. Los rangos de pistas
+particionan 1..tracks, A2 coincide con el final de su ultima pista y el ultimo
+A2 coincide con leadout. CUE0 inicial no es positivo; los posteriores quedan
+entre A2 previo e INDEX00 de su primera pista. No se sustituyen esas direcciones
+por duraciones constantes: libMirage a9d6a204, image-nrg/parser.c:697..722,
+conserva las fronteras CUE explicitas.
+
+La contiguidad es obligatoria dentro de cada sesion. El intervalo entre A2 y el
+INDEX00 siguiente devuelve Range en describe, sectores y subcanales, preserva
+la salida y no lee fuentes; no se convierte en pregap ni en sectores sinteticos.
+El pregap de una nueva sesion tampoco hereda CONTROL de audio de la anterior.
+Rebind valida y compara todos los campos por valor, sin comparar padding, antes
+de publicar lectores nuevos.
+
+`akiko_session_toc` es una consulta privada sin seleccion emulada: requiere tabla
+explicita y ordinal desde 1. Devuelve SessionToc con metadata Session y el
+cd_toc_head real; formato y CUE0 no se ocultan en campos ajenos de ese tipo.
+Los numeros de pista son globales, los offsets son locales 1..N, firstaddress
+es INDEX00 inicial y lastaddress/A2 conservan la direccion explicita. El TOC
+global legacy rechaza varias sesiones como Unsupported; una tabla explicita de
+una sola sesion conserva su resultado anterior. Las consultas no hacen IO y
+sus errores conservan la salida. MED01 prueba estas propiedades en el componente;
+NRG multisesion, el dispositivo publico, el transporte Waterbox y su restauracion
+completa conservan sus puertas posteriores. No se modifica el ABI publico.

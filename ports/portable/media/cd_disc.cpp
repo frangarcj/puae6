@@ -21,18 +21,38 @@ bool regions(const Track &t) {
     return !((f & R::PregapSub96) && !stored) && !((f & (R::PostgapStored|R::PostgapIndex2)) && !t.postgap) &&
         !((f & R::PostgapSub96) && !(f & R::PostgapStored));
 }
+bool sessions(const Layout &layout)
+{
+    if (layout.sessions > layout.tracks) return false;
+    uint32_t first = 1, previous_a2 = 0;
+    for (uint32_t n = 0; n < kMaxTracks; ++n) {
+        const auto &s = layout.session[n];
+        if (n >= layout.sessions) {
+            if (s.first_track || s.last_track || s.format || s.cue0 || s.a2) return false;
+            continue;
+        }
+        if (s.first_track != first || s.last_track < first || s.last_track > layout.tracks ||
+            (s.format != 0 && s.format != 0x10 && s.format != 0x20) ||
+            (n ? int64_t(s.cue0) < previous_a2 : s.cue0 > 0) ||
+            int64_t(s.cue0) > layout.track[first - 1].index0 ||
+            s.a2 != layout.track[s.last_track - 1].end) return false;
+        first = uint32_t(s.last_track) + 1; previous_a2 = s.a2;
+    }
+    return !layout.sessions || (first == layout.tracks + 1 && previous_a2 == layout.leadout);
+}
 }
 
 Result Disc::prepare(const Layout &layout, const Binding *bindings, uint32_t count)
 {
     if (!bindings || !count || count > kMaxSources || !layout.tracks || layout.tracks > kMaxTracks ||
-        !layout.leadout || layout.leadout > INT_MAX - 150) return Result::Invalid;
+        !layout.leadout || layout.leadout > INT_MAX - 150 || !sessions(layout)) return Result::Invalid;
     for (uint32_t n = 0; n < count; ++n)
         if (sources_[n].bind(bindings[n].identity, bindings[n].read, bindings[n].context) != Result::Ok) return Result::Invalid;
-    uint32_t next = 0;
+    uint32_t next = 0, session = 0;
     for (uint32_t n = 0; n < layout.tracks; ++n) {
         const Track &t = layout.track[n];
-        if (t.index0 != next || t.index1 < t.index0 || t.end <= t.index1 || t.end > layout.leadout || t.source >= count ||
+        const bool boundary = n && layout.sessions && n + 1 == layout.session[session].first_track;
+        if ((boundary ? t.index0 < next : t.index0 != next) || t.index1 < t.index0 || t.end <= t.index1 || t.end > layout.leadout || t.source >= count ||
             !mode_control(t.mode,t.control) || t.adr != 1 ||
             t.synthetic_pregap > t.index1 - t.index0 || t.postgap >= t.end - t.index1 ||
             (!t.stored_pregap && t.synthetic_pregap && t.synthetic_pregap != t.index1 - t.index0) ||
@@ -41,6 +61,7 @@ Result Disc::prepare(const Layout &layout, const Binding *bindings, uint32_t cou
         const uint64_t sectors = t.end - ((t.regions.flags & R::PostgapStored) ? 0 : t.postgap) - (t.stored_pregap ? t.index0 + t.synthetic_pregap : t.index1);
         if (t.offset > bytes || sectors > (bytes - t.offset) / t.stride) return Result::Range;
         next = t.end;
+        if (layout.sessions && n + 1 == layout.session[session].last_track) ++session;
     }
     if (next != layout.leadout) return Result::Invalid;
     layout_ = layout; count_ = count;
@@ -62,8 +83,13 @@ Result Disc::rebind(const Layout &layout, const Binding *bindings, uint32_t coun
     Disc candidate{};
     const auto result = candidate.prepare(layout, bindings, count);
     if (result != Result::Ok) return result;
-    if (count != count_ || layout.tracks != layout_.tracks || layout.leadout != layout_.leadout ||
+    if (count != count_ || layout.tracks != layout_.tracks || layout.leadout != layout_.leadout || layout.sessions != layout_.sessions ||
         memcmp(layout.content_id, layout_.content_id, sizeof layout.content_id)) return Result::Incompatible;
+    for (uint32_t n = 0; n < layout.sessions; ++n) {
+        const auto &a = layout.session[n], &b = layout_.session[n];
+        if (a.first_track != b.first_track || a.last_track != b.last_track || a.format != b.format ||
+            a.cue0 != b.cue0 || a.a2 != b.a2) return Result::Incompatible;
+    }
     for (uint32_t n = 0; n < layout.tracks; ++n) {
         const Track &a = layout.track[n], &b = layout_.track[n];
         if (a.index0 != b.index0 || a.index1 != b.index1 || a.end != b.end || a.source != b.source || a.stride != b.stride ||
@@ -85,6 +111,7 @@ Result Disc::describe(uint32_t lba, SectorInfo *out) const
     if (lba >= layout_.leadout) return Result::Range;
     uint32_t n = 0; while (lba >= layout_.track[n].end) ++n;
     const auto &t = layout_.track[n]; const auto f = t.regions.flags;
+    if (lba < t.index0) return Result::Range; // Inter-session leadout/lead-in is not a pregap or payload.
     const bool pregap = lba < t.index1, postgap = lba >= t.end-t.postgap;
     const uint32_t first = t.stored_pregap ? t.index0+t.synthetic_pregap : t.index1;
     const bool synthetic = lba < first || (postgap && !(f & R::PostgapStored));
@@ -95,7 +122,10 @@ Result Disc::describe(uint32_t lba, SectorInfo *out) const
         next.stored_subs = !synthetic && (f & (pregap ? R::PregapSub96 : postgap ? R::PostgapSub96 : R::ProgramSub96));
         next.audio_gap = synthetic && next.effective.mode == Mode::Audio;
     } else {
-        const bool audio_prefix = n && (t.control & 4) && layout_.track[n-1].mode == Mode::Audio && pregap && t.index1-lba > 150;
+        bool first_in_session = false;
+        for (uint32_t s = 1; s < layout_.sessions; ++s)
+            if (n + 1 == layout_.session[s].first_track) first_in_session = true;
+        const bool audio_prefix = n && !first_in_session && (t.control & 4) && layout_.track[n-1].mode == Mode::Audio && pregap && t.index1-lba > 150;
         if (audio_prefix) next.effective.control=layout_.track[n-1].control;
         next.audio_gap = synthetic && audio_prefix;
     }
