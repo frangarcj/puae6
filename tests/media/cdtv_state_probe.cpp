@@ -271,6 +271,22 @@ static void bus_refusals()
     }
     assert(cycle == get_cycles() && callbacks == p6_cdtv_callback_observations() && reads == prior_reads);
 }
+static void bus_difference(const std::vector<uint8_t> &expected, const std::vector<uint8_t> &actual)
+{
+    const size_t limit = std::min(expected.size(), actual.size()); size_t first = p6_state::kHeaderSize;
+    while (first < limit && expected[first] == actual[first]) ++first;
+    if (first == limit) { first = 0; while (first < limit && expected[first] == actual[first]) ++first; }
+    char tag[5] = "HEAD"; size_t body = 0;
+    for (size_t at = p6_state::kHeaderSize; first >= p6_state::kHeaderSize && at + p6_state::kChunkHeaderSize <= limit;) {
+        uint64_t length = 0; for (unsigned n = 0; n < 8; ++n) length |= uint64_t(expected[at + 8 + n]) << (n * 8);
+        if (length > limit - at - p6_state::kChunkHeaderSize) break;
+        if (first < at + p6_state::kChunkHeaderSize + length) { memcpy(tag, expected.data() + at, 4); body = at + p6_state::kChunkHeaderSize; break; }
+        at += p6_state::kChunkHeaderSize + length;
+    }
+    fprintf(stderr,"CDTV immediate state expected=%zu actual=%zu first=%zu %s+%zu",expected.size(),actual.size(),first,tag,first >= body ? first-body : first);
+    for (size_t n = first; n < std::min(limit, first + 8); ++n) fprintf(stderr," %02x/%02x",expected[n],actual[n]);
+    fputc('\n',stderr);
+}
 static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *role, const char *directory)
 {
     config.machine = p6_bridge::kCdtvMachine; const bool writer = !strcmp(role, "bus-write");
@@ -316,7 +332,13 @@ static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *r
             assert(p6_state_load(state.data(),state.size(),&error) == P6_OK && save() == state);
         }
         bus_refusals(); const auto result = bus_future(cut);
-        assert(p6_state_load(state.data(),state.size(),&error) == P6_OK && save() == state && bus_future(cut) == result);
+        const auto restored = p6_state_load(state.data(),state.size(),&error);
+        if (restored != P6_OK) fprintf(stderr,"CDTV load result=%u %s\n",unsigned(restored),error.message);
+        assert(restored == P6_OK); const auto immediate = save();
+        if (immediate != state) bus_difference(state,immediate); assert(immediate == state);
+        const auto replay = bus_future(cut);
+        if (replay != result) fprintf(stderr,"CDTV future expected=%016llx actual=%016llx\n",(unsigned long long)result,(unsigned long long)replay);
+        assert(replay == result);
         if (writer) { write_bytes(path+".state",state.data(),state.size()); write_bytes(path+".future",&result,sizeof result); }
         else { auto expected=file_bytes(path+".future"); assert(expected.size()==sizeof result && !memcmp(expected.data(),&result,sizeof result)); }
         assert(p6_shutdown(&error)==P6_OK && !p6_cd::device_open_count()); p6_cd::device_unbind();
