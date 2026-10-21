@@ -18470,7 +18470,7 @@
       "title": "Leer NRG DAO multisesion en propietario privado opt-in",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v1",
         "T66v2"
@@ -18496,7 +18496,8 @@
         "Cinco rutas de implementacion180..260lineas: habilitacion privada explicita del propietario, tabla/lecturas/identidad y probe. Agente cd_swap aislado desde root actual, metadata exclusiva coordinador; no otra ruta sin ampliar antes. Sin motor/guest ni backend publico habilitado por esta hoja.",
         "CdNrg por defecto sigue rechazando varias sesiones antes de payload; opt-in privado copia tabla validada de T66v2 y conserva todos los LBAs/offsets. Intervalos sin datos devuelven Range sin IO ni salida publicada; consultas privadas de sesion exactas de T66v1, TOC global multi sigue Unsupported. Factory publica usa default y conserva su rechazo.",
         "Identidad condicional P6NRGM para varias sesiones con tabla completa, catalogos/hints y archivo/fuentes; DAO/ETNF/ETN2 de una sesion conservan identidades exactas. Rebind valida todo antes de reemplazar lectores; owner nuevo conserva lecturas y fallos transaccionales. No seleccion mutable de sesion ni promesa hardware.",
-        "MED01 CdNrgTests bajo ASan/UBSan: dos sesiones con pistas1/2 y3, A2 primero11, CUE0 segundo20, INDEX00=30/INDEX01=32 y A2final39; bytes distintos en sesiones, fronteras/huecos, TOCs particulares y VFS/freshowner/rebind, default aun Unsupported. Sintaxis antes de gate y ninguna bateria completa. La politica publica necesita ADR posterior: WinUAE/PUAE fijados sobrescriben tracks por grupo, sys_command_info_session ignora argumento y Akiko/CDTV solo consultan TOC global; no copiarlos como oraculo."
+        "MED01 CdNrgTests bajo ASan/UBSan: dos sesiones con pistas1/2 y3, A2 primero11, CUE0 segundo20, INDEX00=30/INDEX01=32 y A2final39; bytes distintos en sesiones, fronteras/huecos, TOCs particulares y VFS/freshowner/rebind, default aun Unsupported. Sintaxis antes de gate y ninguna bateria completa. La politica publica necesita ADR posterior: WinUAE/PUAE fijados sobrescriben tracks por grupo, sys_command_info_session ignora argumento y Akiko/CDTV solo consultan TOC global; no copiarlos como oraculo.",
+        "Integrado b743e59a: cinco rutas+158/-12; CdNrgTests14PASS26.466s ASan/UBSan, luego metodo rebind reforzado1PASS2.962s. Sintaxis/diff PASS. Revision coordinador conserva rechazo default antespayload y dominios legacy exactos; ninguna afirmacion publica/guest."
       ],
       "checks": [
         "MED01"
@@ -18519,7 +18520,7 @@
       ],
       "id": "T66v4",
       "title": "Definir TOC global virtual multisesion y acceso privado del dispositivo",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66v3"
       ],
