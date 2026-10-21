@@ -21818,6 +21818,7 @@
         "integration/bizhawk/patches/0021-puae6-legacy-disc-lease.patch",
         "tests/media/csharp-disc/Cd32Loader.cs",
         "tests/media/csharp-disc/Cd32Chd.cs",
+        "tests/waterbox-media/test_chd_public.py",
         "docs/02-contracts.md",
         "tools/check.py",
         "tests/test_plan.py"
@@ -21825,7 +21826,8 @@
       "steps": [
         "busy_reference aislado, cuatro rutas100..170manuales; patch0021soloRomLoader.cs. SepararbackendtypedCHD/NRG deownershipcontext. ISOconCreateAnyTypesiguerutahistorica, peroOwnedDiscAssetMISMOleasecuandoXMLAmiga/prefPUAE6oforcedPUAE6conguarddesistema. No otroowner/decoder ni cambiosCoreParametersFrom/borroweddirecto.",
         "LoadXML debe reconocercontextoPUAE6conalgunCDlegacy para cleanupnofallback constructor/falloparcial; otroscoresconservanDiscAssetborrowed ylegacybackend. Disc/CDlease.IsDisposedyDisposeidempotente antescallback, sinFDreabierto. DocumentaralcanceexplicitonocambiaPreferenciasglobales.",
-        "MED01/BUILD01 MISMOselector NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership ampliadoconISOrealpublico/otroscoresborrowed/directIDiscAssetborrowed/falloparcialconstructor/disposecallbacks sinFD. Client.Commonreal/analyzersunapreparacionfailfast. Rootunicosbuildspesados; agenteAST/sintaxisofflinepequeña. CatalogoWBfallidoV12acreditarácierrecompletoposterior, nootragateWB."
+        "MED01/BUILD01 MISMOselector NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership ampliadoconISOrealpublico/otroscoresborrowed/directIDiscAssetborrowed/falloparcialconstructor/disposecallbacks sinFD. Client.Commonreal/analyzersunapreparacionfailfast. Rootunicosbuildspesados; agenteAST/sintaxisofflinepequeña. CatalogoWBfallidoV12acreditarácierrecompletoposterior, nootragateWB.",
+        "Ampliacionanteseditar a test_chd_public.py: fixtureCDISOpropia porcdtv_boot_image.image(bytes(22152)), DiscIdentifier254..257 reconoceAmiga porSystemIDCDTVsinROM/trademarkcomercial ni boot. TrasidentificardirectoAmiga+prefPUAE6, adoptarMISMAOwnedDiscAssetantesinventario paraqueownership/cleanupnofallback correspondaacontexto; preservarbackendLegacy yPSXguard. NegativoFirmware.Refuse hostcompruebadirectosinsandbox, prestadosdirectosAPIintactos. SepararenPythonelescenarioV12en3metodosXML/direct/catalog conbodyhelperigual pararepetirsólomixedfallido, no flagqueomitagates. Cinco rutastotal<300manual; si seamdirecto noseguroavisaantes."
       ],
       "checks": [
         "MED01",
