@@ -50,7 +50,10 @@ solo enumera sus suites (`NOT_RUN`):
   Las pruebas A4000 y CD32 requieren ademas `P6_KICKSTART_A4000_ROM`,
   `P6_CD32_ROM_MAIN`, `P6_CD32_ROM_EXT` y `P6_CD32_GAME_CUE`. El perfil CDTV
   privado requiere `P6_CDTV_ROM_MAIN` (KS 1.3 ID6, 256 KiB) y
-  `P6_CDTV_ROM_EXT` (extendida v2.7 ID22, 256 KiB). La ausencia de cualquiera
+  `P6_CDTV_ROM_EXT` (extendida v2.7 ID22, 256 KiB). Los cartuchos reales requieren
+  `P6_KICKSTART_A500_ROM`, `P6_ACTION_REPLAY1_ROM`, `P6_ACTION_REPLAY2_ROM`,
+  `P6_ACTION_REPLAY3_ROM` y `P6_ACTION_REPLAY1200_ROM`; AR1200 usa tambien el
+  Kickstart A1200 ya exigido. La ausencia de cualquiera
   bloquea antes de preparar imagenes, compilar o lanzar el motor.
   Una omission/xfail conserva el bloqueo.
 - `matrix`: los dos corpus completos, cinco filas, O0/O2/sanitizers y entorno

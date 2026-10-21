@@ -77,9 +77,10 @@ class NightlyRecipeTests(unittest.TestCase):
         preflight.assert_called_once_with(ci.ASSETS)
         prepare.assert_not_called()
 
-    def test_missing_a4000_cd32_or_cdtv_assets_stop_before_build_or_image_preparation(self):
+    def test_missing_firmware_cd_or_cartridge_assets_stop_before_build_or_image_preparation(self):
         required = {"P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
-                    "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT"}
+                    "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_KICKSTART_A500_ROM",
+                    "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM"}
         self.assertLessEqual(required, set(ci.ASSETS))
         with tempfile.TemporaryDirectory() as directory:
             asset = Path(directory) / "fixture"
