@@ -20827,7 +20827,8 @@
         "T69e1",
         "T69e2",
         "T69f1",
-        "T69f2"
+        "T69f2",
+        "T69g1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22231,6 +22232,65 @@
         "La API nativa publica AR1200 con copia/identidad/limites correctos y ROM autorizada ejecuta comandos reales, retorna y conserva el futuro tras estados locales/frios y Freeze held/reset/rearm transaccional, sin alterar modelos anteriores ni ampliar frontends."
       ],
       "stop": "No cerrar por carga/pantalla, ni duplicar owner/scheduler/codec o usar control host del PC. Preservar todos los casos y gates originales del padre."
+    },
+    {
+      "id": "T69g1",
+      "title": "Conectar los cuatro Action Replay a libretro y conservar estados frios",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69d3",
+        "T69e2",
+        "T69f2",
+        "T69c3"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "config/schema/options.json",
+        "adapters/libretro/firmware.h",
+        "adapters/libretro/libretro_core.cpp",
+        "adapters/libretro/mapper.h",
+        "tests/libretro-ui/mapper_probe.cpp",
+        "tests/libretro-ui/test_hrtmon.py",
+        "tests/config/test_parity.py",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close implementa en worktree t53-cpu aislado desde el commit de esta ficha. Root posee metadata, dispatcher y documentos y ejecuta los builds j2. Siete rutas manuales de implementacion mas dos salidas generadas, objetivo 330-390 lineas logicas y limite400; advertir antes de ampliar. Los cuatro modelos forman una conexion atomica al mismo loader, sin hojas por modelo. No editar motor, codec ni C#.",
+        "Usar cartridge.libretro.extra_values ar1/ar2/ar3/ar1200 con IDs locales3/4/5/6 y constantes generadas. Conservar los valores canonicos Disabled0/HrtMon2 y flags.allowed0..3 y el wrapper managed actual. Una copia canonica de Settings pone cartridge0 solo para esos extras antes de ambos to_config del core; Settings original conserva seleccion reboot, mapper y estado libretro. Freeze se habilita para HRTMon o cualquiera de los cuatro AR sin duplicar historia de flanco.",
+        "Leer una vez por carga a traves de core.files/VFS desde systemdir, raw64/128/256/256KiB segun modelo. Nombres principales ar1.rom/ar2.rom/ar3.rom/ar1200.rom, aliases Action_Replay_I_v1.00.rom, Action_Replay_II_v2.14.rom, Action_Replay_III_v3.17.rom, Action_Replay_1200.rom. El primer nombre presente decide: ausente, lectura fallida, tamano o contenido incorrecto dan error claro sin ocultarlo tras otro alias/modelo. Bind publico tras init y antes de load, sin lecturas en run/restore ni cambios silenciosos de perfil.",
+        "Al fallar un candidato Kickstart, shutdown/init con el mismo config canonico y rebind desde los bytes ya leidos antes del candidato siguiente. Preservar y volver a montar el manifiesto real, incluidos los bundles WHD reconstruidos dentro del bucle. Rechazar CD/CD32/CDTV+AR antes de bind/reintentos; no perder catalogos ni forzar perfiles/memorias/escritura que el binder no soporta.",
+        "GEN01 usa schema/parity completos y generate_options --check; extender paridad para exigir ambas conversiones canonicas y que extras no lleguen a flags/C#. IN01 usa mapper_probe ASan/UBSan existente con los cuatro extras, HRT/off y composicion de flags. Agent ejecuta solo generacion/sintaxis/checks ligeros, root compila motor una vez.",
+        "LR01/DET02/STATE01/STATE02 comparten LibretroCartridgeTests.test_system_roms_freeze_and_cold_state y test_missing_invalid_wrong_profile_and_reload_are_explicit. Usar los cuatro firmwares autorizados mediante frontend libretro real/systemdir/VFS, perfiles correspondientes, Freeze held y corte activo comprobado por P6RM/P6IN. Restaurar en otro proceso antes del primer run y comparar 15 unidades futuras completas RAM/AV/PCM/ticks y estado libretro final exacto. Negativos de ausencia/tamano/lectura/perfil, cambio diferido hasta recarga, estado off/otra ROM transaccional y cleanup/exclusividad. Reproducer de primer Kick rechazado y segundo valido con manifiesto no vacio conservado; rechazo CD explicito. No repetir campanas nativas de comandos G/X.",
+        "Root ejecuta la union dirigida una vez con HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process como regresion cercana del loader/mapper compartido. No repetir codecs nativos, guest Waterbox ni matriz por etiquetas; BizHawk y cierre del padre siguen pendientes. Temporales solo en build y eliminados, sin informes ni ROMs comerciales versionadas. Dos intentos razonados de un fallo requieren reproducer y dos hipotesis verificables antes de blocked."
+      ],
+      "checks": [
+        "GEN01",
+        "IN01",
+        "LR01",
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "Libretro carga cada AR autorizado por VFS con errores explicitos y seleccion reboot sin contaminar config nativo o managed; Freeze mantenido y estado frio conservan futuro completo. Reintentos de firmware mantienen owner y manifiesto. Las puertas dirigidas pasan y HRTMon conserva su comportamiento."
+      ],
+      "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas."
     }
   ],
   "max_in_progress": 4
