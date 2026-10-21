@@ -5828,6 +5828,28 @@
           "after_sha256": "02208997a8771e9d85f584682f64ee07c546622a8b5adfb825917d13f79e591a"
         }
       ]
+    },
+    {
+      "id": "0403-nrg-etnf-mixed-stride",
+      "file": "patches/winuae/0403-nrg-etnf-mixed-stride.patch",
+      "sha256": "deeed737b29f242ba24ad4e1e186959bc4054ea1219708f73390cb06dff78d7f",
+      "title": "Read compact NRG ETNF tracks with independent physical and logical positions",
+      "reason": "T66l6: per-track libMirage a9d6a204 fragment mapping supports mixed strides with independent compact byte/sector accumulation. Keep alignment, contiguity, bounds and canonical150 gaps; do not infer ETN2 or multisession. libcdio has a stricter homogeneous-only constraint.",
+      "category": "NRG metadata boundary",
+      "order": 219,
+      "symbols": [
+        "nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "de96a994d933265c3f45b6d275778d7f57edf92fff7c9c383847e33cd3bdd2a4",
+          "after_sha256": "1bd73795d20ed343aad6c46e882ff1a16b4665c3427490df214fc4db898a3949"
+        }
+      ]
     }
   ]
 }
