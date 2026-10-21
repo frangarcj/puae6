@@ -337,6 +337,10 @@ for _gate in ('WB03', 'WB08', 'DET02'):
     TASK_SUITES[(_gate, 'T66t16')] = {'public_chd_cold_restore': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
+TASK_SUITES[('MED01', 'T66t17')] = {
+    'native_htoa': 'tests.media.test_cd_chd.CdChdTests.test_first_stored_pregap_htoa_addresses_toc_subq_and_rebind',
+    'canonical_htoa': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_first_stored_pregap_keeps_visible_index1_and_full_stream',
+    'public_host_htoa': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_first_stored_pregap_public_v2_identity_and_ownership'}
 TASK_SUITES[('MED01', 'T66t6')] = {'canonical_chd_provider': 'tests.media.test_cd_chd.CdChdTests'}
 TASK_SUITES[('MED01', 'T66t1')] = {'pinned_chd_codecs': 'tests.media.test_chd_dependencies.ChdDependencyTests'}
 for _task in ('T66t2', 'T66t3', 'T66t4', 'T66t5'):
