@@ -20751,6 +20751,62 @@
       "stop": "No ROM comercial en Git/paquete ni snapshot parcial, publicidad de modelos no probados, PC/prefetch/clock de host para simular activacion o asserts/tolerancias debilitados. Dosintentos sin resolver mismofallo: reproducer+hipotesis yblocked."
     },
     {
+      "id": "T69e1",
+      "title": "Restaurar Action Replay I privado con espera de PC y bancos completos",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69d2",
+        "T24"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "patches/winuae/0410-action-replay1-native-state.patch",
+        "ports/portable/p6_state_access.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "bridge/state_cpu.cpp",
+        "tests/cartridge/hrtmon_probe.cpp",
+        "tests/cartridge/test_hrtmon.py",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "manifests/codegen.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close trabaja aislado; root mantiene metadata, serie, inventario, integracion y compilaciones pesadas j2. Excepcion atomica de ocho rutas de implementacion y hasta400 lineas manuales para propietario, identidad, codec, frontera CPU y su reproducer; docs/02-contracts.md y metadata son de root. Avisar antes de superar presupuesto o tocar otra ruta. No editar upstream directamente ni codigo generado.",
+        "Introducir bind_ar1 privado y factorizar el registro interno sin permitir model1 en p6_cartridge_bind publico. Mantener errores, canarios, Guard unico, copia immutable, exclusividad, rollback y perfil stock A50068000 Exact/Compatible. Identidad AR1 con dominio propio y modelo+ROM; identidades AR2/AR3 sin cambios. No modificar selectores, schema, ABI ni capacidades publicas para anunciar AR1.",
+        "Leer ar.cpp/newcpu.cpp y codec existentes antes de editar. Capturar ar_wait_pop y wait_for_pc ademas del estado causal compartido. ROMF00000/64KiB y RAM9F0000/64KiB son la geometria realmente implementada; no inventar alias fisico del comentario16KiB. Mapas AR1 siempre presentes: mapped1/banks1/hidden0, ar_hide puede ser1. Get/Validate puros, Apply copia y reconstruye bancos sin NMI, IO ni scheduling. Retirar expresamente bancos al destruir el propietario antes de liberar memoria: unmap AR1 ordinario remapea, no sirve para teardown.",
+        "Demostrar tabla AR1 flag/SPC por consumidores: enter AR1 quita SPC aun ACTIVE; strobe BYTE con ar_wait_pop1 deja WAIT_PC(-3)/pop0/SPC1 y retiene returnPC; arrom_wget llama ar3a dos veces y puede dejar IDLE/pop0/SPC1. No imponer igualdad AR23 flag>=ACTIVATE ni corregir upstream para hacerla cierta. Permitir solo las formas alcanzables, conservar wait_for_pc sin inventar rangos si el dato original no los impone. La frontera CPU admite estas formas AR1; handlerCIA15 sigue exclusivo de AR2/3 y un estado AR1 con ese evento se rechaza.",
+        "Un solo selector tests.cartridge.test_hrtmon.Ar1StateTests.test_complete_ar1_private_owner_wait_pc_cold_state_and_refusals para STATE01/STATE02/DET02. Firmware y cartucho originales con checksum y handlers; CPU avanza solo p6_run_frame, senales por RAM guest, sin flags/PC/prefetch/NMI de host. Ocho cortes: ACTIVE bootstrap, IDLE, Freeze pendiente, ACTIVE monitor, strobe BYTE WAIT_PC, strobe WORD IDLE+SPC, retorno/reentrada al alcanzar wait_for_pc y salida final. Exact/Compatible, repeticion local y writer/reader en proceso nuevo, save-load-save y futuro completo CPU/RAM/cartRAM/mapas/vector/video/PCM/ticks/estado final exactos.",
+        "Negativos de pop, mapas, flag/SPC, identidad ROM/modelo y handlerCIA15 deben preservar salida/estado/ticks; verificar copia, exclusividad, rollback, bancos realmente retirados y recarga sin cartucho. No repetir puertas comerciales AR2/3 por etiqueta: al integrar esta modificacion compartida se ejecutan una vez el nuevo selector y la regresion cercana ArStateTests+HrtMonBuiltinTests de carga/identidad/teardown. Agente solo sintaxis y fixture; root compila y ejecuta la union.",
+        "El padre T69 conserva AR1 comercial/publico, AR1200 y todas sus conexiones frontend. Esta hoja no acredita la ROM comercial ni puede cerrar el padre. Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis verificables, marcar blocked y elegir otra tarea independiente. Datos temporales solo build y eliminados al terminar; sin informes."
+      ],
+      "checks": [
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ],
+      "acceptance": [
+        "El propietario privado AR1 restaura todos sus campos causales, bancos y formas propias de espera/SPC en el mismo proceso y en uno nuevo, con futuro exacto y rechazos transaccionales; AR2/AR3 y HRTMon conservan sus contratos. No se anuncia AR1 publico ni compatibilidad comercial por este probe original."
+      ],
+      "stop": "No codecs parciales, puentes a .uss, NMI/PC/flags de host ni cambios al comportamiento upstream para simplificar estados. Mantener checks y alcance comercial/frontend del padre."
+    },
+    {
       "id": "T69",
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
@@ -20766,7 +20822,8 @@
         "T69c4",
         "T69d1",
         "T69d2",
-        "T69d3"
+        "T69d3",
+        "T69e1"
       ],
       "read": [
         "docs/01-architecture.md",
