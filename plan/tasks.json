@@ -18598,6 +18598,47 @@
       "stop": "No cerrar por owner aislado ni cambiar codec/target fuera de ficha. Si falla tras dos intentos razonados preservar reproducer y dos hipotesis, bloquear."
     },
     {
+      "milestone": "M3",
+      "required": true,
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "id": "T66v6",
+      "title": "Decodificar descriptor privado Waterbox V3 con sesiones completas",
+      "status": "in_progress",
+      "depends": [
+        "T66v5"
+      ],
+      "touch": [
+        "adapters/waterbox/p6w_cd.h",
+        "adapters/waterbox/cd_descriptor.h",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "DTO/decoder puro en cinco rutas190..270lineas manuales, cd_swap aislado, sin cd_source.cpp/C#/guest que tocaC3c. No implementar nuevo parserC# ni prometer snapshot por probe puro; root metadata/dispatcher.",
+        "p6w_cd_session campos uint32first/last/format,int32cue0,uint32a2:20B. InfoV3 conserva campos/tracksV2 hasta4808, session_count offset4808, sessions99 offset4812, size6792/alineacion8. Version3/size exactos, activos validados antesestrechar aSession12B, inactivos0 porcampos. Cero sesiones conserva legacy. Decoderregionalcomun construye next y anade tabla antes Disc.bind, sin reinterpretcast ni validar primero comoV2 pues rechazariahuecos. V2exacto.",
+        "OffsetsLBA*2448, bytes=leadout*2448 dominio virtual conhuecos, no datos inventados. HuecosA2..INDEX00 Range sincallback/salida; ID confiado host se copia y rebind compara tabla completa inclusoIDigual. Calculo autenticadoID por futurohost sigue deudaexplicita, no atribuiblealdecoder.",
+        "MED01 CdDiscTests nuevo test_waterbox_v3_descriptor_sessions_gaps_identity_and_rebind y regresion test_waterbox_v2_descriptor_layout_regions_and_rebind bajoASan/UBSan. GeometriaV3/V5pistas1/2+3,A2primero11,CUE0segundo20,INDEX00=30/INDEX01=32,A2final39; ambaslecturas/Q/TOCs,huecos11/20/29,ceroIO,paridadV2/max99/negativosversion/size/count/rangos/format/CUE0/A2/cobertura/inactivos/binding con salidaA5, freshcallback/rebind/fallosprovider. No bateriascompletas.",
+        "Conectar bind_v3/layout_v3/exports y pruebas reales snapshot/managed en hoja posterior trasC3c integrado; carga y restorepublicos multi siguenrequeridos antesT66."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Descriptor privadoV3 conserva tabla validada/huecos/identidad y rebind transaccional, cero sesiones reproduceV2 exacto, negativos no publican candidato ni hacenIO; V1/V2 sin cambios."
+      ],
+      "stop": "No contabilizar decoderpuro como ejecucionWaterbox ni habilitarloaderpublico; no tocar cd_source.cpp/C# fuera de ficha y dividirantes400lineas."
+    },
+    {
       "id": "T66",
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
@@ -18691,7 +18732,8 @@
         "T66l9",
         "T66v3",
         "T66v4",
-        "T66v5"
+        "T66v5",
+        "T66v6"
       ],
       "read": [
         "docs/01-architecture.md",
