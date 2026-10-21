@@ -17,6 +17,7 @@
 #include <string>
 #include "../../bridge/state.h"
 #include "../../bridge/session.h"
+extern bool p6_expansion_state_get(uint32_t *, unsigned, uint8_t *);
 static p6_error error{P6_ABI_VERSION, sizeof error};
 static unsigned reads;
 static uint64_t *future_hash;
@@ -278,7 +279,13 @@ static void bus(const std::vector<uint8_t> &rom, p6_config config, const char *r
         if (cut == 3) assert(p6_cd::device_bind(&disc) == p6_cd::Result::Ok);
         const std::string path = std::string(directory) + "/bus" + std::to_string(cut);
         if (writer) {
-            frames(); auto pending = std::make_unique<p6_cdtv_state>(); assert(p6_cdtv_state_get(pending.get()));
+            frames(); auto pending = std::make_unique<p6_cdtv_state>(); const bool captured = p6_cdtv_state_get(pending.get());
+            if (!captured) {
+                uint32_t w[13]{}; uint8_t prom[256]{}; const bool expansion = p6_expansion_state_get(w,13,prom);
+                fprintf(stderr,"CDTV capture failed mask=%08x unit=%d configured=%d service=%d expansion=%d ecard=%u cards=%u bank=%u PROM=%02x/%02x\n",
+                        pending->dma_mask,pending->unitnum,pending->configured,pending->service_running,expansion,w[0],w[1],w[4],prom[0],prom[2]);
+            }
+            assert(captured);
             fprintf(stderr, "CDTV first unit configured=%d PC=%x\n", pending->configured, m68k_getpc()); assert(pending->configured == 0);
             assert(get_byte(0xe80000) == 0xc0 && get_byte(0xe80002) == 0x10); bus_program();
             if (cut) { put_byte(0x10000, cut == 2 ? 2 : 1); frames(); }
