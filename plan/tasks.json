@@ -11533,7 +11533,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35"
@@ -11595,7 +11595,8 @@
         "Integracion de dependencias: source_identity del arnes omite third_party aunque compila MAME/IPF y ahora se preparaCHD. Ampliar touch a tests/build_support.py ytests/test_build_support.py; incluir bytes de dependencias en identidad y probar invalidacion de cache/receipt con contenido cambiado y mtime conservado, sin compilar emulador ni alterar testsfuncionales.",
         "Integracion REF01: al ablar0356/0357/0361 se elimina la cadena de guards/parsers CUE/CCD/NRG del que0388 y0389/0391/0392 dependen; materializacion de referencia falla antes de compilar. Mantener0356/0357/0361 como behavior retenidos con razon explicita de dependencia, sin fingir ablation ni cambiar resultados golden. Reutilizar tests de clasificacion y materializacion exacta existentes; ampliar touch solo tests/reference/patch-classes.json. Puerta acumulada permanece para candidata.",
         "La candidata acumulada se difiere hasta integrar las funciones en curso; T39b vuelve a pending sin quitar puertas. El coordinador retoma la correccion independiente T55c11 en worktree aislado; se mantienen cuatro responsables activos como maximo.",
-        "Integracion de CDTV: la lane funcional ahora selecciona el probe con firmware autorizado de T67c1. Exigir P6_CDTV_ROM_MAIN y P6_CDTV_ROM_EXT antes de preparar imagenes/compilar; verificar negativos tempranos junto a A4000/CD32 y documentar el par fijo. Root limita esta vertical a tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md; la puerta acumulada completa sigue pendiente de candidata estable, sin atribuir CI real por tests de infraestructura."
+        "Integracion de CDTV: la lane funcional ahora selecciona el probe con firmware autorizado de T67c1. Exigir P6_CDTV_ROM_MAIN y P6_CDTV_ROM_EXT antes de preparar imagenes/compilar; verificar negativos tempranos junto a A4000/CD32 y documentar el par fijo. Root limita esta vertical a tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md; la puerta acumulada completa sigue pendiente de candidata estable, sin atribuir CI real por tests de infraestructura.",
+        "Integracion acotada del dispatcher: conectar los selectores host publicos ya ejecutados de T66t15c a BUILD01/MED01/STATE01, que sin registro responden NOT_IMPLEMENTED. Solo tools/check.py y comprobacion de importacion/casos no vacios, sin repetir builds ni acreditar CI acumulada. Volver pending al terminar esta vertical mientras se completa CDTV."
       ],
       "checks": [
         "PLAN01",
@@ -18376,13 +18377,15 @@
         "tests/media/cdtv_boot_image.py",
         "tests/media/cdtv_boot_probe.cpp",
         "tests/media/test_cdtv_boot.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "tools/check.py"
       ],
       "steps": [
         "Generar ISO9660 minimo y HUNK68000 original con S/Startup-Sequence que ejecuta C:P6CDTV y SYS:P6DATA con nonce16 externo. Leer temporalmente el TM del Brian autorizado interpretando PVD/CDFS con tamanos y LBAs reales, sin guardar assets enGit. TM2048 es candidato aun no acreditado: no exigir22152 sin fuente ni asumir compatibilidad. No nuevos ROMs, firmware modificado, private_start ni atajos de autoconfig.",
         "AppDOS1.3 usa OpenLibraryversion0 y Open/Read/Close; marcador en DATA propio PCrelativo, contador inicial0, copia nonce leido y progresa con Delay1 LVO-198/D1. No direcciones RAM arbitrarias ni relojhost. Host exige firma+nonce+contadorpositivo unico y creciente: copia HUNK en cache con contador0 no pasa.",
         "CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives comparte MED01/STATE01/DET02 en una ejecucion: boot original hasta marcador dentro del limite, savecut y16unidades de futuro RAM/AV/PCM/ticks/fullsave, restore mismoowner y nuevo proceso antes del primer run exactos. Sin Startup no marcador al mismo limite; nonceB debe ejecutarB y rechazar estadoA transaccional poridentidad. PC en ROM/pantalla no prueban boot.",
-        "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes."
+        "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes.",
+        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente."
       ],
       "checks": [
         "MED01",
@@ -18434,14 +18437,16 @@
         "tests/libretro-host/test_model_tags.py",
         "tests/libretro-host/test_cdtv_load.py",
         "docs/02-contracts.md",
-        "docs/options.md"
+        "docs/options.md",
+        "tools/check.py"
       ],
       "steps": [
         "Publicar P6_MACHINE_CDTV10 y alias interno ligado a macro; schema wrapper:false mantiene BizHawk excluido hasta su propia puerta. Headless --machine cdtv solo combinado firmware, sin inventar CD/estadoCLI. Dos salidas de schema solo generador.",
         "Firmware fijo KS1.3 ID6 y EXT2.7 ID22,256KiB cada una; helper estatico por maquina produce EXT+MAIN tambien sin contenido. Preservar validacion/descifrado/VFS y publicacion transaccional. Automatic+CD directo con tagCDTV selecciona CDTV; modelo/presetexplicito prevalece ytagsdisabled fallbackCD32. CDTV precede CD32FR/FastRAM enmismonombre; disquetes conservan semantica previa.",
         "CD inicial fijo o sincontenido, binding antesp6_load y ownersvivos hasta shutdown, autoconfigoriginalC2. Rechazar ADF/HDF/Kickstartalternativo/playlistsmultimedio/eject/index/add/replace antes de bandeja/eventos; no exito ficticio niAkiko paraCDTV. CambioCDTV yconexionBizHawk/WB quedan hojas obligatoriasposteriores.",
         "Reutilizar integra puerta nativa C3a MED01/STATE01/DET02 sin duplicar probe. LR01/DET02 CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload usa fixtureC3a, marcador firma/nonce/contador creciente buscado enChipRAM mediante peek existente, save/load/futuroRAM/AV/PCM/ticks, --cycles2 yrestorecoldprocesonuevo. CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals cubreAutomatic/explicito/tagsdisabled/sincontenido/VFSstdio/firmwareincompletoalterado/modelosincompatibles/refusalsconestadoybandejaintactos/handlescerrados.",
-        "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. cd32_close implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe."
+        "GEN01/ABI01 generate_options.py --check, tests.config.test_schema ytest_parity verifican ID10 ABI/LR/headless yexclusionBizHawk, ordinales/layoutprevios. LR01 modelo tags yregresionCUE345 CD32 una vezalintegrar. cd32_close implementa aislado solo tras C3aDONE/activacionroot;17rutas(15manuales+2generadas),300-360lineasmanualescon tests/docs ylimite400. SinCMake/enginepatch/cambioscodec. Rootserializa builds-j2; dividirantes si no cabe.",
+        "Metadata exclusiva root: registrar selectores reales en tools/check.py cuando existan, manteniendo una union sin repetir suites por etiqueta; no forma parte del presupuesto de implementacion del agente."
       ],
       "checks": [
         "MED01",
