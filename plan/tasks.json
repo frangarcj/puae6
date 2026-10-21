@@ -18349,6 +18349,49 @@
       "stop": "No hardcodeE9, private_start como autoconfig, ptr persistido, apertura ficticia, fase fingida ni efectos durante Apply. Preflight de destino antes de reset; ampliar scope antes de nuevas rutas o400 lineas."
     },
     {
+      "id": "T67c3a",
+      "title": "Arrancar un CDTV privado desde ISO y HUNK propios y restaurarlo en frio",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T67c2",
+        "T15",
+        "T66t14"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/media/cdtv_boot_image.py",
+        "tests/media/cdtv_boot_probe.cpp",
+        "tests/media/test_cdtv_boot.py",
+        "docs/02-contracts.md"
+      ],
+      "steps": [
+        "Generar ISO9660 minimo y HUNK68000 original con S/Startup-Sequence que ejecuta C:P6CDTV y SYS:P6DATA con nonce16 externo. Leer temporalmente el TM del Brian autorizado interpretando PVD/CDFS con tamanos y LBAs reales, sin guardar assets enGit. TM2048 es candidato aun no acreditado: no exigir22152 sin fuente ni asumir compatibilidad. No nuevos ROMs, firmware modificado, private_start ni atajos de autoconfig.",
+        "AppDOS1.3 usa OpenLibraryversion0 y Open/Read/Close; marcador en DATA propio PCrelativo, contador inicial0, copia nonce leido y progresa con Delay1 LVO-198/D1. No direcciones RAM arbitrarias ni relojhost. Host exige firma+nonce+contadorpositivo unico y creciente: copia HUNK en cache con contador0 no pasa.",
+        "CdtvBootRestoreTests.test_original_iso_hunk_boot_cold_restore_and_negatives comparte MED01/STATE01/DET02 en una ejecucion: boot original hasta marcador dentro del limite, savecut y16unidades de futuro RAM/AV/PCM/ticks/fullsave, restore mismoowner y nuevo proceso antes del primer run exactos. Sin Startup no marcador al mismo limite; nonceB debe ejecutarB y rechazar estadoA transaccional poridentidad. PC en ROM/pantalla no prueban boot.",
+        "busy_reference implementa aislado solo despues de C2DONE y activacion root, cuatro rutas y350-385 lineas manuales, limite400. Target existente sin CMake/enginepatch; dividir o ampliar antes si no cabe. Root serializa compilacion-j2; primer experimento de arranque acotado antes de ejecutar la puerta completa. Mantener frontendpublico y Waterbox pendientes."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "ISO y programa originales ejecutan lectura real CDFS/AmigaDOS bajo firmware CDTV autorizado y producen resultado RAM dependiente del fichero; restore local y cold nuevo proceso reproducen futuro completo, negativos no arrancan ni mutan estado al rechazar identidad."
+      ],
+      "stop": "Sin atribuir boot por PCROM o cache del HUNK, asumir TM compatible, descargar firmware ni alterar ROM; fallo tras dos intentos conserva reproducer y bloqueo con hipotesis."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -18361,7 +18404,8 @@
         "T67b1",
         "T67b2",
         "T67c1",
-        "T67c2"
+        "T67c2",
+        "T67c3a"
       ],
       "read": [
         "docs/01-architecture.md",
