@@ -98,7 +98,7 @@ def image(tm, nonce=NONCE, *, startup=True):
     options = b'\0TM' + struct.pack('>H5I', 20, len(tm), tm_lba, 0, 0, 0) + b'\0\0'
     pvd[883:883+len(options)] = options
     put(16, pvd); put(17, b'\xffCD001\x01')
-    put(20, root + record(b'\1', 20, 2048, True) + record(b'C', 22, 2048, True) + record(b'S', 21, 2048, True) + record(b'P6DATA;1', data_lba, 16))
+    put(20, root + record(b'\1', 20, 2048, True) + record(b'C', 22, 2048, True) + record(b'P6DATA;1', data_lba, 16) + record(b'S', 21, 2048, True))
     script = b'C:P6CDTV\n'
     put(21, record(b'\0', 21, 2048, True) + record(b'\1', 20, 2048, True) + (record(b'Startup-Sequence;1', script_lba, len(script)) if startup else b''))
     put(22, record(b'\0', 22, 2048, True) + record(b'\1', 20, 2048, True) + record(b'P6CDTV;1', code_lba, len(executable)))

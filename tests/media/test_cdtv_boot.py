@@ -4,8 +4,10 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from tests.build_support import ROOT, build_targets
+from tests.media import cdtv_boot_image
 
 
 class CdtvFirmwareTests(unittest.TestCase):
@@ -21,3 +23,20 @@ class CdtvFirmwareTests(unittest.TestCase):
         profile=json.loads((ROOT/'config/profiles/cdtv-ecs.json').read_text()); self.assertEqual(profile['machine_id'],10)
         self.assertEqual(observed,profile['fields']); self.assertIn('CDTV firmware executed',result.stdout)
         self.assertIn('CD boot/autoconfig/state not asserted',result.stdout)
+
+
+class CdtvOriginalBootTests(unittest.TestCase):
+    def test_original_iso_hunk_executes_nonce(self):
+        main,ext=(os.environ.get(key) for key in ('P6_CDTV_ROM_MAIN','P6_CDTV_ROM_EXT'))
+        cue=os.environ.get('P6_CD32_GAME_CUE') or os.environ.get('P6_CD_CUE_FILE')
+        if not main or not ext or not cue:
+            raise RuntimeError('BLOCKED: authorized CDTV main/ext ROMs and Brian CUE required')
+        tm=cdtv_boot_image.trademark(cue)
+        self.assertEqual(hashlib.sha256(tm).hexdigest(),'df6da5cea7c67fe02bdee1c9b7e3debc0406496ef99971b76b78b121d7d923c3')
+        exe=build_targets(ROOT/'build/state-opt',['p6_cdtv_boot_probe'],optimized=True)['p6_cdtv_boot_probe']
+        with tempfile.TemporaryDirectory(prefix='cdtv-original-',dir=ROOT/'build') as directory:
+            iso=Path(directory)/'original.iso'; iso.write_bytes(cdtv_boot_image.image(tm))
+            result=subprocess.run([str(exe),main,ext,str(iso),cdtv_boot_image.NONCE.hex()],
+                                  capture_output=True,text=True,timeout=180)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertIn('nonce read and guest Delay counter advanced',result.stdout)

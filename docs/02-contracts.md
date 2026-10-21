@@ -1887,3 +1887,18 @@ READ/capacidad/play no producen datos ficticios. Cuatro cortes prueban pendiente
 base EA, shut-up y EA con Disc, tambien antes del primer run de otro proceso.
 Los futuros comparan MMIO/RAM/AV/PCM/ticks y el estado completo. No acredita
 arranque de CD/menu ni snapshots Waterbox, y no promete compatibilidad entre builds.
+
+T67c3a conserva un reproducer de arranque con ISO9660/HUNK68000 originales.
+El TM se lee del PVD del Brian local autorizado, con longitud real y solo en
+imagenes temporales; sus 2048 bytes no acreditan ni descartan compatibilidad CDTV.
+La app abre DOS version0, lee nonce16 de SYS:P6DATA y aumenta su contador propio
+tras Delay(1). Firma16, nonce16 y contadorBE32 ocupan offsets0/16/32; los campos
+BE32 en36/40/44/48 diagnostican etapa y resultados OpenLibrary/Open/Read.
+Solo nonce correcto y contador positivo/creciente acreditan ejecucion: una copia
+HUNK cacheada con contador0 no pasa. El experimento de600unidades produjo lecturas
+PVD/TM/HUNK pero etapa0; no se ha observado ejecucion de la entrada. Quedan por distinguir la
+aceptacion del TM candidato y bootstrap/CDFS/LoadSeg antes del HUNK. No se ha
+acreditado boot ni implementado su puerta de restore/negativos; estos no se
+sustituyen por los cortes de autoconfig. Startup-Sequence conserva el mismo case
+mixto y version ISO que el disco original. El orden raiz se corrige sin atribuirle
+el fallo previo a la entrada ni ejecutar otra campaña.
