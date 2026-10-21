@@ -2268,3 +2268,19 @@ renombrar/reubicar/reordenar, cambios de metadata, payload de segunda sesion y
 prefijo, rechazo transaccional de candidato/fallo/owner cerrado y salida sin IO
 en huecos. El montaje single conserva su ID; loader publico y snapshot quedan
 para su propia puerta.
+
+## NRG multisesion publico y catalogo mixto V3 (T66v12)
+
+El constructor publico acepta un descriptor o un catalogo fijo de una sola
+version V1/V2/V3, con su lector y lease originales. DAO multisesion usa V3; si
+aparece en un catalogo, sus otras fuentes se promueven copiando los 12 words V2
+y SessionCount=0. V1 conserva StoredPregap=1 y flags=0 mediante el conversor
+regional existente. Los IDs no se recalculan: single conserva su dominio y
+catalogo sigue `PUAE6 CD catalog/v1` con IDs unicos y mapa de slots ordenado.
+El wrapper copia arrays, valida exclusividad/mapa/IDs y verifica IsDisposed antes
+de llamar al lector; Dispose no puede reabrir archivos de una lease terminada.
+La carga real XML/directa explicita y el catalogo [DAO multi,ISO,CHD,alias DAO]
+comparten la prueba de SBI, huecos sin IO, SaveRAM y corte temprano/futuro 15, con
+restore antes del primer frame en nuevo sandbox/proceso y fullsnapshot exacto.
+Metadata CUE0, payload, SBI, orden o aliases ajenos se rechazan antes de cargar
+el sandbox. No se declara soporte TAO multisesion, Session Info ni FullTOC fisico.

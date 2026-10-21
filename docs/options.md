@@ -24,8 +24,10 @@ y Kickstart Automatic. Requiere las mitades de 512 KiB `kick40060.CD32` y
 NRG DAO admite varias sesiones explicitas: conserva LBAs y huecos y presenta
 un TOC virtual con pistas globales y leadout final (ADR 0018), sin seleccion
 mutable de sesion ni sectores inventados entre sesiones. La identidad incluye
-tabla y archivo completos; esta conexion nativa/libretro no publica el loader
-multisesion de BizHawk ni acredita Session Info/FullTOC fisicos.
+tabla y archivo completos en nativo. En BizHawk, seleccionando PUAE6 de forma
+explicita, DAO multisesion usa metadata tipada y stream canonico con SBI: conserva
+CUE0/A2, pistas globales y huecos sin fabricar sectores. No acredita Session Info,
+FullTOC fisicos ni seleccion mutable de sesion.
 NRG DAO admite tambien Mode2 codigo03 con cuerpo de 2336 bytes: reconstruye
 solo la cabecera MSF por LBA y conserva subheader, datos y EDC/ECC. Mode02
 admite payload de2048 bytes: sintetiza subheader cero y EDC/ECC de Mode2 Form1,
@@ -48,8 +50,9 @@ ocho bytes reservados cero. LibMirage fijado, parser.c:373..383/835..883,
 respalda directamente el mismo pregap150. La identidad tiene dominio P6ETN2;
 DAO y ETNF conservan sus identidades. El parser valida extents superiores a4GiB
 sin leer el payload; las vistas conservan sus limites actuales de LBA/MSF.
-Padding entre pistas, TINF y multisesion siguen sin soporte. Esta ruta es nativa:
-el loader publico BizHawk aun rechaza TAO; esto no equivale a soporte TAO general.
+Padding entre pistas, TINF y TAO multisesion siguen sin soporte. BizHawk admite
+el mismo subconjunto ETNF/ETN2 con pregap canonico de 150 sectores al elegir
+PUAE6 explicitamente; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
 2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es
 sintetico y los offsets apuntan a datos; TOC, PLBA y longitudes deben concordar.
@@ -61,7 +64,7 @@ La identidad incluye el MDS y MDF completos: cambiar metadata, datos o padding
 impide restaurar sus estados. Versiones/modos/multipart no soportados se rechazan.
 CD32 sin un CD directo se rechaza. Los tags CD32 de disquetes conservan su
 significado anterior.
-BizHawk selecciona `Machine=CD32` al cargar un unico CD y pide los firmwares
+BizHawk selecciona `Machine=CD32` al cargar CD y pide los firmwares
 `Amiga/CD32` y `Amiga/CD32ext`, o el combinado de 1 MiB del firmware manager.
 El perfil usa 68EC020 exacto, AGA, 2 MiB Chip, sin Fast/FPU/Z3 ni disqueteras.
 SaveRAM contiene los 1024 bytes crudos de la EEPROM. BizHawk solo permite
@@ -71,8 +74,11 @@ equivalente a `puae6_machine=CD32` + `puae6_fast_size=MB8`. En BizHawk se eligen
 `Machine=CD32` y `FastMemory=MB8`; en headless `--machine cd32 --fast 8192`.
 Requiere reinicio y los estados/peliculas del stock no se intercambian con FR.
 Las peliculas BK2/TASproj CD32 admiten inicio desde SaveRAM o estado binario
-con NVRAM inicial importada. Cambio de CD, seleccion de FR por etiquetas del CD y
-arranque completo de juegos siguen pendientes.
+con NVRAM inicial importada. Ambos frontends ofrecen catalogos fijos de hasta
+16 slots, aliases y cambio de CD con restauracion fria. BizHawk permite mezclar
+DAO multisesion, ISO V1 y CHD V2; conserva sus IDs al promover el transporte a V3.
+Brian the Lion acredita arranque real, interaccion y restauracion de juego. Las
+etiquetas CD32FR/FastRAM seleccionan FR en libretro, como se describe abajo.
 
 ## A4000/030 (T55b)
 
@@ -293,8 +299,8 @@ expulsar primero; el cambio se aplica al comenzar el siguiente `retro_run`.
 Añadir, reemplazar o eliminar entradas devuelve false: recargar otro conjunto
 requiere una sesion nueva. Los estados restauran seleccion, ausencia y peticiones
 pendientes; el mismo conjunto renombrado se admite, pero otro orden, contenido o
-mapa de aliases se rechaza. Esta conexion no acredita aun cambio de CD en BizHawk
-ni su registro/replay TAS.
+mapa de aliases se rechaza. BizHawk ofrece tambien catalogo fijo, seleccion y
+ausencia mediante controles, conservados en estados y registro/replay TAS.
 
 ### CD directo: CD32, CD32FR y CDTV
 

@@ -353,7 +353,7 @@ internal static unsafe partial class Program
 #if PUBLIC_CHD
   if(args.Length==2&&args[0] is "host-chd" or "host-nrg") { HostCd(args[1]); return; }
   if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicCd(args,".chd"); return; }
-  if(args.Length>=8&&args[5].StartsWith("nrgpublic")) { PublicCd(args,".nrg"); return; }
+  if(args.Length>=8&&(args[5].StartsWith("nrgpublic")||args[5].StartsWith("nrgmultipublic"))) { PublicCd(args,".nrg"); return; }
 #endif
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");

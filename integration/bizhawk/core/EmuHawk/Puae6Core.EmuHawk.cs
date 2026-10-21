@@ -42,6 +42,7 @@ public sealed partial class Puae6Core
 			slots.Add(ordinal);
 		}
 		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Exists(a => a.DiscData.Regions.Count != 0);
+		bool sessioned = sources.Any(s => s.SessionCount >= 2);
 		Puae6DiscSource? cd = lp.Discs.Count == 1 ? sources[0] : null;
 		if (lp.Discs.Count != 0)
 		{
@@ -69,11 +70,13 @@ public sealed partial class Puae6Core
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			SyncSettings = settings,
-			CdInfo = cd is not null && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
-			CdInfoV2 = cd is not null && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,
+			CdInfo = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
+			CdInfoV2 = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,
+			CdInfoV3 = cd is not null && sessioned ? cd.DescriptorV3() : null,
 			CdOwner = lp.Discs.Count == 1 ? lp.Discs[0] as IOwnedDiscAsset : lp.Discs.OfType<IOwnedDiscAsset>().Any() ? new CdOwners(lp.Discs.OfType<IOwnedDiscAsset>().Distinct().ToArray()) : null,
-			CdCatalog = catalog && !regional ? sources.Select(s => s.Descriptor()).ToArray() : null,
-			CdCatalogV2 = catalog && regional ? sources.Select((s, n) => RegionalDescriptor(s, typed[n])).ToArray() : null,
+			CdCatalog = catalog && !sessioned && !regional ? sources.Select(s => s.Descriptor()).ToArray() : null,
+			CdCatalogV2 = catalog && !sessioned && regional ? sources.Select((s, n) => RegionalDescriptor(s, typed[n])).ToArray() : null,
+			CdCatalogV3 = catalog && sessioned ? sources.Select((s, n) => SessionDescriptor(s, typed[n])).ToArray() : null,
 			CdSlots = catalog ? slots.ToArray() : [ ], CdNames = catalog ? lp.Discs.Select(a => a.DiscName).ToArray() : [ ],
 			ReadCdCatalog = catalog ? (ordinal, at, data, count) => ordinal < sources.Count && owners[(int)ordinal]?.IsDisposed != true && sources[(int)ordinal].ReadAt(at, data, 0, count) : null,
 			ReadCd = cd is null ? null : (at, data, count) => owners[0]?.IsDisposed != true && cd.ReadAt(at, data, 0, count),
@@ -100,6 +103,16 @@ public sealed partial class Puae6Core
 			result.Tracks[n * 12 + 6] = 1; // Stored INDEX00; flags0 selects the complete V1 policy in cd_descriptor_v2.
 		}
 		return result;
+	}
+
+	static unsafe P6CdInfoV3 SessionDescriptor(Puae6DiscSource source, bool regional)
+	{
+		if (source.SessionCount >= 2) return source.DescriptorV3();
+		var v2 = RegionalDescriptor(source, regional);
+		var result = new P6CdInfoV3 { Version = 3, Size = (uint)sizeof(P6CdInfoV3), Bytes = v2.Bytes, Count = v2.Count, Leadout = v2.Leadout };
+		for (int i = 0; i < 32; ++i) result.Id[i] = v2.Id[i];
+		for (int i = 0; i < 99 * 12; ++i) result.Tracks[i] = v2.Tracks[i];
+		return result; // SessionCount0 retains the complete single-session V1/V2 policy and identity.
 	}
 
 	sealed class CdOwners(IOwnedDiscAsset[] owners) : IDisposable

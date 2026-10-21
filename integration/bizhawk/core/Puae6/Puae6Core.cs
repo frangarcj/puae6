@@ -28,19 +28,22 @@ public sealed class Puae6Parameters
 	/// <summary>Immutable CD descriptor and pure offset reader. The owner of the source must outlive this core.</summary>
 	public P6CdInfo? CdInfo { get; set; }
 	public P6CdInfoV2? CdInfoV2 { get; set; }
+	public P6CdInfoV3? CdInfoV3 { get; set; }
 	public Func<ulong, byte[], int, bool>? ReadCd { get; set; }
-	/// <summary>Fixed unique descriptors, in first occurrence order; choose either V1 or V2, never both or a single descriptor.</summary>
+	/// <summary>Fixed unique descriptors, in first occurrence order; choose one of V1, V2 or V3, never several or a single descriptor.</summary>
 	public P6CdInfo[]? CdCatalog { get; set; }
 	public P6CdInfoV2[]? CdCatalogV2 { get; set; }
+	public P6CdInfoV3[]? CdCatalogV3 { get; set; }
 	public Func<uint, ulong, byte[], int, bool>? ReadCdCatalog { get; set; }
 	public int[] CdSlots { get; set; } = [ ];
 	public string[] CdNames { get; set; } = [ ];
-	internal int CdCount => CdCatalog?.Length ?? CdCatalogV2?.Length ?? (CdInfo.HasValue || CdInfoV2.HasValue ? 1 : 0);
+	internal int CdCount => CdCatalog?.Length ?? CdCatalogV2?.Length ?? CdCatalogV3?.Length ?? (CdInfo.HasValue || CdInfoV2.HasValue || CdInfoV3.HasValue ? 1 : 0);
 	internal int CdSlotCount => ReadCdCatalog is not null ? CdSlots.Length : CdCount;
 	// Only the public loader supplies a lease; direct API sources remain borrowed.
 	internal IDisposable? CdOwner { get; set; }
 	internal P6CdHost? CreateCdHost() => CdCatalog is { } c1 ? new P6CdHost(c1, ReadCdCatalog!)
-		: CdCatalogV2 is { } c2 ? new P6CdHost(c2, ReadCdCatalog!) : CdInfoV2 is { } v2 ? new P6CdHost(v2, ReadCd!)
+		: CdCatalogV2 is { } c2 ? new P6CdHost(c2, ReadCdCatalog!) : CdCatalogV3 is { } c3 ? new P6CdHost(c3, ReadCdCatalog!)
+		: CdInfoV3 is { } v3 ? new P6CdHost(v3, ReadCd!) : CdInfoV2 is { } v2 ? new P6CdHost(v2, ReadCd!)
 		: CdInfo is { } v1 ? new P6CdHost(v1, ReadCd!) : null;
 	internal unsafe byte[]? CdIdentity()
 	{
@@ -55,9 +58,10 @@ public sealed class Puae6Parameters
 			}
 			return StateEnvelope.Sha256(stream.ToArray());
 		}
-		if (!CdInfo.HasValue && !CdInfoV2.HasValue) return null;
+		if (!CdInfo.HasValue && !CdInfoV2.HasValue && !CdInfoV3.HasValue) return null;
 		var id = new byte[32];
-		if (CdInfoV2 is { } v2) for (int i = 0; i < 32; ++i) id[i] = v2.Id[i];
+		if (CdInfoV3 is { } v3) for (int i = 0; i < 32; ++i) id[i] = v3.Id[i];
+		else if (CdInfoV2 is { } v2) for (int i = 0; i < 32; ++i) id[i] = v2.Id[i];
 		else if (CdInfo is { } v1) for (int i = 0; i < 32; ++i) id[i] = v1.Id[i];
 		return id;
 	}
@@ -65,14 +69,15 @@ public sealed class Puae6Parameters
 	{
 		var id = new byte[32];
 		if (CdCatalog is { } c1) { var info = c1[ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
-		else { var info = CdCatalogV2![ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
+		else if (CdCatalogV2 is { } c2) { var info = c2[ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
+		else { var info = CdCatalogV3![ordinal]; for (int i = 0; i < 32; ++i) id[i] = info.Id[i]; }
 		return id;
 	}
 
 	internal void ValidateCd()
 	{
-		int single = (CdInfo.HasValue ? 1 : 0) + (CdInfoV2.HasValue ? 1 : 0);
-		int catalog = (CdCatalog is not null ? 1 : 0) + (CdCatalogV2 is not null ? 1 : 0);
+		int single = (CdInfo.HasValue ? 1 : 0) + (CdInfoV2.HasValue ? 1 : 0) + (CdInfoV3.HasValue ? 1 : 0);
+		int catalog = (CdCatalog is not null ? 1 : 0) + (CdCatalogV2 is not null ? 1 : 0) + (CdCatalogV3 is not null ? 1 : 0);
 		bool cd = single + catalog != 0;
 		if (single + catalog > 1 || (single == 1) != (ReadCd is not null) || (catalog == 1) != (ReadCdCatalog is not null)
 			|| !cd && CdOwner is not null || CdSlots is null || CdNames is null || catalog == 0 && (CdSlots.Length != 0 || CdNames.Length != 0))
@@ -335,9 +340,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
-			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2,
+			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
 			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
-			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
+			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
 			CdSlots = (int[])parameters.CdSlots.Clone(), CdNames = (string[])parameters.CdNames.Clone(),
 		};
 		_mediaNames = parameters.MediaNames;

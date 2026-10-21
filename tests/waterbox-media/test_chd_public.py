@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import struct
 import tempfile
 import unittest
 
@@ -17,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 import build_waterbox as wb
 from tests.media import test_cd_source_csharp as source, test_chd_reader as reader, test_cd_chd as chd
 from tests.media.test_chd_canonical_csharp import subq
-from tests.media.test_nrg_canonical_csharp import nrg_fixture
+from tests.media.test_nrg_canonical_csharp import nrg_fixture, dao_fixture, dao_metadata, dao_identity, sbi_fixture
 
 
 def prepare_public_cd(cls, *, guest_required):
@@ -154,3 +155,57 @@ class NrgPublicHostTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertIn(expected[0],result.stdout.splitlines())
             self.assertEqual(Path(str(xml)+'.actual').read_bytes(),wire)
+
+
+class NrgMultiPublicWaterboxTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        prepare_public_cd(cls, guest_required=True)
+
+    def test_public_multisession_and_mixed_catalog_cold_restore(self):
+        base,env,guest,sha,runtime,main,ext,output=self.prepared
+        pattern=reader.dependency.load('multi_public_chd_pattern',ROOT/'tests/fixtures/chd/generate.py')
+        audio=pattern.audio(); chdwire=b''.join(audio[n*2352:(n+1)*2352]+subq(1,1,n,0,0) for n in range(40))
+        isowire=b''.join(chd.mode1(bytes(2048),n)+subq(1,1,n,0,4) for n in range(512))
+        isoid=hashlib.sha256(b'P6CD2448\0'+struct.pack('<3I5i',1,512,1,0,0,512,1,4)+isowire).hexdigest().upper()
+        chdid=hashlib.sha256(b'P6CD2448\0'+struct.pack('<3I12I',2,40,1,0,0,40,0,0,0,0,0,0,3,0,0)+chdwire).hexdigest().upper()
+        lbas=[*range(-150,11),*range(30,39)]; entries=((6,2,b'\x98\x76\x54'),(32,3,b'\x12\x34\x56'))
+        for kind in ('xml','direct','catalog'):
+            work=base/('multi-'+kind); work.mkdir(); path,raw,rows=dao_fixture(work,'disc')
+            wire=sbi_fixture(path.with_suffix('.sbi'),raw,entries,lbas)
+            ids=[dao_identity(wire,rows),isoid,chdid]
+            catalogid=hashlib.sha256(b'PUAE6 CD catalog/v1'+struct.pack('<I',3)+b''.join(bytes.fromhex(i) for i in ids)+struct.pack('<5I',4,0,1,2,0)).hexdigest().upper()
+            (work/'ids.txt').write_text('\n'.join(ids+[catalogid])); (work/'wire.bin').write_bytes(wire)
+            (work/'tracks.bin').write_bytes(b''.join(struct.pack('<12I',*r) for r in dao_metadata(rows)[1]))
+            (work/'iso-wire.bin').write_bytes(isowire); (work/'chd-wire.bin').write_bytes(chdwire)
+            (work/'legacy.iso').write_bytes(bytes(512*2048)); shutil.copy2(ROOT/'tests/fixtures/chd/cdzl.chd',work/'audio.chd')
+            shutil.copy2(path,work/'alias.nrg'); shutil.copy2(path.with_suffix('.sbi'),work/'alias.sbi')
+            names=['disc.nrg','legacy.iso','audio.chd','alias.nrg'] if kind=='catalog' else ['disc.nrg']
+            def xml(directory,assets):
+                (directory/'disc.xml').write_text('<BizHawk-XMLGame System="Amiga" Name="multi"><LoadAssets>'+''.join(f'<LoadAsset FileName="{name}"/>' for name in assets)+'</LoadAssets></BizHawk-XMLGame>')
+            xml(work,names)
+            for change in ('other','shifted','sbi',*(['order','map'] if kind=='catalog' else [])):
+                other=work/change; other.mkdir()
+                for name in (*names,'disc.sbi',*(['alias.sbi'] if kind=='catalog' else [])): shutil.copy2(work/name,other/name)
+                data=bytearray(path.read_bytes())
+                if change=='other': data[int(rows[-1].split()[3])+17]^=1 # Stored program in session2.
+                if change=='shifted':
+                    directory=int.from_bytes(data[-8:],'big'); cue=data.index(b'CUEX',data.index(b'CUEX',directory)+4)
+                    struct.pack_into('>i',data,cue+12,21) # Valid CUE0, same readable wire; only metadata identity changes.
+                if change in ('other','shifted'):
+                    (other/'disc.nrg').write_bytes(data)
+                    if kind=='catalog': (other/'alias.nrg').write_bytes(data)
+                if change=='sbi':
+                    sbi_fixture(other/'disc.sbi',raw,((6,2,b'abc'),entries[1]),lbas)
+                    if kind=='catalog': shutil.copy2(other/'disc.sbi',other/'alias.sbi')
+                assets=[names[0],names[2],names[1],names[3]] if change=='order' else names[:3]+[names[1]] if change=='map' else names
+                xml(other,assets)
+            renamed=work/'renamed'; renamed.mkdir()
+            for name in (*names,'disc.sbi',*(['alias.sbi'] if kind=='catalog' else [])): shutil.copy2(work/name,renamed/name)
+            xml(renamed,names)
+            for mode,directory in (('save',work),('load',renamed)):
+                content=directory/('disc.nrg' if kind=='direct' else 'disc.xml')
+                result=subprocess.run([source.DOTNET,str(output/'Cd32Loader.dll'),str(work),str(content),runtime['path'],str(guest),sha,
+                                       'nrgmultipublic'+mode,main,ext,kind],env=env,capture_output=True,text=True,timeout=240)
+                self.assertEqual(result.returncode,0,result.stdout[-6000:]+result.stderr[-6000:])
+                self.assertIn('Public NRG V3 multisession/mixed catalog/SBI/cold process/full future/FD close PASS',result.stdout)

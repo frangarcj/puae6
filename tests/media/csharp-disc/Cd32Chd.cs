@@ -55,24 +55,8 @@ internal static unsafe partial class Program
   var chip=core.ServiceProvider.GetService<IMemoryDomains>().MainMemory;
   return Hash(Enumerable.Range(0,32).Select(n=>chip.PeekByte(n*(chip.Size-1)/31)).ToArray());
  }
- static void PublicCd(string[] args, string extension)
+ static Puae6Core OpenPublicCd(string path, byte[] nvram, byte[] main, byte[] ext, string extension, bool direct)
  {
-  LoadRuntime(args[2]);
-  string work=args[0], xml=args[1], image=Path.ChangeExtension(xml,extension), file=Path.Combine(work,"public-cd.state");
-  bool nrg=extension==".nrg";
-  byte[] main=File.ReadAllBytes(args[6]), ext=File.ReadAllBytes(args[7]);
-  byte[] expected=File.ReadAllBytes(Path.Combine(work,"wire.bin"));
-  int pregap=!nrg&&args.Length>8?int.Parse(args[8]):0;
-  string boundaries=nrg?args[8]:"";
-  bool direct=Path.GetExtension(xml).Equals(extension,StringComparison.OrdinalIgnoreCase);
-  byte[] seed=Enumerable.Range(0,1024).Select(n=>(byte)(n*17+9)).ToArray();
-  File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
-  File.WriteAllText(Path.Combine(work,"gamedb.txt"),"");
-  Database.InitializeDatabase(work,work,true); // Direct disc identification acquires the real game database.
-  BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
-  Require(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(work,"warm.zip")));
-  Puae6Core Open(string path, byte[] nvram)
-  {
    var config=new Config(); config.PreferredCores["Amiga"]="PUAE6";
    if(direct) config.PreferredPlatformsForExtensions[extension]="Amiga";
    var loader=new RomLoader(config,null); var errors=new List<string>();
@@ -94,11 +78,101 @@ internal static unsafe partial class Program
     return core;
    } catch { core.Dispose(); throw; }
   }
+ static Func<long> WatchCd(Puae6Core core,bool catalog)
+ {
+  long calls=0; var host=CdGuest(core).Cd; var field=typeof(P6CdHost).GetField(catalog?"readCatalog":"read",BindingFlags.Instance|BindingFlags.NonPublic);
+  if(catalog) { var read=(Func<uint,ulong,byte[],int,bool>)field.GetValue(host); field.SetValue(host,(Func<uint,ulong,byte[],int,bool>)((n,at,data,count)=>{++calls; return read(n,at,data,count);})); }
+  else { var read=(Func<ulong,byte[],int,bool>)field.GetValue(host); field.SetValue(host,(Func<ulong,byte[],int,bool>)((at,data,count)=>{++calls; return read(at,data,count);})); }
+  return ()=>calls;
+ }
+ static uint[] PublicCdStatus(Puae6Core core) { var status=new uint[4]; Require(CdGuest(core).Cd.Status(CdGuest(core),status)==P6.Ok); return status; }
+ static void SelectPublicCd(Puae6Core core,uint slot)
+ {
+  Run(core,1,new CdButtons(core.ControllerDefinition,Controllers.EjectDisk)); Run(core,1);
+  for(int n=0;n<4&&(int)typeof(Puae6Core).GetField("_currentSlot",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core)!=slot;++n) { Run(core,1,new CdButtons(core.ControllerDefinition,Controllers.NextSlot)); Run(core,1); }
+  Run(core,1,new CdButtons(core.ControllerDefinition,Controllers.InsertDisk)); Run(core,1);
+  Require(PublicCdStatus(core)[1]==(slot==3?0:slot)&&PublicCdStatus(core)[2]==1);
+ }
+ static void MultiCdParameters(Puae6Core core,bool catalog)
+ {
+  var captured=(Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
+  var p=new Puae6Parameters { CdInfoV3=captured.CdInfoV3, CdCatalogV3=captured.CdCatalogV3?.ToArray(), CdSlots=(int[])captured.CdSlots.Clone(), CdNames=(string[])captured.CdNames.Clone(),
+   ReadCd=captured.ReadCd, ReadCdCatalog=captured.ReadCdCatalog, Firmware=new byte[1], SyncSettings=core.GetSyncSettings() };
+  var clone=Puae6WhdLoad.Resolve(p); var id=(byte[])Hidden(clone,"CdIdentity");
+  if(catalog) { var changed=p.CdCatalogV3[0]; changed.Id[0]^=1; p.CdCatalogV3[0]=changed; p.CdSlots[0]=1; p.CdNames[0]="mutated"; Require(clone.CdSlots.SequenceEqual(new[]{0,1,2,0})&&!clone.CdNames.Contains("mutated")); }
+  else { var changed=p.CdInfoV3.Value; changed.Id[0]^=1; p.CdInfoV3=changed; }
+  Require(((byte[])Hidden(clone,"CdIdentity")).SequenceEqual(id));
+  if(catalog) {
+   Require(!ReferenceEquals(captured.CdCatalogV3,typeof(P6CdHost).GetField("catalogV3",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(CdGuest(core).Cd)));
+   foreach(int invalid in new[]{0,1,2}) {
+    var bad=Puae6WhdLoad.Resolve(clone); if(invalid==0) bad.CdSlots[0]=1; else if(invalid==1) bad.CdCatalogV3[1]=bad.CdCatalogV3[0]; else bad.CdNames=Array.Empty<string>();
+    try { Puae6WhdLoad.Resolve(bad); throw new Exception("Invalid V3 catalog accepted"); } catch(InvalidOperationException) { }
+   }
+  }
+  for(int mode=0;mode<7;++mode) {
+   var bad=Puae6WhdLoad.Resolve(clone);
+   switch(mode) { case 0: bad.CdInfo=new P6CdInfo(); break; case 1: bad.CdInfoV2=new P6CdInfoV2(); break; case 2: bad.CdCatalog=Array.Empty<P6CdInfo>(); break;
+    case 3: bad.CdCatalogV2=Array.Empty<P6CdInfoV2>(); break; case 4: if(catalog) bad.ReadCdCatalog=null; else bad.ReadCd=null; break; case 5: bad.SyncSettings.Machine=Puae6Machine.A500; break; case 6: if(catalog) bad.CdInfoV3=bad.CdCatalogV3[0]; else bad.CdCatalogV3=new[]{bad.CdInfoV3.Value}; break; }
+   try { Puae6WhdLoad.Resolve(bad); throw new Exception("Invalid V3 params accepted"); } catch(InvalidOperationException) { }
+  }
+ }
+ static void MultiCdRead(Puae6Core core,byte[] wire,string work,bool catalog)
+ {
+  var guest=CdGuest(core); var status=PublicCdStatus(core); Require(status[0]==(catalog?3u:1u)&&status[2]==1);
+  var infos=catalog?(P6CdInfoV3[])typeof(P6CdHost).GetField("catalogV3",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd):new[]{(P6CdInfoV3)typeof(P6CdHost).GetField("infoV3",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd)};
+  var ids=File.ReadAllLines(Path.Combine(work,"ids.txt"));
+  for(int n=0;n<infos.Length;++n) { var info=infos[n]; Require(info.Version==3&&info.SessionCount==(n==0?2u:0u)); Require(new ReadOnlySpan<byte>(info.Id,32).SequenceEqual(Convert.FromHexString(ids[n]))); }
+  var first=infos[0]; Require(first.Count==3&&first.Leadout==39&&new ReadOnlySpan<uint>(first.Sessions,10).SequenceEqual(new uint[]{1,2,0,unchecked((uint)-150),11,3,3,32,20,39}));
+  Require(new ReadOnlySpan<byte>(first.Tracks,3*48).SequenceEqual(File.ReadAllBytes(Path.Combine(work,"tracks.bin"))));
+  var captured=(Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
+  Require(Convert.ToHexString((byte[])Hidden(captured,"CdIdentity"))==ids[catalog?3:0]);
+  if(catalog) { var iso=infos[1]; var chd=infos[2]; Require(iso.Tracks[6]==1&&iso.Tracks[9]==0&&chd.Tracks[9]==3); }
+  if(status[1]!=0) {
+   var bytes=File.ReadAllBytes(Path.Combine(work,status[1]==1?"iso-wire.bin":"chd-wire.bin")); var output=new byte[2448];
+   using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector(0,2448,(IntPtr)p,2448)==P6.Ok);
+   Require(output.SequenceEqual(bytes.Take(2448))); return;
+  }
+  foreach(int lba in new[]{0,3,4,5,6,10,30,31,32,38}) foreach(uint view in lba>=6&&lba<=10?new uint[]{2048,2352,2448}:new uint[]{2352,2448}) {
+   var output=new byte[view]; using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector((uint)lba,view,(IntPtr)p,view)==P6.Ok);
+   int offset=(lba<11?lba+150:lba-30+161)*2448; Require(output.SequenceEqual(wire.Skip(offset+(view==2048?16:0)).Take((int)view)));
+  }
+  var reads=WatchCd(core,catalog); var before=Save(core); long count=reads();
+  foreach(int lba in new[]{11,20,29,39}) {
+   var output=Enumerable.Repeat((byte)0xcc,2448).ToArray();
+   using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector((uint)lba,2448,(IntPtr)p,2448)!=P6.Ok);
+   Require(output.All(b=>b==0xcc));
+  }
+  Require(count==reads()); // Sector describe rejects holes before the callback.
+  foreach(ulong at in new ulong[]{11UL*2448,20UL*2448,29UL*2448,39UL*2448,11UL*2448-1}) {
+   var output=Enumerable.Repeat((byte)0xcc,2448).ToArray(); Require(guest.Cd.ReadAt(guest,at,output)!=P6.Ok&&output.All(b=>b==0xcc));
+  } // Raw transport may invoke the source preflight; CountingBlob covers physical IO in B.
+  Require(before.SequenceEqual(Save(core)));
+ }
+ static void PublicCd(string[] args, string extension)
+ {
+  LoadRuntime(args[2]);
+  string work=args[0], xml=args[1], image=Path.ChangeExtension(xml,extension), file=Path.Combine(work,"public-cd.state");
+  bool nrg=extension==".nrg", multi=args[5].StartsWith("nrgmultipublic"), catalog=multi&&args[8]=="catalog";
+  byte[] main=File.ReadAllBytes(args[6]), ext=File.ReadAllBytes(args[7]);
+  byte[] expected=File.ReadAllBytes(Path.Combine(work,"wire.bin"));
+  int pregap=!nrg&&args.Length>8?int.Parse(args[8]):0;
+  string boundaries=nrg&&!multi?args[8]:"";
+  bool direct=Path.GetExtension(xml).Equals(extension,StringComparison.OrdinalIgnoreCase);
+  byte[] seed=Enumerable.Range(0,1024).Select(n=>(byte)(n*17+9)).ToArray();
+  File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
+  File.WriteAllText(Path.Combine(work,"gamedb.txt"),"");
+  Database.InitializeDatabase(work,work,true); // Direct disc identification acquires the real game database.
+  BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
+  Require(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(work,"warm.zip")));
+  Puae6Core Open(string path, byte[] nvram) => OpenPublicCd(path,nvram,main,ext,extension,direct);
+  void Data(Puae6Core target) { if(multi) MultiCdRead(target,expected,work,catalog); else CdRead(target,expected,pregap,boundaries); }
   using(var core=Open(xml,seed)) {
-   CdRead(core,expected,pregap,boundaries);
+   if(multi) MultiCdParameters(core,catalog);
+   Data(core);
    byte[] cut; string[] future;
    if(args[5].EndsWith("save")) {
-    Run(core,300); cut=Save(core); File.WriteAllBytes(file,cut);
+    if(catalog) { SelectPublicCd(core,3); Data(core); SelectPublicCd(core,2); Data(core); }
+    Run(core,multi?2:300-core.Frame); cut=Save(core); File.WriteAllBytes(file,cut);
     File.WriteAllBytes(file+".nvram",core.CloneSaveRam());
     future=Run(core,15).Concat(new[] { CdRam(core) }).ToArray();
     File.WriteAllLines(file+".future",future); File.WriteAllBytes(file+".end",Save(core));
@@ -107,8 +181,9 @@ internal static unsafe partial class Program
    } else { cut=File.ReadAllBytes(file); future=File.ReadAllLines(file+".future"); }
    void Check(Puae6Core target)
    {
+    if(catalog&&args[5].EndsWith("save")) { SelectPublicCd(target,1); Data(target); }
     Restore(target,cut); Require(target.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(file+".nvram")));
-    CdRead(target,expected,pregap,boundaries);
+    Data(target);
     Require(Run(target,15).Concat(new[] { CdRam(target) }).SequenceEqual(future));
     Require(Save(target).SequenceEqual(File.ReadAllBytes(file+".end")));
     foreach(var (video,audio) in new[] { (false,false), (true,false), (false,true) }) {
@@ -130,14 +205,28 @@ internal static unsafe partial class Program
   }
   Require(OpenCdFile(image)==0);
   using(var fresh=Open(xml,seed)) { // No frame before the cold LOAD, also in the second process.
-   var cut=File.ReadAllBytes(file); Restore(fresh,cut); CdRead(fresh,expected,pregap,boundaries);
+   var cut=File.ReadAllBytes(file); Restore(fresh,cut); Data(fresh);
    Require(Run(fresh,15).Concat(new[] { CdRam(fresh) }).SequenceEqual(File.ReadAllLines(file+".future")));
    Require(Save(fresh).SequenceEqual(File.ReadAllBytes(file+".end")));
    Require(fresh.CloneSaveRam(false).SequenceEqual(File.ReadAllBytes(file+".nvram")));
   }
   Require(OpenCdFile(image)==0);
-  using(var durable=Open(xml,File.ReadAllBytes(file+".nvram"))) CdRead(durable,expected,pregap,boundaries);
+  using(var durable=Open(xml,File.ReadAllBytes(file+".nvram"))) {
+   Data(durable);
+   if(multi) { ((IDisposable)HiddenOwner((Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(durable))).Dispose();
+    var output=Enumerable.Repeat((byte)0xcc,2448).ToArray(); Require(CdGuest(durable).Cd.ReadAt(CdGuest(durable),0,output)!=P6.Ok&&output.All(b=>b==0xcc)&&OpenCdFile(image)==0); }
+  }
   Require(OpenCdFile(image)==0);
+  if(multi) {
+   if(args[5].EndsWith("save")) foreach(string name in catalog?new[]{"other","shifted","sbi","order","map"}:new[]{"other","shifted","sbi"}) {
+    string path=Path.Combine(work,name,Path.GetFileName(xml)); using var other=Open(path,seed);
+    var before=Save(other); var nvram=other.CloneSaveRam(false); var reads=WatchCd(other,catalog); long count=reads();
+    try { Restore(other,File.ReadAllBytes(file)); throw new Exception("Other multisession CD accepted"); } catch(StateRejectedException e) { Require(e.Reason==StateRejection.OtherMedia); }
+    Require(count==reads()&&before.SequenceEqual(Save(other))&&nvram.SequenceEqual(other.CloneSaveRam(false)));
+   }
+   foreach(string path in Directory.GetFiles(Path.GetDirectoryName(xml)).Where(p=>new[]{".nrg",".iso",".chd"}.Contains(Path.GetExtension(p)))) Require(OpenCdFile(path)==0);
+   Console.WriteLine("Public NRG V3 multisession/mixed catalog/SBI/cold process/full future/FD close PASS"); return;
+  }
   foreach(string name in pregap==0&&!nrg?new[] { "other" }:new[] { "other","shifted" }) {
   string otherXml=Path.Combine(Path.GetDirectoryName(xml),name+(direct?extension:".xml")), otherImage=Path.ChangeExtension(otherXml,extension);
   using(var other=Open(otherXml,seed)) {
