@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T39a",
         "T35",
@@ -11673,7 +11673,8 @@
         "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
         "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
       ],
-      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
+      "blocked_reason": "CI nativa Linux manual implementada en native-linux.yml/tools/ci/linux_native.py: ubuntu24.04estandar,O2conasserts,j2,45min,sinartifact/cache/secret/ROMcomercial. Infraestructura6tests+actionlintPASS; motorLinuxremotoNOejecutado. TokenGHnoaccesocuotaHTTP404requiereuser; NOrenovarscopes ni cambiargasto. Preguntaasincpendiente sobreminutosincluidosygastoadicionalbloqueado0; lanzarsoloalconocercostepermitido. No instalar runnerMaclocal, noactivarserviciospago. PuertasoriginalesPR/WaterboxDarwin/nightly/release/perfquedanintactas ysuCIremota/unionacumuladaaunpendientes, noacreditadasporestaCIparcial."
     },
     {
       "id": "T39",
