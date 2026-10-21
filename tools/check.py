@@ -339,7 +339,10 @@ TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadat
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66v1')] = {'private_session_layout_toc': 'tests.media.test_cd_disc.CdDiscTests'}
-TASK_SUITES[('MED01', 'T66l8')] = {'canonical_nrg_disc_system': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests'}
+TASK_SUITES[('MED01', 'T66l8')] = {
+    'canonical_tao': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_etnf_etn2_four_modes_mixed_stride_toc_q_stream_and_identity',
+    'canonical_identity_and_failures': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_rebind_and_malformed_inputs_close_sources_transactionally',
+    'dao_regression': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_dao_v1_v2_default_and_opt_in_preserve_bytes_and_identity'}
 TASK_SUITES[('BUILD01', 'T66l8')] = {'canonical_nrg_real_target': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_real_discsystem_target_and_analyzers'}
 TASK_SUITES[('MED01', 'T66l7')] = dict(TASK_SUITES[('MED01', 'T66l6')])
 TASK_SUITES[('LR01', 'T66t18')] = {'public_htoa_restore': 'tests.libretro-host.test_cd32_load.Cd32ChdTests.test_chd_htoa_public_cold_restore_and_identity'}
