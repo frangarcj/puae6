@@ -524,12 +524,20 @@ static void ar1_start(const std::vector<uint8_t> &rom,const std::vector<uint8_t>
     assert(p6_bridge::bind_hrtmon({nullptr,0},&e)==P6_ERROR_BAD_STATE);
     call(p6_load({rom.data(),rom.size()},nullptr,0,&e),e); p6_sha256_init(&observed);
     assert(armodel==1 && !p6_ar_cia_handler());
-    assert(!strcmp(get_mem_bank(0xf00000).name,"Action Replay ROM") && !strcmp(get_mem_bank(0x9f0000).name,"Action Replay RAM"));
 }
+static void ar1_banks()
+{
+    const auto *rom=get_mem_bank(0xf00000).name,*ram=get_mem_bank(0x9f0000).name;
+    assert(rom && ram && !strcmp(rom,"Action Replay ROM") && !strcmp(ram,"Action Replay RAM"));
+}
+static void ar1_load(const std::vector<uint8_t> &state) { load(state); ar1_banks(); }
 static void ar1_stop()
 {
+    // p6_load adopts the owner; its original hardware reset runs on first run/loadstate.
+    const bool mapped=p6_session::session.started; if(mapped) ar1_banks();
     const auto *rom=&get_mem_bank(0xf00000),*ram=&get_mem_bank(0x9f0000); stop();
-    assert(!p6_bridge::ar_bound() && !armodel && &get_mem_bank(0xf00000)!=rom && &get_mem_bank(0x9f0000)!=ram);
+    assert(!p6_bridge::ar_bound() && !armodel);
+    if(mapped) assert(&get_mem_bank(0xf00000)!=rom && &get_mem_bank(0x9f0000)!=ram);
 }
 static void ar1_release()
 {
@@ -556,7 +564,7 @@ static void ar1_continuations(const std::vector<uint8_t> &rom,const std::vector<
     for(cpu_mode=P6_CPU_EXACT;cpu_mode<=P6_CPU_COMPATIBLE;++cpu_mode) {
         std::vector<std::vector<uint8_t>> cuts; auto e=error();
         if(writing) {
-            ar1_start(rom,cart,true); step();
+            ar1_start(rom,cart,true); step(); ar1_banks();
             put_long(0x9f4000,0x89abcdef); put_long(0x9ffffc,0x1234567);
             assert(action_replay_flag==ACTION_REPLAY_ACTIVE && !ar_control().wait_pop && !(regs.spcflags&SPCFLAG_ACTION_REPLAY)); cuts.push_back(save());
             put_byte(0x11010,1); step(); assert(action_replay_flag==ACTION_REPLAY_IDLE); cuts.push_back(save());
@@ -564,15 +572,15 @@ static void ar1_continuations(const std::vector<uint8_t> &rom,const std::vector<
             step(); assert(action_replay_flag==ACTION_REPLAY_ACTIVE && !(regs.spcflags&SPCFLAG_ACTION_REPLAY)); cuts.push_back(save());
             put_byte(0x11011,1); step(); assert(action_replay_flag==ACTION_REPLAY_WAIT_PC && !ar_control().wait_pop);
             assert(ar_control().wait_pc>=0xf80000 && ar_control().wait_pc<0xfc0000); cuts.push_back(save());
-            load(cuts[3]); put_byte(0x11012,1); put_byte(0x11011,1); step();
+            ar1_load(cuts[3]); put_byte(0x11012,1); put_byte(0x11011,1); step();
             assert(action_replay_flag==ACTION_REPLAY_IDLE && !ar_control().wait_pop && (regs.spcflags&SPCFLAG_ACTION_REPLAY)); cuts.push_back(save());
-            load(cuts[4]); put_byte(0x11014,1); step(); assert(action_replay_flag==ACTION_REPLAY_ACTIVE && !ar_control().wait_pop); cuts.push_back(save());
+            ar1_load(cuts[4]); put_byte(0x11014,1); step(); assert(action_replay_flag==ACTION_REPLAY_ACTIVE && !ar_control().wait_pop); cuts.push_back(save());
             ar1_release(); assert(action_replay_flag==ACTION_REPLAY_IDLE && !(regs.spcflags&SPCFLAG_ACTION_REPLAY)); cuts.push_back(save());
-            load(cuts[3]); same_state(cuts[3]);
+            ar1_load(cuts[3]); same_state(cuts[3]);
             for(const auto &bad:std::initializer_list<std::pair<const char *,uint32_t>>{{"ar.wait_pop",2},{"ar.flag",0},{"ar.flag",4},
                 {"ar.flag",uint32_t(-1)},{"ar.banks",0},{"ar.mapped",0},{"ar.hidden",1},{"ar.hide",2},{"ar.mode_write",1},{"cpu.spcflags",SPCFLAG_ACTION_REPLAY}})
                 corrupt(cuts[3],bad.first,bad.second);
-            load(cuts[4]); same_state(cuts[4]); corrupt(cuts[4],"cpu.spcflags",0);
+            ar1_load(cuts[4]); same_state(cuts[4]); corrupt(cuts[4],"cpu.spcflags",0);
             // ID15 names the AR2/3 CIA callback. It is invalid even with an AR1 owner.
             auto bad=cuts[4]; const auto slot=fields.at("ev2.active"); bad[slot]=1; bad[slot+1]=15;
             const uint64_t when=get_cycles()+CYCLE_UNIT; for(unsigned n=0;n<8;++n) bad[slot+2+n]=uint8_t(when>>(8*n));
@@ -583,8 +591,8 @@ static void ar1_continuations(const std::vector<uint8_t> &rom,const std::vector<
             const auto state=writing?cuts[cut]:file(path.c_str()); ar1_start(rom,cart);
             auto foreign=state; auto id=p6_state::current_identity(); id.media_manifest_hash[0]^=1; reseal(foreign,id); const auto original=foreign;
             assert(p6_state_load(foreign.data(),foreign.size(),&e)==P6_ERROR_INCOMPATIBLE && foreign==original && !p6_session::session.started);
-            load(state); same_state(state); assert(get_long(0x9f4000)==0x89abcdef && get_long(0x9ffffc)==0x1234567); const auto first=ar1_future();
-            load(state); same_state(state); assert(first==ar1_future());
+            ar1_load(state); same_state(state); assert(get_long(0x9f4000)==0x89abcdef && get_long(0x9ffffc)==0x1234567); const auto first=ar1_future();
+            ar1_load(state); same_state(state); assert(first==ar1_future());
             if(writing) { FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f); }
             printf("AR1 continuation %u/%u ",cpu_mode,cut); for(auto byte:first) printf("%02x",byte); puts(""); ar1_stop();
         }
