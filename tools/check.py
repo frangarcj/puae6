@@ -338,6 +338,8 @@ for _gate in ('WB03', 'WB08', 'DET02'):
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
+for _gate in ('STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T66v5')] = {'native_multisession_cold_restore': 'tests.media.test_cd32_state.Cd32NrgStateTests.test_private_multisession_restore_new_process', 'native_legacy_regression': 'tests.media.test_cd32_state.Cd32StateTests'}
 TASK_SUITES[('MED01', 'T66v4')] = {'private_session_toc': 'tests.media.test_cd_disc.CdDiscTests', 'private_session_device': 'tests.media.test_cd_device.CdDeviceTests', 'nrg_owner_regression': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66v3')] = {'private_multisession_owner': 'tests.media.test_cd_nrg.CdNrgTests'}
 TASK_SUITES[('MED01', 'T66v1')] = {'private_session_layout_toc': 'tests.media.test_cd_disc.CdDiscTests'}
