@@ -28,7 +28,10 @@ def movie_runner():
     build_tree.build_emuhawk(sha)  # Compiles the real MainForm capture hook too; does not run WinForms.
     common = build_tree.TREE_EMUHAWK / 'src/BizHawk.Client.Common/bin/Debug'
     core = build_tree.TREE_EMUHAWK / 'src/BizHawk.Emulation.Cores/bin/Debug'
-    runtime = json.loads(wb.runtime_receipt_path().read_text())['runtime_dylib']['path']
+    runtime = wb.read_runtime_receipt(wb.runtime_receipt_path())['runtime_dylib']
+    if wb.sha256(Path(runtime['path'])) != runtime['sha256']:
+        raise AssertionError('runtime dylib differs from the verified receipt')
+    runtime = runtime['path']
     tmp = tempfile.TemporaryDirectory(prefix='cd-movies-', dir=ROOT / 'build')
     unittest.addModuleCleanup(tmp.cleanup)
     work = Path(tmp.name)
