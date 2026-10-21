@@ -18443,13 +18443,16 @@
         "tests/media/test_nrg_canonical_csharp.py",
         "docs/02-contracts.md",
         "tools/check.py",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "integration/bizhawk/patches/0016-cd-lease-liveness.patch",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs"
       ],
       "steps": [
         "Conectar proveedor T66l8 al loader publico: XML Amiga con PUAE6 preferido/forzado; directo solo por seleccion explicita .nrg=Amiga y core PUAE6, o core forzado PUAE6. Mantener reglas CHD y sus tests, DAO/default de otros cores y extensiones ajenas. Lease existente y contexto Amiga antes del inventario; no fallback tras fallo seleccionado. Seis rutas de implementacion200..300lineas, agente busy_reference aislado, root metadata y compilaciones pesadas.",
         "Parche0015 solo RomLoader derivado de cola0014: compartir la decision estrecha de backend si evita duplicacion, conservando wrappers existentes usados por pruebas CHD. MountPuae6Nrg clasifica DAO y conserva su ruta. Sin nueva ABI ni decoder, ni cambios a MacHawk.",
         "Reusar arnes publico de CD de T16/T18/T19 para NRG V2 de una sesion. Extraer fixture NRG pura a funcion del modulo existente para evitar construir un TestCase o duplicar oraculos; el gate semantico conserva las mismas expectativas. Fixtures ETNF/ETN2 equivalentes, negativo de payload y geometria; lectura por ReadAt y exportsector real en fronteras representativas. EEPROM, cold owner/proceso nuevo, futuro exacto y snapshot entero, supresion y FDclose por el mismo escenario. No afirmar boot de aplicacion con fixture sintetica.",
-        "MED01 selector real previo a firmware con matriz de preferencias/forced/ext mayuscula y rechazos sin fugas; WB03/WB08/DET02 escenario publico una vez y regresiones CHD de la clase reutilizada. Agente no inicia guest/native: root renueva recibos y compila una candidata estable antes del runner real; no usar guest obsoleto."
+        "MED01 selector real previo a firmware con matriz de preferencias/forced/ext mayuscula y rechazos sin fugas; WB03/WB08/DET02 escenario publico una vez y regresiones CHD de la clase reutilizada. Agente no inicia guest/native: root renueva recibos y compila una candidata estable antes del runner real; no usar guest obsoleto.",
+        "Ampliacion antes de editar por fallo host reproducido: Blob_RawFile.Read reabre fs tras Dispose, de modo que una lectura posterior revive el FD del NRG. Añadir IsDisposed a la lease publica propia y comprobarla en callbacks single/catalogo de ParametersFrom antes de acceder a la fuente. Dos rutas nuevas: patch0016 CoreLoadParameters/RomLoader y factory propia EmuHawk; sin cambiar Blob_RawFile ni API prestada. El test conserva rechazo/salida intacta y comprueba que no reaparece FD, tambien en catalogo clonado. Repetir MED01 dirigido tras cambio; los cinco WB ya pasaron en candidata previa."
       ],
       "checks": [
         "MED01",
