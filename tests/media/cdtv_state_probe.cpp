@@ -152,7 +152,7 @@ static void refusals()
 }
 static void native(const std::vector<uint8_t> &rom, const p6_config &config, const char *role, const char *directory)
 {
-    p6_cd::Layout layout{}; layout.tracks = 2; layout.leadout = 258;
+    p6_cd::Layout layout{}; layout.tracks = 2; layout.leadout = 258; layout.content_id[0] = 1;
     layout.track[0] = {0, 0, 2, 0, 2048, 0, p6_cd::Mode::Mode1_2048, 1, 4, false};
     layout.track[1] = {2, 2, 258, 0, 2352, 4096, p6_cd::Mode::Audio, 1, 0, false};
     p6_cd::Binding binding{{{1}, 4096 + 256 * 2352, 1}, image_read, nullptr}; p6_cd::Disc disc;
@@ -181,8 +181,9 @@ static void native(const std::vector<uint8_t> &rom, const p6_config &config, con
             assert(p6_shutdown(&error) == P6_OK); p6_cd::device_unbind();
         }
         if (!writer && cut == 6) {
-            auto other = binding; other.identity.content_id[0] ^= 1; p6_cd::Disc foreign;
-            assert(foreign.bind(layout, &other, 1) == p6_cd::Result::Ok);
+            auto other = binding; other.identity.content_id[0] = 2; p6_cd::Disc foreign;
+            auto foreign_layout = layout; foreign_layout.content_id[0] = 2;
+            assert(foreign.bind(foreign_layout, &other, 1) == p6_cd::Result::Ok);
             assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
             assert(p6_cd::device_bind(&foreign) == p6_cd::Result::Ok && p6_cdtv_private_start()); frames(); auto before = save();
             const auto cycle = get_cycles(); const auto callbacks = p6_cdtv_callback_observations(); const unsigned prior_reads = reads;
