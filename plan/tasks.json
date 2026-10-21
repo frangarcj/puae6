@@ -10182,14 +10182,16 @@
         "docs/adr/0017-darwin-host-tpidr.md",
         "docs/07-machawk.md",
         "manifests/waterbox-memory.json",
-        "tools/check.py"
+        "tools/check.py",
+        "tests/test_plan.py"
       ],
       "steps": [
         "La fuente fijada escribe TIBptr si TPIDR_EL0==0 y Context* durante interop; XNU usa ese registro para CPU/cluster, cero es valido. Corregir solo la copia Darwin ARM64 del runtime mediante parche versionado, sin editar ../MacHawk ni references; no atribuir aun el SIGBUS particular ni inferir x28 filtrado del valor CAS.",
         "Frente busy_reference aislado implementa solo parche y tests Rust dentro del parche: prepare_thread no escribe TPIDR en macOS, interop Darwin conserva el registro sin espejo ni restauracion stale, x28/stack/nonvolatiles y offsets fijos intactos. Regenerar interop_aarch64.bin con ensamblador fijado, nunca editar binario a mano. Dos regresiones nativas reales: CPU0 no publica TIBptr y una entrada de prueba a traves del interop no observa Context* en TPIDR. Demostrar fallo con codigo anterior y paso con parche, restaurando registro host antes de aserciones/alocaciones. No flags de CPU Amiga ni ampliacion de heaps.",
         "Coordinador registra hashes exactos before/after y parche en plan/toolchains; materializacion verifica snapshot, parche y resultado, cache limpia o derivada exacta, sin fuzz ni aceptar ediciones ajenas. Recibo incorpora patchset e inventario derivado. Tests de input alterado, patch alterado, cache alterada y salida reproducible; ajustar numero exacto cargo tests al anadir regresiones reales.",
         "Presupuesto atomico hasta450 lineas manuales en diez rutas por parche/runtime/receta y regresion inseparables; binario generado excluido. Root integra metadata/build/checks y serializa compilaciones-j2. Cargo offline mas WB13, WB14 y WB15 reales dirigidos con guest actual; nueva causa concreta permite retomar despues U4/T12/80b/69c4 una vez, sin acreditar sus puertas por este test ni repetir matriz completa.",
-        "Conservar decision ABI y fuentes primarias en ADR0017 y actualizar docs07: TPIDR de Darwin no es almacenamiento guest. Registrar limites: un PASS aislado o prueba de slot no acredita estabilidad; si persiste SIGBUS conservar reproducer y dos hipotesis, sin cerrar tareas afectadas."
+        "Conservar decision ABI y fuentes primarias en ADR0017 y actualizar docs07: TPIDR de Darwin no es almacenamiento guest. Registrar limites: un PASS aislado o prueba de slot no acredita estabilidad; si persiste SIGBUS conservar reproducer y dos hipotesis, sin cerrar tareas afectadas.",
+        "Al registrar esta hoja nueva, ajustar el conteo exacto del plan y comprobar sus tres dependencias en tests/test_plan.py; solo metadata, sin relajar DAG ni gates."
       ],
       "checks": [
         "BUILD01",
@@ -11585,7 +11587,8 @@
       "status": "pending",
       "depends": [
         "T39a",
-        "T35"
+        "T35",
+        "T28c"
       ],
       "read": [
         "docs/04-validation.md",

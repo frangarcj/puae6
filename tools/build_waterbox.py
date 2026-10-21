@@ -30,6 +30,7 @@ PAGE_SIZE = 16384
 # chosen with P6_WATERBOX_RUNTIME=debug: it builds into cargo/<target>/debug and writes build/waterbox/receipt-debug.json, so both can coexist.
 RUNTIME_PROFILES = ("release", "debug")
 RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
+RUNTIME_TEST_COUNT = 10
 
 
 def runtime_rustflags(root: Path, build: Path) -> str:
@@ -59,6 +60,24 @@ def runtime_receipt_path(profile: str | None = None) -> Path:
     """build/waterbox/receipt.json for the default profile, receipt-<profile>.json for the other lane."""
     profile = profile or runtime_profile()
     return BUILD / ("receipt.json" if profile == default_runtime_profile() else f"receipt-{profile}.json")
+
+
+def read_runtime_receipt(path: Path) -> dict:
+    """An old binary and its old receipt cannot certify the current patchset."""
+    receipt = json.loads(path.read_text())
+    patches = json.loads(LOCK.read_text())["runtime"].get("patches", [])
+    import import_sources
+    for patch in patches:
+        import_sources.safe_name(patch["file"])
+        source = ROOT / patch["file"]
+        import_sources.no_links(ROOT, source)
+        if sha256(source) != patch["sha256"]:
+            raise BuildError(f"hash de parche de runtime incorrecto: {source}")
+    if receipt.get("runtime_patchset_sha256") != canonical_hash(patches):
+        raise BuildError(f"runtime construido con otro patchset: {path}; reconstruir runtime")
+    if receipt.get("runtime_source_inventory_sha256") != canonical_hash(inventory(BUILD / "runtime-src")):
+        raise BuildError(f"runtime construido con otras fuentes: {path}; reconstruir runtime")
+    return receipt
 
 
 class BuildError(ValueError):
@@ -379,7 +398,11 @@ def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path) -> 
 
 
 def copy_runtime_source(runtime_source: Path, reference_manifest: Path,
-                        destination: Path) -> list[dict]:
+                        destination: Path, patches: tuple[dict, ...] | list[dict] = ()) -> list[dict]:
+    """Materialize exact local patches without changing the pinned reference."""
+    import import_sources
+    from materialize_upstream import _apply, _patch_paths, _regular_file
+
     manifest = json.loads(reference_manifest.read_text())
     prefix = "waterbox/waterboxhost/"
     expected = []
@@ -389,8 +412,64 @@ def copy_runtime_source(runtime_source: Path, reference_manifest: Path,
     expected.sort(key=lambda entry: entry["path"])
     if not expected:
         raise BuildError("el manifiesto machawk no incluye WaterboxHost")
-    copy_verified(runtime_source, destination, expected)
-    return expected
+    if inventory(runtime_source) != expected:
+        raise BuildError("snapshot del runtime distinto del manifiesto")
+    derived = {entry["path"]: dict(entry) for entry in expected}
+    inputs = []
+    for patch in patches:
+        name = patch["file"]
+        import_sources.safe_name(name)
+        if not name.startswith("integration/waterbox-runtime/"):
+            raise BuildError("parche de runtime fuera de integration/waterbox-runtime")
+        path = ROOT / name
+        import_sources.no_links(ROOT, path)
+        raw = path.read_bytes()
+        if sha256(path) != patch["sha256"]:
+            raise BuildError(f"hash de parche de runtime incorrecto: {name}")
+        files = {entry["path"]: entry for entry in patch["files"]}
+        if len(files) != len(patch["files"]) or _patch_paths(raw) != set(files):
+            raise BuildError(f"archivos no declarados en parche de runtime: {name}")
+        for rel, entry in files.items():
+            if rel not in derived or derived[rel]["mode"] == "120000":
+                raise BuildError(f"archivo de runtime no regular o desconocido: {rel}")
+            if derived[rel]["sha256"] != entry["before_sha256"]:
+                raise BuildError(f"hash previo de runtime incorrecto: {rel}")
+            if not re.fullmatch(r"[0-9a-f]{64}", entry["after_sha256"]):
+                raise BuildError(f"hash posterior de runtime invalido: {rel}")
+            derived[rel]["sha256"] = entry["after_sha256"]
+        inputs.append((raw, files))
+    result = sorted(derived.values(), key=lambda entry: entry["path"])
+    if destination.exists() or destination.is_symlink():
+        actual = inventory(destination)
+        if actual == result:
+            return result
+        if actual != expected:
+            raise BuildError(f"copia cacheada del runtime modificada: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".runtime-patch-", dir=destination.parent) as temp:
+        staged = Path(temp) / "tree"
+        shutil.copytree(runtime_source, staged, symlinks=True, copy_function=shutil.copy2)
+        for raw, files in inputs:
+            for rel, entry in files.items():
+                if sha256(_regular_file(ROOT, staged, rel)) != entry["before_sha256"]:
+                    raise BuildError(f"hash previo de runtime staged incorrecto: {rel}")
+            _apply(raw, staged, check=True)
+            _apply(raw, staged, check=False)
+            for rel, entry in files.items():
+                if sha256(_regular_file(ROOT, staged, rel)) != entry["after_sha256"]:
+                    raise BuildError(f"hash posterior de runtime incorrecto: {rel}")
+        if inventory(staged) != result:
+            raise BuildError("inventario derivado del runtime no declarado")
+        previous = Path(temp) / "previous"
+        if destination.exists():
+            os.rename(destination, previous)  # Only the exact pristine cache may migrate.
+        try:
+            os.rename(staged, destination)
+        except OSError:
+            if previous.exists():
+                os.rename(previous, destination)
+            raise
+    return result
 
 
 def run_logged(command: list[str], env: dict[str, str], cwd: Path,
@@ -407,7 +486,7 @@ def run_logged(command: list[str], env: dict[str, str], cwd: Path,
         )
         passed = sum(int(row[0]) for row in rows)
         failed = sum(int(row[1]) for row in rows)
-        if passed != 8 or failed or any(int(row[2]) for row in rows):
+        if passed != RUNTIME_TEST_COUNT or failed or any(int(row[2]) for row in rows):
             raise BuildError(f"cargo test sin suite no ignorada válida (passed={passed}, failed={failed})")
     return result.stdout
 
@@ -443,7 +522,10 @@ def toolchain() -> dict:
 
     runtime_source = ROOT / machawk["snapshot"]["destination"] / "waterbox/waterboxhost"
     runtime_copy = BUILD / "runtime-src"
-    runtime_inventory = copy_runtime_source(runtime_source, machawk_manifest, runtime_copy)
+    patches = lock["runtime"].get("patches", [])
+    if patches and lock["runtime"]["target"] != "aarch64-apple-darwin":
+        raise BuildError("los parches locales del runtime requieren Darwin ARM64")
+    runtime_inventory = copy_runtime_source(runtime_source, machawk_manifest, runtime_copy, patches)
 
     env_path = os.pathsep.join(
         [str(paths[n].parent) for n in ("clang", "lld", "cargo", "rustc", "make")]
@@ -485,7 +567,7 @@ def build(args: argparse.Namespace) -> dict:
     if not cargo_lock.is_file():
         raise BuildError("Runtime-src no contiene Cargo.lock")
     cargo_test_output = run_logged(
-        [str(paths["cargo"]), "test", "--offline", "--locked", "--target",
+        [str(paths["cargo"]), "test", "--offline", "--locked", "-j2", "--target",
          lock["runtime"]["target"], "--manifest-path", str(runtime_copy / "Cargo.toml"),
          "--", "--test-threads=1"],
         env, ROOT, parse_tests=True,
@@ -563,9 +645,10 @@ def build(args: argparse.Namespace) -> dict:
                     "inventory_sha256": canonical_hash(sysroot_inventory),
                     "file_count": len(sysroot_inventory)},
         "runtime_source_inventory_sha256": canonical_hash(runtime_inventory),
+        "runtime_patchset_sha256": canonical_hash(lock["runtime"].get("patches", [])),
         "input_sha256": input_hashes,
         "cargo_test_nonignored_output_sha256": hashlib.sha256(cargo_test_output.encode()).hexdigest(),
-        "cargo_tests": {"passed": 8, "failed": 0, "ignored": 0},
+        "cargo_tests": {"passed": RUNTIME_TEST_COUNT, "failed": 0, "ignored": 0},
         "guest": guest_metadata,
         "tls_negative": tls_negative,
         "runtime_dylib": dylib_metadata,
@@ -580,7 +663,7 @@ def build(args: argparse.Namespace) -> dict:
 
 def cargo_build_runtime(tc: dict, profile: str) -> Path:
     """cargo build of the runtime copy for `profile`, with the same environment as build(); returns the dylib."""
-    run_logged([str(tc["paths"]["cargo"]), "build", "--offline", "--locked", *(["--release"] if profile == "release" else []), "--target",
+    run_logged([str(tc["paths"]["cargo"]), "build", "--offline", "--locked", "-j2", *(["--release"] if profile == "release" else []), "--target",
                 tc["lock"]["runtime"]["target"], "--manifest-path", str(tc["runtime_copy"] / "Cargo.toml")], tc["env"], ROOT)
     dylib = BUILD / "cargo" / tc["lock"]["runtime"]["target"] / profile / "libwaterboxhost.dylib"
     if not dylib.is_file():
@@ -598,10 +681,11 @@ def ensure_runtime_lane(profile: str) -> Path:
     if profile == default_runtime_profile():
         if not path.is_file():
             raise BuildError(f"falta {path}: ejecutar tools/build_waterbox.py")
+        read_runtime_receipt(path)
         return path
     if not base_path.is_file():
         raise BuildError(f"falta {base_path}: ejecutar tools/build_waterbox.py")
-    base = json.loads(base_path.read_text())
+    base = read_runtime_receipt(base_path)
     tc = toolchain()
     dylib = cargo_build_runtime(tc, profile)
     receipt = {**base, "runtime_dylib": {"path": str(dylib), "size": dylib.stat().st_size, "sha256": sha256(dylib)}, "runtime_profile": profile}
@@ -796,7 +880,7 @@ def build_core() -> tuple[str, dict[str, str], Path]:
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6")
     guest_sha = json.loads(receipt.read_text())["guest"]["sha256"]
-    runtime = json.loads(runtime_receipt.read_text())["runtime_dylib"]
+    runtime = read_runtime_receipt(runtime_receipt)["runtime_dylib"]
     if sha256(Path(runtime["path"])) != runtime["sha256"]:
         raise BuildError("la biblioteca del runtime no es la del recibo")
     cache = Path.home() / ".nuget/packages"
@@ -844,6 +928,7 @@ def run_puae6(firmware: Path, units: int, media: tuple[Path, ...] = (), guest_re
     for needed in (runtime_receipt, guest_receipt):
         if not needed.is_file():
             raise BuildError(f"falta {needed}: ejecutar tools/build_waterbox.py --puae6-run")
+    read_runtime_receipt(runtime_receipt)
     check_guest_matches_trees(guest_receipt)
     dotnet, env = build_managed()
     tag = f"{os.getpid()}-{next(_RUNS)}"

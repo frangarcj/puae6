@@ -41,7 +41,30 @@
     "target": "aarch64-apple-darwin",
     "cargo_locked": true,
     "rustc_bootstrap": "1",
-    "profile": "release"
+    "profile": "release",
+    "patches": [
+      {
+        "file": "integration/waterbox-runtime/0002-darwin-tpidr.patch",
+        "sha256": "5bd6884885718cf60e19cacb56a42508197f152faed668dba22120d635e4c50b",
+        "files": [
+          {
+            "path": "src/context/mod.rs",
+            "before_sha256": "4172af211acd78634f359de5571eee21a6f5d486d85b8744108c8a2b3fd307f0",
+            "after_sha256": "f155a4a314dc4dfc81f6e77c5cafb790ace8091cab86751b20eb154038ec78e2"
+          },
+          {
+            "path": "src/context/interop_aarch64.s",
+            "before_sha256": "cef442a0ebbc59aa6f81d88cb8bdb6cd40eb77f5c85723495f4c47e2fb3b67ee",
+            "after_sha256": "1c699494aeb30c03dbb8eadeb41f3f125476a21ef341cae04cce635d93fc4bf4"
+          },
+          {
+            "path": "src/context/interop_aarch64.bin",
+            "before_sha256": "7c2cc5d6ee1f04e7d2b57aa29f581da2b11a9a6699f2f51daf084c22ffd41e24",
+            "after_sha256": "0e5734fc1331cb7f1fb179fce180b583d810191632e54690b22725738a4bf218"
+          }
+        ]
+      }
+    ]
   },
   "guest": {
     "target": "aarch64-linux-gnu",

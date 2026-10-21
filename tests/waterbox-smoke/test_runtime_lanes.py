@@ -87,7 +87,7 @@ class RuntimeLaneTests(unittest.TestCase):
         self.assertEqual(release["guest"], debug["guest"], "both lanes run the same guest")
         for receipt in (release, debug):
             self.assertEqual(build_waterbox.sha256(Path(receipt["runtime_dylib"]["path"])), receipt["runtime_dylib"]["sha256"])
-        self.assertEqual(release["cargo_tests"], {"passed": 8, "failed": 0, "ignored": 0}, "the runtime's own tests ran (Debug profile, assertions on)")
+        self.assertEqual(release["cargo_tests"], {"passed": build_waterbox.RUNTIME_TEST_COUNT, "failed": 0, "ignored": 0}, "the runtime's own tests ran (Debug profile, assertions on)")
 
     def test_the_release_library_carries_no_path_of_the_tree_it_was_built_in(self):
         """Only the Release library: the Debug lane keeps its debug info (the paths of the objects), it is never recorded anywhere."""

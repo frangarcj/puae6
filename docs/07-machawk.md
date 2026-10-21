@@ -93,9 +93,11 @@ ambos registros en TODA unidad de codigo del guest, incluidas dependencias y
 codigo generado compilado para target. Los generadores ejecutados en el host no
 heredan estos flags por accidente. Auditar assembly, intrinsics y posibles
 corutinas por separado: un archivo ensamblador no respeta -ffixed-x28 magicamente.
-TPIDR_EL0 es un espejo de compatibilidad; no introducir dependencias nuevas que
-omitan el contexto x28. XNU lo reescribe en cada cambio de contexto (medido en
-T09b2), asi que el guest NO puede contener TLS del compilador (`thread_local`,
+El runtime de referencia conserva un espejo legado en TPIDR_EL0. La copia local
+Darwin elimina esas escrituras mediante el parche de T28c: el registro pertenece
+al host (CPU/cluster) y el contexto guest sigue exclusivamente en x28. Ver
+docs/adr/0017-darwin-host-tpidr.md. XNU lo reescribe en cada cambio de contexto
+(medido en T09b2), asi que el guest NO puede contener TLS del compilador (`thread_local`,
 `__thread`): usar `pthread_key`, que pasa por x28. Ver docs/adr/waterbox-compiler-tls.md.
 
 Waterbox conserva paginas logicas de 4 KiB y su formato; Darwin agrupa cuatro en

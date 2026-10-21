@@ -578,6 +578,17 @@ TASK_SUITES[('WB09', 'T36')] = {'movie_seek_branch_and_suppressed_delivery': 'te
 TASK_SUITES[('WB12', 'T36')] = TASK_SUITES[('WB12', 'T33')]
 TASK_SUITES[('WB14', 'T36')] = {'actual_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb'}
 
+# One union of the real callback/page/cold-restore cases covers the three gates.
+TASK_SUITES[('BUILD01', 'T28c')] = {
+    'runtime_patch_and_cpu_register': 'tests.waterbox-smoke.test_runtime_tpidr',
+    'runtime_recipe': 'tests.waterbox-smoke.test_build',
+    'runtime_reproducible_binary': 'tests.waterbox-smoke.test_runtime_lanes.RuntimeLaneTests.test_the_release_library_built_from_another_directory_is_the_same_file',
+}
+for _gate in ('WB13', 'WB14', 'WB15'):
+    TASK_SUITES[(_gate, 'T28c')] = {
+        'real_guest_callbacks_physical_pages_and_cold_restore': 'tests.waterbox-smoke.test_puae6_wb.RealGuestTests',
+    }
+
 # T39a is the local public PR recipe, not the accumulated nightly/release gate of T39b.
 TASK_SUITES[('PLAN01', 'T39a')] = {'ci_protocol': 'tests.ci.test_runner', 'plan': 'tests.test_plan'}
 TASK_SUITES[('BUILD01', 'T39a')] = {'native_build_and_lifecycle': 'tests.host.test_bridge_lifecycle.BridgeLifecycleTests.test_init_load_apply_unload_and_reload_on_the_real_engine'}
