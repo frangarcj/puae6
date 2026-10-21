@@ -290,6 +290,60 @@ internal static unsafe partial class Program
   }
   foreach(var dao in parsed.DAOTrackInfos) foreach(var t in dao.Tracks) Console.WriteLine("isrc "+Convert.ToHexString(t.IsrcRaw).ToLowerInvariant());
  }
+ sealed class NrgCountBlob(IBlob original) : IBlob
+ {
+  public int Calls,Fault;
+  public int Read(long at,byte[] output,int offset,int count) {
+   ++Calls; if(Fault==1) throw new EndOfStreamException("Injected backing EOF"); if(Fault==2) throw new IOException("Injected sparse IO");
+   return original.Read(at,output,offset,count);
+  }
+  public void Dispose() { }
+ }
+ static void NrgSparse(string[] args)
+ {
+  string path=args[1]; int before=NrgHandles(path); Disc disc=null;
+  try {
+   disc=DiscMountJob.MountPuae6Nrg(path);
+   if(args[0]=="nrg-sparse-refuse") throw new Exception("Accepted unsupported sparse NRG");
+   var layout=disc.Puae6NrgDao; Require(layout!=null&&layout.Sessions.Count>=2&&disc.Sessions.Count==layout.Sessions.Count+1&&disc._Sectors.Count==0);
+   try { ((IList<NRG_Format.Puae6DaoSession>)layout.Sessions)[0]=default; throw new Exception("Mutable mount table"); } catch(NotSupportedException) { }
+   int number=0;
+   foreach(var s in layout.Sessions) {
+    var toc=disc.Sessions[++number]; Require(toc.Number==number&&toc.TOC.FirstRecordedTrackNumber==s.FirstTrack&&toc.TOC.LastRecordedTrackNumber==s.LastTrack&&toc.LeadoutLBA==s.A2);
+    Console.WriteLine($"session {number} {s.FirstTrack} {s.LastTrack} {s.Format} {s.Cue0} {s.A2} {s.SessionHint} {s.CatalogHex}");
+    Require(toc.Tracks.Skip(1).Take(toc.InformationTrackCount).Select(t=>t.Number).SequenceEqual(Enumerable.Range(s.FirstTrack,s.LastTrack-s.FirstTrack+1)));
+   }
+   var field=disc.SynthProvider.GetType().GetField("blob",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+   var counter=new NrgCountBlob((IBlob)field.GetValue(disc.SynthProvider)); field.SetValue(disc.SynthProvider,counter);
+   var reader=new DiscSectorReader(disc); var output=new byte[2464]; using var wire=new MemoryStream();
+   foreach(var t in layout.Tracks) {
+    Console.WriteLine($"track {t.Number} {t.Offset0} {t.Offset1} {t.EndOffset} {t.Stride} {t.Mode} {t.Index0} {t.Index1} {t.End} {t.Adr} {t.Control} {t.IsrcHex}");
+    for(int lba=t.Index0;lba<t.End;++lba) {
+     Array.Fill(output,(byte)0xcc); Require(reader.ReadLBA_2448(lba,output,8)==2448);
+     Require(output.Take(8).Concat(output.Skip(2456)).All(b=>b==0xcc)); wire.Write(output,8,2448);
+    }
+   }
+   File.WriteAllBytes(path+".actual",wire.ToArray()); Require(NrgHandles(path)==before+1);
+   void absent(int lba) { int calls=counter.Calls; Array.Fill(output,(byte)0xcc); Require(reader.ReadLBA_2448(lba,output,8)==0&&counter.Calls==calls&&output.All(b=>b==0xcc)); }
+   absent(layout.Tracks[0].Index0-1);
+   foreach(var s in layout.Sessions) { absent(s.A2); }
+   absent(layout.Sessions[1].Cue0); absent(layout.Tracks.Last().End+1);
+   if(args.Length>2) {
+    foreach(int fault in new[]{1,2}) {
+     counter.Fault=fault; bool refused=false;
+     try { reader.ReadLBA_2448(layout.Tracks[0].Index0,output,8); } catch(IOException) { refused=true; }
+     Require(refused); counter.Fault=0; Require(reader.ReadLBA_2448(layout.Tracks[0].Index0,output,8)==2448);
+    }
+    Require(reader.ReadLBA_2448(layout.Tracks.Last().Index1,output,8)==2448);
+    using(var file=new FileStream(path,FileMode.Open,FileAccess.Write,FileShare.ReadWrite)) file.SetLength(0);
+    bool shortRead=false; try { reader.ReadLBA_2448(layout.Tracks[0].Index0,output,8); } catch(IOException) { shortRead=true; } Require(shortRead);
+   }
+   disc.Dispose(); Require(disc.IsDisposed&&NrgHandles(path)==before); absent(layout.Tracks[0].Index0); disc.Dispose();
+  }
+  catch(Exception e) when(args[0]=="nrg-sparse-refuse"&&e is IOException or NRG_Format.NRGParseException or NotSupportedException) { Console.WriteLine("rejected "+e.GetType().Name); }
+  finally { disc?.Dispose(); }
+  Require(NrgHandles(path)==before);
+ }
  static void NrgTao(string[] args)
  {
   string mode=args[0],path=args[1]; int before=NrgHandles(path);
@@ -321,6 +375,7 @@ internal static unsafe partial class Program
  static void Main(string[] args) {
   if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
   if(args.Length>=3&&args[0]=="nrg-metadata") { NrgMetadata(args); return; }
+  if(args.Length>=2&&args[0].StartsWith("nrg-sparse")) { NrgSparse(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-")) { NrgTao(args); return; }
   if(args.Length==2&&args[0]=="chd-host") { ChdHost(args[1]); return; }
   if(args.Length==2&&args[0]=="chd-units") { ChdUnits(args[1]); return; }

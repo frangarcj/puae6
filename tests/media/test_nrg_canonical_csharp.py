@@ -98,6 +98,66 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
             self.assertEqual(wire,expected); self.assertEqual(self.run_nrg(path),before)
             self.assertEqual(Path(str(path)+'.actual').read_bytes(),expected)
 
+    def sparse_fixture(self,name,version=2,modes=(7,0,6),padded=False,groups=None):
+        seed=tuple(7 if k==16 else 0 if k==15 else 6 if k==17 else k for k in modes)
+        if groups is None: groups=((-150,11,((1,seed[0],-150,0,4),(2,seed[1],4,6,11)),0,1,b'1234567890123'),
+                (20,39,((3,seed[2],30,32,39),),32,7,b'ABCDEFGHIJKLM'))
+        tail,_,_,blocks=meta.nrg_sessions(version,groups=groups); tail=bytearray(tail)
+        payload=bytearray(); wire=bytearray(); rows=[]; ordinal=0; width=8 if version==2 else 4
+        sessions=[f'session {i} {g[2][0][0]} {g[2][-1][0]} {g[3]} {g[0]} {g[1]} {g[4]} {g[5].hex()}' for i,g in enumerate(groups,1)]
+        for group,g in enumerate(groups):
+            for local,(number,_,zero,one,end) in enumerate(g[2]):
+                kind=modes[ordinal]; ordinal+=1; control=0 if kind in (7,16) else 4
+                size=2448 if kind>=15 else 2048 if kind in (0,2) else 2336 if kind==3 else 2352
+                stride=2448 if padded and kind in (0,5,6,7) else size
+                offset=len(payload); start=offset+(one-zero)*stride; finish=start+(end-one)*stride
+                at=blocks[group]['DAO']+30+local*(18+3*width)
+                struct.pack_into('>H',tail,at+12,stride); tail[at+14]=kind
+                struct.pack_into('>QQQ' if version==2 else '>III',tail,at+18,offset,start,finish)
+                rows.append(f'track {number} {offset} {start} {finish} {stride} {kind} {zero} {one} {end} 1 {control} '+b'US1234567890'.hex())
+                for lba in range(zero,end):
+                    raw=bytearray((number*53+lba-zero+k)&255 for k in range(size))
+                    if kind in (5,6,15,17): raw[15]=1 if kind in (5,15) else 2
+                    if kind>=15:
+                        pw=bytes((number*31+lba-zero+k)&255 for k in range(96)); raw[2352:]=nrg.interleave(pw); body=bytes(raw[:2352])+pw
+                    else:
+                        body=chd.mode1(bytes(raw),lba) if kind==0 else nrg.mode2_header(lba)+(nrg.form1_body(bytes(raw)) if kind==2 else raw) if kind in (2,3) else bytes(raw)
+                        body+=subq(number,0 if lba<one else 1,lba,one,control)
+                    payload+=raw+bytes([0xa5])*(stride-size); wire+=body
+        directory=len(payload)+123; struct.pack_into('>Q' if version==2 else '>I',tail,len(tail)-width,directory)
+        if len(groups)>2: # SINF and CUE families precede DAO: the second DAO appears at chunk200.
+            tail=b''.join(tail[b[k]:b[k]+8+struct.unpack_from('>I',tail,b[k]+4)[0]] for k in ('SIN','CUE','DAO') for b in blocks)+tail[-12-width:]
+        path=self.work/(name+'.nrg'); path.write_bytes(payload+bytes([0x9c])*123+tail)
+        return path,bytes(wire),sessions+rows
+
+    def sparse(self,path,mode='nrg-sparse',faults=False):
+        result=subprocess.run([source.DOTNET,str(self.dll),mode,str(path)]+(['faults'] if faults else []),env=self.env,capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stdout[-2000:]+result.stderr[-4000:])
+        return result.stdout.splitlines()
+
+    def test_dao_multisession_sparse_offsets_tocs_and_stored_subchannels(self):
+        for version in (1,2):
+            for modes in ((7,0,6),(2,3,5),(16,15,17)):
+                path,wire,rows=self.sparse_fixture(f'sparse{version}-{modes}',version,modes)
+                self.assertEqual(self.sparse(path),rows); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+        path,wire,rows=self.sparse_fixture('padded',padded=True)
+        self.assertEqual(self.sparse(path),rows); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+        groups=tuple((-150 if n==0 else n*3-1,n*3+2,
+                      ((n+1,0,-150 if n==0 else n*3,n*3+1 if n else 0,n*3+2),),
+                      0,255,bytes((0,255))+b'12345678901') for n in range(99))
+        path,wire,rows=self.sparse_fixture('max-sessions',modes=(0,)*99,groups=groups)
+        self.assertEqual(self.sparse(path),rows); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+
+    def test_dao_multisession_gaps_faults_and_owner_cleanup(self):
+        for version in (1,2):
+            path,wire,rows=self.sparse_fixture('faults'+str(version),version)
+            self.assertEqual(self.sparse(path,faults=True),rows); self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+        path,_,rows=self.sparse_fixture('sbi')
+        path.with_suffix('.sbi').write_bytes(b'SBI\0')
+        self.assertEqual(self.sparse(path,'nrg-sparse-refuse'),['rejected NotSupportedException'])
+        path.with_suffix('.sbi').write_bytes(b'bad!')
+        self.assertEqual(self.sparse(path),rows) # Invalid signature retains the historical ignored-file behavior.
+
     def metadata(self,data,base,fault=''):
         path=self.work/'metadata.nrg'; path.write_bytes(data)
         result=subprocess.run([source.DOTNET,str(self.dll),'nrg-metadata',str(path),str(base),fault],

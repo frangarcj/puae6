@@ -2204,3 +2204,28 @@ LBAs; no se infieren 4500/6750/2250 sectores entre sesiones. El resultado mantie
 el modelo mutable historico: el futuro owner debe copiar sus valores antes de
 instalar callbacks. Este seam no cambia el montaje single, sus IDs ni otros cores;
 normalizacion, owner V3 y restauracion publica conservan sus puertas pendientes.
+
+
+## Propietario DAO multisesion privado C# (T66v10)
+
+Solo MountPuae6Nrg con varios grupos DAO adopta un proveedor disperso por offsets.
+Disc.Puae6NrgDao congela sesiones y pistas en estructuras readonly, colecciones
+no modificables y cadenas hex del catalogo/ISRC; no retiene el modelo mutable del
+parser. Mode es el codigo NRG crudo, no el modo logico 0/1/2. CUE0, INDEX00
+negativo almacenado, INDEX01, A2, hint opaco, ADR/control y stride se conservan.
+
+Get(lba) elige exclusivamente un intervalo respaldado INDEX00..fin; los huecos,
+A2 final y lecturas posteriores a Dispose devuelven ausencia sin IO ni escritura
+sobre la salida. No se instala ArraySectorSynthProvider ni un leadout sintetico.
+Los sintetizadores existentes leen offsets/stride fisicos; 2448 conserva los
+subcanales almacenados, los otros modos generan Q del LBA y pista declarados.
+Q generado exige MSF representable; un timestamp TOC no puede desbordar int.
+Disc.IsDisposed pertenece al mismo owner y evita reabrir Blob_RawFile tras cerrar;
+Dispose repetido es inocuo. Una SBI valida acompanante se rechaza claramente antes
+de publicacion y cierra el owner, pues ApplySBI requiere sectores densos; una
+firma SBI invalida conserva el comportamiento historico de ignorarla.
+
+MED01 compara bytes/Q, TOCs y metadata de ambas sesiones, padding fisico, huecos
+sin IO, canarios, lecturas cortas/excepciones, truncado y cierre/reapertura de FD.
+La entrada single y el montaje default conservan su comportamiento e identidad.
+Esta hoja no habilita Puae6DiscSource multisesion ni el loader publico Waterbox.
