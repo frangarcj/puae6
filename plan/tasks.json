@@ -21580,7 +21580,7 @@
       ],
       "id": "T66v9",
       "title": "Habilitar NRG DAO multisesion en fabrica nativa y restore libretro",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66v4",
         "T66v5"
@@ -21600,7 +21600,8 @@
       "steps": [
         "busy_reference aislado, ocho rutas180..250lineas manuales. CdImage opt-in ExplicitSessions aliasvalor1 de ExplicitPrivate; CdNrg directo defaultSingleOnly e IDslegacy/P6NRGM intactos. Factoryprobe aplica0405 enmetadata sin motor nuevo/fallback/seleccion mutable.",
         "MED01 factory metodo test_dao_multisession_factory_virtual_toc_identity_and_vfs reutiliza nrg_multisession_fixture V3/V5: tabla yTOCglobal, huecos11/20/29 sinVFS/salida, freshowner yforeignidentity. Regresiones defaultCdNrg rechazoantespayload yfactoryDAOlegacy existentes una vez.",
-        "LR01/STATE01/DET02 mismo selector Cd32NrgMultisessionTests.test_dao_multisession_direct_load_restore_cold_and_identity: harnessCd32Session writerVFS cut300/future16/local/cycles2; readerstdio renamed nuevo proceso load0antesprimerRun; TOCvirtual1/2/3 yA2=39/ordinal0; RAM/AV/PCM/ticks/fullstate exactos ynegativecatalog/payloadsesion2 transaccionales. No afirmarbootjuego; V5 cubreCDDA dirigido. Rootunicosbuildsj2, no repetirV5/V7/C#/CDTV."
+        "LR01/STATE01/DET02 mismo selector Cd32NrgMultisessionTests.test_dao_multisession_direct_load_restore_cold_and_identity: harnessCd32Session writerVFS cut300/future16/local/cycles2; readerstdio renamed nuevo proceso load0antesprimerRun; TOCvirtual1/2/3 yA2=39/ordinal0; RAM/AV/PCM/ticks/fullstate exactos ynegativecatalog/payloadsesion2 transaccionales. No afirmarbootjuego; V5 cubreCDDA dirigido. Rootunicosbuildsj2, no repetirV5/V7/C#/CDTV.",
+        "Integrado94b66843comof0f71335: ocho rutas+147/-23. MED01nuevofactory+legacy+rechazodefault3PASS14.331sASan/UBSan. RootselectorpublicoLR01/STATE01/DET02unaejecucion1PASS103.602s inclbuildactual0405-j2; local/coldantesprimerRun/cycles2/futuro16/fullstate/RAM/AV/PCM/ticks/TOCvirtual/negativosidentidad pasan. V5/V7/CDTVno repetidos."
       ],
       "checks": [
         "MED01",
