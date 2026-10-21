@@ -42,7 +42,7 @@ public sealed partial class Puae6Core
 			slots.Add(ordinal);
 		}
 		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Exists(a => a.DiscData.Regions.Count != 0);
-		bool sessioned = sources.Any(s => s.SessionCount >= 2);
+		bool sessioned = sources.Exists(s => s.SessionCount >= 2);
 		Puae6DiscSource? cd = lp.Discs.Count == 1 ? sources[0] : null;
 		if (lp.Discs.Count != 0)
 		{

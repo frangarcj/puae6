@@ -59,6 +59,12 @@ internal sealed class Puae6DiscSource
   return result;
  }
  static int DaoMode(int raw) => raw is 7 or 16 ? 0 : raw is 0 or 5 or 15 ? 1 : 2;
+ static byte[] HexBytes(string text)
+ {
+  var bytes=new byte[text.Length/2];
+  for(int i=0;i<bytes.Length;++i) bytes[i]=Convert.ToByte(text.Substring(i*2,2),16);
+  return bytes;
+ }
  byte[] DaoIdentity()
  {
   using var metadata=new MemoryStream();
@@ -66,9 +72,9 @@ internal sealed class Puae6DiscSource
    writer.Write(Encoding.ASCII.GetBytes("P6CD2448\0")); writer.Write(3); writer.Write(Leadout); writer.Write(tracks.Length); writer.Write(SessionCount);
    foreach(var t in dao.Sessions) {
     writer.Write(t.FirstTrack); writer.Write(t.LastTrack); writer.Write(t.Format); writer.Write(t.Cue0); writer.Write(t.A2);
-    writer.Write((byte)t.SessionHint); writer.Write(Convert.FromHexString(t.CatalogHex));
+    writer.Write((byte)t.SessionHint); writer.Write(HexBytes(t.CatalogHex));
    }
-   for(int i=0;i<tracks.Length;++i) { WriteRegional(writer,regional[i]); writer.Write(Convert.FromHexString(dao.Tracks[i].IsrcHex)); }
+   for(int i=0;i<tracks.Length;++i) { WriteRegional(writer,regional[i]); writer.Write(HexBytes(dao.Tracks[i].IsrcHex)); }
    writer.Write(tracks.Length);
    foreach(var t in dao.Tracks) { writer.Write(t.Index0); writer.Write(t.End); writer.Write(((long)t.End-t.Index0)*2448); }
   }
@@ -136,7 +142,7 @@ internal sealed class Puae6DiscSource
   if(dao is not null) {
    if(SessionCount<2 || SessionCount>99 || disc.Sessions.Count!=SessionCount+1 || dao.Tracks.Count is <1 or >99)
     throw new InvalidDataException("Invalid explicit CD sessions");
-   Leadout=dao.Sessions.Last().A2; tracks=new Track[dao.Tracks.Count]; regional=new P6CdTrackV2[tracks.Length];
+   Leadout=dao.Sessions[SessionCount-1].A2; tracks=new Track[dao.Tracks.Count]; regional=new P6CdTrackV2[tracks.Length];
    if(Leadout<=0 || Leadout>int.MaxValue-150 || dao.Tracks[0].Index0>0) throw new InvalidDataException("Unrepresentable CD extent");
    reader=new DiscSectorReader(disc) { Policy={ DeinterleavedSubcode=true, DeterministicClearBuffer=true } };
    for(int group=0;group<SessionCount;++group) {
