@@ -10154,6 +10154,55 @@
       "stop": "No mapear el disco entero como SaveRAM para que encaje el tamaño."
     },
     {
+      "id": "T28c",
+      "title": "Preservar TPIDR_EL0 de Darwin en la copia local del runtime Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T28a",
+        "T09b2",
+        "T34a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-compiler-tls.md"
+      ],
+      "touch": [
+        "integration/waterbox-runtime/0002-darwin-tpidr.patch",
+        "tools/build_waterbox.py",
+        "plan/toolchains.json",
+        "tests/waterbox-smoke/test_runtime_tpidr.py",
+        "tests/waterbox-smoke/test_build.py",
+        "tests/waterbox-smoke/test_runtime_lanes.py",
+        "docs/adr/0017-darwin-host-tpidr.md",
+        "docs/07-machawk.md",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "La fuente fijada escribe TIBptr si TPIDR_EL0==0 y Context* durante interop; XNU usa ese registro para CPU/cluster, cero es valido. Corregir solo la copia Darwin ARM64 del runtime mediante parche versionado, sin editar ../MacHawk ni references; no atribuir aun el SIGBUS particular ni inferir x28 filtrado del valor CAS.",
+        "Frente busy_reference aislado implementa solo parche y tests Rust dentro del parche: prepare_thread no escribe TPIDR en macOS, interop Darwin conserva el registro sin espejo ni restauracion stale, x28/stack/nonvolatiles y offsets fijos intactos. Regenerar interop_aarch64.bin con ensamblador fijado, nunca editar binario a mano. Dos regresiones nativas reales: CPU0 no publica TIBptr y una entrada de prueba a traves del interop no observa Context* en TPIDR. Demostrar fallo con codigo anterior y paso con parche, restaurando registro host antes de aserciones/alocaciones. No flags de CPU Amiga ni ampliacion de heaps.",
+        "Coordinador registra hashes exactos before/after y parche en plan/toolchains; materializacion verifica snapshot, parche y resultado, cache limpia o derivada exacta, sin fuzz ni aceptar ediciones ajenas. Recibo incorpora patchset e inventario derivado. Tests de input alterado, patch alterado, cache alterada y salida reproducible; ajustar numero exacto cargo tests al anadir regresiones reales.",
+        "Presupuesto atomico hasta450 lineas manuales en diez rutas por parche/runtime/receta y regresion inseparables; binario generado excluido. Root integra metadata/build/checks y serializa compilaciones-j2. Cargo offline mas WB13, WB14 y WB15 reales dirigidos con guest actual; nueva causa concreta permite retomar despues U4/T12/80b/69c4 una vez, sin acreditar sus puertas por este test ni repetir matriz completa.",
+        "Conservar decision ABI y fuentes primarias en ADR0017 y actualizar docs07: TPIDR de Darwin no es almacenamiento guest. Registrar limites: un PASS aislado o prueba de slot no acredita estabilidad; si persiste SIGBUS conservar reproducer y dos hipotesis, sin cerrar tareas afectadas."
+      ],
+      "checks": [
+        "BUILD01",
+        "WB13",
+        "WB14",
+        "WB15"
+      ],
+      "acceptance": [
+        "La copia local derivada reproducible no escribe TPIDR_EL0 de Darwin; CPU0 e interop tienen regresiones que fallan antes y pasan despues, y callbacks, dirty pages y restauracion en otro sandbox/proceso conservan futuro del guest real. MacHawk y snapshot de referencia intactos; fallos restantes no se ocultan."
+      ],
+      "stop": "No sustituir x28 por otro registro host ni prometer resolver malloc por inspeccion; sin gates reales mantener pendiente/bloqueado. Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis."
+    },
+    {
       "id": "T29a",
       "title": "HDF de solo lectura por uae0 (uaehf.device + placa UAEFS) sin hilos: un micro-ROM lee el bloque 0",
       "milestone": "M3",
