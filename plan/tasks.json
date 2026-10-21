@@ -20700,7 +20700,7 @@
       "title": "Exponer AR2/AR3 nativo con Freeze y firmware real determinista",
       "milestone": "FUTURE",
       "required": false,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T69d2",
         "T69c2"
@@ -20735,7 +20735,8 @@
         "P6_COMMAND_FREEZE conserva semantica de nivel/flanco de HRTMon: validar owner AR oHRT antesmutacion, activar solo Loaded/started/unidad>0/noreset/IDLE apropiado. Unificar helperprivado si procede sin cambiar comportamiento HRT. P6IN guarda commands tambien con AR para que held/restauracion/reset no reemitanaccion; Apply solo copia elnivel. Identidad ya incluye modelo+ROM, sincart cuerpos sin cambios. No nueva cola, tiempo host ni scheduler.",
         "IN01/STATE01/DET02 seleccionan una union NativeArTests.test_public_ar23_freeze_return_real_firmware_and_cold_state. Fixture original por API publica verifica bind/copia/argumentos/Freeze held/released/reset, commands corruptos/canarios y coldheld. Firmware real opt-in P6_KICKSTART_A500_ROM y P6_ACTION_REPLAY2_ROM/P6_ACTION_REPLAY3_ROM ya autorizados en build/assets; modelos2/3 Exact de A500stock, reutilizar p6_hrtmon_probe. Boot y comandos por entrada real; no PC/prefetch/clock ajustados desdehost. ROM AR3 contiene ayuda primaria x=restart current program y g(address); si hace falta cargar bucle propio en RAM por bytes y lanzarlo por comandoG, despuesFreeze detiene contador y x lo reanuda. Restaurar ACTIVE/comando-parcial/held en proceso frio y comparar futuro completo/estado exacto; no done por logo o PC enROM.",
         "No builds motor/guest ni bateria en agente; sintaxis/fixture/commit y root gates dirigidos una vez. ABI01 firma+caps existente, IN01/STATE01/DET02 comparten union, regresion HRTMon input/held solo porque se toca ruta compartida. No repetir codec privado completo, juegos ni Waterbox salvo causa concreta. Si firmware no avanza como esperado, diagnostico acotado y dosintentos razonados; conservar reproducer y bloquear con doshipotesis, no pulsaciones/flags/ventanas al azar.",
-        "Root actualiza docs/02-contracts.md, dispatcher y estado; agentes no metadata compartida. El padre T69 conserva AR1/AR1200 y todas conexiones frontend/libretro/Waterbox; este gate solo anuncia API neutral nativa AR2/3."
+        "Root actualiza docs/02-contracts.md, dispatcher y estado; agentes no metadata compartida. El padre T69 conserva AR1/AR1200 y todas conexiones frontend/libretro/Waterbox; este gate solo anuncia API neutral nativa AR2/3.",
+        "22oct diagnóstico causal único, sin cambiarCPU/scheduler/ventanas: observacionLLDB solo en entradasstepporpaquetetecla pruebaAR2continuaimprimiendocreditos381..420; SDRregistracadaG/space/digito/down/upcorrectoylostsync0. RET423entraeditor,426muestrafila???; parametro0 yGPCFE5858sinmodificar. FallodefixtureH1confirmado: comandosantesprompt; noatribuirfallomotor/codec/ACK. Reanudarcon busy_reference enWTt66-cd-swap liberadoporcd_swap, branchdesde mainactual yfuentesrootreadonly. Ajustarsolohrtmon_probe.cpp ytest_hrtmon.py: esperarcondicioneditorROMvalidada porrangosPCconcretos/stacksemántico,enmodelos yhashesfirmwarefijados; cota dura explicitaparafallarsi noREADY, noflaguniversal niPCenROMcomoREADY, no sleep/relojhost/pulsacionesalazar. UsarrealFreeze/publicAPIyconservarG/counter/x/fullfuture/cold/corruptassertexactos. Rootbuildj2ysoloreal2/real3pendientes; noABI/own/HRT/codecprivadoyapasados. Dosintentosrazonadosdelnuevofallosi persiste:conservarreproducer+hipotesisblocked. Temporalesdiagnosticosrootbuildseeliminanalterminar."
       ],
       "checks": [
         "ABI01",
@@ -20746,8 +20747,7 @@
       "acceptance": [
         "Caller C puede adoptar AR2/3 desdebytes y activar Freeze por inputv2, con ownership, errores y held/reset/restauracion coherentes. Programa y firmware real ejecutan monitor/salida/futuro deterministas, incluido proceso nuevo; HRTMon conserva su comportamiento. No acredita los modelos restantes ni opciones frontend."
       ],
-      "stop": "No ROM comercial en Git/paquete ni snapshot parcial, publicidad de modelos no probados, PC/prefetch/clock de host para simular activacion o asserts/tolerancias debilitados. Dosintentos sin resolver mismofallo: reproducer+hipotesis yblocked.",
-      "blocked_reason": "ABI C/C++ y capacidades3testsPASS, HrtMonCommandTestsPASS, fixture publico propio AR2/3 write/read PASS. Dosintentosrazonadosreal2: F10incondicionalnoacreditabaentrada; FreezeexplicitoSIentraACTIVE/modo0PC400e6e, pero G12000 dejaACTIVE/PC4018c4/contador0. Primercontrastereal3 reproduceACTIVE/modo0PC414628 yGterminaPC41480e/contador0. ReproducerNativeArTests conservado, sinrelajarasserts ni maspulsaciones/reintentos. LecturaROM: AR3PC414628/41480e son inicializacion/pruebaCIAconVPOSW, ACTIVE noacreditaprompt; AR2tablaG→40236a ytecladotraduceG12000RET,sintaxisenviadasustentada. H1: entrada prematura duranteinicializacion; identificar condicionREADY/prompt deROM antesdecomando, sinampliarventanasciegas. H2: entrega/ACKtecladoCIAincompleta; capturarAR2PC400d42(SDR),4018ce(RET),40236a(dispatcherG),bufferlineay44f248(direccionaceptada). Faltaejecutarsalida/futuro/coldreal, no compatibilidadcomercialacreditada; codecprivado/own/HRTpasados no repetir."
+      "stop": "No ROM comercial en Git/paquete ni snapshot parcial, publicidad de modelos no probados, PC/prefetch/clock de host para simular activacion o asserts/tolerancias debilitados. Dosintentos sin resolver mismofallo: reproducer+hipotesis yblocked."
     },
     {
       "id": "T69",
