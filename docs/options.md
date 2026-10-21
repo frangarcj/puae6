@@ -36,8 +36,15 @@ libcdio `68ea374f` rechaza esas mezclas al exigir aquella igualdad homogenea.
 Reconstruye pregaps sinteticos de150 sectores, como libMirage y GNU
 libcdio/VCDImager: ETNF omite sus bytes y no almacena la longitud original,
 por lo que los pregaps no estandar no se pueden recuperar. La identidad incluye
-el archivo completo y esta politica canonica. ETN2, padding entre pistas y
-multisesion siguen sin soporte; esto no equivale a soporte TAO general.
+el archivo completo y esta politica canonica.
+NRG ETN2 admite el mismo subconjunto de una sesion mediante footer NER5 y
+registros de32 bytes: offsets y longitudes BE64, modo y sector compacto BE32,
+ocho bytes reservados cero. LibMirage fijado, parser.c:373..383/835..883,
+respalda directamente el mismo pregap150. La identidad tiene dominio P6ETN2;
+DAO y ETNF conservan sus identidades. El parser valida extents superiores a4GiB
+sin leer el payload; las vistas conservan sus limites actuales de LBA/MSF.
+Padding entre pistas, TINF y multisesion siguen sin soporte. Esta ruta es nativa:
+el loader publico BizHawk aun rechaza TAO; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de
 2048/2352 y Mode2 raw de 2352; tambien sectores de 2448 con SUB96 intercalado. El pregap es
 sintetico y los offsets apuntan a datos; TOC, PLBA y longitudes deben concordar.

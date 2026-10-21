@@ -66,7 +66,7 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -116,8 +116,8 @@ class CdNrgTests(unittest.TestCase):
         path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
         return path, raw, streams, directory, int(expected[0].split()[5]) + shift
 
-    def etnf_fixture(self, name='etnf', modes=(3, 3, 3)):
-        tail, directory, rows = etnf(modes); raw = [list(map(int, row.split()[1:])) for row in rows[1:]]
+    def etnf_fixture(self, name='etnf', modes=(3, 3, 3), *, etn2=False):
+        tail, directory, rows = etnf(modes, etn2=etn2); raw = [list(map(int, row.split()[1:])) for row in rows[1:]]
         payload = bytearray(); streams = []
         for n, r in enumerate(raw):
             stream = bytearray()
@@ -169,12 +169,14 @@ class CdNrgTests(unittest.TestCase):
         return lines
 
     def test_etnf_canonical_three_tracks_four_modes_and_mixed2048(self):
-        for number, modes in enumerate(((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0),
-                                        (0, 7, 3), (3, 7, 0), (0, 3, 0), (7, 2, 7))):
-            path, raw, streams = self.etnf_fixture('etnf' + str(number), modes)
+        cases = [(modes, False) for modes in ((0,) * 3, (2,) * 3, (3,) * 3, (7,) * 3, (0, 2, 0),
+                                             (0, 7, 3), (3, 7, 0), (0, 3, 0), (7, 2, 7))]
+        cases += [(modes, True) for modes in ((0, 7, 3), (3, 7, 0), (2, 2, 2))]
+        for number, (modes, wide) in enumerate(cases):
+            path, raw, streams = self.etnf_fixture('etnf' + str(number), modes, etn2=wide)
             lines = self.run_nrg(path); self.assertEqual(lines, self.run_nrg(path, vfs=True))
             whole = path.read_bytes(); source = hashlib.sha256(whole).digest(); directory = sum(r[2] - r[0] for r in raw)
-            canonical = b'P6ETN1' + struct.pack('<Q', len(whole)) + source + struct.pack('<QIIiiII', directory, 1, 3, -150, 1200, 0, 0) + bytes(13)
+            canonical = (b'P6ETN2' if wide else b'P6ETN1') + struct.pack('<Q', len(whole)) + source + struct.pack('<QIIiiII', directory, 2 if wide else 1, 3, -150, 1200, 0, 0) + bytes(13)
             self.assertEqual(lines[0], f'container {len(whole)} {source.hex()}')
             tracks = [list(map(int, line.split()[1:])) for line in lines if line.startswith('track ')]
             for n, (r, stream, start, index1, end) in enumerate(zip(raw, streams, (0, 300, 675), (0, 450, 825), (300, 675, 1200))):
@@ -230,6 +232,25 @@ class CdNrgTests(unittest.TestCase):
                 changed = bytearray(original); struct.pack_into('>I', changed, directory + at, value)
                 same.write_bytes(changed)
                 self.assertEqual(self.run_nrg(same, code=2, vfs=True), ['error 1'])
+
+    def test_etn2_identity_rebind_and_invalid_extents_are_transactional(self):
+        for modes in ((0, 7, 3), (3, 7, 0)):
+            first, raw, _ = self.etnf_fixture('etn2-original', modes, etn2=True)
+            same = self.etnf_fixture('etn2-renamed', modes, etn2=True)[0]
+            baseline = self.run_nrg(first, rebind=same, vfs=True)[-1]
+            self.assertTrue(baseline.startswith('rebind 0 '))
+            original = same.read_bytes()
+            for record in raw:
+                changed = bytearray(original); changed[record[0] + 17] ^= 1; same.write_bytes(changed)
+                self.assertEqual(self.run_nrg(first, rebind=same, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+            narrow = self.etnf_fixture('etnf-same-sectors', modes)[0]
+            self.assertEqual(self.run_nrg(first, rebind=narrow, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+            directory = sum(row[2] - row[0] for row in raw)
+            for at, fmt, value, error in ((40, 'Q', raw[1][0] + 1, 1), (60, 'I', 301, 1),
+                                           (48, 'Q', 529201, 1), (32, 'Q', 1 << 32, 5)):
+                changed = bytearray(original); struct.pack_into('>' + fmt, changed, directory + at, value)
+                same.write_bytes(changed)
+                self.assertEqual(self.run_nrg(same, code=2, vfs=True), [f'error {error}'])
 
     def test_mixed_dao_v1_v2_clipped_and_derived_pregaps_raw_subchannels_and_vfs_faults(self):
         for version, shift, missing in ((1, 0, False), (2, 75, False), (2, 0, True), (1, 0, 2), (2, 0, 2)):

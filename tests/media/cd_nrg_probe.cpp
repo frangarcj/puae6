@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     }
     for (uint32_t n = 0; n < layout.tracks; ++n) {
         const auto &t = layout.track[n];
-        if (owner->metadata()->layout == NrgLayout::EtnfCanonical150) {
+        if (owner->metadata()->layout != NrgLayout::Dao) {
             const auto &raw = owner->metadata()->track[n];
             CHECK(!t.stored_pregap && t.synthetic_pregap == t.index1 - t.index0 && !t.offset && raw.offset0 == raw.offset1);
             printf("etnf %u %u\n", n, raw.start_sector);
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
             if (view == 2352 && owner->metadata()->track[n].mode == 2) { CHECK(result == Result::Ok); printf("parity %u %u ", n, lba); digest(out + 8 + 2072, 280); puts(""); }
             if (view == 2448) { CHECK(read_subchannel(disc, lba, out, 96) == Result::Ok); printf("sub %u ", lba); digest(out, 96); puts(""); }
         }
-        if (n && owner->metadata()->layout == NrgLayout::EtnfCanonical150) for (uint32_t lba : {t.index0 - 1, t.index1 - 1}) {
+        if (n && owner->metadata()->layout != NrgLayout::Dao) for (uint32_t lba : {t.index0 - 1, t.index1 - 1}) {
             CHECK(canonical_read(disc, lba, 2448, out, sizeof out) == Result::Ok);
             printf("sector %u 2448 0 ", lba); digest(out, 2448); puts("");
         }
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         }
         break;
     }
-    if (vfs && owner->metadata()->layout == NrgLayout::EtnfCanonical150) {
+    if (vfs && owner->metadata()->layout != NrgLayout::Dao) {
         fault = 1;
         for (unsigned n = 1; n < layout.tracks; ++n) {
             CHECK(canonical_read(disc, layout.track[n].index1 - 1, 2448, out, sizeof out) == Result::Ok);

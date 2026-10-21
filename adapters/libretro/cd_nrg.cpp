@@ -58,13 +58,13 @@ struct CdNrg::Data {
     }
     Result prepare()
     {
-        const bool etnf = metadata.layout == NrgLayout::EtnfCanonical150;
+        const bool tao = metadata.layout != NrgLayout::Dao;
         layout.tracks = metadata.tracks; layout.leadout = uint32_t(metadata.leadout);
         for (unsigned n = 0; n < metadata.tracks; ++n) {
             const auto &r = metadata.track[n];
             const unsigned expected = r.mode == 0 || r.mode == 2 ? 2048 : r.mode == 3 ? 2336 : r.mode == 5 || r.mode == 6 || r.mode == 7 ? 2352 : 2448;
             if (r.stride != expected) return Result::Unsupported; // Padded sectors have no inferred decoder.
-            const auto pregap = etnf ? 150 : (r.offset1 - r.offset0) / r.stride;
+            const auto pregap = tao ? 150 : (r.offset1 - r.offset0) / r.stride;
             const int64_t start = r.has_index0 ? r.index0 : int64_t(r.index1) - int64_t(pregap);
             const int64_t end = int64_t(r.index1) + int64_t((r.end - r.offset1) / r.stride);
             if (int64_t(r.index1) - start != int64_t(pregap) || (n && start < 0) || (!n && start > 0) || end > metadata.leadout) return Result::Invalid;
@@ -73,8 +73,8 @@ struct CdNrg::Data {
             const unsigned stride = r.mode == 2 || r.mode == 3 ? 2352 : r.stride;
             const uint32_t clipped = start < 0 ? 0 : uint32_t(start);
             const auto mode = r.mode == 0 ? Mode::Mode1_2048 : r.mode == 7 || r.mode == 16 ? Mode::Audio : r.mode == 2 || r.mode == 3 || r.mode == 6 || r.mode == 17 ? Mode::Mode2Raw : Mode::Mode1Raw;
-            layout.track[n] = {clipped, uint32_t(r.index1), uint32_t(end), n, stride, etnf ? 0 : uint64_t(int64_t(clipped) - start) * stride, mode, r.adr, r.control, !etnf, etnf ? uint32_t(r.index1) - clipped : 0};
-            view[n] = {this, n, etnf ? r.index1 : start}; binding[n] = {{{0}, ((r.end - r.offset0) / r.stride) * stride, 1}, read, &view[n]};
+            layout.track[n] = {clipped, uint32_t(r.index1), uint32_t(end), n, stride, tao ? 0 : uint64_t(int64_t(clipped) - start) * stride, mode, r.adr, r.control, !tao, tao ? uint32_t(r.index1) - clipped : 0};
+            view[n] = {this, n, tao ? r.index1 : start}; binding[n] = {{{0}, ((r.end - r.offset0) / r.stride) * stride, 1}, read, &view[n]};
         }
         Disc validation;
         const auto valid = validation.bind(layout, binding, metadata.tracks);
@@ -93,7 +93,8 @@ struct CdNrg::Data {
             p6_sha256_final(&hash, binding[n].identity.content_id);
         }
         // Separate the canonical gap policy from DAO without changing existing DAO identities.
-        p6_sha256_init(&hash); p6_sha256_update(&hash, etnf ? "P6ETN1" : "P6NRG1", 6);
+        const char *domain = metadata.layout == NrgLayout::Etn2Canonical150 ? "P6ETN2" : tao ? "P6ETN1" : "P6NRG1";
+        p6_sha256_init(&hash); p6_sha256_update(&hash, domain, 6);
         auto put = [&](uint64_t value, unsigned bytes = 4) {
             uint8_t data[8];
             for (unsigned n = 0; n < bytes; ++n) data[n] = uint8_t(value >> (8 * n));

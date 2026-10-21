@@ -22,7 +22,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0396-chd-mode2-form2-edc'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0396-chd-mode2-form2-edc'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -138,6 +138,21 @@ class CdImageTests(unittest.TestCase):
             same = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'mixed-renamed', modes)[0]
             baseline = self.run_image(path, rebind=same, vfs=True)[-2]
             self.assertTrue(baseline.startswith('rebind 0 '))
+            data = bytearray(same.read_bytes()); data[1230017] ^= 1; same.write_bytes(data)
+            self.assertEqual(self.run_image(path, rebind=same, vfs=True)[-2], baseline.replace('rebind 0 ', 'rebind 2 '))
+
+    def test_etn2_factory_fresh_owner_domain_and_vfs(self):
+        for modes in ((0, 7, 3), (3, 7, 0)):
+            path = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'etn2-factory', modes, etn2=True)[0]
+            lines = self.run_image(path); self.assertEqual(lines, self.run_image(path, vfs=True))
+            self.assertTrue(lines[0].startswith('disc 3 1200 3 '))
+            same = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'etn2-renamed', modes, etn2=True)[0]
+            baseline = self.run_image(path, rebind=same, vfs=True)[-2]
+            self.assertTrue(baseline.startswith('rebind 0 '))
+            narrow = test_cd_nrg.CdNrgTests.etnf_fixture(self, 'etnf-same-data', modes)[0]
+            self.assertEqual([x for x in lines if x.startswith('sector ')],
+                             [x for x in self.run_image(narrow) if x.startswith('sector ')])
+            self.assertEqual(self.run_image(path, rebind=narrow, vfs=True)[-2], baseline.replace('rebind 0 ', 'rebind 2 '))
             data = bytearray(same.read_bytes()); data[1230017] ^= 1; same.write_bytes(data)
             self.assertEqual(self.run_image(path, rebind=same, vfs=True)[-2], baseline.replace('rebind 0 ', 'rebind 2 '))
 
