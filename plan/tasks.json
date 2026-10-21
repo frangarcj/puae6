@@ -18241,6 +18241,59 @@
       "stop": "No codec parcial, alias de P6AK, ptr serializado, IRQ/avance durante Apply ni cambio de temporizacion para pasar un test."
     },
     {
+      "id": "T67c1",
+      "title": "Cargar firmware y mapa de un perfil CDTV privado sin publicar frontends",
+      "milestone": "M3",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T67b2",
+        "T50"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "bridge/config.h",
+        "bridge/config.cpp",
+        "bridge/lifecycle.cpp",
+        "bridge/state.cpp",
+        "config/profiles/cdtv-ecs.json",
+        "patches/winuae/0401-cdtv-combined-firmware.patch",
+        "tests/media/cdtv_boot_probe.cpp",
+        "tests/media/test_cdtv_boot.py",
+        "tests/host/bridge_lifecycle_probe.cpp",
+        "CMakeLists.txt",
+        "docs/02-contracts.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Primera hoja de perfil CDTV, siguiendo el patron privado T66p1: kCdtvMachine=10 interno, sin declarar aun P6_MACHINE_CDTV publico ni schema/opciones. Preset WinUAE real built_in_prefs(model9,config0), CP_CDTV, 68000 exacto, ECS Agnus/OCS Denise, Chip1MiB, sin Slow/Fast/disquetes, RTC1; limpiar flashfile y rutas host. Sin CDTV-CR/SCSI/FMVs ni llamar private_start como sustituto de autoconfig.",
+        "Contrato de firmware fijo inicial: principal KS1.3 ID6 de256KiB y extendida CDTV v2.7 ID22 de256KiB de tabla rommgr del snapshot. Combinado canonico EXT256+MAIN256; verificar ambas SHA y main checksum antes de mutar, buffers readonly intactos. IDs20/21 no se anuncian hasta probarlos. El banco extendido upstream reserva512KiB y mapea F0-F7: tamano de banco no es tamano del dump.",
+        "Patch0401 en memory.cpp, nunca editar upstream directo. Lecturas limitadas a cada mitad del blob combinado, sin permitir que MAIN sea parte de EXT. El lector portable hoy rechaza EXT256 como512 con noalias=1; ajustar solo el camino CDTV previamente validado reproduciendo relleno/alias y mapa upstream con codigo real como autoridad. Preservar todos los demas modelos y el combinado CD32.",
+        "MED01 CdtvFirmwareTests.test_private_firmware_maps_execution_and_rejections: probe bridge real con ROM local autorizada, preferencias/mapas y bytes de ambas ROM, ejecucion del firmware mediante p6_run_frame y repeticion tras teardown, rechazo transaccional de tamano/orden/mitad alterada/config no soportada, recarga A500 limpia. BUILD01 es compilacion del mismo probe. Esto no acredita arranque CD, menu, autoconfig ni restauracion de ese perfil; p6_state_* mantiene UNSUPPORTED para el nuevo owner hasta completar la hoja causal siguiente.",
+        "La siguiente hoja obligatoria del padre T67 debe agregar DMAC original a expansionroms portable y probar E8 a base asignada por escrituras guest, con P6CT/P6RM previos a configuracion/configurado/shut-up. La publicacion de ABI/schema y boot/restore real solo sigue a esa puerta. Mantener ambos frontends pendientes; no exponer opciones que el loader aun no soporte.",
+        "cd32_close implementa aislado, once rutas de implementacion y objetivo250-330 lineas manuales; serie/clasificacion y tests/test_plan.py solo root. No compilar motor/guest sin ventana, -j2; no modificar metadata compartida. Si requiere otra ruta o supera400, parar antes y registrar division. Los datos temporales de comprobaciones van a build y se eliminan al acabar."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "El perfil privado CDTV carga exclusivamente el par de firmware fijo validado, reproduce mapa/contenido reales y ejecuta por p6_run_frame, con rechazos y teardown comprobados y A500 preservado. Ningun arranque CD, autoconfig, estado del nuevo perfil ni frontend publico se da por terminado."
+      ],
+      "stop": "No exponer schema antes de completar autoconfig/restauracion, usar private_start para fingir hardware publico, confundir dump256 con banco512 ni relajar ROMs permitidas. Cambios del motor solo patch0401."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -18251,7 +18304,8 @@
         "T50",
         "T67a",
         "T67b1",
-        "T67b2"
+        "T67b2",
+        "T67c1"
       ],
       "read": [
         "docs/01-architecture.md",
