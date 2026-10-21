@@ -20,6 +20,7 @@ CHECK((std::is_same<decltype(&p6_cartridge_bind),p6_result (*)(uint32_t,p6_buffe
 #else
 CHECK(_Generic(&p6_cartridge_bind,p6_result (*)(uint32_t,p6_buffer,p6_error *):1,default:0), "cartridge C ABI signature");
 #endif
+CHECK(P6_CAP_AR1 == (UINT64_C(1)<<13) && P6_CARTRIDGE_AR1==1, "AR1 additive ABI values");
 CHECK(P6_CAP_AR23 == (UINT64_C(1)<<12) && P6_CARTRIDGE_AR2==2 && P6_CARTRIDGE_AR3==3, "cartridge ABI values");
 LAYOUT(p6_result, 4, 4);
 LAYOUT(p6_error, 264, 4);

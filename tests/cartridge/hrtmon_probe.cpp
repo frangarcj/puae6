@@ -335,7 +335,7 @@ static void ar_owner(const std::vector<uint8_t> &rom)
         if(scenario==2) { const uint32_t address=0x400000+uint32_t(length)-4; for(unsigned b=0;b<4;++b)cart[b]=uint8_t(address>>(24-8*b)); }
         if(scenario>=3) { const char *text=scenario==3?"(V3.17)":"(V3.17 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA)"; memcpy(cart.data()+4,text,strlen(text)+1); }
         const size_t count=length; auto c=config(P6_MACHINE_A500); if(scenario==2)c.cpu_compatibility=P6_CPU_COMPATIBLE; call(p6_init(&c,&e),e);
-        assert(p6_bridge::bind_action_replay(1,{image.data(),count},&e)==P6_ERROR_BAD_ARGUMENT);
+        assert(p6_bridge::bind_action_replay(0,{image.data(),count},&e)==P6_ERROR_BAD_ARGUMENT);
         for(size_t bytes:{size_t(0),count-1,count+1})
             assert(p6_bridge::bind_action_replay(model,{image.data(),bytes},&e)==P6_ERROR_WRONG_MEDIA && !p6_bridge::ar_bound());
         assert(p6_bridge::bind_action_replay(model,{nullptr,count},&e)==P6_ERROR_WRONG_MEDIA);
@@ -509,7 +509,7 @@ static void ar1_start(const std::vector<uint8_t> &rom,const std::vector<uint8_t>
 {
     auto e=error(); auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e);
     if(checks) {
-        assert(p6_cartridge_bind(1,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
+        assert(p6_cartridge_bind(0,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
         p6_error unusable{}; unusable.abi_version=99; unusable.message[0]='x'; const auto before=unusable;
         assert(p6_bridge::bind_ar1({cart.data(),cart.size()},&unusable)==P6_ERROR_BAD_ARGUMENT && !memcmp(&before,&unusable,sizeof before));
         assert(p6_bridge::bind_ar1({nullptr,cart.size()},&e)==P6_ERROR_WRONG_MEDIA);
@@ -614,7 +614,7 @@ static void public_ar_start(const std::vector<uint8_t> &rom,const std::vector<ui
 {
     input_v2=false; command_level=0; auto e=error(); auto c=config(P6_MACHINE_A500); call(p6_init(&c,&e),e);
     if(negatives) {
-        for(unsigned bad:{1u,1200u}) assert(p6_cartridge_bind(bad,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
+        for(unsigned bad:{0u,1200u}) assert(p6_cartridge_bind(bad,{cart.data(),cart.size()},&e)==P6_ERROR_BAD_ARGUMENT);
         assert(p6_cartridge_bind(model,{nullptr,cart.size()},&e)==P6_ERROR_WRONG_MEDIA);
         assert(p6_cartridge_bind(model,{cart.data(),cart.size()-1},&e)==P6_ERROR_WRONG_MEDIA);
         p6_error unusable{}; unusable.abi_version=99; unusable.message[0]='x'; const auto before=unusable;
@@ -629,7 +629,8 @@ static void public_ar_start(const std::vector<uint8_t> &rom,const std::vector<ui
 }
 static void public_ar_stop()
 {
-    auto e=error(); call(p6_shutdown(&e),e); input_v2=false; command_level=0;
+    if(armodel==1) ar1_stop(); else { auto e=error(); call(p6_shutdown(&e),e); }
+    input_v2=false; command_level=0;
     assert(!p6_bridge::ar_bound() && !armodel && !(regs.spcflags&SPCFLAG_ACTION_REPLAY));
 }
 static void ar_packet_refusals(const std::vector<uint8_t> &state)
@@ -792,10 +793,113 @@ static void public_ar_real(const std::vector<uint8_t> &rom,const std::vector<uin
         assert(action_replay_flag==ACTION_REPLAY_IDLE); public_ar_stop();
     }
 }
+// AR1 v1.00, SHA1 pinned by the Python gate. Its editor is not AR2/3's.
+static bool real_ar1_editor_ready()
+{
+    const auto h=ar_control(); const auto ram=p6_ar_memory(); assert(ram && armodel==1);
+    if(h.flag!=ACTION_REPLAY_ACTIVE || h.wait_pop || !h.wait_pc || (regs.spcflags&SPCFLAG_ACTION_REPLAY)) return false;
+    // Freeze first runs F058C8: vector7c=F00006, BYTE strobe, RTE, WAIT_PC
+    // and one-instruction reentry. Only then does F00014 open this editor.
+    if(get_long(0x7c)!=0xc5f00006) return false;
+    // The C5 vector tag survives in 32-bit PC/BSR frames (newcpu Exception_ce000).
+    const uint32_t saved=do_get_mem_long(ram+0xe0fa),sp=m68k_areg(regs,7);
+    if(saved!=0x9feffc || sp<0x9fe000 || sp>saved-12 || (sp&1)) return false;
+    if(do_get_mem_long(ram+0xeffc)!=0xc5f0018c || do_get_mem_long(ram+0xeff8)!=0xc5f012ba) return false;
+    const auto inner=do_get_mem_long(ram+0xeff0);
+    if(inner!=0xc5f0126a && inner!=0xc5f0126e) return false;
+    // F012A0 clears this marker before collecting a line. Forty font-coded
+    // columns use46 for space; require the live empty row, not printed credits.
+    if(do_get_mem_word(ram+0xe088) || do_get_mem_word(ram+0xe076)) return false;
+    const uint32_t y=do_get_mem_word(ram+0xe078); if(y>24) return false;
+    const uint64_t row=uint64_t(do_get_mem_long(ram+0xe07e))+40u*y;
+    if(row<0x9f0000 || row+40>0xa00000) return false;
+    for(unsigned n=0;n<40;++n) if(ram[row-0x9f0000+n]!=0x46) return false;
+    return true;
+}
+static void real_ar1_wait(bool editor)
+{
+    for(unsigned elapsed=0;elapsed<600;++elapsed) {
+        if(editor?real_ar1_editor_ready():action_replay_flag==ACTION_REPLAY_IDLE) return;
+        level(1);
+    }
+    fprintf(stderr,"AR1 wait failed editor=%d flag=%d PC=%08x SP=%08x pop=%u waitPC=%08x x=%u y=%u\n",
+        editor,action_replay_flag,m68k_getpc(),m68k_areg(regs,7),ar_control().wait_pop,ar_control().wait_pc,
+        do_get_mem_word(p6_ar_memory()+0xe076),do_get_mem_word(p6_ar_memory()+0xe078)); abort();
+}
+static void real_ar1_boot()
+{
+    // AR1 returns to Kickstart itself; F1 is Clr+Home, never Continue Boot.
+    level(1,300); real_ar1_wait(false); assert(held_command()==1);
+    assert(get_long(4)>0 && (get_long(4)&~1u)<currprefs.chipmem.size);
+}
+static void real_ar1_loop()
+{
+    real_ar1_wait(true);
+    const uint8_t program[]={0x52,0xb9,0,1,0x10,0,0x60,0xf8};
+    for(unsigned n=0;n<4;++n) put_byte(0x11000+n,0);
+    for(unsigned n=0;n<sizeof program;++n) put_byte(0x12000+n,program[n]);
+    // G handler F01930 writes the saved return PC; X F0198E keeps it.
+    command("g 12000"); real_ar1_wait(false); level(1,5);
+    assert(get_long(0x11000)>0 && action_replay_flag==ACTION_REPLAY_IDLE && held_command()==1);
+}
+static void public_ar1_real(const std::vector<uint8_t> &rom,const std::vector<uint8_t> &cart,const char *directory,bool writing)
+{
+    auto e=error();
+    for(cpu_mode=P6_CPU_EXACT;cpu_mode<=P6_CPU_COMPATIBLE;++cpu_mode) {
+        std::vector<std::vector<uint8_t>> cuts;
+        if(writing) {
+            public_ar_start(rom,cart,1,true); real_ar1_boot();
+            level(0); level(1); real_ar1_loop(); // Real first Freeze handoff and G, not host PC/IRQ changes.
+            level(0); level(1); real_ar1_wait(true); cuts.push_back(save());
+            command("x",false); cuts.push_back(save()); public_ar_stop();
+        }
+        for(unsigned cut=0;cut<2;++cut) {
+            const auto path=std::string(directory)+"/ar1-public-"+std::to_string(cpu_mode)+"-"+std::to_string(cut)+".state";
+            const auto state=writing?cuts[cut]:file(path.c_str()); public_ar_start(rom,cart,1);
+            auto foreign=state; auto id=p6_state::current_identity(); id.media_manifest_hash[0]^=1; reseal(foreign,id);
+            const auto before=foreign; const auto ticks=p6_session::session.master_ticks;
+            assert(p6_state_load(foreign.data(),foreign.size(),&e)==P6_ERROR_INCOMPATIBLE && foreign==before &&
+                !p6_session::session.started && p6_session::session.master_ticks==ticks);
+            ar1_load(state); ar_packet_refusals(state); std::array<uint8_t,32> twin{};
+            for(unsigned replay=0;replay<2;++replay) {
+                ar1_load(state); same_state(state); input_v2=true; command_level=1; assert(held_command()==1);
+                p6_sha256_init(&observed); const auto counter=get_long(0x11000); level(1,8);
+                assert(action_replay_flag==ACTION_REPLAY_ACTIVE && get_long(0x11000)==counter);
+                if(cut) { step(3,AK_RET); step(12); } else { real_ar1_wait(true); command("x"); }
+                real_ar1_wait(false); level(1,5); assert(get_long(0x11000)>counter && action_replay_flag==ACTION_REPLAY_IDLE);
+                input_v2=false; step(); assert(!held_command()); level(1); real_ar1_wait(true);
+                assert(get_long(0x11000)>counter); command("x"); real_ar1_wait(false); level(1,5);
+                assert(action_replay_flag==ACTION_REPLAY_IDLE && held_command()==1);
+                const auto final=save(); observe(final.data(),final.size()); std::array<uint8_t,32> digest{};
+                p6_sha256_final(&observed,digest.data()); if(replay) assert(twin==digest); else twin=digest;
+            }
+            if(writing) { FILE *f=fopen(path.c_str(),"wb"); assert(f && fwrite(state.data(),1,state.size(),f)==state.size()); fclose(f); }
+            printf("AR1 public continuation %u/%u ",cpu_mode,cut); for(auto byte:twin) printf("%02x",byte); puts(""); public_ar_stop();
+        }
+        const auto state=file((std::string(directory)+"/ar1-public-"+std::to_string(cpu_mode)+"-0.state").c_str());
+        auto other=cart; other[0x8000]^=1; uint32_t checksum=0;
+        for(size_t n=0;n<other.size()-4;n+=2) checksum+=int16_t(do_get_mem_word(other.data()+n));
+        do_put_mem_long(other.data()+other.size()-4,checksum); public_ar_start(rom,other,1);
+        assert(p6_state_load(state.data(),state.size(),&e)==P6_ERROR_INCOMPATIBLE && !p6_session::session.started); public_ar_stop();
+        if(writing) {
+            public_ar_start(rom,cart,1); ar1_load(cuts[0]); input_v2=true; command_level=1;
+            call(p6_reset(&e),e); real_ar1_boot(); // Held level survived reset without queuing Freeze.
+            level(0); level(1); real_ar1_loop(); public_ar_stop();
+        }
+    }
+    for(unsigned bad=0;bad<2;++bad) {
+        auto c=config(bad?P6_MACHINE_A500:P6_MACHINE_A1200); if(bad) c.cpu_compatibility=P6_CPU_NORMAL;
+        call(p6_init(&c,&e),e); assert(p6_cartridge_bind(1,{cart.data(),cart.size()},&e)==P6_ERROR_UNSUPPORTED && !p6_bridge::ar_bound()); public_ar_stop();
+    }
+    cpu_mode=P6_CPU_EXACT; puts("AR1 public real commands/cold state/held/reset/refusals PASS");
+}
 int main(int argc,char **argv)
 {
     const char *debug=getenv("P6_HRTMON_DEBUG_NORMAL"); normal_only=debug && !strcmp(debug,"1");
     assert(argc==5);
+    if(!strcmp(argv[3],"ar1-public-write") || !strcmp(argv[3],"ar1-public-read")) {
+        public_ar1_real(file(argv[1]),file(argv[2]),argv[4],!strcmp(argv[3],"ar1-public-write")); return 0;
+    }
     if(!strncmp(argv[3],"ar-public-",10)) {
         const std::string mode=argv[3]; const bool writing=mode.size()>=5 && mode.substr(mode.size()-5)=="write";
         if(mode.find("own")!=std::string::npos) public_ar_own(file(argv[1]),argv[4],writing);

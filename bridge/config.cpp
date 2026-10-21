@@ -97,7 +97,7 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
     return register_hrtmon(image, error);
 }
 
-static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error, bool private_ar1)
+static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error)
 {
     if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
     p6_error_clear(error);
@@ -109,7 +109,7 @@ static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error, bool 
     if (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000 || resolve_cpu_multiplier(c) != 2 ||
         c.cpu_compatibility == P6_CPU_NORMAL || c.fpu_model || c.z3_memory || c.flags || c.hdf_controller || !memory_is_preset(c))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "AR requires stock compatible A500/68000");
-    if (!(private_ar1 && model == 1) && model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "AR supports models2/3");
+    if (model != 1 && model != 2 && model != 3) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "AR supports models1/2/3");
     if (!image.data || image.bytes != (model == 1 ? 65536u : model == 2 ? 131072u : 262144u) || !memcmp(image.data, "ATZ!HRT!", 8))
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected raw Action Replay image of matching size");
     if (p6_blob_register(kActionReplayId, P6_BLOB_ROM, image.data, size_t(image.bytes)) != P6_BLOB_OK)
@@ -118,9 +118,9 @@ static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error, bool 
 }
 
 p6_result bind_action_replay(uint32_t model, p6_buffer image, p6_error *error)
-{ return bind_ar(model,image,error,false); }
+{ return bind_ar(model,image,error); }
 p6_result bind_ar1(p6_buffer image, p6_error *error)
-{ return bind_ar(1,image,error,true); }
+{ return bind_ar(1,image,error); }
 
 p6_result load_builtin_hrtmon(p6_error *error)
 {

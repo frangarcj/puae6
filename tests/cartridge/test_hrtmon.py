@@ -229,3 +229,27 @@ class NativeArTests(unittest.TestCase):
                     if kind=='own':
                         self.assertIn('AR public bind/copy/commands/held/reset/ABI/refusals PASS',result.stdout)
                 self.assertEqual(*twins,kind)
+
+
+class NativeAr1Tests(unittest.TestCase):
+    def test_public_ar1_real_monitor_commands_and_cold_state(self):
+        defaults=(Path.home()/'Downloads/Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom',
+                  ROOT/'build/assets/action-replay/Action_Replay_I_v1.00.rom')
+        names=('P6_KICKSTART_A500_ROM','P6_ACTION_REPLAY1_ROM')
+        assets=[Path(os.environ.get(name,default)) for name,default in zip(names,defaults)]
+        if not all(path.is_file() for path in assets):
+            self.skipTest('BLOCKED: set authorized local '+', '.join(names))
+        # Stack/row READY is specific to this recognized commercial ROM.
+        self.assertEqual(hashlib.sha1(assets[0].read_bytes()).hexdigest(),'891e9a547772fe0c6c19b610baf8bc4ea7fcb785')
+        self.assertEqual(hashlib.sha1(assets[1].read_bytes()).hexdigest(),'1ead9dda2dad29146441f5ef7218375022e01248')
+        exe=build_targets(ROOT/'build/state-opt',['p6_hrtmon_probe'],optimized=True)['p6_hrtmon_probe']
+        with tempfile.TemporaryDirectory(prefix='ar1-public-',dir=ROOT/'build') as tmp:
+            twins=[]
+            for mode in ('ar1-public-write','ar1-public-read'):
+                result=subprocess.run([str(exe),*(str(path) for path in assets),mode,tmp],capture_output=True,text=True,timeout=360,
+                                      env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'})
+                self.assertEqual(result.returncode,0,mode+'\n'+result.stdout[-3500:]+result.stderr[-4000:])
+                twins.append([line for line in result.stdout.splitlines() if line.startswith('AR1 public continuation ')])
+                self.assertEqual(len(twins[-1]),4)
+                self.assertIn('AR1 public real commands/cold state/held/reset/refusals PASS',result.stdout)
+            self.assertEqual(*twins)
