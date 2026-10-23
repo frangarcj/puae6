@@ -200,5 +200,24 @@
     "recipe_sha256": "47d1de6a0042197329550dffa7df13882cc7787c3fbc13e3b666b5f7eea27797",
     "notices_path": "build/waterbox-sysroot-notices",
     "musl_version_generator_context": "Existing Makefile/version.sh, checkout marker with Git absent from PATH; generated VERSION1.2.0-git before normal build."
+  },
+  "toolchain_profiles": {
+    "hosted-macos26": {
+      "profile": "darwin-arm64-hosted-smoke",
+      "runner": {
+        "label": "macos-26",
+        "os": "Darwin",
+        "isa": "arm64",
+        "page_bytes": 16384
+      },
+      "tools": {
+        "make": {
+          "path": "/usr/bin/make",
+          "sha256": "b8763cf250e607a778bb4603cecb5b90338814d0a3dfcba0d57b1de242f610e9",
+          "version": "GNU Make 3.81"
+        }
+      },
+      "provenance": "Explicit additional host-tool input observed on the declared public GitHub macos-26 ARM64 runner. Its make differs from the local default; every build must verify this SHA and version. This profile does not claim a remote Waterbox build or execution."
+    }
   }
 }
