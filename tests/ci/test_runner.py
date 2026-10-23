@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 
 from tools.ci import run as ci
+from tools.ci import nightly
 
 GOOD = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
 
@@ -95,6 +96,91 @@ class ProtocolTests(unittest.TestCase):
             self.assertNotEqual(first["source_tree_sha256"], changed["source_tree_sha256"])
             self.assertEqual(changed["source_tree_sha256"], private["source_tree_sha256"])
             self.assertNotEqual(first["dirty"], changed["dirty"])
+
+
+class SourceAuditSelectionTests(unittest.TestCase):
+    """Only CI plumbing and tiny subprocesses; no compiler/guest execution."""
+
+    def test_resolver_default_precedence_and_invalid_values(self):
+        key = ci.wb.SOURCE_AUDIT_ENV
+        with mock.patch.dict(os.environ):
+            os.environ.pop(key, None)
+            self.assertEqual('checkout', ci.wb.source_audit_mode())
+            os.environ[key] = 'snapshot'
+            self.assertEqual('snapshot', ci.wb.source_audit_mode())
+            self.assertEqual('checkout', ci.wb.source_audit_mode('checkout'))
+            for invalid in ('', 'auto', ' snapshot ', 'invalid'):
+                os.environ[key] = invalid
+                with self.assertRaises(ci.wb.BuildError): ci.wb.source_audit_mode()
+                self.assertEqual('snapshot', ci.wb.source_audit_mode('snapshot'))
+                with mock.patch.object(ci.wb, 'locked_tools') as tools:
+                    with self.assertRaises(ci.wb.BuildError): ci.wb.toolchain()
+                    tools.assert_not_called()
+                with mock.patch.object(ci.wb, 'runtime_receipt_path') as receipt:
+                    with self.assertRaises(ci.wb.BuildError): ci.wb.ensure_runtime_lane('release')
+                    receipt.assert_not_called()
+
+    def test_ci_cli_pins_checkout_and_requires_flag_for_snapshot_even_with_inherited_env(self):
+        for runner, args, prefix in ((ci, [], ()), (nightly, ['--lane', 'sanitizers'], ('sanitizers',))):
+            for inherited in ('snapshot', 'invalid'):
+                for flag, expected in (([], 'checkout'), (['--source-audit', 'snapshot'], 'snapshot')):
+                    with (mock.patch.dict(os.environ, {ci.wb.SOURCE_AUDIT_ENV: inherited}),
+                          mock.patch.object(sys, 'argv', ['CI', *args, *flag]), mock.patch('builtins.print'),
+                          mock.patch.object(runner, 'run', return_value={'status': 'BLOCKED'}) as run):
+                        self.assertEqual(2, runner.main())
+                        run.assert_called_once_with(*prefix, expected)
+
+    def test_invalid_api_environment_blocks_before_preparation_and_explicit_override_wins(self):
+        for runner, args in ((ci, ()), (nightly, ('sanitizers',))):
+            with (mock.patch.dict(os.environ, {ci.wb.SOURCE_AUDIT_ENV: 'invalid'}),
+                  mock.patch.object(runner, '_run', return_value={'status': 'PASS'}) as worker):
+                self.assertEqual('BLOCKED', runner.run(*args)['status'])
+                worker.assert_not_called()
+                self.assertEqual('PASS', runner.run(*args, source_audit='checkout')['status'])
+                worker.assert_called_once_with(*args)
+                self.assertEqual('invalid', os.environ[ci.wb.SOURCE_AUDIT_ENV])
+
+    def test_worker_children_and_identity_receive_the_same_selected_mode(self):
+        (ci.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ci.ROOT / 'build', prefix='ci-audit-') as directory:
+            root = Path(directory); (root / 'source.cpp').write_text('own fixture')
+            for args in (('init', '-q'), ('add', 'source.cpp'),
+                         ('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture')):
+                subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+            for runner, args in ((ci, ()), (nightly, ('sanitizers',))):
+                original = dict(runner.ENV)
+                def worker(*unused):
+                    facts = runner.identity()
+                    script = ('import os,subprocess,sys,json; key=sys.argv[1]; '
+                              'child=subprocess.check_output([sys.executable,"-c","import os,sys;print(os.environ[sys.argv[1]])",key],text=True); '
+                              'print(json.dumps([os.environ[key],child.strip()]))')
+                    result = ci.command([sys.executable, '-c', script, ci.wb.SOURCE_AUDIT_ENV], runner.ENV, timeout=30)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual(['snapshot', 'snapshot'], json.loads(result.stdout))
+                    self.assertEqual('snapshot', facts['test_environment'][ci.wb.SOURCE_AUDIT_ENV])
+                    self.assertEqual(original['P6_EVICT'], facts['test_environment']['P6_EVICT'])
+                    return {'status': 'PASS', 'identity': facts}
+                with (mock.patch.object(ci, 'ROOT', root),
+                      mock.patch.dict(os.environ, {ci.wb.SOURCE_AUDIT_ENV: 'checkout'}),
+                      mock.patch.object(runner, '_run', side_effect=worker)):
+                    before = runner.identity()
+                    result = runner.run(*args, source_audit='snapshot')
+                    self.assertEqual('checkout', os.environ[ci.wb.SOURCE_AUDIT_ENV])
+                    self.assertEqual(before, runner.identity())
+                    self.assertEqual(before['source_tree_sha256'], result['identity']['source_tree_sha256'])
+                    self.assertNotEqual(before['test_environment'], result['identity']['test_environment'])
+                self.assertEqual(original, runner.ENV)
+
+    def test_scope_restores_absence_or_value_even_when_a_worker_raises(self):
+        for runner, args in ((ci, ()), (nightly, ('sanitizers',))):
+            for inherited in (None, 'checkout'):
+                with mock.patch.dict(os.environ), mock.patch.object(runner, '_run', side_effect=RuntimeError('fixture')):
+                    key = ci.wb.SOURCE_AUDIT_ENV
+                    if inherited is None: os.environ.pop(key, None)
+                    else: os.environ[key] = inherited
+                    with self.assertRaisesRegex(RuntimeError, 'fixture'):
+                        runner.run(*args, source_audit='snapshot')
+                    self.assertEqual(inherited, os.environ.get(key))
 
 
 if __name__ == "__main__":

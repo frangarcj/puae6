@@ -137,7 +137,7 @@ def waterbox_inputs():
 
 def identity(docker=None):
     facts = ci.identity()
-    facts["test_environment"] = ENV
+    facts["test_environment"] = {**ENV, wb.SOURCE_AUDIT_ENV: wb.source_audit_mode()}
     if docker is not None:
         facts["images"] = docker
     return facts
@@ -193,7 +193,15 @@ def prepare(lane):
     return {}
 
 
-def run(lane):
+def run(lane, source_audit=None):
+    try:
+        with wb.source_audit_scope(source_audit):
+            return _run(lane)
+    except wb.BuildError as error:
+        return dict(status="BLOCKED", lane=lane, diagnostic=ci.redact(str(error)), completed=[], identity=None)
+
+
+def _run(lane):
     completed, facts = [], None
     try:
         selected = suites(lane)
@@ -224,10 +232,11 @@ def run(lane):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-audit", choices=("checkout", "snapshot"), default="checkout")
     parser.add_argument("--lane", choices=LANES, required=True)
     parser.add_argument("--list", action="store_true")
     args = parser.parse_args()
-    result = dict(status="NOT_RUN", lane=args.lane, suites=suites(args.lane)) if args.list else run(args.lane)
+    result = dict(status="NOT_RUN", lane=args.lane, source_audit=args.source_audit, suites=suites(args.lane)) if args.list else run(args.lane, args.source_audit)
     print(ci.redact(json.dumps(result, ensure_ascii=False, sort_keys=True)))
     return 0 if result["status"] in ("PASS", "NOT_RUN") else 2 if result["status"] == "BLOCKED" else 1
 

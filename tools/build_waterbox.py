@@ -7,6 +7,7 @@ inputs. It never modifies the MacHawk checkout and does not run the WBX guest.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import functools
 import hashlib
 import json
@@ -30,6 +31,7 @@ PAGE_SIZE = 16384
 # chosen with P6_WATERBOX_RUNTIME=debug: it builds into cargo/<target>/debug and writes build/waterbox/receipt-debug.json, so both can coexist.
 RUNTIME_PROFILES = ("release", "debug")
 RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
+SOURCE_AUDIT_ENV = "P6_WATERBOX_SOURCE_AUDIT"
 RUNTIME_TEST_COUNT = 10
 
 
@@ -86,6 +88,28 @@ def read_runtime_receipt(path: Path) -> dict:
 
 class BuildError(ValueError):
     """A fixed input or build artifact violated the T09 contract."""
+
+
+def source_audit_mode(explicit: str | None = None) -> str:
+    mode = os.environ.get(SOURCE_AUDIT_ENV, "checkout") if explicit is None else explicit
+    if mode not in ("checkout", "snapshot"):
+        raise BuildError(f"{SOURCE_AUDIT_ENV} debe ser checkout o snapshot, no {mode!r}")
+    return mode
+
+
+@contextmanager
+def source_audit_scope(explicit: str | None = None):
+    """Select a validated mode for workers/children and restore the caller's env."""
+    mode = source_audit_mode(explicit)
+    previous = os.environ.get(SOURCE_AUDIT_ENV)
+    os.environ[SOURCE_AUDIT_ENV] = mode
+    try:
+        yield mode
+    finally:
+        if previous is None:
+            os.environ.pop(SOURCE_AUDIT_ENV, None)
+        else:
+            os.environ[SOURCE_AUDIT_ENV] = previous
 
 
 def sha256(path: Path) -> str:
@@ -510,8 +534,9 @@ def run_logged(command: list[str], env: dict[str, str], cwd: Path,
     return result.stdout
 
 
-def toolchain(source_audit: str = "checkout") -> dict:
+def toolchain(source_audit: str | None = None) -> dict:
     """The pinned toolchain, the verified sysroot and the musl wrappers: what every WBX guest of this project is built with."""
+    source_audit = source_audit_mode(source_audit)
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise BuildError("Este perfil requiere runner real Darwin ARM64")
     import import_sources
@@ -693,9 +718,10 @@ def cargo_build_runtime(tc: dict, profile: str) -> Path:
     return dylib
 
 
-def ensure_runtime_lane(profile: str, source_audit: str = "checkout") -> Path:
+def ensure_runtime_lane(profile: str, source_audit: str | None = None) -> Path:
     """T34a: the receipt of the runtime built with `profile`, building it if it is missing or stale (the sources and the guest are the ones of build/waterbox/receipt.json).
     The default profile is what build() writes; the other lane is the same receipt with its own runtime_dylib, so both lanes run the same guest and the same managed harness."""
+    source_audit = source_audit_mode(source_audit)
     if profile not in RUNTIME_PROFILES:
         raise BuildError(f"perfil de runtime desconocido: {profile!r}")
     path = runtime_receipt_path(profile)
@@ -1060,9 +1086,9 @@ def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-audit", choices=("checkout", "snapshot"), default="checkout",
-                        help="checkout: verificar tambien HEAD/blobs/overlays originales (por defecto); "
-                             "snapshot: verificar solo la captura completa contra lock/manifiestos, sin fallback")
+    parser.add_argument("--source-audit", choices=("checkout", "snapshot"), default=None,
+                        help=f"argumento > {SOURCE_AUDIT_ENV} > checkout; snapshot verifica la captura "
+                             "completa contra lock/manifiestos, sin fallback por checkout ausente")
     parser.add_argument("--fetch", action="store_true",
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
     parser.add_argument("--puae6", action="store_true",
@@ -1088,6 +1114,7 @@ def main() -> int:
                              "y exigir su cobertura completa; fallos no se convierten en PASS")
     args = parser.parse_args()
     try:
+        args.source_audit = source_audit_mode(args.source_audit)
         if args.runtime_lane:
             print(f"RUNTIME LANE {args.runtime_lane}: {ensure_runtime_lane(args.runtime_lane, args.source_audit)}")
         elif args.check_artifact:

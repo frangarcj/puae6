@@ -90,6 +90,7 @@ class SourceAuditTests(unittest.TestCase):
     """Real Git/capture/wrapper checks; all compiler execution is mocked."""
 
     def setUp(self):
+        self.enterContext(mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'checkout'}))
         (ROOT / 'build').mkdir(exist_ok=True)
         temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-audit-')
         self.addCleanup(temp.cleanup)
@@ -257,21 +258,36 @@ class SourceAuditTests(unittest.TestCase):
                 for key in ('source_audit', 'guest_source_audit'): receipt.pop(key)
             path.write_text(json.dumps(receipt))
             self.assertEqual(receipt, build_waterbox.read_runtime_receipt(path))
-            with mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib):
-                derived = json.loads(build_waterbox.ensure_runtime_lane('debug', 'snapshot').read_text())
+            with (mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'snapshot'}),
+                  mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib)):
+                derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
             self.assertEqual('snapshot', derived['source_audit']['mode'])
             if legacy: self.assertNotIn('guest_source_audit', derived)
             else: self.assertEqual(base['source_audit'], derived['guest_source_audit'])
 
     def test_cli_requires_explicit_known_mode_and_defaults_to_checkout(self):
-        for options, expected in (([], 'checkout'), (['--source-audit', 'snapshot'], 'snapshot')):
-            with (mock.patch.object(sys, 'argv', [str(TOOL), '--puae6', *options]),
+        for inherited, options, expected in ((None, [], 'checkout'), ('snapshot', [], 'snapshot'),
+                ('invalid', ['--source-audit', 'checkout'], 'checkout'), ('checkout', ['--source-audit', 'snapshot'], 'snapshot')):
+            with (mock.patch.dict(build_waterbox.os.environ),
+                  mock.patch.object(sys, 'argv', [str(TOOL), '--puae6', *options]),
                   mock.patch.object(build_waterbox, 'toolchain', return_value={}) as tc,
                   mock.patch.object(build_waterbox, 'build_puae6')):
+                if inherited is None: build_waterbox.os.environ.pop(build_waterbox.SOURCE_AUDIT_ENV, None)
+                else: build_waterbox.os.environ[build_waterbox.SOURCE_AUDIT_ENV] = inherited
                 self.assertEqual(0, build_waterbox.main())
                 tc.assert_called_once_with(expected)
         with mock.patch.object(sys, 'argv', [str(TOOL), '--source-audit', 'auto']), mock.patch('sys.stderr'), self.assertRaises(SystemExit):
             build_waterbox.main()
+
+    def test_inherited_snapshot_never_changes_the_explicit_checkout_or_source_spec_default(self):
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'snapshot'}):
+            self.assertEqual('snapshot', build_waterbox.toolchain()['source_audit']['mode'])
+            self.assertEqual('checkout', build_waterbox.toolchain('checkout')['source_audit']['mode'])
+            for item in self.items:
+                (self.root / item['local_path']).rename(self.root / ('unused-' + item['id']))
+            self.assertEqual('snapshot', build_waterbox.toolchain()['source_audit']['mode'])
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain('checkout')
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk')
 
 
 @unittest.skipUnless(sys.platform == 'darwin' and platform.machine() == 'arm64', 'BLOCKED: Darwin ARM64 runtime required')
