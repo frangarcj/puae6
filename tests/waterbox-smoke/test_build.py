@@ -32,6 +32,112 @@ def elf64(loads, machine=183, elf_class=2, elf_type=2):
     return data
 
 
+class ToolPathsTests(unittest.TestCase):
+    """Real manifest/filesystem/hash checks; version/linker processes are mocked."""
+
+    def setUp(self):
+        (ROOT / 'build').mkdir(exist_ok=True)
+        temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-tool-paths-')
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.defaults, self.relocated = {}, {}
+        self.lock = {'tools': {}}
+        for name in build_waterbox.TOOL_NAMES:
+            default, relocated = self.root / 'base' / name, self.root / 'build/tools' / name
+            for path in (default, relocated):
+                path.parent.mkdir(parents=True, exist_ok=True); path.write_text('own fixture ' + name)
+            self.defaults[name], self.relocated[name] = default, relocated
+            self.lock['tools'][name] = {'path': str(default), 'sha256': build_waterbox.sha256(default), 'version': 'fixture ' + name}
+        self.manifest = self.root / 'build/tools.json'
+        self.mapping = {n: str(self.defaults[n] if n == 'make' else self.relocated[n]) for n in build_waterbox.TOOL_NAMES}
+        self.linker = self.defaults['lld']; self.bad_version = None
+        self.enterContext(mock.patch.object(build_waterbox, 'ROOT', self.root))
+        self.enterContext(mock.patch.dict(build_waterbox.os.environ))
+        build_waterbox.os.environ.pop(build_waterbox.TOOLS_FILE_ENV, None)
+        def execute(args, **kwargs):
+            if args[1] == '-print-prog-name=ld.lld': output = str(self.linker) + '\n'
+            else:
+                name = Path(args[0]).name
+                output = ('wrong version' if name == self.bad_version else self.lock['tools'][name]['version']) + '\n'
+            return subprocess.CompletedProcess(args, 0, output, '')
+        self.run = self.enterContext(mock.patch.object(build_waterbox.subprocess, 'run', side_effect=execute))
+
+    def select(self, payload=None):
+        self.manifest.write_text(json.dumps(payload if payload is not None else {'schema_version': 1, 'paths': self.mapping}))
+        build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = str(self.manifest)
+        self.linker = self.relocated['lld']
+
+    def test_absent_selector_preserves_all_lock_paths_and_checks(self):
+        paths, versions = build_waterbox.locked_tools(self.lock)
+        self.assertEqual(self.defaults, paths)
+        self.assertEqual({n: self.lock['tools'][n]['version'] for n in paths}, versions)
+        self.assertEqual(6, self.run.call_count)
+
+    def test_valid_manifest_relocates_only_paths_and_preserves_make_and_pins(self):
+        before = json.dumps(self.lock, sort_keys=True)
+        for relative in (False, True):
+            self.select()
+            if relative: build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = 'build/tools.json'
+            paths, versions = build_waterbox.locked_tools(self.lock)
+            self.assertEqual(self.mapping, {n: str(p) for n, p in paths.items()})
+            self.assertEqual(self.defaults['make'], paths['make'])
+            self.assertEqual('fixture clang', versions['clang'])
+            self.assertIn(str(self.relocated['lld'].parent), self.run.call_args.kwargs['env']['PATH'].split(build_waterbox.os.pathsep))
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+
+    def test_invalid_schema_keys_values_and_duplicates_never_execute_tools(self):
+        good = {'schema_version': 1, 'paths': self.mapping}
+        for data in ([], None, {}, {**good, 'schema_version': True}, {**good, 'schema_version': 2},
+                     {**good, 'extra': 1}, {**good, 'paths': []},
+                     {**good, 'paths': {n: p for n, p in self.mapping.items() if n != 'make'}},
+                     {**good, 'paths': {**self.mapping, 'other': 'x'}},
+                     {**good, 'paths': {**self.mapping, 'rustc': None}},
+                     {**good, 'paths': {**self.mapping, 'rustc': 1}},
+                     {**good, 'paths': {**self.mapping, 'rustc': ''}}):
+            self.manifest.write_text(json.dumps(data))
+            build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = str(self.manifest)
+            with self.subTest(data=data), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+        for raw in ('not JSON', '{"schema_version":1,"schema_version":1,"paths":{}}',
+                    '{"schema_version":1,"paths":{"clang":"x","clang":"y"}}'):
+            self.manifest.write_text(raw)
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_tool_paths_links_escapes_and_make_override_are_rejected_before_any_exec(self):
+        link = self.root / 'build/link'; link.symlink_to(self.relocated['rustc'])
+        parent = self.root / 'build/alias'; parent.symlink_to(self.relocated['rustc'].parent, target_is_directory=True)
+        cases = (('rustc', 'build/tools/rustc'), ('rustc', str(self.root / 'build/missing')),
+                 ('rustc', str(self.root / 'build')), ('rustc', str(self.defaults['rustc'])),
+                 ('rustc', str(self.root / 'build/tools/../tools/rustc')), ('rustc', str(link)),
+                 ('rustc', str(parent / 'rustc')), ('make', str(self.relocated['make'])))
+        for name, path in cases:
+            self.select({'schema_version': 1, 'paths': {**self.mapping, name: path}})
+            with self.subTest(path=path), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_manifest_links_missing_directory_escape_and_empty_selector_never_fall_back(self):
+        self.select()
+        link = self.root / 'build/link.json'; link.symlink_to(self.manifest)
+        parent = self.root / 'build/alias'; parent.symlink_to(self.manifest.parent, target_is_directory=True)
+        for value in ('', str(self.root / 'build/missing.json'), str(self.root / 'build'),
+                      str(self.root / 'outside.json'), str(link), str(parent / 'tools.json'),
+                      'build/../build/tools.json'):
+            build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = value
+            with self.subTest(value=value), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_hash_version_and_clang_linker_guards_apply_to_selected_paths(self):
+        self.select()
+        original = self.relocated['clang'].read_bytes(); self.relocated['clang'].write_text('different bytes')
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de clang'): build_waterbox.locked_tools(self.lock)
+        self.run.assert_not_called(); self.relocated['clang'].write_bytes(original)
+        self.bad_version = 'rustc'
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'versión de rustc'): build_waterbox.locked_tools(self.lock)
+        self.bad_version = None; self.linker = self.defaults['lld']
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
+
+
 class GuestToolchainCacheTests(unittest.TestCase):
     def test_changed_inputs_or_partial_failure_force_a_complete_rebuild(self):
         import prepare_hrtmon

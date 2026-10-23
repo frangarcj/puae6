@@ -32,6 +32,8 @@ PAGE_SIZE = 16384
 RUNTIME_PROFILES = ("release", "debug")
 RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
 SOURCE_AUDIT_ENV = "P6_WATERBOX_SOURCE_AUDIT"
+TOOLS_FILE_ENV = "P6_WATERBOX_TOOLS_FILE"
+TOOL_NAMES = ("clang", "lld", "cargo", "rustc", "make")
 RUNTIME_TEST_COUNT = 10
 
 
@@ -199,9 +201,56 @@ def copy_verified(source: Path, destination: Path, expected: list[dict]) -> None
         os.replace(staged, destination)
 
 
+def selected_tool_paths(lock: dict) -> dict[str, Path]:
+    """Optional relocation changes paths only; content/version pins stay in lock."""
+    defaults = {name: Path(lock["tools"][name]["path"]) for name in TOOL_NAMES}
+    manifest = os.environ.get(TOOLS_FILE_ENV)
+    if manifest is None:
+        return defaults
+    import import_sources
+
+    def regular(value, *, manifest_path=False, make=False):
+        if not isinstance(value, str) or not value or str(Path(value)) != value:
+            raise BuildError("ruta de herramientas vacia o no canonica")
+        path = Path(value)
+        if manifest_path and not path.is_absolute():
+            path = ROOT / path
+        if not path.is_absolute() or ".." in path.parts:
+            raise BuildError("ruta de herramientas absoluta requerida, sin escapes")
+        import_sources.no_links(ROOT, path)
+        if make:
+            if value != lock["tools"]["make"]["path"]:
+                raise BuildError("make debe conservar exactamente su ruta fijada")
+        elif not path.is_relative_to(ROOT / "build"):
+            raise BuildError("ruta de herramientas fuera de build propio")
+        if path.resolve(strict=True) != path or not path.is_file():
+            raise BuildError("ruta de herramientas no es un archivo regular canonico")
+        return path
+
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise BuildError(f"clave duplicada en herramientas: {key}")
+            result[key] = value
+        return result
+
+    try:
+        path = regular(manifest, manifest_path=True)
+        data = json.loads(path.read_text(), object_pairs_hook=unique)
+        if (not isinstance(data, dict) or set(data) != {"schema_version", "paths"}
+                or type(data["schema_version"]) is not int or data["schema_version"] != 1
+                or not isinstance(data["paths"], dict) or set(data["paths"]) != set(TOOL_NAMES)):
+            raise BuildError("manifiesto de herramientas debe tener schema_version 1 y las cinco rutas exactas")
+        return {name: regular(data["paths"][name], make=name == "make") for name in TOOL_NAMES}
+    except (OSError, ValueError) as error:
+        raise BuildError(f"{TOOLS_FILE_ENV}: {error}") from error
+
+
 def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
     tools = lock["tools"]
-    required = ("clang", "lld", "cargo", "rustc", "make")
+    required = TOOL_NAMES
+    selected = selected_tool_paths(lock)  # Validate the entire manifest before any tool executes.
     paths: dict[str, Path] = {}
     versions: dict[str, str] = {}
     version_args = {
@@ -210,7 +259,7 @@ def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
     }
     for name in required:
         entry = tools[name]
-        path = Path(entry["path"])
+        path = selected[name]
         observed_hash = sha256(path)
         if observed_hash != entry["sha256"]:
             raise BuildError(f"hash de {name} distinto: {observed_hash}")
