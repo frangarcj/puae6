@@ -1132,7 +1132,7 @@ class RealA1200Tests(LibretroHarness):
     copied into the repository, hashed or printed."""
 
     UNITS = int(os.environ.get("P6_A1200_UNITS", "2200"))          # the first AGA scenes of Catabasis are on the screen by unit ~2000 (tests/step/test_kickstart_a1200.py)
-    DMS_UNITS = int(os.environ.get("P6_A1200_DMS_UNITS", "1500"))
+    DMS_UNITS = int(os.environ.get("P6_A1200_DMS_UNITS", "2200"))  # Baygon is still loading at 1800; its scene animates by 2200.
 
     @classmethod
     def setUpClass(cls):
