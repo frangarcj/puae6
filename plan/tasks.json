@@ -20927,7 +20927,7 @@
     {
       "id": "T77b1",
       "title": "Continuacion semantica CPU/MMIO para esperas de blitter en Normal020",
-      "status": "in_progress",
+      "status": "blocked",
       "milestone": "FUTURE",
       "required": false,
       "depends": [
@@ -20975,7 +20975,8 @@
       "acceptance": [
         "Una instruccion real Normal020 se suspende en la espera sin efectos adelantados ni duplicados, entrega cada unidad y reanuda exactamente tras restauracion nativa y Waterbox real; accesos compuestos y Copper preservan orden y negativos rechazan sin mutar. Opcion publica sigue desactivada hasta cierre padre."
       ],
-      "stop": "No prometer soportegeneral por dosopcodes ni snapshot privado por compilacion; sin continuacion completa no habilitar waiting_blits. No serializar pila/host pointers ni romper scheduler comun."
+      "stop": "No prometer soportegeneral por dosopcodes ni snapshot privado por compilacion; sin continuacion completa no habilitar waiting_blits. No serializar pila/host pointers ni romper scheduler comun.",
+      "blocked_reason": "Reproducer COPPER_BLTSIZE_RESTART ($0050) observado en motor real: con DMA continuo cada blit termina, pero el setter hijo inicia la siguiente generacion antes de que los padres observen idle y la cadena sigue creciendo. Esto refuta H1 basada en un deadline/tamaño de blit individual; una arena mayor tampoco elimina la recursion C++ al reentrar. H1 revisada: demostrar cota GLOBAL que incluya generaciones sucesivas y padres persistentes/timeout. H2: el programa permite crecimiento no acotado y exige una decision causal independiente del tamaño de arena, antes de dispatcher/codec. ADR0015 conserva receta y fixture, sin aceptar cortes LLDB/timeout como PASS. GEN01/DET02/STATE01/STEP01/WB03 siguen pendientes; no modificar CPUflags ni politica de espera sin oraculo."
     },
     {
       "milestone": "FUTURE",
