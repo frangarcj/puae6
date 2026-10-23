@@ -10,6 +10,7 @@
 #include "options.h"
 #include "inputdevice.h"
 #include "keyboard.h"
+#include "cdtv.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -29,6 +30,8 @@ unsigned long long syncbase = 1000000;
 long long currcycle;
 unsigned short dmacon;
 int lightpen_active, lightpen_enabled, lightpen_enabled2, lightpen_x[2], lightpen_y[2];
+/* custom.cpp owns the converted beam coordinates; no pointer is used here. */
+int lightpen_cx[2] = {-1, -1}, lightpen_cy[2] = {-1, -1};
 char savestate_fname[1024];
 int savestate_state;
 /* opaque, only touched by code paths this harness never enters */
@@ -60,6 +63,13 @@ void gui_message(const TCHAR *, ...) { abort(); }
 void statusline_add_message(int, const TCHAR *, ...) {}
 void translate_message(int, TCHAR *out) { out[0] = 0; }
 static int g_reset_calls, g_uae_reset_calls, g_cpu_inreset_calls;
+static unsigned g_cdtv_queries;
+bool cdtv_front_panel(int button)
+{
+    CHECK(button == -1 && !currprefs.cs_cdtvcd);
+    ++g_cdtv_queries;
+    return false; // Explicit inactive-panel observation for this A500 fixture.
+}
 void custom_reset(bool, bool) { ++g_reset_calls; }
 void uae_reset(int, int) { ++g_uae_reset_calls; }
 void cpu_inreset() { ++g_cpu_inreset_calls; }
@@ -313,6 +323,7 @@ static void test_keyboard()
     CHECK(inputdevice_translatekeycode(0, 0x45, 0, false) == 1);
     CHECK(drain_keys(q, 8) == 2 && q[0] == 0x8a && q[1] == 0x8b);
 
+    const unsigned before_cdtv = g_cdtv_queries;
     for (int code = 0; code < 128; ++code) {
         if (code == 0x78) /* reset warning: not a key */
             continue;
@@ -327,6 +338,7 @@ static void test_keyboard()
         CHECK(na == 2 && nb == 2 && a[0] == b[0] && a[1] == b[1]);
         CHECK(a[0] == (((code << 1) | (code >> 7)) & 0xff) && a[1] == (a[0] | 1));
     }
+    CHECK(g_cdtv_queries == before_cdtv + 6 * 4);
 
     /* Caps Lock passes through unchanged: bit down = key down, bit up = key up */
     CHECK(inputdevice_translatekeycode(0, AK_CAPSLOCK, 1, false) == 1);
@@ -447,6 +459,8 @@ int main()
     test_keyboard();
     test_upstream_default_jports();
     test_acquire_and_devicechange();
+    CHECK(lightpen_cx[0] == -1 && lightpen_cx[1] == -1);
+    CHECK(lightpen_cy[0] == -1 && lightpen_cy[1] == -1);
     puts("engine_harness: OK");
     return 0;
 }

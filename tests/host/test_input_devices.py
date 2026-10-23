@@ -21,7 +21,7 @@ class InputDeviceTests(unittest.TestCase):
     def test_devices_and_default_mappings(self):
         ensure_generated()
         tree = ROOT / "build/upstream"
-        with tempfile.TemporaryDirectory(prefix="p6-input-devices-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-input-devices-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             for opt in ("-O0", "-O2"):
                 provider, probe, exe = tmp / f"prov{opt}.o", tmp / f"probe{opt}.o", tmp / f"run{opt}"
@@ -44,7 +44,7 @@ class InputDeviceTests(unittest.TestCase):
         # call fail loudly at run time instead of at link time).
         ensure_generated()
         tree = ROOT / "build/upstream"
-        with tempfile.TemporaryDirectory(prefix="p6-input-harness-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-input-harness-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             objects = []
             for name, source in (("provider", ROOT / "ports/portable/input_devices.cpp"),
@@ -60,7 +60,7 @@ class InputDeviceTests(unittest.TestCase):
                            check=True, timeout=180, capture_output=True)
             run = subprocess.run([str(exe)], capture_output=True, text=True, timeout=120,
                                  env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0"})
-            self.assertEqual(run.returncode, 0, run.stderr[-800:])
+            self.assertEqual(run.returncode, 0, run.stderr[:4000])
 
 
 if __name__ == "__main__":
