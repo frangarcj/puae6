@@ -289,6 +289,23 @@
         "provenance": "PROVENANCE.json",
         "sha256": "e2599c8149fe6cd5dec89fe0148520f713dbb9d9e94c38a2dd2a79de36a6ff50"
       }
+    },
+    {
+      "id": "ruby_macho",
+      "role": "host_tool_source_for_exact_Homebrew_bottle_relocation_not_guest_dependency",
+      "repository": "https://github.com/Homebrew/ruby-macho.git",
+      "version": "7.0.0",
+      "commit": "2c3fdf705e0a77cd83a68363a83ec3d855e2a0d1",
+      "required": true,
+      "verified": "Upstream lightweight tag v7.0.0 resolves directly to this commit; capture verified by the source importer. Host tool source only; no Ruby gem installation.",
+      "snapshot": {
+        "destination": "references/ruby-macho",
+        "manifest": "references/ruby-macho.manifest.json",
+        "include": [
+          "lib",
+          "LICENSE"
+        ]
+      }
     }
   ],
   "unresolved": [

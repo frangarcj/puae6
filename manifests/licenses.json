@@ -705,6 +705,20 @@
       "provenance": "T66t1: source commit ccecb1ead642c1bbe391308b88a7ffa9478b918d, selected byte-exact copies in third_party/libchdr/selection.json; standalone portability patches apply only to a verified build copy.",
       "handling": "Preserve all embedded notices and standalone NOTICE.md/selection.json. Reproduce libchdr BSD notices in binary distribution materials before linking the product. No PUAE engine is imported. ReadFn bounds/hardening, normalized CD provider and public loading/restore remain required before exposing CHD content.",
       "build_eligibility": "standalone_component_only_pending_readfn_hardening_and_cd_provider"
+    },
+    {
+      "id": "ruby-macho-host-tool",
+      "source_id": "ruby_macho",
+      "scope": "host_tool_source_not_emulated_guest",
+      "declared_license": "MIT",
+      "notice_files": [
+        {
+          "path": "references/ruby-macho/LICENSE",
+          "sha256": "20059afd55157d55f148b9af4198d25bd45a017cad783ffdcc309233187b07be"
+        }
+      ],
+      "handling": "Pristine Ruby library and original MIT notice captured from the pinned commit. Used only to reproduce Homebrew Mach-O relocation and deterministic ad-hoc signatures in project-owned staging. Keep the copyright and permission notice with all copies; no Ruby gem is installed globally. Not linked into PUAE6 or the Waterbox guest.",
+      "build_eligibility": "selected_host_bootstrap_tool_only"
     }
   ],
   "exclusions": [
