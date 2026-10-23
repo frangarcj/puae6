@@ -274,12 +274,89 @@ def import_source(root: Path, cache: Path | None = None, source_id: str = "winua
     return verify_source(root, source_id)
 
 
+def vendored_notices(root: Path, item: dict, components: list[dict]) -> dict[str, str]:
+    """Verify a pinned PROVENANCE-v1 selection without importing another snapshot."""
+    spec = item["vendored"]
+    if (set(spec) != {"destination", "provenance", "sha256"}
+            or not re.fullmatch(r"[A-Za-z0-9_-]+", item["id"])
+            or not re.fullmatch(r"[0-9a-f]{40}", item["commit"] or "")
+            or not item["repository"] or item["repository"].startswith("-")):
+        raise ValueError("Descriptor vendored o pin invalido")
+    destination, provenance = spec["destination"], spec["provenance"]
+    safe_name(destination)
+    safe_name(provenance)
+    if not destination.startswith("third_party/"):
+        raise ValueError("Una dependencia vendored debe quedar bajo third_party/")
+    base = root / destination
+    expected = {}
+
+    def add(name: str, digest: str, *, merge: bool = False) -> None:
+        safe_name(name)
+        if not re.fullmatch(r"[0-9a-f]{64}", digest or ""):
+            raise ValueError("SHA-256 vendored invalido")
+        if name in expected and (not merge or expected[name] != digest):
+            raise ValueError("Ruta vendored duplicada o hash incompatible")
+        path = base / name
+        no_links(root, path)
+        if not stat.S_ISREG(path.stat().st_mode):
+            raise ValueError("Archivo vendored no regular: " + name)
+        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise ValueError("Hash vendored incorrecto: " + name)
+        expected[name] = digest
+
+    add(provenance, spec["sha256"])
+    prov = json.loads((base / provenance).read_text())
+    selected = [c for c in components if c["source_id"] == item["id"]]
+    if (prov.get("schema_version") != 1
+            or prov.get("component") not in {c["id"] for c in selected}
+            or prov["source"]["commit"] != item["commit"]
+            or prov["source"]["repository"] != item["repository"]):
+        raise ValueError("Procedencia vendored no corresponde al pin o componente")
+    entries = (prov["originals"] + prov["compiled"] + prov["project_files"]
+               + [prov["local_changes"], {"path": prov["license"]["text_file"],
+                                         "sha256": prov["license"]["text_sha256"]}])
+    if not prov["originals"] or not prov["compiled"]:
+        raise ValueError("Seleccion vendored vacia")
+    for entry in entries:
+        add(entry["path"], entry["sha256"])
+    for component in selected:
+        if not component["notice_files"]:
+            raise ValueError("Componente vendored sin avisos")
+        for notice in component["notice_files"]:
+            safe_name(notice["path"])
+            name = PurePosixPath(notice["path"]).relative_to(destination).as_posix()
+            add(name, notice["sha256"], merge=True)
+    # Check all paths, including empty/extra directories and directory symlinks.
+    expected_dirs = {str(p) for name in expected for p in PurePosixPath(name).parents if str(p) != "."}
+    actual_files, actual_dirs = set(), set()
+    for path in base.rglob("*"):
+        no_links(root, path)
+        name = path.relative_to(base).as_posix()
+        mode = path.stat().st_mode
+        if stat.S_ISREG(mode):
+            actual_files.add(name)
+        elif stat.S_ISDIR(mode):
+            actual_dirs.add(name)
+        else:
+            raise ValueError("Tipo vendored no soportado: " + name)
+    if actual_files != set(expected) or actual_dirs != expected_dirs:
+        raise ValueError("Clausura vendored contiene archivos/rutas faltantes o extra")
+    return {destination + "/" + name: digest for name, digest in expected.items()}
+
+
 def verify_licenses(root: Path, source_ids: list[str]) -> None:
     catalog = json.loads((root / "manifests/licenses.json").read_text())
     if catalog.get("schema_version") != 1:
         raise ValueError("Catalogo de licencias invalido")
-    notices_by_source = {}
+    lock = json.loads((root / "plan/upstream.lock.json").read_text())
+    vendored = {s["id"]: s for s in lock["sources"] if "vendored" in s}
+    if len({s["id"] for s in lock["sources"]}) != len(lock["sources"]):
+        raise ValueError("Fuente duplicada en lock")
+    notices_by_source = {key: vendored_notices(root, item, catalog["components"])
+                         for key, item in vendored.items()}
     for source_id in source_ids:
+        if source_id in vendored:
+            continue
         destination, manifest = layout(source(root, source_id))
         files = json.loads((root / manifest).read_text())["files"]
         notices_by_source[source_id] = {destination + "/" + f["path"]: f["sha256"] for f in files}
@@ -293,7 +370,7 @@ def verify_licenses(root: Path, source_ids: list[str]) -> None:
             if notices_by_source[source_id].get(notice["path"]) != notice["sha256"]:
                 raise ValueError(f"Aviso fuera del snapshot o hash incorrecto: {notice['path']}")
             covered.add(source_id)
-    if covered != set(source_ids):
+    if covered != set(source_ids) | set(vendored):
         raise ValueError("Faltan avisos de licencia para fuentes seleccionadas")
 
 

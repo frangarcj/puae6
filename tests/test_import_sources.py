@@ -1,4 +1,5 @@
 """Contrato offline del snapshot fijado de WinUAE."""
+import hashlib
 import json
 import os
 import shutil
@@ -87,6 +88,40 @@ class ImportSourcesTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def make_vendored(self):
+        files = import_sources.import_source(self.root)["files"]
+        base = self.root / "third_party/decoder"
+        contents = {"original/reader.cpp": b"original", "reader.cpp": b"derived",
+                    "shim.h": b"own header", "local.diff": b"local diff",
+                    "LICENSE": b"fixture license", "NOTICE.md": b"fixture notice"}
+        for name, data in contents.items():
+            path = base / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        entry = lambda name: {"path": name, "sha256": hashlib.sha256(contents[name]).hexdigest()}
+        prov = {"schema_version": 1, "component": "decoder",
+                "source": {"repository": "https://example.invalid/decoder", "commit": self.commit},
+                "originals": [entry("original/reader.cpp")], "compiled": [entry("reader.cpp")],
+                "project_files": [entry("shim.h")], "local_changes": entry("local.diff"),
+                "license": {"text_file": "LICENSE", "text_sha256": entry("LICENSE")["sha256"]}}
+        manifest = base / "PROVENANCE.json"
+        manifest.write_text(json.dumps(prov))
+        lock_path = self.root / "plan/upstream.lock.json"
+        lock = json.loads(lock_path.read_text())
+        lock["sources"].append({"id": "decoder", **prov["source"], "vendored": {
+            "destination": "third_party/decoder", "provenance": "PROVENANCE.json",
+            "sha256": hashlib.sha256(manifest.read_bytes()).hexdigest()}})
+        lock_path.write_text(json.dumps(lock))
+        notice = next(f for f in files if f["path"] == "data.bin")
+        catalog = {"schema_version": 1, "components": [
+            {"id": "snapshot", "source_id": "winuae", "notice_files": [
+                {"path": "upstream/winuae/data.bin", "sha256": notice["sha256"]}]},
+            {"id": "decoder", "source_id": "decoder", "notice_files": [
+                {"path": "third_party/decoder/" + name, "sha256": entry(name)["sha256"]}
+                for name in ("LICENSE", "NOTICE.md", "original/reader.cpp")]}]}
+        (self.root / "manifests/licenses.json").write_text(json.dumps(catalog))
+        return base, lock, prov, catalog, contents
 
     def test_offline_import_is_faithful_and_repeatable(self):
         result = import_sources.import_source(self.root)
@@ -310,6 +345,61 @@ class ImportSourcesTests(unittest.TestCase):
             with self.subTest(invalid=invalid):
                 write(invalid)
                 with self.assertRaises(ValueError):
+                    import_sources.verify_licenses(self.root, ["winuae"])
+
+    def test_vendored_licenses_verify_without_snapshot_or_network(self):
+        base, lock, _, _, _ = self.make_vendored()
+        self.assertNotIn("snapshot", lock["sources"][-1])
+        before = {p.relative_to(base): p.read_bytes() for p in base.rglob("*") if p.is_file()}
+        import_sources.verify_licenses(self.root, ["winuae"])
+        import_sources.verify_licenses(self.root, ["winuae", "decoder"])
+        self.assertEqual(before, {p.relative_to(base): p.read_bytes() for p in base.rglob("*") if p.is_file()})
+
+    def test_vendored_licenses_reject_corrupt_pin_hash_notice_and_closure(self):
+        base, lock, prov, catalog, contents = self.make_vendored()
+        for change in ("pin", "repository", "manifest", "file", "notice", "catalog-hash",
+                       "path", "notice-outside", "descriptor-path", "symlink", "directory-symlink", "extra",
+                       "empty-directory", "missing", "duplicate-path", "unknown-source",
+                       "duplicate-component", "duplicate-source", "missing-notices", "missing-component"):
+            with self.subTest(change=change):
+                shutil.rmtree(base)
+                for name, data in contents.items():
+                    path = base / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(data)
+                current = json.loads(json.dumps(lock))
+                descriptor = current["sources"][-1]
+                provenance = json.loads(json.dumps(prov))
+                licenses = json.loads(json.dumps(catalog))
+                repin = False
+                if change == "pin": descriptor["commit"] = "0" * 40
+                elif change == "repository": descriptor["repository"] += "/other"
+                elif change == "file": (base / "reader.cpp").write_bytes(b"tampered")
+                elif change == "notice": (base / "NOTICE.md").write_bytes(b"tampered")
+                elif change == "catalog-hash": licenses["components"][-1]["notice_files"][1]["sha256"] = "0" * 64
+                elif change == "path": provenance["project_files"][0]["path"] = "../escape"; repin = True
+                elif change == "notice-outside": licenses["components"][-1]["notice_files"][1]["path"] = "third_party/elsewhere/NOTICE.md"
+                elif change == "descriptor-path": descriptor["vendored"]["destination"] = "third_party/../escape"
+                elif change == "symlink": (base / "reader.cpp").unlink(); (base / "reader.cpp").symlink_to("shim.h")
+                elif change == "directory-symlink":
+                    (base / "original/reader.cpp").unlink(); (base / "original").rmdir()
+                    (base / "original").symlink_to("outside")
+                elif change == "extra": (base / "extra").write_bytes(b"extra")
+                elif change == "empty-directory": (base / "empty").mkdir()
+                elif change == "missing": (base / "shim.h").unlink()
+                elif change == "duplicate-path": provenance["project_files"].append(provenance["project_files"][0]); repin = True
+                elif change == "unknown-source": licenses["components"][-1]["source_id"] = "unknown"
+                elif change == "duplicate-component": licenses["components"].append(licenses["components"][-1])
+                elif change == "duplicate-source": current["sources"].append(descriptor)
+                elif change == "missing-notices": licenses["components"][-1]["notice_files"] = []
+                elif change == "missing-component": licenses["components"].pop()
+                manifest = base / "PROVENANCE.json"
+                manifest.write_text(json.dumps(provenance))
+                if change == "manifest": manifest.write_text(manifest.read_text() + " ")
+                if repin: descriptor["vendored"]["sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+                (self.root / "plan/upstream.lock.json").write_text(json.dumps(current))
+                (self.root / "manifests/licenses.json").write_text(json.dumps(licenses))
+                with self.assertRaises((ValueError, OSError)):
                     import_sources.verify_licenses(self.root, ["winuae"])
 
 
