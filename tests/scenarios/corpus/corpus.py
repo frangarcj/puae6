@@ -142,40 +142,51 @@ def category_counts():
 
 # --- the scenario files -----------------------------------------------------------------------------------------------------------------------------------------------
 
-def _inputs(args):
+def _inputs(args, units):
     """(packets, resets) of the strict scenario for the unit-addressed probe arguments: `--port N:type:b:dx:dy`, `--port-at U spec`, `--key U code down|up`, `--reset-at U`.
-    The packet of a unit holds the keys and ports as they are from that unit on (keys and buttons hold until replaced)."""
-    idle = {"type": "none", "buttons": 0, "dx": 0, "dy": 0}
+    Probe inputs number the first unit 1, with 0 aliasing 1. Scenario inputs are zero-based;
+    keys/buttons hold, but motion needs an explicit packet for every unit. Resets name boundaries."""
+    idle = {"type": "joystick", "buttons": 0, "dx": 0, "dy": 0}
     kinds = {"0": "none", "1": "joystick", "2": "mouse"}
-    pending, resets, i = [], [], 0
+    ports = [dict(idle), dict(idle)]
+    pending, resets, i = {}, [], 0
+
+    def port(spec):
+        number, kind, buttons, dx, dy = spec.split(":")
+        return int(number), {"type": kinds[kind], "buttons": int(buttons), "dx": int(dx), "dy": int(dy)}
+
     while i < len(args):
         option = args[i]
         if option == "--port":
-            pending.append((0, "port", args[i + 1]))
+            # All --port presets are parsed before the probe applies any timed event,
+            # including events 0/1 that precede a preset in argv.
+            number, value = port(args[i + 1])
+            ports[number] = value
             i += 2
         elif option == "--port-at":
-            pending.append((int(args[i + 1]), "port", args[i + 2]))
+            unit = max(0, int(args[i + 1]) - 1)
+            pending.setdefault(unit, []).append(("port", port(args[i + 2])))
             i += 3
         elif option == "--key":
-            pending.append((int(args[i + 1]), "key", (int(args[i + 2], 0), args[i + 3])))
+            unit = max(0, int(args[i + 1]) - 1)
+            pending.setdefault(unit, []).append(("key", (int(args[i + 2], 0), args[i + 3])))
             i += 4
         elif option == "--reset-at":
             resets.append({"unit": int(args[i + 1]), "sequence": 0, "type": "reset"})
             i += 2
         else:
             i += 1
-    keys, ports, packets = 0, [dict(idle), dict(idle)], []
-    for unit in sorted({u for u, _, _ in pending} | {0}):
-        for at, kind, value in pending:
-            if at != unit:
-                continue
+    keys, packets = 0, []
+    for unit in range(units):
+        for kind, value in pending.get(unit, ()):
             if kind == "port":
-                number, port_kind, buttons, dx, dy = value.split(":")
-                ports[int(number)] = {"type": kinds[port_kind], "buttons": int(buttons), "dx": int(dx), "dy": int(dy)}
+                number, state = value
+                ports[number] = state
             else:
                 code, direction = value
                 keys = keys | (1 << code) if direction == "down" else keys & ~(1 << code)
-        packets.append({"unit": unit, "keys": "%032x" % keys, "ports": [dict(p) for p in ports]})
+        if unit == 0 or unit in pending or any(p["dx"] or p["dy"] for p in ports):
+            packets.append({"unit": unit, "keys": "%032x" % keys, "ports": [dict(p) for p in ports]})
     return packets, resets
 
 
@@ -205,7 +216,7 @@ def events_of(entry):
 
 
 def document(entry, rom_sha256):
-    packets, resets = _inputs(entry.args)
+    packets, resets = _inputs(entry.args, entry.units)
     events = sorted(resets + events_of(entry), key=lambda e: (e["unit"], e["sequence"]))
     chip, slow = MEMORY[entry.machine]
     return {

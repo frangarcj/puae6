@@ -29,7 +29,7 @@
           "dy": 3
         },
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
@@ -37,7 +37,25 @@
       ]
     },
     {
-      "unit": 3,
+      "unit": 1,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 1,
+          "dx": 5,
+          "dy": 3
+        },
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 2,
       "keys": "00000000000000000000000000000000",
       "ports": [
         {
@@ -47,7 +65,7 @@
           "dy": 0
         },
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
@@ -55,7 +73,7 @@
       ]
     },
     {
-      "unit": 5,
+      "unit": 4,
       "keys": "00000000000000000000000000000000",
       "ports": [
         {
@@ -73,7 +91,61 @@
       ]
     },
     {
+      "unit": 5,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
       "unit": 6,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 7,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 8,
       "keys": "00000000000000000000000000000000",
       "ports": [
         {

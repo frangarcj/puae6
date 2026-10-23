@@ -36,6 +36,58 @@ def backed(entry, category):
 
 
 class CoverageTests(unittest.TestCase):
+    def projected_inputs(self, args, units):
+        entry = corpus.Entry("input-projection", "a500", "pal", (), "vsync", args, units=units)
+        document = corpus.document(entry, "a" * 64)
+        schema.validate_scenario(document)
+        rows = [(p["unit"], int(p["keys"], 16),
+                 [(v["type"], v["buttons"], v["dx"], v["dy"]) for v in p["ports"]]) for p in document["inputs"]]
+        return rows, document["events"]
+
+    def test_input_defaults_are_two_joysticks_and_presets_replace_only_the_named_port(self):
+        joystick = ("joystick", 0, 0, 0)
+        self.assertEqual(self.projected_inputs([], 3), ([(0, 0, [joystick, joystick])], []))
+        self.assertEqual(self.projected_inputs(["--port", "1:0:0:0:0"], 3),
+                         ([(0, 0, [joystick, ("none", 0, 0, 0)])], []))
+
+    def test_keyboard_inputs_use_zero_based_units_and_hold_until_release(self):
+        ports = [("joystick", 0, 0, 0), ("joystick", 0, 0, 0)]
+        rows, events = self.projected_inputs(["--key", "2", "0x20", "down", "--key", "4", "0x20", "up"], 4)
+        self.assertEqual(rows, [(0, 0, ports), (1, 1 << 32, ports), (3, 0, ports)])
+        self.assertEqual(events, [])
+
+    def test_mouse_motion_repeats_each_unit_and_type_changes_stop_it(self):
+        args = ["--port", "0:2:1:5:3", "--port-at", "3", "0:1:5:0:0",
+                "--port-at", "5", "1:1:6:0:0", "--port-at", "6", "0:2:2:-4:9"]
+        idle, held = ("joystick", 0, 0, 0), ("joystick", 5, 0, 0)
+        moved, moved_back = ("mouse", 1, 5, 3), ("mouse", 2, -4, 9)
+        other = ("joystick", 6, 0, 0)
+        rows, events = self.projected_inputs(args, 8)
+        self.assertEqual(rows, [(0, 0, [moved, idle]), (1, 0, [moved, idle]), (2, 0, [held, idle]),
+                                (4, 0, [held, other]), (5, 0, [moved_back, other]),
+                                (6, 0, [moved_back, other]), (7, 0, [moved_back, other])])
+        self.assertEqual(events, [])
+
+    def test_first_unit_aliases_preserve_argv_order_after_all_port_presets(self):
+        # A later --port preset is still applied BEFORE either timed event.
+        for first, second, final in (("1", "0", ("mouse", 2, -5, 6)), ("0", "1", ("mouse", 2, -5, 6))):
+            args = ["--port-at", first, "0:2:1:3:4", "--port", "0:1:7:0:0",
+                    "--port-at", second, "0:2:2:-5:6"]
+            with self.subTest(first=first, second=second):
+                rows, _ = self.projected_inputs(args, 2)
+                self.assertEqual(rows, [(0, 0, [final, ("joystick", 0, 0, 0)]),
+                                        (1, 0, [final, ("joystick", 0, 0, 0)])])
+        for first, second in (("1", "0"), ("0", "1")):
+            args = ["--key", first, "0x20", "down", "--key", second, "0x20", "up"]
+            self.assertEqual(self.projected_inputs(args, 1)[0],
+                             [(0, 0, [("joystick", 0, 0, 0), ("joystick", 0, 0, 0)])])
+
+    def test_reset_keeps_its_boundary_index_independently_of_input_units(self):
+        rows, events = self.projected_inputs(["--reset-at", "3", "--key", "3", "0x40", "down"], 5)
+        ports = [("joystick", 0, 0, 0), ("joystick", 0, 0, 0)]
+        self.assertEqual(rows, [(0, 0, ports), (2, 1 << 64, ports)])
+        self.assertEqual(events, [{"unit": 3, "sequence": 0, "type": "reset"}])
+
     def test_the_scenario_files_are_what_the_generator_makes(self):
         documents = corpus.documents()
         self.assertEqual(sorted(documents), sorted(p.stem for p in corpus.SCENARIO_DIR.glob("*.json") if p.stem != "index"))

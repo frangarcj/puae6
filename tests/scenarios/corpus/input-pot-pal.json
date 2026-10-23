@@ -23,7 +23,7 @@
       "keys": "00000000000000000000000000000000",
       "ports": [
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0

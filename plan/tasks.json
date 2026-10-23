@@ -11735,7 +11735,10 @@
         "tests/libretro-host/test_machines.py",
         "tests/libretro-ui/test_uae.py",
         "tests/libretro-host/test_fast.py",
-        "tests/libretro-host/test_model_tags.py"
+        "tests/libretro-host/test_model_tags.py",
+        "tests/scenarios/corpus/corpus.py",
+        "tests/scenarios/corpus/*.json",
+        "tests/reference/test_corpus.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11816,7 +11819,8 @@
         "Regresion cercana scheduler: Pointer4PASS; Scheduler12casos descubre2expectativas obsoletas y1skip de firmware encheck dirigido sinassets (no acreditarpuerta completa). Ampliar previamente tests/state/test_state_scheduler.py: lista diagnostica incluye15/16 y negativo fuera de rango usa16; conservar14connegativo explicito ownerCDTVausente y añadir15sinownerAR. Mantener12eventos legacy reales y todas lasrestauraciones/mutaciones; no repetir los9casos ya dirigidos por este ajuste deexpectativas. Solo reejecutar2metodos afectados ahora; lane completa posterior conserva firmware y scopes obligatorios no cubiertos porcheck sinassets.",
         "Ampliar previamente tests/libretro-host/test_machines.py y tests/libretro-ui/test_uae.py tras revision estatica acotada: diagnostico de opciones enumera tambien A4030/CD32/A4040/CDTV y el system_info incluye formatosCD completos. Actualizar solo expectativas exactas al catalogo ya generado/publicado; conservar cuatrovalores invalidos, expect3, ausencia run1, extensionuae yneed_fullpath. Probar solo ambosmetodos dirigidos sobrefrontend real, sin alterar opciones/motor ni repetir formatos decontenedores ya comprobados.",
         "Ampliar previamente tests/libretro-host/test_fast.py: union funcional aprueba135modulos y falla3asserts obsoletos en2metodos. Schema fast_size ahora defaultAuto y catalogoNone..MB8,Auto; presets incluyenA4030/CD32/A4040/A4060. Actualizar exclusivamente mensaje de recargaAuto y doscatalogos completos de rechazo, conservando entradasinvalidas, ausencia deavance, diferencia exacta de8MiB, restauracion y comparacionesheadless. Confirmar causa en schema/generado y logging real; ejecutar solo2metodos afectados, luego continuar uniondesdeeste modulo sin repetir135aprobados ni FPU.",
-        "Revision estatica del siguiente bloque demuestra otras dosexpectativas del catalogomachine anterior aA4030/CD32/A4040/CDTV: test_libretro rechazo de8valores y test_model_tags menuautomatico. Ampliar previamente solo test_model_tags.py, test_libretro.py ya permitido: exigir lista completa literal, mantener rechazo temprano sin VFS/run y defaults/menu legacy/nooptions. Ejecutar unmetodo afectado por modulo antes de reanudar union, sin cambios a generados ni schema."
+        "Revision estatica del siguiente bloque demuestra otras dosexpectativas del catalogomachine anterior aA4030/CD32/A4040/CDTV: test_libretro rechazo de8valores y test_model_tags menuautomatico. Ampliar previamente solo test_model_tags.py, test_libretro.py ya permitido: exigir lista completa literal, mantener rechazo temprano sin VFS/run y defaults/menu legacy/nooptions. Ejecutar unmetodo afectado por modulo antes de reanudar union, sin cambios a generados ni schema.",
+        "Revision estatica de union descubre proyeccion descriptiva de inputs desacoplada de probe: defaults none frente joystick, --key/--port-at positivos base1 frente JSON base0 y movimiento persistente frente delta de paquete. Root autoriza vertical aislada corpus-input-projection a blitter_bound: solo _inputs/document en corpus.py, JSON descriptivos regenerados y test_corpus.py; conservar ENTRIES/programs/args/ROM/media/cases.json/HW/AV y golden. Coordinator modifica esta metadata solo en worktree; main queda inmovil durante CI8757. Probar secuencias independientes con defaults, claves, cambio de tipos y deltas repetidos; confirmar archivo por archivo que writer diferencial y corpusSHA no cambian. Sin compilar motor ni repetir emulacion; integrar tras terminal de la union y validar proyeccion/esquema, manteniendo identidades reales y puertas originales."
       ],
       "checks": [
         "PLAN01",

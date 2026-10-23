@@ -23,13 +23,31 @@
       "keys": "00000000000000000000000000000000",
       "ports": [
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
         },
         {
-          "type": "none",
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 1,
+      "keys": "00000000000000000000000100000000",
+      "ports": [
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
@@ -38,16 +56,16 @@
     },
     {
       "unit": 2,
-      "keys": "00000000000000000000000100000000",
+      "keys": "00000000000000010000000300000000",
       "ports": [
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
         },
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
@@ -56,16 +74,16 @@
     },
     {
       "unit": 3,
-      "keys": "00000000000000010000000300000000",
+      "keys": "00000000000000010000000200000000",
       "ports": [
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
         },
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
@@ -74,34 +92,16 @@
     },
     {
       "unit": 4,
-      "keys": "00000000000000010000000200000000",
-      "ports": [
-        {
-          "type": "none",
-          "buttons": 0,
-          "dx": 0,
-          "dy": 0
-        },
-        {
-          "type": "none",
-          "buttons": 0,
-          "dx": 0,
-          "dy": 0
-        }
-      ]
-    },
-    {
-      "unit": 5,
       "keys": "00000000000000210000000200000000",
       "ports": [
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
         },
         {
-          "type": "none",
+          "type": "joystick",
           "buttons": 0,
           "dx": 0,
           "dy": 0
