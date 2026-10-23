@@ -415,11 +415,11 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 
 | Clave | Que hace |
 |---|---|
-| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000`, `A4000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A4000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
+| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000`, `A4000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A3000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
 | `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya (`A2000`: `ocs` o `ecs_agnus`). `ecs_agnus` solo, sin `chipset_compatible=A2000`, y `ecs_denise` se rechazan. |
-| `cpu_model` | `68000` o `68010` en las maquinas de 68000 (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000), `68020` en el A1200 (su 68EC020), `68030` en A4030 (precision Normal, sin MMU) -> `puae6_cpu_model` (T52). Otro valor, o una CPU que la maquina no puede tener, se rechaza. |
+| `cpu_model` | `68000` o `68010` en las maquinas de 68000 (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000), `68020` en el A1200 (su 68EC020), `68030` en A4030 y `68040`/`68060` en A4040 (precision Normal, sin MMU) -> `puae6_cpu_model`. Otro valor, o una CPU que la maquina no puede tener, se rechaza. |
 | `cpu_multiplier` | `1`, `2`, `4`, `8`, `10`, `12`, `16` (veces 3,55 MHz, como PUAE5) -> `puae6_cpu_multiplier`; `0` es el de la maquina (`auto`). Otro numero se rechaza (T52). |
-| `fpu_model` | `0` -> `puae6_fpu_model=None`, `68881`, `68882`. `68040`/`68060` se rechazan. |
+| `fpu_model` | `0` -> `puae6_fpu_model=None`; `68881`, `68882`, `68040`, `68060` -> `M68881`, `M68882`, `M68040`, `M68060`. La carga valida la combinacion: 68881/68882 en A1200/A4030; FPU interna 68040/68060 solo en A4040 con la CPU correspondiente. |
 | `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `4`=2 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB) y lo que no ofrece el core se rechazan. |
 | `bogomem_size` | Unidades de 256 KiB: `0`=ninguna (`None`), `2`=512 KiB, `4`, `6`, `7` -> `puae6_slow_size`. |
 | `fastmem_size`, `fastmem_size_k` | MiB (o KiB): `0`=ninguna, `1`, `2`, `4`, `8` MiB -> `puae6_fast_size`. |

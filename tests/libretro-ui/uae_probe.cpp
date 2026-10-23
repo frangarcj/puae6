@@ -105,6 +105,17 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         CHECK(same_config(r.imported.settings, expected));
         CHECK(!r.imported.applied.empty());
     }
+    // Internal FPUs translate to the matching A4040 CPU; load validates the profile.
+    for (const auto &model : {std::pair<uint32_t, uint32_t>{5, 68040}, {7, 68060}}) {
+        Settings expected = concrete();
+        expected.machine = P6_MACHINE_A4040;
+        expected.cpu_model = model.first;
+        expected.cpu_compatibility = P6_CPU_NORMAL;
+        expected.fpu_model = model.second;
+        const std::string number = std::to_string(model.second);
+        const Result r = import("puae6_machine=A4040\npuae6_cpu_compatibility=normal\ncpu_model=" + number + "\nfpu_model=" + number + "\n");
+        CHECK(r.ok && same_config(r.imported.settings, expected));
+    }
     CHECK(import("collision_level=none").imported.settings.collision_level == 1);
     CHECK(import("collision_level=full").imported.settings.collision_level == 4);
     CHECK(!import("collision_level=garbage").ok);
@@ -292,7 +303,7 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"chipset_compatible=A1000\nchipset=ecs", "chipset", "A1000: ocs"},
         {"chipset_compatible=A4000\ncpu_model=68020", "cpu_model", "A4030: 68030"},
         {"chipset_compatible=CD32", "chipset_compatible", "A500, A500+, A600, A1000, A1200, A2000"},
-        {"fpu_model=68040", "fpu_model", "0, 68881 or 68882"},
+        {"fpu_model=68020", "fpu_model", "0, 68881, 68882, 68040 or 68060"},
         {"fpu_model=abc", "fpu_model", "expected a number"},
         {"chipmem_size=-1", "chipmem_size", "128 KiB"},
         {"chipmem_size=0", "chipmem_size", "256 KiB"},
