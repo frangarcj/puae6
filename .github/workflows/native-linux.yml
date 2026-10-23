@@ -2,6 +2,11 @@ name: Native matrix
 on:
   workflow_dispatch:
     inputs:
+      gate:
+        description: Native cold restore or both complete public corpora
+        type: choice
+        options: [native, corpus]
+        default: native
       variants:
         description: All combinations or sanitizer follow-up
         type: choice
@@ -38,5 +43,5 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Headless, libretro and cold restore
-        run: python3 tools/ci/linux_native.py --row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}'
+      - name: Hosted native gate (${{ inputs.gate }})
+        run: python3 tools/ci/linux_native.py --row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}' --gate '${{ inputs.gate }}'

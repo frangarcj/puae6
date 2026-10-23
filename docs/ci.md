@@ -141,8 +141,27 @@ o no reconstruidas. La falta de herramientas, salida
 incompleta o un fallo termina el job. `fail-fast: false` permite ver las demas
 combinaciones sin ocultar el fallo.
 
-Esta puerta ejecuta pruebas nativas por combinacion. No acredita Waterbox Darwin,
-la comparacion completa entre ISA del corpus, las lanes acumuladas o la release.
+El selector manual `gate` conserva `native` por defecto. `corpus` ejecuta solo
+la puerta nueva de corpus, con los mismos quince jobs y variantes: construye una
+vez probe/headless, genera las 89 entradas publicas y las 28 diferenciales, y
+reutiliza `row_driver.py`, `faketime.c`, sus goldens y el comparador de T25.
+Cada corpus corre completo en baseline y host: locale, TZ, rutas con caracteres
+especiales y tres relojes civiles desplazados realmente; el monotono se conserva.
+Comprueba todos los hashes hardware/AV, unidades, errores y headless, sin cambiar
+ningun golden. Las ROMs y medios son generados propios, sin firmware comercial.
+
+`--gate corpus` exige revision limpia y registra/recomprueba tambien recetas,
+generadores, fixtures y goldens Python. Salida, corpus y biblioteca de reloj
+son temporales y se eliminan incluso ante fallo. ASan/UBSan siguen activos en
+`san` mediante `-fno-sanitize-recover=all`, aunque el `row_driver` no hereda
+`UBSAN_OPTIONS`; ese driver existente desactiva LSan para el corpus. El gate `native`
+previo conserva LSan Linux activo. Escribir esta receta no acredita su ejecucion
+remota ni sustituye las lanes locales originales.
+
+El selector `native` ejecuta pruebas nativas por combinacion y no acredita la
+comparacion completa entre ISA de los corpus. El selector `corpus` compara ambos
+goldens por fila cuando se ejecuta realmente. Ninguno acredita Waterbox Darwin,
+las lanes acumuladas o la release.
 Windows y macOS Intel aun no tienen un port anunciado en la matriz del proyecto.
 
 La comprobacion SRC01 de avisos incluye dependencias vendorizadas declaradas en

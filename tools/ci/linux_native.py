@@ -48,10 +48,10 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def execute(argv, timeout=180):
+def execute(argv, timeout=180, env=None):
     result = command(list(map(str, argv)), timeout=timeout,
                      env={"ASAN_OPTIONS": "detect_leaks=" + ("0" if platform.system() == "Darwin" else "1") + ":halt_on_error=1",
-                          "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"})
+                          "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1", **(env or {})})
     require(result.returncode == 0, f"command failed ({result.returncode}): {argv[0]}\n{result.stdout[-3000:]}\n{result.stderr[-3000:]}")
     require("VIOLATION" not in result.stdout, "libretro host reported a protocol violation")
     return result.stdout
@@ -68,7 +68,7 @@ def preflight(row=DEFAULT_ROW, opt="O2"):
             raise ValueError(f"missing preinstalled tool: {tool}")
 
 
-def build_commands(row=DEFAULT_ROW, opt="O2", tree=TREE):
+def build_commands(row=DEFAULT_ROW, opt="O2", tree=TREE, targets=TARGETS):
     spec, mode = selection(row, opt)
     flags = mode["flags"] or "-O0 -g"
     kind = mode["build_type"].upper()
@@ -76,7 +76,13 @@ def build_commands(row=DEFAULT_ROW, opt="O2", tree=TREE):
              "-DCMAKE_TOOLCHAIN_FILE=" + str(ROOT / spec["toolchain"]),
              "-DCMAKE_BUILD_TYPE=" + mode["build_type"], f"-DCMAKE_C_FLAGS_{kind}=" + flags,
              f"-DCMAKE_CXX_FLAGS_{kind}=" + flags, "-DP6_SANITIZERS=" + ("ON" if mode["sanitizers"] else "OFF")],
-            ["cmake", "--build", str(tree), "--target", *TARGETS, "-j", "2"])
+            ["cmake", "--build", str(tree), "--target", *targets, "-j", "2"])
+
+
+def binary_identity(tree, row, targets):
+    return dict(cmake_cache_sha256=digest(tree / "CMakeCache.txt"),
+                codegen_sha256=digest(ROOT / "build/generated/codegen-receipt.json"),
+                binaries={name: digest(tree / (core_name(row) if name == "puae6_libretro" else name)) for name in targets})
 
 
 def rows(text, prefix, count):
@@ -149,31 +155,41 @@ def check_frontends(work, rom, tree=TREE, row=DEFAULT_ROW):
     require([[r[k] for k in keys] for r in warm[0]] == [[r[k] for k in keys] for r in warm[1]], "libretro reload changed hardware/AV/PCM")
 
 
-def run(row=DEFAULT_ROW, opt="O2"):
+def run(row=DEFAULT_ROW, opt="O2", gate="native"):
+    if gate not in ("native", "corpus"):
+        raise ValueError("unknown hosted gate")
+    from tools.ci import hosted_corpus
     preflight(row, opt); before = source_identity()
+    recipe = hosted_corpus.recipe_identity(execute) if gate == "corpus" else None
+    targets = TARGETS if gate == "native" else ("p6_state_probe", "p6_headless")
     _, mode = selection(row, opt)
     tree = ROOT / "build/hosted-native" / row / opt
-    for argv in build_commands(row, opt, tree):
+    for argv in build_commands(row, opt, tree, targets):
         execute(argv, 1800)
     tree.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="scenario-", dir=tree) as directory:
-        work = Path(directory)
-        spec = importlib.util.spec_from_file_location("microrom", ROOT / "tests/fixtures/microrom/build_rom.py")
-        builder = importlib.util.module_from_spec(spec); spec.loader.exec_module(builder)
-        for name in ("input_all", "boot"):
-            (work / (name + ".rom")).write_bytes(builder.build((ROOT / f"tests/fixtures/microrom/{name}.s").read_text()))
-        # boot avoids frontend mouse/joystick defaults; input_all exercises native input restoration.
-        check_native(work, work / "input_all.rom", tree); check_frontends(work, work / "boot.rom", tree, row)
+    built = binary_identity(tree, row, targets)
+    corpus_result = None
+    if gate == "corpus":
+        corpus_result = hosted_corpus.run(tree, compilers(row)[0], mode, execute)
+        require(hosted_corpus.recipe_identity(execute) == recipe, "corpus recipe/fixtures/revision changed during the gate")
+        require(binary_identity(tree, row, targets) == built, "corpus build inputs changed during the gate")
+    else:
+        with tempfile.TemporaryDirectory(prefix="scenario-", dir=tree) as directory:
+            work = Path(directory)
+            spec = importlib.util.spec_from_file_location("microrom", ROOT / "tests/fixtures/microrom/build_rom.py")
+            builder = importlib.util.module_from_spec(spec); spec.loader.exec_module(builder)
+            for name in ("input_all", "boot"):
+                (work / (name + ".rom")).write_bytes(builder.build((ROOT / f"tests/fixtures/microrom/{name}.s").read_text()))
+            # boot avoids frontend mouse/joystick defaults; input_all exercises native input restoration.
+            check_native(work, work / "input_all.rom", tree); check_frontends(work, work / "boot.rom", tree, row)
     require(source_identity() == before, "sources changed during the gate")
-    return dict(status="PASS", scope="native hosted row; not Waterbox or accumulated release", row=row, optimization=opt, revision=execute(["git", "rev-parse", "HEAD"]).strip(),
+    return dict(status="PASS", scope="native hosted row; not Waterbox or accumulated release", gate=gate, corpus=corpus_result, recipe=recipe, row=row, optimization=opt, revision=execute(["git", "rev-parse", "HEAD"]).strip(),
                 source_sha256=before, runner=platform.platform(), patchset_sha256=digest(ROOT / "patches/winuae/series.json"),
                 flags=(mode["flags"] or "-O0 -g") + "; assertions on", sanitizers=mode["sanitizers"],
-                leak_detection=("unsupported on Darwin ARM64" if row.startswith("macos-") else "on") if mode["sanitizers"] else "not instrumented",
+                leak_detection=("off in existing corpus row_driver" if gate == "corpus" else "unsupported on Darwin ARM64" if row.startswith("macos-") else "on") if mode["sanitizers"] else "not instrumented",
                 toolchain_lock_sha256=digest(ROOT / "plan/toolchains.json"),
                 compilers={name: execute([name, "--version"]).splitlines()[0] for name in compilers(row)},
-                cmake_cache_sha256=digest(tree / "CMakeCache.txt"),
-                codegen_sha256=digest(ROOT / "build/generated/codegen-receipt.json"),
-                binaries={name: digest(tree / (core_name(row) if name == "puae6_libretro" else name)) for name in TARGETS})
+                **built)
 
 
 if __name__ == "__main__":
@@ -181,8 +197,9 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--row", choices=tuple(HOSTED_RUNNERS), default=DEFAULT_ROW)
         parser.add_argument("--opt", choices=VARIANTS, default="O2")
+        parser.add_argument("--gate", choices=("native", "corpus"), default="native")
         args = parser.parse_args()
-        result = run(args.row, args.opt)
+        result = run(args.row, args.opt, args.gate)
     except (OSError, ValueError, RuntimeError, KeyError) as error:
         result = dict(status="BLOCKED" if isinstance(error, ValueError) else "FAIL", diagnostic=str(error))
     print(redact(json.dumps(result, sort_keys=True)))

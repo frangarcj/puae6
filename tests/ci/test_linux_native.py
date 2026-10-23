@@ -1,5 +1,8 @@
 """Infrastructure only; no compiler, emulator, network or commercial ROM runs."""
 from pathlib import Path
+import copy
+import hashlib
+import json
 import ast
 import re
 import subprocess
@@ -7,7 +10,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tools.ci import linux_native as ci
+from tools.ci import linux_native as ci, hosted_corpus as corpus_ci
 
 
 class LinuxNativeTests(unittest.TestCase):
@@ -107,6 +110,8 @@ class LinuxNativeTests(unittest.TestCase):
         self.assertIn('fail-fast: false',workflow)
         self.assertIn('max-parallel: 4',workflow)
         self.assertIn('options: [all, san]',workflow)
+        self.assertIn('options: [native, corpus]',workflow)
+        self.assertIn("--gate '${{ inputs.gate }}'",workflow)
         self.assertIn('default: all',workflow)
         self.assertIn('inputs.variants == \'san\' && \'[{"optimization":"O0"},{"optimization":"O2"}]\'',workflow)
         self.assertIn("--row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}'",workflow)
@@ -114,3 +119,112 @@ class LinuxNativeTests(unittest.TestCase):
         self.assertEqual(workflow.count("uses:"), 1)
         self.assertIn("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683", workflow)
         self.assertNotRegex(workflow, r"upload-artifact|actions/cache|secrets\.|pull_request:|schedule:|continue-on-error")
+
+
+class HostedCorpusTests(unittest.TestCase):
+    @staticmethod
+    def records(headless=False):
+        case = dict(hardware='a'*64, av='b'*64, units=1)
+        expected = dict(cases={'one': case})
+        record = dict(errors={}, cases={'one': dict(case, lines=19, per_unit={'0': ['a'*16, 'b'*16]})},
+                      headless={name: 'c'*64 for name, _, _ in corpus_ci.row_driver.HEADLESS_CASES} if headless else {})
+        return expected, dict(record, variant='baseline'), dict(copy.deepcopy(record), variant='host')
+
+    def test_complete_existing_oracle_rejects_missing_extra_bad_hash_units_and_host_desync(self):
+        wanted, base, host = self.records(True)
+        self.assertEqual(corpus_ci.compare(wanted, base, host, headless=True)['cases'], 1)
+        for fault in ('missing', 'extra', 'error', 'hash', 'baseline', 'host', 'units', 'per_unit', 'headless', 'headless_hash', 'headless_host'):
+            expected, baseline, shifted = copy.deepcopy((wanted, base, host))
+            if fault == 'missing': del baseline['cases']['one']
+            if fault == 'extra': baseline['cases']['extra'] = baseline['cases']['one']
+            if fault == 'error': shifted['errors'] = {'one': 'timeout'}
+            if fault == 'hash': baseline['cases']['one']['hardware'] = 'bad'
+            if fault == 'baseline': baseline['cases']['one']['hardware'] = 'd'*64
+            if fault == 'host': shifted['cases']['one']['av'] = 'd'*64
+            if fault == 'units': shifted['cases']['one']['units'] = 0
+            if fault == 'per_unit': shifted['cases']['one']['per_unit'] = {}
+            if fault == 'headless': shifted['headless'] = {}
+            if fault == 'headless_hash': shifted['headless'][next(iter(shifted['headless']))] = 'error'
+            if fault == 'headless_host': shifted['headless'][next(iter(shifted['headless']))] = 'd'*64
+            with self.subTest(fault=fault), self.assertRaises(RuntimeError):
+                corpus_ci.compare(expected, baseline, shifted, headless=True)
+        with self.assertRaisesRegex(RuntimeError, 'empty'):
+            corpus_ci.compare({'cases': {}}, {}, {}, headless=False)
+
+    def test_clock_requires_all_three_real_shifts_and_an_unchanged_monotonic(self):
+        base = 'time=100 gettimeofday=100 clock_gettime=100 monotonic=10'
+        shifted = ' '.join(f'{k}={100+corpus_ci.run_matrix.FAKE_OFFSET}' for k in ('time', 'gettimeofday', 'clock_gettime'))+' monotonic=11'
+        self.assertEqual(corpus_ci.clocks(base, shifted)['civil_clocks'], 3)
+        for bad in (base, shifted.replace('monotonic=11', 'monotonic=99'), shifted.replace('gettimeofday=', 'unknown='), shifted+' time=1'):
+            with self.subTest(bad=bad), self.assertRaises(RuntimeError): corpus_ci.clocks(base, bad)
+
+    def test_both_corpora_and_variants_keep_all_cases_clock_preload_two_jobs_and_cleanup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); (root/'tests/portability').mkdir(parents=True)
+            files = {'one.rom': b'public', 'cases.json': b'[{"id":"one"}]'}
+            checksum = hashlib.sha256()
+            for name, data in sorted(files.items()): checksum.update(name.encode()+b'\0'+hashlib.sha256(data).digest())
+            def writer(directory):
+                directory.mkdir()
+                for name, data in files.items(): (directory/name).write_bytes(data)
+                return [{'id': 'one'}]
+            for name in ('corpus', 'differential'):
+                expected = self.records()[0]
+                expected.update(schema_version=1, corpus=dict(cases=1, sha256=checksum.hexdigest()))
+                (root/f'tests/portability/{name}.golden.json').write_text(json.dumps(expected))
+            observed = []
+            def execute(argv, timeout=180, env=None):
+                argv = list(map(str, argv)); observed.append((argv, env))
+                if '--out' in argv:
+                    wanted, base, host = self.records('--headless' in argv)
+                    Path(argv[argv.index('--out')+1]).write_text(json.dumps(host if '--preload' in argv else base))
+                    self.assertEqual(argv[argv.index('--jobs')+1], '2'); self.assertNotIn('--group', argv)
+                    self.assertEqual(timeout, 1800)
+                if argv[0].endswith('clock-check'):
+                    value = 100+(corpus_ci.run_matrix.FAKE_OFFSET if env else 0)
+                    return f'time={value} gettimeofday={value} clock_gettime={value} monotonic=10'
+                return ''
+            with mock.patch.object(corpus_ci, 'ROOT', root), mock.patch.dict(corpus_ci.corpus.CORPORA, {'': writer, 'differential': writer}, clear=True), \
+                 mock.patch.object(corpus_ci.row_driver, 'preload_environment', return_value={'LD_PRELOAD': 'real-runtime:clock'}) as preload:
+                result = corpus_ci.run(root, '/usr/bin/gcc', dict(flags='', sanitizers=True), execute)
+                self.assertEqual(set(result['corpora']), {'corpus', 'differential'})
+                self.assertEqual(len([argv for argv, _ in observed if '--out' in argv]), 4)
+                self.assertTrue(all(argv[0]=='/usr/bin/gcc' for argv, _ in observed if '-o' in argv))
+                self.assertTrue(any('-fsanitize=address,undefined' in argv for argv, _ in observed))
+                preload.assert_called_once()
+                self.assertFalse(list(root.glob('public-corpus-*')))
+                with self.assertRaisesRegex(RuntimeError, 'fixture failed'):
+                    corpus_ci.run(root, '/usr/bin/gcc', dict(flags='', sanitizers=True), mock.Mock(side_effect=RuntimeError('fixture failed')))
+                self.assertFalse(list(root.glob('public-corpus-*')))
+
+    def test_corpus_gate_builds_once_without_repeating_native_and_rejects_changed_identity(self):
+        for changed in ('none', 'recipe', 'source', 'binary'):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory, \
+                 mock.patch.object(ci, 'ROOT', Path(directory)), mock.patch.object(ci, 'preflight'), \
+                 mock.patch.object(ci, 'source_identity', side_effect=['a', 'b' if changed=='source' else 'a']), \
+                 mock.patch.object(ci, 'digest', return_value='d'), mock.patch.object(ci, 'execute', return_value='revision') as execute, \
+                 mock.patch.object(ci, 'binary_identity', side_effect=[{'binary': 'a'}, {'binary': 'b' if changed=='binary' else 'a'}]), \
+                 mock.patch.object(ci, 'check_native') as native, mock.patch.object(ci, 'check_frontends') as frontend, \
+                 mock.patch.object(corpus_ci, 'recipe_identity', side_effect=[{'recipe': 'a'}, {'recipe': 'b' if changed=='recipe' else 'a'}]), \
+                 mock.patch.object(corpus_ci, 'run', return_value={'complete': True}) as run:
+                if changed=='none':
+                    result = ci.run(opt='san', gate='corpus')
+                    self.assertEqual(result['corpus'], {'complete': True})
+                    self.assertEqual(result['leak_detection'], 'off in existing corpus row_driver')
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'changed during'): ci.run(gate='corpus')
+                native.assert_not_called(); frontend.assert_not_called(); run.assert_called_once()
+                build = execute.call_args_list[1].args[0]
+                self.assertEqual(build[build.index('--target')+1:-2], ['p6_state_probe', 'p6_headless'])
+        with self.assertRaisesRegex(ValueError, 'unknown hosted gate'): ci.run(gate='missing')
+
+    def test_recipe_identity_tracks_python_fixtures_and_golden_and_requires_clean_revision(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(corpus_ci, 'ROOT', Path(directory)), \
+             mock.patch.object(corpus_ci.package, 'clean_revision', return_value='revision') as clean:
+            path = Path(directory)/'fixture.py'; path.write_bytes(b'original')
+            execute = mock.Mock(return_value='fixture.py\0')
+            before = corpus_ci.recipe_identity(execute)
+            path.write_bytes(b'modified')
+            self.assertNotEqual(before, corpus_ci.recipe_identity(execute))
+            clean.side_effect = ValueError('dirty sources')
+            with self.assertRaisesRegex(ValueError, 'dirty'): corpus_ci.recipe_identity(execute)
