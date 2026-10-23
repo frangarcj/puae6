@@ -14,6 +14,8 @@ int maxvpos = 312, maxhpos = 227;
 int maxvpos_nom = 312;
 float vblank_hz = 50;
 uae_u8 agnus_hpos;
+// The isolated fixture owns the Action Replay shadow written by real CIA code.
+uae_u8 ar_ciaa[16]{};
 static unsigned irq_count;
 
 void safe_interrupt_set(int source, int id, bool level6)
@@ -56,6 +58,7 @@ static void setup()
 	hsync_counter = 0;
 	agnus_hpos = 0;
 	memset(cia, 0, sizeof cia);
+	memset(ar_ciaa, 0xa5, sizeof ar_ciaa);
 	memset(eventtab2, 0, sizeof eventtab2);
 	cia_cycle_accurate = true;
 	internaleclockphase = 0;
@@ -76,7 +79,11 @@ static void line(unsigned n, uae_u8 expected)
 	assert(cia[0].sdr == expected && kbstate == state);
 	uae_u32 flags = 0;
 	WriteCIAA(14, CR_INMODE1, &flags);
+	assert(ar_ciaa[14] == CR_INMODE1);
 	WriteCIAA(14, 0, &flags);
+	assert(ar_ciaa[14] == 0);
+	for (unsigned i = 0; i < sizeof ar_ciaa; ++i)
+		if (i != 14) assert(ar_ciaa[i] == 0xa5);
 	assert(kblostsynccnt == 0);
 }
 
