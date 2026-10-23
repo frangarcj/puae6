@@ -19471,7 +19471,7 @@
       "title": "Publicar CDTV fijo en BizHawk y restaurar por el loader real",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67c3b",
         "T67c3c",
@@ -19517,7 +19517,8 @@
         "Rechazar catalogo y controles CDTV Next/Eject/Insert antes de BuildInput y _started para conservar latches y snapshot. Ocultar controles de cambio. Transporte V1 guest existente trasSeal; no tocar guest, Akiko, codec o runtime. Cambio, persistencia de bateria y peliculas CDTV conservan puertas posteriores explicitas.",
         "CdtvPublicWaterboxTests.test_public_iso_cue_xml_boot_and_cold_restore usaRomLoader.LoadRom yLoadedEmulator/Puae6Core reales, ISO/HUNK propioC3a connonce yDelay creciente antes1000unidades. Un unico corte y futuro16 RAM/AV/PCM/ticks/fullsnapshot exactos conrestorelocal/sandboxnuevo/procesonuevo antesprimerframe; reutilizar corte equivalente paraXML/CUE eISOdirecto, no repetirarranque por formato.",
         "CdtvPublicWaterboxTests.test_fixed_media_firmware_profiles_and_no_content cubre proveedores/copias, ROMausente/alterada, perfiles incompatibles, sinCD, catalogo rechazado, identidad ajena yleases/FD. Botones inyectados rechazan antesmutar. GEN01/paridad+BUILD01Client.Commonreal+WB03/DET02 yregresionCD32publica enmisma compilacion. Guestbyteidentico conserva medidas existentes; runnerausente dejaBLOCKED, noPASSporC#.",
-        "Ampliacion previa por codigo real: tests/config/test_schema.py contiene tres expectativas de exclusion CDTV que deben cambiar junto a wrapper:true. Conservar cobertura generica wrapper:false usando copia sintetica del schema, comprobar CDTV ofrecido yconfig10sinmodificargenerador;8..12lineas adicionales dentro presupuesto400. Revision expresamente pedida por usuario23oct contraMacHawk: reutilizar seleccionCDTVexplicita/KS1.3+EXT/controlesserializados como referencia, sin copiarhilo/scheduler ni tocarproyectohermano."
+        "Ampliacion previa por codigo real: tests/config/test_schema.py contiene tres expectativas de exclusion CDTV que deben cambiar junto a wrapper:true. Conservar cobertura generica wrapper:false usando copia sintetica del schema, comprobar CDTV ofrecido yconfig10sinmodificargenerador;8..12lineas adicionales dentro presupuesto400. Revision expresamente pedida por usuario23oct contraMacHawk: reutilizar seleccionCDTVexplicita/KS1.3+EXT/controlesserializados como referencia, sin copiarhilo/scheduler ni tocarproyectohermano.",
+        "Cierre23oct: producto07e85e35+2assertsFD0889ef30,revisionindependientesinfallosproducto. 67testsGEN/paridadPASS, generados--check ycolacompletapatch0017fuzz0/reversePASS. Client.Commonreal(net48/analyzers)+hostCHD+harnesscompilan. Nuevoentryharness requeria DB/MAMEinitdelcliente: diagnostic7190a6ab ysetup0ea1b864 conservan motivosnegativosestrictos. Negativosfirmware/perfil/sinCD/controlesinyectados/OtherConfig/2leasesPASS; regresionpublicaCD32CHD/SaveRAM/cold/futuroPASS misma compilacionretenida. PrimerbootconTMBrian noejecutanonce; oraculoC3a2/C3c habiausadoTMCannon, cambiarSOLOinputenv almismafuentevalidada resuelvepuertapublica: XML/CUEarranqueunico≤1000,local/sandboxnuevo/ISOprocesonuevosinrunprevio,futuro16yfullsnapshotexactos/OtherMedia/FDclosePASS. Sinparchemotor/guestcodec/runtime; guestactual2c6c445d yRelease3e099b intactos, sinrepetirFUZZ/matrizporesteC#. RootconectaunionselectoresBUILD01/WB03/DET02 yGEN01; temporales decandidata/ROM/snapshotseliminadosalcerrar. Cambio/bateria/peliculasCDTVcontinuanpendientesdelpadre."
       ],
       "checks": [
         "GEN01",

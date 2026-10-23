@@ -2431,3 +2431,21 @@ detiene el backend de audio; READ/STOP y STCH siguen la logica del controlador,
 sin reset artificial ni Akiko. El setup usa PLAY normal: la variante inmediata
 no establece `cd_playing` por el camino de callback stock. Esta puerta caracteriza
 las transiciones; no habilita todavia cambios de disco en los frontends.
+
+## CDTV fijo en el cargador publico BizHawk (T67c3e)
+
+Seleccionar explicitamente PUAE6 y `SyncSettings.Machine=CDTV` conserva el
+modelo al cargar XML/CUE o ISO directo. El proveedor solicita `Amiga/CDTV`
+(KS1.3 ID6) y `Amiga/CDTVext27` (EXT2.7 ID22), 256 KiB cada uno; valida hashes
+y copia EXT+MAIN antes de Seal. Los IDs legacy de UAE permanecen intactos.
+El perfil usa 68000 Exact, 1 MiB Chip y ningun disquete, expansion o cartucho.
+
+Admite un CD inicial fijo o ningun contenido. Catalogos y botones de cambio,
+incluso inyectados, se rechazan antes de modificar entrada o `_started`. No
+expone EEPROM CD32 ni ISaveRam ficticio. La puerta publica ejecuta la fixture
+ISO/HUNK C3a con TM Cannon, nonce leido por DOS y contador Delay creciente;
+restaura futuro16 de RAM completa/AV/PCM/ticks y snapshot entero localmente,
+en sandbox nuevo y en otro proceso antes de su primer frame. Identidad ajena
+y errores de firmware/perfil cierran las leases, incluido el segundo CD de un
+catalogo rechazado. Cambio de medio, bateria persistente y peliculas CDTV
+conservan sus puertas posteriores; la hoja privada T67d1 no las publica.

@@ -405,6 +405,10 @@ TASK_SUITES[('GEN01', 'T67c3b')] = {'schema': 'tests.config.test_schema', 'front
 TASK_SUITES[('ABI01', 'T67c3b')] = {'native_layout': 'tests.contracts.test_api.NativeContractTests', 'model_parity': 'tests.config.test_parity'}
 for _gate in ('WB03', 'DET02'):
     TASK_SUITES[(_gate, 'T67c3c')] = {'private_cdtv_snapshot': 'tests.waterbox-media.test_cdtv_boot.CdtvWaterboxBootTests.test_original_iso_hunk_cold_snapshot_and_full_future', 'cd32_v1_regression': 'tests.waterbox-media.test_cd_source.Cd32WaterboxTests'}
+TASK_SUITES[('GEN01', 'T67c3e')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
+for _gate in ('BUILD01', 'WB03', 'DET02'):
+    TASK_SUITES[(_gate, 'T67c3e')] = {'public_cdtv_loader': 'tests.waterbox-media.test_cdtv_boot.CdtvPublicWaterboxTests',
+        'public_cd32_regression': 'tests.waterbox-media.test_chd_public.ChdPublicWaterboxTests.test_xml_chd_reads_saveram_and_cold_restore'}
 TASK_SUITES[('LR01', 'T67c3d')] = {'cold_display_owners': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests.test_new_owner_after_long_session_matches_cold_power_on', 'public_cdtv_boot_restore': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests.test_original_cd_boot_serialize_and_cold_reload'}
 TASK_SUITES[('GEN01', 'T67c3d')] = {'verified_generator_cache': 'tests.codegen.test_native_cmake.NativeCMakeTests.test_excluded_desktop_helpers_have_no_selected_callers', 'patch_classification': 'tests.reference.test_patch_classes.ClassificationTests'}
 for _gate in ('MED01', 'BUILD01'):
