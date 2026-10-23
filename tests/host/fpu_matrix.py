@@ -81,7 +81,7 @@ class FpuRow(rm.Row):
             return super().run(command, log, timeout, kickstart)
         self.host_dir.mkdir(parents=True, exist_ok=True)
         import os
-        argv = ["docker", "run", "--rm", "--platform", self.spec["platform"], "--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/tmp", "-e", "PYTHONDONTWRITEBYTECODE=1",
+        argv = ["docker", "run", "--rm", "--pull=never", "--network=none", "--platform", self.spec["platform"], "--user", f"{os.getuid()}:{os.getgid()}", "-e", "HOME=/tmp", "-e", "PYTHONDONTWRITEBYTECODE=1",
                 "-v", f"{ROOT}:/src:ro", "-v", f"{self.host_dir}:/src/build", "-v", f"{CORPUS}:/corpus:ro", "-w", "/src", self.spec["image"], "bash", "-c", command]
         started = time.monotonic()
         with open(log, "w", encoding="utf-8") as stream:
