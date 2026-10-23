@@ -45,6 +45,14 @@ class MatrixCoherenceTests(unittest.TestCase):
         for path, digest in recorded.items():
             self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), digest, path)
 
+    def test_container_pins_match_the_declared_platforms(self):
+        from tests.simd.matrix import IMAGES
+        platforms = {s["platform"] for s in ROWS.values() if s["kind"] == "docker"}
+        self.assertEqual(set(IMAGES), platforms)
+        self.assertEqual(set(TOOLCHAINS["portability_matrix"]["images"]), platforms)
+        for image in IMAGES.values():
+            self.assertRegex(image, r"^sha256:[0-9a-f]{64}$")
+
     def test_declared_rows_and_scope_match_the_lock(self):
         self.assertFalse(set(ROWS) & set(OUT_OF_SCOPE))
         self.assertEqual(set(TOOLCHAINS["portability_matrix"]["rows"]), set(ROWS))

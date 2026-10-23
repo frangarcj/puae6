@@ -12,8 +12,7 @@ from tests.portability.rows import ROWS
 from tests.simd import evaluate
 
 BUILD = ROOT / "build/simd/matrix"
-IMAGES = {"linux/arm64": "sha256:15413fec94f23773ff6ca066aff24e950a5aca006aeab30bf416188924818d8b",
-          "linux/amd64": "sha256:8eda4b8c0792303c3d407747fdf7cd91b1c9739feb69cdecaa406c4407271921"}
+IMAGES = json.loads((ROOT / "plan/toolchains.json").read_text())["portability_matrix"]["image_ids"]
 
 
 def command(argv, timeout=180):

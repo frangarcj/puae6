@@ -81,6 +81,12 @@ solo enumera sus suites (`NOT_RUN`):
   las suites de medicion y presupuesto.
   Se mantiene la politica ADVISORY existente; no transforma ruido en limite duro.
 
+Los IDs de las imagenes de portabilidad estan fijados en
+`plan/toolchains.json` (`portability_matrix.image_ids`); SIMD y el preflight
+leen esa misma autoridad. Reconstruir una imagen requiere verificar su ID, ISA
+y versiones y actualizar el pin: los resultados obtenidos con la imagen anterior
+no acreditan el input nuevo. Una imagen fijada ausente sigue bloqueando la lane.
+
 La seleccion acumula todos los `test_*.py`; las clases SIMD se reparten
 explicitamente y un modulo nuevo sin clasificar falla. No se sustituyen tests
 actuales por resultados guardados. Los datos intermedios de experimentos estan en
