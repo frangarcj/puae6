@@ -66,3 +66,65 @@ jobs:
               assert pathlib.Path(observed).resolve(strict=True) == (output / relative).resolve(strict=True), (name, observed)
           print(json.dumps(dict(status='PASS', scope='pinned host-tool loading and resource discovery only; no Waterbox build or execution', versions=versions), sort_keys=True))
           PY
+  managed-sdk:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Prepare the authenticated SDK under project build
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess, tarfile, tempfile, urllib.request
+          root = pathlib.Path.cwd()
+          build = root / 'build'
+          build.mkdir(exist_ok=True)
+          sdk = build / 'hosted-dotnet'
+          assert not sdk.exists() and not sdk.is_symlink()
+          url = 'https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.402/dotnet-sdk-10.0.402-osx-arm64.tar.gz'
+          expected = 'ee0d379c144ebddef6efe851e1514883d1b695430d13b3fb13e8153f8476e1e5ac7abc42c08668471aaf4d738ff367cf53009845f94d224ba126febe74d00b75'
+          with tempfile.TemporaryDirectory(prefix='.managed-sdk-', dir=build) as temporary:
+              archive = pathlib.Path(temporary) / 'sdk.tar.gz'
+              checksum, size = hashlib.sha512(), 0
+              with urllib.request.urlopen(url, timeout=60) as source, archive.open('xb') as output:
+                  assert source.status == 200 and source.geturl() == url
+                  while chunk := source.read(1 << 20):
+                      size += len(chunk)
+                      assert size <= 230833757
+                      checksum.update(chunk)
+                      output.write(chunk)
+              assert size == 230833757 and checksum.hexdigest() == expected
+              stage = pathlib.Path(temporary) / 'sdk'
+              stage.mkdir()
+              with tarfile.open(archive, 'r:gz') as source:
+                  entries, expanded = 0, 0
+                  for entry in source:
+                      entries += 1
+                      expanded += entry.size
+                      assert entries <= 100000 and expanded <= 2 << 30 and 0 <= entry.size <= 512 << 20
+                      assert entry.isfile() or entry.isdir() or entry.issym() or entry.islnk()
+                      assert not entry.mode & 0o7000
+                      source.extract(entry, stage, filter='data')
+              stage.rename(sdk)
+          print(json.dumps(dict(status='PASS', scope='official SDK archive preparation only', bytes=size)))
+          PY
+      - name: Prepare the fixed offline managed feed
+        shell: bash
+        run: python3 -B tools/ci/prepare_managed_inputs.py --fetch
+      - name: Verify exact SDK and restore using only the fixed local feed
+        shell: bash
+        run: |
+          export DOTNET_ROOT="$PWD/build/hosted-dotnet"
+          export DOTNET_MULTILEVEL_LOOKUP=0
+          export DOTNET_CLI_HOME="$PWD/build/hosted-dotnet-home"
+          export DOTNET_CLI_TELEMETRY_OPTOUT=1
+          export DOTNET_NOLOGO=1
+          export NUGET_PACKAGES="$PWD/build/hosted-managed-packages"
+          sdk="$DOTNET_ROOT/dotnet"
+          feed="$PWD/build/hosted-managed-feed"
+          cd tests/ffi
+          test "$("$sdk" --version)" = 10.0.402
+          "$sdk" restore Ffi.csproj --source "$feed" --packages "$NUGET_PACKAGES" --nologo
+          echo 'PASS: exact project-local SDK and managed offline restore; no core compilation or Waterbox execution'
