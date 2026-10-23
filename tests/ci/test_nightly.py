@@ -80,7 +80,7 @@ class NightlyRecipeTests(unittest.TestCase):
 
     def test_missing_firmware_cd_or_cartridge_assets_stop_before_build_or_image_preparation(self):
         required = {"P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
-                    "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_KICKSTART_A500_ROM",
+                    "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_CDTV_BOOT_CUE", "P6_KICKSTART_A500_ROM",
                     "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM",
                     "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE"}
         self.assertLessEqual(required, set(ci.ASSETS))
