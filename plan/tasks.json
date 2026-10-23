@@ -20823,7 +20823,7 @@
       "title": "Cartuchos Action Replay / HRTMon y Freeze (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T24",
         "T69a",
@@ -20854,7 +20854,10 @@
         "manifests/source-manifest.json",
         "bridge/**",
         "adapters/libretro/**",
-        "tests/**"
+        "tests/**",
+        "tools/check.py",
+        "docs/03-waterbox.md",
+        "tests/test_plan.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece cartuchos y freeze. Opcional, con ROM aportada por el usuario.",
@@ -20862,7 +20865,8 @@
         "Para la ruta HRTMon puede usarse el builtin ya contenido en el snapshotWinUAE fijado (hrtmon.rom.cpp), extraido solo a build/ durante tests; no requiere descargar una ROM comercial. La guia primaria del autor declara GPL: https://github.com/wepl/hrtmon/blob/master/HRTmon.guide. Procedencia de bytes sigue SHA del snapshot, no master como inputrelease. ActionReplay comercial requiere asset autorizado aparte; HRTMon no acredita todos los modelosAR ni elimina criterios de activacion/estado.",
         "T69a integraHRTMonprivadoreal; padreconservacodeccompletoyconexionespublicas posteriores yloscartuchosARautorizados. No cerrarporcompilar/PCenROM ni estadowrapperparcial.",
         "Separar la carga privada AR2/AR3 por bytes en T69d1: fixture original permite implementar y comprobar propiedad/mapeo/limpieza sin ROM comercial. El padre conserva AR1/AR1200, codec completo, activacion/futuro y conexiones publicas con ROM autorizada; no cerrar por una carga privada ni atribuir compatibilidad comercial al programa de prueba.",
-        "Assets Action Replay autorizados por el usuario, fuera de Git en build/assets/action-replay: AR1v1.00/AR2v2.14/AR3v3.17/AR1200 reconocidos por SHA1 del rommgr fijado (IDs52/28/30/47). Ya no hay bloqueo de disponibilidad de ROM; quedan codec T69d2, activacion/futuro por modelo y conexiones publicas. AR3 procede de dumps fisicos del proyecto ActionReplayAmiga commit4188c3ef7fc6d02db19714652c2eb10a1d2a0771; los otros tres del espejo hutsabode/amigaroms sin procedencia primaria del volcado, contrastados con hashes upstream. No incluir firmware comercial en fuentes/paquetes/repositorio."
+        "Assets Action Replay autorizados por el usuario, fuera de Git en build/assets/action-replay: AR1v1.00/AR2v2.14/AR3v3.17/AR1200 reconocidos por SHA1 del rommgr fijado (IDs52/28/30/47). Ya no hay bloqueo de disponibilidad de ROM; quedan codec T69d2, activacion/futuro por modelo y conexiones publicas. AR3 procede de dumps fisicos del proyecto ActionReplayAmiga commit4188c3ef7fc6d02db19714652c2eb10a1d2a0771; los otros tres del espejo hutsabode/amigaroms sin procedencia primaria del volcado, contrastados con hashes upstream. No incluir firmware comercial en fuentes/paquetes/repositorio.",
+        "Cierreacumulado: todaslas hojas nativas/libretro/Waterbox yUI/proveedor/peliculas estanDONE con suspuertas propias; ampliar touchroot a dispatcher/docs/testplan para conectarDET02padre a losselectores comerciales AR/HRTMon existentes. No repetir campañas por etiqueta padre: aceptacion sustentada en loschecks acumulados yprogramas causales, no pantalla ni solo build. ROMscomerciales siguenfueraGit y no se promete compatibilidadentrebuilds."
       ],
       "checks": [
         "DET02"
@@ -22435,7 +22439,7 @@
       "title": "Cerrar Action Replay publico en BizHawk con ROMs autorizadas y peliculas BK2/TAS",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69g3a"
       ],
@@ -22463,7 +22467,8 @@
         "Un escenario real por modelo une arranque/Freeze, comando causal propio de monitor, held/release/rearm y snapshot frio con futuro AV/PCM/ticks/RAM completo. Reutilizar contratos de comandos/esperas ya demostrados por native/libretro; no asumir READY por pantalla ni timeout ciego.",
         "BK2 y TAS con Freeze grabado por nivel reproducen y hacen seek tras corte held en proceso nuevo; identidad modelo/SHA/config rechaza otro cartucho antes de LoadSnapshot. Elegir cortes/unidades por señal causal y reutilizar salidas compartidas, no repetir cada campaña por etiqueta de check. Mantener HRTMon ya probado y puerta propia nueva de cartuchos.",
         "Conectar WB03/WB04/WB09 a selectores reales unicos, root ejecuta union una vez y valida plan. Tras dos intentos razonados sin resolver mismo fallo, reproducer y dos hipotesis en ficha y bloqueo explicito. No informes historicos: temporales en build eliminados.",
-        "cd32_close implementa en WT t66-cd-swap desde2d5e4a6a exacto trasG3aDONE; root docs/dispatcher/metadata. Reutilizar CartridgeMovies helpers públicos y contratos comerciales nativos/libretro existentes, sin retrazar transporte ni propiasfixtures/16medidas. Usar P6_ACTION_REPLAY1_ROM/2_ROM/3_ROM/1200_ROM yKickstart A500/A1200 ya autorizados; gate exige todos si se selecciona, no silentlyskip modelo. Selector unico ActionReplayMoviesTests.test_commercial_cartridges_bk2_tas_seek_and_cold_state para WB03/WB04/WB09/WB15 en union. Objetivo170-250manuales, avisar400/extra rutas. Agente no compila managed/motor/guest ni lanza campañas; root serializa j2 e integra."
+        "cd32_close implementa en WT t66-cd-swap desde2d5e4a6a exacto trasG3aDONE; root docs/dispatcher/metadata. Reutilizar CartridgeMovies helpers públicos y contratos comerciales nativos/libretro existentes, sin retrazar transporte ni propiasfixtures/16medidas. Usar P6_ACTION_REPLAY1_ROM/2_ROM/3_ROM/1200_ROM yKickstart A500/A1200 ya autorizados; gate exige todos si se selecciona, no silentlyskip modelo. Selector unico ActionReplayMoviesTests.test_commercial_cartridges_bk2_tas_seek_and_cold_state para WB03/WB04/WB09/WB15 en union. Objetivo170-250manuales, avisar400/extra rutas. Agente no compila managed/motor/guest ni lanza campañas; root serializa j2 e integra.",
+        "Integrado0c11eae4 como4c27a2f8. Unionunica del selectorcomercial completoPASS sobre cuatroROMsautorizadas en Waterboxreal guest2c6c445d/runtimeRelease3e099b17: comandosG/RPC+X, programaChip causal, held/rearm, snapshotlocal/nuevosandbox/nuevoPID, BK2/TAS yseek5, todasunidadesAV/PCM/ticks/Chip/fullsnapshot exactas; negativosSHA/model/config/off antesLoadSnapshot/Attach. MacHawkHEAD/diff preservados. Sinbuildguest ni16medidas repetidas. Temporales eliminados por harness, sinROMs/reportesversionados."
       ],
       "checks": [
         "WB03",

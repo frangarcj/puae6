@@ -772,6 +772,12 @@ for _gate in ('STATE01', 'BUILD01'):
 for _gate in ('WB03', 'WB04', 'WB15'):
     TASK_SUITES[(_gate, 'T69g3a')] = {
         'public_cartridge_restore': 'tests.bizhawk-movies.test_media_start.ActionReplayWrapperTests.test_public_cartridges_held_state_cold_and_saveram_reboot'}
+for _gate in ('WB03', 'WB04', 'WB09', 'WB15'):
+    TASK_SUITES[(_gate, 'T69g3b')] = {
+        'commercial_cartridge_movies': 'tests.bizhawk-movies.test_media_start.ActionReplayMoviesTests.test_commercial_cartridges_bk2_tas_seek_and_cold_state'}
+TASK_SUITES[('DET02', 'T69')] = {
+    'action_replay_movies': 'tests.bizhawk-movies.test_media_start.ActionReplayMoviesTests.test_commercial_cartridges_bk2_tas_seek_and_cold_state',
+    'hrtmon_movies': 'tests.bizhawk-movies.test_media_start.HrtMonWrapperTests.test_public_freeze_bk2_tas_and_held_snapshot_in_new_process'}
 
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}

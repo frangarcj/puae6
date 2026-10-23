@@ -687,3 +687,12 @@ La prueba dirigida del wrapper reutiliza los programas propios de T69g2:
 un corte held por modelo, restauracion en proceso nuevo y cinco unidades de
 futuro con AV/PCM/ticks/Chip y snapshot completo. Esta puerta no sustituye
 la prueba comercial de comandos, BK2/TAS y seek de T69g3b.
+
+T69g3b valida los cuatro modelos con ROMs autorizadas desde ese proveedor:
+el comando G de AR1/2/3 o R PC y X de AR1200 ejecuta un bucle original en Chip,
+Freeze lo detiene y X lo reanuda. BK2 y TAS conservan el nivel de Freeze y las
+teclas reales; replay, seek a un corte held y restauracion en otro proceso
+repiten cada unidad de video/audio y el snapshot completo. Un modelo, ROM,
+configuracion o estado Disabled distintos se rechazan antes de aplicar el
+snapshot o adjuntar la pelicula. HRTMon conserva su identidad builtin y su
+propia puerta. No hay compatibilidad prometida entre builds.
