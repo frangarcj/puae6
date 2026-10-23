@@ -40,7 +40,7 @@ def digest(path):
 
 
 def relative(value):
-    require(isinstance(value, str) and all(re.fullmatch(r'[A-Za-z0-9@+_.-]+', p) and p not in ('.', '..')
+    require(isinstance(value, str) and all(re.fullmatch(r'[A-Za-z0-9@+_. -]+', p) and p not in ('.', '..')
             for p in value.split('/')) and not value.startswith('/'), 'noncanonical relative path')
     return value
 

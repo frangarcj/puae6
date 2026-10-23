@@ -34,7 +34,8 @@ class HostedToolsTests(unittest.TestCase):
         (self.root / 'references/ruby-macho.manifest.json').write_text(json.dumps(capture))
         (self.root / 'plan/upstream.lock.json').write_text(json.dumps({'sources': [{**source, 'version': '7.0.0'}]}))
         self.members = [(p, b'data', None) for p in ('tool/1/bin/clang', 'tool/1/bin/lld', 'tool/1/bin/cargo', 'tool/1/bin/rustc',
-                        'tool/1/lib/driver', 'tool/1/lib/rustlib/std.rlib', 'tool/1/lib/clang/headers.h', 'tool/1/LICENSE')]
+                        'tool/1/lib/driver', 'tool/1/lib/rustlib/std.rlib', 'tool/1/lib/clang/headers.h', 'tool/1/LICENSE',
+                        'tool/1/share/examples/bounded model checking/example.smt2')]
         self.members.append(('tool/1/bin/ld.lld', b'', 'lld'))
         self.blob = self.archive(self.members)
         self.manifest = {'schema_version': 1, 'bottle_arch': 'arm64_tahoe',
@@ -72,6 +73,7 @@ class HostedToolsTests(unittest.TestCase):
         output = h.prepare(True, 'mock-ruby')
         self.assertTrue((output / 'tool/1/lib/rustlib/std.rlib').is_file())
         self.assertTrue((output / 'tool/1/lib/clang/headers.h').is_file())
+        self.assertEqual((output / 'tool/1/share/examples/bounded model checking/example.smt2').read_bytes(), b'data')
         self.assertFalse((output / 'tool/1/bin/ld.lld').is_symlink())
         self.assertEqual((output / 'tool/1/bin/ld.lld').read_bytes(), b'data')
         self.assertEqual(self.normalizer.call_count, 5)
