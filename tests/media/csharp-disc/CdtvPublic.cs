@@ -110,7 +110,7 @@ internal static unsafe partial class Program
    try { using var unexpected=OpenCdtv(args,content,settings,firmware); throw new Exception("Invalid CDTV load accepted"); }
    catch(InvalidOperationException e) { CdtvRequire(e.Message.Contains(reason)); }
    catch(System.IO.InvalidDataException e) { CdtvRequire(e.Message.Contains(reason)); }
-   CdtvRequire(OpenCdFile(image)==opened);
+   CdtvRequire(OpenCdFile(image)==opened&&OpenCdFile(Path.Combine(work,"other.iso"))==0);
   }
   foreach(string missing in new[]{"CDTV","CDTVext27"}) Refuse(path,null,new Firmware(main,ext,false) { Missing=missing },"Missing firmware "+missing);
   foreach(bool first in new[]{true,false}) {
@@ -143,7 +143,7 @@ internal static unsafe partial class Program
    catch(StateRejectedException e) { CdtvRequire(e.Reason==StateRejection.OtherConfig); }
    CdtvRequire(before.SequenceEqual(Save(core)));
   }
-  CdtvRequire(OpenCdFile(image)==opened); Console.WriteLine("Public CDTV firmware/profile/fixed controls/no content/identity/close PASS");
+  CdtvRequire(OpenCdFile(image)==opened&&OpenCdFile(Path.Combine(work,"other.iso"))==0); Console.WriteLine("Public CDTV firmware/profile/fixed controls/no content/identity/close PASS");
  }
 }
 #endif
