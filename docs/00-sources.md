@@ -132,6 +132,25 @@ La documentacion del core Doom explica problemas de estados grandes al cambiar
 mucha memoria. Es motivacion para medir paginas sucias/tamano/latencia; no demuestra
 el consumo que tendra PUAE6. No se han medido tiempos, memoria ni FPS de PUAE6.
 
+### S10. Productor ETNF multisesion para fixtures propias
+
+[CDI2Nero f43561d27e9a75061171f0e69a872c9439ccf898](https://github.com/sizious/cdi2nero/tree/f43561d27e9a75061171f0e69a872c9439ccf898)
+(DeXT, modificaciones de SiZ!, GPL-2.0) se conserva sin cambios en
+`tests/fixtures/cdi2nero/`, con licencia y hashes originales en `source.json`.
+Es una herramienta de tests, no una dependencia del producto. En modo `-t`
+escribe ETNF/SINF por sesion y conserva el `start_lba` global del descriptor
+CDI. Sus writers DAO/CUES permiten contrastar INDEX00/01 con la misma entrada.
+La convencion CDI se contrasta con
+[IMG4DC 20d1c1489102bef780a4e9bbd888c258acd6d1e4](https://github.com/sizious/img4dc/tree/20d1c1489102bef780a4e9bbd888c258acd6d1e4),
+`cdi4dc/inc/cdihead.h`.
+
+`tests/fixtures/nrg_etnf_cdi.py` genera una CDI propia y compila una copia temporal
+del conversor offline. El shim adapta CLI/endian/tipos LP64 e inicializa un local
+leido parcialmente en LP64; no altera el formato ni sus writers. Verifica los
+originales antes de copiarlos y elimina sus salidas. No se importa una imagen de
+terceros ni se atribuye este contrato a TINF, ETN2 multisesion o pregaps fisicos
+que ETNF no conserva. La politica Canonical150 explicita esta limitacion.
+
 ## Que falta comprobar (tareas, no conclusiones)
 
 No se ha clonado/compilado el commit WinUAE fijado, auditado todos sus globales,

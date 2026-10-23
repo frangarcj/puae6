@@ -48,7 +48,7 @@ la fixture no acredita boot de aplicacion ni el comportamiento de hardware.
 
 ## ETNF global Canonical150 privado (T66w1)
 
-Decision aceptada; implementacion y puertas de T66w1 pendientes.
+Decision implementada y comprobada en los componentes privados de T66w1.
 
 [CDI2Nero f43561d](https://github.com/sizious/cdi2nero/tree/f43561d27e9a75061171f0e69a872c9439ccf898)
 es un productor GPL fijado: en modo TAO emite un grupo ETNF/SINF por sesion,

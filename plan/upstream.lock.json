@@ -266,6 +266,16 @@
           "compiler-rt/lib/builtins/int_endianness.h"
         ]
       }
+    },
+    {
+      "id": "cdi2nero_fixture_producer",
+      "role": "offline_test_fixture_producer_not_product_dependency",
+      "repository": "https://github.com/sizious/cdi2nero",
+      "commit": "f43561d27e9a75061171f0e69a872c9439ccf898",
+      "required": true,
+      "verified": "Original eight source files and GPL-2.0 LICENSE retained byte exact with per-file hashes; own CDI fixture converted offline, ETNF payload and global coordinates checked by T66w1. Host adaptations apply only to temporary test copies.",
+      "fixture_directory": "tests/fixtures/cdi2nero",
+      "fixture_manifest": "tests/fixtures/cdi2nero/source.json"
     }
   ],
   "unresolved": [

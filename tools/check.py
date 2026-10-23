@@ -338,6 +338,7 @@ for _gate in ('WB03', 'WB08', 'DET02'):
 TASK_SUITES[('MED01', 'T66l6')] = {'nrg_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests',
     'nrg_provider': 'tests.media.test_cd_nrg.CdNrgTests', 'cd_factory': 'tests.media.test_cd_image.CdImageTests'}
 TASK_SUITES[('MED01', 'T66v2')] = {'nrg_session_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'provider_multisession_refusal': 'tests.media.test_cd_nrg.CdNrgTests'}
+TASK_SUITES[('MED01', 'T66w1')] = {'producer_global_etnf_metadata': 'tests.media.test_nrg_metadata.NrgMetadataTests', 'private_global_etnf_owner': 'tests.media.test_cd_nrg.CdNrgTests'}
 for _gate in ('MED01', 'BUILD01'):
     TASK_SUITES[(_gate, 'T66v14')] = {'public_legacy_lease': 'tests.waterbox-media.test_chd_public.NrgPublicHostTests.test_xml_and_direct_nrg_explicit_selection_and_ownership'}
 TASK_SUITES[('MED01', 'T66v13')] = {'sparse_sbi': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_sbi_sparse_sessions_q_precedence_offsets_and_interleave', 'sbi_failures': 'tests.media.test_nrg_canonical_csharp.NrgCanonicalCSharpTests.test_sbi_preflight_read_failure_and_owner_cleanup_transactionally', 'legacy_sbi': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests.test_iso_cue_offset_identity_and_transactional_rebind'}

@@ -806,5 +806,25 @@
       "redistribution": "yes",
       "handling": "Free to include in any image."
     }
+  ],
+  "test_fixture_components": [
+    {
+      "id": "cdi2nero-fixture-producer",
+      "source_id": "cdi2nero_fixture_producer",
+      "scope": "offline regression fixture producer only; not linked into any emulator or distributed binary",
+      "declared_license": "GPL-2.0; retain the original LICENSE and attribution to DeXT and SiZ!",
+      "notice_files": [
+        {
+          "path": "tests/fixtures/cdi2nero/LICENSE",
+          "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        {
+          "path": "tests/fixtures/cdi2nero/source.json",
+          "sha256": "1bb751750edcd4cd5845caa406c52082e8d505d3373a54a4e41228927912bd25"
+        }
+      ],
+      "handling": "Keep original source and license with source distributions. Test-only host adaptations are made in temporary copies by tests/fixtures/nrg_etnf_cdi.py and do not change image writers. No third-party disc image imported.",
+      "build_eligibility": "test_fixture_only"
+    }
   ]
 }

@@ -2081,6 +2081,29 @@ Regiones/identidad V2 cubren la materializacion canonica; no recuperan pregaps
 originales. TINF/multisesion/otrosmodos siguen pendientes. MED01 y target real
 se complementan con seleccion publica y restore Waterbox en T66l9.
 
+## ETNF multisesion global privado (T66w1)
+
+`NrgLayout::EtnfGlobalCanonical150` identifica varios grupos ETNF/SINF puros
+del productor CDI2Nero f43561d. A diferencia del ETNF compacto anterior,
+`start_sector` es INDEX01 global; no se reinicia por sesion ni suma pregaps por
+pista. Los extents fisicos siguen contiguos, con stride propio por pista.
+INDEX00 sintetico es INDEX01-150 y A2 es el final de los datos de la sesion.
+Las pistas de una sesion son contiguas; los huecos entre sesiones devuelven
+Range sin IO. Metadata mixta DAO/CUE/ETN2/TINF no adopta este perfil.
+
+La frontera virtual firmada `Session.cue0` es INDEX01-150, inicialmente -150;
+el INDEX00 del primer Track conserva su recorte legacy a cero. No se recuperan
+pregaps originales, CUE0 fisico ni Q original. ADR0018 define el TOC virtual.
+Solo `NrgSessionPolicy::EtnfGlobalPrivate` (2) admite este layout en CdNrg.
+Las politicas anteriores lo rechazan antes de leer payload. Su identidad usa
+el dominio P6ETGM y el mismo esquema de campos/politica version1 de P6NRGM,
+incluyendo toda la tabla de sesiones; las identidades legacy no cambian.
+
+MED01 convierte una CDI propia con el productor original fijado, verifica
+payload y coordenadas, limites/transacciones, Q sintetico, huecos y rebind con
+ASan/UBSan. Esta puerta de componentes no acredita carga publica, estados
+del motor ni Waterbox. TINF y ETN2 multisesion conservan su contrato pendiente.
+
 ## Metadata DAO multisesion de NRG (T66v2)
 
 El parser conserva hasta 99 grupos y 99 pistas globales. Empareja el CUE, DAO y
