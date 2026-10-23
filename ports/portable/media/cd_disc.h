@@ -22,7 +22,7 @@ struct Track {
 };
 struct Session {
     uint8_t first_track, last_track, format; // global 1..99; format 00/10/20
-    int32_t cue0;                           // explicit lead-in LBA, may be negative
+    int32_t cue0;                           // signed normalized boundary: explicit CUE0 or declared canonical policy
     uint32_t a2;                            // explicit program leadout LBA
 };
 struct Layout {

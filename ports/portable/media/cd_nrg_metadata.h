@@ -3,7 +3,7 @@
 #include "cd_source.h"
 #include "cd_disc.h"
 namespace p6_cd {
-enum class NrgLayout : uint8_t { Dao, EtnfCanonical150, Etn2Canonical150 };
+enum class NrgLayout : uint8_t { Dao, EtnfCanonical150, Etn2Canonical150, EtnfGlobalCanonical150 };
 struct NrgTrack {
     uint64_t offset0, offset1, end;
     int32_t index0, index1;
@@ -27,7 +27,7 @@ struct NrgMetadata {
     char catalog[13];
     NrgTrack track[99];
     uint32_t sessions = 0; // zero preserves all single-session metadata/identity
-    NrgDaoSession session[99]{}; // populated only for explicit multi-session DAO
+    NrgDaoSession session[99]{}; // DAO explicit boundaries or declared ETNF global Canonical150
 };
 // Exact offset reads, at most256B/request; no payload reads. Input size is the
 // whole container. Errors leave out intact. DAO v1/v2 or single-session ETNF/ETN2.
@@ -38,5 +38,7 @@ struct NrgMetadata {
 // VCDImager23f07386 image_nrg.c:_map/_write_tail omits them, even if nonstandard.
 // ETN2 is NER5-only; byte extents are64-bit, its packed sector remains32-bit.
 // libMirage a9d6a204 parser.c:373..383/835..883 shares the canonical150 mapping.
+// Pure multi-group ETNF instead uses CDI2Nero f43561d global start_lba, with
+// synthetic150 pregaps and signed virtual cue0=INDEX01-150; not physical lead-in.
 Result nrg_metadata(const void *context, ReadFn, uint64_t bytes, NrgMetadata *out);
 }

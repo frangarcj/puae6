@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from tests.media.test_ccd_metadata import ccd
+from tests.fixtures.nrg_etnf_cdi import converted_fixture
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import materialize_upstream as mat
@@ -99,7 +100,7 @@ class NrgMetadataTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='nrg-metadata-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); target = cls.work / 'blkdev_cdimage.cpp'; target.write_bytes((ROOT / 'upstream/winuae/blkdev_cdimage.cpp').read_bytes())
         entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336', '0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata','0413-nrg-etnf-global-sessions'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -139,6 +140,25 @@ class NrgMetadataTests(unittest.TestCase):
             self.assertEqual([0, 450, 825], [int(row[7]) for row in tracks])
         data, base, expected = etnf((7,) * 99, (1,) * 99, version=2)
         self.assertEqual(expected, self.run_nrg(data, base))
+
+    def test_etnf_global_sessions_from_real_pinned_producer_and_transactional_negatives(self):
+        raw, _ = converted_fixture(); base = 1411104; data = raw[base:]
+        expected = ['nrg 1 2 1411104 -150 12002 0 0', 'policy etnf-global150',
+                    'session 1 1 1 0 -150 302 0 ' + '00'*13,
+                    'session 2 2 2 32 11552 12002 0 ' + '00'*13,
+                    'track 0 0 710304 2352 7 -150 0 0 1 0',
+                    'track 710304 710304 1411104 2336 3 11552 11702 0 1 4']
+        self.assertEqual(expected, self.run_nrg(data, base))
+        for at, value in ((20,1),(60,0),(60,451),(60,2**32-1),(48,0),(48,710305),(52,0),(52,700801),(76,2)):
+            bad = bytearray(data); struct.pack_into('>I',bad,at,value)
+            with self.subTest(at=at,value=value): self.run_nrg(bad,base,error=1)
+        for fault in (1,2,3): self.run_nrg(data,base,fault=fault,error=4)
+        for at, tag in ((0,b'TINF'),(40,b'ETN2')):
+            bad = bytearray(data); bad[at:at+4] = tag; self.run_nrg(bad,base,error=5)
+        self.run_nrg(data[40:80]+data[:40]+data[80:],base,error=1)
+        self.run_nrg(data[:40]+data[68:],base,error=5)
+        for tag, body in (('CUES',bytes(8)),('DAOI',bytes(22))):
+            self.run_nrg(data[:80]+chunk(tag,body)+data[80:],base,error=5 if tag=='CUES' else 1)
 
     def test_etnf_mixed_strides_match_independent_libmirage_fragments(self):
         # libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e parser.c:

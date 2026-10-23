@@ -57,7 +57,7 @@ int main(int argc, char **argv)
     const auto *vfs = getenv("P6_NRG_PROBE_VFS") ? &api : nullptr;
     metadata_only = getenv("P6_NRG_PROBE_METADATA_ONLY") != nullptr;
     CHECK(!metadata_only || vfs);
-    const auto policy = getenv("P6_NRG_PRIVATE_SESSIONS") ? NrgSessionPolicy::ExplicitPrivate : NrgSessionPolicy::SingleOnly;
+    const auto policy = getenv("P6_NRG_GLOBAL_TAO") ? NrgSessionPolicy::EtnfGlobalPrivate : getenv("P6_NRG_PRIVATE_SESSIONS") ? NrgSessionPolicy::ExplicitPrivate : NrgSessionPolicy::SingleOnly;
     CdNrg invalid; CHECK(invalid.open(argv[1],vfs,NrgSessionPolicy(99))==Result::Invalid&&!invalid.layout());
     auto owner = std::make_unique<CdNrg>(); const auto status = owner->open(argv[1], vfs, policy);
     if (status != Result::Ok) { CHECK(!payload_reads); CHECK(!owner->layout() && !owner->metadata() && !owner->bindings() && !owner->sources()); printf("error %u\n", unsigned(status)); return 2; }
@@ -66,11 +66,20 @@ int main(int argc, char **argv)
     const auto &id = *owner->container_identity();
     printf("container %llu ", (unsigned long long)id.bytes); for (auto value : id.content_id) printf("%02x", value); puts("");
     const auto &layout = disc.layout(); printf("disc %u %u ", layout.tracks, layout.leadout); for (auto value : layout.content_id) printf("%02x", value); puts("");
+    const bool global_tao = owner->metadata()->layout == NrgLayout::EtnfGlobalCanonical150;
     uint8_t out[2464]; size_t got = 123;
     if (layout.sessions) {
         const auto calls = read_calls;
         cd_toc_head global; memset(&global,0xa5,sizeof global);
         CHECK(akiko_toc(disc,&global)==Result::Ok);
+        if (global_tao) {
+            CHECK(global.first_track==1&&global.first_track_offset==1&&global.last_track==2&&global.last_track_offset==2);
+            CHECK(global.tracks==2&&global.points==5&&global.firstaddress==0&&global.lastaddress==12002);
+            const unsigned points[]={0xa0,1,2,0xa1,0xa2}, tracks[]={1,1,2,2,0};
+            const int addresses[]={0,0,11702,12002,12002}, controls[]={0,0,4,0,0};
+            for(unsigned n=0;n<5;++n) CHECK(global.toc[n].point==points[n]&&global.toc[n].track==tracks[n]
+                &&global.toc[n].paddress==addresses[n]&&global.toc[n].adr==1&&global.toc[n].control==controls[n]);
+        } else {
         // Numeric oracle for the two-session DAO fixture; never a selected lead-in.
         CHECK(global.first_track==1&&global.first_track_offset==1&&global.last_track==3&&global.last_track_offset==3);
         CHECK(global.tracks==3&&global.points==6&&global.firstaddress==0&&global.lastaddress==39);
@@ -78,6 +87,7 @@ int main(int argc, char **argv)
         const int addresses[]={0,0,6,32,39,39}, controls[]={0,0,4,4,0,0};
         for(unsigned n=0;n<6;++n) CHECK(global.toc[n].point==points[n]&&global.toc[n].track==tracks[n]
             &&global.toc[n].paddress==addresses[n]&&global.toc[n].adr==1&&global.toc[n].control==controls[n]);
+        }
         for (unsigned n=0;n<layout.sessions;++n) {
             SessionToc result{}; CHECK(akiko_session_toc(disc,n+1,&result)==Result::Ok);
             const auto &s=result.session; const auto &t=result.toc;
@@ -138,8 +148,10 @@ int main(int argc, char **argv)
             if (view == 2448) { CHECK(read_subchannel(disc, lba, out, 96) == Result::Ok); printf("sub %u ", lba); digest(out, 96); puts(""); }
         }
         if (n && owner->metadata()->layout != NrgLayout::Dao) for (uint32_t lba : {t.index0 - 1, t.index1 - 1}) {
-            CHECK(canonical_read(disc, lba, 2448, out, sizeof out) == Result::Ok);
-            printf("sector %u 2448 0 ", lba); digest(out, 2448); puts("");
+            memset(out, 0xa5, sizeof out);
+            const auto status = canonical_read(disc, lba, 2448, out, sizeof out);
+            if (global_tao && lba < t.index0) CHECK(status == Result::Range && untouched(out, sizeof out));
+            else { CHECK(status == Result::Ok); printf("sector %u 2448 0 ", lba); digest(out, 2448); puts(""); }
         }
     }
     if (vfs) for (unsigned n = 0; n < layout.tracks; ++n) if (layout.track[n].stride == 2448 || (owner->metadata()->track[n].mode == 2 || owner->metadata()->track[n].mode == 3)) {

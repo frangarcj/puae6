@@ -6076,6 +6076,28 @@
           "after_sha256": "8f7bce0856be8b456624a274f1e150c471f8df304330314b403681af2685abdf"
         }
       ]
+    },
+    {
+      "id": "0413-nrg-etnf-global-sessions",
+      "file": "patches/winuae/0413-nrg-etnf-global-sessions.patch",
+      "sha256": "07f554ca35667f238cb71f181b4e3394e809a7845543f6e1afba9b7abc7c4a61",
+      "title": "Parse producer-backed global ETNF sessions with an explicit canonical policy",
+      "reason": "T66w1: CDI2Nero f43561d emits ETNF/SINF groups with global CDI coordinates and omits stored pregaps. Normalize only multi-group ETNF as declared GlobalCanonical150; preserve legacy single packed/ETN2 and DAO. The private owner must opt in separately; no physical lead-in or original Q is claimed.",
+      "category": "media metadata",
+      "order": 228,
+      "symbols": [
+        "p6_cd::nrg_metadata"
+      ],
+      "test": "tests/media/test_nrg_metadata.py; tests/media/test_cd_nrg.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blkdev_cdimage.cpp",
+          "before_sha256": "bda4fba80c3016f1b2ebd60e7aa05572fdd7a95718d7feba520b874658ff169e",
+          "after_sha256": "f019eec61527f8f92e3d518485088587100bf1fb32384cbde80e9c5d7fbbf1bd"
+        }
+      ]
     }
   ]
 }

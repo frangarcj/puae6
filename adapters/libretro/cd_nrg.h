@@ -5,7 +5,7 @@
 #include <memory>
 struct retro_vfs_interface;
 namespace p6_libretro {
-enum class NrgSessionPolicy { SingleOnly, ExplicitSessions, ExplicitPrivate = ExplicitSessions };
+enum class NrgSessionPolicy { SingleOnly, ExplicitSessions, ExplicitPrivate = ExplicitSessions, EtnfGlobalPrivate };
 class CdNrg {
 public:
     CdNrg();

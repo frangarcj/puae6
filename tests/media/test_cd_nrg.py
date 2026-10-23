@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from tests.media.test_nrg_metadata import nrg, etnf, nrg_sessions
+from tests.fixtures.nrg_etnf_cdi import converted_fixture
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import materialize_upstream as mat
@@ -81,7 +82,7 @@ class CdNrgTests(unittest.TestCase):
         (ROOT / 'build').mkdir(exist_ok=True)
         cls.temp = tempfile.TemporaryDirectory(prefix='cd-nrg-', dir=ROOT / 'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work = Path(cls.temp.name); entries = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata'):
+        for identifier in ('0355-cdrom-mode1-sync', '0356-cue-metadata-only', '0357-ccd-metadata-only', '0361-nrg-metadata-only', '0388-mds-metadata-only', '0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata','0413-nrg-etnf-global-sessions'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -144,11 +145,12 @@ class CdNrgTests(unittest.TestCase):
         path = self.work / (name + '.nrg'); path.write_bytes(payload + tail)
         return path, raw, streams
 
-    def run_nrg(self, path, *, code=0, vfs=False, rebind=None, metadata_only=False, private_sessions=False):
-        env = {k: v for k, v in os.environ.items() if k not in ('P6_NRG_PROBE_VFS', 'P6_NRG_PROBE_METADATA_ONLY', 'P6_NRG_PRIVATE_SESSIONS')}
+    def run_nrg(self, path, *, code=0, vfs=False, rebind=None, metadata_only=False, private_sessions=False, global_tao=False):
+        env = {k: v for k, v in os.environ.items() if k not in ('P6_NRG_PROBE_VFS', 'P6_NRG_PROBE_METADATA_ONLY', 'P6_NRG_PRIVATE_SESSIONS', 'P6_NRG_GLOBAL_TAO')}
         if vfs: env['P6_NRG_PROBE_VFS'] = '1'
         if metadata_only: env['P6_NRG_PROBE_METADATA_ONLY'] = '1'
         if private_sessions: env['P6_NRG_PRIVATE_SESSIONS'] = '1'
+        if global_tao: env['P6_NRG_GLOBAL_TAO'] = '1'
         out = subprocess.run([str(self.exe), str(path)] + ([] if rebind is None else [str(rebind)]), capture_output=True, text=True, timeout=60, env=env)
         self.assertEqual(code, out.returncode, out.stderr + out.stdout[-300:]); return out.stdout.splitlines()
 
@@ -284,6 +286,42 @@ class CdNrgTests(unittest.TestCase):
         padded = self.work / 'padding.nrg'; data = bytearray(first.read_bytes()); directory = struct.unpack_from('>I', data, len(data) - 4)[0]
         data[directory:directory] = bytes(8); struct.pack_into('>I', data, len(data) - 4, directory + 8); padded.write_bytes(data)
         self.assertEqual(self.run_nrg(first, rebind=padded, vfs=True)[-1], baseline.replace('rebind 0 ', 'rebind 2 '))
+
+    def test_global_etnf_producer_private_sectors_tocs_gaps_identity_and_rebind(self):
+        data, payloads = converted_fixture(); first = self.work / 'global.nrg'; first.write_bytes(data)
+        same = self.work / 'renamed.nrg'; same.write_bytes(data)
+        for private in (False,True):
+            self.assertEqual(['error 5'],self.run_nrg(first,code=2,vfs=True,metadata_only=True,private_sessions=private))
+        streams = (payloads[0],b''.join(mode2_header(11702+i)+payloads[1][i*2336:(i+1)*2336] for i in range(300)))
+        lines = self.run_nrg(first,vfs=True,rebind=same,global_tao=True)
+        identity = b'P6ETGM'+struct.pack('<Q',len(data))+hashlib.sha256(data).digest()+struct.pack('<QIIiiII',1411104,1,2,-150,12002,0,0)+bytes(13)
+        for fields,stream in zip(((0,0,710304,-150,0,2352,7,1,0,0),(710304,710304,1411104,11552,11702,2336,3,1,4,0)),streams):
+            identity += struct.pack('<QQQiiIIIII',*fields)+bytes(12)+hashlib.sha256(stream).digest()
+        identity += struct.pack('<II',1,2)
+        for first_track,fmt,cue0,a2 in ((1,0,-150,302),(2,32,11552,12002)):
+            identity += struct.pack('<IIIIII',first_track,first_track,fmt,cue0&0xffffffff,a2,0)+bytes(13)
+        self.assertEqual(f'disc 2 12002 {hashlib.sha256(identity).hexdigest()}',lines[1])
+        self.assertEqual(['track 0 0 302 0 2352 0 3','track 11552 11702 12002 1 2352 0 2'],[s for s in lines if s.startswith('track ')])
+        self.assertEqual(['session 1 1 1 0 -150 302 1 4 0 302','session 2 2 2 32 11552 12002 1 4 11552 12002'],[s for s in lines if s.startswith('session ')])
+        self.assertEqual(['gap 302','gap 11551'],[s for s in lines if s.startswith('gap ')])
+        for row in map(str.split,lines):
+            if row[0]=='bytes':
+                n,at,length=map(int,row[1:4]); self.assertEqual(hashlib.sha256(streams[n][at:at+length]).hexdigest(),row[4])
+            if row[0]!='sector': continue
+            lba,view,status=map(int,row[1:4]); number=1 if lba<302 else 2; start=0 if number==1 else 11702; gap=lba<start
+            if view==2048: self.assertEqual(5,status); continue
+            self.assertEqual(0,status)
+            at=(lba-start)*2352; main=mode2_header(lba)+bytes(2336) if gap else streams[number-1][at:at+2352]
+            if view==2448:
+                def bcd(n): return n//10*16+n%10
+                def clock(n): return bytes(map(bcd,(n//4500,n//75%60,n%75)))
+                q=bytes((1 if number==1 else 0x41,number,int(not gap)))+clock(abs(lba-start))+b'\0'+clock(lba+150)
+                main+=(b'\xff' if gap else b'\0')*12+q+struct.pack('>H',binascii.crc_hqx(q,0)^0xffff)+bytes(72)
+            self.assertEqual(hashlib.sha256(main).hexdigest(),row[4],row)
+        baseline=lines[-1]; self.assertTrue(baseline.startswith('rebind 0 '))
+        for at in (17,710304+17):
+            changed=bytearray(data); changed[at]^=1; same.write_bytes(changed)
+            self.assertEqual(baseline.replace('rebind 0 ','rebind 2 '),self.run_nrg(first,vfs=True,rebind=same,global_tao=True)[-1])
 
     def test_etnf_mixed_stride_rebind_identity_and_rejections_are_transactional(self):
         for modes in ((0, 7, 3), (3, 7, 0)):

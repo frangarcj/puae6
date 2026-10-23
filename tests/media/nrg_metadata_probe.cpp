@@ -29,6 +29,7 @@ int main(int argc, char **argv)
     }
     const auto &m = output.metadata;
     printf("nrg %u %u %llu %d %d %u %u\n", m.version, m.tracks, (unsigned long long)m.directory, m.leadin, m.leadout, m.disk_type, m.session_hint);
+    if (m.layout == NrgLayout::EtnfGlobalCanonical150) puts("policy etnf-global150");
     if (m.sessions > 99) return 72;
     for (unsigned n = 0; n < 99; ++n) {
         const auto &s = m.session[n]; const auto &i = s.info;

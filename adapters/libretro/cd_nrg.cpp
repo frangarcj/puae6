@@ -59,7 +59,8 @@ struct CdNrg::Data {
     Result prepare(NrgSessionPolicy policy)
     {
         const bool multi = metadata.sessions > 1;
-        if (multi && policy != NrgSessionPolicy::ExplicitPrivate) return Result::Unsupported; // Before payload.
+        const bool global = metadata.layout == NrgLayout::EtnfGlobalCanonical150;
+        if (multi && policy != (global ? NrgSessionPolicy::EtnfGlobalPrivate : NrgSessionPolicy::ExplicitPrivate)) return Result::Unsupported; // Before payload.
         const bool tao = metadata.layout != NrgLayout::Dao;
         layout.tracks = metadata.tracks; layout.leadout = uint32_t(metadata.leadout);
         if (multi) {
@@ -99,7 +100,7 @@ struct CdNrg::Data {
             p6_sha256_final(&hash, binding[n].identity.content_id);
         }
         // Separate the canonical gap policy from DAO without changing existing DAO identities.
-        const char *domain = multi ? "P6NRGM" : metadata.layout == NrgLayout::Etn2Canonical150 ? "P6ETN2" : tao ? "P6ETN1" : "P6NRG1";
+        const char *domain = global ? "P6ETGM" : multi ? "P6NRGM" : metadata.layout == NrgLayout::Etn2Canonical150 ? "P6ETN2" : tao ? "P6ETN1" : "P6NRG1";
         p6_sha256_init(&hash); p6_sha256_update(&hash, domain, 6);
         auto put = [&](uint64_t value, unsigned bytes = 4) {
             uint8_t data[8];
@@ -130,7 +131,7 @@ CdNrg::CdNrg() = default;
 CdNrg::~CdNrg() = default;
 Result CdNrg::open(const char *path, const retro_vfs_interface *vfs, NrgSessionPolicy policy)
 {
-    if (!path || data_ || (policy != NrgSessionPolicy::SingleOnly && policy != NrgSessionPolicy::ExplicitPrivate)) return Result::Invalid;
+    if (!path || data_ || (policy != NrgSessionPolicy::SingleOnly && policy != NrgSessionPolicy::ExplicitPrivate && policy != NrgSessionPolicy::EtnfGlobalPrivate)) return Result::Invalid;
     auto candidate = std::make_unique<Data>();
     if (!candidate->file.open(path, vfs)) return Result::ReadError;
     auto result = nrg_metadata(candidate.get(), Data::whole_read, candidate->file.size(), &candidate->metadata);
