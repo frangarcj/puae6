@@ -270,5 +270,11 @@
   ],
   "excluded_symlinks": {
     "llvm/23.1.4/etc/clang": "../../../../etc/clang"
+  },
+  "materialized_symlinks": {
+    "rust/1.99.1/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy": {
+      "target": "../../../../../../../opt/llvm/bin/llvm-objcopy",
+      "source": "llvm/23.1.4/bin/llvm-objcopy"
+    }
   }
 }
