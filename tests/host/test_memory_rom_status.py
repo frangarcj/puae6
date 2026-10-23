@@ -31,7 +31,7 @@ class MemoryRomStatusTests(unittest.TestCase):
             bodies += function(source, signature)
         # Reset cannot silently clear causal status without invoking a load/init.
         self.assertNotIn("rom_load_status", function(source, "void memory_reset (void)"))
-        with tempfile.TemporaryDirectory(prefix="p6-memory-rom-status-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-memory-rom-status-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             (tmp / "memory_rom_status_under_test.h").write_text(bodies)
             (tmp / "rom_checksum_under_test.h").write_text(

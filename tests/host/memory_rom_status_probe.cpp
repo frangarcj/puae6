@@ -11,6 +11,7 @@
 #include "debugmem.h"
 #include "cpuboard.h"
 #include "devices.h"
+#include "ar.h"
 #include "rom_status.h"
 #include "blob_io.h"
 #include "diagnostics.h"
@@ -31,6 +32,30 @@ static uaecptr a1000_kickstart_size;
 static const uae_char *kickstring = "exec.library";
 static unsigned patches, protections, opens, keys, notices, errors, lifecycle;
 static unsigned crc_notices;
+enum CartridgeCall { CART_UNLOAD, CART_LOAD, CART_INIT, HRTMON_LOAD, CART_CLEANUP };
+static CartridgeCall cartridge_calls[32];
+static unsigned cartridge_count;
+static void note_cartridge(CartridgeCall call)
+{
+    assert(cartridge_count < 32);
+    cartridge_calls[cartridge_count++] = call;
+}
+static void expect_cartridge(std::initializer_list<CartridgeCall> expected)
+{
+    assert(cartridge_count == expected.size());
+    unsigned i = 0;
+    for (auto call : expected) assert(cartridge_calls[i++] == call);
+    cartridge_count = 0;
+}
+// Lifecycle observations only. No cartridge is loaded or reported successful.
+int action_replay_unload(int reset)
+{ assert(reset == 0); note_cartridge(CART_UNLOAD); return -1; }
+int action_replay_load()
+{ assert(!currprefs.cartfile[0]); note_cartridge(CART_LOAD); return -1; }
+void action_replay_init(int enabled)
+{ assert(enabled == 1); note_cartridge(CART_INIT); }
+int hrtmon_load() { note_cartridge(HRTMON_LOAD); return -1; }
+void action_replay_cleanup() { note_cartridge(CART_CLEANUP); }
 
 // Isolated reader probe; integration includes the real ROM manager below.
 #ifndef P6_REAL_ROM_INPUT
@@ -91,6 +116,7 @@ static void restore(const char *name, int expected, bool bad_checksum = false)
 {
     strcpy(changed_prefs.romfile, name);
     const unsigned before = patches;
+    const unsigned before_cartridge = cartridge_count;
     protections = notices = errors = opens = keys = crc_notices = 0;
     set_roms_modified(); reload_roms();
     assert(p6_memory_rom_status() == expected && !roms_modified && need_hardreset);
@@ -102,6 +128,7 @@ static void restore(const char *name, int expected, bool bad_checksum = false)
     assert(p6_memory_rom_status() == expected && protections == 0);
     p6_diag_reset(); // Diagnostics are not the owner of load outcome.
     assert(p6_memory_rom_status() == expected);
+    assert(cartridge_count == before_cartridge);
 }
 
 // Independent 64-bit carry folding builds legal test bytes; these are not a
@@ -135,6 +162,7 @@ int main()
     assert(p6_blob_register("corrupt.rom", P6_BLOB_ROM, corrupt, sizeof corrupt) == 0);
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED);
     memory_init();
+    expect_cartridge({CART_UNLOAD, CART_LOAD, CART_INIT, HRTMON_LOAD});
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED && lifecycle == 2 && kickmem_bank.baseaddr);
     restore("fixture.rom", P6_ROM_LOAD_OK);
     assert(!memcmp(kickmem_bank.baseaddr, payload, sizeof payload));
@@ -179,16 +207,20 @@ int main()
     assert(!memcmp(kickmem_bank.baseaddr, half, sizeof half));
     restore("fixture.rom", P6_ROM_LOAD_OK);
     memory_cleanup();
+    expect_cartridge({CART_CLEANUP});
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED && !kickmem_bank.baseaddr && lifecycle == 2);
     fail_allocation = true;
     memory_init();
+    expect_cartridge({CART_UNLOAD, CART_LOAD, CART_INIT, HRTMON_LOAD});
     assert(!kickmem_bank.baseaddr && p6_memory_rom_status() == P6_ROM_UNLOADED);
     restore("fixture.rom", P6_ROM_NO_MEMORY);
     fail_allocation = false;
     memory_init();
+    expect_cartridge({CART_UNLOAD, CART_LOAD, CART_INIT, HRTMON_LOAD});
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED);
     restore("fixture.rom", P6_ROM_LOAD_OK);
     memory_cleanup(); p6_blob_clear();
+    expect_cartridge({CART_CLEANUP});
     assert(p6_memory_rom_status() == P6_ROM_UNLOADED && !kickmem_bank.baseaddr);
     return 0;
 }
