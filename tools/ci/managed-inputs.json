@@ -23,11 +23,11 @@
     },
     {
       "id": "microsoft.aspnetcore.app.ref",
-      "version": "8.0.30",
-      "bytes": 4370497,
-      "archive_sha512_base64": "mu+9ePSXljxiuvnd6Q3ECvQ0jrxMV0IFtexHvayrhAt5FH8DGAab0hwYyVFZNwT9eJAVP5Sdy+ffFvDYBl73Kw==",
-      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/8.0.30/microsoft.aspnetcore.app.ref.8.0.30.nupkg",
-      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.14.36/microsoft.aspnetcore.app.ref.8.0.30.json"
+      "version": "8.0.32",
+      "bytes": 4372852,
+      "archive_sha512_base64": "+AuAmhSvO0r9AmdexlU+z6H+lPso7kZKb/98WPeQayL6i1Bc3Fai+JZ7k6rMOI576kdGDuKRYxguDm/Bdv3+gw==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/8.0.32/microsoft.aspnetcore.app.ref.8.0.32.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.10.13.18.35.16/microsoft.aspnetcore.app.ref.8.0.32.json"
     },
     {
       "id": "microsoft.csharp",
@@ -39,11 +39,11 @@
     },
     {
       "id": "microsoft.netcore.app.ref",
-      "version": "8.0.30",
-      "bytes": 6767219,
-      "archive_sha512_base64": "HUcpDqyYO9doozmeDEDDo65zHjaq+3KjpSVFCpB5AZcLXoNDBOHgwoX4svIXjo7jsYauGaAErcxMba//AT9ANA==",
-      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/8.0.30/microsoft.netcore.app.ref.8.0.30.nupkg",
-      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.12.54/microsoft.netcore.app.ref.8.0.30.json"
+      "version": "8.0.32",
+      "bytes": 6767209,
+      "archive_sha512_base64": "pilmN36NblR5jcrPE9RktFl037TKxJ5lO5QImP8oz67cF4vRSFxwS39sp2C1gJywyx02vOUt9UdtbRUz7S9H9Q==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/8.0.32/microsoft.netcore.app.ref.8.0.32.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.10.13.18.07.59/microsoft.netcore.app.ref.8.0.32.json"
     },
     {
       "id": "microsoft.netcore.platforms",
