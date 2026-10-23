@@ -11704,6 +11704,7 @@
         "tests/host/cia_keyboard_probe.cpp",
         "tests/host/cia_overlay_state_probe.cpp",
         "tests/host/test_cia_overlay_state.py",
+        "tests/host/test_cpu_prefetch.py",
         "tests/waterbox-smoke/test_puae6_contract.py",
         "manifests/release/native-preview.json",
         "tests/packages/test_preview.py"
@@ -11769,7 +11770,8 @@
         "Ampliar previamente tests/ffi/test_ffi.py: el proyecto temporal de layout vive fuera de Directory.Build.targets y pide packs8.0.32 ausentes del cache offline. Crear el proyecto bajo build/ para heredar las referencias8.0.30 fijadas y UseAppHost=false como los otros probes managed; conservar RollForward Major y el assert exacto72/69/70/71, sin cambiar ABI, SDK global ni instalar paquetes.",
         "Ampliar previamente tests/hdf/test_ide.py: has_gayle admite tambien A4000 y el diagnostico ahora dice que la maquina no tiene IDE soportado, pero el negativo A500 espera el texto anterior A600/A1200. Cambiar solo esa expectativa, manteniendo returncode3 y el rechazo. Ejecutar ese caso dirigido; conservar los otros diez casos IDE ya superados en9f1042b4, incluidos IO/restore/ASanUBSan, identificando la cobertura por caso y revision en la continuacion acumulada.",
         "Ampliar previamente tests/host/cia_keyboard_probe.cpp: ACTION_REPLAY hace que WriteCIAA actualice ar_ciaa[reg], pero el probe selectivo no proporciona los16bytes declarados en ar.h. La fixture aislada debe poseer ese buffer y verificar que el handshake modifica solo el registro14 con los valores originales; conservar teclado/eventos/IRQ y el check O0/O2 ASanUBSan existente. No enlazar ni simular un cartucho, no añadir stubs de exito ni cambiar motor, flags de perfil o ar.cpp.",
-        "Ampliar previamente tests/host/cia_overlay_state_probe.cpp y tests/host/test_cia_overlay_state.py: el enlace selectivo CIA/visitor necesita tambien ar_ciaa y la cola real keys_available/get_next_key. Materializar/verificar keybuf.cpp con los mismos parches y enlazarlo; la fixture posee el buffer16 y comprueba capturas de registro4 y que el visitor CIA no altera ese estado de otro propietario. Mantener los payloads143/144, negativos puros, mapeo observado, restauracion y ASanUBSan. Sin stubs de teclado, cambios al codec/motor ni claims de cartucho o mapa real."
+        "Ampliar previamente tests/host/cia_overlay_state_probe.cpp y tests/host/test_cia_overlay_state.py: el enlace selectivo CIA/visitor necesita tambien ar_ciaa y la cola real keys_available/get_next_key. Materializar/verificar keybuf.cpp con los mismos parches y enlazarlo; la fixture posee el buffer16 y comprueba capturas de registro4 y que el visitor CIA no altera ese estado de otro propietario. Mantener los payloads143/144, negativos puros, mapeo observado, restauracion y ASanUBSan. Sin stubs de teclado, cambios al codec/motor ni claims de cartucho o mapa real.",
+        "Ampliar previamente tests/host/test_cpu_prefetch.py: la expectativa conserva solo3tablasCE anteriores a Normal/Compatible y030/040/060. Contrastar cputbls con los modos implementados: 000/010/020 tienen Normal/Compatible/Exact y030/040/060 solo Normal. Comprobar exactamente la matriz6x8 y sus12imports, exigiendo NULL en slots JIT/MMU/no soportados; preservar igualdad del cuerpo prefetch con pristine, imports host prohibidos y pruebas O0/O2 ASanUBSan. No cambiar flags, generador, tablas generadas ni motor."
       ],
       "checks": [
         "PLAN01",
