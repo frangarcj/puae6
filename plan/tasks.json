@@ -22553,7 +22553,7 @@
       "title": "Cargar ETNF global Canonical150 por fabrica nativa y restaurar en libretro",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66w1",
         "T66v9"
