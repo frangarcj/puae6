@@ -22309,7 +22309,7 @@
       "title": "Transportar los cuatro Action Replay al inicializador Waterbox sin cambiar el layout",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T69d3",
         "T69e2",
@@ -22339,11 +22339,11 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "busy_reference implementa en worktree t66-cd-swap limpio desde el commit de esta ficha. Seis rutas manuales atomicas de transporte mas root docs/dispatcher/metadata; objetivo330-390 y limite400 lineas logicas, avisar antes de ampliar. No UI, schema, Settings, FirmwareDatabase, movies ni motor/codec en esta hoja. Root serializa build guest y managed j2; agente solo sintaxis/checks ligeros.",
+        "cd32_close implementa en worktree t66-cd-swap limpio desde el commit de reanudacion tras CI publica. Seis rutas manuales atomicas de transporte mas root docs/dispatcher/metadata; objetivo330-390 y limite400 lineas logicas, avisar antes de ampliar. No UI, schema, Settings, FirmwareDatabase, movies ni motor/codec en esta hoja. Root serializa build guest y managed j2; agente solo sintaxis/checks ligeros.",
         "Export aditivo p6w_init_machine_cartridge(p6w_init*,uint32_t,const void*,uint64_t) e import C# equivalente. p6w_init_machine existente y nuevo comparten un unico inicializador, sin cambiar p6w_init/P6W_LAYOUT v1. Validar args/loaded igual; nuevo ejecuta init, binder publico de los cuatro modelos y load con shutdown al fallo. Bytes ROM prestados solo durante llamada: binder copia al blob mmap antes de Seal; no segunda copia sealed ni punteros externos persistentes.",
         "Nuevo dispatch cartridges en tests/ffi/Program.cs y parcial Cartridges.cs reutilizan Open/Guarded, EnterExit, p6w_memory_access Chip, frame_advance inputV2 y snapshots reales de Host. Fixtures originales pequenos para los cuatro modelos juntos; reutilizar ar1_images/ar_state_firmware y extender programa IRQ/Exception2 propio para copiar contador y sentinela del final de cartRAM a Chip, AR1200 causa4, antes de salir por strobe/reentry propio. Cortes causales pre-trigger y ACTIVE esperando senal, no editor comercial ni timeout ciego.",
         "CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state prueba Freeze/held/soltarV1/rearm, mutable cartRAM completa mediante sentinelas, copia de callerROM tras mutarla y cleanup. Save-load-repeat local y writer/reader en proceso/sandbox nuevos con solo init+Seal antes del primer frame al cargar, futuros completos AV/PCM/ticks/markers y snapshot exactos. Negativos ABI/modelo/perfil/tamano/cabecera y BAD_STATE init repetido/loaded con canarios y rollback; BUSY ya probado por binder nativo, sin hooks de reentrada artificiales. Incluir una llamada valida al export legacy sin cartucho y un frame tras bind fallido/cleanup como regresion cercana del inicializador compartido; sin recompilar headless para repetir otra matriz. El nuevo export no acepta model0/null como solicitud legacy: siempre valida/enlaza o rechaza.",
-        "ABI01 reutiliza GuestAbiTests.test_the_layout_the_managed_harness_was_written_for_is_the_one_the_header_compiles_to y llamada real del nuevo export. WB03/WB04/WB15 comparten el nuevo test de transporte una sola vez. Preflight receipt/SHA/ELF/TLS/runtime actual obligatorio y medir uso real normal/mmap/sealed con presupuestos existentes y margen, sin invisible. Root materializa/build guest actual una vez incluyendo0410/0411 y este transporte; no atribuir ejecucion Waterbox a pruebas nativas.",
+        "ABI01 reutiliza GuestAbiTests.test_the_layout_the_managed_harness_was_written_for_is_the_one_the_header_compiles_to y llamada real del nuevo export. WB03/WB04/WB15 comparten el nuevo test de transporte una sola vez. Preflight receipt/SHA/ELF/TLS/runtime actual obligatorio y medir uso real normal/mmap/sealed con presupuestos existentes y margen, sin invisible. Root materializa/build guest actual una vez incluyendo0410/0411/0412 y este transporte; no atribuir ejecucion Waterbox a pruebas nativas.",
         "G1 libretro no es dependencia causal; su puerta comercial no sustituye este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente."
       ],
       "checks": [
