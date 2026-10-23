@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35",
@@ -11657,7 +11657,8 @@
         "Renovar la preview local despues de integrar DAO multisesion, ETN2 compacto con strides mezclados y CHD con HTOA. Actualizar solo docs/user/native-preview.md dentro del alcance previo; usar tools/package.py build con los fuentes limpios y comprobar el ZIP extraido mediante su smoke existente, sin repetir matriz ni declarar release formal.",
         "La primera lane sanitizer de la candidata detecta desacuerdos concretos config(seed19/7,iter1716) y model(floppy_multidrive,seed1/2). Ampliar touch exclusivamente a ambos fuzzers y su test existente: contrastar oraculos independientes con contrato/codigo actual, corregir solo la causa demostrada y retener witnesses/negativos que detecten un fallo real. busy_reference investiga aislado sin metadata ni motor/guest; root integra y ejecuta solo config/model afectados, no repite state/hardfile/trackdisk que terminaron sin fallo. No acreditar lane completa ni IPF decoder que no llegaron al gate.",
         "22oct usuarioordenaCIhostedLinuxsiMacOScobra: cd_swapaisladopreparagateLinuxnativorealensolo4rutaspermitidas/workflow+script+testinfra+guia,ubuntu24.04estandar,j2/timeoutacotado/sinROMcomercial/secretos/artifactos/reportes ni cachesGitHubde pago. ConservarPR/nightly/releaseWaterboxDarwinysuschecksoriginales, LinuxnoacreditaWB13..15 ni perfDarwin. LeerrecetasLinuxyaejecutadasT25 yreusarheadless/libretro/restorepropio; rootintegrayserializacompilaciones/publicacion. InstalacionrunnerMaclocalNOautorizada; norepreguntarporella. Verificarcuotaminutosantesdeejectuarremotoonoactivarfacturacion/serviciospago,pendientesremotosexplicitos.",
-        "Integracion de cartuchos: la lane funcional descubre test_hrtmon con puertas AR1/AR2/AR3/AR1200 reales, pero ASSETS no pide sus variables ni P6_KICKSTART_A500_ROM. Root corrige solo tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md dentro de touch existente: exigir cinco inputs antes de imagenes/build y extender negativos tempranos. No ejecutar motor ni modificar CI Linux de micro-ROMs; la cuota/ejecucion remota y union acumulada originales siguen bloqueadas."
+        "Integracion de cartuchos: la lane funcional descubre test_hrtmon con puertas AR1/AR2/AR3/AR1200 reales, pero ASSETS no pide sus variables ni P6_KICKSTART_A500_ROM. Root corrige solo tools/ci/nightly.py, tests/ci/test_nightly.py y docs/ci.md dentro de touch existente: exigir cinco inputs antes de imagenes/build y extender negativos tempranos. No ejecutar motor ni modificar CI Linux de micro-ROMs; la cuota/ejecucion remota y union acumulada originales siguen bloqueadas.",
+        "23oct: el usuario autoriza expresamente hacer publico frangarcj/puae6 para la CI. Visibilidad PUBLIC verificada con gh; no configurar facturacion, secretos ni runners locales. Root sincroniza fuente actual y ejecuta native-linux.yml manual en ubuntu24.04 estandar. La puerta Linux no sustituye Waterbox Darwin, performance ni union nightly/release; registrar resultado real al terminar."
       ],
       "checks": [
         "PLAN01",
@@ -11674,8 +11675,7 @@
         "Las recetas se han ejecutado en los runners declarados; escribir YAML no equivale a tener CI verde.",
         "Cada resultado identifica source/patchset/codegen/toolchain/perfil y permite reproducir el fallo."
       ],
-      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente.",
-      "blocked_reason": "CI nativa Linux manual implementada en native-linux.yml/tools/ci/linux_native.py: ubuntu24.04estandar,O2conasserts,j2,45min,sinartifact/cache/secret/ROMcomercial. Infraestructura6tests+actionlintPASS; motorLinuxremotoNOejecutado. TokenGHnoaccesocuotaHTTP404requiereuser; NOrenovarscopes ni cambiargasto. Preguntaasincpendiente sobreminutosincluidosygastoadicionalbloqueado0; lanzarsoloalconocercostepermitido. No instalar runnerMaclocal, noactivarserviciospago. PuertasoriginalesPR/WaterboxDarwin/nightly/release/perfquedanintactas ysuCIremota/unionacumuladaaunpendientes, noacreditadasporestaCIparcial."
+      "stop": "No activar servicios de pago, secretos ni publicar workflows en remoto sin autorizacion; guardar recetas y bloquear evidencia remota ausente."
     },
     {
       "id": "T39",
@@ -22239,7 +22239,7 @@
       "title": "Conectar los cuatro Action Replay a libretro y conservar estados frios",
       "milestone": "FUTURE",
       "required": false,
-      "status": "blocked",
+      "status": "done",
       "depends": [
         "T69d3",
         "T69e2",
@@ -22279,7 +22279,9 @@
         "GEN01 usa schema/parity completos y generate_options --check; extender paridad para exigir ambas conversiones canonicas y que extras no lleguen a flags/C#. IN01 usa mapper_probe ASan/UBSan existente con los cuatro extras, HRT/off y composicion de flags. Agent ejecuta solo generacion/sintaxis/checks ligeros, root compila motor una vez.",
         "LR01/DET02/STATE01/STATE02 comparten LibretroCartridgeTests.test_system_roms_freeze_and_cold_state y test_missing_invalid_wrong_profile_and_reload_are_explicit. Usar los cuatro firmwares autorizados mediante frontend libretro real/systemdir/VFS, perfiles correspondientes, Freeze held y corte activo comprobado por P6RM/P6IN. Restaurar en otro proceso antes del primer run y comparar 15 unidades futuras completas RAM/AV/PCM/ticks y estado libretro final exacto. Negativos de ausencia/tamano/lectura/perfil, cambio diferido hasta recarga, estado off/otra ROM transaccional y cleanup/exclusividad. Reproducer de primer Kick rechazado y segundo valido con manifiesto no vacio conservado; rechazo CD explicito. No repetir campanas nativas de comandos G/X.",
         "Root ejecuta la union dirigida una vez con HrtMonLibretroTests.test_real_hotkey_command_return_and_held_state_in_fresh_process como regresion cercana del loader/mapper compartido. No repetir codecs nativos, guest Waterbox ni matriz por etiquetas; BizHawk y cierre del padre siguen pendientes. Temporales solo en build y eliminados, sin informes ni ROMs comerciales versionadas. Dos intentos razonados de un fallo requieren reproducer y dos hipotesis verificables antes de blocked.",
-        "Decision del loader antes de implementar: CannotOpen no distingue ausencia de denegacion. En VFS3/stdio, usar listado existente y acotado para acreditar ausencia antes de probar alias; si el nombre esta presente pero no abre, fallar. En VFS1/2 sin listado, un CannotOpen del principal falla explicitamente y pide ese nombre, sin fallback POSIX fuera del namespace VFS. Listado fallido o excesivo tambien falla explicitamente. Probar alias con VFS3, principal VFS1 y nombre principal ilegible aun con alias valido; no ampliar FileReader ni el harness por esta distincion."
+        "Decision del loader antes de implementar: CannotOpen no distingue ausencia de denegacion. En VFS3/stdio, usar listado existente y acotado para acreditar ausencia antes de probar alias; si el nombre esta presente pero no abre, fallar. En VFS1/2 sin listado, un CannotOpen del principal falla explicitamente y pide ese nombre, sin fallback POSIX fuera del namespace VFS. Listado fallido o excesivo tambien falla explicitamente. Probar alias con VFS3, principal VFS1 y nombre principal ilegible aun con alias valido; no ampliar FileReader ni el harness por esta distincion.",
+        "Revision primaria independiente tras el bloqueo: ROM autorizada fija H1 sin ejecuciones. BSR800256 llama800060; copia80F188→88006A hasta883C89, sobrescribiendo8802CE con0000 de80F3EC despues de capturar causa4. Registro8C0000 queda8 fuera del rango. Root retoma solo AR1200 con oracle causal: snapshot330 IDLE1/triggered0/mapped0/P6IN0 antes de hotkey331; snapshot950 ACTIVE3/triggered1/mapped1/P6IN1, magic880004=12345678, plantilla8802CE=0/status8. No cambia motor ni tolerancias, se elimina la falsa expectativa de persistencia del campo temporal segun fuente. Reejecutar solo helper del modelo1200; las puertas AR1/2/3, negativos, mapper y HRTMon de la union49.096s ya pasaron.",
+        "Cierre acumulado: generacion y68tests puros PASS; union dirigida49.096s acredita mapper ASan/UBSan, negativos/reload/retryconADF, AR1/2/3 cold15 y regresionHRTMon real. Tras revision primaria del campo temporal, soloAR1200 pasa11.760s con preestadoIDLE/P6IN0→ACTIVE/P6IN1,15estadosfuturos completos iguales y AV/PCM/ticks en proceso nuevo. No se repitieron las otras puertas ya verdes ni motor/guest nativo. Configuracion/publicacion Waterbox/BizHawk sigue pendiente enG2 y hoja posterior."
       ],
       "checks": [
         "GEN01",
@@ -22292,15 +22294,14 @@
       "acceptance": [
         "Libretro carga cada AR autorizado por VFS con errores explicitos y seleccion reboot sin contaminar config nativo o managed; Freeze mantenido y estado frio conservan futuro completo. Reintentos de firmware mantienen owner y manifiesto. Las puertas dirigidas pasan y HRTMon conserva su comportamiento."
       ],
-      "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas.",
-      "blocked_reason": "Implementacion libretro integrada en 0aab4e76. GEN01 68 tests puros y generacion/sintaxis PASS; mapper ASan/UBSan PASS; errores/reload/retry con ADF PASS; AR1/2/3 completan cold state15 con estados y AV/PCM/ticks exactos; HRTMon real PASS en union49.096s. AR1200 falla solo el oracle de causa en active_cart: esperaba status4 y obtuvo8. ROM pin en800210 copia status a8802ce,80021a aplica AND4 y80023c escribe8. Correccion dirigida exige savedcause4/status8; segundo intento soloAR1200 falla savedcause0 en11.372s. Conservar reproducer check_system_rom_freeze_and_cold_state(3); no acreditar G1 ni repetir casos ya verdes. H1: la inicializacion posterior borra8802ce; verificar sus stores/rangos de limpieza en ROM y comparar corte antes/despues. H2: ROM ya estaba ACTIVE antes de hotkey331 y el nivel se consume; verificar P6RM/P6IN en unidad330 y transicion tras331, sin relajar assertions ni tocar motor. Tras dos intentos, detener esta correccion y pasar a transporte Waterbox independiente."
+      "stop": "No cerrar por compilar o mostrar monitor; no duplicar scheduler/codec/historia Freeze, editar salidas generadas a mano, forzar perfil, perder medios al reintentar ni acreditar Waterbox con pruebas nativas."
     },
     {
       "id": "T69g2",
       "title": "Transportar los cuatro Action Replay al inicializador Waterbox sin cambiar el layout",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T69d3",
         "T69e2",
@@ -22333,9 +22334,9 @@
         "busy_reference implementa en worktree t66-cd-swap limpio desde el commit de esta ficha. Seis rutas manuales atomicas de transporte mas root docs/dispatcher/metadata; objetivo330-390 y limite400 lineas logicas, avisar antes de ampliar. No UI, schema, Settings, FirmwareDatabase, movies ni motor/codec en esta hoja. Root serializa build guest y managed j2; agente solo sintaxis/checks ligeros.",
         "Export aditivo p6w_init_machine_cartridge(p6w_init*,uint32_t,const void*,uint64_t) e import C# equivalente. p6w_init_machine existente y nuevo comparten un unico inicializador, sin cambiar p6w_init/P6W_LAYOUT v1. Validar args/loaded igual; nuevo ejecuta init, binder publico de los cuatro modelos y load con shutdown al fallo. Bytes ROM prestados solo durante llamada: binder copia al blob mmap antes de Seal; no segunda copia sealed ni punteros externos persistentes.",
         "Nuevo dispatch cartridges en tests/ffi/Program.cs y parcial Cartridges.cs reutilizan Open/Guarded, EnterExit, p6w_memory_access Chip, frame_advance inputV2 y snapshots reales de Host. Fixtures originales pequenos para los cuatro modelos juntos; reutilizar ar1_images/ar_state_firmware y extender programa IRQ/Exception2 propio para copiar contador y sentinela del final de cartRAM a Chip, AR1200 causa4, antes de salir por strobe/reentry propio. Cortes causales pre-trigger y ACTIVE esperando senal, no editor comercial ni timeout ciego.",
-        "CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state prueba Freeze/held/soltarV1/rearm, mutable cartRAM completa mediante sentinelas, copia de callerROM tras mutarla y cleanup. Save-load-repeat local y writer/reader en proceso/sandbox nuevos con solo init+Seal antes del primer frame al cargar, futuros completos AV/PCM/ticks/markers y snapshot exactos. Negativos ABI/modelo/perfil/tamano/cabecera y BAD_STATE init repetido/loaded con canarios y rollback; BUSY ya probado por binder nativo, sin hooks de reentrada artificiales.",
+        "CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state prueba Freeze/held/soltarV1/rearm, mutable cartRAM completa mediante sentinelas, copia de callerROM tras mutarla y cleanup. Save-load-repeat local y writer/reader en proceso/sandbox nuevos con solo init+Seal antes del primer frame al cargar, futuros completos AV/PCM/ticks/markers y snapshot exactos. Negativos ABI/modelo/perfil/tamano/cabecera y BAD_STATE init repetido/loaded con canarios y rollback; BUSY ya probado por binder nativo, sin hooks de reentrada artificiales. Incluir una llamada valida al export legacy sin cartucho y un frame tras bind fallido/cleanup como regresion cercana del inicializador compartido; sin recompilar headless para repetir otra matriz. El nuevo export no acepta model0/null como solicitud legacy: siempre valida/enlaza o rechaza.",
         "ABI01 reutiliza GuestAbiTests.test_the_layout_the_managed_harness_was_written_for_is_the_one_the_header_compiles_to y llamada real del nuevo export. WB03/WB04/WB15 comparten el nuevo test de transporte una sola vez. Preflight receipt/SHA/ELF/TLS/runtime actual obligatorio y medir uso real normal/mmap/sealed con presupuestos existentes y margen, sin invisible. Root materializa/build guest actual una vez incluyendo0410/0411 y este transporte; no atribuir ejecucion Waterbox a pruebas nativas.",
-        "G1 libretro no es dependencia causal y su oracle AR1200 bloqueado no impide este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente."
+        "G1 libretro no es dependencia causal; su puerta comercial no sustituye este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente."
       ],
       "checks": [
         "ABI01",

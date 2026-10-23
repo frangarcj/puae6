@@ -366,8 +366,7 @@ desde systemdir/VFS y llama al binder publico antes de cargar la maquina. Un
 reintento de Kickstart reinicializa y vuelve a enlazar los mismos bytes sin perder
 el manifiesto de medios. Freeze usa el mismo nivel de entrada y estado anterior;
 el frontend no conserva otra historia de flancos. Los nombres y perfiles estan
-en docs/options.md. La comprobacion causal de Freeze de AR1200 sigue pendiente
-en libretro; la conexion AR a BizHawk/Waterbox conserva su puerta propia.
+en docs/options.md. La conexion AR a BizHawk/Waterbox conserva su puerta propia.
 
 Entrada del adaptador libretro (T17c). Se lee una vez por retro_run, tras el unico input poll, con `input_state_cb`; no se usa el callback asincrono de
 teclado. Reglas (adapters/libretro/input_map.h; tests/libretro-host/test_input.py):

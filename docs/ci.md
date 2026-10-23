@@ -91,7 +91,7 @@ Control siguen por loopback dentro del mismo contenedor. El pin identifica una
 imagen local existente, sin prometer que reconstruir su Dockerfile reproduzca
 los mismos bytes.
 
-El repositorio privado `frangarcj/puae6` ya esta creado y sincronizado. Guardar
+El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
 conservan pendientes sus puertas no ejecutadas en los runners declarados.
 
@@ -102,8 +102,9 @@ estandar, con checkout fijado, permisos de lectura y limite de 45 minutos.
 `python3 tools/ci/linux_native.py` usa Clang/Ninja/CMake preinstalados, `-O2 -g`
 con assertions y dos compiladores simultaneos. No instala paquetes ni usa Docker,
 MacHawk, secretos, servicios adicionales, caches de GitHub o upload de artifacts.
-El lanzamiento remoto queda a cargo del coordinador tras comprobar cuota/coste;
-la existencia del YAML no autoriza gasto ni acredita una ejecucion verde.
+El usuario autorizo publicar el repositorio para usar runners estandar de Linux
+sin consumir la cuota privada. El lanzamiento manual queda a cargo del
+coordinador; la existencia del YAML no acredita una ejecucion verde.
 
 Las micro-ROM MIT propias `boot.s` e `input_all.s` prueban headless/libretro y
 restore nativo respectivamente. `boot.s` evita depender de los puertos distintos

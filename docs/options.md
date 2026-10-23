@@ -4,8 +4,7 @@
 
 `puae6_cartridge` requiere recargar el contenido. `disabled` es el defecto;
 `hrtmon` usa el monitor incluido en A1200. Los valores Action Replay necesitan
-una ROM raw propia en el directorio de sistema del frontend. La comprobacion de
-Freeze y estado frio de AR1200 en libretro sigue pendiente:
+una ROM raw propia en el directorio de sistema del frontend:
 
 | Valor | Maquina | Tamano | Nombre principal | Alias |
 |---|---|---|---|---|
