@@ -1,4 +1,4 @@
-"""Include closure of the A500 engine units; it does not run an emulator.
+"""Include closure of the selected engine units; it does not run an emulator.
 
 Each selected unit is preprocessed for its user-header dependencies (-MM). Every file
 must live in the portable layer, the generated sources or the materialized WinUAE
@@ -6,6 +6,7 @@ tree, and the only od-win32 files allowed are the 68k arithmetic helpers. Adding
 host header to the profile, or a patch that starts including a Win32 file, fails here.
 """
 from concurrent.futures import ThreadPoolExecutor
+import json
 import os
 from pathlib import Path
 import shlex
@@ -47,7 +48,11 @@ class EngineIncludeTests(unittest.TestCase):
             cls.closure = dict(pool.map(dependencies, engine_commands()))
 
     def test_every_dependency_is_inside_an_allowed_tree(self):
-        self.assertEqual(len(self.closure), 47)   # + fdi2raw.cpp (T57b); + gayle.cpp, ide.cpp (T56); + fpp.cpp, fpp_softfloat.cpp, softfloat_decimal.cpp (T54); + autoconf, filesys, hardfile, native2amiga, traps, uaeresource, def_icons (T29a)
+        selection = json.loads((ROOT / "manifests/source-manifest.json").read_text())["selection"]
+        expected = {str(ROOT / "build" / tree / name)
+                    for tree, key in (("upstream", "upstream_units"), ("generated", "generated_units"))
+                    for name in selection[key]}
+        self.assertEqual(set(self.closure), expected)
         for unit, paths in self.closure.items():
             for path in paths:
                 with self.subTest(unit=Path(unit).name, header=path.name):
