@@ -18806,7 +18806,9 @@
         "T66v12",
         "T66v13",
         "T66v14",
-        "T66w1"
+        "T66w1",
+        "T66w2",
+        "T66w3"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22540,6 +22542,101 @@
         "El perfil privado ETNFglobalcanonical150 produce metadata/sectores/TOCvirtual coherentes con productor real atribuido, conserva identidad y valida sinmutacion, huecosRange yrebind. Singlepacked/ETN2/DAO conservan regresiones; fabrica publica rechaza antespayload. Tests dirigidos ASan/UBSan pasan y normalizacion/procedencia estan declaradas sin pretenderCUE0/Qfisicos."
       ],
       "stop": "No habilitarpublico,TINF niETN2multi con esta prueba; sinreinterpretarVCDpacked, inventarleadinfisico, relajarDiscvalidador o atribuirWaterbox acomponentenativo."
+    },
+    {
+      "id": "T66w2",
+      "title": "Cargar ETNF global Canonical150 por fabrica nativa y restaurar en libretro",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66w1",
+        "T66v9"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "adapters/libretro/cd_nrg.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "adapters/libretro/cd_image.cpp",
+        "tests/media/test_cd_image.py",
+        "tests/media/cd_image_probe.cpp",
+        "tests/libretro-host/test_cd32_load.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/0018-cd-multisession.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "ci_close responsable en worktree aislado limpio desde main57b606f6; root plan/docs/dispatcher e integracion. Hasta350lineasmanuales, seisrutasdecodigo maximo; avisar antes de400 o ruta extra. Solo componentes standalone j2 y AST; root serializa buildmotor y puerta libretro. No editar upstream ni outputs generados.",
+        "Nueva politica publica explicita admite DAO y ETNFglobal, preservando SingleOnly0, ExplicitSessions1 y EtnfGlobalPrivate2 y sus rechazos. CdImage selecciona por extension y adopta la nueva politica sin reabrir ni fallback. No cambiar dominios/bytes de identidad existentes; P6ETGM deW1 persiste.",
+        "MED01 fixtureCDI propia convertida por productor fijado: apertura stdio/VFS, TOCvirtual, sesiones y bytes exactos, huecoRange antesIO, rebindrenombrado y negativos cambiando payload o coordenadas validas. Aplicar0413 al objeto metadata del harness, sin parchear ninguna salida generada.",
+        "LR01/STATE01/DET02 mismo escenario dirigido reutilizando Cd32Session: writer VFS y readerstdio nuevoPID, cut300/futuro16, repeticionlocal ycoldantesprimerframe, RAM/AV/PCM/ticks yfullstate exactos. Verificar TOCglobal/identidad causal y rechazo transaccional de otro payload/coordenada. No afirmar arranque de aplicacion por esta fixture ni repetir juegoCD32/campañaDAO/WB.",
+        "PadreT66 conserva formatos pendientes y carga/publicoWB/restauracion deETNFglobal como puertas posteriores; no cerrar por fabrica o test privado."
+      ],
+      "checks": [
+        "MED01",
+        "LR01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "ETNFglobal Canonical150 abre por CdImage/publicolibretro con identidad completa, restaura futuro exacto en proceso nuevo y rechaza disco distinto sin mutar. LegacySingle/DAO/ETN2single conserva regresiones cercanas."
+      ],
+      "stop": "No habilitar TINF/ETN2 multisesion ni atribuir comportamiento fisico a la normalizacion virtual; preservar legacy e identidad. Dos intentos fallidos requieren reproducer y dos hipotesis antes de blocked."
+    },
+    {
+      "id": "T66w3",
+      "title": "Normalizar ETNF global Canonical150 en DiscSystem y descriptor Waterbox V3",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66w1",
+        "T66v11"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0023-canonical-nrg-global-etnf.patch",
+        "integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs",
+        "tests/media/test_cd_source_csharp.py",
+        "tests/media/csharp-disc/Program.cs",
+        "tests/media/test_nrg_canonical_csharp.py",
+        "docs/02-contracts.md",
+        "docs/adr/0018-cd-multisession.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Root responsable. Vertical atomica parser/proveedor/normalizador con patch0023, cuatro rutas managed/test y helper de materializacion; presupuesto400manuales, ampliar/dividir antes de exceder. Leer parser real derivado, owner y normalizador antes de editar. Sin builds motor/guest por componente.",
+        "Extender solo opt-in PUAE6 del parser fijado para >=2 grupos ETNF/SINF puros con INDEX01 global atribuido aCDI2Nero, sin inferirETN2multi/TINF ni reinterpretar singlepacked. Metadataacotada/transaccional, extentsyLBAsvalidados antespayload. Montaje disperso usa sintetizadores existentes y tablas inmutables, pregap150sintetico y cue0virtualfirmado; huecoRange sinIO y ownedblobcierra en error.",
+        "Normalizador entrega tablaV3 y regiones con SyntheticPregap150, StoredPregap0, stride2448 y Qcanonico, preservando primerasLBAsclippedySHAcanonico sin hashdehuecos. Identidad distingue perfilvirtual; rebindmatematico rechaza otro payload/metadata. No duplicar parser ni compactarLBAs ni inventarQfisico. SBI existente opera sobre provider disperso, no se ignora.",
+        "MED01 fixture real convertida propia compara metadata/TOC/sectores/Q/regiones/descriptor e identidad con oraculo Python independiente; renombrado equivalente, coordenadas/payload cambiados y fallos/transacciones/cierreFD. Regresiones exactas ETNF/ETN2single/DAO y SBI cerca del cambio. BUILD01 targetDiscSystem fijado con analyzers. No anunciar restauracion publicaWB sin su hoja posterior."
+      ],
+      "checks": [
+        "MED01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Optin DiscSystem normaliza ETNFglobal como sesiones dispersasCanon150 con descriptorV3, identidad completa y errores sinpublicacion/fugas. Productor atribuido ylegacy exactos, targetreal y checksdirigidos pasan; no acredita guest/WBcold."
+      ],
+      "stop": "No habilitar TINF/ETN2 multisesion ni atribuir comportamiento fisico a la normalizacion virtual; preservar legacy e identidad. Dos intentos fallidos requieren reproducer y dos hipotesis antes de blocked."
     }
   ],
   "max_in_progress": 4
