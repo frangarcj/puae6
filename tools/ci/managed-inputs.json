@@ -4,12 +4,14 @@
   "sdk_version": "10.0.402",
   "target_framework": "net8.0",
   "source_files": {
+    "Directory.Build.targets": "efdaa737b8d27024099ee4d50afafc1581bc6648fb329dc62cac3efebbf73dab",
     "integration/bizhawk/core/Puae6.Core.csproj": "7117fc7e5cd218d50b25037c5b2fb1cb76a802ab489bbc92a49e538d6d01272f",
     "integration/bizhawk/core/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32",
     "integration/bizhawk/smoke/Smoke.csproj": "dc729517bd25fd3c6be8d3e1ffe3fe35fa8f54edac9d58f074802cb1880612ac",
     "integration/bizhawk/smoke/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32",
     "tests/ffi/Ffi.csproj": "f63a39df0ef03ebbf6c6d63a322c369d1a6517ce428611b2b5261207cb4bb7d1",
-    "tests/ffi/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32"
+    "tests/ffi/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32",
+    "tests/waterbox-poison/Poison.csproj": "f4a9d885a65d63f93221ca7ffb6bba0ea2ceba816c80964b699bee24e691cc63"
   },
   "hash_definition": "Base64 SHA-512 of the complete signed nupkg, as packageHashAlgorithm SHA512/packageHash/packageSize in the linked official catalog. This differs from assets contentHash, which excludes signing metadata.",
   "packages": [
@@ -20,6 +22,14 @@
       "archive_sha512_base64": "0mKu+UVJjUaZ6WIppuCsZh+YVpYLlCtt92kJFcaZoQ8Biq4hM7umOWjaq1AyCd4Hq9OuR3DsH5bFGSV7nfaZqA==",
       "url": "https://api.nuget.org/v3-flatcontainer/communitytoolkit.highperformance/8.4.0/communitytoolkit.highperformance.8.4.0.nupkg",
       "catalog": "https://api.nuget.org/v3/catalog0/data/2024.12.12.17.37.00/communitytoolkit.highperformance.8.4.0.json"
+    },
+    {
+      "id": "microsoft.aspnetcore.app.ref",
+      "version": "8.0.30",
+      "bytes": 4370497,
+      "archive_sha512_base64": "mu+9ePSXljxiuvnd6Q3ECvQ0jrxMV0IFtexHvayrhAt5FH8DGAab0hwYyVFZNwT9eJAVP5Sdy+ffFvDYBl73Kw==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/8.0.30/microsoft.aspnetcore.app.ref.8.0.30.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.14.36/microsoft.aspnetcore.app.ref.8.0.30.json"
     },
     {
       "id": "microsoft.aspnetcore.app.ref",
@@ -36,6 +46,14 @@
       "archive_sha512_base64": "LJaYhRX5VxTUuD9WUPGD3GpWTgs89SVfoOPvSEdt66tL3lQvny9sR/ZiC3px1qUV5EFebS44i2CBeiliHVaQ3w==",
       "url": "https://api.nuget.org/v3-flatcontainer/microsoft.csharp/4.7.0/microsoft.csharp.4.7.0.nupkg",
       "catalog": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.45/microsoft.csharp.4.7.0.json"
+    },
+    {
+      "id": "microsoft.netcore.app.ref",
+      "version": "8.0.30",
+      "bytes": 6767219,
+      "archive_sha512_base64": "HUcpDqyYO9doozmeDEDDo65zHjaq+3KjpSVFCpB5AZcLXoNDBOHgwoX4svIXjo7jsYauGaAErcxMba//AT9ANA==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/8.0.30/microsoft.netcore.app.ref.8.0.30.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.12.54/microsoft.netcore.app.ref.8.0.30.json"
     },
     {
       "id": "microsoft.netcore.app.ref",

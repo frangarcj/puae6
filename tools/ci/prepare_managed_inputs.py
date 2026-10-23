@@ -15,7 +15,8 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_FILES = {f'{folder}/{name}' for folder, project in (
     ('integration/bizhawk/core', 'Puae6.Core'), ('integration/bizhawk/smoke', 'Smoke'),
-    ('tests/ffi', 'Ffi')) for name in (project + '.csproj', 'global.json')}
+    ('tests/ffi', 'Ffi')) for name in (project + '.csproj', 'global.json')} | {
+        'Directory.Build.targets', 'tests/waterbox-poison/Poison.csproj'}
 MAX_PACKAGE, MAX_TOTAL = 64 << 20, 128 << 20
 
 class InputError(ValueError):
@@ -68,9 +69,9 @@ def manifest(root):
             raise InputError('invalid package fields')
         identity, version = item['id'], item['version']
         if (not isinstance(identity, str) or not re.fullmatch(r'[a-z0-9]+(?:[.-][a-z0-9]+)*', identity) or len(identity) > 100
-                or not isinstance(version, str) or len(version) > 40 or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) or identity in found):
+                or not isinstance(version, str) or len(version) > 40 or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) or (identity, version) in found):
             raise InputError('invalid or duplicate package identity/version')
-        found.add(identity)
+        found.add((identity, version))
         filename = f'{identity}.{version}.nupkg'
         if (item['url'] != f'https://api.nuget.org/v3-flatcontainer/{identity}/{version}/{filename}'
                 or not isinstance(item['catalog'], str) or not re.fullmatch(r'https://api\.nuget\.org/v3/catalog0/data/[0-9]{4}(?:\.[0-9]{2}){5}/' + re.escape(f'{identity}.{version}.json'), item['catalog'])):

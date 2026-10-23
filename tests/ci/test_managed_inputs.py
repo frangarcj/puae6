@@ -65,6 +65,36 @@ class ManagedInputTests(unittest.TestCase):
         with self.assertRaises(managed.InputError): managed.prepare(self.root, fetch=True, opener=self.response)
         self.assertEqual(first.read_bytes(), b'changed')
 
+    def test_multiple_versions_of_one_id_are_distinct_but_exact_pairs_are_rejected(self):
+        first = self.data['packages'][0]
+        body = b'own archive of the second version'
+        second = {**first, 'version': '1.1.0', 'bytes': len(body),
+                  'archive_sha512_base64': base64.b64encode(hashlib.sha512(body).digest()).decode(),
+                  'url': first['url'].replace('1.0.0', '1.1.0'), 'catalog': first['catalog'].replace('1.0.0', '1.1.0')}
+        self.data['packages'].append(second); self.save()
+        def response(url, timeout):
+            return Response(body, url) if '/1.1.0/' in url else self.response(url, timeout)
+        result = managed.prepare(self.root, fetch=True, opener=response)
+        self.assertEqual(3, result['packages'])
+        self.assertEqual(self.body[first['id']], (self.feed / f"{first['id']}.1.0.0.nupkg").read_bytes())
+        self.assertEqual(body, (self.feed / f"{first['id']}.1.1.0.nupkg").read_bytes())
+        self.assertEqual(result, managed.prepare(self.root, fetch=False))
+        for duplicate in (first, second):
+            self.data['packages'].append(duplicate.copy()); self.save()
+            opener = mock.Mock(side_effect=AssertionError('network before duplicate rejection'))
+            with self.assertRaisesRegex(managed.InputError, 'duplicate'): managed.prepare(self.root, fetch=True, opener=opener)
+            opener.assert_not_called(); self.data['packages'].pop()
+
+    def test_targeting_policy_and_poison_project_are_pinned_before_network(self):
+        self.assertEqual(8, len(managed.SOURCE_FILES))
+        for name in ('Directory.Build.targets', 'tests/waterbox-poison/Poison.csproj'):
+            source = self.root / name; original = source.read_bytes()
+            source.write_bytes(original + b'changed')
+            opener = mock.Mock(side_effect=AssertionError('network before input rejection'))
+            with self.assertRaisesRegex(managed.InputError, 'differs from pinned'): managed.prepare(self.root, fetch=True, opener=opener)
+            opener.assert_not_called(); source.write_bytes(original)
+            self.assertFalse(self.feed.exists())
+
     def test_bad_metadata_rejected_before_network(self):
         original = json.dumps(self.data)
         for case in ('schema', 'sdk', 'framework', 'source_path', 'source_hash', 'extra_field', 'duplicate', 'identity', 'version', 'url', 'catalog', 'hash', 'size', 'total', 'top'):
