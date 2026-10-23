@@ -5,7 +5,7 @@
   "bottle_arch": "arm64_tahoe",
   "normalizer": {
     "path": "tools/ci/normalize_homebrew.rb",
-    "sha256": "550a0d77978cb3f12c0c14ac9ce9725175c28ea315498235ce70b1dd78a82594",
+    "sha256": "773012dfb10abaf120ab98723c8d3abd371db31308ee3c1d2d4d2f6b769ebdb1",
     "ruby_source_manifest_sha256": "5b31fc89cdbc960f7207649a4acd1b998d8c6786434a6504363ce373e69e4a86"
   },
   "archives": [
