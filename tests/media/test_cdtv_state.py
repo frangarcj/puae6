@@ -30,6 +30,18 @@ class CdtvStateTests(unittest.TestCase):
                 self.assertEqual(7, run.stdout.count(f'{role} exact'))
 
 
+class CdtvMediaChangeTests(unittest.TestCase):
+    def test_observed_absence_toc_audio_and_cold_restore(self):
+        exe = build_targets(ROOT / 'build/state-opt', ['p6_cdtv_state_probe'], optimized=True)['p6_cdtv_state_probe']
+        with tempfile.TemporaryDirectory(prefix='cdtv-media-', dir=ROOT / 'build') as tmp:
+            rom = Path(tmp) / 'boot.rom'
+            rom.write_bytes(builder.build((ROOT / 'tests/fixtures/microrom/boot.s').read_text()))
+            for role in ('media-write', 'media-read'):
+                run = subprocess.run([str(exe), str(rom), role, tmp], capture_output=True, text=True, timeout=240)
+                self.assertEqual(0, run.returncode, run.stdout + run.stderr)
+                self.assertEqual(5, run.stdout.count(f'{role} exact'))
+
+
 class CdtvAutoconfigTests(unittest.TestCase):
     def test_guest_assignment_shutup_empty_and_cold_restore(self):
         import os

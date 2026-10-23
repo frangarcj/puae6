@@ -203,6 +203,161 @@ static void native(const std::vector<uint8_t> &rom, const p6_config &config, con
     }
 }
 
+struct MediaSource { unsigned reads = 0, salt = 0; };
+static bool media_read(const void *context, uint64_t at, void *out, size_t size, size_t *got)
+{
+    auto &source = *const_cast<MediaSource *>(static_cast<const MediaSource *>(context));
+    ++source.reads;
+    for (size_t n = 0; n < size; ++n) static_cast<uint8_t *>(out)[n] = uint8_t((at + n) * 13 + source.salt);
+    *got = size; return true;
+}
+static p6_cdtv_state media_state()
+{
+    p6_cdtv_state s{}; assert(p6_cdtv_state_get(&s));
+    assert(s.unitnum == 0 && s.configured == 0xe9 && s.device.opens == 1);
+    return s;
+}
+static void media_frame(uint64_t *hash = nullptr, bool silent = false, bool *signal = nullptr)
+{
+    p6_input in{P6_ABI_VERSION, sizeof in}; p6_frame out{P6_ABI_VERSION, sizeof out};
+    assert(p6_run_frame(&in, P6_RENDER_VIDEO | P6_RENDER_AUDIO, &out, &error) == P6_OK);
+    for (uint64_t n = 0; n < out.audio_frames * 2; ++n) {
+        if (silent) assert(!out.audio[n]);
+        if (signal) *signal |= out.audio[n] != 0;
+    }
+    if (hash) {
+        observe(*hash, out.video, out.video_bytes); observe(*hash, out.audio, out.audio_frames * 4);
+        observe(*hash, &out.master_ticks, sizeof out.master_ticks);
+        for (unsigned n = 0; n < 8192; ++n) { const unsigned value = get_byte(0x1fffe + n); observe(*hash, &value, sizeof value); }
+    }
+}
+static void media_wait(int inserted, uint64_t *hash = nullptr)
+{
+    for (unsigned n = 0; n < 120; ++n) {
+        if (media_state().cd_media == inserted) return;
+        media_frame(hash);
+    }
+    assert(!"CDTV media poll did not observe the requested edge");
+}
+static void media_poll()
+{
+    int previous = media_state().subqcnt;
+    for (unsigned n = 0; n < 120; ++n) {
+        media_frame(); const int current = media_state().subqcnt;
+        if (current > previous) return; // A complete stock hsync polling interval.
+        previous = current;
+    }
+    assert(!"CDTV polling counter did not wrap");
+}
+static uint64_t media_future(unsigned cut, MediaSource (&sources)[2])
+{
+    uint64_t hash = 1469598103934665603ull;
+    const unsigned before[] = {sources[0].reads, sources[1].reads};
+    if (cut == 0) assert(p6_cd::device_set_inserted(false) == p6_cd::Result::Ok);
+    if (cut <= 1) media_wait(0, &hash);
+    if (cut <= 2) {
+        auto absent = media_state();
+        assert(!absent.cd_media && !absent.device.inserted && absent.activate_stch);
+        assert(absent.cd_playing && !absent.cd_audio_finished && absent.cd_error);
+        assert(!absent.device.audio.bound && !absent.device.audio.running && !absent.device.audio.callbacks);
+        // READ also performs the original cdaudiostop; DMA itself must neither
+        // touch image readers nor publish data while the physical medium is absent.
+        const unsigned prior[] = {sources[0].reads, sources[1].reads};
+        put_word(0x22000, 0xcccc); send({2, 0, 0, 0, 0, 1, 0}); media_frame(&hash);
+        dma(1, 0x22000); media_frame(&hash);
+        assert(get_word(0x22000) == 0xcccc && sources[0].reads == prior[0] && sources[1].reads == prior[1]);
+        assert(media_state().cd_error);
+        assert(p6_cd::device_select(1) == p6_cd::Result::Ok);
+        assert(p6_cd::device_set_inserted(true) == p6_cd::Result::Ok);
+    }
+    if (cut <= 3) media_wait(1, &hash);
+    auto present = media_state();
+    assert(present.cd_media && present.device.inserted && present.device.disc_id[0] == 2);
+    assert(present.toc.lastaddress == 400 && present.last_cd_position == 400 && present.toc.tracks == 2);
+    assert(present.cd_playing == (cut >= 3) && present.cd_error && !present.cd_audio_finished && !present.device.audio.bound);
+    // Release the real 6525 status-change latch, then use the stock front-panel STOP.
+    assert(present.activate_stch && !(present.tp_cr & 1));
+    put_byte(0xe900bc, 1); media_frame(&hash);
+    auto delivered = media_state();
+    assert(!delivered.activate_stch && ((delivered.tp_ilatch | delivered.tp_air | delivered.tp_ilatch2) & 4));
+    assert(p6_cdtv_private_request(0x107)); media_frame(&hash);
+    assert(!media_state().cd_playing && !media_state().device.audio.bound);
+    // Cached Q must now belong to B's first data track, never A's audio track.
+    for (unsigned n = 0; n < 120 && media_state().q[5] != 1; ++n) media_frame(&hash);
+    auto q = media_state(); assert(q.q[4] == 0x41 && q.q[5] == 1 && q.q[6] == 1);
+    send({0x87, 0, 0, 0, 0, 0, 0}); media_frame(&hash);
+    unsigned reply[13]; for (auto &byte : reply) byte = get_byte(0xe900a1);
+    assert(reply[1] == 0x14 && reply[2] == 1 && reply[3] == 1); observe(hash, reply, sizeof reply);
+    const unsigned old_reads = sources[0].reads, new_reads = sources[1].reads;
+    for (unsigned n = 0; n < 2052; ++n) put_byte(0x1fffe + n, 0xcc);
+    send({2, 0, 0, 0, 0, 1, 0}); media_frame(&hash); dma(1024, 0x20000); media_frame(&hash);
+    for (unsigned n = 0; n < 2048; ++n) assert(get_byte(0x20000 + n) == uint8_t(n * 13 + 0xa5));
+    assert(get_word(0x1fffe) == 0xcccc && get_word(0x20800) == 0xcccc);
+    assert(sources[0].reads == old_reads && sources[1].reads > new_reads);
+    media_frame(&hash); media_frame(&hash, true); media_frame(&hash, true);
+    const unsigned delta[] = {sources[0].reads - before[0], sources[1].reads - before[1]};
+    assert(!delta[0]); observe(hash, delta, sizeof delta);
+    auto final = save(); observe(hash, final.data(), final.size()); // Includes all RAM, P6CT/P6SC/P6AU.
+    return hash;
+}
+static void media_transition(const std::vector<uint8_t> &rom, const p6_config &config, const char *role, const char *directory)
+{
+    MediaSource sources[2]{{0, 0}, {0, 0xa5}}; p6_cd::Disc discs[2];
+    for (unsigned n = 0; n < 2; ++n) {
+        p6_cd::Layout layout{}; layout.tracks = 2; layout.leadout = n ? 400 : 258; layout.content_id[0] = n + 1;
+        const uint32_t start = n ? 4 : 2;
+        layout.track[0] = {0, 0, start, 0, 2048, 0, p6_cd::Mode::Mode1_2048, 1, 4, false};
+        layout.track[1] = {start, start, layout.leadout, 0, 2352, uint64_t(start) * 2048, p6_cd::Mode::Audio, 1, 0, false};
+        p6_cd::Binding binding{{{}, uint64_t(start) * 2048 + uint64_t(layout.leadout - start) * 2352, 1}, media_read, &sources[n]};
+        binding.identity.content_id[0] = n + 1;
+        assert(discs[n].bind(layout, &binding, 1) == p6_cd::Result::Ok);
+    }
+    const p6_cd::Disc *catalog[] = {&discs[0], &discs[1]}; const bool writer = !strcmp(role, "media-write");
+    assert(writer || !strcmp(role, "media-read"));
+    for (unsigned cut = 0; cut < 5; ++cut) {
+        assert(p6_init(&config, &error) == P6_OK && p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK);
+        if (writer) frames();
+        assert(p6_cd::device_catalog_bind(catalog, 2) == p6_cd::Result::Ok && p6_cdtv_private_start());
+        const std::string path = std::string(directory) + "/media-" + std::to_string(cut);
+        if (writer) {
+            media_wait(1); assert(media_state().toc.lastaddress == 258);
+            if (!cut) {
+                const auto baseline = save();
+                assert(p6_cd::device_set_inserted(false) == p6_cd::Result::Ok);
+                assert(p6_cd::device_select(1) == p6_cd::Result::Ok && p6_cd::device_set_inserted(true) == p6_cd::Result::Ok);
+                media_poll(); const auto coalesced = media_state();
+                assert(coalesced.cd_media && coalesced.device.disc_id[0] == 2 && coalesced.toc.lastaddress == 258);
+                assert(p6_state_load(baseline.data(), baseline.size(), &error) == P6_OK && save() == baseline);
+            }
+            cut_at(5); bool signal = false; media_frame(nullptr, false, &signal);
+            auto playing = media_state(); assert(signal && playing.cd_playing && playing.device.audio.running);
+            if (cut >= 1) {
+                assert(p6_cd::device_set_inserted(false) == p6_cd::Result::Ok);
+                auto pending = media_state(); assert(pending.cd_media && !pending.device.inserted && !pending.device.audio.bound);
+            }
+            if (cut >= 2) { media_wait(0); assert(media_state().activate_stch); }
+            if (cut >= 3) {
+                assert(p6_cd::device_select(1) == p6_cd::Result::Ok && p6_cd::device_set_inserted(true) == p6_cd::Result::Ok);
+                assert(!media_state().cd_media);
+            }
+            if (cut >= 4) media_wait(1);
+        }
+        auto state = writer ? save() : file_bytes(path + ".state");
+        auto restore = [&]() {
+            const unsigned prior[] = {sources[0].reads, sources[1].reads};
+            const auto callbacks = p6_cdtv_callback_observations();
+            assert(p6_state_load(state.data(), state.size(), &error) == P6_OK && save() == state);
+            assert(sources[0].reads == prior[0] && sources[1].reads == prior[1] && p6_cdtv_callback_observations() == callbacks);
+        };
+        if (!writer) restore(); // Cold process: no p6_run_frame before loading the cut.
+        const uint64_t expected = media_future(cut, sources); restore(); assert(media_future(cut, sources) == expected);
+        if (writer) { write_bytes(path + ".state", state.data(), state.size()); write_bytes(path + ".future", &expected, sizeof expected); }
+        else { auto prior = file_bytes(path + ".future"); assert(prior.size() == sizeof expected && !memcmp(prior.data(), &expected, sizeof expected)); }
+        assert(p6_shutdown(&error) == P6_OK && !p6_cd::device_open_count()); p6_cd::device_unbind();
+        printf("CDTV media cut %u %s exact\n", cut, role);
+    }
+}
+
 static void bus_program()
 {
     // Poll RAM command; CPU writes $E80048=EA or $E8004C=0, then clears it.
@@ -354,7 +509,11 @@ int main(int argc, char **argv)
     p6_config c{P6_ABI_VERSION, sizeof c}; c.machine = P6_MACHINE_A500; c.audio_rate_hz = 48000; c.video_standard = P6_VIDEO_PAL;
     c.random_seed = 1; c.rtc_epoch_seconds = 946684800;
     if (argc == 5) { auto combined = file_bytes(argv[2]); combined.insert(combined.end(),rom.begin(),rom.end()); bus(combined,c,argv[3],argv[4]); return 0; }
-    if (argc == 4) { native(rom, c, argv[2], argv[3]); return 0; }
+    if (argc == 4) {
+        if (!strncmp(argv[2], "media-", 6)) media_transition(rom, c, argv[2], argv[3]);
+        else native(rom, c, argv[2], argv[3]);
+        return 0;
+    }
     assert(p6_init(&c, &error) == P6_OK);
     assert(p6_load({rom.data(), rom.size()}, nullptr, 0, &error) == P6_OK); frames();
     p6_cd::Layout layout{}; layout.tracks = 1; layout.leadout = 32;
