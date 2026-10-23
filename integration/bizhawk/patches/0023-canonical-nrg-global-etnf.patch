@@ -1,0 +1,133 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+@@ -775,7 +775,7 @@
+ 					if (canonical && (++chunks > (daoMetadata || nrgf.DAOTrackInfos.Count > 1 ? 298 : 256) || chunkSize > 65536 || chunkSize > stream.Length - stream.Position))
+ 						throw new NRGParseException("NRG metadata extent exceeds input");
+ 					if (daoMetadata && (chunkSize > footer - stream.Position)) throw new NRGParseException("DAO chunk crosses footer");
+-					if (daoMetadata && chunkID is not ("CUES" or "CUEX" or "DAOI" or "DAOX" or "SINF" or "END!"))
++					if (daoMetadata && chunkID is not ("CUES" or "CUEX" or "DAOI" or "DAOX" or "ETNF" or "SINF" or "END!"))
+ 						throw new NotSupportedException("Unsupported bounded DAO chunk");
+ 					taoOnly &= chunkID is "ETNF" or "ETN2" or "SINF" or "END!";
+ 					var chunkData = br.ReadBytes(chunkSize);
+@@ -864,13 +864,18 @@
+ 				if (daoMetadata)
+ 				{
+ 					if (stream.Position != stream.Length - (nrgf.FileID == "NER5" ? 12 : 8)) throw new NRGParseException("Trailing DAO metadata");
+-					ValidatePuae6Dao(nrgf);
++					if (taoOnly && nrgf.TAOTrackInfos.Count > 1) ValidatePuae6Global(nrgf);
++					else ValidatePuae6Dao(nrgf);
+ 					return nrgf;
+ 				}
+ 
+ 				// Only the opt-in path accepts canonical TAO without CUE/TOCT. Default DAO/TAO is unchanged.
+ 				if (canonical && nrgf.DAOTrackInfos.Count == 0)
+ 				{
++					if (taoOnly && nrgf.TAOTrackInfos.Count > 1) {
++						if (stream.Position != stream.Length - (nrgf.FileID == "NER5" ? 12 : 8)) throw new NRGParseException("Trailing global ETNF metadata");
++						ValidatePuae6Global(nrgf); return nrgf;
++					}
+ 					if (!taoOnly || nrgf.TAOTrackInfos.Count != 1 || nrgf.SessionInfos.Count != 1 ||
+ 						nrgf.SessionInfos[0].TrackCount != nrgf.TAOTrackInfos[0].Tracks.Count ||
+ 						stream.Position != stream.Length - (nrgf.FileID == "NER5" ? 12 : 8))
+@@ -923,11 +928,35 @@
+ 			}
+ 		}
+ 
++		// CDI2Nero f43561d TAO preserves INDEX01 global and omits all pregaps.
++		private static void ValidatePuae6Global(NRGFile file)
++		{
++			void Check(bool ok) { if (!ok) throw new NRGParseException("Invalid global ETNF session geometry"); }
++			Check(file.DAOTrackInfos.Count == 0 && file.Cues.Count == 0 && file.TAOTrackInfos.Count is >= 2 and <= 99 &&
++				file.SessionInfos.Count == file.TAOTrackInfos.Count);
++			long physical=0, previousEnd=0; int number=0;
++			for(int group=0;group<file.TAOTrackInfos.Count;++group)
++			{
++				var info=file.TAOTrackInfos[group];
++				Check(info.ChunkID=="ETNF" && info.Tracks.Count>0 && file.SessionInfos[group].TrackCount==info.Tracks.Count);
++				for(int n=0;n<info.Tracks.Count;++n)
++				{
++					var t=info.Tracks[n]; int stride=t.Mode switch { 0 or 2=>2048, 3=>2336, 7=>2352, _=>0 };
++					Check(t.StartLBA.HasValue && ++number<=99 && stride!=0 && t.TrackFileOffset==physical && physical<=file.FileOffset &&
++						t.TrackLength>0 && t.TrackLength<=(ulong)(file.FileOffset-physical) && t.TrackLength%(uint)stride==0);
++					long zero=(long)t.StartLBA-150, end=(long)t.StartLBA+(long)(t.TrackLength/(uint)stride);
++					Check((number==1 ? t.StartLBA==0 : zero>=previousEnd) && (n==0 || zero==previousEnd) && end<=449849);
++					physical+=(long)t.TrackLength; previousEnd=end;
++				}
++			}
++			Check(physical==file.FileOffset);
++		}
++
+ 		private static void ValidatePuae6Dao(NRGFile file)
+ 		{
+ 			void Check(bool ok) { if (!ok) throw new NRGParseException("Invalid bounded DAO session geometry"); }
+ 			var count = file.DAOTrackInfos.Count;
+-			Check(count is >= 1 and <= 99 && file.Cues.Count == count &&
++			Check(file.TAOTrackInfos.Count == 0 && count is >= 1 and <= 99 && file.Cues.Count == count &&
+ 				(file.SessionInfos.Count == count || count == 1 && file.SessionInfos.Count == 0));
+ 			int first = 1, previousA2 = 0;
+ 			long previousEnd = 0;
+@@ -1023,6 +1052,8 @@
+ 		{
+ 			public readonly int FirstTrack, LastTrack, Format, Cue0, A2, SessionHint;
+ 			public readonly string CatalogHex;
++			internal Puae6DaoSession(int first, int last, int format, int cue0, int a2)
++			{ FirstTrack=first; LastTrack=last; Format=format; Cue0=cue0; A2=a2; SessionHint=0; CatalogHex=new string('0',26); }
+ 			internal Puae6DaoSession(NRGDAOTrackInfo d, int cue0, int a2)
+ 			{ FirstTrack=d.FirstTrack; LastTrack=d.LastTrack; Format=d.DiskType; Cue0=cue0; A2=a2; SessionHint=d.SessionHint; CatalogHex=BitConverter.ToString(d.CatalogRaw).Replace("-", "").ToLowerInvariant(); }
+ 		}
+@@ -1031,6 +1062,12 @@
+ 			public readonly int Number, Index0, Index1, End, Mode, Adr, Control, Stride;
+ 			public readonly long Offset0, Offset1, EndOffset;
+ 			public readonly string IsrcHex;
++			internal Puae6DaoTrack(int number, NRGTAOTrack t)
++			{
++				Number=number; Index1=t.StartLBA.Value; Index0=Index1-150; Mode=t.Mode; Adr=1; Control=Mode==7?0:4;
++				Stride=Mode is 0 or 2?2048:Mode==3?2336:2352; Offset0=Offset1=t.TrackFileOffset;
++				EndOffset=Offset1+(long)t.TrackLength; End=checked(Index1+(int)(t.TrackLength/(uint)Stride)); IsrcHex=new string('0',24);
++			}
+ 			internal Puae6DaoTrack(int number, NRGDAOTrack t, NRGTrackIndex q)
+ 			{
+ 				Number=number; Index1=q.LBA; Index0=checked((int)(Index1-(t.TrackStartFileOffset-t.PregapFileOffset)/t.SectorSize));
+@@ -1042,11 +1079,20 @@
+ 		}
+ 		public sealed class Puae6DaoLayout
+ 		{
++			public bool Canonical150 { get; }
+ 			public IReadOnlyList<Puae6DaoSession> Sessions { get; }
+ 			public IReadOnlyList<Puae6DaoTrack> Tracks { get; }
+ 			internal Puae6DaoLayout(NRGFile parsed)
+ 			{
+ 				var sessions=new List<Puae6DaoSession>(); var tracks=new List<Puae6DaoTrack>();
++				Canonical150=parsed.TAOTrackInfos.Count>1;
++				if(Canonical150) foreach(var info in parsed.TAOTrackInfos)
++				{
++					int first=tracks.Count+1;
++					foreach(var t in info.Tracks) tracks.Add(new(tracks.Count+1,t));
++					sessions.Add(new(first,tracks.Count,info.Tracks.Any(t=>t.Mode is 2 or 3)?0x20:0,
++						tracks[first-1].Index0,tracks[tracks.Count-1].End));
++				}
+ 				for(int group=0;group<parsed.DAOTrackInfos.Count;++group)
+ 				{
+ 					var d=parsed.DAOTrackInfos[group]; var cues=parsed.Cues[group].TrackIndices;
+@@ -1071,9 +1117,10 @@
+ 				if(t.Number==0) return null; // Includes every inter-session hole and the final A2.
+ 				if(t.Mode<15 && (lba < -150 || (long)lba+150>449999 || Math.Abs((long)lba-t.Index1)>449999))
+ 					throw new NotSupportedException("Canonical NRG subchannel exceeds MSF range");
+-				SS_Base synth=t.Mode switch { 0=>new SS_Mode1_2048(), 2=>new SS_Mode2_Form1_2048(), 3=>new SS_Mode2_2336(),
++				bool gap=owner.Puae6NrgDao.Canonical150 && lba<t.Index1;
++				SS_Base synth=gap?new SS_Gap { TrackType=t.Mode==7?CueTrackType.Audio:t.Mode==0?CueTrackType.Mode1_2352:CueTrackType.Mode2_2336 }:t.Mode switch { 0=>new SS_Mode1_2048(), 2=>new SS_Mode2_Form1_2048(), 3=>new SS_Mode2_2336(),
+ 					5 or 6 or 7=>new SS_2352(), 15 or 16 or 17=>new SS_2448_Interleaved(), _=>throw new NotSupportedException("NRG DAO mode") };
+-				synth.Blob=blob; synth.BlobOffset=t.Offset0+((long)lba-t.Index0)*t.Stride; synth.Policy=policy;
++				synth.Blob=blob; synth.BlobOffset=owner.Puae6NrgDao.Canonical150?t.Offset1+((long)lba-t.Index1)*t.Stride:t.Offset0+((long)lba-t.Index0)*t.Stride; synth.Policy=policy;
+ 				if(t.Mode<15) {
+ 				 synth.sq.SetStatus((byte)t.Adr,(EControlQ)t.Control); synth.sq.q_tno=BCD2.FromDecimal(t.Number);
+ 				synth.sq.q_index=BCD2.FromDecimal(lba<t.Index1?0:1); synth.sq.Timestamp=Math.Abs(lba-t.Index1);
+@@ -1110,6 +1157,7 @@
+ 		{
+ 			NRGFile parsed;
+ 			using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) parsed = ParseFrom(file, true);
++			if (parsed.TAOTrackInfos.Count>1) return LoadPuae6Dao(path,parsed,policy);
+ 			if (parsed.DAOTrackInfos.Count>1)
+ 			{
+ 				using var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);

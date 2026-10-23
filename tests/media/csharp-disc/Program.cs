@@ -274,6 +274,12 @@ internal static unsafe partial class Program
   catch(Exception e) when(e is IOException or NRG_Format.NRGParseException or NotSupportedException)
    { Require(parsed==null&&input.Closed); Console.WriteLine("rejected "+e.GetType().Name); return; }
   Require(input.Closed);
+  if(parsed.TAOTrackInfos.Count>1) {
+   var table=new NRG_Format.Puae6DaoLayout(parsed); Require(table.Canonical150);
+   foreach(var t in table.Sessions) Console.WriteLine($"global {t.FirstTrack} {t.LastTrack} {t.Format} {t.Cue0} {t.A2}");
+   foreach(var t in table.Tracks) Console.WriteLine($"extent {t.Number} {t.Offset1} {t.EndOffset} {t.Stride} {t.Mode} {t.Index0} {t.Index1} {t.End}");
+   return;
+  }
   var first=parsed.DAOTrackInfos[0]; var last=parsed.Cues.Last().TrackIndices.Single(c=>c.Track.BCDValue==0xaa);
   Console.WriteLine($"nrg {(parsed.FileID=="NER5"?2:1)} {parsed.DAOTrackInfos.Sum(d=>d.Tracks.Count)} {parsed.FileOffset} {parsed.Cues[0].TrackIndices.Single(c=>c.Track.BCDValue==0).LBA} {last.LBA} {first.DiskType} {first.SessionHint}");
   for(int group=0;group<parsed.DAOTrackInfos.Count;++group) {
@@ -327,7 +333,7 @@ internal static unsafe partial class Program
    void absent(int lba) { int calls=counter.Calls; Array.Fill(output,(byte)0xcc); Require(reader.ReadLBA_2448(lba,output,8)==0&&counter.Calls==calls&&output.All(b=>b==0xcc)); }
    absent(layout.Tracks[0].Index0-1);
    foreach(var s in layout.Sessions) { absent(s.A2); }
-   absent(layout.Sessions[1].Cue0); absent(layout.Tracks.Last().End+1);
+   if(!layout.Canonical150) absent(layout.Sessions[1].Cue0); absent(layout.Tracks.Last().End+1);
    if(args.Length>2) {
     foreach(int fault in new[]{1,2}) {
      counter.Fault=fault; bool refused=false;
@@ -411,10 +417,10 @@ internal static unsafe partial class Program
    File.WriteAllBytes(path+".actual",wire.ToArray());
    var field=disc.SynthProvider.GetType().GetField("blob",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
    var counter=new NrgCountBlob((IBlob)field.GetValue(disc.SynthProvider)); field.SetValue(disc.SynthProvider,counter);
-   int calls=counter.Calls;
-   Refused(output,()=>source.ReadAt(11*2448,output,8,2448));
-   Refused(output,()=>source.ReadAt(11*2448-1,output,8,2));
-   Refused(output,()=>source.ReadSector(20,2448,output,8));
+   int calls=counter.Calls; int hole=layout.Canonical150?layout.Sessions[0].A2:11, sample=layout.Tracks.Last().Index1;
+   Refused(output,()=>source.ReadAt((ulong)hole*2448,output,8,2448));
+   Refused(output,()=>source.ReadAt((ulong)hole*2448-1,output,8,2));
+   Refused(output,()=>source.ReadSector(hole,2448,output,8));
    Require(counter.Calls==calls&&source.ReadAt(source.Length,Array.Empty<byte>(),0,0));
    if(args.Length>2) {
     string other=args[2]; int owners=NrgHandles(other);
@@ -424,15 +430,15 @@ internal static unsafe partial class Program
       f.SetValue(replacement.SynthProvider,new NrgCountBlob((IBlob)f.GetValue(replacement.SynthProvider)) { Fault=2 });
      }
      bool same=args[3]=="same"; Require(source.Rebind(replacement)==same&&source.ContentId.SequenceEqual(id));
-     Require(source.ReadSector(30,2448,output,8));
-     if(same) { disc.Dispose(); Require(source.ReadSector(30,2448,output,8)); replacement.Dispose(); Refused(output,()=>source.ReadAt(0,output,8,2448)); }
-     else { replacement.Dispose(); Require(!source.Rebind(replacement)&&source.ReadSector(30,2448,output,8)); }
+     Require(source.ReadSector(sample,2448,output,8));
+     if(same) { disc.Dispose(); Require(source.ReadSector(sample,2448,output,8)); replacement.Dispose(); Refused(output,()=>source.ReadAt(0,output,8,2448)); }
+     else { replacement.Dispose(); Require(!source.Rebind(replacement)&&source.ReadSector(sample,2448,output,8)); }
     }
     Require(NrgHandles(other)==owners);
    } else {
     counter.Fault=2; Refused(output,()=>source.ReadAt(2439,output,8,2448)); counter.Fault=0;
     Require(source.ReadSector(0,2448,output,8)); disc.Dispose(); calls=counter.Calls;
-    Refused(output,()=>source.ReadAt(0,output,8,2448)); Refused(output,()=>source.ReadSector(30,2448,output,8)); Require(counter.Calls==calls);
+    Refused(output,()=>source.ReadAt(0,output,8,2448)); Refused(output,()=>source.ReadSector(sample,2448,output,8)); Require(counter.Calls==calls);
    }
   }
   Require(NrgHandles(path)==before);

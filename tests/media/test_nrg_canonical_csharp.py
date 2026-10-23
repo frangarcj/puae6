@@ -104,6 +104,27 @@ def dao_identity(wire,rows):
     return hashlib.sha256(dao_metadata(rows)[0]+wire).hexdigest().upper()
 
 
+def global_fixture(work, name, *, shift=0, payload=False):
+    from tests.fixtures.nrg_etnf_cdi import converted_fixture
+    raw,programs=converted_fixture(); raw=bytearray(raw); directory=1411104
+    if shift: struct.pack_into('>I',raw,directory+40+20,11702+shift)
+    if payload: raw[710304+17]^=1; programs=(programs[0],bytes(raw[710304:directory]))
+    wire=bytearray(); rows=[]
+    for n,(one,count,stride,kind,off) in enumerate(((0,302,2352,7,0),(11702+shift,300,2336,3,710304)),1):
+        zero=one-150; end=one+count; control=0 if kind==7 else 4
+        rows.append(f'session {n} {n} {n} {0 if kind==7 else 32} {zero} {end} 0 '+bytes(13).hex())
+        rows.append(f'track {n} {off} {off} {off+count*stride} {stride} {kind} {zero} {one} {end} 1 {control} '+bytes(12).hex())
+        for lba in range(zero,end):
+            index=int(lba>=one)
+            body=(bytes(2352) if kind==7 else nrg.mode2_header(lba)+bytes(2336)) if not index else programs[n-1][(lba-one)*stride:(lba-one+1)*stride]
+            if index and kind==3: body=nrg.mode2_header(lba)+body
+            wire+=body+subq(n,index,lba,one,control)
+    path=Path(work)/(name+'.nrg'); path.write_bytes(raw)
+    metadata,records,sessions=dao_metadata(rows)
+    identity=hashlib.sha256(metadata.replace(b'P6CD2448\0',b'P6ETGM2448\0',1)+wire).hexdigest().upper()
+    return path,bytes(wire),[r for r in rows if r.startswith("session ")]+[r for r in rows if r.startswith("track ")],records,sessions,identity
+
+
 class NrgCanonicalCSharpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -327,6 +348,47 @@ class NrgCanonicalCSharpTests(unittest.TestCase):
                 self.assertTrue(self.metadata(bad,base)[0].startswith('rejected '))
             self.assertEqual(self.metadata(data,base,'io'),['rejected IOException'])
             self.assertEqual(self.metadata(data,base,'short'),['rejected NRGParseException'])
+
+    def test_etnf_global_producer_sparse_wire_descriptor_and_identity(self):
+        path,wire,rows,records,sessions,identity=global_fixture(self.work,'global')
+        self.assertEqual(self.run_nrg(path,'nrg-sparse'),rows)
+        self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+        self.assertEqual(self.normalized(path),identity)
+        self.assertEqual(Path(str(path)+'.actual').read_bytes(),wire)
+        descriptor=Path(str(path)+'.descriptor').read_bytes()
+        self.assertEqual(struct.unpack_from('<II',descriptor),(3,6792)); self.assertEqual(len(descriptor),6792)
+        self.assertEqual(descriptor[8:40].hex().upper(),identity)
+        self.assertEqual(struct.unpack_from('<QII',descriptor,40),(12002*2448,2,12002))
+        for i,record in enumerate(records): self.assertEqual(struct.unpack_from('<12I',descriptor,56+i*48),record)
+        self.assertEqual(descriptor[152:4808],bytes(97*48)); self.assertEqual(struct.unpack_from('<I',descriptor,4808),(2,))
+        for i,(fields,_) in enumerate(sessions): self.assertEqual(struct.unpack_from('<3IiI',descriptor,4812+i*20),fields[:5])
+        self.assertEqual(descriptor[4852:],bytes(97*20))
+        self.assertEqual(self.metadata(path.read_bytes()[1411104:],1411104),[
+            'global 1 1 0 -150 302','global 2 2 32 11552 12002',
+            'extent 1 0 710304 2352 7 -150 0 302','extent 2 710304 1411104 2336 3 11552 11702 12002'])
+        patched=sbi_fixture(path.with_suffix('.sbi'),wire,[(11702,2,b'\x12\x34\x56')],list(range(-150,302))+list(range(11552,12002)))
+        self.run_nrg(path,'nrg-sbi'); self.assertEqual(Path(str(path)+'.actual').read_bytes(),patched)
+        path.with_suffix('.sbi').unlink()
+
+    def test_etnf_global_rebind_invalid_metadata_and_ownership(self):
+        path,wire,_,_,_,identity=global_fixture(self.work,'global-original')
+        same=global_fixture(self.work,'global-renamed')[0]
+        self.assertEqual(self.normalized(path,same),identity)
+        for name,kwargs in (('coordinates',{'shift':1}),('payload',{'payload':True})):
+            other,changed,*_=global_fixture(self.work,name,**kwargs)
+            self.assertNotEqual(wire,changed); self.assertEqual(self.normalized(path,other,'other'),identity)
+        self.assertEqual(self.normalized(path,same,'fault'),identity)
+        data=path.read_bytes(); directory=1411104
+        for at,value in ((directory,b'ETN2'),(directory+4,struct.pack('>I',19)),(directory+20,struct.pack('>I',1)),
+            (directory+28+8,struct.pack('>I',0)),(directory+40+8,struct.pack('>I',710305)),
+            (directory+40+20,struct.pack('>I',400)),(directory+40+16,struct.pack('>I',5)),
+            (directory+40+24,struct.pack('>I',1)),(directory+80,b'JUNK')):
+            broken=bytearray(data); broken[at:at+len(value)]=value
+            self.assertTrue(self.metadata(broken[directory:],directory)[0].startswith('rejected '))
+            invalid=self.work/'global-invalid.nrg'; invalid.write_bytes(broken)
+            self.assertTrue(self.run_nrg(invalid,'nrg-sparse-refuse')[-1].startswith('rejected '))
+        for fault in ('io','short'):
+            self.assertTrue(self.metadata(data[directory:],directory,fault)[0].startswith('rejected '))
 
     def test_real_discsystem_target_and_analyzers(self):
         spec=importlib.util.spec_from_file_location('nrg_recipe',source.ROOT/'integration/bizhawk/patches/build_tree.py')

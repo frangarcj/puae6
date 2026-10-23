@@ -69,7 +69,7 @@ internal sealed class Puae6DiscSource
  {
   using var metadata=new MemoryStream();
   using(var writer=new BinaryWriter(metadata,Encoding.ASCII,true)) {
-   writer.Write(Encoding.ASCII.GetBytes("P6CD2448\0")); writer.Write(3); writer.Write(Leadout); writer.Write(tracks.Length); writer.Write(SessionCount);
+   writer.Write(Encoding.ASCII.GetBytes(dao.Canonical150 ? "P6ETGM2448\0" : "P6CD2448\0")); writer.Write(3); writer.Write(Leadout); writer.Write(tracks.Length); writer.Write(SessionCount);
    foreach(var t in dao.Sessions) {
     writer.Write(t.FirstTrack); writer.Write(t.LastTrack); writer.Write(t.Format); writer.Write(t.Cue0); writer.Write(t.A2);
     writer.Write((byte)t.SessionHint); writer.Write(HexBytes(t.CatalogHex));
