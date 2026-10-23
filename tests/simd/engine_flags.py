@@ -72,7 +72,7 @@ def build(variant):
         command += ["-DP6_PGO_TRAIN_ROOTS=__Z12isamigatrackPtPhiS0_S0_iPi;__Z9ispctrackPtPhiS0_S0_iPi"]
     run(command, directory / "configure.log")
     started = time.monotonic()
-    run(["cmake", "--build", directory, "--parallel", "3", "--target", "p6_state_probe", "p6_bench_probe"], directory / "build.log")
+    run(["cmake", "--build", directory, "--parallel", "2", "--target", "p6_state_probe", "p6_bench_probe"], directory / "build.log")
     if source != source_identity():
         raise RuntimeError("source inputs changed during the experimental build")
     save(directory / "build.json", {**metadata, "configure": list(map(str, command)), "build_seconds": time.monotonic() - started,

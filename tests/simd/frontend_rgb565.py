@@ -90,7 +90,7 @@ class Frontend:
                      "-DP6_PGO_MODE=OFF", "-DP6_RGB565_EXPERIMENT=ON", f"-DP6_SANITIZERS={'ON' if self.sanitizers else 'OFF'}"]
         self.tree.mkdir(parents=True, exist_ok=True)
         execute(configure, self.tree / "configure.log")
-        execute(["cmake", "--build", self.tree, "--parallel", "3", "--target", "p6_libretro_host", "puae6_libretro_rgb565_alternate"], self.tree / "build.log")
+        execute(["cmake", "--build", self.tree, "--parallel", "2", "--target", "p6_libretro_host", "puae6_libretro_rgb565_alternate"], self.tree / "build.log")
         if source != source_identity():
             raise ValueError("source changed during build")
         save(self.tree / "build.json", {"row": self.row, "compiler": version, "compiler_sha256": digest(compiler),
