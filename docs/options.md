@@ -76,7 +76,11 @@ ocho bytes reservados cero. LibMirage fijado, parser.c:373..383/835..883,
 respalda directamente el mismo pregap150. La identidad tiene dominio P6ETN2;
 DAO y ETNF conservan sus identidades. El parser valida extents superiores a4GiB
 sin leer el payload; las vistas conservan sus limites actuales de LBA/MSF.
-Padding entre pistas, TINF y TAO multisesion siguen sin soporte. BizHawk admite
+Libretro tambien admite el perfil ETNF multisesion global de CDI2Nero: conserva
+INDEX01 global y huecos, con pregap sintetico Canonical150 y TOC virtual.
+No recupera pregaps ni Q originales. Padding entre pistas, TINF y ETN2
+multisesion siguen sin soporte. BizHawk conserva pendiente la puerta publica
+de ETNF global; admite
 el mismo subconjunto ETNF/ETN2 con pregap canonico de 150 sectores al elegir
 PUAE6 explicitamente; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de

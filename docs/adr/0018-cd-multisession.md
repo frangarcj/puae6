@@ -59,8 +59,9 @@ VCDImager y no se le suman 150 sectores por pista.
 
 El perfil privado `EtnfGlobalCanonical150` distingue esa normalizacion de DAO,
 ETNF compacto y ETN2. Solo admite varios grupos ETNF/SINF puros y requiere una
-politica de propietario e identidad propias. La politica publica anterior
-continua rechazandolo antes de leer payload. TINF y ETN2 multisesion conservan
+politica de propietario e identidad propias. La politica anterior (1)
+continua rechazandolo antes de leer payload; T66w2 añade CanonicalSessions (3)
+en la fabrica nativa/libretro, manteniendo las identidades. TINF y ETN2 multisesion conservan
 su puerta pendiente.
 
 ETNF no conserva la longitud original del pregap ni el CUE0 fisico. Este perfil

@@ -2094,7 +2094,7 @@ Range sin IO. Metadata mixta DAO/CUE/ETN2/TINF no adopta este perfil.
 La frontera virtual firmada `Session.cue0` es INDEX01-150, inicialmente -150;
 el INDEX00 del primer Track conserva su recorte legacy a cero. No se recuperan
 pregaps originales, CUE0 fisico ni Q original. ADR0018 define el TOC virtual.
-Solo `NrgSessionPolicy::EtnfGlobalPrivate` (2) admite este layout en CdNrg.
+`NrgSessionPolicy::EtnfGlobalPrivate` (2) admite este layout privado en CdNrg.
 Las politicas anteriores lo rechazan antes de leer payload. Su identidad usa
 el dominio P6ETGM y el mismo esquema de campos/politica version1 de P6NRGM,
 incluyendo toda la tabla de sesiones; las identidades legacy no cambian.
@@ -2103,6 +2103,13 @@ MED01 convierte una CDI propia con el productor original fijado, verifica
 payload y coordenadas, limites/transacciones, Q sintetico, huecos y rebind con
 ASan/UBSan. Esta puerta de componentes no acredita carga publica, estados
 del motor ni Waterbox. TINF y ETN2 multisesion conservan su contrato pendiente.
+
+T66w2 añade `CanonicalSessions` (3), seleccionada por CdImage para NRG: admite
+DAO explicito y ETNF global, sin cambiar los valores/rechazos de 0/1/2 ni
+identidades. La seleccion no reabre el archivo ni prueba otro decoder. La puerta
+libretro usa el mismo TOC virtual y P6ETGM, con restauracion local y en proceso
+nuevo antes del primer frame, futuro completo y negativos transaccionales.
+La carga publica Waterbox de este perfil conserva su puerta posterior.
 
 ## Metadata DAO multisesion de NRG (T66v2)
 
