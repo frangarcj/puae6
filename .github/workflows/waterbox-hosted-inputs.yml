@@ -4,10 +4,17 @@ on:
     branches: [codex/waterbox-hosted-inputs]
     paths: [.github/workflows/waterbox-hosted-inputs.yml, tools/ci/prepare_hosted_tools.py, tools/ci/hosted-tools.json]
   workflow_dispatch:
+    inputs:
+      component:
+        type: choice
+        options: [all, tools, managed]
+        default: all
+        required: true
 permissions:
   contents: read
 jobs:
   pinned-inputs:
+    if: github.event_name == 'push' || inputs.component != 'managed'
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -87,6 +94,7 @@ jobs:
           print(json.dumps(dict(status='PASS', scope='pinned host tools, resources and SIP-safe tiny compile/link only; no Waterbox build or execution', versions=versions), sort_keys=True))
           PY
   managed-sdk:
+    if: github.event_name == 'workflow_dispatch' && inputs.component != 'tools'
     runs-on: macos-26
     timeout-minutes: 15
     steps:
