@@ -58,8 +58,21 @@ handler:
 """
 
 
+# Same original MIT program, with an ordinary off/on pair before COPJMP1.
+# The off write lets pending waits return; the following on write is not an
+# unbounded-wait counterexample merely because the blitter event can be rearmed.
+COPPER_DMA_PULSE = COPPER_CHAIN.replace(
+    "    MOVE.L #$00880000,$2008.L",
+    "    MOVE.L #$00960040,$2008.L\n"
+    "    MOVE.L #$00968040,$200C.L\n"
+    "    MOVE.L #$00880000,$2010.L",
+)
+
+
 class WaitingBlitsReproducer(ProbeCase):
-    ROMS = {"large-blit": (LARGE_BLIT, None, None), "copper-chain": (COPPER_CHAIN, None, None)}
+    ROMS = {"large-blit": (LARGE_BLIT, None, None),
+            "copper-chain": (COPPER_CHAIN, None, None),
+            "copper-dma-pulse": (COPPER_DMA_PULSE, None, None)}
     MACHINE = "a1200"
 
     def audio_counts(self, raw_mode=None, scenario="large-blit", units=5):
@@ -92,6 +105,12 @@ class WaitingBlitsReproducer(ProbeCase):
     def test_unsupported_raw_wait_reproduces_multiple_units_in_one_call(self):
         raw = self.audio_counts(3)
         self.assertTrue(all(n > 1700 for unit, n in raw.items() if unit > 1), raw)
+
+    def test_ordinary_copper_dma_pulse_returns_one_pal_unit(self):
+        # This specific sequence is a control for ADR0015's DMA hypothesis,
+        # not general support for raw waiting_blits or a bound on nesting.
+        raw = self.audio_counts(3, "copper-dma-pulse", 3)
+        self.assertTrue(all(940 < n < 1000 for n in raw.values()), raw)
 
 
 if __name__ == "__main__":

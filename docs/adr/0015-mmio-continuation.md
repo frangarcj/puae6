@@ -77,8 +77,21 @@ deadline absoluto, cambia comportamiento; no se deduce de poder guardar locales.
 2. Un programa Copper puede deshabilitar DMA en los vencimientos y habilitarlo
    antes de otra espera, aplazando el blit y renovando esperas antes de actualizar
    los contadores exteriores. Contrastar DMACON, rearmes de `blitter_handler`,
-   reloj y profundidad con parada controlada. La rama de rearmado existe; el
-   reproducer actual no demuestra crecimiento ilimitado ni resuelve esta hipotesis.
+   reloj y profundidad con parada controlada. La rama de rearmado existe, pero
+   no demuestra por si sola crecimiento ilimitado: el `while` de `waitingblits`
+   tambien termina si observa DMA deshabilitado despues de los cuatro CCK.
+   `COPPER_DMA_PULSE` conserva como control la secuencia ordinaria
+   BLTCON0, DMACON off, DMACON on, COPJMP1: las esperas pendientes retornan con
+   off antes del siguiente on. El test comprueba que esa secuencia entrega una
+   unidad PAL por llamada incluso con la espera privada activada. No prueba una
+   cota para otras secuencias de strobe, cambios del haz o arbitraje DMA.
+
+Con DMA continuamente activo, `COPPER_CHAIN` mantiene esperas anidadas mientras
+el reloj avanza hacia el deadline fijo del blit. El timeout de los padres no
+progresa hasta que retorna cada hijo. Un limite de observacion del debugger solo
+interrumpe el experimento: no limita esa causalidad ni fija `state_bound`.
+Por ello siguen siendo necesarios el dispatcher iterativo y una cota global
+atribuida a todos los caminos, no una arena ajustada a la profundidad observada.
 
 Hasta resolverlas, las pruebas de componente son avance del prototipo; DET02,
 STATE01, STEP01 y WB03 de T77b1 siguen pendientes.
