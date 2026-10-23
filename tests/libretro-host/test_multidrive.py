@@ -12,6 +12,7 @@ from tests.scenarios.disk import disk
 from tests.state.envelope import config_hash, domain_hash
 from tests.state.harness import Run
 from tests.state.test_det02 import Det02Case
+from tests.state import test_state_upstream as upstream
 
 UNITS, SAVE = 220, 100
 BASE, STEP = 0x10000, 0x4000
@@ -95,6 +96,25 @@ class MultiDriveTests(lr.LibretroHarness):
         # (custom.cpp writes it; debug.cpp reads it), not readable hardware state.
         for unit in range(1, UNITS - SAVE + 1):
             self.assertEqual(Det02Case.differing(self, baseline, restored, SAVE, 0, unit), [], f"restore +{unit}")
+        # Rebinding foreign media must preserve BEAM's exact pending request,
+        # including a genuine countdown and all flag bits, not just zero it.
+        source = state.read_bytes()
+        for countdown, flags in ((0, 0), (1, 0), (2, 0), (2, 0x80000004)):
+            with self.subTest(countdown=countdown, flags=flags):
+                def edit(subs):
+                    for sub in subs:
+                        if sub[0] == "BEAM":
+                            data = bytearray(sub[1])
+                            struct.pack_into(">II", data, 4 * upstream.BEAM_WORDS.index("config_changed"), countdown, flags)
+                            sub[1] = bytes(data)
+                candidate, saved = root / "pending.state", root / "pending.again"
+                candidate.write_bytes(upstream.with_subs(source, b"P6CH", edit))
+                loaded = subprocess.run([*common, *other_boot, "--units", "0", "--public-load-at", "0", str(candidate),
+                                         "--public-save-at", "0", str(saved)], capture_output=True, text=True, timeout=600)
+                self.assertEqual(loaded.returncode, 0, loaded.stderr[-1500:])
+                self.assertRegex(loaded.stdout, r"load 0 0 ")
+                self.assertEqual(upstream.upstream_bodies(candidate.read_bytes())[b"P6CH"]["BEAM"],
+                                 upstream.upstream_bodies(saved.read_bytes())[b"P6CH"]["BEAM"])
         for n, image in enumerate(self.adfs):
             self.assertEqual((path.parent / f"{n}.adf").read_bytes(), image)
 

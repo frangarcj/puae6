@@ -1328,6 +1328,12 @@ void put_media_in_drives()
 {
     const MediaPlan *plan = loading_media();
     if (!plan) return;
+    // BEAM already restored these causal words. disk_eject marks preferences as
+    // changed, but rebinding the saved media is not a new emulated request.
+    struct PendingCheckScope {
+        const int changed = config_changed, flags = config_changed_flags;
+        ~PendingCheckScope() { config_changed = changed; config_changed_flags = flags; }
+    } pending_check;
     const ApplyScope scope(true);
     for (int n = 0; n < int(p6_bridge::resolve_floppy_drives(p6_session::session.config)); ++n) {
         uint8_t live[64];
