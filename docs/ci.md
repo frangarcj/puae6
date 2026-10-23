@@ -144,6 +144,12 @@ Solo aprueba si el inventario completo coincide con el sysroot fijado. Un fallo
 conserva la candidata para inspeccion y no cambia el sysroot utilizado por PUAE6.
 Los avisos quedan en `build/N/notices`, separados del sysroot; los marcadores
 vacios solo reproducen su inventario y no acreditan ejecuciones historicas.
+La reconstruccion local ya coincide con las 1270 entradas del inventario fijado;
+`sysroot.source_path` apunta a `build/waterbox-sysroot`, dentro de PUAE6, y sus
+avisos se conservan en `build/waterbox-sysroot-notices`. La receta reproduce
+tambien el contexto original de `tools/version.sh` (checkout sin Git disponible)
+mediante la regla Makefile sin modificarla. Este resultado no acredita una
+ejecucion de Waterbox en GitHub Actions ni la reproducibilidad de la release.
 
 El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
