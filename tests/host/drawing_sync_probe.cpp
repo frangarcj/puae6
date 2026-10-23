@@ -20,6 +20,9 @@ uae_prefs currprefs{};
 struct amigadisplay adisplays[MAX_AMIGADISPLAYS]{};
 static std::vector<int> calls;
 static std::vector<unsigned> args;
+// Test-owned geometry caches released by the real drawing_free (0412).
+static int *amiga2aspect_line_map, *native2amiga_line_map;
+static int native2amiga_line_map_height;
 static void seen(int id, unsigned a=0);
 static void refresh_indicator_init(void);
 static void gen_pfield_tables(void);
@@ -119,7 +122,17 @@ int main()
     for (int i=0;i<DENISE_RGA_SLOT_TOTAL;i++) rga_denise[i].line=0;
     update_overlapped_cycles(DENISE_RGA_SLOT_MASK);
     for (int i=0;i<=5;i++) assert(rga_denise[(DENISE_RGA_SLOT_MASK-i)&DENISE_RGA_SLOT_MASK].line==1);
-    calls.clear(); args.clear();
-    drawing_init(); drawing_free();
-    assert((calls==std::vector<int>{20,21,22,23,24}));
+    for (int cycle=0; cycle<2; ++cycle) {
+        calls.clear(); args.clear();
+        drawing_init();
+        amiga2aspect_line_map = static_cast<int *>(malloc(4 * sizeof(int)));
+        native2amiga_line_map = static_cast<int *>(malloc(3 * sizeof(int)));
+        assert(amiga2aspect_line_map && native2amiga_line_map);
+        native2amiga_line_map_height = 3;
+        drawing_free();
+        assert(!amiga2aspect_line_map && !native2amiga_line_map);
+        assert(native2amiga_line_map_height == 0);
+        drawing_free(); // Cleanup is safe after its caches have been released.
+        assert((calls==std::vector<int>{20,21,22,23,24}));
+    }
 }

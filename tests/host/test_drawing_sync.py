@@ -60,7 +60,7 @@ class DrawingSyncTests(unittest.TestCase):
                      "update_overlapped_cycles(endpos);", "refresh_indicator_init();",
                      "gen_pfield_tables();", "reset_drawing();"):
             self.assertIn(call, bodies)
-        with tempfile.TemporaryDirectory(prefix="p6-drawing-sync-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-drawing-sync-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             (tmp / "drawing_sync_under_test.h").write_text(bodies)
             common = ["-UNDEBUG", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",

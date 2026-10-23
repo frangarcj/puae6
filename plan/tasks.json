@@ -11716,7 +11716,9 @@
         "tests/host/test_devices.py",
         "tests/host/test_expansion_source.py",
         "tests/host/memory_rom_status_probe.cpp",
-        "tests/host/test_memory_rom_status.py"
+        "tests/host/test_memory_rom_status.py",
+        "tests/host/drawing_sync_probe.cpp",
+        "tests/host/test_drawing_sync.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11785,7 +11787,8 @@
         "Ampliar previamente tests/host/custom_timing_probe.cpp y tests/host/test_custom_timing.py: el parche0369 notifica devices_update_sound durante reset aun antes de abrir PCM, para inicializar CDDA con el reloj fisico. El probe conserva la condicion previa produce_sound>1; exigir una notificacion por recalculo y reloj/ajuste exactos en los cuatro modos0/1/2/3, sin alterar geometria ni pacing. Mantener O0/O2 ASanUBSan y todas las combinaciones PAL/NTSC/campo/refresh/turbo; temporales bajo build con limpieza automatica. Sin cambios al motor, guest, filtros ni transporte.",
         "Ampliar previamente tests/host/devices_probe.cpp y tests/host/test_devices.py: el objeto devices actual conserva driveclick_reset/free por DRIVESOUND, akiko_init por CD32 y update_cda_sound por0369. Exigir exactamente los cuatro imports adicionales en el objeto completo y observar orden/argumentos en el probe de registro, incluidos reset/teardown/HDF/reinit. Akiko es solo frontera observada sin exito simulado ni claim de dispositivo, assert preset noCD32; CDA observa clk/syncadjust. Mantener todos los callbacks previos y O0/O2 ASanUBSan, temporales bajo build; no modificar motor ni providers del producto.",
         "Ampliar previamente tests/host/test_expansion_source.py: la tabla portable real ya contiene Gayle y CDTV DMAC, asi que cdtv_init es import obligatorio y el catalogo no tiene un unico elemento. Probar por separado tabla real intacta2 y tablas sinteticas0/1/2, con lookup exacto por tipo/controlador/sentinel y todas las fronteras invalidas. Providers de la fixture abortan si se invocan, sin dispositivo simulado; mantener otros imports prohibidos y O0/O2 ASanUBSan, temporales bajo build. No editar tablas ni motor.",
-        "Ampliar previamente tests/host/memory_rom_status_probe.cpp y tests/host/test_memory_rom_status.py: memory_init/cleanup extraidos ya contienen lifecycle ACTION_REPLAY pero la fixture no incluye ar.h ni observa providers. Incluir declaraciones reales, observar orden unload(0)/load/init(1)/HRTMon-load y cleanup, sin exito simulado ni cartucho; verificar que reload_roms no repite esas notificaciones. Conservar todos los rechazos/recuperacion/checksum/OOM y O0/O2 ASanUBSan. Ejecutar tambien rom_load_chain que incluye la misma fixture, sin cambiar su fuente ni controles. Temporales modificados bajo build con limpieza; sin cambios motor/ROM comercial."
+        "Ampliar previamente tests/host/memory_rom_status_probe.cpp y tests/host/test_memory_rom_status.py: memory_init/cleanup extraidos ya contienen lifecycle ACTION_REPLAY pero la fixture no incluye ar.h ni observa providers. Incluir declaraciones reales, observar orden unload(0)/load/init(1)/HRTMon-load y cleanup, sin exito simulado ni cartucho; verificar que reload_roms no repite esas notificaciones. Conservar todos los rechazos/recuperacion/checksum/OOM y O0/O2 ASanUBSan. Ejecutar tambien rom_load_chain que incluye la misma fixture, sin cambiar su fuente ni controles. Temporales modificados bajo build con limpieza; sin cambios motor/ROM comercial.",
+        "Ampliar previamente tests/host/drawing_sync_probe.cpp y tests/host/test_drawing_sync.py: drawing_free extraido incorpora0412 y libera las dos caches geometricas, pero el probe omite sus globales. Proveer exactamente int* para ambos mapas e int altura; asignar buffers reales en dos ciclos init/free, exigir punteros nulos/altura0 y segundo free seguro con ASanUBSan. Mantener todos los asserts Denise/RGA/dispatch y O0/O2, temporales bajo build. Sin cambiar0412 ni repetir la matriz hosted de fugas ya cerrada."
       ],
       "checks": [
         "PLAN01",
