@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35",
@@ -13436,6 +13436,46 @@
       "blocked_reason": "Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
     },
     {
+      "id": "T55c13",
+      "title": "Preservar operandos normalizados por FPSP al reanudar FE040",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T55c11"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0016-frestore040-cu06-denormals.md"
+      ],
+      "touch": [
+        "patches/winuae/0414-frestore040-fe-normalized-exponent.patch",
+        "tests/host/frestore040_probe.cpp",
+        "tests/host/test_frestore040.py",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "docs/adr/0016-frestore040-cu06-denormals.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Corregir la vertical FE documentada por FPSP get_op.S:src_sd_dnrm/mk_norm y res_func.S:fix_stk en Linux1da177e4c3f41524e886b7f1b8a0c1fc7321cac2. ETE15/FPTE15 indica el signo del exponente sin sesgo, no prueba por si solo que el exponente sesgado sea negativo. Preservar normales pequenos y la denormalizacion de extended realmente envueltos. Confirmar representacion antes de editar; CU06/STAG5 queda bloqueado enT55c12 con su aceptacion intacta.",
+        "Frames FE calculados independientemente: denormales SINGLE normalizados, ambos signos, potencias y fraccionmaxima, FP0..7, fuentes y destinos, aritmetica exacta, FCMP sin escritura y redondeo conINEX/E3prioritario. Reproducer debe fallar enbaseline; comprobar25lecturas/A0+100, FP/FPSR/FPIAR y estado privado conbackendreinicializado/futuro. Mantener regresion de extendeddenormalFE yaexistente.",
+        "Cambio atomico de motor/probe y metadatos de parche/check/plan; se amplian rutas explicitamente por integracion inseparable, menos400lineasmanuales salvo metadata. Root compila-j2, ejecuta STATE01 dirigidoFrestore040Tests+InternalFpuStateTests y clasificacion. No repetir corpus completo ni cerrar padreFRESTORE conesta hoja."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "FE040 restaura los operandos pequenos normalizados por FPSP sin convertirlos en cero, con valor/redondeo/flags y excepciones independientes, codec causal y regresion extendeddenormal intacta. No atribuye representacion ni cierre de CU06."
+      ],
+      "stop": "Tras dos intentos razonados sin resolver, conservar reproducer y dos hipotesis y bloquear. Sin heuristica de ancho para CU06, sin flagsCPU al azar ni cambiosgolden."
+    },
+    {
       "id": "T55c",
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
@@ -13454,7 +13494,8 @@
         "T55c9",
         "T55c10",
         "T55c11",
-        "T55c12"
+        "T55c12",
+        "T55c13"
       ],
       "read": [
         "docs/01-architecture.md",

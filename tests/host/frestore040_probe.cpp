@@ -121,6 +121,100 @@ static void busy_new_exception(int rev,bool sqrt=false) {
     if(sqrt) assert(get_long(0x11034)==0x00210000);
     printf("FRESTORE040 rev%x BUSY FE-%s/new-exception-identity PASS\n",rev,sqrt ? "sqrt05":"denorm");
 }
+static void busy_fe_single_denorm(int rev) {
+    // FPSP get_op.S:src_sd_dnrm/mk_norm (Linux1da177e4): SINGLE F*2^-149
+    // normalizes to exponent3f6a+floor(log2F), J=1, STAG0, ETE15=1.
+    // res_func.S:fix_stk selects FE and clears E1. This is NOT CU06.
+    unsigned n=0;
+    for(unsigned fraction : {1u,2u,4u,8u,16u,32u,64u,128u,256u,512u,1024u,
+                            2048u,4096u,8192u,16384u,32768u,65536u,131072u,
+                            262144u,524288u,1048576u,2097152u,4194304u,0x7fffffu,3u})
+    for(unsigned sign : {0u,0x8000u})
+    for(unsigned op : {0x22u,0x23u,0x20u,0x38u}) {
+        unsigned k=0; for(unsigned f=fraction; f>>=1;) ++k;
+        const unsigned exponent=0x3f6a+k, dest=n++&7;
+        const uint64_t mantissa=uint64_t(fraction)<<(63-k);
+        owner(rev); for(int i=0;i<8;i++) move(i,10+i);
+        auto before=capture();
+        Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000; w[2]=0xfe000000;
+        w[0x28/4]=0x4000; w[0x40/4]=(0x4800u|(dest<<7)|op)<<16;
+        // FADD uses two small operands; FMUL uses small source and destination2.
+        // FDIV/FCMP use small destination and source2.
+        const bool small_dest=op==0x20 || op==0x38 || op==0x22;
+        const bool small_src=op!=0x20 && op!=0x38;
+        auto operand=[&](unsigned offset,bool small) {
+            w[offset/4]=(small ? sign|exponent:0x4000u)<<16;
+            w[offset/4+1]=small ? unsigned(mantissa>>32):0x80000000u;
+            w[offset/4+2]=small ? unsigned(mantissa):0;
+        };
+        operand(0x4c,small_dest); operand(0x58,small_src);
+        w[0x44/4]=small_dest ? 1u<<28:0; w[0x3c/4]=small_src ? 1u<<28:0;
+        fpp_set_fpcr(0); fpp_set_fpsr(0); install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+        const bool writes=op!=0x38;
+        const unsigned high=sign|(exponent+(op==0x23 || op==0x22 ? 1:op==0x20 ? -1:0));
+        for(unsigned i=0;i<8;i++) {
+            assert(regs.fp[i].fpx.high==(writes && i==dest ? high:before.high[i]));
+            assert(regs.fp[i].fpx.low==(writes && i==dest ? mantissa:before.low[i]));
+        }
+        assert((regs.fpsr&0x0f00ff00)==(op==0x38 || sign ? 0x08000000u:0));
+        assert(!regs.fp_exp_pend && !regs.fp_unimp_pend && !regs.fpu_exp_state);
+        auto saved=capture(); owner(rev); assert(p6_fpu_state_apply(&saved));
+        for(unsigned i=0;i<8;i++) {
+            assert(regs.fp[i].fpx.high==saved.high[i] && regs.fp[i].fpx.low==saved.low[i]);
+        }
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        assert(get_long(0x11000)==unsigned(rev)<<24);
+        move(0,1); move(1,2); fpuop_arithmetic(0xf200,0x0422);
+        assert(regs.fp[0].fpx.high==0x4000 && regs.fp[0].fpx.low==0xc000000000000000ULL);
+    }
+    assert(n==200);
+    for(unsigned sign : {0u,0x8000u}) for(unsigned precision : {0u,0x40u,0x80u})
+    for(unsigned round : {0u,0x10u,0x20u,0x30u}) for(unsigned mode=0;mode<3;mode++) {
+        const unsigned dest=n++&7, bits=precision==0x40 ? 24:precision==0x80 ? 53:64;
+        const bool pending=mode==2, trap=mode!=0;
+        owner(rev); for(int i=0;i<8;i++) move(i,10+i);
+        regs.fpiar=0xabcdef; auto before=capture();
+        Words w(25,0); w[0]=(unsigned(rev)<<24)|0x00600000; w[2]=0xfe000000;
+        w[0x28/4]=0x4000; w[0x40/4]=(0x4822u|(dest<<7))<<16;
+        w[0x44/4]=w[0x3c/4]=1u<<28; // both unbiased exponents <=0
+        w[0x4c/4]=0x3fff0000; w[0x50/4]=0x80000000; //1
+        w[0x58/4]=(sign|0x3f6au)<<16; w[0x5c/4]=0x80000000; //+/-2^-149
+        if(pending) w[0x48/4]=1u<<25;
+        fpp_set_fpcr(precision|round|(trap ? 0x0200u:0)); fpp_set_fpsr(pending ? 0x0200:0);
+        install(w); fpuop_restore(0xf358);
+        assert(m68k_areg(regs,0)==0x10064 && reads.size()==25);
+        for(unsigned i=0;i<reads.size();i++) assert(reads[i]==0x10000+4*i);
+        const bool predecessor=sign && (round==0x10 || round==0x20);
+        const unsigned high=predecessor ? 0x3ffe:0x3fff;
+        const uint64_t low=predecessor ? ~uint64_t(0)<<(64-bits):
+            0x8000000000000000ULL+(!sign && round==0x30 ? uint64_t(1)<<(64-bits):0);
+        for(unsigned i=0;i<8;i++) {
+            assert(regs.fp[i].fpx.high==(!pending && i==dest ? high:before.high[i]));
+            assert(regs.fp[i].fpx.low==(!pending && i==dest ? low:before.low[i]));
+        }
+        assert((regs.fpsr&0x0f00ff00)==0x0200 && regs.fp_exp_pend==unsigned(trap ? 49:0));
+        assert(regs.fpu_exp_state==unsigned(trap ? 2:0));
+        assert(regs.fpiar==(mode==1 ? 0x4000:0xabcdef));
+        auto saved=capture(); owner(rev); assert(p6_fpu_state_apply(&saved));
+        m68k_areg(regs,0)=0x11000; fpuop_save(0xf310);
+        assert(get_long(0x11000)==((unsigned(rev)<<24)|(trap ? 0x00600000:0)));
+        assert(p6_fpu_state_apply(&saved));
+        if(trap) {
+            put_long(49*4,0x2000); fpuop_arithmetic(0xf200,0x0422);
+            assert(m68k_getpc()==0x2000 && regs.fp_exception && !regs.fp_exp_pend);
+            for(unsigned i=0;i<8;i++) {
+                assert(regs.fp[i].fpx.high==saved.high[i] && regs.fp[i].fpx.low==saved.low[i]);
+            }
+        } else {
+            move(0,1); move(1,2); fpuop_arithmetic(0xf200,0x0422);
+            assert(regs.fp[0].fpx.high==0x4000 && regs.fp[0].fpx.low==0xc000000000000000ULL);
+        }
+    }
+    assert(n==272);
+    printf("FRESTORE040 rev%x FE normalized-single-denorm 272 values/round/flags/E3/bus/private/future PASS\n",rev);
+}
 static void busy_06(bool dbl=false) {
     // Motorola FPSP bugfix.S:op0_xi/op0_sete15 reconstructs rev40 CU:
     // empty FPTEMP, architectural FPn destination, IEEE extended ETEMP,
@@ -308,6 +402,7 @@ int main(int argc,char **argv) {
     p6_input input{P6_ABI_VERSION,sizeof input}; p6_frame frame{P6_ABI_VERSION,sizeof frame}; assert(p6_run_frame(&input,0,&frame,&e)==P6_OK);
     busy_06(); busy_06(true); busy_06_zero_inf(); busy_06_nan();
     for(int rev : {0x40,0x41}) {
+        busy_fe_single_denorm(rev);
         produced_commands(rev);
         for(int event=0;event<3;event++) busy(rev,event);
         busy_resume(rev);

@@ -1,0 +1,20 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -2752,8 +2752,14 @@
+ 							dst = regs.fp[(cmdreg1b >> 7) & 7];
+ 						} else {
+ 							fpp_to_exten_fmovem(&dst, fsave_data.fpt[0], fsave_data.fpt[1], fsave_data.fpt[2]);
+-							fpp_denormalize(&dst, fpte15);
+-							fpp_denormalize(&src, et15);
++							// FPSP get_op.S:mk_norm sets E15 even for finite small
++							// normals ($3f6a for SINGLE min denorm). round.S:denorm
++							// sign-extends only wrapped exponents $4000..$7fff.
++							// E15 alone must not turn a normalized operand into zero.
++							if (fpte15 && (restored.fpt[0] & 0x40000000))
++								fpp_denormalize(&dst, fpte15);
++							if (et15 && (restored.et[0] & 0x40000000))
++								fpp_denormalize(&src, et15);
+ 						}
+ #if EXCEPTION_FPP
+ 						uae_u32 tmpsrc[3], tmpdst[3];
