@@ -870,7 +870,7 @@ def audit_imports(tc: dict, objects: list[Path]) -> dict:
     if not nm.is_file():
         raise BuildError(f"falta llvm-nm junto a clang: {nm}")
     def symbols(flag: str, columns: int) -> set[str]:
-        result = subprocess.run([str(nm), flag, "--no-weak", *map(str, objects)], check=True, text=True, stdout=subprocess.PIPE)
+        result = subprocess.run([str(nm), flag, "--no-weak", *map(str, objects)], check=True, text=True, stdout=subprocess.PIPE, env=tc["env"])
         return {line.split()[-1] for line in result.stdout.splitlines() if len(line.split()) == columns and not line.endswith(":")}
     report = classify_imports(symbols("--undefined-only", 2), symbols("--defined-only", 3), allowed_imports())
     if report["unexpected"]:

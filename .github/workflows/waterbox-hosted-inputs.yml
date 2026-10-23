@@ -109,7 +109,9 @@ jobs:
       - name: Build the complete ARM64 guest
         if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
         shell: bash
-        run: python3 -B tools/build_waterbox.py --source-audit snapshot --puae6 --jobs 2
+        run: |
+          python3 -B tools/generate_cpu.py
+          python3 -B tools/build_waterbox.py --source-audit snapshot --puae6 --jobs 2
       - name: Execute all checks of the public PR recipe
         if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
         shell: bash

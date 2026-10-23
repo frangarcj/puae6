@@ -1,6 +1,7 @@
 """Offline tests for the Waterbox ELF build gate."""
 
 import struct
+import importlib
 import json
 import platform
 import subprocess
@@ -31,6 +32,72 @@ def elf64(loads, machine=183, elf_class=2, elf_type=2):
     data[:64] = header
     data[64:64 + len(phdrs)] = phdrs
     return data
+
+
+class HostedGateConsumersTests(unittest.TestCase):
+    """Own data fixtures; subprocesses and tool/feed selectors are explicitly mocked."""
+
+    def setUp(self):
+        (ROOT / 'build').mkdir(exist_ok=True)
+
+    def test_import_audit_uses_the_selected_loader_environment_for_both_nm_calls(self):
+        with tempfile.TemporaryDirectory(prefix='imports-loader-', dir=ROOT / 'build') as temp:
+            clang = Path(temp) / 'clang'
+            clang.with_name('llvm-nm').write_bytes(b'own tool fixture, never executed')
+            for env in ({'PATH': 'local'}, {'DYLD_LIBRARY_PATH': '/owned/libs', 'PATH': 'hosted'}):
+                tc = {'paths': {'clang': clang}, 'env': env}
+                with (mock.patch.object(build_waterbox, 'allowed_imports', return_value={'allowed'}),
+                      mock.patch.object(build_waterbox.subprocess, 'run', side_effect=[
+                          subprocess.CompletedProcess([], 0, 'U allowed\nU internal\n'),
+                          subprocess.CompletedProcess([], 0, '0 T internal\n')]) as process):
+                    result = build_waterbox.audit_imports(tc, [Path('own.o')])
+                self.assertEqual(result['imports'], ['allowed'])
+                self.assertEqual(result['unexpected'], [])
+                for call, flag in zip(process.call_args_list, ('--undefined-only', '--defined-only')):
+                    self.assertEqual(call.args[0], [str(clang.with_name('llvm-nm')), flag, '--no-weak', 'own.o'])
+                    self.assertIs(call.kwargs['env'], env)
+
+    def test_poison_setup_uses_selected_feed_pinned_tool_path_and_direct_loader(self):
+        poison = importlib.import_module('tests.waterbox-poison.test_poison')
+        with tempfile.TemporaryDirectory(prefix='poison-plumbing-', dir=ROOT / 'build') as temp:
+            root = Path(temp)
+            guest, runtime = root / 'own.wbx', root / 'own.dylib'
+            for path in (guest, runtime): path.write_bytes(b'own data fixture, never executed')
+            build = root / 'wb'; (build / 'puae6').mkdir(parents=True)
+            (build / 'puae6/puae6-receipt.json').write_text(json.dumps({'guest': {
+                'path': str(guest), 'sha256': build_waterbox.sha256(guest)}}))
+            receipt = build / 'receipt.json'
+            receipt.write_text(json.dumps({'runtime_dylib': {'path': str(runtime), 'sha256': build_waterbox.sha256(runtime)}}))
+            video = root / 'ports/portable/video_present.h'; video.parent.mkdir(parents=True)
+            video.write_text('P6_VIDEO_MAX_WIDTH = 2048')
+            paths = {'clang': Path('/owned/pinned/clang')}
+            direct, managed = {'DYLD_LIBRARY_PATH': '/owned/libs'}, {'NUGET_PACKAGES': '/owned/packages'}
+            symbols = ''.join(f'00000010 00000004 b {name}\n' for name in poison.SYMBOLS.values())
+            scratch = mock.Mock(); scratch.name = str(root / 'scratch')
+            with (mock.patch.object(poison, 'ROOT', root), mock.patch.object(build_waterbox, 'BUILD', build),
+                  mock.patch.object(build_waterbox, 'check_guest_matches_trees'),
+                  mock.patch.object(build_waterbox, 'runtime_receipt_path', return_value=receipt),
+                  mock.patch.object(build_waterbox, 'managed_env', return_value=managed),
+                  mock.patch.object(build_waterbox, 'managed_restore_sources', return_value=['-p:RestoreSources=/owned/feed']) as feed,
+                  mock.patch.object(build_waterbox, 'selected_toolchain', return_value={'profile': 'own'}) as selected,
+                  mock.patch.object(build_waterbox, 'locked_tools', return_value=(paths, {})) as locked,
+                  mock.patch.object(build_waterbox, 'hosted_environment', return_value={'direct_env': direct}) as loader,
+                  mock.patch.object(poison.shutil, 'which', return_value='/mock/dotnet'),
+                  mock.patch.object(poison.tempfile, 'TemporaryDirectory', return_value=scratch),
+                  mock.patch.object(poison.subprocess, 'run', side_effect=[
+                      subprocess.CompletedProcess([], 0, '', ''), subprocess.CompletedProcess([], 0, symbols, '')]) as process):
+                try:
+                    poison.SnapshotPoisonTests.setUpClass()
+                finally:
+                    poison.SnapshotPoisonTests.doClassCleanups()
+            feed.assert_called_once_with(Path.home() / '.nuget/packages')
+            selected.assert_called_once_with(); locked.assert_called_once_with({'profile': 'own'})
+            loader.assert_called_once_with(paths)
+            dotnet, nm = process.call_args_list
+            self.assertEqual(dotnet.args[0][-1], '-p:RestoreSources=/owned/feed')
+            self.assertIs(dotnet.kwargs['env'], managed)
+            self.assertEqual(nm.args[0], ['/owned/pinned/llvm-nm', '--print-size', str(guest)])
+            self.assertIs(nm.kwargs['env'], direct)
 
 
 class ManagedFeedSelectionTests(unittest.TestCase):

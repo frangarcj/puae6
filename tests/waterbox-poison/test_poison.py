@@ -52,12 +52,15 @@ class SnapshotPoisonTests(unittest.TestCase):
             if hashlib.sha256(Path(item["path"]).read_bytes()).hexdigest() != item["sha256"]:
                 raise AssertionError("the loaded artifact must match its receipt")
         cls.env = wb.managed_env()
-        command = [shutil.which("dotnet"), "build", str(PROJECT), "--nologo", f"-p:RestoreSources={Path.home() / '.nuget/packages'}"]
+        sources = wb.managed_restore_sources(Path.home() / ".nuget/packages")
+        paths, _ = wb.locked_tools(wb.selected_toolchain())
+        loader = wb.hosted_environment(paths)
+        command = [shutil.which("dotnet"), "build", str(PROJECT), "--nologo", *sources]
         built = subprocess.run(command, cwd=wb.MANAGED, env=cls.env, capture_output=True, text=True, timeout=180)
         if built.returncode:
             raise AssertionError(built.stdout + built.stderr)
-        clang = json.loads((ROOT / "plan/toolchains.json").read_text())["tools"]["clang"]["path"]
-        nm = subprocess.run([str(Path(clang).with_name("llvm-nm")), "--print-size", guest["path"]], capture_output=True, text=True, check=True)
+        nm = subprocess.run([str(paths["clang"].with_name("llvm-nm")), "--print-size", guest["path"]],
+                            capture_output=True, text=True, check=True, env=loader["direct_env"])
         symbols = {p[3]: (int(p[0], 16), int(p[1], 16)) for line in nm.stdout.splitlines() if len(p := line.split()) == 4}
         cls.regions = [{"symbol": name, "address": symbols[sym][0], "size": symbols[sym][1]} for name, sym in SYMBOLS.items()]
         video = (ROOT / "ports/portable/video_present.h").read_text()
