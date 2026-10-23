@@ -19778,6 +19778,59 @@
       "stop": "SinrunnerrealBLOCKED;trasdosintentosrazonadosconservarreproducerydoshipotesis.No fingirWaterboxconbibliotecanativa niinterpretarBUSYcomoexitoaplicado."
     },
     {
+      "id": "T67d4",
+      "title": "Conectar cambios CDTV y su insercion pendiente al wrapper publico BizHawk",
+      "status": "done",
+      "milestone": "M3",
+      "required": true,
+      "depends": [
+        "T67d3",
+        "T67c3e",
+        "T66w4"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/StateEnvelope.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "manifests/state-inventory.json",
+        "tests/media/csharp-disc/CdtvPublic.cs",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/waterbox-media/test_cdtv_boot.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "config/schema/options.json",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "docs/options.md"
+      ],
+      "steps": [
+        "Permitir catalogo CDTV en loader y ValidateCd manteniendo perfil stock y ownership existentes. Ofrecer NextSlot/Eject/Insert con contenido; rechazar NextDrive y controles sin contenido antes de latches/started. No cambiar ABI ni recompilar guest.",
+        "El wrapper conserva _cdPending=-1 o un ordinal solicitado. BUSY conserva intencion, no marca fallo ni cambia seleccion/presencia aplicadas o contador. Reintentar al comienzo de frames posteriores; Eject cancela, seleccion sola no cambia destino y nuevo Insert lo sustituye. CD32 conserva aplicacion inmediata. Guardar/restaurar/validar el campo, inicializacion y rollback incluidos; registrar propietario en inventario.",
+        "Versionar envelope Waterbox a2 y dominio checksum al ampliar layout del wrapper con el mismo guest. Estados version1 se rechazan antes del sandbox; no prometer compatibilidad entre builds. Mantener offset relativo del ordinal colocando pending antes de sus campos existentes.",
+        "Extender harness publico real existente con catalogo A/B/A alias, arranque propio y corte con BUSY. Futuro120 RAM/AV/PCM/ticks/lecturas/fullsnapshot iguales local, nuevo sandbox y proceso frio antes del primer frame; pending capturado pese a cambio de seleccion, cancelacion y retarget demostrados, ordinal B/datos exclusivos/opens1 reales. Negativos pending fuera de rango/con presencia y version anterior no mutan ni leen. Regresion CD32 catalogo y reflexion de inventario. Reutilizar guest actual y helpers, sin matriz ni fuzz completos.",
+        "Ampliacion atomica explicita a12rutas manuales, objetivo menor400lineas logicas: contrato/codec/propietario/control/loader y pruebas deben integrar juntos. Las peliculas CDTV y bateria conservan puertas posteriores en padre; no acreditarlas con esta hoja.",
+        "Ampliacion previa a schema, sus dos salidas generadas y docs/options.md: la descripcion publica aun afirma CDTV fijo sin botones. Corregir solo esa informacion para reflejar el wrapper demostrado; sin cambiar valores, defaults, ABI ni recetas del motor. Ejecutar generate_options --check y sus checks estaticos existentes, sin reconstruir guest por texto libretro."
+      ],
+      "checks": [
+        "WB03",
+        "STATE02"
+      ],
+      "acceptance": [
+        "El loader publico CDTV acepta catalogos inmutables y controles; una insercion diferida se completa o cancela con semantica causal y se restaura exactamente en proceso nuevo. Estados imposibles/version antigua fallan antes del sandbox. CD32 e inventario guardado pasan sin nuevo build guest."
+      ],
+      "stop": "No convertir BUSY en exito aplicado, perder pending al guardar, abrir botones sin pruebas reales o declarar peliculas/bateria por este escenario."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -19797,7 +19850,8 @@
         "T67c3e",
         "T67d1",
         "T67d2",
-        "T67d3"
+        "T67d3",
+        "T67d4"
       ],
       "read": [
         "docs/01-architecture.md",

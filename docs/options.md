@@ -492,7 +492,7 @@ Auto y Full comparten identidad de estados y peliculas; los otros niveles son
 incompatibles entre si.
 
 
-### CDTV y cambio de CD (T67c3b, T67c3e, T67d2)
+### CDTV y cambio de CD (T67c3b, T67c3e, T67d2, T67d4)
 
 `puae6_machine=CDTV` permite un catalogo fijo de hasta16 CD o ningun contenido, 68000 exacto,
 ECS Agnus y 1 MiB Chip. Automatic con etiqueta CDTV en un CD lo selecciona antes
@@ -512,9 +512,12 @@ bytes y copia EXT+MAIN. La entrada `CDTVext` legacy conserva su seleccion previa
 esa geometria y fija su pareja 1.3/2.7 ya validada por la API nativa.
 Un ISO/CUE directo identificado como Amiga o un XML `System="Amiga"` usa PUAE6
 cuando se elige ese core; el disco no cambia automaticamente el modelo a CDTV.
-Se admite un CD inicial fijo o sin contenido, sin catalogos, disquetes, HDF,
-volumenes, expansiones ni cartuchos. No hay botones de seleccion/expulsion/insercion;
-inyectarlos tambien se rechaza antes de avanzar o cambiar el estado.
+Se admite un catalogo fijo de hasta 16 slots con aliases, o ningun contenido, sin disquetes, HDF,
+volumenes, expansiones ni cartuchos. Con CD hay botones de seleccion, expulsion e insercion.
+La insercion espera a la ausencia observada por el controlador; seleccionar otro slot no cambia
+una solicitud pendiente, Insert la sustituye y Eject la cancela. Sin contenido esos botones
+no existen; Next Drive tampoco existe para CDTV. Inyectar controles ausentes se rechaza antes
+de avanzar o cambiar el estado.
 Los estados conservan identidad de firmware, modelo, opciones y CD, con restauracion
 fria en sandbox y proceso nuevos. No se ofrece SaveRAM para este perfil: eso no
-acredita persistencia de bateria, peliculas CDTV ni cambio de CD en BizHawk, aun pendientes.
+acredita persistencia de bateria ni peliculas CDTV, aun pendientes.

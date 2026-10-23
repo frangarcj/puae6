@@ -8707,6 +8707,12 @@
         "policy": "lifecycle",
         "what": "T66r5: temporary movie startup authorization, cleared on initial snapshot load or scope disposal. Contains only the fully validated projected CD32 boot identity/hash; never changes normal state identity checks or emulated bytes before LOAD."
       },
+      "_cdPending": {
+        "policy": "saved",
+        "proof": "WB03 CdtvPublicWaterboxTests: pending insertion, changed selection, cancellation, retarget and cold full future",
+        "what": "CDTV requested ordinal waiting for observed absence; -1 means none. Applied selection/presence remain separate.",
+        "state": ["CdPending"]
+      },
       "_cdOrdinal": {
         "policy": "saved",
         "proof": "WB03 Cd32CatalogCoreTests: A/B/absence, held buttons, full future and new sandbox/process",

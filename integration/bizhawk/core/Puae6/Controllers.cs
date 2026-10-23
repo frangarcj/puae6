@@ -116,7 +116,7 @@ public static class Controllers
             if ((port == 3 ? settings.ControllerPort3 : settings.ControllerPort4) == Puae6ParallelPort.Joystick)
                 foreach (var name in JoystickNames.Take(5)) controller.BoolButtons.Add(Joystick(port, name));
 		// The disk controls exist when there is something to put in a drive: drive and slot are selected first, then Eject or Insert acts on them.
-		if (mediaCount > 0 && settings.Machine != Puae6Machine.CDTV) controller.BoolButtons.AddRange(settings.Machine == Puae6Machine.CD32
+		if (mediaCount > 0) controller.BoolButtons.AddRange(settings.Machine is Puae6Machine.CD32 or Puae6Machine.CDTV
 			? [ NextSlot, EjectDisk, InsertDisk ] : [ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.
 		controller.BoolButtons.Add(Power);

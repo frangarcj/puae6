@@ -429,6 +429,16 @@ for _gate in ('LR01', 'MED01', 'STATE01', 'DET02'):
         'cd32_catalog_regression': 'tests.libretro-host.test_cd32_load.Cd32PlaylistTests.test_slots_initial_aliases_boundary_and_fixed_catalog',
         'cdtv_audio_edges_regression': 'tests.media.test_cdtv_state.CdtvMediaChangeTests.test_observed_absence_toc_audio_and_cold_restore'}
 TASK_SUITES[('ABI01', 'T67d3')] = {'cd_wire_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+TASK_SUITES[('WB03', 'T67d4')] = {
+    'public_cdtv_catalog_and_controls': 'tests.waterbox-media.test_cdtv_boot.CdtvPublicWaterboxTests',
+    'cd32_catalog_regression': 'tests.waterbox-media.test_cd_source.Cd32CatalogCoreTests',
+    'causal_wrapper_inventory': 'tests.waterbox-state.test_wrapper_inventory.WrapperInventoryTests',
+}
+TASK_SUITES[('STATE02', 'T67d4')] = {
+    'pending_fields_and_previous_version': 'tests.waterbox-media.test_cdtv_boot.CdtvPublicWaterboxTests.test_catalog_pending_insertion_controls_and_cold_restore',
+    'generic_envelope_refusals': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_states_that_are_cut_bent_oversized_empty_or_not_ours_are_refused_with_their_reason_and_nothing_changes',
+    'generic_wrapper_fields': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_a_state_with_the_right_checksum_and_fields_that_cannot_be_is_refused_before_the_sandbox_is_touched',
+}
 TASK_SUITES[('WB03', 'T67d3')] = {
     'cdtv_catalog_cold_future': 'tests.waterbox-media.test_cdtv_boot.CdtvCatalogWaterboxTests',
     'cd32_catalog_regression': 'tests.waterbox-media.test_cd_source.Cd32CatalogWaterboxTests'}

@@ -222,8 +222,9 @@ internal static unsafe partial class Program
    try { Puae6Movie.Validate(Puae6Movie.Header(core),wrong); throw new Exception("Other movie catalog/map accepted"); } catch(MovieRejectedException e) { Require(e.Reason==MovieRejection.OtherMedia); }
    Require(reads==beforeReads&&before.SequenceEqual(Save(wrong)));
   }
-  using(var raw=new MemoryStream(initial)) using(var reader=new BinaryReader(raw)) {
-   var payload=StateEnvelope.Read(reader,core.Identity); Buffer.BlockCopy(BitConverter.GetBytes(2),0,payload,Puae6Core.WrapperStateBytes-5,4);
+  foreach(bool pending in new[]{false,true}) using(var raw=new MemoryStream(initial)) using(var reader=new BinaryReader(raw)) {
+   var payload=StateEnvelope.Read(reader,core.Identity); Buffer.BlockCopy(BitConverter.GetBytes(pending?0:2),0,payload,Puae6Core.WrapperStateBytes-(pending?9:5),4);
+   if(pending) payload[Puae6Core.WrapperStateBytes-1]=0; // Even an absent CD32 cannot have a CDTV insertion pending.
    using var state=new MemoryStream(); using(var writer=new BinaryWriter(state,System.Text.Encoding.UTF8,true)) StateEnvelope.Write(writer,core.Identity,payload);
    var before=Save(core); long beforeReads=reads;
    try { Restore(core,state.ToArray()); throw new Exception("Invalid CD ordinal accepted"); } catch(StateRejectedException e) { Require(e.Reason==StateRejection.BadFields); }

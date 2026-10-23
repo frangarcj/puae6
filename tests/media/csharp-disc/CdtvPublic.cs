@@ -39,24 +39,60 @@ internal static unsafe partial class Program
    }
   CdtvRequire(found<=1); return value;
  }
- static string[] CdtvFuture(Puae6Core core,byte[] nonce,Func<long> reads)
+ static int CdtvPending(Puae6Core core) => (int)typeof(Puae6Core).GetField("_cdPending",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(core);
+ static uint[] CdtvStatus(Puae6Core core) { var words=new uint[4]; CdtvRequire(CdGuest(core).Cd.Status(CdGuest(core),words)==P6.Ok); return words; }
+ static string[] CdtvFuture(Puae6Core core,byte[] nonce,Func<long> reads,bool catalog=false)
  {
   uint before=CdtvLive(core,nonce); CdtvRequire(before>0); long count=reads(); var rows=new List<string>();
-  for(int i=0;i<16;++i) {
-   int samples=0; long ticks=core.CycleCount; var av=Run(core,1,audioObserver:(_,n)=>samples=n).Single();
+  ulong sequence=core.MediaEventsSent;
+  for(int i=0;i<(catalog?120:16);++i) {
+   var input=catalog?new CdButtons(core.ControllerDefinition,i==0?new[]{Controllers.InsertDisk,Controllers.NextSlot}:new[]{Controllers.InsertDisk}):null;
+   int samples=0; long ticks=core.CycleCount; var av=Run(core,1,input,audioObserver:(_,n)=>samples=n).Single();
    CdtvRequire(samples>0&&core.CycleCount>ticks&&core.BufferWidth>0&&core.BufferHeight>0);
    rows.Add($"{av} {core.BufferWidth} {core.BufferHeight} {core.VsyncNumerator} {core.VsyncDenominator} {core.LagCount} {core.IsLagFrame} {samples} {Hash(CdtvRam(core))}");
   }
+  if(catalog) {
+   CdtvRequire(CdtvPending(core)==-1&&CdtvStatus(core).SequenceEqual(new uint[]{2,1,1,1})&&core.MediaEventsSent==sequence+1);
+   var data=new byte[2048]; using var active=CdGuest(core).Host.EnterExit();
+   var parameters=(Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(core);
+   fixed(byte* p=data) CdtvRequire(CdGuest(core).Lib.p6w_cd_read_sector(parameters.CdCatalog[0].Leadout+5,2048,(IntPtr)p,2048)==P6.Ok);
+   CdtvRequire(data.All(b=>b==0xa5));
+  }
   CdtvRequire(CdtvLive(core,nonce)>before); rows.Add((reads()-count).ToString(System.Globalization.CultureInfo.InvariantCulture)); return rows.ToArray();
  }
- static void CdtvFixed(Puae6Core core)
+ static void CdtvCatalogEdges(Puae6Core core,byte[] cut,Func<long> reads)
+ {
+  void Buttons(params string[] names) => Run(core,1,new CdButtons(core.ControllerDefinition,names));
+  Restore(core,cut); Buttons(Controllers.EjectDisk); Run(core,120);
+  CdtvRequire(CdtvPending(core)==-1&&CdtvStatus(core).SequenceEqual(new uint[]{2,0,0,1}));
+  Restore(core,cut); Buttons(Controllers.NextSlot);
+  CdtvRequire(CdtvPending(core)==1&&CdtvStatus(core)[2]==0);
+  Buttons(Controllers.InsertDisk); CdtvRequire(CdtvPending(core)==0&&CdtvStatus(core)[2]==0);
+  Run(core,120); CdtvRequire(CdtvPending(core)==-1&&CdtvStatus(core).SequenceEqual(new uint[]{2,0,1,1}));
+  void Refuse(byte[] invalid,StateRejection reason) {
+   var before=Save(core); long count=reads();
+   try { Restore(core,invalid); throw new Exception("Invalid CDTV state accepted"); }
+   catch(StateRejectedException e) { CdtvRequire(e.Reason==reason); }
+   CdtvRequire(reads()==count&&before.SequenceEqual(Save(core)));
+  }
+  foreach(int pending in new[]{-2,2,1}) {
+   using var input=new BinaryReader(new MemoryStream(cut)); var payload=StateEnvelope.Read(input,core.Identity);
+   BitConverter.GetBytes(pending).CopyTo(payload,Puae6Core.WrapperStateBytes-9);
+   if(pending==1) payload[Puae6Core.WrapperStateBytes-1]=1; // Pending and present cannot coexist.
+   using var output=new MemoryStream(); using(var writer=new BinaryWriter(output,Encoding.UTF8,true)) StateEnvelope.Write(writer,core.Identity,payload);
+   Refuse(output.ToArray(),StateRejection.BadFields);
+  }
+  var old=cut.ToArray(); BitConverter.GetBytes(1u).CopyTo(old,4); Refuse(old,StateRejection.WrongVersion);
+ }
+ static void CdtvControls(Puae6Core core)
  {
   var started=typeof(Puae6Core).GetField("_started",BindingFlags.NonPublic|BindingFlags.Instance); bool wasStarted=(bool)started.GetValue(core);
   var before=Save(core); Func<long> reads=CdGuest(core).Cd==null?()=>0L:WatchCd(core,false); long count=reads();
   foreach(string name in new[]{Controllers.NextDrive,Controllers.NextSlot,Controllers.EjectDisk,Controllers.InsertDisk}) {
+   if(CdGuest(core).Cd!=null&&name!=Controllers.NextDrive) { CdtvRequire(core.ControllerDefinition.BoolButtons.Contains(name)); continue; }
    CdtvRequire(!core.ControllerDefinition.BoolButtons.Contains(name));
    try { core.FrameAdvance(new CdButtons(core.ControllerDefinition,name),true,true); throw new Exception("CDTV control accepted"); }
-   catch(NotSupportedException e) { CdtvRequire(e.Message.Contains("fixed initial CD")); }
+   catch(NotSupportedException e) { CdtvRequire(e.Message.Contains("CDTV")); }
    CdtvRequire(before.SequenceEqual(Save(core))&&reads()==count&&(bool)started.GetValue(core)==wasStarted);
   }
   CdtvRequire(core.CloneSaveRam(false)==null&&!core.SaveRamModified&&core.ServiceProvider.GetService<ISaveRam>()==null);
@@ -75,29 +111,37 @@ internal static unsafe partial class Program
   byte[] main=File.ReadAllBytes(args[6]),ext=File.ReadAllBytes(args[7]);
   if(args[5]=="cdtvpublicnegative") { CdtvNegatives(args,main,ext); return; }
   byte[] nonce=Convert.FromHexString(args[8]); string state=Path.Combine(work,"cdtv-public.state");
+  bool catalog=args[5].StartsWith("cdtvpubliccatalog");
   var provider=new Firmware(main,ext,false); int opened=OpenCdFile(Path.Combine(work,"original.iso"));
   using(var core=OpenCdtv(args,path,provider:provider)) {
    CdtvRequire(core.Frame==0&&core.GetSyncSettings().Machine==Puae6Machine.CDTV&&core.Identity.Machine=="CDTV");
    CdtvRequire(provider.Asked.SequenceEqual(new[]{"CDTV","CDTVext27"}));
    var captured=(Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(core);
-   CdtvRequire(captured.CdInfo.HasValue&&!captured.CdInfoV2.HasValue&&!captured.CdInfoV3.HasValue);
+   CdtvRequire(catalog ? captured.CdCatalog?.Length==2&&captured.CdSlots.SequenceEqual(new[]{0,1,0}) : captured.CdInfo.HasValue&&!captured.CdInfoV2.HasValue&&!captured.CdInfoV3.HasValue);
    CdtvRequire(core.Identity.FirmwareSha256.SequenceEqual(SHA256.HashData(ext.Concat(main).ToArray())));
-   CdtvFixed(core); var reads=WatchCd(core,false);
+   CdtvControls(core); var reads=WatchCd(core,catalog);
    Array.Fill(main,(byte)0xa5); Array.Fill(ext,(byte)0x5a); // The provider's caller no longer owns the machine's bytes.
-   if(args[5]=="cdtvpublicsave") {
+   if(args[5].EndsWith("save")) {
     uint live=0; int units=0;
     for(;units<1000&&live==0;++units) { Run(core,1); if(units%10==9) live=CdtvLive(core,nonce); }
-    CdtvRequire(live>0&&reads()>0); File.WriteAllBytes(state,Save(core));
-    File.WriteAllLines(state+".future",CdtvFuture(core,nonce,reads)); File.WriteAllBytes(state+".end",Save(core));
+    CdtvRequire(live>0&&reads()>0);
+    if(catalog) {
+     Run(core,1,new CdButtons(core.ControllerDefinition,Controllers.NextSlot)); Run(core,1);
+     ulong count=core.MediaEventsSent; Run(core,1,new CdButtons(core.ControllerDefinition,Controllers.InsertDisk));
+     CdtvRequire(CdtvPending(core)==1&&CdtvStatus(core).SequenceEqual(new uint[]{2,0,0,1})&&core.MediaEventsSent==count+1);
+    }
+    File.WriteAllBytes(state,Save(core));
+    File.WriteAllLines(state+".future",CdtvFuture(core,nonce,reads,catalog)); File.WriteAllBytes(state+".end",Save(core));
     Console.WriteLine($"Public CDTV nonce/Delay boot by unit {units}");
    }
    void Check(Puae6Core target) {
-    var count=WatchCd(target,false); Restore(target,File.ReadAllBytes(state)); CdtvRequire(Save(target).SequenceEqual(File.ReadAllBytes(state)));
-    CdtvFixed(target); CdtvRequire(CdtvFuture(target,nonce,count).SequenceEqual(File.ReadAllLines(state+".future")));
+    var count=WatchCd(target,catalog); Restore(target,File.ReadAllBytes(state)); CdtvRequire(Save(target).SequenceEqual(File.ReadAllBytes(state)));
+    CdtvControls(target); CdtvRequire(CdtvFuture(target,nonce,count,catalog).SequenceEqual(File.ReadAllLines(state+".future")));
     CdtvRequire(Save(target).SequenceEqual(File.ReadAllBytes(state+".end")));
    }
    Check(core);
-   using(var fresh=OpenCdtv(args,Path.Combine(work,"original.cue"))) { CdtvRequire(fresh.Frame==0); Check(fresh); }
+   using(var fresh=OpenCdtv(args,catalog?path:Path.Combine(work,"original.cue"))) { CdtvRequire(fresh.Frame==0); Check(fresh); }
+   if(catalog) CdtvCatalogEdges(core,File.ReadAllBytes(state),reads);
    using(var other=OpenCdtv(args,Path.Combine(work,"other.iso"))) {
     var before=Save(other); var count=WatchCd(other,false); long calls=count();
     try { Restore(other,File.ReadAllBytes(state)); throw new Exception("Other CDTV image accepted"); }
@@ -107,6 +151,7 @@ internal static unsafe partial class Program
   }
   CdtvRequire(OpenCdFile(Path.Combine(work,"original.iso"))==opened&&OpenCdFile(Path.Combine(work,"other.iso"))==0);
   Console.WriteLine("Public CDTV loader/nonce/Delay/local/new sandbox/new process/full future/identity/lease PASS");
+  if(catalog) Console.WriteLine("Public CDTV catalog/pending/held/selection/cancel/retarget/cold/fullfuture PASS");
  }
  static void CdtvNegatives(string[] args,byte[] main,byte[] ext)
  {
@@ -137,13 +182,12 @@ internal static unsafe partial class Program
    new Puae6SyncSettings { Machine=Puae6Machine.CDTV,Z3Memory=Puae6Z3Memory.MB16 }}) {
    var provider=new Firmware(main,ext,false); Refuse(path,settings,provider,"CDTV requires stock exact 68000"); CdtvRequire(provider.Asked.Count==0);
   }
-  Refuse(Path.Combine(work,"catalog.xml"),null,new Firmware(main,ext,false),"one fixed initial CD");
   using(var empty=OpenCdtv(args,null)) {
    CdtvRequire(empty.Frame==0&&empty.Identity.Machine=="CDTV"&&empty.ServiceProvider.GetService<ISaveRam>()==null);
-   CdtvFixed(empty); Run(empty,1); CdtvRequire(empty.Frame==1&&empty.CloneSaveRam()==null&&!empty.SaveRamModified);
+   CdtvControls(empty); Run(empty,1); CdtvRequire(empty.Frame==1&&empty.CloneSaveRam()==null&&!empty.SaveRamModified);
   }
   using(var core=OpenCdtv(args,path)) {
-   CdtvFixed(core); var before=Save(core);
+   CdtvControls(core); var before=Save(core);
    using var other=OpenCdtv(args,path,new Puae6SyncSettings { Machine=Puae6Machine.CDTV,RandomSeed=2 });
    var saved=Save(other); try { Restore(core,saved); throw new Exception("Other CDTV settings accepted"); }
    catch(StateRejectedException e) { CdtvRequire(e.Reason==StateRejection.OtherConfig); }

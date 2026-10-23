@@ -1848,7 +1848,8 @@ valida encabezado, modo, SaveRAM o envelope y campos del snapshot antes de Attac
 (TAS puede importar SaveRAM dentro de Attach). Solo el LOAD inicial validado puede
 adoptar esa identidad; un LOAD normal mantiene su rechazo estricto. El contexto
 se retira al cargar o salir por excepcion, sin leer la copia durable del usuario.
-El formato P6WS v1 no cambia. La compilacion EmuHawk no acredita ejecucion de su UI.
+El envelope P6WS se versiona aparte del protocolo de pelicula (version 2 desde
+T67d4). La compilacion EmuHawk no acredita ejecucion de su UI.
 
 ## CD32FR (T66r6)
 
@@ -2487,3 +2488,24 @@ sandbox, otro sandbox y proceso nuevo antes de avanzar. Verifica el ordinalB,
 datos exclusivos del segundo ISO y opens1; rebind ajeno/BUSY/argumentosinvalidos
 no mutan. La publicacion de botones y de su intencion pendiente en C# tiene
 su propia puerta posterior; este transporte no acredita peliculas ni bateria.
+
+## Cambios CDTV del wrapper publico (T67d4)
+
+El cargador CDTV acepta el catalogo inmutable de hasta 16 slots, con aliases y
+lectores por ordinal. Con contenido ofrece Next Slot, Eject e Insert; Next Drive
+y los controles sin contenido se rechazan antes de cambiar latches o started.
+Se conservan las restricciones de CPU, memoria, firmware y expansiones del perfil.
+
+El wrapper guarda CdPending por separado de CdOrdinal/CdPresent. BUSY conserva
+el ordinal solicitado sin marcar fallo, contar una aplicacion ni anunciar presencia.
+Los siguientes frames reintentan; mover la seleccion no cambia ese destino,
+un nuevo Insert lo sustituye y Eject lo cancela. Solo OK actualiza el estado aplicado.
+El campo pertenece al snapshot C#, con validacion previa: -1 o un ordinal valido,
+exclusivamente CDTV con contenido y medio ausente.
+
+El envelope Waterbox pasa a version 2 y checksum domain v2 por el nuevo layout;
+un estado version 1 se rechaza antes de interpretar el payload o tocar el sandbox.
+El ABI del guest y las peliculas conservan sus contratos propios. Esta hoja
+prueba cambio pendiente, cancelacion y nuevo destino con restauracion local,
+en otro sandbox y proceso frio, 120 unidades completas y datos exclusivos de B.
+No acredita peliculas CDTV ni exportacion persistente de su bateria.

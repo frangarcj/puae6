@@ -28,9 +28,8 @@ public sealed partial class Puae6Core
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
-		if (settings.Machine == Puae6Machine.CDTV && lp.Discs.Count > 1) throw new NotSupportedException("CDTV supports one fixed initial CD, without a catalog");
 		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
-			throw new NotSupportedException("CD32 loads 1..16 CD slots without other media");
+			throw new NotSupportedException("CD32/CDTV load 1..16 CD slots without other media");
 		var sources = new List<Puae6DiscSource>();
 		var owners = new List<IOwnedDiscAsset?>();
 		var slots = new List<int>();

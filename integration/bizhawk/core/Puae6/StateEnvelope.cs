@@ -85,11 +85,11 @@ public sealed class StateIdentity
 /// </summary>
 public static class StateEnvelope
 {
-	public const uint Version = 1;
+	public const uint Version = 2; // Wrapper layout adds the causal pending CD insertion ordinal.
 	/// <summary>A state is the dirty pages of a 40 MiB image: nothing near this; it only keeps a crafted length from allocating gigabytes.</summary>
 	public const long MaxPayloadBytes = 256L * 1024 * 1024;
 	static readonly byte[] Magic = Encoding.ASCII.GetBytes("P6WS");
-	static readonly byte[] ChecksumDomain = Encoding.ASCII.GetBytes("puae6-waterbox-state-v1\0");
+	static readonly byte[] ChecksumDomain = Encoding.ASCII.GetBytes("puae6-waterbox-state-v2\0");
 
 	public static byte[] Sha256(params byte[][] parts)
 	{

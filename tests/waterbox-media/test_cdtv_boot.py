@@ -68,10 +68,11 @@ class CdtvPublicWaterboxTests(unittest.TestCase):
         shutil.copy2(guest, base / 'dll/puae6.wbx')
         cls.work = base / 'cdtv-public'; cls.work.mkdir()
         for name, nonce in (('original', cdtv_boot_image.NONCE), ('other', bytes(b ^ 0xa5 for b in cdtv_boot_image.NONCE))):
-            (cls.work / (name + '.iso')).write_bytes(cdtv_boot_image.image(tm, nonce))
+            extra = bytes([0xa5])*(17*2048) if name == 'other' else b''
+            (cls.work / (name + '.iso')).write_bytes(cdtv_boot_image.image(tm, nonce)+extra)
         (cls.work / 'original.cue').write_text('FILE "original.iso" BINARY\n  TRACK 01 MODE1/2048\n    INDEX 01 00:00:00\n')
         (cls.work / 'original.xml').write_text('<BizHawk-XMLGame System="Amiga" Name="Original CDTV"><LoadAssets><Asset FileName="original.cue" /></LoadAssets></BizHawk-XMLGame>')
-        (cls.work / 'catalog.xml').write_text('<BizHawk-XMLGame System="Amiga" Name="CDTV catalog"><LoadAssets><Asset FileName="original.iso" /><Asset FileName="other.iso" /></LoadAssets></BizHawk-XMLGame>')
+        (cls.work / 'catalog.xml').write_text('<BizHawk-XMLGame System="Amiga" Name="CDTV catalog"><LoadAssets><Asset FileName="original.iso" /><Asset FileName="other.iso" /><Asset FileName="original.iso" /></LoadAssets></BizHawk-XMLGame>')
         cls.command = [source.DOTNET, str(output / 'Cd32Loader.dll'), str(cls.work), '', runtime['path'], str(guest), sha, '', main, ext, cdtv_boot_image.NONCE.hex()]
         cls.env = env
 
@@ -87,3 +88,7 @@ class CdtvPublicWaterboxTests(unittest.TestCase):
 
     def test_fixed_media_firmware_profiles_and_no_content(self):
         self.assertIn('firmware/profile/fixed controls/no content/identity/close PASS', self.scenario('cdtvpublicnegative', 'original.xml'))
+
+    def test_catalog_pending_insertion_controls_and_cold_restore(self):
+        for mode in ('cdtvpubliccatalogsave', 'cdtvpubliccatalogload'):
+            self.assertIn('Public CDTV catalog/pending/held/selection/cancel/retarget/cold/fullfuture PASS', self.scenario(mode, 'catalog.xml'))
