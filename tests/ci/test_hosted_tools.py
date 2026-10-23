@@ -39,6 +39,7 @@ class HostedToolsTests(unittest.TestCase):
         self.blob = self.archive(self.members)
         self.manifest = {'schema_version': 1, 'bottle_arch': 'arm64_tahoe',
             'excluded_symlinks': {},
+            'materialized_symlinks': {},
             'normalizer': {'path': 'tools/ci/normalize_homebrew.rb', 'sha256': sha(b'mock normalizer source'),
                            'ruby_source_manifest_sha256': sha((self.root / 'references/ruby-macho.manifest.json').read_bytes())},
             'archives': [{'owner': 'tool', 'slug': 'tool', 'version': '1', 'prefix': 'tool/1', 'sha256': sha(self.blob), 'bytes': len(self.blob),
@@ -83,7 +84,8 @@ class HostedToolsTests(unittest.TestCase):
 
     def test_invalid_metadata_precedes_network(self):
         original = copy.deepcopy(self.manifest)
-        for case in ('url', 'sha', 'bytes', 'prefix', 'normalizer', 'ruby', 'entrypoint', 'excluded_name', 'excluded_target', 'excluded_type'):
+        for case in ('url', 'sha', 'bytes', 'prefix', 'normalizer', 'ruby', 'entrypoint', 'excluded_name', 'excluded_target', 'excluded_type',
+                     'materialized_name', 'materialized_source', 'materialized_target', 'materialized_type', 'materialized_excluded'):
             with self.subTest(case=case):
                 self.manifest = copy.deepcopy(original)
                 if case in ('url', 'sha', 'bytes', 'prefix'):
@@ -91,6 +93,12 @@ class HostedToolsTests(unittest.TestCase):
                 elif case == 'entrypoint': self.manifest['entrypoints']['cargo'] = '../bad'
                 elif case.startswith('excluded_'):
                     self.manifest['excluded_symlinks'] = [] if case == 'excluded_type' else {'../outside' if case == 'excluded_name' else 'tool/1/etc/clang': 42 if case == 'excluded_target' else '../outside'}
+                elif case.startswith('materialized_'):
+                    name = '../outside' if case == 'materialized_name' else 'tool/1/etc/copy'
+                    self.manifest['materialized_symlinks'] = [] if case == 'materialized_type' else {name: {
+                        'target': 42 if case == 'materialized_target' else '../external',
+                        'source': '../outside' if case == 'materialized_source' else 'tool/1/lib/driver'}}
+                    if case == 'materialized_excluded': self.manifest['excluded_symlinks'] = {name: '../external'}
                 else: self.manifest['normalizer']['sha256' if case == 'normalizer' else 'ruby_source_manifest_sha256'] = '0' * 64
                 self.write_manifest()
                 with self.assertRaises((ValueError, KeyError)): h.prepare(True)
@@ -192,3 +200,38 @@ class HostedToolsTests(unittest.TestCase):
         receipt = json.loads(receipt_path.read_text()); receipt['inventory'] = h.inventory(output, True)
         receipt_path.write_text(json.dumps(receipt))
         with self.assertRaisesRegex(ValueError, 'excluded symlink present: ' + name): h.prepare()
+
+    def test_materialized_symlink_preserves_captured_resource(self):
+        name, target, source = 'tool/1/lib/rustlib/bin/rust-objcopy', '../../../../opt/other/bin/objcopy', 'other/2/bin/objcopy'
+        self.manifest['materialized_symlinks'] = {name: {'target': target, 'source': source}}
+        other = {'owner': 'other', 'slug': 'other', 'version': '2', 'prefix': 'other/2', 'notices': ['other/2/LICENSE']}
+        self.manifest['archives'].append(other)
+        self.manifest['library_directories'].append('other/2/lib')
+        for case in ('target', 'type', 'missing', 'source_missing', 'valid'):
+            with self.subTest(case=case):
+                members = list(self.members)
+                if case != 'missing':
+                    members += [(name, b'data' if case == 'type' else b'', None if case == 'type' else target + ('x' if case == 'target' else ''))]
+                self.blob = self.archive(members)
+                other_members = [('other/2/LICENSE', b'notice', None), ('other/2/lib/resource', b'resource', None)]
+                if case != 'source_missing': other_members += [(source, b'captured resource', None)]
+                other_blob = self.archive(other_members, mode=0o751)
+                for row, blob in zip(self.manifest['archives'], (self.blob, other_blob)):
+                    row.update(sha256=sha(blob), bytes=len(blob))
+                    row['url'] = 'https://ghcr.io/v2/homebrew/core/' + row['slug'] + '/blobs/sha256:' + row['sha256']
+                self.network.return_value.open.side_effect = lambda request, **kw: io.BytesIO(b'{"token":"secret"}' if isinstance(request, str) else other_blob if request.full_url == other['url'] else self.blob)
+                self.write_manifest()
+                if case != 'valid':
+                    with self.assertRaises((ValueError, FileNotFoundError)): h.prepare(True)
+                    self.assertFalse((self.root / 'build/hosted-tools').exists())
+                else:
+                    output = h.prepare(True)
+                    self.assertFalse((output / name).is_symlink())
+                    self.assertEqual((output / name).read_bytes(), (output / source).read_bytes())
+                    self.assertEqual((output / name).stat().st_mode & 0o777, 0o751)
+                    self.assertEqual(h.prepare(), output)
+        (output / name).write_bytes(b'changed')
+        receipt_path = output / 'cache.json'
+        receipt = json.loads(receipt_path.read_text()); receipt['inventory'] = h.inventory(output, True)
+        receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, 'materialized symlink mismatch: ' + name): h.prepare()
