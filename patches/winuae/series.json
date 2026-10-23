@@ -6142,6 +6142,28 @@
           "after_sha256": "5b17acb80cc9b543447bce6156912a8e291a709a7bfad4ff87198747f31d19a8"
         }
       ]
+    },
+    {
+      "id": "0416-display-owner-interlace-power-on",
+      "file": "patches/winuae/0416-display-owner-interlace-power-on.patch",
+      "sha256": "3bdac9d8cae698ea4965f4bdef5dfe2378e3bc08d71d6b74a838a6b3578aca3d",
+      "title": "Start a new display owner with clean interlace detection history",
+      "reason": "T39b: lace reloads retain prevlofs and interlace_seen from the old owner, shifting init_hz and config_changed in units1/2. A temporary read-only-linked real probe isolates prevlofs: identical BEAM reapply and clearing only interlace_seen fail, while clearing field history converges. Restore BSS zero only before custom_init on a new owner, without requesting configuration work. First-owner behavior, RESET and state_load are unchanged; REF01 retains the required bridge lifecycle hook.",
+      "category": "cold session boundary",
+      "order": 231,
+      "symbols": [
+        "p6_custom_interlace_power_on"
+      ],
+      "test": "tests/state/test_probe.py:ProbeTests.test_a_reload_gives_the_digests_of_a_clean_process_from_the_first_unit_on",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "custom.cpp",
+          "before_sha256": "65d6df9088b7c1117852b06da495183f0bb0b30decca4db693832121e9a56f9b",
+          "after_sha256": "958633ed08a0a34dde6840a01ca3d7daad43835e1ae939e1c3e2c7873e3b9e73"
+        }
+      ]
     }
   ]
 }

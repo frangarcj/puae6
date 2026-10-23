@@ -50,6 +50,7 @@ extern void p6_cia_session_begin(void);          // cia.cpp, patch 0074: the CIA
 extern void p6_input_session_begin(void);        // inputdevice.cpp, patch 0075: the counters a session of mouse input leaves behind
 extern void p6_custom_ce020_extra_set(int);      // custom.cpp 0108: a new power-on starts at sub-CCK phase zero
 extern void p6_custom_display_power_on(void);    // custom.cpp 0406: CDTV display latches begin at their BSS values
+extern void p6_custom_interlace_power_on(void);  // custom.cpp 0416: no prior owner's field history enters a new power-on
 extern void p6_disk_power_on(void);              // disk.cpp 0409: CDTV disk read shifter begins at BSS phase zero
 
 using p6_session::Guard;
@@ -159,6 +160,7 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
         p6_custom_display_power_on();
         p6_disk_power_on();
     }
+    p6_custom_interlace_power_on();
     custom_init();
     // A load is a new power-on. A clean process starts with the CPU registers and the beam at zero, but the reset head keeps
     // D0-D7/A0-A6 and lets the beam run on, so whatever the previous session left there would decide how the new one begins

@@ -1,0 +1,20 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7247,6 +7247,16 @@
+ }
+ 
+ #ifdef P6_PORTABLE
++// A new owner has not observed a field. Retaining the previous owner's lace
++// history makes check_interlace call init_hz at different first-unit boundaries,
++// re-arming the causal config_changed word. RESET and state restore retain their
++// own history; only the bridge's new power-on calls this BSS initialization.
++void p6_custom_interlace_power_on(void)
++{
++	interlace_seen = 0;
++	prevlofs[0] = prevlofs[1] = prevlofs[2] = false;
++}
++
+ // A new CDTV owner is a power-on, not RESET. These display registers and latches
+ // start at BSS zero in a fresh process; custom_reset deliberately retains them.
+ // Do not use the register writers: e.g. calcvdiw and DDFSTRT would derive a

@@ -4,6 +4,7 @@ One digest per subsystem, field by field, for what can be reached from outside t
 with the heap scribbled on (nothing hashed is an address, padding or uninitialized memory), the same after a reload as in a clean process from
 the first unit on, different when the machine is different, and honest in the inventory about what each digest sees.
 """
+import ast
 import json
 import os
 from pathlib import Path
@@ -115,16 +116,56 @@ class ProbeTests(unittest.TestCase):
     def test_what_the_inventory_says_the_probe_covers_is_in_the_probe(self):
         source = SOURCE.read_text()
         listed = set(INVENTORY["probes"]["subsystems"])
+        tasks = {t["id"]: t for t in json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]}
+        private = {
+            "cartridge-hrtmon-native": ("T69b", "HrtMonTests", "test_complete_native_state_cuts_command_return_cold_owners_and_refusals"),
+            "cartridge-ar23-native": ("T69d2", "ArStateTests", "test_complete_ar23_semantic_cold_state_and_refusals"),
+            "cartridge-ar1-native": ("T69e1", "Ar1StateTests", "test_complete_ar1_private_owner_wait_pc_cold_state_and_refusals"),
+            "cartridge-ar1200-native": ("T69f1", "Ar1200StateTests", "test_private_ar1200_owner_freeze_and_cold_state"),
+        }
+        test_path = "tests/cartridge/test_hrtmon.py"
+        tree = ast.parse((ROOT / test_path).read_text())
+        methods = {node.name: {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
+                   for node in tree.body if isinstance(node, ast.ClassDef)}
+        sys.path.insert(0, str(ROOT / "tools"))
+        import check as dispatcher
+        self.assertRegex((ROOT / "CMakeLists.txt").read_text(), r"add_executable\(p6_hrtmon_probe\s+tests/cartridge/hrtmon_probe\.cpp\b")
+        self.assertTrue((ROOT / "tests/cartridge/hrtmon_probe.cpp").is_file())
         seen = {"implemented": 0, "partial": 0, "pending": 0}
+        private_seen = set()
         for c in INVENTORY["components"]:
             probe = c["probe"]
             if probe is None:
                 continue
             seen[probe["status"]] += 1
             with self.subTest(component=c["id"]):
+                if c["id"] in private:
+                    task, cls, method = private[c["id"]]
+                    private_seen.add(c["id"])
+                    self.assertEqual(("implemented", task), (probe["status"], probe["task"]))
+                    self.assertTrue(probe["probe"].startswith("private p6_hrtmon_probe"))
+                    self.assertEqual("done", tasks[task]["status"])
+                    self.assertEqual((task, "done"), (c["proof"]["task"], c["proof"]["status"]))
+                    self.assertTrue({"STATE01", "DET02"}.issubset(c["proof"]["checks"]))
+                    self.assertTrue(c["proof"]["what"].strip())
+                    native = c["native_state"]
+                    self.assertEqual((task, "P6RM", "bridge/state.cpp", "visit_ram"),
+                                     (native["task"], native["chunk"], native["file"], native["visitor"]))
+                    self.assertTrue(native["proves"].startswith(test_path + ":" + cls))
+                    self.assertIn(method, methods[cls])
+                    endpoint = "tests.cartridge.test_hrtmon." + cls
+                    for gate in ("STATE01", "DET02"):
+                        self.assertTrue(any(route in (endpoint, endpoint + "." + method)
+                                            for route in dispatcher.TASK_SUITES[(gate, task)].values()), gate)
+                    self.assertIn("visit_ram", (ROOT / native["file"]).read_text())
+                    self.assertTrue(probe["covers"] and all(isinstance(field, str) and field.strip() for field in probe["covers"]))
+                    continue  # Dedicated full-state/future assertions; never claimed by generic ram().
                 if probe["status"] == "pending":
                     self.assertIsNone(probe["probe"])
-                    self.assertEqual("T15", probe["task"])
+                    self.assertIn(probe["task"], tasks)
+                    if c["id"] == "cdtv-controller-transport-audio":
+                        self.assertEqual("T67b2", probe["task"])
+                        self.assertEqual(probe["task"], c["native_state"]["task"])
                     self.assertTrue(probe["why"].strip())
                 else:
                     self.assertIn(probe["probe"], listed)
@@ -138,6 +179,7 @@ class ProbeTests(unittest.TestCase):
         self.assertGreater(seen["implemented"], 15)
         self.assertGreater(seen["partial"], 20)
         self.assertGreater(seen["pending"], 5)
+        self.assertEqual(set(private), private_seen)
 
 
 if __name__ == "__main__":
