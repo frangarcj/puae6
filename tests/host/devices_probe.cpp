@@ -14,11 +14,13 @@ enum : int {
 	GRAPHICS_LEAVE, SOUND_CLOSE, SOUND_UPDATE, EXPANSION_INIT, EXPANSION_CLEANUP,
 	// T29a: what exists only while a hard file is mounted
 	RTAREA_SETUP, N2A_INSTALL, RTAREA_INIT, UAERES_INSTALL, HARDFILE_INSTALL, FILESYS_INSTALL, RTAREA_RESET, N2A_RESET, TRAPS_RESET,
-	FS_PREPARE_RESET, FS_RESET, FS_START_THREADS, HARDFILE_RESET, TRAPS_FREE, FS_CLEANUP, N2A_FREE, RTAREA_FREE
+	FS_PREPARE_RESET, FS_RESET, FS_START_THREADS, HARDFILE_RESET, TRAPS_FREE, FS_CLEANUP, N2A_FREE, RTAREA_FREE,
+	DRIVE_RESET, DRIVE_FREE, AKIKO_INIT, CDA_UPDATE
 };
 static int log_events[128], log_size;
 static int last_hardreset = -1, blit_hpos = 0x7fffffff;
 static float sound_clock = -1;
+static float cda_clock = -1;
 
 static void note(int e) { assert(log_size < 128); log_events[log_size++] = e; }
 static void clear_log() { log_size = 0; }
@@ -50,6 +52,12 @@ void CIA_reset(int hard) { last_hardreset = hard; note(RESET_CIA); }
 void a1000_reset() { note(RESET_A1000); }
 void dongle_reset() { note(RESET_DONGLE); }
 void update_sound(float clk) { sound_clock = clk; note(SOUND_UPDATE); }
+void update_cda_sound(float clk) { cda_clock = clk; note(CDA_UPDATE); }
+void driveclick_reset() { note(DRIVE_RESET); }
+void driveclick_free() { note(DRIVE_FREE); }
+// Observe dispatch only: this fixture never implements a CD32 device or reports
+// initialization success. virtualdevice_init ignores the provider's result.
+int akiko_init() { assert(!currprefs.cs_cd32cd); note(AKIKO_INIT); return -1; }
 void inputdevice_close() { note(INPUT_CLOSE); }
 void DISK_free() { note(DISK_FREE); }
 void dump_counts() { note(DUMP_COUNTS); }
@@ -87,6 +95,8 @@ static void expect(const int *expected, int n)
 int main()
 {
 	virtualdevice_init();
+	assert(log_size == 1 && log_events[0] == AKIKO_INIT);
+	clear_log();
 	last_hardreset = 1;
 	device_add_check_config(callback_config); device_add_check_config(callback_config);
 	device_add_vsync_pre(callback_pre); device_add_vsync_pre(callback_pre);
@@ -110,7 +120,9 @@ int main()
 	const int rethink_expected[] = { RE_CIA, RE_CB, RE_UAE };
 	expect(rethink_expected, 3);
 	clear_log(); devices_update_sound(123.5f, 0.25f);
-	assert(log_size == 1 && log_events[0] == SOUND_UPDATE && sound_clock == 123.5f);
+	const int sound_expected[] = { SOUND_UPDATE, CDA_UPDATE };
+	expect(sound_expected, 2);
+	assert(sound_clock == 123.5f && cda_clock == 494.0f);
 
 	clear_log(); devices_reset_ext(1);
 	assert(log_size == 1 && log_events[0] == RESET_CB);
@@ -118,49 +130,51 @@ int main()
 	clear_log(); last_hardreset = 1; uae_int_requested = 0x1234;
 	devices_reset(1);
 	const int reset_expected[] = { RESET_EVENTTAB, RESET_MEMORY, RESET_DISK, RESET_CIA,
-		RESET_A1000, RESET_DONGLE };
-	expect(reset_expected, 6); assert(last_hardreset == 1 && uae_int_requested == 0);
+		RESET_A1000, DRIVE_RESET, RESET_DONGLE };
+	expect(reset_expected, 7); assert(last_hardreset == 1 && uae_int_requested == 0);
 	clear_log(); devices_reset_ext(1);
 	assert(log_size == 2 && log_events[0] == RESET_CB && log_events[1] == IMM_CB);
 	clear_log(); devices_reset_ext(1); assert(log_size == 0);
 	clear_log(); last_hardreset = 0; devices_reset(0);
 	const int soft_reset_expected[] = { RESET_EVENTTAB, RESET_MEMORY, RESET_DISK,
-		RESET_CIA, RESET_A1000, RESET_DONGLE };
-	expect(soft_reset_expected, 6);
+		RESET_CIA, RESET_A1000, DRIVE_RESET, RESET_DONGLE };
+	expect(soft_reset_expected, 7);
 	devices_reset_ext(0);
-	assert(log_size == 8 && log_events[6] == RESET_CB && log_events[7] == IMM_CB);
+	assert(log_size == 9 && log_events[7] == RESET_CB && log_events[8] == IMM_CB);
 
 	clear_log(); do_leave_program();
 	assert(log_events[0] == EARLY);
 	const int teardown_expected[] = { EARLY, INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, EXPANSION_CLEANUP,
-		STATE_FREE, MEMORY_FREE, DRAW_FREE, LATE, GRAPHICS_LEAVE, SOUND_CLOSE };
-	expect(teardown_expected, 11);
+		STATE_FREE, MEMORY_FREE, DRIVE_FREE, DRAW_FREE, LATE, GRAPHICS_LEAVE, SOUND_CLOSE };
+	expect(teardown_expected, 12);
 
 	clear_log(); virtualdevice_init();
 	devices_vsync_pre(); devices_vsync_post(); devices_hsync(); devices_rethink();
 	devices_reset_ext(1);
-	const int reinit_expected[] = { VS_AUDIO, VS_CIA, VS_INPUT, HS_DISK,
+	const int reinit_expected[] = { AKIKO_INIT, VS_AUDIO, VS_CIA, VS_INPUT, HS_DISK,
 		HS_AUDIO, HS_BLIT, RE_CIA, RE_UAE };
-	expect(reinit_expected, 8); // Re-init clears all previously registered callbacks.
+	expect(reinit_expected, 9); // Re-init clears all previously registered callbacks.
 
 	// The Fast RAM board is allocated with the machine, and only for a machine that has one.
-	clear_log(); virtualdevice_init(); assert(log_size == 0);
+	clear_log(); virtualdevice_init(); assert(log_size == 1 && log_events[0] == AKIKO_INIT);
 	currprefs.fastmem[0].size = 0x100000;
-	clear_log(); virtualdevice_init(); assert(log_size == 1 && log_events[0] == EXPANSION_INIT);
+	clear_log(); virtualdevice_init();
+	const int fast_init_expected[] = { AKIKO_INIT, EXPANSION_INIT };
+	expect(fast_init_expected, 2);
 
 	// T29a: the trap area, uaehf.device, the UAEFS board and the EXTER queue come and go with the hard file, in the order upstream has them.
 	currprefs.fastmem[0].size = 0;
 	currprefs.mountitems = 1;
 	clear_log(); virtualdevice_init();
-	const int hdf_init_expected[] = { RTAREA_SETUP, N2A_INSTALL, RTAREA_INIT, UAERES_INSTALL, HARDFILE_INSTALL, EXPANSION_INIT, FILESYS_INSTALL };
-	expect(hdf_init_expected, 7);
+	const int hdf_init_expected[] = { AKIKO_INIT, RTAREA_SETUP, N2A_INSTALL, RTAREA_INIT, UAERES_INSTALL, HARDFILE_INSTALL, EXPANSION_INIT, FILESYS_INSTALL };
+	expect(hdf_init_expected, 8);
 	clear_log(); last_hardreset = 1; devices_reset(1);
-	const int hdf_reset_expected[] = { RESET_EVENTTAB, RESET_MEMORY, RTAREA_RESET, RESET_DISK, RESET_CIA, RESET_A1000, N2A_RESET, TRAPS_RESET,
+	const int hdf_reset_expected[] = { RESET_EVENTTAB, RESET_MEMORY, RTAREA_RESET, RESET_DISK, RESET_CIA, RESET_A1000, N2A_RESET, DRIVE_RESET, TRAPS_RESET,
 		FS_PREPARE_RESET, FS_RESET, FS_START_THREADS, HARDFILE_RESET, RESET_DONGLE };
-	expect(hdf_reset_expected, 13);
+	expect(hdf_reset_expected, 14);
 	clear_log(); do_leave_program();
 	const int hdf_teardown_expected[] = { TRAPS_RESET, TRAPS_FREE, FS_CLEANUP, INPUT_CLOSE, DISK_FREE, DUMP_COUNTS, EXPANSION_CLEANUP,
-		STATE_FREE, MEMORY_FREE, N2A_FREE, RTAREA_FREE, DRAW_FREE, GRAPHICS_LEAVE, SOUND_CLOSE };
-	expect(hdf_teardown_expected, 14);
+		STATE_FREE, MEMORY_FREE, DRIVE_FREE, N2A_FREE, RTAREA_FREE, DRAW_FREE, GRAPHICS_LEAVE, SOUND_CLOSE };
+	expect(hdf_teardown_expected, 15);
 	currprefs.mountitems = 0;
 }

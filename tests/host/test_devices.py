@@ -21,7 +21,7 @@ class DeviceTests(unittest.TestCase):
                               text=True, capture_output=True, check=True).stdout
         for excluded in ("threaddep/thread.h", "statusline.h", "bsdsocket.h", "windows.h"):
             self.assertNotIn(excluded, deps)
-        # Every retained provider has an A500 hardware or cleanup role. This
+        # Every retained provider has a hardware, presentation or cleanup role. This
         # checks the WHOLE object, independent of the instrumented test link.
         required = set("""DISK_hsync DISK_reset a1000_reset audio_hsync audio_vsync
             close_sound dump_counts dongle_reset drawing_free memory_reset rethink_cias
@@ -32,8 +32,9 @@ class DeviceTests(unittest.TestCase):
             uae_int_requested expansion_init expansion_cleanup currprefs
             rtarea_setup native2amiga_install rtarea_init uaeres_install hardfile_install filesys_install rtarea_reset native2amiga_reset
             reset_traps filesys_prepare_reset filesys_reset filesys_start_threads hardfile_reset free_traps filesys_cleanup
-            native2amiga_free rtarea_free""".split())
-        with tempfile.TemporaryDirectory(prefix="p6-devices-") as tmp:
+            native2amiga_free rtarea_free driveclick_reset driveclick_free
+            akiko_init update_cda_sound""".split())
+        with tempfile.TemporaryDirectory(prefix="p6-devices-", dir=ROOT / "build") as tmp:
             obj, exe = Path(tmp) / "devices.o", Path(tmp) / "probe"
             for optimization in ("-O0", "-O2"):
                 subprocess.run([*common, optimization, "-c", str(tree / "devices.cpp"),

@@ -17,7 +17,7 @@ class ExpansionSourceTests(unittest.TestCase):
         common = ["clang++", "-std=c++17", "-UNDEBUG",
                   "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "build/generated"),
                   "-I" + str(tree / "include"), "-I" + str(tree)]
-        with tempfile.TemporaryDirectory(prefix="p6-expansion-source-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-expansion-source-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             for optimization in ("-O0", "-O2"):
                 obj, deps = tmp / "expansion.o", tmp / "expansion.d"
@@ -33,8 +33,9 @@ class ExpansionSourceTests(unittest.TestCase):
                                  "expansion_autoconfig_move", "expansion_cpu_fallback"):
                     self.assertIn(required, symbols)
                 self.assertIn("snprintf", imports)
+                self.assertIn("cdtv_init", imports)
                 for forbidden in ("_stprintf", "uae_sem_", "uae_start_thread", "sleep_millis",
-                                  "target_ethernet_enumerate", "gvp_init", "cdtv_init",
+                                  "target_ethernet_enumerate", "gvp_init",
                                   "a2091_init", "expamem_init_filesys"):
                     self.assertNotIn(forbidden, imports)
                 content = deps.read_text()
@@ -44,7 +45,9 @@ class ExpansionSourceTests(unittest.TestCase):
                 self.assertNotIn("od-win32", content.replace(allowed, ""))
 
     def test_actual_catalog_and_bounded_device_lookup(self):
-        # The catalog the profile ships holds one board, the IDE port of Gayle (T56); the lookups are also tried on an empty catalog and on one with two entries.
+        # Keep the real Gayle/CDTV table intact and also exercise synthetic
+        # catalogs of zero, one and two entries for bounded lookups.
+        ensure_generated()
         tree = ROOT / "build/upstream"
         expansion = (tree / "expansion.cpp").read_text()
         rommgr = (tree / "rommgr.cpp").read_text()
@@ -58,22 +61,22 @@ class ExpansionSourceTests(unittest.TestCase):
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-fsanitize=address,undefined",
                   "-fno-sanitize-recover=all", "-I" + str(ROOT / "ports/portable"),
                   "-I" + str(tree / "include"), "-I" + str(tree)]
-        with tempfile.TemporaryDirectory(prefix="p6-expansion-catalog-") as directory:
+        with tempfile.TemporaryDirectory(prefix="p6-expansion-catalog-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             src, exe = tmp / "catalog.cpp", tmp / "probe"
-            for entries in (0, 1, 2):
+            for actual, entries in ((True, 2), (False, 0), (False, 1), (False, 2)):
                 data = catalog
-                if entries == 0:
-                    data = catalog[:table] + "const struct expansionromtype expansionroms[] = { { NULL } };" + catalog[table_end:]
-                elif entries == 2:
-                    data = catalog[:table] + 'const struct expansionromtype expansionroms[] = { { "one" }, { "two" }, { NULL } };' + catalog[table_end:]
+                if not actual:
+                    names = ''.join('{ "' + name + '" }, ' for name in ('one', 'two')[:entries])
+                    data = catalog[:table] + 'const struct expansionromtype expansionroms[] = { ' + names + '{ NULL } };' + catalog[table_end:]
                 src.write_text('#include "sysconfig.h"\n#include "sysdeps.h"\n'
                     '#include "options.h"\n#include "memory.h"\n#include "autoconf.h"\n'
-                    '#include "rommgr.h"\n#include "filesys.h"\n#include "gayle.h"\n#include <cassert>\n'
+                    '#include "rommgr.h"\n#include "filesys.h"\n#include "gayle.h"\n#include "cdtv.h"\n#include <cassert>\n'
                     'static int warnings; static void cfgfile_warning(const TCHAR *, ...) { ++warnings; }\n'
-                    # the shipped table names the two functions of Gayle's IDE; the probe never calls them
-                    'bool gayle_ide_init(struct autoconfig_info*) { return false; }\n'
-                    'void gayle_add_ide_unit(int, struct uaedev_config_info*, struct romconfig*) {}\n'
+                    # The catalog names providers; invoking any is outside this lookup probe.
+                    'bool gayle_ide_init(struct autoconfig_info*) { abort(); }\n'
+                    'void gayle_add_ide_unit(int, struct uaedev_config_info*, struct romconfig*) { abort(); }\n'
+                    'bool cdtv_init(struct autoconfig_info*) { abort(); }\n'
                     + data + queries + exporter + '''
 int main() {
     static uae_prefs p{};
@@ -85,6 +88,8 @@ int main() {
     assert(!cpuboards[0].subtypes[0].name && !cpuboards[0].subtypes[0].init);
     assert(!cpuboards[1].name);
     assert(!get_unit_expansion_rom(-1) && !get_unit_expansion_rom(0x7fffffff));
+    for (int index=0; index<ENTRIES; ++index) assert(expansionroms[index].name);
+    assert(!expansionroms[ENTRIES].name);
     const int ranges[][2] = {
         {HD_CONTROLLER_TYPE_SCSI_EXPANSION_FIRST, HD_CONTROLLER_TYPE_SCSI_LAST},
         {HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST, HD_CONTROLLER_TYPE_IDE_LAST},
@@ -99,17 +104,21 @@ int main() {
         assert(!get_device_expansion_rom(ROMTYPE_CPUBOARD));
         assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
     }
-    if (ENTRIES == 1) {
-        // the IDE port of Gayle is the only board: found by its type, by the number of its controller, and nothing else is
-        assert(expansionroms[0].name && !expansionroms[1].name);
+    if (ACTUAL) {
+        assert(ENTRIES == 2);
+        assert(!strcmp(expansionroms[0].name, "ide_mb"));
+        assert(!strcmp(expansionroms[1].name, "cdtvdmac"));
+        assert(expansionroms[0].init == gayle_ide_init);
+        assert(expansionroms[1].init == cdtv_init);
         assert(get_device_expansion_rom(ROMTYPE_MB_IDE) == &expansionroms[0]);
+        assert(get_device_expansion_rom(ROMTYPE_CDTVDMAC) == &expansionroms[1]);
         assert(get_unit_expansion_rom(HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST) == &expansionroms[0]);
         assert(!get_device_expansion_rom(ROMTYPE_CPUBOARD));
         assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
         assert(!get_device_expansion_rom(ROMTYPE_MB_PCMCIA));
     }
 }
-'''.replace("ENTRIES", str(entries)))
+'''.replace("ENTRIES", str(entries)).replace("ACTUAL", str(int(actual))))
                 for optimization in ("-O0", "-O2"):
                     subprocess.run([*common, optimization, str(src), "-o", str(exe)],
                                    check=True, timeout=60)
