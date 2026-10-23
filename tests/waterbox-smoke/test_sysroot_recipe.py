@@ -56,6 +56,7 @@ class SysrootRecipeTests(unittest.TestCase):
         self.output = self.root / 'build/candidate'
         self.calls = []
         original = recipe.command
+        self.raw_command = original
         def compiler_mock(args, *, build=False):
             self.calls.append(args)
             if args[0] == 'git': return original(args, build=build)
@@ -167,3 +168,11 @@ class SysrootRecipeTests(unittest.TestCase):
         with mock.patch.dict(recipe.os.environ, {'GIT_NO_LAZY_FETCH': '0'}):
             with mock.patch.object(sources, 'git', side_effect=offline): recipe.llvm_capture(self.llvm)
             self.assertEqual('0', recipe.os.environ['GIT_NO_LAZY_FETCH'])
+
+    def test_command_timeouts_are_blocked_for_preflight_and_failed_for_build(self):
+        for build, seconds, error in ((False, 180, recipe.Blocked), (True, 28800, recipe.Failed)):
+            with self.subTest(build=build), mock.patch.object(recipe.subprocess, 'run',
+                    side_effect=subprocess.TimeoutExpired('compiler-mock', seconds)) as run:
+                with self.assertRaisesRegex(error, f'timeout after {seconds}s'):
+                    self.raw_command(['compiler-mock'], build=build)
+                self.assertEqual(seconds, run.call_args.kwargs['timeout'])

@@ -77,8 +77,11 @@ class Failed(RuntimeError):
 
 
 def command(args, *, build=False):
-    p = subprocess.run(args, text=True, stdout=None if build else subprocess.PIPE,
-                       stderr=None if build else subprocess.PIPE)
+    try:
+        p = subprocess.run(args, text=True, stdout=None if build else subprocess.PIPE,
+                           stderr=None if build else subprocess.PIPE, timeout=28800 if build else 180)
+    except subprocess.TimeoutExpired as error:
+        raise (Failed if build else Blocked)(f"command timeout after {error.timeout}s: {args[:4]}") from error
     if p.returncode:
         raise (Failed if build else Blocked)(f"command failed ({p.returncode}): {args[:4]} " + (p.stderr or '')[-1000:])
     return p.stdout
