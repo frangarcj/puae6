@@ -20837,7 +20837,9 @@
         "T69f1",
         "T69f2",
         "T69g1",
-        "T69g2"
+        "T69g2",
+        "T69g3a",
+        "T69g3b"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22359,6 +22361,114 @@
         "Los cuatro modelos pueden inicializarse por el nuevo export en Waterbox ARM64 real conservando layout v1, propiedad de ROM, rollback y snapshots frios completos con Freeze por nivel; los gates dirigidos pasan sin duplicar codec o scheduler."
       ],
       "stop": "No cerrar por build o ejecucion nativa; no ampliar ABI v1 ni copiar ROM extra en sealed, introducir observadores artificiales o anunciar UI/movies comerciales sin su puerta."
+    },
+    {
+      "id": "T69g3a",
+      "title": "Ofrecer Action Replay por firmware y SyncSettings de BizHawk con identidad y restauracion fria",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T69g2",
+        "T69g1"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "config/schema/options.json",
+        "tools/generate_options.py",
+        "tests/config/test_parity.py",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/Puae6/Volumes.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "integration/bizhawk/patches/0022-action-replay-firmware.patch",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "tests/bizhawk-movies/CartridgeMovies.cs",
+        "tests/bizhawk-movies/MediaMovies.csproj",
+        "tests/bizhawk-movies/test_media_start.py",
+        "docs/03-waterbox.md",
+        "config/schema/options_table.generated.json",
+        "adapters/libretro/options_generated.h",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close implementa aislado desde8bda9aff; root metadata/docs/dispatcher e integra. Vertical atomica330-390lineas manuales, avisar antes400. Excepcion de quince rutas manuales justificada por schema+generador, proveedor real, ambos Resolve que copian parametros y harness de BizHawk: omitirlos pierde identidad/propiedad o paridad. Dos outputs solo mediante generador. Sin motor/guest ni nuevas medidas; root serializa compilaciones managed reales j2.",
+        "Conservar Disabled0/HrtMon2, ofrecer AR1/2/3/1200 como extras3/4/5/6 en schema/wrapper y mapear explicitamente modelos1/2/3/1200 al nuevo export. Nunca OR de extraID en config.flags; canonicalflags siguen0/1/2/3. Freezelevel disponible con cualquiera habilitado, sin historia frontend duplicada. Validar stock A500/68000 exact/compatible o stock A1200/EC020 segun binder publico, sin cambiar preferencias silenciosamente. HRTMon mantiene contrato anterior.",
+        "Puae6Parameters.CartridgeFirmware por bytes, clonado y preservado por WhdLoad.Resolve, Volumes.Resolve y _parameters/reinicio. FirmwareDatabase en patch0022 del pin incorpora hashes autorizados ya reconocidos upstream, sin ROMs versionadas. Constructor CoreLoadParameters pide por proveedor solo modelo elegido tras resolver configuracion, no path arbitrario ni descargas. Errores desconocido/perfil/tamano/ausente explicitos antes de abrir guest cuando la comprobacion es managed.",
+        "Identidad incluye modelo y SHA256 de bytes reales, conserva default/off y HRTMon; envelope rechaza firmware/modelo/config distintos antes de tocar sandbox. CallerROM puede mutarse tras constructor sin afectar propietario ni identidad. StoreSaveRam antes primer frame con HDF valido reconstruye guest preservando cartucho; AR exige flags0, no usar FloppyWrites para forzar escenario.",
+        "Gate GEN01/STATE01/BUILD01: schema/generacion/paridad y ActionReplayManagedConfigTests.test_public_models_provider_flags_identity_and_preflight, construccion real net48 del pin y arnes managed con proveedor real/constructor CoreLoadParameters. Root ejecuta union una vez, agente solo sintaxis y tests ligeros. Mantener negativos de enums/perfil y pruebas HRTMon existentes, sin relajar esperados.",
+        "Gate WB03/WB04/WB15: ActionReplayWrapperTests.test_public_cartridges_held_state_cold_and_saveram_reboot usa images(model) propio de G2 sin editarlo; cuatro modelos, un corte held por modelo, nuevo proceso/core/sandbox inicializado y sellado antes primer frame, futuro5 AV/PCM/ticks/Chip/fullsnapshot exactos y release/rearm. No repetir dos cortes/futuro15 de transporte ni16medidas de memoria. Temporales solo build y limpieza al terminar.",
+        "Firmware comercial real y BK2/TAS/seek conservados en T69g3b; no cerrar padre con fixture propio ni compilacion. Si dos intentos razonados no resuelven mismo fallo, preservar reproducer y dos hipotesis verificables, blocked y otro frente independiente."
+      ],
+      "checks": [
+        "GEN01",
+        "STATE01",
+        "BUILD01",
+        "WB03",
+        "WB04",
+        "WB15"
+      ],
+      "acceptance": [
+        "BizHawk ofrece los cuatro Action Replay por proveedor/SyncSetting reboot con flags canonicos y perfil valido, copia de firmware e identidad completa. Wrapper real ejecuta fixtures de los cuatro modelos y restaura held en proceso nuevo con futuro completo corto; reconstruccion StoreSaveRam preserva cartucho. Puertas dirigidas pasan sin reconstruir guest ni reejecutar transporte."
+      ],
+      "stop": "No acreditar firmware comercial o peliculas con fixtures; no modificar MacHawk, enum HrtMon2, ABI/layout, presupuestos ni codecs. No cerrar por build."
+    },
+    {
+      "id": "T69g3b",
+      "title": "Cerrar Action Replay publico en BizHawk con ROMs autorizadas y peliculas BK2/TAS",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T69g3a"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0008-media-identity.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "tests/bizhawk-movies/CartridgeMovies.cs",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "tests/bizhawk-movies/test_media_start.py",
+        "docs/03-waterbox.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Usar las cuatro ROMs Action Replay y Kickstart autorizadas ya locales, nunca subirlas ni descargarlas otra vez. Reutilizar wrapper publico/proveedor y helpers G3a con guest consolidado vigente, sin build guest ni repetir16medidas.",
+        "Un escenario real por modelo une arranque/Freeze, comando causal propio de monitor, held/release/rearm y snapshot frio con futuro AV/PCM/ticks/RAM completo. Reutilizar contratos de comandos/esperas ya demostrados por native/libretro; no asumir READY por pantalla ni timeout ciego.",
+        "BK2 y TAS con Freeze grabado por nivel reproducen y hacen seek tras corte held en proceso nuevo; identidad modelo/SHA/config rechaza otro cartucho antes de LoadSnapshot. Elegir cortes/unidades por señal causal y reutilizar salidas compartidas, no repetir cada campaña por etiqueta de check. Mantener HRTMon ya probado y puerta propia nueva de cartuchos.",
+        "Conectar WB03/WB04/WB09 a selectores reales unicos, root ejecuta union una vez y valida plan. Tras dos intentos razonados sin resolver mismo fallo, reproducer y dos hipotesis en ficha y bloqueo explicito. No informes historicos: temporales en build eliminados."
+      ],
+      "checks": [
+        "WB03",
+        "WB04",
+        "WB09"
+      ],
+      "acceptance": [
+        "Los cuatro Action Replay comerciales autorizados funcionan desde el wrapper publico con Freeze causal y futuro identico tras restaurar snapshot, replay BK2/TAS y seek en proceso nuevo. Identidad/propiedad son estrictas y no se modifica el checkout MacHawk."
+      ],
+      "stop": "No cerrar con solo fixture, imagen del monitor, build o estado nativo. Sin assets comerciales en Git ni compatibilidad entre builds."
     }
   ],
   "max_in_progress": 4
