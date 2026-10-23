@@ -763,6 +763,15 @@ TASK_SUITES[('ABI01', 'T69g2')] = {
 for _gate in ('WB03', 'WB04', 'WB15'):
     TASK_SUITES[(_gate, 'T69g2')] = {
         'cartridge_transport': 'tests.waterbox-state.test_cartridge_transport.CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state'}
+TASK_SUITES[('GEN01', 'T69g3a')] = {
+    'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity',
+    'managed_cartridges': 'tests.bizhawk-movies.test_media_start.ActionReplayManagedConfigTests.test_public_models_provider_flags_identity_and_preflight'}
+for _gate in ('STATE01', 'BUILD01'):
+    TASK_SUITES[(_gate, 'T69g3a')] = {
+        'managed_cartridges': 'tests.bizhawk-movies.test_media_start.ActionReplayManagedConfigTests.test_public_models_provider_flags_identity_and_preflight'}
+for _gate in ('WB03', 'WB04', 'WB15'):
+    TASK_SUITES[(_gate, 'T69g3a')] = {
+        'public_cartridge_restore': 'tests.bizhawk-movies.test_media_start.ActionReplayWrapperTests.test_public_cartridges_held_state_cold_and_saveram_reboot'}
 
 TASK_SUITES[('GEN01', 'T69c4')] = {'schema': 'tests.config.test_schema', 'frontend_parity': 'tests.config.test_parity'}
 TASK_SUITES[('STATE01', 'T69c4')] = {'managed_hrtmon_config': 'tests.bizhawk-movies.test_media_start.HrtMonManagedConfigTests'}

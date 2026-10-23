@@ -22369,7 +22369,7 @@
       "title": "Ofrecer Action Replay por firmware y SyncSettings de BizHawk con identidad y restauracion fria",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69g2",
         "T69g1"
@@ -22413,7 +22413,8 @@
         "Identidad incluye modelo y SHA256 de bytes reales, conserva default/off y HRTMon; envelope rechaza firmware/modelo/config distintos antes de tocar sandbox. CallerROM puede mutarse tras constructor sin afectar propietario ni identidad. StoreSaveRam antes primer frame con HDF valido reconstruye guest preservando cartucho; AR exige flags0, no usar FloppyWrites para forzar escenario.",
         "Gate GEN01/STATE01/BUILD01: schema/generacion/paridad y ActionReplayManagedConfigTests.test_public_models_provider_flags_identity_and_preflight, construccion real net48 del pin y arnes managed con proveedor real/constructor CoreLoadParameters. Root ejecuta union una vez, agente solo sintaxis y tests ligeros. Mantener negativos de enums/perfil y pruebas HRTMon existentes, sin relajar esperados.",
         "Gate WB03/WB04/WB15: ActionReplayWrapperTests.test_public_cartridges_held_state_cold_and_saveram_reboot usa images(model) propio de G2 sin editarlo; cuatro modelos, un corte held por modelo, nuevo proceso/core/sandbox inicializado y sellado antes primer frame, futuro5 AV/PCM/ticks/Chip/fullsnapshot exactos y release/rearm. No repetir dos cortes/futuro15 de transporte ni16medidas de memoria. Temporales solo build y limpieza al terminar.",
-        "Firmware comercial real y BK2/TAS/seek conservados en T69g3b; no cerrar padre con fixture propio ni compilacion. Si dos intentos razonados no resuelven mismo fallo, preservar reproducer y dos hipotesis verificables, blocked y otro frente independiente."
+        "Firmware comercial real y BK2/TAS/seek conservados en T69g3b; no cerrar padre con fixture propio ni compilacion. Si dos intentos razonados no resuelven mismo fallo, preservar reproducer y dos hipotesis verificables, blocked y otro frente independiente.",
+        "Integrado d38e0c76 como cfe23b70,14rutasmanuales+tabla regenerada yheaderbyteidentico. GEN/schema/paridad67PASS y20parchesaplican/revierten. Root compilo targetBizHawknet48realj2 y corrigio solo asignacionIReadOnlyList en harness, sinbuildguest. Union3selectores managedconfig/wrapper/HRTconfig PASS: cuatrofixtures, stock/profile/firmware/flags/negativos anteshost, copiaCaller, proveedorreal, StoreSaveRam HDF, held/future5/fullsnapshot y writer/reader procesosnuevos; HRTMon conserva contrato. Guest2c6c/runtimeReleaseactual sin16medidasrepetidas. T69g3b conserva firmwarecomercial/BK2/TAS, padre siguepending."
       ],
       "checks": [
         "GEN01",

@@ -661,6 +661,29 @@ del sandbox, con RAM, mapas y controles del cartucho; no se usa el codec nativo
 como sustituto de la restauracion Waterbox. El test dedicado usa programas
 propios y compara continuacion y snapshot completo en otro proceso.
 
-Este transporte no agrega aun modelos AR a los SyncSettings, al proveedor de
-firmware de EmuHawk ni a la identidad de peliculas. Esas conexiones conservan
-su puerta con firmware comercial autorizado y BK2/TAS.
+La conexion publica de SyncSettings, proveedor de firmware e identidad del
+wrapper corresponde a T69g3a; la puerta comercial con BK2/TAS es T69g3b.
+
+## Action Replay en el wrapper publico (T69g3a)
+
+`Cartridge` es una opcion de reinicio: Disabled=0 y HrtMon=2 conservan su valor;
+Ar1=3, Ar2=4, Ar3=5 y Ar1200=6 son selecciones del frontend. Se traducen a los
+modelos 1/2/3/1200 del binder, nunca a bits de `p6_config.flags`. Los flags
+canonicos siguen siendo escritura=1 y HRTMon=2. Cada cartucho habilitado agrega
+el boton Freeze por nivel al controlador.
+
+AR1/2/3 requieren A500 con memoria y reloj de serie, 68000 exacto o compatible;
+AR1200 requiere A1200/68EC020 de serie. Las restricciones del binder se validan
+antes de abrir el guest, sin cambiar la maquina elegida. El proveedor de
+EmuHawk pide la entrada Amiga AR1, AR2, AR3 o AR1200 correspondiente; los bytes
+comerciales los aporta el usuario y no se distribuyen con el core.
+
+`CartridgeFirmware` se conserva al resolver WHDLoad y volumenes y se copia al
+propietario del core. Un reinicio del sandbox por StoreSaveRam conserva el
+cartucho. El modelo y SHA256 de sus bytes forman parte de la identidad del
+estado; el envelope rechaza otro cartucho antes de cargar el snapshot.
+
+La prueba dirigida del wrapper reutiliza los programas propios de T69g2:
+un corte held por modelo, restauracion en proceso nuevo y cinco unidades de
+futuro con AV/PCM/ticks/Chip y snapshot completo. Esta puerta no sustituye
+la prueba comercial de comandos, BK2/TAS y seek de T69g3b.

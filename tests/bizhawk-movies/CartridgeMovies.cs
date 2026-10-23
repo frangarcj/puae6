@@ -50,7 +50,7 @@ internal static unsafe partial class Program
      [3]="5D4987C2E3FFEA8B1B02E31430EF190F2DB76542",[1200]="0F6AB8342810094AC0642F62BA42F78BC0B07E6A" };
     var option=FirmwareDatabase.FirmwareOptions.Single(o=>o.ID==new FirmwareID("Amiga","AR"+model));
     Require(option.Hash==sha[model] && option.Size==raw.Length && option.Status==FirmwareOptionStatus.Ideal,"registered recognized raw firmware");
-    var twice=Puae6WhdLoad.Resolve(Puae6WhdLoad.Resolve(p)); twice.Volumes.Add(Read(args[1],"volume.zip"));
+    var twice=Puae6WhdLoad.Resolve(Puae6WhdLoad.Resolve(p)); twice.Volumes=[Read(args[1],"volume.zip")];
     Require(Puae6Volumes.Resolve(twice).CartridgeFirmware.SequenceEqual(raw),"both Resolve copies retain firmware");
     foreach(int bad in Enumerable.Range(0,15)) {
      var s=p.SyncSettings.Clone(); byte[] image=raw;
