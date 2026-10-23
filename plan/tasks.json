@@ -19472,8 +19472,7 @@
       "depends": [
         "T67c3b",
         "T67c3c",
-        "T66w4",
-        "T69"
+        "T66w4"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -19508,7 +19507,7 @@
         "tests/test_plan.py"
       ],
       "steps": [
-        "cd32_close responsable en worktree aislado darwin-host-states desde main5a0f98c1; root metadata, dispatcher, contratos e integracion. Vertical atomica excepcional de unas320..380lineas manuales en rutas enumeradas: enum/modelo no publicable antes de constructor, proveedor, guards y puerta real. Dos salidas del esquema solo mediante generador. Dividir antes de superar400; no compilar guest ni ejecutar baterias por agente, root serializa builds-j2.",
+        "cd32_close responsable en worktree aislado darwin-host-states desde main5a0f98c1; root metadata, dispatcher, contratos e integracion. Vertical atomica excepcional de unas320..380lineas manuales en rutas enumeradas: enum/modelo no publicable antes de constructor, proveedor, guards y puerta real. Dos salidas del esquema solo mediante generador. Dividir antes de superar400; no compilar guest ni ejecutar baterias por agente, root serializa builds-j2. T69 ya integrado se conserva como regresion de guards, sin convertir todas sus hojas opcionales en prerrequisito de release; las dependencias requeridas de esta vertical son c3b/c3c/T66w4.",
         "CDTV explicito en SyncSettings, ABI10 sin cambiar ordinales existentes; perfil68000Exact/Chip1MiB/sin disquetes, expansiones, cartucho o SaveRAM ficticia. ParametersFrom conserva CDTV en vez de forzarCD32. CD inicial fijo o sincontenido, sin deducir modelo porPVD/Q ni modificarRomLoader. Publicar wrapper:true solo con la misma vertical completa.",
         "Proveedor firmware nuevo Amiga/CDTV paraKS1.3ID6 y Amiga/CDTVext27 paraEXT2.7ID22,256KiB cada una, EXT+MAIN copiados. Patch0017 reservado; conservar el CDTVext legacy y su Ideal1.0. Validar cada parte, identidad y negativos; no descargar/publicar ROM.",
         "Rechazar catalogo y controles CDTV Next/Eject/Insert antes de BuildInput y _started para conservar latches y snapshot. Ocultar controles de cambio. Transporte V1 guest existente trasSeal; no tocar guest, Akiko, codec o runtime. Cambio, persistencia de bateria y peliculas CDTV conservan puertas posteriores explicitas.",

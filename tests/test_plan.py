@@ -76,7 +76,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(["T67c2", "T15", "T66t14", "T67c3a1", "T67c3a2"], by_id["T67c3a"]["depends"])
         self.assertIn("T67c3a", by_id["T67"]["depends"])
         self.assertIn("T67c3c", by_id["T67"]["depends"])
-        self.assertEqual(["T67c3b", "T67c3c", "T66w4", "T69"], by_id["T67c3e"]["depends"])
+        self.assertEqual(["T67c3b", "T67c3c", "T66w4"], by_id["T67c3e"]["depends"])
         self.assertEqual(["T67b2", "T67c2", "T67c3a", "T66m7"], by_id["T67d1"]["depends"])
         self.assertIn("T67c3e", by_id["T67"]["depends"])
         self.assertIn("T67d1", by_id["T67"]["depends"])
