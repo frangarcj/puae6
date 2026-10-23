@@ -15,6 +15,7 @@ TOOL = ROOT / "tools" / "build_waterbox.py"
 sys.path.insert(0, str(TOOL.parent))
 import build_waterbox  # noqa: E402
 import import_sources  # noqa: E402
+from ci import hosted_environment as hosted_loader  # noqa: E402
 
 
 def elf64(loads, machine=183, elf_class=2, elf_type=2):
@@ -163,6 +164,7 @@ class ToolPathsTests(unittest.TestCase):
         self.enterContext(mock.patch.dict(build_waterbox.os.environ))
         build_waterbox.os.environ.pop(build_waterbox.TOOLS_FILE_ENV, None)
         build_waterbox.os.environ.pop(build_waterbox.TOOLCHAIN_PROFILE_ENV, None)
+        build_waterbox.os.environ.pop(hosted_loader.SELECTOR, None)
         def execute(args, **kwargs):
             if args[1] == '-print-prog-name=ld.lld': output = str(self.linker) + '\n'
             else:
@@ -245,6 +247,51 @@ class ToolPathsTests(unittest.TestCase):
         with self.assertRaisesRegex(build_waterbox.BuildError, 'versión de rustc'): build_waterbox.locked_tools(self.lock)
         self.bad_version = None; self.linker = self.defaults['lld']
         with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
+
+
+class HostedLoaderIntegrationTests(unittest.TestCase):
+    """Real SHA/path plumbing; hosted loader and all tool processes mocked."""
+    setUp = ToolPathsTests.setUp
+
+    def test_default_version_calls_and_raw_linker_environment_remain_identical(self):
+        paths, _ = build_waterbox.locked_tools(self.lock)
+        self.assertEqual(self.defaults, paths)
+        for name, call in zip(build_waterbox.TOOL_NAMES, self.run.call_args_list[:5]):
+            self.assertEqual([str(self.defaults[name]), '--version'], call.args[0])
+            self.assertEqual({'check': True, 'text': True, 'stdout': subprocess.PIPE,
+                              'stderr': subprocess.STDOUT}, call.kwargs)
+        expected = {**build_waterbox.os.environ, 'PATH': build_waterbox.os.pathsep.join(
+            [str(self.defaults[n].parent) for n in build_waterbox.TOOL_NAMES] + [build_waterbox.os.environ.get('PATH', '')])}
+        self.assertEqual(expected, self.run.call_args.kwargs['env'])
+
+    def test_hosted_versions_use_direct_env_but_linker_checks_raw_identity(self):
+        launch = self.root / 'build/launchers'; launch.mkdir(parents=True)
+        direct = {**build_waterbox.os.environ, 'DYLD_LIBRARY_PATH': '/verified/lib'}
+        selection = {'direct_env': direct, 'tool_env': {**direct, 'PATH': str(launch)},
+                     'launchers': {'clang': launch / 'clang'}, 'shell_exports': 'export DYLD_LIBRARY_PATH=/verified/lib\n'}
+        before = json.dumps(self.lock, sort_keys=True)
+        with mock.patch.object(hosted_loader, 'select', return_value=selection) as select:
+            paths, _ = build_waterbox.locked_tools(self.lock)
+            select.assert_called_once_with(self.defaults)
+            self.assertEqual(self.defaults, paths)
+            for name, call in zip(build_waterbox.TOOL_NAMES, self.run.call_args_list[:5]):
+                self.assertEqual([str(self.defaults[name]), '--version'], call.args[0])
+                self.assertEqual(direct, call.kwargs['env'])
+            linker = self.run.call_args
+            self.assertEqual([str(self.defaults['clang']), '-print-prog-name=ld.lld'], linker.args[0])
+            self.assertEqual('/verified/lib', linker.kwargs['env']['DYLD_LIBRARY_PATH'])
+            self.assertNotEqual(str(launch), linker.kwargs['env']['PATH'].split(build_waterbox.os.pathsep)[0])
+            foreign = launch / 'ld.lld'; foreign.write_text('own launcher fixture')
+            self.linker = foreign
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+
+    def test_hosted_verification_failure_is_builder_error_before_any_tool_process(self):
+        for error in (ValueError('invalid cache'), OSError('missing cache')):
+            with mock.patch.object(hosted_loader, 'select', side_effect=error):
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'entorno de herramientas hosted'):
+                    build_waterbox.locked_tools(self.lock)
+                self.run.assert_not_called()
 
 
 class ToolchainProfileTests(unittest.TestCase):
@@ -439,6 +486,7 @@ class SourceAuditTests(unittest.TestCase):
 
     def setUp(self):
         self.enterContext(mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'checkout', build_waterbox.TOOLCHAIN_PROFILE_ENV: 'local'}))
+        build_waterbox.os.environ.pop(hosted_loader.SELECTOR, None)
         (ROOT / 'build').mkdir(exist_ok=True)
         temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-audit-')
         self.addCleanup(temp.cleanup)
@@ -596,6 +644,40 @@ class SourceAuditTests(unittest.TestCase):
             self.assertEqual(checkout[name], snapshot[name])
         self.assertEqual('snapshot', snapshot['source_audit']['mode'])
         self.assertEqual(snapshot['source_audit'], snapshot['guest_source_audit'])
+
+    def test_hosted_toolchain_keeps_raw_pins_cleans_vars_and_exports_both_musl_wrappers(self):
+        baseline = build_waterbox.toolchain()
+        original = {n: (baseline['musl_root'] / 'tools' / n).read_bytes() for n in ('musl-clang.in', 'ld.musl-clang.in')}
+        wrappers = {n: baseline[n].read_text() for n in ('cc_wrapper', 'ld_wrapper')}
+        launch = self.root / 'build/launchers'
+        exports = "export DYLD_LIBRARY_PATH='/verified library'\n"
+        dirty = ('RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER',
+                 'MAKEFLAGS', 'CPATH', 'CPLUS_INCLUDE_PATH', 'C_INCLUDE_PATH', 'LIBRARY_PATH')
+        env = {**build_waterbox.os.environ, **{n: 'foreign' for n in dirty},
+               'DYLD_LIBRARY_PATH': '/verified library', 'RUSTC': str(launch / 'rustc'), 'PATH': str(launch)}
+        selected = {'tool_env': env, 'direct_env': env, 'shell_exports': exports,
+                    'launchers': {'clang': launch / 'clang', 'rustc': launch / 'rustc'}}
+        with mock.patch.object(hosted_loader, 'select', return_value=selected) as helper:
+            tc = build_waterbox.toolchain()
+        helper.assert_called_once_with(self.paths)  # locked_tools itself is mocked by this source fixture.
+        self.assertEqual(baseline['paths'], tc['paths'])
+        self.assertEqual(baseline['lock'], tc['lock'])
+        self.assertEqual(str(launch), tc['env']['PATH'].split(build_waterbox.os.pathsep)[0])
+        self.assertEqual(str(launch / 'rustc'), tc['env']['RUSTC'])
+        self.assertEqual('/verified library', tc['env']['DYLD_LIBRARY_PATH'])
+        self.assertEqual(build_waterbox.runtime_rustflags(self.root, self.out), tc['env']['RUSTFLAGS'])
+        for key in dirty[1:]: self.assertNotIn(key, tc['env'])
+        self.assertEqual('1', tc['env']['RUSTC_BOOTSTRAP'])
+        self.assertEqual(str(self.out / 'cargo-home'), tc['env']['CARGO_HOME'])
+        for name, text in wrappers.items():
+            shebang, newline, body = text.partition('\n')
+            self.assertEqual(shebang + newline + exports + body, tc[name].read_text())
+        for name, data in original.items(): self.assertEqual(data, (tc['musl_root'] / 'tools' / name).read_bytes())
+        # No default-source materialization or wrapper output begins after failed hosted validation.
+        with (mock.patch.object(hosted_loader, 'select', side_effect=ValueError('foreign paths')),
+              mock.patch.object(build_waterbox, 'source_spec') as sources):
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain()
+            sources.assert_not_called()
 
     def test_hosted_build_receipt_records_selected_tools_and_guest_profile(self):
         raw = json.loads(self.lock.read_text())

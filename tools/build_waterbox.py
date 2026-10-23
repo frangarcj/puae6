@@ -276,11 +276,20 @@ def selected_tool_paths(lock: dict) -> dict[str, Path]:
         raise BuildError(f"{TOOLS_FILE_ENV}: {error}") from error
 
 
+def hosted_environment(paths: dict) -> dict:
+    from ci import hosted_environment as hosted
+    try:
+        return hosted.select(paths)
+    except (OSError, ValueError) as error:
+        raise BuildError(f"entorno de herramientas hosted: {error}") from error
+
+
 def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
     lock = selected_toolchain(lock)
     tools = lock["tools"]
     required = TOOL_NAMES
     selected = selected_tool_paths(lock)  # Validate the entire manifest before any tool executes.
+    loader = hosted_environment(selected)
     paths: dict[str, Path] = {}
     versions: dict[str, str] = {}
     version_args = {
@@ -295,7 +304,8 @@ def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
             raise BuildError(f"hash de {name} distinto: {observed_hash}")
         result = subprocess.run([str(path), *version_args[name]], check=True,
                                 text=True, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
+                                stderr=subprocess.STDOUT,
+                                **({"env": loader["direct_env"]} if loader["launchers"] else {}))
         version = result.stdout.splitlines()[0].strip()
         if version != entry["version"]:
             raise BuildError(f"versión de {name} distinta: {version!r}")
@@ -305,7 +315,7 @@ def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
     env_path = os.pathsep.join(path_dirs + [os.environ.get("PATH", "")])
     linker_name = subprocess.run([str(paths["clang"]), "-print-prog-name=ld.lld"],
                                  check=True, text=True, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, env={**os.environ, "PATH": env_path})
+                                 stderr=subprocess.PIPE, env={**loader["direct_env"], "PATH": env_path})
     linker = Path(linker_name.stdout.strip())
     if not linker.is_absolute():
         resolved = shutil.which(str(linker), path=env_path)
@@ -491,7 +501,8 @@ def verify_smoke(result: dict, receipt: dict, damaged_dir: Path) -> dict:
             "build_gate_rejections": build_gate}
 
 
-def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path) -> tuple[Path, Path]:
+def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path,
+                     shell_exports: str = "") -> tuple[Path, Path]:
     wrapper_dir = BUILD / "toolchain/bin"
     wrapper_dir.mkdir(parents=True, exist_ok=True)
     values = {
@@ -512,6 +523,11 @@ def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path) -> 
             text = text.replace(token, value)
         if re.search(r"@[A-Z]+@", text):
             raise BuildError(f"placeholder sin sustituir en {source}")
+        if shell_exports:
+            shebang, newline, body = text.partition("\n")
+            if not shebang.startswith("#!") or not newline:
+                raise BuildError(f"wrapper sin shebang: {source}")
+            text = shebang + newline + shell_exports + body
         target = wrapper_dir / output
         target.write_text(text)
         target.chmod(0o755)
@@ -626,6 +642,7 @@ def toolchain(source_audit: str | None = None) -> dict:
     if lock.get("schema_version") != 1:
         raise BuildError("schema_version de toolchains.json no es 1")
     paths, versions = locked_tools(lock)
+    loader = hosted_environment(paths)
 
     machawk, machawk_audit = source_spec("machawk", source_audit)
     musl, musl_audit = source_spec(lock["sysroot"]["associated_source"], source_audit)
@@ -641,7 +658,7 @@ def toolchain(source_audit: str | None = None) -> dict:
     copy_verified(sysroot_source, sysroot_copy, sysroot_inventory)
     musl_root = ROOT / musl["snapshot"]["destination"]
     cc_wrapper, ld_wrapper = install_wrappers(
-        sysroot_copy, paths["clang"], paths["lld"], musl_root
+        sysroot_copy, paths["clang"], paths["lld"], musl_root, loader["shell_exports"]
     )
 
     runtime_source = ROOT / machawk["snapshot"]["destination"] / "waterbox/waterboxhost"
@@ -655,13 +672,15 @@ def toolchain(source_audit: str | None = None) -> dict:
         [str(paths[n].parent) for n in ("clang", "lld", "cargo", "rustc", "make")]
         + [str(cc_wrapper.parent), os.environ.get("PATH", "")]
     )
-    env = os.environ.copy()
+    if loader["launchers"]:
+        env_path = str(loader["launchers"]["clang"].parent) + os.pathsep + env_path
+    env = dict(loader["tool_env"])
     for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "MAKEFLAGS", "CPATH", "CPLUS_INCLUDE_PATH", "C_INCLUDE_PATH", "LIBRARY_PATH"):
         env.pop(key, None)
     env.update({
         "RUSTFLAGS": runtime_rustflags(ROOT, BUILD),
         "PATH": env_path,
-        "RUSTC": str(paths["rustc"]),
+        "RUSTC": loader["tool_env"]["RUSTC"] if loader["launchers"] else str(paths["rustc"]),
         "RUSTC_BOOTSTRAP": lock["runtime"]["rustc_bootstrap"],
         "CARGO_HOME": str(BUILD / "cargo-home"),
         "CARGO_TARGET_DIR": str(BUILD / "cargo"),
