@@ -2035,6 +2035,12 @@
         "ar2": 4,
         "ar3": 5,
         "ar1200": 6
+      },
+      "wrapper_extra_values": {
+        "Ar1": 3,
+        "Ar2": 4,
+        "Ar3": 5,
+        "Ar1200": 6
       }
     },
     "floppy_speed": {

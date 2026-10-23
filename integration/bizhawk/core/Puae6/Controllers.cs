@@ -120,7 +120,7 @@ public static class Controllers
 			? [ NextSlot, EjectDisk, InsertDisk ] : [ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// Hard reset only: the machine has one (p6_reset); a Reset button would be a different thing that nobody implemented.
 		controller.BoolButtons.Add(Power);
-		if (settings.Cartridge == Puae6Cartridge.HrtMon) controller.BoolButtons.Add(Freeze);
+		if (settings.Cartridge != Puae6Cartridge.Disabled) controller.BoolButtons.Add(Freeze);
 		foreach (var name in KeyNames)
 		{
 			if (name is null) continue;

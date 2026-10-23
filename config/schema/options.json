@@ -635,10 +635,10 @@
         "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
         "info": "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load.",
         "extra_values": [
-          {"value": "ar1", "abi": 3, "label": "Action Replay I (A500)", "const": "Ar1"},
-          {"value": "ar2", "abi": 4, "label": "Action Replay II (A500)", "const": "Ar2"},
-          {"value": "ar3", "abi": 5, "label": "Action Replay III (A500)", "const": "Ar3"},
-          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200"}
+          {"value": "ar1", "abi": 3, "label": "Action Replay I (A500)", "const": "Ar1", "wrapper_name": "Ar1"},
+          {"value": "ar2", "abi": 4, "label": "Action Replay II (A500)", "const": "Ar2", "wrapper_name": "Ar2"},
+          {"value": "ar3", "abi": 5, "label": "Action Replay III (A500)", "const": "Ar3", "wrapper_name": "Ar3"},
+          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200", "wrapper_name": "Ar1200"}
         ]
       },
       "headless": {"how": "fixed"},

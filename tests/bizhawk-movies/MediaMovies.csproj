@@ -8,6 +8,6 @@
  <ItemGroup>
   <Reference Include="$(AssemblyDir)/*.dll" Exclude="$(AssemblyDir)/Newtonsoft.Json.dll" />
   <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  <Compile Include="$(Puae6Root)/tests/bizhawk-movies/MediaMovies.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
+  <Compile Include="$(Puae6Root)/tests/bizhawk-movies/MediaMovies.cs;$(Puae6Root)/tests/bizhawk-movies/CartridgeMovies.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
  </ItemGroup>
 </Project>

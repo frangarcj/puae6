@@ -370,7 +370,7 @@ def _validate_libretro_extras(option, libretro, where, errors):
     seen_names, seen_abis, consts = set(), set(), set()
     for j, extra in enumerate(extras):
         label = f"{where} libretro extra_values[{j}]"
-        if not _only(extra, {"value", "abi", "label", "const"}, {"value", "abi", "label", "const"}, label, errors):
+        if not _only(extra, {"value", "abi", "label", "const", "wrapper_name"}, {"value", "abi", "label", "const"}, label, errors):
             continue
         if not _text(extra["value"]) or not _text(extra["label"]):
             errors.append(f"{label}: value and label must be non-empty ASCII text")
@@ -386,6 +386,12 @@ def _validate_libretro_extras(option, libretro, where, errors):
         if not (isinstance(extra["const"], str) and re.fullmatch(r"[A-Z][A-Za-z0-9]*", extra["const"])) or extra["const"] in consts:
             errors.append(f"{label}: const must be a new CamelCase identifier")
         consts.add(str(extra["const"]))
+        if "wrapper_name" in extra:
+            if (option.get("wrapper") or {}).get("how") != "setting" or not isinstance(extra["wrapper_name"], str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", extra["wrapper_name"]):
+                errors.append(f"{label}: wrapper_name requires a wrapper setting and a C# identifier")
+            offered = option.get("values", []) + extras[:j]
+            if any(v.get("wrapper_name", v["value"]) == extra["wrapper_name"] for v in offered):
+                errors.append(f"{label}: duplicate wrapper_name")
     if extras and option.get("type") != "enum":
         errors.append(f"{where}: only an enum has extra libretro values")
     if "default" in libretro and libretro["default"] not in names | seen_names:
@@ -822,6 +828,9 @@ def generate_table(schema: dict) -> str:
         if option["libretro"] and (option["libretro"].get("extra_values") or "default" in option["libretro"]):
             adapters[option["id"]]["libretro_default"] = _lr_default(option)
             adapters[option["id"]]["libretro_extra_values"] = {v["value"]: v["abi"] for v in option["libretro"].get("extra_values") or []}
+        wrapper_extras = {v["wrapper_name"]: v["abi"] for v in (option["libretro"] or {}).get("extra_values", []) if "wrapper_name" in v}
+        if wrapper_extras:
+            adapters[option["id"]]["wrapper_extra_values"] = wrapper_extras
         withheld = [value["value"] for value in option.get("values", []) if value.get("wrapper") is False]
         if withheld:
             adapters[option["id"]]["wrapper_not_offered"] = withheld

@@ -42,7 +42,7 @@ public static class Puae6WhdLoad
 		var result = new Puae6Parameters
 		{
 			GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
-			Firmware = rom, CdInfo = p.CdInfo, CdInfoV2 = p.CdInfoV2, CdInfoV3 = p.CdInfoV3, CdOwner = p.CdOwner,
+			Firmware = rom, CartridgeFirmware = p.CartridgeFirmware, CdInfo = p.CdInfo, CdInfoV2 = p.CdInfoV2, CdInfoV3 = p.CdInfoV3, CdOwner = p.CdOwner,
 			CdCatalog = p.CdCatalog?.ToArray(), CdCatalogV2 = p.CdCatalogV2?.ToArray(), CdCatalogV3 = p.CdCatalogV3?.ToArray(), ReadCdCatalog = p.ReadCdCatalog,
 			CdSlots = (int[])p.CdSlots.Clone(), CdNames = (string[])p.CdNames.Clone(),
 			ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,

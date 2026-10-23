@@ -66,7 +66,7 @@ public sealed partial class Puae6Core
 		var hardFiles = lp.Roms.Where(IsHardFile).ToList();
 		var volumes = lp.Roms.Where(IsVolume).ToList();
 		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|').Last());
-		return Puae6WhdLoad.Resolve(new Puae6Parameters
+		var result = Puae6WhdLoad.Resolve(new Puae6Parameters
 		{
 			GuestDirectory = PathUtils.DllDirectoryPath,
 			SyncSettings = settings,
@@ -89,6 +89,10 @@ public sealed partial class Puae6Core
 			VolumeNames = volumes.Select(NameOf).ToList(),
 		}, Firmware,
 			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
+		ConfigFlags(result.SyncSettings.Cartridge, result.SyncSettings.FloppyWrites, result.SyncSettings.Machine);
+		uint cartridge = CartridgeModel(result.SyncSettings.Cartridge);
+		if (cartridge != 0) result.CartridgeFirmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "AR" + cartridge), $"Action Replay {cartridge} firmware is required");
+		return result;
 	}
 
 	static unsafe P6CdInfoV2 RegionalDescriptor(Puae6DiscSource source, bool regional)

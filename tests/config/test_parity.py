@@ -175,6 +175,7 @@ class WrapperParity(Schema):
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
                     # A value the schema marks "wrapper": false is one the wrapper does not offer yet (CDTV while its wrapper gate is pending): the enum lists the others, in order.
                     offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
+                    offered += [v["wrapper_name"] for v in (option["libretro"] or {}).get("extra_values", []) if "wrapper_name" in v]
                     self.assertEqual([m.partition("=")[0].strip() for m in members[1].split(",")], offered,
                                      f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
                     default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
@@ -354,13 +355,19 @@ class LibretroParity(Schema):
         self.assertIn("info->timing.sample_rate = core.settings.audio_rate_hz;", self.core_source)
 
 
-    def test_cartridge_extras_are_libretro_bindings_not_native_or_managed_flags(self):
+    def test_cartridge_extras_are_frontend_bindings_not_native_flags(self):
         cartridge=self.options['cartridge']
         self.assertEqual([(v['value'],v['abi']) for v in cartridge['values']], [('disabled',0),('hrtmon',2)])
         self.assertEqual({v['value']:v['abi'] for v in cartridge['libretro']['extra_values']},
                          {'ar1':3,'ar2':4,'ar3':5,'ar1200':6})
         self.assertEqual(self.table['p6_config']['flags']['allowed'],[0,1,2,3])
-        self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2 }',read(SETTINGS_CS))
+        self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6 }',read(SETTINGS_CS))
+        self.assertEqual(self.table['adapters']['cartridge']['wrapper_extra_values'], {'Ar1':3,'Ar2':4,'Ar3':5,'Ar1200':6})
+        for bad in ('not an identifier', 'HrtMon'):
+            changed=gen.load_schema(); next(o for o in changed['options'] if o['id']=='cartridge')['libretro']['extra_values'][0]['wrapper_name']=bad
+            with self.assertRaises(gen.SchemaError): gen.validate_schema(changed)
+        changed=gen.load_schema(); next(o for o in changed['options'] if o['id']=='cartridge')['wrapper']=None
+        with self.assertRaises(gen.SchemaError): gen.validate_schema(changed)
         self.assertIn('if (cartridge_choice(settings.cartridge)) settings.cartridge = 0;',read(FIRMWARE))
 
 

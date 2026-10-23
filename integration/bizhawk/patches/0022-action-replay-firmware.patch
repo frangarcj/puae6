@@ -1,0 +1,19 @@
+diff --git a/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs b/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs
+--- a/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs
++++ b/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs
+@@ -142,6 +142,15 @@
+ 			FirmwareAndOption(SHA1Checksum.Dummy, 0, "3DS", "seeddb", "seeddb.bin", "SEEDDB");
+ 
+ 			// Amiga
++			Firmware("Amiga", "AR1", "Action Replay I v1.00 (user-supplied)");
++			Option("Amiga", "AR1", File("1EAD9DDA2DAD29146441F5EF7218375022E01248", 65536, "ar1.rom", "Action Replay I v1.00"), FirmwareOptionStatus.Ideal);
++			Firmware("Amiga", "AR2", "Action Replay II v2.14 (user-supplied)");
++			Option("Amiga", "AR2", File("255D6DF63A4EAB0A838EB1A16A267B0959DFF634", 131072, "ar2.rom", "Action Replay II v2.14"), FirmwareOptionStatus.Ideal);
++			Firmware("Amiga", "AR3", "Action Replay III v3.17 (user-supplied)");
++			Option("Amiga", "AR3", File("5D4987C2E3FFEA8B1B02E31430EF190F2DB76542", 262144, "ar3.rom", "Action Replay III v3.17"), FirmwareOptionStatus.Ideal);
++			Firmware("Amiga", "AR1200", "Action Replay 1200 (user-supplied)");
++			Option("Amiga", "AR1200", File("0F6AB8342810094AC0642F62BA42F78BC0B07E6A", 262144, "ar1200.rom", "Action Replay 1200"), FirmwareOptionStatus.Ideal);
++
+ 			Firmware("Amiga", "A500", "A500 Kickstart");
+ 			Option("Amiga", "A500", File("891E9A547772FE0C6C19B610BAF8BC4EA7FCB785", 262144, "amiga-os-130.rom", "Kickstart v1.3 r34.005 (1987-12)(Commodore)(A500-A1000-A2000-CDTV)[!]"), FirmwareOptionStatus.Ideal);
+ 			Option("Amiga", "A500", File("11F9E62CF299F72184835B7B2A70A16333FC0D88", 262144, "amiga-os-120.rom", "Kickstart v1.2 r33.180 (1986-10)(Commodore)(A500-A1000-A2000)[!]"));

@@ -42,15 +42,17 @@ def setUpModule():
     build_tree.check_patches(); (ROOT / 'build').mkdir(exist_ok=True)
     WORK = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='media-movies-', dir=ROOT / 'build')))
     # Cache only the immutable build inputs, keyed by all core/patch/recipe bytes.
-    tree = ROOT / 'build/bizhawk-tree' / (build_tree.tree_key() + '-media-movies')
+    guest_receipt = os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT')
+    guest_sha = json.loads(Path(guest_receipt).read_text())['guest']['sha256'] if guest_receipt else ''
+    tree = ROOT / 'build/bizhawk-tree' / (build_tree.tree_key() + '-media-movies' + ('-' + guest_sha[:12] if guest_sha else ''))
     if build_tree.export_tree(tree, build_tree.EXPORT_EMUHAWK):
         build_tree.apply_patches(tree); build_tree.install_sources(tree)
     ENV = {**os.environ, 'DOTNET_NOLOGO': '1', 'DOTNET_ROLL_FORWARD': 'Major', 'DOTNET_CLI_TELEMETRY_OPTOUT': '1',
-           'DOTNET_CLI_HOME': str(WORK / 'dotnet'), 'NUGET_PACKAGES': str(main / 'build/bizhawk-core/nuget'), 'TMPDIR': str(WORK)}
+           'DOTNET_CLI_HOME': str(WORK / 'dotnet'), 'BIZHAWK_HOME': str(WORK), 'NUGET_PACKAGES': str(main / 'build/bizhawk-core/nuget'), 'TMPDIR': str(WORK)}
     for name in ('DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH'):
         ENV.pop(name, None)
     offline = f'-p:RestoreSources={Path.home() / ".nuget/packages"}'
-    run(['dotnet', 'build', str(tree / 'src/BizHawk.Client.Common/BizHawk.Client.Common.csproj'), '-m:2', '-v:q', '-p:InstallGitHooks=false', offline])
+    run(['dotnet', 'build', str(tree / 'src/BizHawk.Client.Common/BizHawk.Client.Common.csproj'), '-m:2', '-v:q', '-p:InstallGitHooks=false', f'-p:Puae6GuestSha256={guest_sha}', offline])
     project = WORK / 'MediaMovies.csproj'; shutil.copyfile(ROOT / 'tests/bizhawk-movies/MediaMovies.csproj', project)
     run(['dotnet', 'build', str(project), '-m:2', '-v:q', f'-p:Puae6Root={ROOT}', f'-p:AssemblyDir={tree / "src/BizHawk.Client.Common/bin/Debug"}', offline])
     EXE = WORK / 'bin/Debug/net8.0/MediaMovies.dll'
@@ -70,6 +72,14 @@ def setUpModule():
         blob += hashlib.sha256(blob).digest()
         (WORK / f'{seed}.sram').write_bytes(blob + bytes(37))
         if seed == 'B': (WORK / 'B.sha').write_text(hashlib.sha256(blob).hexdigest())
+    from importlib import import_module
+    cartridges = import_module('tests.waterbox-state.test_cartridge_transport')
+    for model in (1, 2, 3, 1200):
+        firmware, raw = cartridges.images(model)
+        (WORK / f'{model}.kick').write_bytes(firmware); (WORK / f'{model}.cart').write_bytes(raw)
+    if guest_receipt:
+        (WORK / 'dll').mkdir()
+        shutil.copy2(json.loads(Path(guest_receipt).read_text())['guest']['path'], WORK / 'dll/puae6.wbx')
 
 
 class MediaMovieIdentityTests(unittest.TestCase):
@@ -117,3 +127,26 @@ class HrtMonWrapperTests(unittest.TestCase):
         for mode in ('hrtsave', 'hrtload'):
             output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256'], os.environ['P6_KICKSTART_A1200_ROM']])
             self.assertEqual(2, output.count(' PASS'), output); print(output, end='')
+
+
+class ActionReplayManagedConfigTests(unittest.TestCase):
+    def test_public_models_provider_flags_identity_and_preflight(self):
+        output = run(['dotnet', str(EXE), 'arconfig', str(WORK)])
+        self.assertEqual(output.count(' PASS'), 1, output)
+        self.assertEqual(BEFORE, (build_tree.git('rev-parse', 'HEAD').stdout, build_tree.git('diff', '--no-ext-diff').stdout))
+
+
+@unittest.skipUnless(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT'), 'BLOCKED: current coordinated guest required')
+class ActionReplayWrapperTests(unittest.TestCase):
+    def test_public_cartridges_held_state_cold_and_saveram_reboot(self):
+        receipt = Path(os.environ['P6_MEDIA_MOVIE_GUEST_RECEIPT']); data = json.loads(receipt.read_text())
+        wb.check_guest_matches_trees(receipt)
+        self.assertTrue(all(wb.sha256(ROOT / path) == digest for path, digest in data['sources'].items()))
+        guest = Path(data['guest']['path']); self.assertEqual(wb.sha256(guest), data['guest']['sha256'])
+        wb.validate_elf(guest); wb.check_no_compiler_tls(guest)
+        runtime = wb.read_runtime_receipt(wb.runtime_receipt_path())['runtime_dylib']
+        self.assertEqual(wb.sha256(Path(runtime['path'])), runtime['sha256'])
+        for model in (1, 2, 3, 1200):
+            for mode in ('arsave', 'arload'):
+                output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256'], str(model)])
+                self.assertEqual(output.count(' PASS'), 1, output)

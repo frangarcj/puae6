@@ -22,6 +22,8 @@ public sealed class Puae6Parameters
 	public string? PinnedGuestSha256 { get; set; }
 	/// <summary>The Kickstart (or the micro-ROM of a test): copied by the guest into its sealed heap.</summary>
 	public byte[] Firmware { get; set; } = [ ];
+	/// <summary>Optional raw Action Replay firmware; copied by the core and by the guest binder.</summary>
+	public byte[]? CartridgeFirmware { get; set; }
 	/// <summary>The rom.key of Amiga Forever (T51), only needed when <see cref="Firmware"/> is an encrypted ROM (AMIROMTYPE1): the core decrypts it (<see cref="Puae6RomKey"/>) and the decrypted image is the firmware whose
 	/// SHA-256 is the identity of states and movies. The key is not kept.</summary>
 	public byte[]? RomKey { get; set; }
@@ -138,13 +140,36 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them). The mmap heap holds
 	// Chip, Slow and Fast RAM among other large blocks, so it grows with the memory the settings ask for beyond the machine's own (T49: twice the extra memory, which
 	// keeps the rule of the manifest, a budget of at least twice what was measured; the measurements are recorded per configuration).
-	/// <summary>Compose the public flags and reject unsupported cartridge settings before opening a guest.</summary>
+	/// <summary>Frontend selections are separate from flags and from the native cartridge model.</summary>
+	public static uint CartridgeModel(Puae6Cartridge cartridge) => cartridge switch
+	{
+		Puae6Cartridge.Disabled or Puae6Cartridge.HrtMon => 0, Puae6Cartridge.Ar1 => 1, Puae6Cartridge.Ar2 => 2,
+		Puae6Cartridge.Ar3 => 3, Puae6Cartridge.Ar1200 => 1200, _ => throw new ArgumentOutOfRangeException(nameof(cartridge)),
+	};
+	/// <summary>Only floppy writes and builtin HRTMon occupy config flags.</summary>
 	public static uint ConfigFlags(Puae6Cartridge cartridge, bool floppyWrites, Puae6Machine machine)
 	{
-		if (!Enum.IsDefined(typeof(Puae6Cartridge), cartridge)
-			|| (cartridge != Puae6Cartridge.Disabled && machine != Puae6Machine.A1200))
-			throw new ArgumentException("HRTMon requires A1200 and a known cartridge setting", nameof(cartridge));
-		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (uint)cartridge;
+		uint model = CartridgeModel(cartridge);
+		if ((cartridge == Puae6Cartridge.HrtMon || model == 1200) && machine != Puae6Machine.A1200 || model is 1 or 2 or 3 && machine != Puae6Machine.A500)
+			throw new ArgumentException("HRTMon/AR1200 require A1200; AR1/2/3 require stock A500", nameof(cartridge));
+		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (cartridge == Puae6Cartridge.HrtMon ? P6.ConfigHrtMon : 0);
+	}
+	static void ValidateCartridge(Puae6SyncSettings settings, byte[]? raw, bool cd)
+	{
+		uint model = CartridgeModel(settings.Cartridge); ConfigFlags(settings.Cartridge, settings.FloppyWrites, settings.Machine);
+		if (model == 0) { if (raw is not null) throw new ArgumentException("Only Action Replay takes cartridge firmware", nameof(raw)); return; }
+		bool aga = model == 1200; var own = OwnMemory(settings.Machine);
+		if (cd || settings.FloppyWrites || settings.FpuModel != Puae6Fpu.None || settings.Z3Memory != Puae6Z3Memory.None || settings.HdfController != Puae6HdfController.Uae
+			|| settings.CpuModel != Puae6Cpu.Auto && settings.CpuModel != (aga ? Puae6Cpu.M68020 : Puae6Cpu.M68000)
+			|| settings.CpuMultiplier != Puae6CpuClock.Auto && settings.CpuMultiplier != (aga ? Puae6CpuClock.X4 : Puae6CpuClock.X2)
+			|| !Enum.IsDefined(typeof(Puae6CpuCompatibility), settings.CpuCompatibility) || !aga && settings.CpuCompatibility == Puae6CpuCompatibility.Normal
+			|| settings.ChipMemory != Puae6Chip.Auto && ChipKib(settings.ChipMemory) != own.Chip
+			|| !Enum.IsDefined(typeof(Puae6Slow), settings.SlowMemory) || settings.SlowMemory != Puae6Slow.Auto && (settings.SlowMemory == Puae6Slow.None ? 0u : SlowKib(settings.SlowMemory)) != own.Slow
+			|| settings.FastMemory != Puae6Fast.Auto && settings.FastMemory != Puae6Fast.None)
+			throw new ArgumentException("Action Replay requires its stock CPU, clock and memory, without CD, FPU, Z3, IDE or floppy writes", nameof(settings));
+		int bytes = model == 1 ? 65536 : model == 2 ? 131072 : 262144;
+		if (raw is null || raw.Length != bytes || !raw.Any(b => b != 0) || (System.Text.Encoding.ASCII.GetString(raw, 0, 8) == "ATZ!HRT!") != aga)
+			throw new ArgumentException($"Action Replay {model} requires {bytes} bytes of matching raw firmware", nameof(raw));
 	}
 
 	public static WaterboxOptions Heaps() => Heaps(new Puae6SyncSettings());
@@ -322,7 +347,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		parameters = Puae6WhdLoad.Resolve(parameters);
 		parameters = Puae6Volumes.Resolve(parameters);
 		_syncSettings = parameters.SyncSettings.Clone();
-		ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.Machine);
+		ValidateCartridge(_syncSettings, parameters.CartridgeFirmware, parameters.CdCount != 0);
 		_settings = parameters.Settings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
 		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
@@ -340,7 +365,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
-			Firmware = (byte[])parameters.Firmware.Clone(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
+			Firmware = (byte[])parameters.Firmware.Clone(), CartridgeFirmware = parameters.CartridgeFirmware?.ToArray(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
 			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
 			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
 			CdSlots = (int[])parameters.CdSlots.Clone(), CdNames = (string[])parameters.CdNames.Clone(),
@@ -457,7 +482,14 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			init.FirmwareBytes = (ulong)firmware.Length;
 			using var _ = _guest.Host.EnterExit();
 			int result;
-			try { result = _guest.Lib.p6w_init_machine((IntPtr)(&init)); }
+			try
+			{
+				uint model = CartridgeModel(_syncSettings.Cartridge);
+				fixed (byte* raw = _parameters.CartridgeFirmware)
+					result = model != 0
+						? _guest.Lib.p6w_init_machine_cartridge((IntPtr)(&init), model, (IntPtr)raw, (ulong)_parameters.CartridgeFirmware!.Length)
+						: _guest.Lib.p6w_init_machine((IntPtr)(&init));
+			}
 			finally { foreach (var pin in pins) pin.Free(); }
 			if (result != P6.Ok)
 				throw new InvalidOperationException($"the PUAE6 guest refused the machine ({P6.ResultName(result)}): {Mershul.PtrToStringUtf8((IntPtr)init.Error)}");
@@ -565,6 +597,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.
 		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
 		if (_syncSettings.Cartridge == Puae6Cartridge.HrtMon) memory += ";cartridge=hrtmon;cartsha=" + P6.HrtMonRawSha256;
+		if (CartridgeModel(_syncSettings.Cartridge) != 0) memory += ";cartridge=" + _syncSettings.Cartridge + ";cartsha=" + GuestIdentity.Sha256Hex(_parameters.CartridgeFirmware!);
 		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.
 		if (_syncSettings.FpuModel != Puae6Fpu.None) memory += ";fpu=" + _syncSettings.FpuModel;
 		// And for the CPU (T52): the native config hash derives from the resolved model when it is not the machine's own; the text names whatever the setting is off Auto, which is stricter (it also tells an
@@ -672,7 +705,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
         var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };
         if (_syncSettings.ControllerPort3 == Puae6ParallelPort.Joystick) packet.Port2 = JoystickPacket(controller, 3);
         if (_syncSettings.ControllerPort4 == Puae6ParallelPort.Joystick) packet.Port3 = JoystickPacket(controller, 4);
-        if (_syncSettings.Cartridge == Puae6Cartridge.HrtMon && controller.IsPressed(Controllers.Freeze)) packet.Commands = P6.CommandFreeze;
+        if (_syncSettings.Cartridge != Puae6Cartridge.Disabled && controller.IsPressed(Controllers.Freeze)) packet.Commands = P6.CommandFreeze;
         if (packet.Port2.Type != 0 || packet.Port3.Type != 0 || packet.Commands != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
