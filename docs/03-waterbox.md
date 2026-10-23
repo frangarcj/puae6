@@ -645,3 +645,22 @@ sin memoria invisible. El blob builtin se registra mediante malloc y HRTMon tien
 STATE01 compila/prueba configuracion host. El gate publico WB03/WB04/WB09 usa
 comandos reales, snapshot held, BK2/TAS y seek en proceso nuevo; si falla el runtime
 host conocido sigue BLOCKED y no se acredita por compilacion ni prueba nativa.
+
+## Transporte Action Replay (T69g2)
+
+`p6w_init_machine_cartridge(args, model, raw, bytes)` enlaza AR1/2/3/1200 entre
+`p6_init` y `p6_load` mediante el binder publico. Comparte inicializador con
+`p6w_init_machine` y conserva `p6w_init` y `P6W_LAYOUT` v1. El export nuevo siempre
+valida el cartucho: modelo0 o ROM nula no seleccionan el camino sin cartucho.
+Un fallo devuelve el error y desmonta el propietario antes de permitir otro init.
+
+Los bytes del llamante solo deben vivir durante la llamada. El binder los copia
+al blob del guest antes de `Seal`; no se duplica la ROM en el heap sellado.
+Freeze conserva el nivel de ABI2 y el flanco del bridge. Los snapshots son los
+del sandbox, con RAM, mapas y controles del cartucho; no se usa el codec nativo
+como sustituto de la restauracion Waterbox. El test dedicado usa programas
+propios y compara continuacion y snapshot completo en otro proceso.
+
+Este transporte no agrega aun modelos AR a los SyncSettings, al proveedor de
+firmware de EmuHawk ni a la identidad de peliculas. Esas conexiones conservan
+su puerta con firmware comercial autorizado y BK2/TAS.

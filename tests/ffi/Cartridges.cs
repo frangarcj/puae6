@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using BizHawk.Common;
 using Puae6;
 
 internal static unsafe partial class Program

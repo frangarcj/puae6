@@ -22309,7 +22309,7 @@
       "title": "Transportar los cuatro Action Replay al inicializador Waterbox sin cambiar el layout",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T69d3",
         "T69e2",
@@ -22336,7 +22336,8 @@
         "tests/waterbox-state/test_cartridge_transport.py",
         "docs/03-waterbox.md",
         "tools/check.py",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "manifests/waterbox-memory.json"
       ],
       "steps": [
         "cd32_close implementa en worktree t66-cd-swap limpio desde el commit de reanudacion tras CI publica. Seis rutas manuales atomicas de transporte mas root docs/dispatcher/metadata; objetivo330-390 y limite400 lineas logicas, avisar antes de ampliar. No UI, schema, Settings, FirmwareDatabase, movies ni motor/codec en esta hoja. Root serializa build guest y managed j2; agente solo sintaxis/checks ligeros.",
@@ -22344,7 +22345,9 @@
         "Nuevo dispatch cartridges en tests/ffi/Program.cs y parcial Cartridges.cs reutilizan Open/Guarded, EnterExit, p6w_memory_access Chip, frame_advance inputV2 y snapshots reales de Host. Fixtures originales pequenos para los cuatro modelos juntos; reutilizar ar1_images/ar_state_firmware y extender programa IRQ/Exception2 propio para copiar contador y sentinela del final de cartRAM a Chip, AR1200 causa4, antes de salir por strobe/reentry propio. Cortes causales pre-trigger y ACTIVE esperando senal, no editor comercial ni timeout ciego.",
         "CartridgeTransportTests.test_all_models_init_freeze_and_cold_waterbox_state prueba Freeze/held/soltarV1/rearm, mutable cartRAM completa mediante sentinelas, copia de callerROM tras mutarla y cleanup. Save-load-repeat local y writer/reader en proceso/sandbox nuevos con solo init+Seal antes del primer frame al cargar, futuros completos AV/PCM/ticks/markers y snapshot exactos. Negativos ABI/modelo/perfil/tamano/cabecera y BAD_STATE init repetido/loaded con canarios y rollback; BUSY ya probado por binder nativo, sin hooks de reentrada artificiales. Incluir una llamada valida al export legacy sin cartucho y un frame tras bind fallido/cleanup como regresion cercana del inicializador compartido; sin recompilar headless para repetir otra matriz. El nuevo export no acepta model0/null como solicitud legacy: siempre valida/enlaza o rechaza.",
         "ABI01 reutiliza GuestAbiTests.test_the_layout_the_managed_harness_was_written_for_is_the_one_the_header_compiles_to y llamada real del nuevo export. WB03/WB04/WB15 comparten el nuevo test de transporte una sola vez. Preflight receipt/SHA/ELF/TLS/runtime actual obligatorio y medir uso real normal/mmap/sealed con presupuestos existentes y margen, sin invisible. Root materializa/build guest actual una vez incluyendo0410/0411/0412 y este transporte; no atribuir ejecucion Waterbox a pruebas nativas.",
-        "G1 libretro no es dependencia causal; su puerta comercial no sustituye este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente."
+        "G1 libretro no es dependencia causal; su puerta comercial no sustituye este transporte sobre fixture propio. La configuracion publica managed y firmware comercial/BK2/TAS conservan una hoja posterior y el padre sigue pendiente; esta puerta no acredita UI ni peliculas. Temporales solo build y eliminados, sin informes ni assets comerciales versionados. Dos intentos razonados fallidos: reproducer y dos hipotesis, blocked y otro frente independiente.",
+        "Ampliacion explicita root: manifests/waterbox-memory.json porque el guest consolidado cambia tras0410/0411/0412 y transporte. Regrabar sus16 claves juntas una sola vez por la receta normativa T48f, mismos guest/runtime y fixtures originales; no tocar presupuestos ni atribuir medidas antiguas al guest nuevo. Esta es la medida acumulada de candidata, no una bateria repetida por cartucho; validar identidad/conjunto/fixtures y presupuestos con los checks estaticos existentes. Los temporales van en build y se eliminan.",
+        "Integrado y probado en Waterbox ARM64 real: union ABI01/WB03/WB04/WB15 ejecutada una vez por sus dos selectores exactos, ambos PASS; cuatro modelos, dos cortes, futuros15 y snapshots completos nuevos procesos. Guest2c6c445d938993b2/runtimeRelease3e099b179e83fd3f;16medidas regrabadas juntas. Identidad/fixtures/presupuestos y plan46tests PASS; presupuestos HDF y pool completo PASS sin repetir5600unidades. Corregido import BizHawk.Common del harness; no rebuild del guest por cambio C#. Padre conserva integracion publica y peliculas posterior."
       ],
       "checks": [
         "ABI01",
