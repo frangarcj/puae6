@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "scope": "Offline NuGet input feed for the pinned managed projects; no package install or build claim",
+  "sdk_version": "10.0.402",
+  "target_framework": "net8.0",
+  "source_files": {
+    "integration/bizhawk/core/Puae6.Core.csproj": "7117fc7e5cd218d50b25037c5b2fb1cb76a802ab489bbc92a49e538d6d01272f",
+    "integration/bizhawk/core/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32",
+    "integration/bizhawk/smoke/Smoke.csproj": "dc729517bd25fd3c6be8d3e1ffe3fe35fa8f54edac9d58f074802cb1880612ac",
+    "integration/bizhawk/smoke/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32",
+    "tests/ffi/Ffi.csproj": "f63a39df0ef03ebbf6c6d63a322c369d1a6517ce428611b2b5261207cb4bb7d1",
+    "tests/ffi/global.json": "8105c3bb244bee2765383e189844b432700e96ed728792cc0d21b03567e0be32"
+  },
+  "hash_definition": "Base64 SHA-512 of the complete signed nupkg, as packageHashAlgorithm SHA512/packageHash/packageSize in the linked official catalog. This differs from assets contentHash, which excludes signing metadata.",
+  "packages": [
+    {
+      "id": "communitytoolkit.highperformance",
+      "version": "8.4.0",
+      "bytes": 537255,
+      "archive_sha512_base64": "0mKu+UVJjUaZ6WIppuCsZh+YVpYLlCtt92kJFcaZoQ8Biq4hM7umOWjaq1AyCd4Hq9OuR3DsH5bFGSV7nfaZqA==",
+      "url": "https://api.nuget.org/v3-flatcontainer/communitytoolkit.highperformance/8.4.0/communitytoolkit.highperformance.8.4.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2024.12.12.17.37.00/communitytoolkit.highperformance.8.4.0.json"
+    },
+    {
+      "id": "microsoft.aspnetcore.app.ref",
+      "version": "8.0.30",
+      "bytes": 4370497,
+      "archive_sha512_base64": "mu+9ePSXljxiuvnd6Q3ECvQ0jrxMV0IFtexHvayrhAt5FH8DGAab0hwYyVFZNwT9eJAVP5Sdy+ffFvDYBl73Kw==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/8.0.30/microsoft.aspnetcore.app.ref.8.0.30.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.14.36/microsoft.aspnetcore.app.ref.8.0.30.json"
+    },
+    {
+      "id": "microsoft.csharp",
+      "version": "4.7.0",
+      "bytes": 627100,
+      "archive_sha512_base64": "LJaYhRX5VxTUuD9WUPGD3GpWTgs89SVfoOPvSEdt66tL3lQvny9sR/ZiC3px1qUV5EFebS44i2CBeiliHVaQ3w==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.csharp/4.7.0/microsoft.csharp.4.7.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.45/microsoft.csharp.4.7.0.json"
+    },
+    {
+      "id": "microsoft.netcore.app.ref",
+      "version": "8.0.30",
+      "bytes": 6767219,
+      "archive_sha512_base64": "HUcpDqyYO9doozmeDEDDo65zHjaq+3KjpSVFCpB5AZcLXoNDBOHgwoX4svIXjo7jsYauGaAErcxMba//AT9ANA==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/8.0.30/microsoft.netcore.app.ref.8.0.30.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.08.11.17.12.54/microsoft.netcore.app.ref.8.0.30.json"
+    },
+    {
+      "id": "microsoft.netcore.platforms",
+      "version": "5.0.0",
+      "bytes": 39826,
+      "archive_sha512_base64": "hJP+EWSMfswgtlMEkNMP1jdElhNFwFAaehCxEEZmHaCbeD3c64syCK5SpyqKlMr9zo3BvWBzwyCB4w0OdAfxdA==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.platforms/5.0.0/microsoft.netcore.platforms.5.0.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2023.05.05.20.06.15/microsoft.netcore.platforms.5.0.0.json"
+    },
+    {
+      "id": "microsoft.win32.registry",
+      "version": "5.0.0",
+      "bytes": 354731,
+      "archive_sha512_base64": "Rx5mVnzlnMhkda7OeBXQUmEmTOEU4MFoi6JVHdUUlJAfpy3XqPdPjo8PPbp0r4WV8XdVLzwGq7S/znZpIZcHbg==",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.win32.registry/5.0.0/microsoft.win32.registry.5.0.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.15.22/microsoft.win32.registry.5.0.0.json"
+    },
+    {
+      "id": "newtonsoft.json",
+      "version": "13.0.3",
+      "bytes": 2441966,
+      "archive_sha512_base64": "mbJSvHfRxfX3tR/U6n1WU+mWHXswYc+SB/hkOpx8yZZe68hNZGfymJu0cjsaJEkVzCMqePiU6LdIyogqfIn7kg==",
+      "url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2023.03.08.07.46.17/newtonsoft.json.13.0.3.json"
+    },
+    {
+      "id": "system.security.accesscontrol",
+      "version": "5.0.0",
+      "bytes": 621573,
+      "archive_sha512_base64": "rmsDrQKdPraBimyLtWz0kEAT+lNaZ7jmIbeDoCndiKouRx4ALLx9cgOBrYvIxrkxEaCPbOLSca9tl0v00CtsgQ==",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.security.accesscontrol/5.0.0/system.security.accesscontrol.5.0.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2023.05.05.20.34.40/system.security.accesscontrol.5.0.0.json"
+    },
+    {
+      "id": "system.security.principal.windows",
+      "version": "5.0.0",
+      "bytes": 535022,
+      "archive_sha512_base64": "RKkgqq8ishctQTGbtXqyuOGkUx1fAhkqb1OoHYdRJRlbYLoLWkSkWYHRN/17DzplsSlZtf2Xr8BXjNhO8nRnzQ==",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.security.principal.windows/5.0.0/system.security.principal.windows.5.0.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.45/system.security.principal.windows.5.0.0.json"
+    }
+  ]
+}
