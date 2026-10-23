@@ -664,6 +664,7 @@ class LibretroTests(LibretroHarness):
             ("a CT RAW", self.playlist("a.adf\nb.ctr\n", ["a.adf", "b.ctr"]), "CT RAW images are not supported"),
             ("a path that is too long", self.playlist("a.adf\n" + "x" * 5000 + ".adf\n"), "line 2: the path is too long"),
             ("a huge playlist", self.playlist("#" * (70 * 1024) + "\na.adf\n"), "cannot be loaded: it is too large"),
+            ("a missing playlist", files / "nothing.m3u", "cannot be loaded: it cannot be opened"),
             ("a short ADF", files / "short.adf", "is 901119 bytes, not an ADF of 901120"),
             ("a long ADF", files / "long.adf", "is 901121 bytes, not an ADF of 901120"),
             ("a huge ADF", files / "huge.adf", "is larger than any disk file this core reads"),

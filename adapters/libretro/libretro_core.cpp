@@ -1950,9 +1950,15 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
         p6_libretro::Playlist playlist;
         if (game && game->path && p6_libretro::has_extension(game->path, "m3u")) {
             std::vector<uint8_t> text;
-            if (core.files.read(game->path, p6_libretro::kMaxPlaylistBytes, &text) != p6_libretro::ReadResult::Ok ||
-                !p6_libretro::parse_m3u(text, p6_libretro::directory_of(game->path), P6_MAX_MEDIA, &playlist, &why) || playlist.entries.empty()) {
-                notify_error("CD/disk playlist cannot be loaded: %s", why.c_str()); stop_image(); return false;
+            const p6_libretro::ReadResult read = core.files.read(game->path, p6_libretro::kMaxPlaylistBytes, &text);
+            if (read != p6_libretro::ReadResult::Ok) {
+                notify_error("the playlist %s cannot be loaded: %s", game->path, describe(read)); stop_image(); return false;
+            }
+            if (!p6_libretro::parse_m3u(text, p6_libretro::directory_of(game->path), P6_MAX_MEDIA, &playlist, &why)) {
+                notify_error("the playlist %s is not usable: %s", game->path, why.c_str()); stop_image(); return false;
+            }
+            if (playlist.entries.empty()) {
+                notify_error("the playlist %s lists no disks", game->path); stop_image(); return false;
             }
             entries = &playlist.entries;
             for (const auto &entry : *entries)
