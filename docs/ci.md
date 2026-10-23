@@ -155,6 +155,12 @@ Cada corpus corre completo en baseline y host: locale, TZ, rutas con caracteres
 especiales y tres relojes civiles desplazados realmente; el monotono se conserva.
 Comprueba todos los hashes hardware/AV, unidades, errores y headless, sin cambiar
 ningun golden. Las ROMs y medios son generados propios, sin firmware comercial.
+El formato JSON de las referencias sigue en version 1; `probe_schema=2` identifica
+la observacion completa, incluidos `config_changed` y `config_changed_flags`.
+El probe anuncia esa version una vez por proceso y se comprueba tambien por caso.
+Una migracion de esquema debe explicar el cambio de bytes y verificar todas las
+observaciones anteriores antes de renovar hashes; el comparador usa siempre los
+campos completos actuales.
 
 `--gate corpus` exige revision limpia y registra/recomprueba tambien recetas,
 generadores, fixtures y goldens Python. Salida, corpus y biblioteca de reloj
