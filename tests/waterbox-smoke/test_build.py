@@ -54,6 +54,7 @@ class ToolPathsTests(unittest.TestCase):
         self.enterContext(mock.patch.object(build_waterbox, 'ROOT', self.root))
         self.enterContext(mock.patch.dict(build_waterbox.os.environ))
         build_waterbox.os.environ.pop(build_waterbox.TOOLS_FILE_ENV, None)
+        build_waterbox.os.environ.pop(build_waterbox.TOOLCHAIN_PROFILE_ENV, None)
         def execute(args, **kwargs):
             if args[1] == '-print-prog-name=ld.lld': output = str(self.linker) + '\n'
             else:
@@ -138,6 +139,121 @@ class ToolPathsTests(unittest.TestCase):
         with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
 
 
+class ToolchainProfileTests(unittest.TestCase):
+    """Real file/hash/receipt selection; compiler/linker execution is mocked."""
+    setUp = ToolPathsTests.setUp
+    select = ToolPathsTests.select
+
+    def fixture(self):
+        self.lock.update(schema_version=1, profile='fixture-local', runtime={'profile': 'release', 'patches': []})
+        self.lock['toolchain_profiles'] = {'hosted-macos26': {
+            'profile': 'fixture-hosted', 'tools': {'make': {**self.lock['tools']['make'],
+            'sha256': build_waterbox.hashlib.sha256(b'hosted make').hexdigest()}}}}
+        lock = self.root / 'lock.json'; lock.write_text(json.dumps(self.lock))
+        self.enterContext(mock.patch.object(build_waterbox, 'LOCK', lock))
+        self.enterContext(mock.patch.object(build_waterbox, 'BUILD', self.root / 'build/waterbox'))
+        source = build_waterbox.BUILD / 'runtime-src'; source.mkdir(parents=True)
+        (source / 'fixture').write_text('runtime source')
+        return self.root / 'build/receipt.json'
+
+    def receipt(self, path, *, legacy=False):
+        lock = build_waterbox.selected_toolchain()
+        data = {'runtime_patchset_sha256': build_waterbox.canonical_hash([]),
+                'runtime_source_inventory_sha256': build_waterbox.canonical_hash(build_waterbox.inventory(build_waterbox.BUILD / 'runtime-src')),
+                'tool_hashes': {n: e['sha256'] for n, e in lock['tools'].items()},
+                'tool_versions': {n: e['version'] for n, e in lock['tools'].items()}}
+        if not legacy: data.update(build_waterbox.toolchain_receipt({'lock': lock}))
+        path.write_text(json.dumps(data))
+        return data
+
+    def test_default_is_a_copy_preserving_all_local_pins_and_profile(self):
+        self.fixture(); before = json.dumps(self.lock, sort_keys=True)
+        selected = build_waterbox.selected_toolchain(self.lock)
+        self.assertEqual('local', selected['toolchain_profile'])
+        self.assertEqual(self.lock['tools'], selected['tools'])
+        self.assertEqual(self.lock['profile'], selected['profile'])
+        selected['tools']['make']['sha256'] = 'changed'
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+        real = json.loads((ROOT / 'plan/toolchains.json').read_text())
+        self.assertEqual('5b1ddb7e9c11b87a034fc88b212e8ac243cfe2b4db696d767aa44c79595fc09a',
+                         build_waterbox.selected_toolchain(real)['tools']['make']['sha256'])
+
+    def test_unknown_profile_never_executes_or_reads_receipts_or_falls_back(self):
+        self.fixture()
+        for value in ('', 'hosted', ' local', 'LOCAL'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: value}):
+                for call in (lambda: build_waterbox.locked_tools(self.lock), build_waterbox.toolchain,
+                             lambda: build_waterbox.read_runtime_receipt(self.root / 'missing'),
+                             lambda: build_waterbox.ensure_runtime_lane('release')):
+                    with self.subTest(value=value), self.assertRaisesRegex(build_waterbox.BuildError, 'P6_WATERBOX_TOOLCHAIN_PROFILE'): call()
+                self.run.assert_not_called()
+
+    def test_hosted_pin_is_distinct_and_manifest_uses_the_effective_make(self):
+        self.fixture(); original = json.dumps(self.lock, sort_keys=True)
+        self.select()
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            selected = build_waterbox.selected_toolchain(self.lock)
+            self.assertEqual('fixture-hosted', selected['profile'])
+            for n in ('clang', 'lld', 'cargo', 'rustc'): self.assertEqual(self.lock['tools'][n], selected['tools'][n])
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de make'): build_waterbox.locked_tools(self.lock)
+            self.defaults['make'].write_bytes(b'hosted make')
+            paths, _ = build_waterbox.locked_tools(self.lock)
+            self.assertEqual(self.defaults['make'], paths['make'])
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de make'): build_waterbox.locked_tools(self.lock)
+        self.assertEqual(original, json.dumps(self.lock, sort_keys=True))
+
+    def test_current_legacy_and_cross_profile_receipts_are_strict_without_rewriting(self):
+        path = self.fixture()
+        for name in ('local', 'hosted-macos26'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: name}):
+                data = self.receipt(path)
+                self.assertEqual(data, build_waterbox.read_runtime_receipt(path))
+                before = path.read_bytes()
+                data['profile'] = 'wrong profile'; path.write_text(json.dumps(data))
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+                path.write_bytes(before)
+            other = 'hosted-macos26' if name == 'local' else 'local'
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: other}):
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+            self.assertEqual(before, path.read_bytes())
+        data = self.receipt(path, legacy=True)
+        self.assertEqual(data, build_waterbox.read_runtime_receipt(path))
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+            # Even hosted hashes cannot retroactively certify a legacy profile.
+            self.receipt(path, legacy=True)
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+
+    def test_lanes_reject_foreign_base_before_build_and_record_new_runtime_only(self):
+        path = self.fixture()
+        base = build_waterbox.runtime_receipt_path('release')
+        base.parent.mkdir(parents=True, exist_ok=True)
+        self.receipt(base, legacy=True)
+        dylib = path.parent / 'mock.dylib'; dylib.write_text('mock compiler output')
+        with (mock.patch.object(build_waterbox, 'toolchain', return_value={
+                'lock': build_waterbox.selected_toolchain(), 'source_audit': {'mode': 'snapshot'}}),
+              mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib) as cargo):
+            derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
+            self.assertEqual('local', derived['toolchain_profile'])
+            self.assertNotIn('guest_toolchain_profile', derived)
+            self.assertNotIn('toolchain_profile', json.loads(base.read_text()))
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+                for lane in ('release', 'debug'):
+                    with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.ensure_runtime_lane(lane)
+            self.assertEqual(1, cargo.call_count)
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            current = self.receipt(base)
+            current['guest_toolchain_profile'] = 'hosted-macos26'; base.write_text(json.dumps(current))
+            with (mock.patch.object(build_waterbox, 'toolchain', return_value={
+                    'lock': build_waterbox.selected_toolchain(), 'source_audit': {'mode': 'snapshot'}}),
+                  mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib)):
+                derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
+            self.assertEqual('hosted-macos26', derived['toolchain_profile'])
+            self.assertEqual(current['guest_toolchain_profile'], derived['guest_toolchain_profile'])
+            self.assertEqual(current['tool_hashes'], derived['tool_hashes'])
+            self.assertEqual(derived, build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path('debug')))
+
+
 class GuestToolchainCacheTests(unittest.TestCase):
     def test_changed_inputs_or_partial_failure_force_a_complete_rebuild(self):
         import prepare_hrtmon
@@ -145,7 +261,7 @@ class GuestToolchainCacheTests(unittest.TestCase):
             base = Path(directory)
             cc, ld = base / 'cc', base / 'ld'
             cc.write_text('compiler wrapper'); ld.write_text('linker wrapper')
-            tc = {'lock': {'tools': {'clang': {'sha256': 'a' * 64}}}, 'versions': {'clang': 'test compiler'},
+            tc = {'lock': {'toolchain_profile': 'local', 'profile': 'fixture', 'tools': {'clang': {'sha256': 'a' * 64}}}, 'versions': {'clang': 'test compiler'},
                   'paths': {'make': Path('/usr/bin/make')}, 'sysroot_copy': base,
                   'sysroot_inventory': [{'sha256': 'b' * 64}], 'cc_wrapper': cc, 'ld_wrapper': ld, 'env': {},
                   'source_audit': {'mode': 'checkout', 'sources': {}}}
@@ -169,17 +285,19 @@ class GuestToolchainCacheTests(unittest.TestCase):
                     self.assertEqual(forced, '-B' in commands[-1])
                     self.assertEqual(tc['lock']['tools']['clang']['sha256'], result['tool_hashes']['clang'])
                     self.assertEqual(tc['source_audit'], result['source_audit'])
+                    self.assertEqual(tc['lock']['toolchain_profile'], result['toolchain_profile'])
                 build(True)   # No receipt, including existing objects from an older build.
                 build(False)  # Identical inputs keep the normal incremental build.
                 command = commands[-1]
                 tc['source_audit'] = {'mode': 'snapshot', 'sources': {}}
                 build(False)  # Audit bookkeeping changes neither inputs nor make.
                 self.assertEqual(command, commands[-1])
-                for change in ('compiler', 'version', 'sysroot', 'wrapper', 'flags', 'recipe', 'sources'):
+                for change in ('compiler', 'version', 'sysroot', 'wrapper', 'flags', 'recipe', 'sources', 'toolchain-profile'):
                     if change == 'compiler': tc['lock']['tools']['clang']['sha256'] = 'd' * 64
                     elif change == 'version': tc['versions']['clang'] = 'another compiler'
                     elif change == 'sysroot': tc['sysroot_inventory'][0]['sha256'] = 'e' * 64
                     elif change == 'wrapper': cc.write_text('new wrapper')
+                    elif change == 'toolchain-profile': tc['lock']['toolchain_profile'] = 'hosted-macos26'
                     else:
                         previous = json.loads(receipt.read_text())
                         previous['build_inputs'][change] = {'obsolete': True}
@@ -196,7 +314,7 @@ class SourceAuditTests(unittest.TestCase):
     """Real Git/capture/wrapper checks; all compiler execution is mocked."""
 
     def setUp(self):
-        self.enterContext(mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'checkout'}))
+        self.enterContext(mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'checkout', build_waterbox.TOOLCHAIN_PROFILE_ENV: 'local'}))
         (ROOT / 'build').mkdir(exist_ok=True)
         temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-audit-')
         self.addCleanup(temp.cleanup)
@@ -354,6 +472,19 @@ class SourceAuditTests(unittest.TestCase):
             self.assertEqual(checkout[name], snapshot[name])
         self.assertEqual('snapshot', snapshot['source_audit']['mode'])
         self.assertEqual(snapshot['source_audit'], snapshot['guest_source_audit'])
+
+    def test_hosted_build_receipt_records_selected_tools_and_guest_profile(self):
+        raw = json.loads(self.lock.read_text())
+        raw['toolchain_profiles'] = {'hosted-macos26': {'profile': 'fixture-hosted',
+            'tools': {'make': {**raw['tools']['make'], 'sha256': 'b' * 64}}}}
+        self.lock.write_text(json.dumps(raw))
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            result, _, _ = self.mock_runtime_build('snapshot')
+            self.assertEqual('hosted-macos26', result['toolchain_profile'])
+            self.assertEqual('hosted-macos26', result['guest_toolchain_profile'])
+            self.assertEqual('fixture-hosted', result['profile'])
+            self.assertEqual('b' * 64, result['tool_hashes']['make'])
+            self.assertEqual(result, build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path()))
 
     def test_derived_lane_keeps_guest_audit_and_never_backfills_legacy_audit(self):
         base, _, dylib = self.mock_runtime_build('checkout')

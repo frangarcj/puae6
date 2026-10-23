@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import copy
 import functools
 import hashlib
 import json
@@ -33,6 +34,7 @@ RUNTIME_PROFILES = ("release", "debug")
 RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
 SOURCE_AUDIT_ENV = "P6_WATERBOX_SOURCE_AUDIT"
 TOOLS_FILE_ENV = "P6_WATERBOX_TOOLS_FILE"
+TOOLCHAIN_PROFILE_ENV = "P6_WATERBOX_TOOLCHAIN_PROFILE"
 TOOL_NAMES = ("clang", "lld", "cargo", "rustc", "make")
 RUNTIME_TEST_COUNT = 10
 
@@ -68,8 +70,12 @@ def runtime_receipt_path(profile: str | None = None) -> Path:
 
 def read_runtime_receipt(path: Path) -> dict:
     """An old binary and its old receipt cannot certify the current patchset."""
+    lock = selected_toolchain()
     receipt = json.loads(path.read_text())
-    lock = json.loads(LOCK.read_text())
+    recorded = receipt.get("toolchain_profile", "local")
+    if (recorded != lock["toolchain_profile"]
+            or ("toolchain_profile" in receipt and receipt.get("profile") != lock["profile"])):
+        raise BuildError(f"runtime construido con otro perfil de toolchain: {path}; reconstruir runtime")
     patches = lock["runtime"].get("patches", [])
     import import_sources
     for patch in patches:
@@ -201,6 +207,26 @@ def copy_verified(source: Path, destination: Path, expected: list[dict]) -> None
         os.replace(staged, destination)
 
 
+def selected_toolchain(lock: dict | None = None) -> dict:
+    """Choose a declared input set explicitly; never infer it from tool failures."""
+    name = os.environ.get(TOOLCHAIN_PROFILE_ENV, "local")
+    if name not in ("local", "hosted-macos26"):
+        raise BuildError(f"{TOOLCHAIN_PROFILE_ENV} debe ser local o hosted-macos26, no {name!r}")
+    selected = copy.deepcopy(json.loads(LOCK.read_text()) if lock is None else lock)
+    if name != "local":
+        profile = selected.get("toolchain_profiles", {}).get(name)
+        if not isinstance(profile, dict) or not profile.get("profile"):
+            raise BuildError(f"falta perfil de toolchain declarado: {name}")
+        selected["profile"] = profile["profile"]
+        selected["tools"].update(copy.deepcopy(profile["tools"]))
+    selected["toolchain_profile"] = name
+    return selected
+
+
+def toolchain_receipt(tc: dict) -> dict:
+    return {"toolchain_profile": tc["lock"]["toolchain_profile"], "profile": tc["lock"]["profile"]}
+
+
 def selected_tool_paths(lock: dict) -> dict[str, Path]:
     """Optional relocation changes paths only; content/version pins stay in lock."""
     defaults = {name: Path(lock["tools"][name]["path"]) for name in TOOL_NAMES}
@@ -248,6 +274,7 @@ def selected_tool_paths(lock: dict) -> dict[str, Path]:
 
 
 def locked_tools(lock: dict) -> tuple[dict[str, Path], dict[str, str]]:
+    lock = selected_toolchain(lock)
     tools = lock["tools"]
     required = TOOL_NAMES
     selected = selected_tool_paths(lock)  # Validate the entire manifest before any tool executes.
@@ -586,13 +613,13 @@ def run_logged(command: list[str], env: dict[str, str], cwd: Path,
 def toolchain(source_audit: str | None = None) -> dict:
     """The pinned toolchain, the verified sysroot and the musl wrappers: what every WBX guest of this project is built with."""
     source_audit = source_audit_mode(source_audit)
+    lock = selected_toolchain()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise BuildError("Este perfil requiere runner real Darwin ARM64")
     import import_sources
     import_sources.no_links(ROOT, BUILD / "toolchain/bin")
     import_sources.no_links(ROOT, BUILD / "runtime-src")
     import_sources.no_links(ROOT, BUILD / "sysroot")
-    lock = json.loads(LOCK.read_text())
     if lock.get("schema_version") != 1:
         raise BuildError("schema_version de toolchains.json no es 1")
     paths, versions = locked_tools(lock)
@@ -731,7 +758,8 @@ def build(args: argparse.Namespace) -> dict:
     receipt = {
         "schema_version": 1,
         "status": "BUILD01_PASS_GUEST_NOT_EXECUTED",
-        "profile": lock["profile"],
+        **toolchain_receipt(tc),
+        "guest_toolchain_profile": lock["toolchain_profile"],
         "source_commits": {"machawk": machawk["commit"], "waterbox_musl_darwin": musl["commit"]},
         "source_audit": tc["source_audit"],
         "guest_source_audit": tc["source_audit"],
@@ -771,6 +799,7 @@ def ensure_runtime_lane(profile: str, source_audit: str | None = None) -> Path:
     """T34a: the receipt of the runtime built with `profile`, building it if it is missing or stale (the sources and the guest are the ones of build/waterbox/receipt.json).
     The default profile is what build() writes; the other lane is the same receipt with its own runtime_dylib, so both lanes run the same guest and the same managed harness."""
     source_audit = source_audit_mode(source_audit)
+    selected_toolchain()  # Reject an invalid selection even before looking for receipts.
     if profile not in RUNTIME_PROFILES:
         raise BuildError(f"perfil de runtime desconocido: {profile!r}")
     path = runtime_receipt_path(profile)
@@ -787,7 +816,7 @@ def ensure_runtime_lane(profile: str, source_audit: str | None = None) -> Path:
     dylib = cargo_build_runtime(tc, profile)
     # The inherited smoke guest retains its own audit. Legacy receipts acquire
     # no guest audit retroactively; only this newly built runtime is audited.
-    receipt = {**base, "source_audit": tc["source_audit"],
+    receipt = {**base, **toolchain_receipt(tc), "source_audit": tc["source_audit"],
                "runtime_dylib": {"path": str(dylib), "size": dylib.stat().st_size, "sha256": sha256(dylib)}, "runtime_profile": profile}
     text = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
     if not path.is_file() or path.read_text() != text:
@@ -904,7 +933,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
               "linkscript_aarch64": sha256(ROOT / "references/machawk/waterbox/linkscript_aarch64.T"), "build_recipe": sha256(Path(__file__))}
     flags = {"optimization": "-O2", "target": "aarch64", "host_page_size": PAGE_SIZE}
     tool_hashes = {name: entry["sha256"] for name, entry in tc["lock"]["tools"].items()}
-    build_inputs = {"tools": tool_hashes, "versions": tc["versions"], "sysroot": canonical_hash(tc["sysroot_inventory"]),
+    build_inputs = {**toolchain_receipt(tc), "tools": tool_hashes, "versions": tc["versions"], "sysroot": canonical_hash(tc["sysroot_inventory"]),
                     "cc_wrapper": sha256(tc["cc_wrapper"]), "ld_wrapper": sha256(tc["ld_wrapper"]), "recipe": recipe, "flags": flags, "sources": sources}
     receipt_path = out / "puae6-receipt.json"
     previous = json.loads(receipt_path.read_text()) if receipt_path.is_file() else {}
@@ -929,6 +958,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     metadata["compiler_tls"] = check_no_compiler_tls(guest)
     imports = audit_imports(tc, [out / "release" / f"{source}.o" for source in sources])
     receipt = {"schema_version": 1, "status": "BUILD01_PASS_GUEST_NOT_EXECUTED", "guest": metadata, "imports": imports,
+               **toolchain_receipt(tc),
                "source_audit": tc["source_audit"],
                "sources": {source: sha256(ROOT / source) for source in sources},
                "recipe": recipe, "tool_hashes": tool_hashes, "tool_versions": tc["versions"], "flags": flags, "build_inputs": build_inputs}
