@@ -22434,7 +22434,7 @@
       "title": "Cerrar Action Replay publico en BizHawk con ROMs autorizadas y peliculas BK2/TAS",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T69g3a"
       ],
@@ -22461,12 +22461,14 @@
         "Usar las cuatro ROMs Action Replay y Kickstart autorizadas ya locales, nunca subirlas ni descargarlas otra vez. Reutilizar wrapper publico/proveedor y helpers G3a con guest consolidado vigente, sin build guest ni repetir16medidas.",
         "Un escenario real por modelo une arranque/Freeze, comando causal propio de monitor, held/release/rearm y snapshot frio con futuro AV/PCM/ticks/RAM completo. Reutilizar contratos de comandos/esperas ya demostrados por native/libretro; no asumir READY por pantalla ni timeout ciego.",
         "BK2 y TAS con Freeze grabado por nivel reproducen y hacen seek tras corte held en proceso nuevo; identidad modelo/SHA/config rechaza otro cartucho antes de LoadSnapshot. Elegir cortes/unidades por señal causal y reutilizar salidas compartidas, no repetir cada campaña por etiqueta de check. Mantener HRTMon ya probado y puerta propia nueva de cartuchos.",
-        "Conectar WB03/WB04/WB09 a selectores reales unicos, root ejecuta union una vez y valida plan. Tras dos intentos razonados sin resolver mismo fallo, reproducer y dos hipotesis en ficha y bloqueo explicito. No informes historicos: temporales en build eliminados."
+        "Conectar WB03/WB04/WB09 a selectores reales unicos, root ejecuta union una vez y valida plan. Tras dos intentos razonados sin resolver mismo fallo, reproducer y dos hipotesis en ficha y bloqueo explicito. No informes historicos: temporales en build eliminados.",
+        "cd32_close implementa en WT t66-cd-swap desde2d5e4a6a exacto trasG3aDONE; root docs/dispatcher/metadata. Reutilizar CartridgeMovies helpers públicos y contratos comerciales nativos/libretro existentes, sin retrazar transporte ni propiasfixtures/16medidas. Usar P6_ACTION_REPLAY1_ROM/2_ROM/3_ROM/1200_ROM yKickstart A500/A1200 ya autorizados; gate exige todos si se selecciona, no silentlyskip modelo. Selector unico ActionReplayMoviesTests.test_commercial_cartridges_bk2_tas_seek_and_cold_state para WB03/WB04/WB09/WB15 en union. Objetivo170-250manuales, avisar400/extra rutas. Agente no compila managed/motor/guest ni lanza campañas; root serializa j2 e integra."
       ],
       "checks": [
         "WB03",
         "WB04",
-        "WB09"
+        "WB09",
+        "WB15"
       ],
       "acceptance": [
         "Los cuatro Action Replay comerciales autorizados funcionan desde el wrapper publico con Freeze causal y futuro identico tras restaurar snapshot, replay BK2/TAS y seek en proceso nuevo. Identidad/propiedad son estrictas y no se modifica el checkout MacHawk."
