@@ -138,6 +138,16 @@ la incluyen en la identidad del entorno; los receipts conservan la auditoria
 realmente ejecutada al construir. Este selector no proporciona el sysroot ni
 acredita su reconstruccion o una ejecucion remota.
 
+`P6_WATERBOX_TOOLS_FILE=build/host-tools/paths.json` selecciona rutas propias
+para las herramientas. El JSON debe contener solo `schema_version: 1` y `paths`,
+con las cinco claves `clang`, `lld`, `cargo`, `rustc` y `make`. Las rutas son
+absolutas, regulares y sin enlaces dentro de `build/`; `make` conserva exactamente
+la ruta del lock. El manifiesto tambien debe quedar bajo `build/`. El selector
+solo cambia ubicaciones: se siguen exigiendo los mismos hashes, versiones y
+resolucion de Clang hacia LLD. Sin la variable se conservan las rutas originales;
+un manifiesto ausente o invalido falla, sin fallback. Esta seleccion no instala
+herramientas ni declara compatible otro binario `make` del runner.
+
 `python3 tools/build_waterbox_sysroot.py --llvm-source RUTA --output build/N`
 valida una candidata de reconstruccion del sysroot. LLVM debe ser una checkout
 limpia y poblada del pin `compiler_rt_emutls`, con `cmake`, `compiler-rt`,
