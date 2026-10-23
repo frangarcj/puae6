@@ -64,7 +64,27 @@ jobs:
           for name, argument, relative in [('clang', '-print-resource-dir', 'llvm/23.1.4/lib/clang/23'), ('rustc', '--print=sysroot', 'rust/1.99.1')]:
               observed = subprocess.check_output([paths[name], argument], env=env, text=True, timeout=60).strip()
               assert pathlib.Path(observed).resolve(strict=True) == (output / relative).resolve(strict=True), (name, observed)
-          print(json.dumps(dict(status='PASS', scope='pinned host-tool loading and resource discovery only; no Waterbox build or execution', versions=versions), sort_keys=True))
+          import struct, sys
+          sys.path.insert(0, str(root / 'tools'))
+          from ci import hosted_environment
+          selected = hosted_environment.select({name: pathlib.Path(value) for name, value in paths.items()},
+              {**os.environ, 'P6_WATERBOX_HOSTED_TOOLS': 'build/hosted-tools'})
+          smoke = root / 'build/hosted-tool-check'
+          smoke.mkdir()
+          (smoke / 'own.c').write_text('int p6_c(int x) { return x + 1; }\n')
+          (smoke / 'own.cpp').write_text('template<class T> T twice(T x) { return x+x; } int p6_cpp(int x) { return twice(x); }\n')
+          (smoke / 'own.rs').write_text('#![no_std]\npub fn p6_rust(x: u32) -> u32 { x.wrapping_add(1) }\n')
+          flags = '--target=aarch64-linux-gnu -ffixed-x18 -ffixed-x28'
+          (smoke / 'Makefile').write_text('all:\n'
+              + '\tclang ' + flags + ' -c own.c -o c.o\n'
+              + '\tclang++ ' + flags + ' -c own.cpp -o cpp.o\n'
+              + '\tld.lld -r c.o cpp.o -o combined.o\n'
+              + '\t"$(RUSTC)" --crate-name p6_tool_smoke --crate-type lib --emit=metadata own.rs -o own.rmeta\n')
+          subprocess.run(['/usr/bin/make'], cwd=smoke, env=selected['tool_env'], check=True, timeout=120)
+          header = (smoke / 'combined.o').read_bytes()[:64]
+          assert header[:4] == b'\x7fELF' and struct.unpack_from('<H', header, 18)[0] == 183
+          assert (smoke / 'own.rmeta').stat().st_size > 0
+          print(json.dumps(dict(status='PASS', scope='pinned host tools, resources and SIP-safe tiny compile/link only; no Waterbox build or execution', versions=versions), sort_keys=True))
           PY
   managed-sdk:
     runs-on: macos-26
