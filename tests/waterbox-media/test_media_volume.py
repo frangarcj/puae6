@@ -64,6 +64,11 @@ class VolumeTests(Sessions):
         cls.files_before = tree(cls.media)
         cls.cache = {}
 
+    def core(self, name, **options):
+        # CONTENT has a synthetic .slave; keep these mounts on the manual path.
+        options.setdefault("whdload", "Disabled")
+        return super().core(name, **options)
+
     def vcore(self, name, volumes="game.lha", **options):
         return self.core(name, adf="", writes=False, volume=",".join(str(self.media / v) for v in volumes.split(",")), **options)
 
