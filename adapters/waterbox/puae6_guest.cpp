@@ -182,7 +182,7 @@ ECL_EXPORT int32_t p6w_probe_exception(int32_t depth, int32_t *destroyed)
     return -2;
 }
 
-ECL_EXPORT int32_t p6w_init_machine(p6w_init *args)
+static int32_t init_machine(p6w_init *args, bool with_cartridge, uint32_t model, const void *raw, uint64_t bytes)
 {
     if (!args) return P6_ERROR_BAD_ARGUMENT;
     args->error[0] = 0;
@@ -215,6 +215,8 @@ ECL_EXPORT int32_t p6w_init_machine(p6w_init *args)
 
     p6_error error = {P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&args->config, &error);
+    if (result == P6_OK && with_cartridge)
+        result = p6_cartridge_bind(model, p6_buffer{raw, bytes}, &error);
     if (result == P6_OK)
         result = p6_load(p6_buffer{firmware, args->firmware_bytes}, media, args->media_count, &error);
     if (result != P6_OK) {
@@ -224,6 +226,16 @@ ECL_EXPORT int32_t p6w_init_machine(p6w_init *args)
     }
     loaded = true;
     return P6_OK;
+}
+
+ECL_EXPORT int32_t p6w_init_machine(p6w_init *args)
+{
+    return init_machine(args, false, 0, nullptr, 0);
+}
+
+ECL_EXPORT int32_t p6w_init_machine_cartridge(p6w_init *args, uint32_t model, const void *raw, uint64_t bytes)
+{
+    return init_machine(args, true, model, raw, bytes);
 }
 
 ECL_EXPORT int32_t p6w_frame_advance(const p6_input *input, uint32_t render_flags, p6w_frame *out)

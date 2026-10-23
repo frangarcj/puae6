@@ -38,6 +38,11 @@ typedef struct p6w_init {
     char error[P6_ERROR_TEXT_CAPACITY]; /* out: empty on success. */
 } p6w_init;
 
+/* Additive cartridge init: same layout and lifecycle as legacy init. raw is borrowed only
+ * during this call; the public binder copies it into the blob mmap heap, never sealed.
+ * model0/null are invalid cartridge requests, not a request for legacy initialization. */
+int32_t p6w_init_machine_cartridge(p6w_init *args, uint32_t model, const void *raw, uint64_t bytes);
+
 /* Output of p6w_frame_advance. frame is what p6_run_frame filled in; its video and audio pointers are guest memory. */
 typedef struct p6w_frame {
     uint32_t abi_version;

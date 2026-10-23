@@ -52,6 +52,7 @@ internal static unsafe partial class Program
 				case "pin": Console.WriteLine("pin " + Puae6Guest.BuiltWithSha256); break;
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;
+				case "cartridges": Cartridges(options); break;
 				case "heaps":
 				{
 					// heaps [--machine A500|A600|A1200] [--chip Auto|KB512|MB1|MB2] [--slow ...] [--fast ...] [--writes]: the heaps of the core for those settings (T49: the mmap heap follows the memory).

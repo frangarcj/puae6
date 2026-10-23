@@ -21,6 +21,9 @@ public abstract partial class LibPuae6
 	/// <summary>Writes P6W_LAYOUT_VALUES values and returns how many; zero when <paramref name="capacity"/> is too small.</summary>
 	[BizImport(CC)] public abstract ulong p6w_layout(IntPtr output, ulong capacity);
 	[BizImport(CC)] public abstract int p6w_init_machine(IntPtr args);
+	/// <summary>Borrows raw only for this call; the public binder copies before load and Seal.</summary>
+	[BizImport(CC)] public abstract int p6w_init_machine_cartridge(IntPtr args, uint model, IntPtr raw, ulong bytes);
+	[BizImport(CC)] public abstract ulong p6w_memory_info(IntPtr output, ulong capacity);
 	[BizImport(CC)] public abstract int p6w_frame_advance(IntPtr input, uint renderFlags, IntPtr output);
 	[BizImport(CC)] public abstract int p6w_media_event_enqueue(IntPtr call);
 	/// <summary>The write overlay of the floppies (P6_CONFIG_FLOPPY_WRITES): status of one medium, and a copy of a medium as it is now into host memory (T28). Neither changes the machine.</summary>
