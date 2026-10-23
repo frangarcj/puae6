@@ -1,6 +1,7 @@
 """Offline recipe tests: Docker/compiler execution is mocked; Git/capture checks are real."""
 import hashlib
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,18 @@ import import_sources as sources
 
 
 class SysrootRecipeTests(unittest.TestCase):
+    def test_original_musl_rule_reproduces_the_gitless_checkout_version(self):
+        work = self.root / 'musl-version'; (work / 'tools').mkdir(parents=True)
+        for name in ('Makefile', 'VERSION', 'tools/version.sh'):
+            shutil.copy2(ROOT / 'references/musl-darwin' / name, work / name)
+        (work / 'config.mak').write_text('ARCH = waterbox_aarch64\n')
+        plain = subprocess.check_output(['sh', 'tools/version.sh'], cwd=work)
+        self.assertEqual(b'1.2.0\n', plain)
+        subprocess.run(['sh', '-eu', '-c', recipe.MUSL_VERSION_CONTEXT], cwd=work,
+                       check=True, capture_output=True, timeout=30)
+        self.assertEqual(b'#define VERSION "1.2.0-git"\n',
+                         (work / 'obj/src/internal/version.h').read_bytes())
+
     def setUp(self):
         (ROOT / 'build').mkdir(exist_ok=True)
         temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='sysroot-recipe-')

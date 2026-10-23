@@ -24,6 +24,12 @@ MARKERS = ('.musl-aarch64-darwin-registers', '.musl-aarch64-darwin-auxv-v2',
 MUSL_FLAGS = ('-target aarch64-linux-gnu --sysroot=/usr/aarch64-linux-gnu -Werror '
               '-fvisibility=hidden -mcmodel=large -mstack-protector-guard=global '
               '-fno-pic -fno-pie -fcf-protection=none -ffixed-x18 -ffixed-x28 -DWBX_HOST_PAGE_SIZE=16384')
+# The original checkout was mounted into an image without Git: version.sh
+# generated 1.2.0-git. Run that same Makefile rule before normal tool discovery.
+MUSL_VERSION_CONTEXT = r'''mkdir -p .git tools/p6-version-bin
+for tool in sed sh mkdir; do ln -s "$(command -v "$tool")" "tools/p6-version-bin/$tool"; done
+PATH="$PWD/tools/p6-version-bin" "$(command -v make)" -s obj/src/internal/version.h
+'''
 PREFLIGHT = '''import json,platform,subprocess
 tools={}
 for tool in ['clang','ld.lld','cmake','make','ar','ranlib','ld','gcc']:
@@ -55,6 +61,7 @@ export CFLAGS=''' + "'" + MUSL_FLAGS + "'" + '''
 export LDFLAGS='--target=aarch64-linux-musl --sysroot=/usr/aarch64-linux-gnu'
 # The captured configure wrapper lost the 16-KiB macro; invoke configure directly.
 ./configure --target=waterbox_aarch64 --build=waterbox_aarch64 --disable-shared --prefix="$SYSROOT" --syslibdir="$SYSROOT/syslib"
+''' + MUSL_VERSION_CONTEXT + '''
 make -s -j2
 make -s install
 cd /work/libcxx
