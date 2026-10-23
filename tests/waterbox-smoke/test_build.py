@@ -178,6 +178,22 @@ class ToolchainProfileTests(unittest.TestCase):
         self.assertEqual('5b1ddb7e9c11b87a034fc88b212e8ac243cfe2b4db696d767aa44c79595fc09a',
                          build_waterbox.selected_toolchain(real)['tools']['make']['sha256'])
 
+    def test_effective_lock_is_idempotent_and_cannot_be_relabelled_under_another_selector(self):
+        self.fixture()
+        for name in ('local', 'hosted-macos26'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: name}):
+                selected = build_waterbox.selected_toolchain(self.lock)
+                before = json.dumps(selected, sort_keys=True)
+                again = build_waterbox.selected_toolchain(selected)
+                self.assertEqual(selected, again)
+                self.assertIsNot(selected['tools'], again['tools'])
+                other = 'hosted-macos26' if name == 'local' else 'local'
+                build_waterbox.os.environ[build_waterbox.TOOLCHAIN_PROFILE_ENV] = other
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'lock efectivo'): build_waterbox.selected_toolchain(selected)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'lock efectivo'): build_waterbox.locked_tools(selected)
+                self.assertEqual(before, json.dumps(selected, sort_keys=True))
+                self.run.assert_not_called()
+
     def test_unknown_profile_never_executes_or_reads_receipts_or_falls_back(self):
         self.fixture()
         for value in ('', 'hosted', ' local', 'LOCAL'):

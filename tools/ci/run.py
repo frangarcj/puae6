@@ -63,7 +63,8 @@ def identity():
                   dirty=bool(git("status", "--porcelain")), profile="deterministic-a500",
                   runner=dict(os=platform.system(), release=platform.release(), isa=platform.machine(), page_bytes=os.sysconf("SC_PAGE_SIZE")),
                   inputs={p: sha(ROOT / p) for p in files if (ROOT / p).is_file()},
-                  test_environment={**ENV, wb.SOURCE_AUDIT_ENV: wb.source_audit_mode()})
+                  test_environment={**ENV, wb.SOURCE_AUDIT_ENV: wb.source_audit_mode(),
+                                      wb.TOOLCHAIN_PROFILE_ENV: wb.selected_toolchain()["toolchain_profile"]})
     receipt = ROOT / "build/generated/codegen-receipt.json"
     if receipt.is_file():
         codegen = json.loads(receipt.read_text())

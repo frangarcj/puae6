@@ -213,6 +213,8 @@ def selected_toolchain(lock: dict | None = None) -> dict:
     if name not in ("local", "hosted-macos26"):
         raise BuildError(f"{TOOLCHAIN_PROFILE_ENV} debe ser local o hosted-macos26, no {name!r}")
     selected = copy.deepcopy(json.loads(LOCK.read_text()) if lock is None else lock)
+    if "toolchain_profile" in selected and selected["toolchain_profile"] != name:
+        raise BuildError("lock efectivo pertenece a otro perfil de toolchain; usar el lock original")
     if name != "local":
         profile = selected.get("toolchain_profiles", {}).get(name)
         if not isinstance(profile, dict) or not profile.get("profile"):

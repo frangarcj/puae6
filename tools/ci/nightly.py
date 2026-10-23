@@ -137,7 +137,8 @@ def waterbox_inputs():
 
 def identity(docker=None):
     facts = ci.identity()
-    facts["test_environment"] = {**ENV, wb.SOURCE_AUDIT_ENV: wb.source_audit_mode()}
+    facts["test_environment"] = {**ENV, wb.SOURCE_AUDIT_ENV: wb.source_audit_mode(),
+                                 wb.TOOLCHAIN_PROFILE_ENV: wb.selected_toolchain()["toolchain_profile"]}
     if docker is not None:
         facts["images"] = docker
     return facts

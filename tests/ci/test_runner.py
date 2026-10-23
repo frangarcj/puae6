@@ -149,27 +149,40 @@ class SourceAuditSelectionTests(unittest.TestCase):
                 subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
             for runner, args in ((ci, ()), (nightly, ('sanitizers',))):
                 original = dict(runner.ENV)
-                def worker(*unused):
-                    facts = runner.identity()
-                    script = ('import os,subprocess,sys,json; key=sys.argv[1]; '
-                              'child=subprocess.check_output([sys.executable,"-c","import os,sys;print(os.environ[sys.argv[1]])",key],text=True); '
-                              'print(json.dumps([os.environ[key],child.strip()]))')
-                    result = ci.command([sys.executable, '-c', script, ci.wb.SOURCE_AUDIT_ENV], runner.ENV, timeout=30)
-                    self.assertEqual(0, result.returncode, result.stderr)
-                    self.assertEqual(['snapshot', 'snapshot'], json.loads(result.stdout))
-                    self.assertEqual('snapshot', facts['test_environment'][ci.wb.SOURCE_AUDIT_ENV])
-                    self.assertEqual(original['P6_EVICT'], facts['test_environment']['P6_EVICT'])
-                    return {'status': 'PASS', 'identity': facts}
+                for inherited in (None, 'local', 'hosted-macos26'):
+                    selected = inherited or 'local'
+                    def worker(*unused):
+                        facts = runner.identity()
+                        keys = [ci.wb.SOURCE_AUDIT_ENV, ci.wb.TOOLCHAIN_PROFILE_ENV]
+                        script = ('import os,subprocess,sys,json; keys=sys.argv[1:]; '
+                                  'code="import os,sys,json;print(json.dumps([os.environ.get(k) for k in sys.argv[1:]]))"; '
+                                  'child=subprocess.check_output([sys.executable,"-c",code,*keys],text=True); '
+                                  'print(json.dumps([[os.environ.get(k) for k in keys],json.loads(child)]))')
+                        result = ci.command([sys.executable, '-c', script, *keys], runner.ENV, timeout=30)
+                        self.assertEqual(0, result.returncode, result.stderr)
+                        self.assertEqual([['snapshot', inherited]] * 2, json.loads(result.stdout))
+                        self.assertEqual('snapshot', facts['test_environment'][ci.wb.SOURCE_AUDIT_ENV])
+                        self.assertEqual(selected, facts['test_environment'][ci.wb.TOOLCHAIN_PROFILE_ENV])
+                        self.assertEqual(original['P6_EVICT'], facts['test_environment']['P6_EVICT'])
+                        return {'status': 'PASS', 'identity': facts}
+                    with (mock.patch.object(ci, 'ROOT', root),
+                          mock.patch.dict(os.environ, {ci.wb.SOURCE_AUDIT_ENV: 'checkout'}),
+                          mock.patch.object(runner, '_run', side_effect=worker)):
+                        key = ci.wb.TOOLCHAIN_PROFILE_ENV
+                        if inherited is None: os.environ.pop(key, None)
+                        else: os.environ[key] = inherited
+                        before = runner.identity()
+                        result = runner.run(*args, source_audit='snapshot')
+                        self.assertEqual('checkout', os.environ[ci.wb.SOURCE_AUDIT_ENV])
+                        self.assertEqual(inherited, os.environ.get(key))
+                        self.assertEqual(before, runner.identity())
+                        self.assertEqual(before['source_tree_sha256'], result['identity']['source_tree_sha256'])
+                        self.assertNotEqual(before['test_environment'], result['identity']['test_environment'])
+                    self.assertEqual(original, runner.ENV)
                 with (mock.patch.object(ci, 'ROOT', root),
-                      mock.patch.dict(os.environ, {ci.wb.SOURCE_AUDIT_ENV: 'checkout'}),
-                      mock.patch.object(runner, '_run', side_effect=worker)):
-                    before = runner.identity()
-                    result = runner.run(*args, source_audit='snapshot')
-                    self.assertEqual('checkout', os.environ[ci.wb.SOURCE_AUDIT_ENV])
-                    self.assertEqual(before, runner.identity())
-                    self.assertEqual(before['source_tree_sha256'], result['identity']['source_tree_sha256'])
-                    self.assertNotEqual(before['test_environment'], result['identity']['test_environment'])
-                self.assertEqual(original, runner.ENV)
+                      mock.patch.dict(os.environ, {ci.wb.TOOLCHAIN_PROFILE_ENV: 'unknown'})):
+                    with self.assertRaises(ci.wb.BuildError): runner.identity()
+
 
     def test_scope_restores_absence_or_value_even_when_a_worker_raises(self):
         for runner, args in ((ci, ()), (nightly, ('sanitizers',))):
