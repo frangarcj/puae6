@@ -115,6 +115,38 @@ class HostedToolsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'invalid explicit dylib ID'): h.prepare(True)
         self.network.assert_not_called(); self.normalizer.assert_not_called()
 
+    def signature_policy_fixture(self):
+        row = self.manifest['normalized_macho'][-1]
+        row.update(path='zstd/1.5.7_1/lib/libzstd.1.5.7.dylib', dylib_id='/opt/homebrew/opt/zstd/lib/libzstd.1.dylib',
+                   signature_policy='preserve-adhoc-layout')
+        members = [(row['path'], b'data', None), ('zstd/1.5.7_1/LICENSE', b'own notice', None)]
+        blob = self.archive(members)
+        self.manifest['archives'].append({'owner': 'zstd', 'slug': 'zstd', 'version': '1.5.7_1', 'prefix': 'zstd/1.5.7_1',
+            'sha256': sha(blob), 'bytes': len(blob), 'notices': ['zstd/1.5.7_1/LICENSE'],
+            'url': 'https://ghcr.io/v2/homebrew/core/zstd/blobs/sha256:' + sha(blob)})
+        self.manifest['library_directories'].append('zstd/1.5.7_1/lib')
+        self.write_manifest()
+        self.network.return_value.open.side_effect = lambda request, **kw: io.BytesIO(
+            b'{"token":"secret"}' if isinstance(request, str) else blob if request.full_url.endswith(sha(blob)) else self.blob)
+        return row
+
+    def test_signature_policy_is_forwarded_only_to_explicit_zstd_row(self):
+        self.signature_policy_fixture()
+        h.prepare(True, 'mock-ruby')
+        commands = [call.args[0] for call in self.normalizer.call_args_list]
+        self.assertTrue(all('--signature-policy' not in command for command in commands[:-1]))
+        self.assertEqual(['--signature-policy', 'preserve-adhoc-layout'], commands[-1][-3:-1])
+
+    def test_signature_policy_metadata_rejects_unknown_and_foreign_rows_before_network(self):
+        row = self.manifest['normalized_macho'][-1]
+        row['signature_policy'] = 'preserve-adhoc-layout'; self.write_manifest()
+        with self.assertRaisesRegex(ValueError, 'invalid signature policy'): h.prepare(True)
+        row = self.signature_policy_fixture()
+        for policy in ('unknown', None, True):
+            row['signature_policy'] = policy; self.write_manifest()
+            with self.assertRaisesRegex(ValueError, 'invalid signature policy'): h.prepare(True)
+        self.network.assert_not_called(); self.normalizer.assert_not_called()
+
     def test_verify_collects_all_independent_target_mismatches(self):
         output = h.prepare(True)
         rows = self.manifest['normalized_macho']

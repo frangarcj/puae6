@@ -44,6 +44,34 @@ def load_commands(data):
         offset += size
 
 
+def preserved_fixture():
+    """Own valid 16 KiB ad-hoc signature with a nonzero opaque allocation tail."""
+    offset, allocation = 16384, 1024
+    commands = []
+    for kind, raw in load_commands(fixture(True)):
+        raw = bytearray(raw)
+        if kind == 0x19:
+            name = raw[8:24].split(b'\0')[0]
+            if name == b'__TEXT': struct.pack_into('<QQQQ', raw, 24, 0, offset, 0, offset)
+            else: struct.pack_into('<QQQQ', raw, 24, offset, offset, offset, allocation)
+        commands.append(bytes(raw))
+    commands.append(struct.pack('<IIII', 0x1d, 16, offset, allocation))
+    body = b''.join(commands)
+    data = bytearray((struct.pack('<8I', 0xfeedfacf, 0x100000c, 0, 6, len(commands), len(body), 0, 0) + body).ljust(offset, b'\0'))
+    data[4096:4104] = b'own code'
+    identifier = b'libtest.signature\0'
+    requirements = struct.pack('>III', 0xfade0c01, 12, 0)
+    hash_offset = 88 + len(identifier) + 64
+    directory = struct.pack('>9I4B4I4Q', 0xfade0c02, hash_offset + 32, 0x20400, 2,
+                            hash_offset, 88, 2, 1, offset, 32, 2, 0, 14, 0, 0, 0, 0, 0, 0, offset, 0)
+    directory += identifier + hashlib.sha256(requirements).digest() + bytes(32) + hashlib.sha256(data).digest()
+    wrapper = struct.pack('>II', 0xfade0b01, 8)
+    length = 36 + len(directory) + len(requirements) + len(wrapper)
+    signature = struct.pack('>9I', 0xfade0cc0, length, 3, 0, 36, 2, 36 + len(directory), 65536, length - 8)
+    signature += directory + requirements + wrapper
+    return bytes(data) + signature + (b'own opaque tail!' * 100)[:allocation - length]
+
+
 class HomebrewNormalizerTests(unittest.TestCase):
     def setUp(self):
         ruby = os.environ.get('P6_TEST_RUBY') or shutil.which('ruby')
@@ -144,6 +172,62 @@ class HomebrewNormalizerTests(unittest.TestCase):
         self.target.write_bytes(fixture(False)); before = self.target.read_bytes()
         result, facts = self.run_helper(options=('--dylib-id', valid))
         self.assertNotEqual(0, result.returncode, facts); self.assertEqual(before, self.target.read_bytes())
+
+    def test_preserved_adhoc_layout_rehashes_only_code_slots_and_keeps_opaque_tail(self):
+        original = preserved_fixture(); self.target.write_bytes(original)
+        options = ('--signature-policy', 'preserve-adhoc-layout', '--dylib-id', '/opt/homebrew/opt/test/lib/libtest.dylib')
+        result, facts = self.run_helper(options=options)
+        self.assertEqual(0, result.returncode, facts)
+        data = self.target.read_bytes(); offset, allocation = 16384, 1024
+        self.assertEqual(len(original), len(data))
+        sig = data[offset:]; old_sig = original[offset:]
+        length = struct.unpack_from('>I', sig, 4)[0]
+        self.assertEqual(old_sig[length:], sig[length:]); self.assertNotEqual(bytes(allocation - length), sig[length:])
+        cd = struct.unpack_from('>I', sig, 16)[0]
+        fields = struct.unpack_from('>9I4B', sig, cd)
+        hashes = cd + fields[4]
+        self.assertEqual(old_sig[:hashes], sig[:hashes])
+        self.assertEqual(old_sig[hashes + 32:], sig[hashes + 32:])
+        self.assertEqual((2, 32, 2, 14), (fields[3], fields[9], fields[10], fields[12]))
+        self.assertEqual(hashlib.sha256(data[:offset]).digest(), sig[hashes:hashes + 32])
+        self.assertEqual(original[4096:offset], data[4096:offset])
+        self.assertIn(b'/opt/homebrew/opt/test/lib/libtest.dylib\0', data[:4096])
+        stat = self.target.stat(); result, facts = self.run_helper(options=options)
+        self.assertEqual(0, result.returncode, facts); self.assertFalse(facts['modified'])
+        self.assertEqual((data, stat.st_ino, stat.st_mtime_ns), (self.target.read_bytes(), self.target.stat().st_ino, self.target.stat().st_mtime_ns))
+
+    def test_preserved_adhoc_policy_rejects_bad_original_and_changed_layout_atomically(self):
+        original = preserved_fixture(); offset = 16384
+        cd = offset + struct.unpack_from('>I', original, offset + 16)[0]
+        hash_offset = struct.unpack_from('>I', original, cd + 16)[0]
+        for case in ('tamper', 'special', 'CMS', 'flags', 'bounds', 'page', 'index', 'unknown', 'layout'):
+            data = bytearray(original); prefix = (); policy = 'preserve-adhoc-layout'
+            if case == 'tamper': data[4096] ^= 1
+            elif case == 'special': data[cd + hash_offset - 64] ^= 1
+            elif case == 'CMS':
+                cms = offset + struct.unpack_from('>I', data, offset + 32)[0]
+                struct.pack_into('>I', data, cms + 4, 12)
+                struct.pack_into('>I', data, offset + 4, struct.unpack_from('>I', data, offset + 4)[0] + 4)
+                data[cms + 8:cms + 12] = b'CMS!'
+            elif case == 'flags': struct.pack_into('>I', data, cd + 12, 0)
+            elif case == 'bounds':
+                command_offset = next(pos for pos in range(32, 1024, 8) if data[pos:pos + 8] == struct.pack('<II', 0x1d, 16))
+                struct.pack_into('<I', data, command_offset + 12, 1025)
+            elif case == 'page': data[cd + 39] = 12
+            elif case == 'index': struct.pack_into('>I', data, offset + 16, 35)
+            elif case == 'unknown': policy = 'unknown'
+            else:
+                hook = self.root / 'layout-hook.rb'
+                hook.write_text('TracePoint.new(:return) { |t| t.self.serialize << "x" if t.method_id == :change_dylib_id && t.self.respond_to?(:serialize) }.enable')
+                prefix = ('-r', str(hook))
+            self.target.write_bytes(data); before = self.target.stat()
+            result, facts = self.run_helper(prefix=prefix, options=('--signature-policy', policy))
+            with self.subTest(case=case):
+                self.assertNotEqual(0, result.returncode, facts)
+                if case == 'layout': self.assertIn('layout changed', facts['diagnostic'])
+                if case == 'CMS': self.assertIn('CMS', facts['diagnostic'])
+                self.assertEqual((bytes(data), before.st_ino, before.st_mtime_ns),
+                                 (self.target.read_bytes(), self.target.stat().st_ino, self.target.stat().st_mtime_ns))
 
     def test_invalid_inputs_preserve_target(self):
         for case in ('bytes', 'type', 'signature_error', 'symlink', 'hardlink', 'outside', 'parent_link', 'extra_argument', 'old_ruby'):

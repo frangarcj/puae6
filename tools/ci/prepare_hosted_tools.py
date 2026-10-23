@@ -82,6 +82,9 @@ def inputs():
             value = row['dylib_id']
             require(parts[2] == 'lib' and row['path'].endswith('.dylib') and isinstance(value, str)
                     and value.startswith(parent) and re.fullmatch(r'[A-Za-z0-9_+.-]+\.dylib', value[len(parent):]), 'invalid explicit dylib ID')
+        if 'signature_policy' in row:
+            require(row['path'] == 'zstd/1.5.7_1/lib/libzstd.1.5.7.dylib' and 'dylib_id' in row
+                    and row['signature_policy'] == 'preserve-adhoc-layout', 'invalid signature policy')
         require(re.fullmatch('[0-9a-f]{64}', row['sha256']) and type(row['bytes']) is int and 0 < row['bytes'] <= MAX_FILE, 'invalid target pin')
     require(set(manifest['entrypoints']) == {'clang', 'lld', 'cargo', 'rustc'}, 'invalid entrypoints')
     aliases = manifest['aliases']
@@ -261,6 +264,8 @@ def prepare(fetch=False, ruby='ruby'):
         for row in manifest['normalized_macho']:
             regular(stage / row['path'])
             options = ['--dylib-id', row['dylib_id']] if 'dylib_id' in row else []
+            if 'signature_policy' in row:
+                options += ['--signature-policy', row['signature_policy']]
             result = subprocess.run([ruby, str(ROOT / manifest['normalizer']['path']), *options, str(stage / row['path'])], capture_output=True, text=True, timeout=120)
             diagnostic = result.stdout.replace(str(stage) + '/', '').replace(str(ROOT) + '/', '')[:240]
             require(result.returncode == 0 and json.loads(result.stdout)['status'] == 'PASS', f'data normalization failed: {row["path"]}: {diagnostic}')
