@@ -45,12 +45,16 @@ class HeadlessLinkTests(unittest.TestCase):
         abi = re.search(r"#define P6_ABI_VERSION\s+UINT32_C\((\d+)\)", header)[1]
         self.assertEqual(info["core"], "puae6-headless")
         self.assertEqual(info["profile"], manifest["profile"])
-        self.assertEqual(info["machines"], "A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000")
+        self.assertEqual(info["machines"],
+                         "A500 A500OG A500PLUS A600 A1000 A1200 A2000OG A2000 "
+                         "CD32 CDTV (combined firmware only, no CD input) "
+                         "A4030 A4040 (Normal CPU only; no MMU)")
         self.assertEqual(info["abi"], abi)
         self.assertEqual(info["upstream"], f"WinUAE {manifest['commit']}")
         self.assertEqual(info["patches"], f"{count} ({digest})")
-        # Capability bits describe implemented behaviour: only the lag flag exists so far.
-        self.assertEqual(info["caps"], "0x3fe")           # P6_CAP_LAG_FLAG | P6_CAP_MEDIA_EVENTS | P6_CAP_MEMORY_REGIONS | P6_CAP_MEDIA_APPEND | P6_CAP_MEDIA_WRITE | P6_CAP_MEDIA_HDF | P6_CAP_MEDIA_EXT_ADF | P6_CAP_MEDIA_FDI | P6_CAP_MEDIA_IPF
+        # Media/lag capabilities plus INPUT_V2 and HRTMON/AR23/AR1/AR1200.
+        # The headless target does not link the native state implementation.
+        self.assertEqual(info["caps"], "0x7ffe")
         self.assertEqual(info["boot"], "micro-ROM programs only; Kickstart compatibility is not proven")
         self.assertEqual(info["video"], "up to 760x576")
 
