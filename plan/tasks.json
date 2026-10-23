@@ -19464,6 +19464,116 @@
       "stop": "No atribuir runtime por build cruzado, no usar private_start/Akiko ficticio ni exponer modelo publico antes de su puerta propia. Si supera400lineas dividir antes de ampliar."
     },
     {
+      "id": "T67c3e",
+      "title": "Publicar CDTV fijo en BizHawk y restaurar por el loader real",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T67c3b",
+        "T67c3c",
+        "T66w4",
+        "T69"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md"
+      ],
+      "touch": [
+        "config/schema/options.json",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "integration/bizhawk/patches/0017-cdtv-firmware.patch",
+        "tests/config/test_parity.py",
+        "tests/ffi/test_bizhawk_tree.py",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/csharp-disc/CdtvPublic.cs",
+        "tests/media/csharp-disc/Cd32Loader.csproj",
+        "tests/waterbox-media/test_cdtv_boot.py",
+        "docs/options.md",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "cd32_close responsable en worktree aislado darwin-host-states desde main5a0f98c1; root metadata, dispatcher, contratos e integracion. Vertical atomica excepcional de unas320..380lineas manuales en rutas enumeradas: enum/modelo no publicable antes de constructor, proveedor, guards y puerta real. Dos salidas del esquema solo mediante generador. Dividir antes de superar400; no compilar guest ni ejecutar baterias por agente, root serializa builds-j2.",
+        "CDTV explicito en SyncSettings, ABI10 sin cambiar ordinales existentes; perfil68000Exact/Chip1MiB/sin disquetes, expansiones, cartucho o SaveRAM ficticia. ParametersFrom conserva CDTV en vez de forzarCD32. CD inicial fijo o sincontenido, sin deducir modelo porPVD/Q ni modificarRomLoader. Publicar wrapper:true solo con la misma vertical completa.",
+        "Proveedor firmware nuevo Amiga/CDTV paraKS1.3ID6 y Amiga/CDTVext27 paraEXT2.7ID22,256KiB cada una, EXT+MAIN copiados. Patch0017 reservado; conservar el CDTVext legacy y su Ideal1.0. Validar cada parte, identidad y negativos; no descargar/publicar ROM.",
+        "Rechazar catalogo y controles CDTV Next/Eject/Insert antes de BuildInput y _started para conservar latches y snapshot. Ocultar controles de cambio. Transporte V1 guest existente trasSeal; no tocar guest, Akiko, codec o runtime. Cambio, persistencia de bateria y peliculas CDTV conservan puertas posteriores explicitas.",
+        "CdtvPublicWaterboxTests.test_public_iso_cue_xml_boot_and_cold_restore usaRomLoader.LoadRom yLoadedEmulator/Puae6Core reales, ISO/HUNK propioC3a connonce yDelay creciente antes1000unidades. Un unico corte y futuro16 RAM/AV/PCM/ticks/fullsnapshot exactos conrestorelocal/sandboxnuevo/procesonuevo antesprimerframe; reutilizar corte equivalente paraXML/CUE eISOdirecto, no repetirarranque por formato.",
+        "CdtvPublicWaterboxTests.test_fixed_media_firmware_profiles_and_no_content cubre proveedores/copias, ROMausente/alterada, perfiles incompatibles, sinCD, catalogo rechazado, identidad ajena yleases/FD. Botones inyectados rechazan antesmutar. GEN01/paridad+BUILD01Client.Commonreal+WB03/DET02 yregresionCD32publica enmisma compilacion. Guestbyteidentico conserva medidas existentes; runnerausente dejaBLOCKED, noPASSporC#."
+      ],
+      "checks": [
+        "GEN01",
+        "BUILD01",
+        "WB03",
+        "DET02"
+      ],
+      "acceptance": [
+        "CDTV fijo se selecciona explicitamente y arranca por loader publico BizHawk con firmware fijo; el futuro completo coincide tras restaurar en sandbox/proceso nuevos sin run previo. Rechazos son transaccionales, perfiles y proveedor exactos yCD32publico conserva su puerta. CambioCDTV, bateria ypeliculas permanecen fuera de esta hoja, sin cerrar padreT67."
+      ],
+      "stop": "Sin runner real no cerrar; no publicar enum aislado, cambiar guest/Akiko o firmware legacy, adivinar maquina ni simular cambios exitosos. Si supera400manuales dividir antes."
+    },
+    {
+      "id": "T67d1",
+      "title": "Acreditar ausencia y cambio CDTV en el controlador real antes de abrir frontends",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T67b2",
+        "T67c2",
+        "T67c3a",
+        "T66m7"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "tests/media/cdtv_state_probe.cpp",
+        "tests/media/test_cdtv_state.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "ci_close responsable aislado t53-cpu en rama nueva desde fuente actual; solo dos rutas de test180..260manuales, metadata/dispatcher/contratos root. No levantar guards publicos, editar motor/codec ni compilar por agente sin coordinacion.",
+        "Reusar catalogo propio fijo2IDs yTOC distintas, device_set_inserted/select existentes y controladorstock. Ausencia ypresencia se observan mediante su poll hsync emulado dentro p6_run_frame, nunca relojhost/sleep/reinicializacion/Akiko. Mantener mismo unit/opens, no simular cambio con exito falso.",
+        "Reproducer real antes de API: eject+insert en misma boundary puede perder ausencia cuando poll ve1==cd_media1. Probar transicion0 observada antes seleccionar/insertar1; cortes antespoll, ausencia, STCHpendiente einsertado. Guardar y restaurar fullP6CT/P6SC/P6AU local yprocesofrio, futuroRAM/AV/PCM/lecturas exacto. No repetir boot1000frames deCDTV siesta puerta usaestado propio del controlador existente.",
+        "Segundo riesgo verificable: AudioPlayer.stop al retirar puede borrarcallbacks sinpublicar cd_audio_finished ydejar cd_playing hastaSTCH/firmwareSTOP. Comprobar DMA/Q/PCM y no contaminar otrodisco; no cambiar contrato por invento. Trasdosintentos razonados sinresolver conservar test y doshipotesis enblocked_reason, elegir frenteindependiente. La puerta no habilita aun cambio publico ni acredita firmware/juego nuevo."
+      ],
+      "checks": [
+        "MED01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "El controlador CDTV observa ausencia y nueva TOC usando solo tiempo emulado; cortes causales de medios/audio/STCH conservan futuro completo tras restore local y proceso nuevo, sin reset ni cambiar opens/unit. Reproducer cubre el cambio coalescido y el audio, sin abrir frontends antes de resolver sus condiciones."
+      ],
+      "stop": "No levantar guards, resetear controlador ni inventar notificacion. Un desfase causal conserva reproducer y bloquea con hipotesis verificables; no aprobar por timeout, pantalla o compilacion."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -19479,7 +19589,9 @@
         "T67c2",
         "T67c3a",
         "T67c3b",
-        "T67c3c"
+        "T67c3c",
+        "T67c3e",
+        "T67d1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -19498,7 +19610,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CDTV (1M Chip, ROM extendida). Preset CDTV sobre el backend de CD de T66, con la ROM extendida aportada por el usuario.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: blkdev_cdimage.c/bizhawk-cd.h de MacHawk para el backend de CD, y el preset CDTV de src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: blkdev_cdimage.c/bizhawk-cd.h de MacHawk para el backend de CD, y el preset CDTV de src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs.",
+        "Hojas posteriores obligatorias explicitas: T67c3e conecta CDTV fijo al loader publico BizHawk; T67d1 prueba primero ausencia/audio/poll del controlador real antes de abrir cambio en frontends. Padre conserva T66 y todas sus puertas, sin fingir que una hoja completa CDTV entero."
       ],
       "checks": [
         "MED01",
