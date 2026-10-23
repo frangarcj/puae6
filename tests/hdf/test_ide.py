@@ -198,7 +198,7 @@ class IdeTests(unittest.TestCase):
     def test_the_machines_without_gayle_refuse_the_ide(self):
         result, _, _ = self.run_case(machine="a500")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertIn("A600 and the A1200", result.stderr + result.stdout)
+        self.assertIn("this machine has no supported IDE port", result.stderr + result.stdout)
 
 
 if __name__ == "__main__":

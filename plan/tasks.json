@@ -11700,6 +11700,7 @@
         "tests/codegen/test_headless_link.py",
         "tests/codegen/test_native_cmake.py",
         "tests/ffi/test_ffi.py",
+        "tests/hdf/test_ide.py",
         "tests/waterbox-smoke/test_puae6_contract.py",
         "manifests/release/native-preview.json",
         "tests/packages/test_preview.py"
@@ -11762,7 +11763,8 @@
         "Ampliar previamente tests/codegen/test_engine_includes.py: su contador47 precede las incorporaciones declaradas de cdrom/akiko/cdtv/flashrom/ar y cpuemu0/11/20. El conjunto compilado55 coincide exactamente con el manifiesto actual y todas sus dependencias siguen dentro de las raices permitidas. Sustituir el contador historico por igualdad de fuentes contra selection.upstream_units/generated_units; conservar intactos los guards de headers, od-win32 y arboles prohibidos. Solo check dirigido de includes/imports, sin cambios al motor ni nueva bateria de emulacion.",
         "Ampliar previamente tests/codegen/test_headless_link.py: la identidad del CLI ya incluye CD32/CDTV/A4030/A4040 y caps INPUT_V2/HRTMON/AR1/AR23/AR1200, pero el test conserva ocho maquinas y0x3fe. Contrastar constantes ABI, p6_query_caps y parser CLI reales; actualizar solo expectativas de esas capacidades ya implementadas. Mantener las restricciones CDTV combinado sin entradaCD y A4000 Normal/sinMMU, todos los hashes de motor/video y los checks de enlace/errores; no modificar producto para satisfacer el test.",
         "Ampliar previamente tests/codegen/test_native_cmake.py: los presets se configuran en tempfile global fuera del destino build/ permitido por import_chd.materialize. Crear los directorios temporales de este arnes bajo build/ con limpieza automatica, como exige AGENTS. Conservar todos los asserts Debug/Release, sanitizers, fuentes/includes, CTest, rechazos explicitos y publicacion atomica; no relajar el guard CHD ni modificar las recetas del producto.",
-        "Ampliar previamente tests/ffi/test_ffi.py: el proyecto temporal de layout vive fuera de Directory.Build.targets y pide packs8.0.32 ausentes del cache offline. Crear el proyecto bajo build/ para heredar las referencias8.0.30 fijadas y UseAppHost=false como los otros probes managed; conservar RollForward Major y el assert exacto72/69/70/71, sin cambiar ABI, SDK global ni instalar paquetes."
+        "Ampliar previamente tests/ffi/test_ffi.py: el proyecto temporal de layout vive fuera de Directory.Build.targets y pide packs8.0.32 ausentes del cache offline. Crear el proyecto bajo build/ para heredar las referencias8.0.30 fijadas y UseAppHost=false como los otros probes managed; conservar RollForward Major y el assert exacto72/69/70/71, sin cambiar ABI, SDK global ni instalar paquetes.",
+        "Ampliar previamente tests/hdf/test_ide.py: has_gayle admite tambien A4000 y el diagnostico ahora dice que la maquina no tiene IDE soportado, pero el negativo A500 espera el texto anterior A600/A1200. Cambiar solo esa expectativa, manteniendo returncode3 y el rechazo. Ejecutar ese caso dirigido; conservar los otros diez casos IDE ya superados en9f1042b4, incluidos IO/restore/ASanUBSan, identificando la cobertura por caso y revision en la continuacion acumulada."
       ],
       "checks": [
         "PLAN01",
