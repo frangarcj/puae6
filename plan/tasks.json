@@ -18805,7 +18805,8 @@
         "T66v11",
         "T66v12",
         "T66v13",
-        "T66v14"
+        "T66v14",
+        "T66w1"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -22474,6 +22475,66 @@
         "Los cuatro Action Replay comerciales autorizados funcionan desde el wrapper publico con Freeze causal y futuro identico tras restaurar snapshot, replay BK2/TAS y seek en proceso nuevo. Identidad/propiedad son estrictas y no se modifica el checkout MacHawk."
       ],
       "stop": "No cerrar con solo fixture, imagen del monitor, build o estado nativo. Sin assets comerciales en Git ni compatibilidad entre builds."
+    },
+    {
+      "id": "T66w1",
+      "title": "Perfil privado ETNF multisesion global Canonical150 atribuido al productor CDI2Nero",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66l6",
+        "T66v2",
+        "T66v3",
+        "T66v4"
+      ],
+      "read": [
+        "docs/00-sources.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "ports/portable/media/cd_nrg_metadata.h",
+        "ports/portable/media/cd_disc.h",
+        "patches/winuae/0413-nrg-etnf-global-sessions.patch",
+        "adapters/libretro/cd_nrg.h",
+        "adapters/libretro/cd_nrg.cpp",
+        "tests/media/test_nrg_metadata.py",
+        "tests/media/test_cd_nrg.py",
+        "tests/media/cd_nrg_probe.cpp",
+        "tests/media/nrg_metadata_probe.cpp",
+        "tests/fixtures/nrg_etnf_cdi.py",
+        "tests/fixtures/cdi2nero/**",
+        "docs/02-contracts.md",
+        "docs/adr/0018-cd-multisession.md",
+        "docs/00-sources.md",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "plan/upstream.lock.json",
+        "manifests/licenses.json",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "ci_close implementa aislado desde main actual limpio, root metadata/serie/clasificacion/lock/licencias/docs/dispatcher. Vertical privada300-370manuales, avisar400/extrarutas; excepcion11rutasmanuales justificada por metadata+owner+reproducer productor y contrato causal coherentes. Importacion GPL2 original fijada exenta, no reescritura del conversor. Solo componentesstandalonej2 coordinados; root serializa motor/guest. No upstreampristine ni salidasgeneradas a mano.",
+        "Nueva fuente primaria sizious/cdi2nero f43561d27e9a75061171f0e69a872c9439ccf898 y convencionCDI sizious/img4dc20d1c1489102bef780a4e9bbd888c258acd6d1e4. Producto real -t sobre CDIpropia audio302+Mode2/2336datos300,pregaps150,starts0/11702 confirma dosETNF/SINF con offsets0/710304,longitudes710304/700800, globalstart0/11702; directorio1411104,total1411200,SHA563558e7b8a39d583b760e280ff37565ac59d39761dcd2b6142546455bdbd210. DAO/CUES del mismo productor fijaINDEX00=-150/11552 eINDEX01=0/11702. No sumar150porpista ni reiniciar sesion. Fixture propia/source/receta se conserva; no informe o binariohistorico.",
+        "Importar8fuentesoriginales+LICENSE/source.json con SHA/procedencia/pin. BuilderCDI propio reproducible sinROM/juego yconversor offline enTempDirectorybuild; shim host soloMAX_PATH,stricmp,getoptCLI,endian,ofn ylocaltrack_mode=0 por lectura4bytesenLP64. Verificaroriginalesantescopiar, littleendian/tipos, payloadsinpregap byteexacto yhashsalida. Nunca alterarwriters/parserCDI para hacer pasar expectativas; no instalar paquetes ni ejecutarNero comercial.",
+        "Introducir NrgLayout::EtnfGlobalCanonical150 solo>=2gruposETNF/SINF puros; coordenadasglobales, INDEX01=start_sector, INDEX00=index1-150sintetico,A2finaldedatos. Rechazar DAO/CUE/ETN2/TINFmezclados ymetadata malformada antespayload. Nuevo dominioidentidad distinto evita confundir layout conpackedVCD oDAO; singleETNFpacked,ETN2single yDAO quedanexactos. Solo policyprivada2deCdNrg puedeadoptarlo: factorypublicapolicy1 continua rechazando este layout anteshash/payload.",
+        "Decision explicita de normalizacion: ETNF no preserva pregaporiginalniCUE0fisico. Perfilcanonical150declara cue0virtual=INDEX00, no leadinfisico; no inferir duraciones, no atribuirQoriginal niTOCfisicorecuperado. Session.cue0comentario yADR explicanprovenancia; campos/layout/validadorDisc intactos, huecoentreA2previo eINDEX00sigueRange sinlecturas. DAOconservaCUE0originalexplicito. PadreT66mantiene objetivo completo yTINF/ETN2multi/publicfrontends pendientes.",
+        "PuertasMED01 reutilizan NrgMetadataTests yCdNrgTests con fixture convertidaREAL yregresionescercanas: metadataacotada/transaccional, coordenadasporgrupo, modosystrides,payloadsector/Qcanónico150,cruzarhuecoRange sinIO,TOCvirtual/rebind ynegativosmix/orden/overlap/overflow/SINF. ASan/UBSan decomponentesnativos. Rootregistra0413conbefore/afterSHAyclaseantesgates; no construirengine/guest ni repetircorpus completo por esta hoja.",
+        "No cerrarT66 ni anunciarpublico porpuerta privada. Trasw1 hacenfalta conexionnativa/libretro+restore, normalizadorC#yWBpublico/frio en hojasposteriores conservando aceptaciónoriginal; TINFyETN2multi requierenfuentepropia. Dosintentosrazonadosfallidos:reproducer+doshipotesis,blocked; no goldens/tolerancias cambiados paraaprobar."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "El perfil privado ETNFglobalcanonical150 produce metadata/sectores/TOCvirtual coherentes con productor real atribuido, conserva identidad y valida sinmutacion, huecosRange yrebind. Singlepacked/ETN2/DAO conservan regresiones; fabrica publica rechaza antespayload. Tests dirigidos ASan/UBSan pasan y normalizacion/procedencia estan declaradas sin pretenderCUE0/Qfisicos."
+      ],
+      "stop": "No habilitarpublico,TINF niETN2multi con esta prueba; sinreinterpretarVCDpacked, inventarleadinfisico, relajarDiscvalidador o atribuirWaterbox acomponentenativo."
     }
   ],
   "max_in_progress": 4
