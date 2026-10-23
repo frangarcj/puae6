@@ -94,6 +94,18 @@ public sealed class Puae6Parameters
 			if (Enumerable.Range(0, CdCount).Select(n => BitConverter.ToString(CatalogId(n))).Distinct().ToArray().Length != CdCount)
 				throw new InvalidOperationException("CD catalog IDs must be unique");
 		}
+		if (SyncSettings.Machine == Puae6Machine.CDTV)
+		{
+			var s = SyncSettings;
+			if (catalog != 0 || Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || s.PhysicalFloppyDrives != Puae6FloppyDrives.Auto
+				|| s.FloppyWrites || s.Cartridge != Puae6Cartridge.Disabled || s.CpuCompatibility != Puae6CpuCompatibility.Exact
+				|| s.CpuModel is not (Puae6Cpu.Auto or Puae6Cpu.M68000) || s.CpuMultiplier is not (Puae6CpuClock.Auto or Puae6CpuClock.X2)
+				|| s.ChipMemory is not (Puae6Chip.Auto or Puae6Chip.MB1) || s.SlowMemory is not (Puae6Slow.Auto or Puae6Slow.None)
+				|| s.FastMemory is not (Puae6Fast.Auto or Puae6Fast.None) || s.FpuModel != Puae6Fpu.None || s.Z3Memory != Puae6Z3Memory.None
+				|| s.HdfController != Puae6HdfController.Uae)
+				throw new InvalidOperationException("CDTV requires stock exact 68000, 1 MiB Chip, no expansions or floppy drives, and at most one fixed CD");
+			return;
+		}
 		if ((cd || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
 			|| Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || SyncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
 			throw new InvalidOperationException("CD32 requires its own model with no floppy drives, hard files or volumes");
@@ -199,7 +211,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
 	{
-		Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.A4040 or Puae6Machine.CD32 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 => (1024u, 0u),
+		Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.A4040 or Puae6Machine.CD32 => (2048u, 0u), Puae6Machine.A600 or Puae6Machine.A500PLUS or Puae6Machine.A2000 or Puae6Machine.CDTV => (1024u, 0u),
 		Puae6Machine.A500OG or Puae6Machine.A1000 => (512u, 0u), _ => (512u, 512u),   // A500 and A2000 OG: 512 KiB Chip + 512 KiB Slow
 	};
 
@@ -210,7 +222,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static uint MachineNumber(Puae6Machine machine) => machine switch
 	{
 		Puae6Machine.A600 => P6.MachineA600, Puae6Machine.A1200 => P6.MachineA1200, Puae6Machine.A500OG => P6.MachineA500OG, Puae6Machine.A500PLUS => P6.MachineA500Plus,
-		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.A4040 => P6.MachineA4040, Puae6Machine.CD32 => P6.MachineCd32, _ => P6.MachineA500,
+		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.A4040 => P6.MachineA4040, Puae6Machine.CD32 => P6.MachineCd32, Puae6Machine.CDTV => P6.MachineCdtv, _ => P6.MachineA500,
 	};
 
 	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
@@ -253,7 +265,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
 	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
 	static byte FloppyDrivesNumber(Puae6FloppyDrives drives) => drives switch { Puae6FloppyDrives.One => (byte)1, Puae6FloppyDrives.Two => (byte)2, Puae6FloppyDrives.Three => (byte)3, Puae6FloppyDrives.Four => (byte)4, _ => (byte)0 };
-	int ConnectedFloppyDrives => _syncSettings.Machine == Puae6Machine.CD32 ? 0 : _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
+	int ConnectedFloppyDrives => _syncSettings.Machine is Puae6Machine.CD32 or Puae6Machine.CDTV ? 0 : _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
 
 	// The raster (T72): the numbers of config/schema/options.json (0 is the profile's own, hires and double lines).
 	static byte VideoResolutionNumber(Puae6VideoResolution resolution) => resolution switch { Puae6VideoResolution.Lores => (byte)1, Puae6VideoResolution.SuperHires => (byte)3, _ => (byte)0 };
@@ -411,7 +423,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			var identity = MakeIdentity(_parameters.Firmware);
 			var domains = CreateMemoryDomains();
 			guest.Seal();
-			if (cd is not null && cd.Activate(guest) != P6.Ok) throw new InvalidOperationException("CD32 device activation refused");
+			if (cd is not null && cd.Activate(guest) != P6.Ok) throw new InvalidOperationException("CD device activation refused");
 			_cdOrdinal = 0; _cdPresent = cd is not null;
 			_identity = identity;
 			_domains = domains;
@@ -700,6 +712,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	public bool FrameAdvance(IController controller, bool render, bool renderSound = true)
 	{
+		// Fixed CDTV rejects even injected controls before input latches or the first-run guard change.
+		if (_syncSettings.Machine == Puae6Machine.CDTV && (controller.IsPressed(Controllers.NextDrive) || controller.IsPressed(Controllers.NextSlot) || controller.IsPressed(Controllers.EjectDisk) || controller.IsPressed(Controllers.InsertDisk)))
+			throw new NotSupportedException("CDTV has a fixed initial CD; disc selection, eject and insert are not supported");
 		if (_movieStart is not null) throw new InvalidOperationException("load the movie's initial state before advancing");
 		if (_faulted) throw new InvalidOperationException("a state load failed halfway and the machine is undefined; load a state that is whole, or create the core again");
         var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };

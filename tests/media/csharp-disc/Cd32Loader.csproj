@@ -18,6 +18,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Fast.cs" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Chd.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/CdtvPublic.cs" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Movies.cs" Condition="'$(MovieAssemblyDir)' != ''" />
     <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32Loader.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
   </ItemGroup>

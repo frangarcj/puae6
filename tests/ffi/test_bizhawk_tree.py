@@ -89,7 +89,7 @@ class BizHawkTreeTests(unittest.TestCase):
         # T23e, T24f: Machine.A500 / A600 / A1200 are the FirmwareIDs (Amiga, "A500" / "A600" / "A1200") of BizHawk's database, which MacHawk already has: nothing is added to it.
         settings = (ROOT / "integration/bizhawk/core/Puae6/Settings.cs").read_text()
         machines = re.search(r"enum Puae6Machine \{ ([^}]*) \}", settings)[1].replace(" ", "").split(",")
-        self.assertEqual(["A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000", "A4030", "CD32", "A4040"], machines)
+        self.assertEqual(["A500", "A600", "A1200", "A500OG", "A500PLUS", "A1000", "A2000OG", "A2000", "A4030", "CD32", "A4040", "CDTV"], machines)
         launcher = (ROOT / "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs").read_text()
         self.assertIn("new(VSystemID.Raw.Amiga, FirmwareName(machine))", launcher)
         self.assertIn("FirmwareOf(machine)", launcher)
@@ -102,6 +102,9 @@ class BizHawkTreeTests(unittest.TestCase):
         for machine in ["A500", "A600", "A1200", "A4000", "CD32", "CD32ext"]:
             self.assertRegex(database, rf'Firmware\("Amiga", "{machine}", ', machine)
             self.assertRegex(database, rf'Option\("Amiga", "{machine}", File\([^\n]*FirmwareOptionStatus\.Ideal\)', f"{machine} has an ideal option")
+        for name, sha in (("CDTV", "891E9A547772FE0C6C19B610BAF8BC4EA7FCB785"), ("CDTVext27", "5BC114BBA29F60A614A311745B3E2464BFA06846")):
+            self.assertIn(f'Firmware("Amiga", "{name}", ', database)
+            self.assertIn(f'Option("Amiga", "{name}", filesByHash["{sha}"], FirmwareOptionStatus.Ideal)', database)
         self.assertIn("Kickstart v1.3", re.search(r'Option\("Amiga", "A500", [^\n]*Ideal\)', database)[0])
         self.assertIn("Kickstart v2.05", re.search(r'Option\("Amiga", "A600", [^\n]*Ideal\)', database)[0])
         self.assertIn("Kickstart v3.1 r40.068", re.search(r'Option\("Amiga", "A1200", [^\n]*Ideal\)', database)[0])

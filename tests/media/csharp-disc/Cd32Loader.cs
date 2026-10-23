@@ -29,6 +29,7 @@ internal static unsafe partial class Program
  {
   internal readonly List<string> Asked = new();
   internal bool Refuse { get; set; }
+  internal string Missing { get; set; }
   public string GetRetroSaveRAMDirectory(string p) => throw new NotSupportedException();
   public string GetRetroSystemPath(string p) => throw new NotSupportedException();
   public string GetUserPath(string s, bool temp) => throw new NotSupportedException();
@@ -38,9 +39,10 @@ internal static unsafe partial class Program
   public byte[] GetFirmwareOrThrow(FirmwareID id, string msg = null)
   {
    Asked.Add(id.Firmware);
+   if (id.Firmware == Missing) throw new InvalidOperationException("Missing firmware " + Missing);
    if (Refuse) throw new InvalidOperationException("host-stop-before-guest");
    return id.Firmware switch { "CD32" => combined ? ext.Concat(main).ToArray() : main,
-    "CD32ext" => ext, _ => throw new Exception("Wrong firmware request: " + id) };
+    "CDTV" => main, "CDTVext27" or "CD32ext" => ext, _ => throw new Exception("Wrong firmware request: " + id) };
   }
  }
  sealed class Idle(ControllerDefinition definition) : IController
@@ -385,6 +387,7 @@ internal static unsafe partial class Program
  static void Main(string[] args)
  {
 #if PUBLIC_CHD
+  if(args.Length>=8&&args[5].StartsWith("cdtvpublic")) { CdtvPublic(args); return; }
   if((args.Length==2||args.Length==3)&&(args[0] is "host-chd" or "host-nrg")) { HostCd(args[1],args.Length>2?args[2]:null); return; }
   if(args.Length>=8&&args[5].StartsWith("chdpublic")) { PublicCd(args,".chd"); return; }
   if(args.Length>=8&&(args[5].StartsWith("nrgpublic")||args[5].StartsWith("nrgmultipublic"))) { PublicCd(args,".nrg"); return; }

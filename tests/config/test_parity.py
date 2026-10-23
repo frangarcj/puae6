@@ -173,7 +173,7 @@ class WrapperParity(Schema):
                 self.assertEqual(kind, how["type"], f"{how['setting']} is a {kind}, the schema says {how['type']}")
                 if option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
-                    # A value the schema marks "wrapper": false is one the wrapper does not offer yet (CDTV while its wrapper gate is pending): the enum lists the others, in order.
+                    # A value the schema marks "wrapper": false is one the wrapper does not offer yet: the enum lists the others, in order.
                     offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
                     offered += [v["wrapper_name"] for v in (option["libretro"] or {}).get("extra_values", []) if "wrapper_name" in v]
                     self.assertEqual([m.partition("=")[0].strip() for m in members[1].split(",")], offered,
@@ -246,14 +246,14 @@ class WrapperParity(Schema):
         self.assertEqual(machine["default"], "A500")
         numbers = {v["value"]: v["abi"] for v in machine["values"] if v.get("wrapper") is not False}
         self.assertIn(f"const uint MachineA500 = {numbers['A500']}, MachineA600 = {numbers['A600']}, MachineA1200 = {numbers['A1200']}, MachineA500OG = {numbers['A500OG']}, "
-                      f"MachineA500Plus = {numbers['A500PLUS']}, MachineA1000 = {numbers['A1000']}, MachineA2000OG = {numbers['A2000OG']}, MachineA2000 = {numbers['A2000']}, MachineA4030 = {numbers['A4030']}, MachineA4040 = {numbers['A4040']}, MachineCd32 = {numbers['CD32']};", self.abi)
+                      f"MachineA500Plus = {numbers['A500PLUS']}, MachineA1000 = {numbers['A1000']}, MachineA2000OG = {numbers['A2000OG']}, MachineA2000 = {numbers['A2000']}, MachineA4030 = {numbers['A4030']}, MachineA4040 = {numbers['A4040']}, MachineCd32 = {numbers['CD32']}, MachineCdtv = {numbers['CDTV']};", self.abi)
         # T50: the number of every machine other than the default is a row of one switch (MachineNumber), and each row names the constant that has the schema's number
         self.assertIn("init.Config.Machine = MachineNumber(_syncSettings.Machine);", self.core)
         rows = dict(re.findall(r"Puae6Machine\.(\w+) => P6\.(Machine\w+)", re.search(r"static uint MachineNumber\(Puae6Machine machine\) => machine switch(.*?)\};", self.core, re.S)[1]))
         constants = {m[1]: int(m[2]) for m in re.finditer(r"(Machine\w+) = (\d+)", re.search(r"public const uint MachineA500 = .*?;", self.abi)[0])}
         self.assertEqual({name: constants[constant] for name, constant in rows.items()}, {name: number for name, number in numbers.items() if name != "A500"})
         # the three machines are offered, each with the FirmwareID of BizHawk's database that carries its name (tests/ffi/test_bizhawk_tree.py checks the database itself)
-        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], ["CDTV"])
+        self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], [])
         self.assertIn("puae6-config-1;machine={machine};", self.core)
 
     def test_the_wrapper_fixes_the_audio_rate_at_the_schema_default_in_the_machine_and_in_the_identity(self):

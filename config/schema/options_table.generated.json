@@ -1708,10 +1708,7 @@
       "libretro_default": "auto",
       "libretro_extra_values": {
         "auto": 0
-      },
-      "wrapper_not_offered": [
-        "CDTV"
-      ]
+      }
     },
     "video_standard": {
       "headless": {

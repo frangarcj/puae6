@@ -96,7 +96,7 @@ La identidad incluye el MDS y MDF completos: cambiar metadata, datos o padding
 impide restaurar sus estados. Versiones/modos/multipart no soportados se rechazan.
 CD32 sin un CD directo se rechaza. Los tags CD32 de disquetes conservan su
 significado anterior.
-BizHawk selecciona `Machine=CD32` al cargar CD y pide los firmwares
+BizHawk selecciona `Machine=CD32` al cargar CD, salvo `Machine=CDTV` elegido explicitamente, y pide los firmwares
 `Amiga/CD32` y `Amiga/CD32ext`, o el combinado de 1 MiB del firmware manager.
 El perfil usa 68EC020 exacto, AGA, 2 MiB Chip, sin Fast/FPU/Z3 ni disqueteras.
 SaveRAM contiene los 1024 bytes crudos de la EEPROM. BizHawk solo permite
@@ -492,7 +492,7 @@ Auto y Full comparten identidad de estados y peliculas; los otros niveles son
 incompatibles entre si.
 
 
-### CDTV nativo y libretro (T67c3b)
+### CDTV con CD inicial fijo (T67c3b, T67c3e)
 
 `puae6_machine=CDTV` permite un CD inicial fijo o ningun contenido, 68000 exacto,
 ECS Agnus y 1 MiB Chip. Automatic con etiqueta CDTV en un CD lo selecciona antes
@@ -503,4 +503,16 @@ Requiere KS1.3 `kick34005.A500` y EXT2.7 ID22: `kick34005.CDTV`,
 Los nombres solo localizan; contenido/version se validan y no aceptan EXT1.0.
 No acepta ADF/HDF, Kickstart alternativo, listas de varios discos ni operaciones
 de cambio/eject/index/add/replace. Headless `--machine cdtv` recibe EXT+MAIN
-combinados y no carga un CD. BizHawk/Waterbox y cambio de CDTV siguen pendientes.
+combinados y no carga un CD. BizHawk ofrece `Machine=CDTV` con el mismo perfil fijo y pide `Amiga/CDTV`
+(KS1.3 ID6) y `Amiga/CDTVext27` (EXT2.7 ID22), 256 KiB cada una; valida los
+bytes y copia EXT+MAIN. La entrada `CDTVext` legacy conserva su seleccion previa. La referencia MacHawk
+`UAE.ISettable.cs` usa `quickstart=CDTV,0` y el Kickstart A500; PUAE6 conserva
+esa geometria y fija su pareja 1.3/2.7 ya validada por la API nativa.
+Un ISO/CUE directo identificado como Amiga o un XML `System="Amiga"` usa PUAE6
+cuando se elige ese core; el disco no cambia automaticamente el modelo a CDTV.
+Se admite un CD inicial fijo o sin contenido, sin catalogos, disquetes, HDF,
+volumenes, expansiones ni cartuchos. No hay botones de seleccion/expulsion/insercion;
+inyectarlos tambien se rechaza antes de avanzar o cambiar el estado.
+Los estados conservan identidad de firmware, modelo, opciones y CD, con restauracion
+fria en sandbox y proceso nuevos. No se ofrece SaveRAM para este perfil: eso no
+acredita persistencia de bateria, peliculas CDTV ni cambio de CD, aun pendientes.

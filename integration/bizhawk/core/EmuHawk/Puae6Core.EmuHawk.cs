@@ -28,6 +28,7 @@ public sealed partial class Puae6Core
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
+		if (settings.Machine == Puae6Machine.CDTV && lp.Discs.Count > 1) throw new NotSupportedException("CDTV supports one fixed initial CD, without a catalog");
 		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
 			throw new NotSupportedException("CD32 loads 1..16 CD slots without other media");
 		var sources = new List<Puae6DiscSource>();
@@ -44,13 +45,21 @@ public sealed partial class Puae6Core
 		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Exists(a => a.DiscData.Regions.Count != 0);
 		bool sessioned = sources.Exists(s => s.SessionCount >= 2);
 		Puae6DiscSource? cd = lp.Discs.Count == 1 ? sources[0] : null;
-		if (lp.Discs.Count != 0)
+		if (lp.Discs.Count != 0 && settings.Machine != Puae6Machine.CDTV)
 		{
 			settings.Machine = Puae6Machine.CD32;
 		}
 		byte[] Firmware(Puae6Machine machine)
 		{
 			var main = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(machine), $"A Kickstart for the Amiga {machine} is required");
+			if (machine == Puae6Machine.CDTV)
+			{
+				var extended = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "CDTVext27"), "CDTV Extended ROM v2.7 is required");
+				bool Matches(byte[] data, string hash) { using var sha = System.Security.Cryptography.SHA1.Create(); return data.Length == 262144 && BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "") == hash; }
+				if (!Matches(main, "891E9A547772FE0C6C19B610BAF8BC4EA7FCB785") || !Matches(extended, "5BC114BBA29F60A614A311745B3E2464BFA06846"))
+					throw new InvalidDataException("CDTV requires raw KS1.3 ID6 and EXT v2.7 ID22, 256 KiB each");
+				return extended.Concat(main).ToArray();
+			}
 			if (machine != Puae6Machine.CD32 || main.Length == 1024 * 1024) return main;
 			var ext = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "CD32ext"), "CD32 Extended ROM is required");
 			if (main.Length != 512 * 1024 || ext.Length != 512 * 1024) throw new InvalidDataException("CD32 requires 512 KiB main and extended ROMs, or a combined 1 MiB ROM");

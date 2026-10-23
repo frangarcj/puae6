@@ -21,7 +21,7 @@ public static class P6
 	public const int Ok = 0, BadArgument = 1, BadState = 2, Busy = 3, Unsupported = 4, NeedFirmware = 5, WrongMedia = 6, Capacity = 7, Io = 8,
 		CorruptState = 9, Incompatible = 10, Internal = 11;
 
-	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3, MachineA500OG = 4, MachineA500Plus = 5, MachineA1000 = 6, MachineA2000OG = 7, MachineA2000 = 8, MachineA4030 = 11, MachineA4040 = 12, MachineCd32 = 9;
+	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3, MachineA500OG = 4, MachineA500Plus = 5, MachineA1000 = 6, MachineA2000OG = 7, MachineA2000 = 8, MachineA4030 = 11, MachineA4040 = 12, MachineCd32 = 9, MachineCdtv = 10;
 	public const uint VideoPal = 1, VideoNtsc = 2;
 	public const uint MediaAdf = 1, MediaHdf = 2;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2, PortCd32 = 3, PortLightgun = 4, PortLightpen = 5;
