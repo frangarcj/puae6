@@ -66,10 +66,12 @@ class ConfigLayoutTests(unittest.TestCase):
     def test_csharp_config_size_and_reserved_tail_match_the_native_contract(self):
         dotnet = shutil.which('dotnet')
         self.assertIsNotNone(dotnet, 'C# compiler required for ABI01')
-        with tempfile.TemporaryDirectory(prefix='p6-managed-layout-') as tmp:
+        (ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='p6-managed-layout-', dir=ROOT / 'build') as tmp:
             work = Path(tmp)
             (work / 'Layout.csproj').write_text(f'''<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>
 <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+<UseAppHost>false</UseAppHost>
 <RollForward>Major</RollForward>
 <ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup>
 <Compile Include="{ROOT / 'integration/bizhawk/core/Puae6/Abi.cs'}" /></ItemGroup></Project>''')
