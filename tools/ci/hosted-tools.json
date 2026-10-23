@@ -267,5 +267,8 @@
     "openssl@4/4.0.3/lib",
     "llhttp/9.4.3/lib",
     "sqlite/3.54.1/lib"
-  ]
+  ],
+  "excluded_symlinks": {
+    "llvm/23.1.4/etc/clang": "../../../../etc/clang"
+  }
 }
