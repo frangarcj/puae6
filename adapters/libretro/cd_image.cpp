@@ -68,7 +68,7 @@ Result CdImage::open(const char *path, const retro_vfs_interface *vfs)
     const auto result = extension(path, "iso") ? candidate->open_iso(path, vfs) :
         extension(path, "cue") ? candidate->use(candidate->cue, path, vfs) :
         extension(path, "ccd") ? candidate->use(candidate->ccd, path, vfs) :
-        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs, NrgSessionPolicy::ExplicitSessions) :
+        extension(path, "nrg") ? candidate->use(candidate->nrg, path, vfs, NrgSessionPolicy::CanonicalSessions) :
         extension(path, "mds") ? candidate->use(candidate->mds, path, vfs) :
         extension(path, "chd") ? candidate->use(candidate->chd, path, vfs) : Result::Unsupported;
     if (result == Result::Ok) data_ = std::move(candidate);

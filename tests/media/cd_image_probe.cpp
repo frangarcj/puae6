@@ -39,6 +39,8 @@ int main(int argc, char **argv)
     uint8_t out[2464];
     if(l.sessions>1) {
         static_assert(int(p6_libretro::NrgSessionPolicy::ExplicitSessions)==1 &&
+            int(p6_libretro::NrgSessionPolicy::SingleOnly)==0 && int(p6_libretro::NrgSessionPolicy::EtnfGlobalPrivate)==2 &&
+            int(p6_libretro::NrgSessionPolicy::CanonicalSessions)==3 &&
             p6_libretro::NrgSessionPolicy::ExplicitPrivate==p6_libretro::NrgSessionPolicy::ExplicitSessions);
         const auto calls=reads;
         cd_toc_head toc{},again{}; CHECK(akiko_toc(disc,&toc)==Result::Ok);

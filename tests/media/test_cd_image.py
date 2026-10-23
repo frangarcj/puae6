@@ -10,9 +10,23 @@ import sys
 import tempfile
 import unittest
 from tests.media import test_cd_ccd, test_cd_nrg, test_mds_metadata as mds_ref, test_chd_dependencies as chd
+from tests.fixtures.nrg_etnf_cdi import converted_fixture
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tools'))
 import materialize_upstream as mat
+
+
+def global_etnf_identity(data):
+    # W1 producer's original fixed geometry; do not derive the oracle from a parser.
+    _, payloads = converted_fixture()
+    streams = (payloads[0],b''.join(test_cd_nrg.mode2_header(11702+i)+payloads[1][i*2336:(i+1)*2336] for i in range(300)))
+    identity = b'P6ETGM'+struct.pack('<Q',len(data))+hashlib.sha256(data).digest()+struct.pack('<QIIiiII',1411104,1,2,-150,12002,0,0)+bytes(13)
+    for fields,stream in zip(((0,0,710304,-150,0,2352,7,1,0,0),(710304,710304,1411104,11552,11702,2336,3,1,4,0)),streams):
+        identity += struct.pack('<QQQiiIIIII',*fields)+bytes(12)+hashlib.sha256(stream).digest()
+    identity += struct.pack('<II',1,2)
+    for first,fmt,cue0,a2 in ((1,0,-150,302),(2,32,11552,12002)):
+        identity += struct.pack('<IIIIII',first,first,fmt,cue0&0xffffffff,a2,0)+bytes(13)
+    return hashlib.sha256(identity).digest(), streams
 
 
 @unittest.skipUnless(shutil.which('clang++'), 'clang++ unavailable')
@@ -22,7 +36,7 @@ class CdImageTests(unittest.TestCase):
         (ROOT/'build').mkdir(exist_ok=True)
         cls.temp=tempfile.TemporaryDirectory(prefix='cd-image-',dir=ROOT/'build'); cls.addClassCleanup(cls.temp.cleanup)
         cls.work=Path(cls.temp.name); entries=json.loads((ROOT/'patches/winuae/series.json').read_text())['patches']
-        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata','0396-chd-mode2-form2-edc'):
+        for identifier in ('0355-cdrom-mode1-sync','0356-cue-metadata-only','0357-ccd-metadata-only','0361-nrg-metadata-only','0388-mds-metadata-only','0389-nrg-dao-mode3-2336','0391-nrg-dao-mode2-form1','0392-nrg-etnf-canonical-pregap','0403-nrg-etnf-mixed-stride','0404-nrg-etn2-canonical-pregap','0405-nrg-dao-sessions-metadata','0413-nrg-etnf-global-sessions','0396-chd-mode2-form2-edc'):
             e = next(x for x in entries if x['id'] == identifier); patch = (ROOT / e['file']).read_bytes()
             for record in e['files']:
                 target = cls.work / record['path']; target.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +146,24 @@ class CdImageTests(unittest.TestCase):
             for at in (directory+blocks[1]['DAO']+12,raw[2][1]+17):
                 changed=bytearray(whole); changed[at]^=1; renamed.write_bytes(changed)
                 self.assertEqual(self.run_image(path,rebind=renamed,vfs=True)[-2],baseline.replace('rebind 0 ','rebind 2 '))
+
+    def test_global_etnf_factory_virtual_toc_identity_vfs_and_fresh_owner(self):
+        data,_ = converted_fixture(); content = self.work/'global.NrG'; content.write_bytes(data)
+        expected_id,streams = global_etnf_identity(data)
+        lines = self.run_image(content); self.assertEqual(lines,self.run_image(content,vfs=True))
+        self.assertEqual(f'disc 2 12002 2 {expected_id.hex()}',lines[0])
+        self.assertEqual(['toc 160 1 0 0','toc 1 1 0 0','toc 2 2 11702 4','toc 161 2 12002 0','toc 162 0 12002 0'],[s for s in lines if s.startswith('toc ')])
+        self.assertEqual(['session 1 1 1 0 -150 302','session 2 2 2 32 11552 12002'],[s for s in lines if s.startswith('session ')])
+        self.assertEqual(['gap 302','gap 11551'],[s for s in lines if s.startswith('gap ')])
+        for n,stream in enumerate(streams): self.assertIn(f'source {len(stream)} 1 {hashlib.sha256(stream).hexdigest()}',lines)
+        expected = [(0,streams[0][:2352]),(0,streams[0][:2352]),(301,streams[0][-2352:]),
+                    (11552,test_cd_nrg.mode2_header(11552)+bytes(2336)),(11702,streams[1][:2352]),(12001,streams[1][-2352:])]
+        self.assertEqual([f'sector {lba} {hashlib.sha256(sector).hexdigest()}' for lba,sector in expected],[s for s in lines if s.startswith('sector ')])
+        renamed=self.work/'renamed.nrg'; renamed.write_bytes(data)
+        baseline=self.run_image(content,rebind=renamed,vfs=True)[-2]; self.assertTrue(baseline.startswith('rebind 0 '))
+        for at in (710304+17,1411104+63): # BE32 start_lba low byte:11702 ->11703 remains valid.
+            changed=bytearray(data); changed[at]^=1; renamed.write_bytes(changed)
+            self.assertEqual(baseline.replace('rebind 0 ','rebind 2 '),self.run_image(content,rebind=renamed,vfs=True)[-2])
 
     def test_mds_delegates_with_four_parsers_identity_vfs_and_fresh_owner(self):
         path,payload=self.iso(); data,_,at=mds_ref.mds(modes=((0xaa,2048,0),),name='disc.ISO')

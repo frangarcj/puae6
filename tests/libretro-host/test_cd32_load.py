@@ -14,6 +14,7 @@ import test_libretro as lr
 from tests.build_support import ROOT, build_targets
 from tests.media import test_mds_metadata as mds_ref, test_chd_reader as chd_ref, test_cd_chd as chd_provider
 from tests.media import test_cd_nrg as nrg_ref
+from tests.media.test_cd_image import global_etnf_identity
 
 
 class Cd32Session(lr.LibretroHarness):
@@ -48,6 +49,21 @@ class Cd32NrgMultisessionTests(Cd32Session):
         work=self.work()
         content,raw,_,directory,blocks=nrg_ref.nrg_multisession_fixture(work,'public')
         renamed=nrg_ref.nrg_multisession_fixture(work,'renamed')[0]
+        self.check_public_multisession(content,renamed,(1,1,3,3,0,39,3,6),
+            [(160,1,0,0),(1,1,0,0),(2,2,6,4),(3,3,32,4),(161,3,39,0),(162,0,39,0)],
+            (directory+blocks[1]['DAO']+12,raw[2][1]+17))
+
+    def test_global_etnf_direct_load_restore_cold_and_identity(self):
+        work=self.work(); data,_=nrg_ref.converted_fixture()
+        content,renamed=work/'global (CD32).nrg',work/'renamed.nrg'
+        content.write_bytes(data); renamed.write_bytes(data)
+        identity,_=global_etnf_identity(data)
+        self.check_public_multisession(content,renamed,(1,1,2,2,0,12002,2,5),
+            [(160,1,0,0),(1,1,0,0),(2,2,11702,4),(161,2,12002,0),(162,0,12002,0)],
+            (710304+17,1411104+63),identity)
+
+    def check_public_multisession(self,content,renamed,toc_header,toc_entries,mutations,expected_id=None):
+        work=content.parent
         cut,end,again,fresh=(work/name for name in ('cut','end','again','fresh'))
         # Original synthetic audio/data, not an application or a boot claim.
         original=self.run_cd('--runs',332,'--cycles',2,'--do','300:save:s','--do',f'300:savefile:{cut}',
@@ -72,19 +88,17 @@ class Cd32NrgMultisessionTests(Cd32Session):
         self.assertEqual(futures[0],[view(r) for r in self.runs(accepted)])
         self.assertEqual(re.findall(r'^memory hash (.*)$',accepted,re.M),re.findall(r'^memory hash (.*)$',chunks[0],re.M)[:1])
         self.assertEqual(end.read_bytes(),fresh.read_bytes())
-        expected_id=None
         for path in (cut,end,again,fresh):
             device,body=Cd32PlaylistTests.device(self,path,controller=True)
             if expected_id is None: expected_id=device[0]
             self.assertEqual(device[:3],(expected_id,1,1))
             # P6AK semantic LE codec, shared with the HTOA test below.
             at=8+156+64+64+1339+16
-            self.assertEqual(struct.unpack_from('<8i',body,at),(1,1,3,3,0,39,3,6))
-            entries=[struct.unpack_from('<8B2i',body,at+32+n*16) for n in range(6)]
-            self.assertEqual([(e[3],e[4],e[-1],e[1]) for e in entries],
-                             [(160,1,0,0),(1,1,0,0),(2,2,6,4),(3,3,32,4),(161,3,39,0),(162,0,39,0)])
+            self.assertEqual(struct.unpack_from('<8i',body,at),toc_header)
+            entries=[struct.unpack_from('<8B2i',body,at+32+n*16) for n in range(len(toc_entries))]
+            self.assertEqual([(e[3],e[4],e[-1],e[1]) for e in entries],toc_entries)
         source=content.read_bytes()
-        for n,at in enumerate((directory+blocks[1]['DAO']+12,raw[2][1]+17)):
+        for n,at in enumerate(mutations):
             changed=bytearray(source); changed[at]^=1
             foreign=work/('foreign'+str(n)+'.nrg'); foreign.write_bytes(changed)
             before,after=work/('before'+str(n)),work/('after'+str(n))
