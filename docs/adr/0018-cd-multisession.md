@@ -45,3 +45,34 @@ ASan/UBSan. CdNrg conserva SingleOnly por defecto; CdImage usa el opt-in
 ExplicitSessions, alias de valor 1 de ExplicitPrivate, con la identidad y rebind
 de T66v3 intactos. LR01 comprueba load/serialize/restore frio y futuro exacto;
 la fixture no acredita boot de aplicacion ni el comportamiento de hardware.
+
+## ETNF global Canonical150 privado (T66w1)
+
+Decision aceptada; implementacion y puertas de T66w1 pendientes.
+
+[CDI2Nero f43561d](https://github.com/sizious/cdi2nero/tree/f43561d27e9a75061171f0e69a872c9439ccf898)
+es un productor GPL fijado: en modo TAO emite un grupo ETNF/SINF por sesion,
+copia `start_lba` global y omite los pregaps del payload. Sus writers CUES/DAO
+permiten contrastar esas coordenadas usando la misma CDI original. Con pregap
+150, `start_lba` coincide con INDEX01 en LBA; no es el sector compacto de
+VCDImager y no se le suman 150 sectores por pista.
+
+El perfil privado `EtnfGlobalCanonical150` distingue esa normalizacion de DAO,
+ETNF compacto y ETN2. Solo admite varios grupos ETNF/SINF puros y requiere una
+politica de propietario e identidad propias. La politica publica anterior
+continua rechazandolo antes de leer payload. TINF y ETN2 multisesion conservan
+su puerta pendiente.
+
+ETNF no conserva la longitud original del pregap ni el CUE0 fisico. Este perfil
+declara pregaps sinteticos de 150 sectores y una frontera virtual firmada
+`cue0 = INDEX01 - 150`: inicialmente -150; las siguientes son el INDEX00
+canonico. El Track inicial conserva el recorte legacy a LBA 0. La frontera no
+afirma el comienzo fisico del lead-in ni recupera Q original. DAO mantiene su
+CUE0 suministrado, y el validador de Session no cambia.
+
+Los datos determinan A2 y los LBAs globales se conservan. El intervalo hasta
+INDEX00 de la sesion siguiente sigue siendo Range sin IO. El TOC global y el Q
+sintetico pertenecen a la politica virtual de esta ADR; FullTOC fisico sigue
+sin implementarse. La fixture original, el productor fijado y los tests de
+metadata/propietario hacen reproducible el contrato; esta puerta privada no
+acredita los loaders publicos ni restauracion Waterbox.

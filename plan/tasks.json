@@ -18870,7 +18870,7 @@
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
       "stop": "No cargar el CD entero en memoria del guest.",
-      "blocked_reason": "Falta el contrato primario de direcciones para NRG TAO multisesion y TINF. Las referencias fijadas ignoran start_sector al montar grupos o rechazan un segundo ETN. H1: determinar si start_sector es global o reinicia por sesion mediante un productor de dos sesiones con TOC original. H2: determinar si TINF.offset apunta a INDEX01 o INDEX00 y como representa el pregap mediante productor, documentacion o fixture atribuida. Se conservan los rechazos explicitos y los reproducers existentes; DAO multisesion no acredita estas variantes."
+      "blocked_reason": "Nueva fuente primaria CDI2Nero f43561d demuestra ETNF global por sesion con perfil Canonical150; su implementacion/puertas privadas estan en T66w1, las conexiones publicas y restauracion quedan posteriores. El bloqueo externo restante es TINF: no hay productor/documentacion que determine si offset apunta a INDEX01 o INDEX00 y como codifica pregap; H1 offset de datosINDEX01, H2 offsetINDEX00 conpregap fisico. ETN2 multisesion tampoco queda acreditado por ETNF. Se conservan rechazos explicitos y fixtures; no recuperar CUE0/Qfisico a partir de campos ausentes ni cerrarT66 con perfilprivado."
     },
     {
       "id": "T67a",
