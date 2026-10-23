@@ -151,6 +151,15 @@ tambien el contexto original de `tools/version.sh` (checkout sin Git disponible)
 mediante la regla Makefile sin modificarla. Este resultado no acredita una
 ejecucion de Waterbox en GitHub Actions ni la reproducibilidad de la release.
 
+`python3 tools/prepare_waterbox_sysroot.py` prepara el mismo sysroot desde la
+dependencia comprimida de `third_party/waterbox-sysroot`, junto con sus seis
+avisos originales. Verifica el archivo fijado, extrae en un temporal propio y
+comprueba el inventario completo antes de publicar las salidas en `build/`.
+Reutiliza salidas identicas y rechaza las distintas sin sobrescribirlas. Es una
+preparacion explicita: el constructor no la activa al faltar el sysroot.
+`PROVENANCE.json` identifica los fuentes, receta e imagen de su reconstruccion;
+usar este paquete no equivale a ejecutar de nuevo esa reconstruccion.
+
 El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
 conservan pendientes sus puertas no ejecutadas en los runners declarados.
