@@ -23,8 +23,10 @@ opciones elegidas y explica una incompatibilidad al cargar.
 La accion `Freeze` del mapper o `puae6_hotkey_freeze` mantiene el nivel mientras
 se pulsa. Tras salir del monitor hay que soltar y volver a pulsar para entrar
 otra vez. Los estados conservan ese nivel y la identidad de la ROM; restaurarlos
-no vuelve a leer el fichero. Estos selectores son de libretro; BizHawk conserva
-su opcion HRTMon hasta integrar y probar alli los modelos AR.
+no vuelve a leer el fichero. BizHawk tambien ofrece Ar1/Ar2/Ar3/Ar1200 mediante
+Cartridge y su proveedor de firmware Amiga/AR1, AR2, AR3 y AR1200; los perfiles
+stock y la identidad de ROM son los mismos. BK2/TAS, seek y restauracion en
+otro proceso estan comprobados con los cuatro modelos.
 
 La fuente unica de las opciones es `config/schema/options.json`; `python3 tools/generate_options.py` genera de ella
 `adapters/libretro/options_generated.h` (lo que ve el frontend) y `config/schema/options_table.generated.json` (lo que

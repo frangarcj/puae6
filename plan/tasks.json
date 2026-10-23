@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35",
@@ -11632,7 +11632,8 @@
         "bridge/lifecycle.cpp",
         "plan/upstream.lock.json",
         "tools/import_sources.py",
-        "tests/test_import_sources.py"
+        "tests/test_import_sources.py",
+        "docs/options.md"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11672,7 +11673,8 @@
         "Cierre de la vertical hosted nativa: matriz publica de15combinaciones configurada. Run39915643245/f512cc49 acredita10/10 O0/O2 yMacsan; detecto las4fugasLinuxsan. Tras0412, run39918836304/5b2cfd3e pasa5/5san reales conLSanLinuxactivo ydobleciclo load/run/unload/reload, sin supresiones. Validacion acumulada15combinaciones, no afirmacion de15jobs enuna unica revision. Local: nativecold/libretrocold/doblecicloPASS,16testsinfra+clasificacionPASS,actionlintPASS,29CPUoutputsidenticos ymaterializacionexacta. T39b vuelve pending: conserva CIWaterboxDarwin/unionnightly-release/matrizcorpus/performance originales para candidata integrada; no cerrar ficha global con esta puerta nativa. Sin reports/artifacts/caches de pago ni ROMcomercial publica.",
         "Task force ampliada por peticion expresa23oct: ci_close investiga e implementa en worktree t53-cpu aislado el cableado real de CI acumulada que queda, limitado a workflows/tools-ci/tests-ci/docs-ci ya permitidos. Prioridad gaps concretos de preflight/optins/guest-receipt, seleccion efectiva de suites y fallo de ausencias; no sumar pruebas por ceremonia ni relajar gates. Sin motor/guest, matriz completa o lanzamiento remoto por agente; root serializa integracion y builds. Empezar con propuesta causal de rutas antes de editarlas, mantener delta manual menor400; metadata solo root.",
         "Integracion6fb2d328 corrige cableado de CI: workers reciben receiptcanonico para BK2/TAS; preflight verifica fuentes/receta/arboles/ELF/TLS/runtimeRelease actuales antesDocker/build y exige5mediosCD ya usados por suites reales. 32testsinfraPASS y preflight real del guest/runtime consolidadoPASS, sin nueva emulacion ni build. Ficha global vuelvepending porque CIacumulada/matrizcorpus/performance y runners declarados aun requieren su puerta; esta correccion no los acredita.",
-        "Nueva correccion causal de SRC01 acumulado: verify_licenses falla por componente mame-ipf/source_id=mame_ipf ausente del lock principal aunque PROVENANCE.json ya fija7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8. Ampliar solo lock/import_sources/test_import_sources; blitter_bound implementa aislado proveedoroffline vendored explicito que verifica pin/repo/manifestSHA, rutas sin symlink, closure/hash de originales/compilados/parche/shims/licencia/avisos y cobertura delcatalogo. No omitir unknown, cambiar source_id, duplicar/moverMAME ni descargar fuentes. Root registra vendored enlock e integra; negativosdirigidos sinmotor/guest, testsprovenanceexistentes cerca delcambio. El nuevo productorCDI2Nero(test_fixture_components) conserva verificacionindependiente y no se trata como dependencia del producto. Menos300manuales, avisarextras; cierre globalCI conserva todas sus puertas y vuelvepending tras corregir esta vertical."
+        "Nueva correccion causal de SRC01 acumulado: verify_licenses falla por componente mame-ipf/source_id=mame_ipf ausente del lock principal aunque PROVENANCE.json ya fija7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8. Ampliar solo lock/import_sources/test_import_sources; blitter_bound implementa aislado proveedoroffline vendored explicito que verifica pin/repo/manifestSHA, rutas sin symlink, closure/hash de originales/compilados/parche/shims/licencia/avisos y cobertura delcatalogo. No omitir unknown, cambiar source_id, duplicar/moverMAME ni descargar fuentes. Root registra vendored enlock e integra; negativosdirigidos sinmotor/guest, testsprovenanceexistentes cerca delcambio. El nuevo productorCDI2Nero(test_fixture_components) conserva verificacionindependiente y no se trata como dependencia del producto. Menos300manuales, avisarextras; cierre globalCI conserva todas sus puertas y vuelvepending tras corregir esta vertical.",
+        "Renovar previewlocal conETNFglobalCanon150 nativo, cartuchosARyaDONE yCDTVnativofijo. Corregir solo guiasusuario/options que todavia decian TAOmultisesion/ARwrapper/CDTVenteropendiente, distinguiendo TINF/ETN2multi/CDTVWB realespendientes. Ampliaciontouchsolo docs/options.md porGUIA ya ejecutadaT69. ConstruirunZIPactual sinROMs ysmokedesdeextraido conrecetaexistente cuando fuenteintegrada este limpia; no repetir matriz por texto ni declararreleaseformal. Si guestconsolidado esbyteidentico a2c6c445d yRelease3e099b, validar5testsmanifest+preflightactualy conservar16medidas envezregrabarlasinnecesariamente."
       ],
       "checks": [
         "PLAN01",

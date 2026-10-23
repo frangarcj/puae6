@@ -34,7 +34,9 @@ su MDF al lado. NRG DAO admite varias sesiones con sus direcciones y huecos
 explicitos; presenta las pistas globales y el leadout final en un TOC virtual,
 sin seleccion mutable de sesion. ETNF y ETN2 admiten una sesion con tamaños de
 sector mezclados, datos contiguos y posiciones compactas; reconstruyen pregaps
-canonicos de 150 sectores. TAO multisesion y TINF siguen pendientes.
+canonicos de 150 sectores. ETNF multisesion admite el perfil global de CDI2Nero,
+con INDEX01 global, huecos y pregaps sinteticos de 150 sectores; no recupera Q ni
+pregaps originales. ETN2 multisesion y TINF siguen pendientes.
 Para cambiar CD, abre la bandeja con Disk Control, elige otro indice y cierra
 la bandeja. El cambio se aplica en el siguiente frame y la seleccion se restaura
 con el estado. La lista de CD es fija: no admite añadir, quitar o reemplazar
@@ -54,6 +56,19 @@ En A1200 puedes elegir `Cartridge: HRTMon builtin` y asignar `HRTMon Freeze`
 en las opciones de hotkeys o del mapper. Activa el monitor una vez por pulsacion;
 suelta antes de volver a pulsar. El monitor GPL procede del snapshot WinUAE fijado,
 se incluye en el core y no requiere descargar una ROM adicional.
+
+Action Replay I/II/III usa un A500 stock y las ROMs propias `ar1.rom`, `ar2.rom`
+o `ar3.rom` en el directorio de sistema. Action Replay 1200 usa A1200 stock y
+`ar1200.rom`. Elige el modelo en Cartridge y asigna Cartridge Freeze; suelta
+antes de volver a entrar. Estos perfiles requieren discos sin escritura y
+memoria stock. El guardado comprueba la identidad de la ROM y conserva el estado
+del monitor; las ROMs
+comerciales se aportan por separado.
+
+CDTV esta disponible en libretro con un CD fijo: elige CDTV o usa esa etiqueta
+en el nombre del CD en Automatic. Requiere `kick34005.A500` y la EXT2.7
+`kick34005.CDTV` (tambien admite `CDTV-Extended-ROMv2.7.rom`) en el directorio
+de sistema. No ofrece intercambio de CD ni carga ADF/HDF en este perfil.
 
 ## Controles y guardado
 
@@ -132,7 +147,7 @@ slave ambiguo; el core no descarga esos archivos.
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
 usan interprete de CPU; A4000 y CD32 conservan los limites experimentales indicados
-arriba. CDTV sigue pendiente. Algunos slaves WHDLoad
+arriba. CDTV en BizHawk/Waterbox sigue pendiente. Algunos slaves WHDLoad
 necesitan Kickstarts o RTB adicionales; esos archivos debe aportarlos el usuario
 mediante el preparador explicito descrito en `docs/whdload.md` de los fuentes.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
