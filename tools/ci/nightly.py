@@ -14,18 +14,21 @@ sys.path[:0] = [str(Path(__file__).resolve().parents[2])]
 from tools.ci import run as ci
 from tools.ci import retroarch_image
 from tools import package
+from tools import build_waterbox as wb
 
 LANES = ("clean", "functional", "matrix", "sanitizers", "optimization", "performance")
 CPU_PERF_DIR = ci.ROOT / "build/baselines/ci-cpu"
+GUEST_RECEIPT = ci.ROOT / "build/waterbox/puae6/puae6-receipt.json"
 ENV = dict(ci.ENV, P6_TEST_PORTABILITY="1", P6_TEST_SIMD_MATRIX="1", P6_TEST_ENGINE_FLAGS="1", P6_TEST_RGB565_FRONTEND="1",
            P6_TEST_COMPILERS="1", P6_TEST_FPU_MATRIX="1", P6_TEST_MUTANTS="1", P6_EMUHAWK_BUILD="1", P6_TEST_REAL_FRONTEND="1", P6_TEST_DET01_UNITS="10000",
            P6_A600_UNITS="1800", P6_A1200_UNITS="2200", P6_A1200_DMS_UNITS="1500", P6_GAME_UNITS="420", P6_HDF_UNITS="700", P6_HDF_UNITS_13="700",
-           P6_CPU_PERF_DIR=str(CPU_PERF_DIR), P6_RUN_CPU_PERF="0")
+           P6_CPU_PERF_DIR=str(CPU_PERF_DIR), P6_RUN_CPU_PERF="0", P6_MEDIA_MOVIE_GUEST_RECEIPT=str(GUEST_RECEIPT))
 ASSETS = ("P6_KICKSTART_ROM", "P6_KICKSTART_A600_ZIP", "P6_WB205_ZIP", "P6_KICKSTART_A1200_ROM", "P6_AGA_ADF", "P6_AGA_DMS",
           "P6_GAME_ADF", "P6_WHDLOAD_LHA", "P6_FATALMISSION_LHA", "P6_FDI_FILE", "P6_IPF_FILE", "P6_PACKAGE_ZIP",
           "P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
           "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_KICKSTART_A500_ROM",
-          "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM")
+          "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM",
+          "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE")
 SIMD = {
     "test_decision": {"functional": ("DecisionTests",), "performance": ("PerformanceTests",)},
     "test_engine_flags": {"optimization": ("ConfigurationTests", "EquivalenceTests", "SafetyTests"), "performance": ("PerformanceTests", "DecisionTests")},
@@ -99,6 +102,34 @@ def candidate_package():
         raise ValueError("candidate package revision differs from the current clean sources; rebuild the preview")
 
 
+def waterbox_inputs():
+    """Enable movies only with the canonical guest and runtime of these sources."""
+    try:
+        data = json.loads(GUEST_RECEIPT.read_text())
+        if data["schema_version"] != 1 or data["status"] != "BUILD01_PASS_GUEST_NOT_EXECUTED":
+            raise ValueError("invalid guest receipt")
+        if set(data["sources"]) != set(wb.puae6_sources()):
+            raise ValueError("guest source selection differs from the current sources")
+        for name, digest in data["sources"].items():
+            if wb.sha256(ci.ROOT / name) != digest:
+                raise ValueError("guest was built from other sources: " + name)
+        recipe = {"makefile": "ports/waterbox/Makefile", "common_mak": "references/machawk/waterbox/common.mak",
+                  "linkscript_aarch64": "references/machawk/waterbox/linkscript_aarch64.T", "build_recipe": "tools/build_waterbox.py"}
+        if data["recipe"] != {key: wb.sha256(ci.ROOT / name) for key, name in recipe.items()}:
+            raise ValueError("guest was built with another recipe")
+        wb.ensure_current_trees(root=ci.ROOT)
+        guest = Path(data["guest"]["path"])
+        if wb.sha256(guest) != data["guest"]["sha256"]:
+            raise ValueError("guest differs from its receipt")
+        wb.validate_elf(guest)
+        wb.check_no_compiler_tls(guest)
+        runtime = wb.read_runtime_receipt(wb.runtime_receipt_path(ENV["P6_WATERBOX_RUNTIME"]))["runtime_dylib"]
+        if wb.sha256(Path(runtime["path"])) != runtime["sha256"]:
+            raise ValueError("runtime differs from its receipt")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ValueError("invalid current Waterbox inputs: " + str(error)) from error
+
+
 def identity(docker=None):
     facts = ci.identity()
     facts["test_environment"] = ENV
@@ -164,6 +195,7 @@ def run(lane):
         ci.preflight(ASSETS if lane == "functional" else ())
         if lane == "functional":
             candidate_package()
+            waterbox_inputs()
         docker = images(retroarch=lane == "functional") if lane != "clean" else {}
         execute([sys.executable, "tools/generate_cpu.py"])
         facts = identity(docker)

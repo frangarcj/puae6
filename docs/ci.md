@@ -53,8 +53,20 @@ solo enumera sus suites (`NOT_RUN`):
   `P6_CDTV_ROM_EXT` (extendida v2.7 ID22, 256 KiB). Los cartuchos reales requieren
   `P6_KICKSTART_A500_ROM`, `P6_ACTION_REPLAY1_ROM`, `P6_ACTION_REPLAY2_ROM`,
   `P6_ACTION_REPLAY3_ROM` y `P6_ACTION_REPLAY1200_ROM`; AR1200 usa tambien el
-  Kickstart A1200 ya exigido. La ausencia de cualquiera
+  Kickstart A1200 ya exigido. Los casos de medios reales tambien exigen
+  `P6_CD_CUE_FILE` (Brian the Lion de 29 pistas y sus ficheros),
+  `P6_CD_CCD_FILE` (descriptor con sus `.img`/`.sub`), `P6_CD_NRG_FILE`,
+  `P6_CD_ISO_FILE` y `P6_CD_WAV_FILE` (PCM estereo 44,1 kHz/16 bits).
+  ISO y WAV pueden ser datos propios compatibles con sus lectores; los casos
+  opt-in conservan la validacion de formatos y contenido de sus tests.
+  La ausencia de cualquiera
   bloquea antes de preparar imagenes, compilar o lanzar el motor.
+  La receta fija `P6_MEDIA_MOVIE_GUEST_RECEIPT` al receipt canonico de este
+  checkout (`build/waterbox/puae6/puae6-receipt.json`) para ejecutar BK2/TAS;
+  no necesita otra copia ni admite un override heredado. Antes de Docker/codegen
+  comprueba seleccion y bytes de fuentes, receta, arboles derivados, ELF/TLS y
+  hashes de guest/runtime Release actuales. Un guest antiguo bloquea en ese
+  preflight; la receta no lo reconstruye ni interpreta un receipt como playback.
   Una omission/xfail conserva el bloqueo.
 - `matrix`: los dos corpus completos, cinco filas, O0/O2/sanitizers y entorno
   host alterado; comprueba los IDs de las imagenes locales fijadas, sin pulls/red.

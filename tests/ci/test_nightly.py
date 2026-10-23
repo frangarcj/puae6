@@ -1,6 +1,7 @@
 """Recipe coverage and fail-closed infrastructure; not emulator evidence."""
 import ast
 import contextlib
+from contextlib import ExitStack
 import io
 import json
 from pathlib import Path
@@ -80,7 +81,8 @@ class NightlyRecipeTests(unittest.TestCase):
     def test_missing_firmware_cd_or_cartridge_assets_stop_before_build_or_image_preparation(self):
         required = {"P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
                     "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_KICKSTART_A500_ROM",
-                    "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM"}
+                    "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM",
+                    "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE"}
         self.assertLessEqual(required, set(ci.ASSETS))
         with tempfile.TemporaryDirectory() as directory:
             asset = Path(directory) / "fixture"
@@ -100,6 +102,71 @@ class NightlyRecipeTests(unittest.TestCase):
                 images.assert_not_called()
                 prepare.assert_not_called()
                 execute.assert_not_called()
+
+    def test_waterbox_preflight_validates_sources_recipe_guest_and_runtime_without_building(self):
+        with tempfile.TemporaryDirectory(prefix="ci-waterbox-", dir=ci.ci.ROOT / "build") as directory, ExitStack() as stack:
+            root = Path(directory)
+            sources = ("bridge/example.cpp",)
+            recipes = {"makefile": "ports/waterbox/Makefile", "common_mak": "references/machawk/waterbox/common.mak",
+                       "linkscript_aarch64": "references/machawk/waterbox/linkscript_aarch64.T", "build_recipe": "tools/build_waterbox.py"}
+            for name in (*sources, *recipes.values(), "guest.wbx", "runtime.dylib"):
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(name.encode())
+            runtime = dict(path=str(root / "runtime.dylib"), sha256=ci.wb.sha256(root / "runtime.dylib"))
+            valid = dict(schema_version=1, status="BUILD01_PASS_GUEST_NOT_EXECUTED",
+                         sources={name: ci.wb.sha256(root / name) for name in sources},
+                         recipe={key: ci.wb.sha256(root / name) for key, name in recipes.items()},
+                         guest=dict(path=str(root / "guest.wbx"), sha256=ci.wb.sha256(root / "guest.wbx")))
+            receipt = root / "receipt.json"
+            stack.enter_context(mock.patch.object(ci, "GUEST_RECEIPT", receipt))
+            stack.enter_context(mock.patch.object(ci.ci, "ROOT", root))
+            stack.enter_context(mock.patch.object(ci.wb, "puae6_sources", return_value=list(sources)))
+            trees = stack.enter_context(mock.patch.object(ci.wb, "ensure_current_trees"))
+            elf = stack.enter_context(mock.patch.object(ci.wb, "validate_elf"))
+            tls = stack.enter_context(mock.patch.object(ci.wb, "check_no_compiler_tls"))
+            stack.enter_context(mock.patch.object(ci.wb, "read_runtime_receipt", return_value={"runtime_dylib": runtime}))
+            runtime_path = stack.enter_context(mock.patch.object(ci.wb, "runtime_receipt_path", return_value=root / "runtime.json"))
+            receipt.write_text(json.dumps(valid)); ci.waterbox_inputs()
+            trees.assert_called_once_with(root=root)
+            elf.assert_called_once_with(root / "guest.wbx"); tls.assert_called_once_with(root / "guest.wbx")
+            runtime_path.assert_called_once_with("release")
+            for kind in ("schema", "status", "selection", "source", "recipe", "guest", "runtime", "trees"):
+                data = json.loads(json.dumps(valid))
+                if kind == "schema": data["schema_version"] = 0
+                if kind == "status": data["status"] = "PASS"
+                if kind == "selection": data["sources"] = {}
+                if kind == "source": data["sources"][sources[0]] = "0" * 64
+                if kind == "recipe": data["recipe"]["makefile"] = "0" * 64
+                if kind == "guest": data["guest"]["sha256"] = "0" * 64
+                runtime["sha256"] = "0" * 64 if kind == "runtime" else ci.wb.sha256(root / "runtime.dylib")
+                trees.side_effect = ValueError("stale derived tree") if kind == "trees" else None
+                receipt.write_text(json.dumps(data))
+                with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "invalid current Waterbox inputs"):
+                    ci.waterbox_inputs()
+            for invalid in ("not JSON", "{}", "[]"):
+                receipt.write_text(invalid)
+                with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "invalid current Waterbox inputs"):
+                    ci.waterbox_inputs()
+            receipt.unlink()
+            with self.assertRaisesRegex(ValueError, "invalid current Waterbox inputs"):
+                ci.waterbox_inputs()
+
+    def test_functional_enables_movies_with_canonical_receipt_and_rejects_stale_guest_early(self):
+        counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        with mock.patch.dict(ci.os.environ, P6_MEDIA_MOVIE_GUEST_RECEIPT="inherited-stale.json"), ExitStack() as stack:
+            for name in ("candidate_package", "prepare", "execute"):
+                stack.enter_context(mock.patch.object(ci, name))
+            stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+            stack.enter_context(mock.patch.object(ci, "suites", return_value=["tests.bizhawk-movies.test_media_start"]))
+            stack.enter_context(mock.patch.object(ci, "identity", return_value={}))
+            images = stack.enter_context(mock.patch.object(ci, "images", return_value={}))
+            inputs = stack.enter_context(mock.patch.object(ci, "waterbox_inputs"))
+            command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")))
+            self.assertEqual("PASS", ci.run("functional")["status"])
+            self.assertEqual(str(ci.GUEST_RECEIPT), command.call_args.args[1]["P6_MEDIA_MOVIE_GUEST_RECEIPT"])
+            images.reset_mock(); command.reset_mock(); ci.execute.reset_mock(); ci.prepare.reset_mock()
+            inputs.side_effect = ValueError("invalid current Waterbox inputs")
+            self.assertEqual("BLOCKED", ci.run("functional")["status"])
+            images.assert_not_called(); command.assert_not_called(); ci.execute.assert_not_called(); ci.prepare.assert_not_called()
 
     def test_stale_package_stops_before_build_or_image_preparation(self):
         with tempfile.TemporaryDirectory(prefix="ci-package-", dir=ci.ci.ROOT / "build") as directory:

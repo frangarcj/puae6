@@ -38,10 +38,12 @@ class RetroArchImageTests(unittest.TestCase):
             row = next(s for s in ROWS.values() if s.get("image") == argv[-1])
             return subprocess.CompletedProcess([], 0, json.dumps([dict(Id=IMAGES[row["platform"]], Architecture=row["platform"].split("/")[1])]), "")
         with mock.patch.object(nightly.ci, "preflight"), mock.patch.object(nightly.ci, "command", side_effect=inspect), \
+             mock.patch.object(nightly, "candidate_package"), mock.patch.object(nightly, "waterbox_inputs"), \
              mock.patch.object(image, "verify", side_effect=ValueError("required offline RetroArch image absent")), \
              mock.patch.object(nightly, "execute") as execute, mock.patch.object(nightly, "prepare") as prepare:
             result = nightly.run("functional")
         self.assertEqual("BLOCKED", result["status"])
+        self.assertIn("required offline RetroArch image absent", result["diagnostic"])
         execute.assert_not_called()
         prepare.assert_not_called()
 
@@ -49,6 +51,7 @@ class RetroArchImageTests(unittest.TestCase):
         before = {"puae6-libretro-test": image.specification()["id"]}
         good = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
         with mock.patch.object(nightly, "suites", return_value=["fixture"]), mock.patch.object(nightly.ci, "preflight"), \
+             mock.patch.object(nightly, "candidate_package"), mock.patch.object(nightly, "waterbox_inputs"), \
              mock.patch.object(nightly, "execute"), mock.patch.object(nightly, "prepare", return_value={}), \
              mock.patch.object(nightly.ci, "identity", return_value={}), \
              mock.patch.object(nightly.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(good), "")), \
