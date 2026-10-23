@@ -67,6 +67,11 @@ internal static unsafe partial class Program
  static void CdtvPublic(string[] args)
  {
   LoadRuntime(args[2]); string work=args[0], path=args[1];
+  File.WriteAllText(Path.Combine(work,"mame_machines.txt"),"");
+  File.WriteAllText(Path.Combine(work,"gamedb.txt"),"");
+  Database.InitializeDatabase(work,work,true);
+  BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.Initialize(work);
+  CdtvRequire(!BizHawk.Emulation.Cores.Arcades.MAME.MAMEMachineDB.IsMAMEMachine(Path.Combine(work,"warm.zip")));
   byte[] main=File.ReadAllBytes(args[6]),ext=File.ReadAllBytes(args[7]);
   if(args[5]=="cdtvpublicnegative") { CdtvNegatives(args,main,ext); return; }
   byte[] nonce=Convert.FromHexString(args[8]); string state=Path.Combine(work,"cdtv-public.state");
