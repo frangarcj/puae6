@@ -441,13 +441,6 @@
       "scenarios": [],
       "subsystems": []
     },
-    "0377-frestore040-busy-pending": {
-      "effect": "inert",
-      "why": "REF01 offers no CPU040. Independent rev40/41 BUSY frames exercise full bus reads, field retention, FSAVE and E3/E1 priority before CU; private and P6CP codec probes cover backend reinitialization.",
-      "test": "tests/host/test_frestore040.py",
-      "scenarios": [],
-      "subsystems": []
-    },
     "0378-frestore040-cu-exception-address": {
       "effect": "inert",
       "why": "REF01 has no CPU040. The directed probe resumes independently constructed FPSP denormal FDIV frames, checks1/3 and the new exception FPIAR, actual vector/CPU retry stack and following FSAVE.FPIARCU for rev40/41.",
@@ -526,6 +519,7 @@
     "0356-cue-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
     "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
     "0367-cd32-combined-firmware": "Required CDTV firmware patch0401 extends this combined-ROM branch. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate CD32/CDTV firmware loading. Directed firmware/profile tests retain exact pair, map and rejection checks; no corpus golden is changed.",
-    "0350-z3-physical-autoconfig-state": "Required CDTV autoconfig patch0402 extends the shared expansion-state accessors and their Z3-aware signature/window reconstruction introduced here. Retain this behavior patch as an explicit dependency; REF01 has no Z3 board and does not independently ablate or validate Z3 mapping. Directed Z3 tests retain their own physical-board and restore gates; no corpus golden is changed."
+    "0350-z3-physical-autoconfig-state": "Required CDTV autoconfig patch0402 extends the shared expansion-state accessors and their Z3-aware signature/window reconstruction introduced here. Retain this behavior patch as an explicit dependency; REF01 has no Z3 board and does not independently ablate or validate Z3 mapping. Directed Z3 tests retain their own physical-board and restore gates; no corpus golden is changed.",
+    "0377-frestore040-busy-pending": "Required instrumentation0372 expands the shared P6_FPU_FRAME_SCALARS in its real FSAVE accessors; the BUSY fields and reset in0377 must remain paired with that header. Retain this behavior dependency explicitly so the reference compiles with the same observation endpoint. REF01 has no FRESTORE040 and does not independently ablate or validate BUSY040 completion; independent directed tests/host/test_frestore040.py remain its oracle. Other FRESTORE/CU06 behavior patches remain ablated, and no corpus golden changes."
   }
 }
