@@ -108,8 +108,9 @@ internal static unsafe partial class Program
   string work=args[0],path=args[1],image=Path.Combine(work,"original.iso"); int opened=OpenCdFile(image);
   void Refuse(string content,Puae6SyncSettings settings,Firmware firmware,string reason) {
    try { using var unexpected=OpenCdtv(args,content,settings,firmware); throw new Exception("Invalid CDTV load accepted"); }
-   catch(InvalidOperationException e) { CdtvRequire(e.Message.Contains(reason)); }
-   catch(System.IO.InvalidDataException e) { CdtvRequire(e.Message.Contains(reason)); }
+   catch(Exception e) when(e is InvalidOperationException or System.IO.InvalidDataException) {
+    if(!e.Message.Contains(reason)) throw new Exception($"Expected CDTV refusal containing '{reason}', received {e.GetType().Name}: {e.Message}; firmware requests: {string.Join(", ",firmware.Asked)}",e);
+   }
    CdtvRequire(OpenCdFile(image)==opened&&OpenCdFile(Path.Combine(work,"other.iso"))==0);
   }
   foreach(string missing in new[]{"CDTV","CDTVext27"}) Refuse(path,null,new Firmware(main,ext,false) { Missing=missing },"Missing firmware "+missing);
