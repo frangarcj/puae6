@@ -77,6 +77,11 @@ def images(retroarch=False):
     return found
 
 
+def lane_images(lane):
+    # Native clean/fuzz suites do not consume any container inputs.
+    return images(retroarch=lane == "functional") if lane in ("functional", "matrix", "optimization", "performance") else {}
+
+
 def execute(argv, timeout=14400):
     print(ci.redact("RUN " + shlex.join(list(map(str, argv)))), file=sys.stderr, flush=True)
     p = ci.command(list(map(str, argv)), ENV, timeout=timeout)
@@ -196,7 +201,7 @@ def run(lane):
         if lane == "functional":
             candidate_package()
             waterbox_inputs()
-        docker = images(retroarch=lane == "functional") if lane != "clean" else {}
+        docker = lane_images(lane)
         execute([sys.executable, "tools/generate_cpu.py"])
         facts = identity(docker)
         prepared = prepare(lane)
@@ -207,9 +212,9 @@ def run(lane):
             if status != "PASS":
                 return dict(status=status, lane=lane, module=module, reason=counts, diagnostic=ci.redact(p.stderr[-6000:]), completed=completed, identity=facts)
             completed.append(dict(module=module, counts=counts))
-            if lane != "clean" and images(retroarch=lane == "functional") != docker:
+            if lane_images(lane) != docker:
                 raise RuntimeError("Docker inputs changed during CI")
-        if identity(images(retroarch=lane == "functional") if lane != "clean" else {}) != facts:
+        if identity(lane_images(lane)) != facts:
             raise RuntimeError("source/codegen/toolchain inputs changed during CI")
         return dict(status="PASS", lane=lane, completed=completed, preparation=prepared, identity=facts, images=docker,
                     budget_policy="advisory, unchanged plan/performance-budgets.json; not remote CI evidence")

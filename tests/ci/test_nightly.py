@@ -236,6 +236,90 @@ class NightlyRecipeTests(unittest.TestCase):
             ci.prepare("performance")
         self.assertFalse(any("measure" in call.args[0] for call in execute.call_args_list))
 
+    def test_native_lanes_never_inspect_images_and_sanitizers_execute_every_suite(self):
+        counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        facts = dict(source_tree_sha256="a" * 64, inputs={"pin": "a"})
+        for lane in ("clean", "sanitizers"):
+            selected = ci.suites(lane)
+            with self.subTest(lane=lane), ExitStack() as stack:
+                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                stack.enter_context(mock.patch.object(ci, "execute"))
+                stack.enter_context(mock.patch.object(ci, "prepare", return_value={"p6_headless": "a", "puae6_libretro.dylib": "b"}))
+                identity = stack.enter_context(mock.patch.object(ci, "identity", return_value=facts))
+                images = stack.enter_context(mock.patch.object(ci, "images", side_effect=AssertionError("native lane consulted Docker")))
+                command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")))
+                result = ci.run(lane)
+            self.assertEqual("PASS", result["status"])
+            self.assertEqual({}, result["images"])
+            self.assertEqual(selected, [record["module"] for record in result["completed"]])
+            self.assertEqual(selected, [call.args[0][-1] for call in command.call_args_list])
+            self.assertEqual([mock.call({}), mock.call({})], identity.call_args_list)
+            images.assert_not_called()
+            ci.validate_result(result, lane)
+        self.assertTrue(selected)
+        self.assertTrue(all(module.startswith("tests.fuzz.") for module in selected))
+
+    def test_native_sanitizer_failures_missing_counts_and_skips_never_pass(self):
+        good = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        cases = ((1, dict(good, failures=1), "FAIL"), (0, None, "FAIL"),
+                 (0, dict(good, tests=0), "FAIL"), (0, dict(good, skipped=1), "BLOCKED"))
+        selected = ci.suites("sanitizers")
+        for code, counts, expected in cases:
+            with self.subTest(code=code, counts=counts), ExitStack() as stack:
+                for name in ("prepare", "execute", "identity"):
+                    stack.enter_context(mock.patch.object(ci, name, return_value={}))
+                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                images = stack.enter_context(mock.patch.object(ci, "images"))
+                command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], code, "" if counts is None else json.dumps(counts), "fixture failure")))
+                result = ci.run("sanitizers")
+            self.assertEqual(expected, result["status"])
+            self.assertEqual(selected[0], result["module"])
+            self.assertEqual([], result["completed"])
+            command.assert_called_once()
+            images.assert_not_called()
+
+    def test_missing_sanitizer_suites_block_before_preparation(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(ci.ci, "ROOT", Path(directory)), \
+             mock.patch.object(ci.ci, "preflight") as preflight, mock.patch.object(ci, "execute") as execute, \
+             mock.patch.object(ci, "prepare") as prepare, mock.patch.object(ci, "images") as images:
+            result = ci.run("sanitizers")
+        self.assertEqual("BLOCKED", result["status"])
+        self.assertIn("empty CI lane", result["diagnostic"])
+        for operation in (preflight, execute, prepare, images): operation.assert_not_called()
+
+    def test_missing_offline_images_still_block_container_lanes_before_build(self):
+        for lane in ("functional", "matrix", "optimization", "performance"):
+            with self.subTest(lane=lane), ExitStack() as stack:
+                for name in ("candidate_package", "waterbox_inputs"):
+                    stack.enter_context(mock.patch.object(ci, name))
+                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                execute = stack.enter_context(mock.patch.object(ci, "execute"))
+                prepare = stack.enter_context(mock.patch.object(ci, "prepare"))
+                command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 1, "", "absent")))
+                result = ci.run(lane)
+            self.assertEqual("BLOCKED", result["status"])
+            self.assertIn("required offline Docker image absent", result["diagnostic"])
+            self.assertEqual(["docker", "image", "inspect"], command.call_args.args[0][:3])
+            command.assert_called_once(); execute.assert_not_called(); prepare.assert_not_called()
+
+    def test_container_lanes_recheck_the_same_frozen_images_after_suites_and_at_finish(self):
+        counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        frozen = {"fixture-tag": "sha256:frozen"}
+        for lane in ("functional", "matrix", "optimization", "performance"):
+            with self.subTest(lane=lane), ExitStack() as stack:
+                for name in ("candidate_package", "waterbox_inputs", "prepare", "execute", "identity"):
+                    stack.enter_context(mock.patch.object(ci, name, return_value={}))
+                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                stack.enter_context(mock.patch.object(ci, "suites", return_value=["fixture"]))
+                stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")))
+                images = stack.enter_context(mock.patch.object(ci, "images", return_value=frozen))
+                self.assertEqual("PASS", ci.run(lane)["status"])
+                self.assertEqual([mock.call(retroarch=lane == "functional")] * 3, images.call_args_list)
+                images.side_effect = [frozen, {"fixture-tag": "sha256:changed"}]
+                result = ci.run(lane)
+                self.assertEqual("FAIL", result["status"])
+                self.assertIn("Docker inputs changed", result["diagnostic"])
+
     def test_changed_image_tags_do_not_authorize_other_container_bytes(self):
         p = subprocess.CompletedProcess([], 0, json.dumps([{"Id": "wrong", "Architecture": "arm64"}]), "")
         with mock.patch.object(ci.ci, "command", return_value=p), self.assertRaisesRegex(ValueError, "frozen"):
