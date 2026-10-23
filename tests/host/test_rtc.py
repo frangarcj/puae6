@@ -18,7 +18,7 @@ class RTCTests(unittest.TestCase):
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-Werror=format",
                   "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "build/generated"),
                   "-I" + str(tree / "include"), "-I" + str(tree)]
-        with tempfile.TemporaryDirectory(prefix="p6-rtc-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="p6-rtc-", dir=ROOT / "build") as tmp:
             obj, exe = Path(tmp) / "unit.o", Path(tmp) / "probe"
             for source in (tree / "cia.cpp", tree / "rtc.cpp", ROOT / "ports/portable/rtc_time.cpp"):
                 subprocess.run([*common, "-O0", "-c", str(source), "-o", str(obj)], check=True)

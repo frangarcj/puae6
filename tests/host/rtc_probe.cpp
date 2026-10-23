@@ -16,6 +16,8 @@ uae_u32 dummy_wgeti(uaecptr) { abort(); }
 void IRQ_forced(int, int) { abort(); }
 void event_doint_delay_do_ext(uae_u32) { abort(); }
 int do_cycles_cck(int) { abort(); }
+uae_u8 cdtv_battram_read(int) { abort(); }
+void cdtv_battram_write(int, int) { abort(); }
 // Config parsing is outside this probe. RTC file ID only, no host resolution.
 void cfgfile_resolve_path_out_load(const TCHAR *p, TCHAR *out, int size, int type)
 {
@@ -36,6 +38,7 @@ static void check_date(bool ricoh, const unsigned *expected)
 }
 int main()
 {
+ assert(!currprefs.cs_cdtvram); // CDTV battery RAM is outside this RTC scenario.
  currprefs.cs_rtc = 1; currprefs.cs_fatgaryrev = -1;
  set_cycles(512); events_schedule();
  assert(read_reg(0) == 0xff && p6_rtc_status() == P6_CLOCK_STATE);
