@@ -39,10 +39,12 @@ static inline int converter_getopt(int argc, char **argv, const char *options) {
 '''
 
 
-def own_cdi():
+def own_cdi(sessions=2):
     # CDI2Nero cdi.c:43..97; IMG4DC20d1c148 cdihead.h:204..212.
     # Original coordinates: session1 INDEX01=0/end302; session2=11702/end12002.
-    specs = ((0, 2352, 0, 302), (2, 2336, 11702, 300))
+    if sessions not in (1, 2):
+        raise ValueError('own CDI supports one or two sessions')
+    specs = ((0, 2352, 0, 302), (2, 2336, 11702, 300))[:sessions]
     parts, payloads, descriptors = [], [], []
     for number, (mode, stride, start, length) in enumerate(specs, 1):
         payload = bytearray()
@@ -55,15 +57,17 @@ def own_cdi():
         for offset, value in ((54,150),(58,length),(68,mode),(84,start),(88,150+length),(108,{2336:1,2352:2}[stride])):
             struct.pack_into('<I', descriptor, offset, value)
         descriptors.append(descriptor)
-    data = b''.join(parts); header = struct.pack('<H', 2)
+    data = b''.join(parts); header = struct.pack('<H', sessions)
     for descriptor in descriptors: header += struct.pack('<H', 1) + descriptor + bytes(12)
     cdi = data + header + struct.pack('<II', 0x80000004, len(data))
-    assert hashlib.sha256(cdi).hexdigest() == '19e91676c3497128a961fd6a3092209be84af041d8cfa9c6c76c080305a04603'
+    assert hashlib.sha256(cdi).hexdigest() == {
+        1: '673ba6086690d1461254b8097a002bf9041a11beb4e03ed59564637f4e970d85',
+        2: '19e91676c3497128a961fd6a3092209be84af041d8cfa9c6c76c080305a04603',
+    }[sessions]
     return cdi, tuple(payloads)
 
 
-@functools.lru_cache(maxsize=1)
-def converted_fixture():
+def _convert(cdi, *, tao):
     manifest = json.loads((SOURCES / 'source.json').read_text())
     assert manifest['commit'] == PIN and manifest['license'] == 'GPL-2.0'
     expected = {'cdi2nero.c','cdi2nero.h','cdi.c','cdi.h','buffer.c','buffer.h','common.c','common.h','LICENSE'}
@@ -82,12 +86,32 @@ def converted_fixture():
         command = ['clang','-std=gnu11','-O0','-g','-include',str(shim)]
         command += [str(work / name) for name in sorted(expected) if name.endswith('.c')]
         subprocess.run([*command,'-o',str(work / 'cdi2nero')], check=True, capture_output=True, timeout=60)
-        cdi, payloads = own_cdi(); source = work / 'own.cdi'; source.write_bytes(cdi)
+        source = work / 'own.cdi'; source.write_bytes(cdi)
         target = work / 'own.nrg'
-        subprocess.run([str(work / 'cdi2nero'),str(source),str(target),'-t'], check=True, capture_output=True, timeout=30)
-        raw = target.read_bytes()
-        assert raw[:1411104] == b''.join(payloads) and hashlib.sha256(raw).hexdigest() == NRG_SHA
-        assert raw[1411104:] == (b'ETNF\0\0\0\x14'+struct.pack('>IIIII',0,710304,7,0,0)+b'SINF\0\0\0\x04\0\0\0\x01'
-            +b'ETNF\0\0\0\x14'+struct.pack('>IIIII',710304,700800,3,11702,0)+b'SINF\0\0\0\x04\0\0\0\x01'
-            +b'END!\0\0\0\0NERO'+struct.pack('>I',1411104))
-        return raw, payloads
+        subprocess.run([str(work / 'cdi2nero'),str(source),str(target)]+(['-t'] if tao else []), check=True, capture_output=True, timeout=30)
+        return target.read_bytes()
+
+
+@functools.lru_cache(maxsize=1)
+def converted_fixture():
+    cdi, payloads = own_cdi(); raw = _convert(cdi, tao=True)
+    assert raw[:1411104] == b''.join(payloads) and hashlib.sha256(raw).hexdigest() == NRG_SHA
+    assert raw[1411104:] == (b'ETNF\0\0\0\x14'+struct.pack('>IIIII',0,710304,7,0,0)+b'SINF\0\0\0\x04\0\0\0\x01'
+        +b'ETNF\0\0\0\x14'+struct.pack('>IIIII',710304,700800,3,11702,0)+b'SINF\0\0\0\x04\0\0\0\x01'
+        +b'END!\0\0\0\0NERO'+struct.pack('>I',1411104))
+    return raw, payloads
+
+
+@functools.lru_cache(maxsize=1)
+def converted_dao_fixture():
+    """External producer's single-session DAO, for the legacy offset-reader gate."""
+    cdi, payloads = own_cdi(1); raw = _convert(cdi, tao=False)
+    directory = 452 * 2352
+    assert raw[:directory] == cdi[:directory]
+    assert hashlib.sha256(raw).hexdigest() == 'adebc868a93bbf80bacf93e14808291d1094ead22b1333c9b6565bc66ec22b04'
+    assert raw[directory:] == bytes.fromhex(
+        '4355455300000020010000000000000001010000000000000101010000000200'
+        '01aa01000000060244414f490000003400000034000000000000000000000000'
+        '0000200001010000000000000000000000000930070000010000000000056220'
+        '001038c053494e460000000400000001454e4421000000004e45524f001038c0')
+    return raw, payloads

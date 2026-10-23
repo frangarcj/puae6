@@ -65,6 +65,11 @@ dependencias ni considera una omision de Capstone como prueba superada.
   `P6_CD_CUE_FILE` (Brian the Lion de 29 pistas y sus ficheros),
   `P6_CD_CCD_FILE` (descriptor con sus `.img`/`.sub`), `P6_CD_NRG_FILE`,
   `P6_CD_ISO_FILE` y `P6_CD_WAV_FILE` (PCM estereo 44,1 kHz/16 bits).
+  `P6_CD_NRG_FILE` requiere DAO de una sesion para el lector por offset legacy.
+  Puede generarse sin red ni software comercial con
+  `tests.fixtures.nrg_etnf_cdi.converted_dao_fixture()` (CDI propia y CDI2Nero
+  fijado, sin `-t`). El fixture ETNF global de dos sesiones usa otra politica
+  y conserva sus pruebas especificas; no sirve como asset de este check DAO.
   ISO y WAV pueden ser datos propios compatibles con sus lectores; los casos
   opt-in conservan la validacion de formatos y contenido de sus tests.
   La ausencia de cualquiera
@@ -116,6 +121,15 @@ Docker ejecuta ese ID con `--pull=never --network=none`; los comandos de Disk
 Control siguen por loopback dentro del mismo contenedor. El pin identifica una
 imagen local existente, sin prometer que reconstruir su Dockerfile reproduzca
 los mismos bytes.
+
+La receta Waterbox acepta `--source-audit checkout|snapshot`. El modo por defecto
+`checkout` verifica tambien HEAD, blobs y overlays de las referencias locales.
+El modo explicito `snapshot` comprueba las capturas completas contra el lock y
+sus manifiestos, incluidos modos, hashes y overlays, sin consultar los checkouts
+originales. No hay fallback entre modos. Los receipts identifican la auditoria
+realmente ejecutada; los antiguos conservan su alcance original. Ambos modos
+compilan los mismos inputs. Este selector no proporciona el sysroot ni acredita
+su reconstruccion o una ejecucion remota.
 
 El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
