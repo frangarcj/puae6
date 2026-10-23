@@ -11726,7 +11726,10 @@
         "tests/host/test_rtc.py",
         "manifests/host-surface.json",
         "tests/host/input_engine_harness.cpp",
-        "tests/host/test_input_devices.py"
+        "tests/host/test_input_devices.py",
+        "tests/libretro-host/test_archives.py",
+        "tests/libretro-host/test_containers.py",
+        "tests/libretro-host/test_libretro.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11801,7 +11804,8 @@
         "Ampliar previamente tests/host/rtc_probe.cpp y tests/host/test_rtc.py: clock_bget/bput conservan cdtv_battram_read/write porque CDTV esta compilado, aunque este escenario RTC no activa cs_cdtvram. Aportar esas fronteras abortantes con firmas reales y afirmar preset sinCDTV; no devolver exito ni enlazar/simular CDTV. Mantener pruebas MSM/Ricoh, calendario/rebase/restore/rechazos, treszonashorarias y O0/O2 ASanUBSan. Temporales bajo build; sin cambios motor/reloj/ROM.",
         "Ampliar previamente manifests/host-surface.json solo contracts.vfs.implementation.selected_callers y razon zfile_gunzip: catalogo lexical precede akiko/cdtv/flashrom/ar ya seleccionados. Derivar llamadas de TODAS lasunidades con mismo parser y comprobar diferenciasexactas en8simbolos, sin nuevosnombres ni eliminaciones. Mantener implemented y clavesexcluded intactas; ar.cpp zfile_gunzip sigue rama interna excluida por !P6_PORTABLE, añadir esa razon a laexistenteAROS. No eliminar test inventario ni excluir unidades. Verificar test_selected_api_inventory y guardshost existentes, sin cambios de provider/motor/goldens.",
         "Ampliar previamente tests/host/input_engine_harness.cpp y tests/host/test_input_devices.py: inputdevice real ahora referencia lightpen_cx/cy[2] que posee custom.cpp, y la fixture solo declara coordenadas host lightpen_x/y. Proveer exactamente dosarrays int[2], inicializarlos con ausencia de haz(-1) y exigir que las pruebas de raton/joystick/teclado no los alteran; no implementar fotodiodo ni resolver funciones de chipset por stubs exitosos. Mantener dynamic_lookup abortante para caminos no probados, todos los mappings/JOY/CIA/cola y ASanUBSan existentes, temporales bajo build. Matriz FPU3tests/5filas/45casos y FRESTORE1test PASAN realmente enab48a4ed; preservar esosmodulos en union sin repetirlos por esta fixture.",
-        "El primer ajuste del arnes input resuelve globales y descubre un segundo limite concreto: bucle128teclas pasa por0x72..0x77 y consulta cdtv_front_panel(-1) aun enA500. CapturaASancompleta localiza input_engine_harness:322/inputdevice_do_keyboard; no es regresion de hardware. Observar solo consulta(-1), assert cs_cdtvcd desactivado y devolverfalse(dispositivo inactivo), contando24consultas de6teclas por press/release directos y mapeados; nunca simular panel activo ni omitir teclas. Preservar primera parte de diagnostico ASan en caso de fallo. Mantener todos los checks originales."
+        "El primer ajuste del arnes input resuelve globales y descubre un segundo limite concreto: bucle128teclas pasa por0x72..0x77 y consulta cdtv_front_panel(-1) aun enA500. CapturaASancompleta localiza input_engine_harness:322/inputdevice_do_keyboard; no es regresion de hardware. Observar solo consulta(-1), assert cs_cdtvcd desactivado y devolverfalse(dispositivo inactivo), contando24consultas de6teclas por press/release directos y mapeados; nunca simular panel activo ni omitir teclas. Preservar primera parte de diagnostico ASan en caso de fallo. Mantener todos los checks originales.",
+        "Ampliar previamente tests/libretro-host/test_archives.py, test_containers.py y test_libretro.py: tresexpectativas del system_info conservan catalogo anterior aCD o anterior aMDS/CHD. El core publica adf..uae|iso|cue|ccd|nrg|mds|chd|/ yhost imprime literal. Actualizar exactamente esos3catalogos completos, conservando version/need_fullpath, formatos previos y todos los asserts de doceunidades/input/video/audio/region/cadencia. Ejecutar solo los3metodos de identidad afectados; no compilar/mutar proveedores ni cambiar comportamiento decontenedores. Temporales compartidos de estosmetodos bajo build."
       ],
       "checks": [
         "PLAN01",

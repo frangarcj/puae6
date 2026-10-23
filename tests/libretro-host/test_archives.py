@@ -345,7 +345,7 @@ class ArchiveCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_new_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|iso|cue|ccd|nrg|mds|chd|/", out)
 
     def test_every_archive_of_a_set_is_the_same_playlist_the_same_media_and_the_same_future(self):
         disks = set_of(3)

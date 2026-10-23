@@ -54,7 +54,7 @@ class ContainerCoreTests(lr.LibretroHarness):
 
     def test_the_core_offers_the_container_extensions(self):
         out = self.frontend("boot", "--runs", 1).stdout
-        self.assertIn("extensions=adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|/", out)
+        self.assertIn("extensions=adf|adz|dms|fdi|ipf|zip|7z|rp9|lha|lzh|hdf|hdz|m3u|uae|iso|cue|ccd|nrg|mds|chd|/", out)
 
     def test_a_disk_in_any_container_is_the_same_medium_and_the_same_future(self):
         disk = c.varied_adf("the game")

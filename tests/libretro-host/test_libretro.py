@@ -128,7 +128,7 @@ class LibretroHarness(unittest.TestCase):
         cls.host = build_probe(BUILD, False, "p6_libretro_host")
         cls.core = next(Path(build_probe(BUILD, False, "puae6_libretro")).parent.glob("puae6_libretro.*"))
         cls.headless = build_probe(BUILD, False, "p6_headless")
-        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-libretro-")
+        cls.tmp = tempfile.TemporaryDirectory(prefix="p6-libretro-", dir=ROOT / "build")
         cls.roms = {}
         for name in ("boot", "long_frame", "input_all"):
             rom = Path(cls.tmp.name) / f"{name}.rom"
@@ -241,7 +241,7 @@ class LibretroTests(LibretroHarness):
         self.assertEqual((av[1], av[2], av[3], av[4], av[7], av[8]), ("756", "574", "760", "576", "48000", "1"))   # region 1 is PAL
         self.assertAlmostEqual(float(av[6]), 3546895 / 70824, places=4)
         self.assertAlmostEqual(float(av[5]), 756 * 26 / (574 * 25), places=4)
-        self.assertRegex(out, r"(?m)^core name=PUAE6 version=0\.1\.0-winuae-[0-9a-f]{12}-p\d+ extensions=adf\|adz\|dms\|fdi\|ipf\|zip\|7z\|rp9\|lha\|lzh\|hdf\|hdz\|m3u\|uae\|iso\|cue\|ccd\|nrg\|/ need_fullpath=1$")
+        self.assertRegex(out, r"(?m)^core name=PUAE6 version=0\.1\.0-winuae-[0-9a-f]{12}-p\d+ extensions=adf\|adz\|dms\|fdi\|ipf\|zip\|7z\|rp9\|lha\|lzh\|hdf\|hdz\|m3u\|uae\|iso\|cue\|ccd\|nrg\|mds\|chd\|/ need_fullpath=1$")
         self.assertIn("10", re.search(r"environment=([\d,]+)", out)[1].split(","))            # the pixel format was negotiated
 
     def test_the_input_of_the_frontend_reaches_the_bridge_as_the_contract_maps_it(self):
