@@ -18812,7 +18812,8 @@
         "T66v14",
         "T66w1",
         "T66w2",
-        "T66w3"
+        "T66w3",
+        "T66w4"
       ],
       "read": [
         "docs/01-architecture.md",
@@ -18876,7 +18877,7 @@
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
       "stop": "No cargar el CD entero en memoria del guest.",
-      "blocked_reason": "Nueva fuente primaria CDI2Nero f43561d demuestra ETNF global por sesion con perfil Canonical150; su implementacion/puertas privadas estan en T66w1, las conexiones publicas y restauracion quedan posteriores. El bloqueo externo restante es TINF: no hay productor/documentacion que determine si offset apunta a INDEX01 o INDEX00 y como codifica pregap; H1 offset de datosINDEX01, H2 offsetINDEX00 conpregap fisico. ETN2 multisesion tampoco queda acreditado por ETNF. Se conservan rechazos explicitos y fixtures; no recuperar CUE0/Qfisico a partir de campos ausentes ni cerrarT66 con perfilprivado."
+      "blocked_reason": "ETNF global Canonical150 ya tiene contrato primario CDI2Nero y componentes/nativo/libretro/normalizacion C# cerrados en T66w1..w3; T66w4 conserva restauracion publica Waterbox pendiente. Bloqueo externo restante TINF: offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico, sin productor/documentacion que lo resuelva. ETN2 multisesion tampoco acreditado por ETNF: requiere productor multisesion y TOC original para distinguir coordenada global de reinicio. Mantener rechazos explicitos y fixtures; no recuperar Q/CUE0fisicos ausentes ni cerrarT66 con estas variantes pendientes."
     },
     {
       "id": "T67a",
@@ -22642,6 +22643,51 @@
         "Optin DiscSystem normaliza ETNFglobal como sesiones dispersasCanon150 con descriptorV3, identidad completa y errores sinpublicacion/fugas. Productor atribuido ylegacy exactos, targetreal y checksdirigidos pasan; no acredita guest/WBcold."
       ],
       "stop": "No habilitar TINF/ETN2 multisesion ni atribuir comportamiento fisico a la normalizacion virtual; preservar legacy e identidad. Dos intentos fallidos requieren reproducer y dos hipotesis antes de blocked."
+    },
+    {
+      "id": "T66w4",
+      "title": "Restaurar ETNF global por XML, CD directo y catalogo publico Waterbox",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T66w3",
+        "T66v12"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "tests/waterbox-media/test_chd_public.py",
+        "tests/media/csharp-disc/Cd32Chd.cs",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/0018-cd-multisession.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "ci_close responsable aislado desde main ead48f25 en rama nueva; root metadata/docs/dispatcher e integracion, construccionguest/managed y ejecucionreal. Dosrutasmanuales de harness+test, hasta300lineas; no modificarproducto si sus rutas existentes ya carganperfil. No construir motor/guest ni correrWaterbox/targetcore desdeagente; sintaxis/selectores ycompilacionstandalone solo previa coordinacion.",
+        "Reusar PublicCd/OpenPublicCd/MultiCdParameters/Check, SaveRAM/suppression/FDclose y procesofrio del escenarioNRGmultisession. Parametrizar solo geometria/hashes/LBAs esperados parafixtureglobalW3 con oraculoPython independiente ydatos temporales acotados, sin cambiar assertslegacyni flags publicos. Nuevo dominioP6ETGM2448 NUL/version3, signedprefix150 enidentidad yguestclipped0, sesiones1/1/0/-150/302 y2/2/32/11552/12002.",
+        "Tresmetodos nuevos XML/direct/catalogo [global,ISO,CHD,aliasglobal], map0/1/2/0 eIDs3; mismo real publicloader/provider/lease. Repeticionlocal, sandbox/procesonuevo antesprimerframe, heldconfig/controller/Future AV/PCM/RAM/Chipstate+fullsnapshotexacto. SaveRAM/reboot/seleccioncatálogo ysupresion conservan asserts existentes. No afirmarbootaplicacion confixture propia.",
+        "ReadSector exactos0/1/301/11552/11701/11702/12001 y regioneswire902sectores conQcanonico. Huecos302/11551/12002 ycruceultimobyte301→302 rechazan sinsalida/IO; mapaTOC2tracks/lead12002, tablaV3yidentidadindependientes. Rebind renombrado equivalente yforeignpayload/coord11703 rechazan antesmutar/Attach; FDclosure yfuentesborrowed intactos.",
+        "WB03/DET02/MED01 usan mismaunionselectores sin repetir porlabel. Rootconsolida0413+managed+provenance enun guestactual, pruebaestos3escenarios ylegacysolosiunfallo/cambiorelevante loexige. MedicionnormativaT48f16perfilesunavezconguest/runtimeexactos; no reutilizaridentidades delguest0412niatribuirejecucionWBacomponenteC#."
+      ],
+      "checks": [
+        "MED01",
+        "WB03",
+        "DET02"
+      ],
+      "acceptance": [
+        "XML/direct/catalogo publico ETNFglobal normalizado conserva TOC/identidad/lease/SaveRAM y futuroAVPCM/RAM/estado exacto con snapshot en sandbox/proceso nuevos. Datos/Q/huecos y negativos son transaccionales; guest/runtime actuales y limitesmedidos, sin cambiarlegacy ni cerrarTINF/ETN2multi."
+      ],
+      "stop": "Sin runnerguest actual dejar gateBLOCKED. No aprobar conbibliotecanativa/snapshotprivado, timeout, solo pantallao compilacion; no repetir campañascompletas por cambio deharness."
     }
   ],
   "max_in_progress": 4
