@@ -2415,3 +2415,19 @@ y se cierra tras el guest o ante fallo de construccion/montaje parcial. Otros
 cores y los IDiscAsset prestados directamente a ParametersFrom conservan su
 propiedad anterior. La fixture ISO propia usa SystemID CDTV solo para probar
 identificacion/cleanup sin sandbox; no acredita arranque de hardware CDTV.
+
+## Transiciones privadas de medio CDTV (T67d1)
+
+El controlador stock observa la presencia mediante su poll hsync emulado.
+Extraer A e insertar B antes del mismo poll puede dejar la TOC de A aunque
+el backend ya tenga B. El propietario debe conservar la ausencia hasta que
+el controlador la observe, antes de publicar la nueva insercion.
+
+La prueba privada usa dos discos originales y cinco cortes: reproduccion activa,
+extraccion pendiente, ausencia con STCH pendiente, insercion pendiente y nueva
+TOC observada. Cada corte conserva P6CT/P6SC/P6AU, RAM, AV/PCM, ticks y lecturas
+tras restauracion local y en otro proceso sin avance previo. La extraccion
+detiene el backend de audio; READ/STOP y STCH siguen la logica del controlador,
+sin reset artificial ni Akiko. El setup usa PLAY normal: la variante inmediata
+no establece `cd_playing` por el camino de callback stock. Esta puerta caracteriza
+las transiciones; no habilita todavia cambios de disco en los frontends.

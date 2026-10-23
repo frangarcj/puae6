@@ -414,6 +414,8 @@ for _gate in ('MED01', 'STATE01', 'DET02'):
 TASK_SUITES[('MED01', 'T67b1')] = {'cdtv_component': 'tests.media.test_cdtv_state.CdtvStateComponentTests.test_local_roundtrip_and_transactional_refusals', 'cdtv_link_regression': 'tests.media.test_cdtv_link.CdtvLinkTests'}
 for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T67b2')] = {'cdtv_cold_state': 'tests.media.test_cdtv_state.CdtvStateTests.test_cold_restore_and_future'}
+for _gate in ('MED01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T67d1')] = {'cdtv_media_edges_cold_restore': 'tests.media.test_cdtv_state.CdtvMediaChangeTests.test_observed_absence_toc_audio_and_cold_restore'}
 for _gate in ('MED01', 'DET02'):
     TASK_SUITES[(_gate, 'T67a')] = {'real_cdtv_dmac': 'tests.media.test_cdtv_link.CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle'}
 TASK_SUITES[('MED01', 'T66t15b')] = {'typed_regional_wire': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_regional_descriptor_materialization_identity_and_rejections', 'real_host_chd_regional': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership', 'legacy_source': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests'}

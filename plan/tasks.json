@@ -19533,7 +19533,7 @@
       "title": "Acreditar ausencia y cambio CDTV en el controlador real antes de abrir frontends",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T67b2",
         "T67c2",
@@ -19563,7 +19563,8 @@
         "ci_close responsable aislado t53-cpu en rama nueva desde fuente actual; solo dos rutas de test180..260manuales, metadata/dispatcher/contratos root. No levantar guards publicos, editar motor/codec ni compilar por agente sin coordinacion.",
         "Reusar catalogo propio fijo2IDs yTOC distintas, device_set_inserted/select existentes y controladorstock. Ausencia ypresencia se observan mediante su poll hsync emulado dentro p6_run_frame, nunca relojhost/sleep/reinicializacion/Akiko. Mantener mismo unit/opens, no simular cambio con exito falso.",
         "Reproducer real antes de API: eject+insert en misma boundary puede perder ausencia cuando poll ve1==cd_media1. Probar transicion0 observada antes seleccionar/insertar1; cortes antespoll, ausencia, STCHpendiente einsertado. Guardar y restaurar fullP6CT/P6SC/P6AU local yprocesofrio, futuroRAM/AV/PCM/lecturas exacto. No repetir boot1000frames deCDTV siesta puerta usaestado propio del controlador existente.",
-        "Segundo riesgo verificable: AudioPlayer.stop al retirar puede borrarcallbacks sinpublicar cd_audio_finished ydejar cd_playing hastaSTCH/firmwareSTOP. Comprobar DMA/Q/PCM y no contaminar otrodisco; no cambiar contrato por invento. Trasdosintentos razonados sinresolver conservar test y doshipotesis enblocked_reason, elegir frenteindependiente. La puerta no habilita aun cambio publico ni acredita firmware/juego nuevo."
+        "Segundo riesgo verificable: AudioPlayer.stop al retirar puede borrarcallbacks sinpublicar cd_audio_finished ydejar cd_playing hastaSTCH/firmwareSTOP. Comprobar DMA/Q/PCM y no contaminar otrodisco; no cambiar contrato por invento. Trasdosintentos razonados sinresolver conservar test y doshipotesis enblocked_reason, elegir frenteindependiente. La puerta no habilita aun cambio publico ni acredita firmware/juego nuevo.",
+        "Cierre real23oct: c367+deltaa021 sobre engineactual build/state-opt O2-g/assertson, objeto/linkaislados contra mismos .o/.a. Primer fallo de setup signal1/playing0/running1 explicado por PLAYinmediato0x111: cd_audio_status preasignado salta actualizacioncd_playing; nuevoescenario usa PLAYnormal0x110 y conserva todoslosasserts/7cortesanteriores.5cortesmedia-write+5media-read PASS conreplaylocalporcadauno, fullfuturoexacto ysinrunpreviodellector. Ninguncambiomotor/codec ni esperaextra. Rootintegracommits30b62967/72ca9a46,conectaunselectorcomunMED01/STATE01/DET02 sintriplicarejecucion,34testsplanPASS/validatePASS. Temporales23.1MiBeliminados. MacHawkconsultadoexpresamenteporusuario: SetCDImage→changed_prefs ycheck_changes introduceausencia/retardo; referencia confirmaquenodebe coalescerse presencia. Puertaspublicasdecambio quedanposteriores, esta hoja no lasacredita."
       ],
       "checks": [
         "MED01",
