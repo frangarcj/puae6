@@ -1,5 +1,6 @@
 """Infrastructure only; no compiler, emulator, network or commercial ROM runs."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -23,6 +24,33 @@ class LinuxNativeTests(unittest.TestCase):
             ci.preflight()
         with mock.patch.object(ci.platform, "system", return_value="Linux"), mock.patch.object(ci.platform, "machine", return_value="x86_64"), mock.patch.object(ci.shutil, "which", return_value=None), self.assertRaisesRegex(ValueError, "preinstalled"):
             ci.preflight()
+
+    def test_all_fifteen_rows_use_their_own_compiler_isa_and_instrumentation(self):
+        self.assertEqual(set(ci.HOSTED_RUNNERS), set(ci.ROWS))
+        self.assertEqual(len(ci.HOSTED_RUNNERS) * len(ci.VARIANTS), 15)
+        for row in ci.HOSTED_RUNNERS:
+            for opt in ci.VARIANTS:
+                with self.subTest(row=row, optimization=opt):
+                    spec, mode = ci.selection(row, opt)
+                    configure, build = ci.build_commands(row, opt)
+                    self.assertIn('-DCMAKE_TOOLCHAIN_FILE='+str(ci.ROOT/spec['toolchain']), configure)
+                    self.assertIn('-DCMAKE_BUILD_TYPE='+mode['build_type'], configure)
+                    self.assertIn('-DP6_SANITIZERS='+('ON' if opt=='san' else 'OFF'), configure)
+                    self.assertNotIn('NDEBUG', ' '.join(configure))
+                    self.assertEqual(build[-2:], ['-j','2'])
+                    system='Darwin' if row.startswith('macos-') else 'Linux'
+                    isa='aarch64' if system=='Linux' and spec['isa']=='arm64' else spec['isa']
+                    with mock.patch.object(ci.platform,'system',return_value=system), mock.patch.object(ci.platform,'machine',return_value=isa), mock.patch.object(ci.shutil,'which',return_value='/tool'):
+                        ci.preflight(row,opt)
+                    self.assertEqual(ci.compilers(row)[1], '/usr/bin/g++' if row.endswith('-gcc') else '/usr/bin/clang++')
+                    self.assertEqual(ci.core_name(row), 'puae6_libretro'+('.dylib' if system=='Darwin' else '.so'))
+        for row,opt in (('windows-x86_64','O2'),(ci.DEFAULT_ROW,'O3')):
+            with self.assertRaisesRegex(ValueError,'unknown'):
+                ci.build_commands(row,opt)
+
+    def test_wrong_architecture_is_not_a_cross_build(self):
+        with mock.patch.object(ci.platform,'system',return_value='Linux'), mock.patch.object(ci.platform,'machine',return_value='x86_64'), self.assertRaisesRegex(ValueError,'arm64'):
+            ci.preflight('linux-arm64-clang','O0')
 
     def test_failed_process_or_protocol_violation_cannot_pass(self):
         for code, output in ((1, ""), (-9, "timeout"), (0, "VIOLATION")):
@@ -54,7 +82,13 @@ class LinuxNativeTests(unittest.TestCase):
     def test_manual_workflow_has_no_cache_upload_or_extra_action(self):
         workflow = (ci.ROOT / ".github/workflows/native-linux.yml").read_text()
         self.assertIn("workflow_dispatch:", workflow)
-        self.assertIn("runs-on: ubuntu-24.04", workflow)
+        self.assertIn("runs-on: ${{ matrix.platform.runner }}", workflow)
+        self.assertEqual(dict(re.findall(r"- row: (\S+)\n\s+runner: (\S+)",workflow)),ci.HOSTED_RUNNERS)
+        variants=re.search(r"optimization: \[([^\]]+)\]",workflow)
+        self.assertEqual(tuple(v.strip() for v in variants[1].split(',')),ci.VARIANTS)
+        self.assertIn('fail-fast: false',workflow)
+        self.assertIn('max-parallel: 4',workflow)
+        self.assertIn("--row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}'",workflow)
         self.assertIn("timeout-minutes: 45", workflow)
         self.assertEqual(workflow.count("uses:"), 1)
         self.assertIn("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683", workflow)

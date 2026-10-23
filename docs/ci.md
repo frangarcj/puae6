@@ -95,22 +95,36 @@ El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guard
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
 conservan pendientes sus puertas no ejecutadas en los runners declarados.
 
-## Puerta nativa Linux alojada
+## Matriz nativa publica
 
-`native-linux.yml` ofrece exclusivamente lanzamiento manual en `ubuntu-24.04`
-estandar, con checkout fijado, permisos de lectura y limite de 45 minutos.
-`python3 tools/ci/linux_native.py` usa Clang/Ninja/CMake preinstalados, `-O2 -g`
-con assertions y dos compiladores simultaneos. No instala paquetes ni usa Docker,
-MacHawk, secretos, servicios adicionales, caches de GitHub o upload de artifacts.
-El usuario autorizo publicar el repositorio para usar runners estandar de Linux
-sin consumir la cuota privada. El lanzamiento manual queda a cargo del
-coordinador; la existencia del YAML no acredita una ejecucion verde.
+El workflow manual `native-linux.yml` ejecuta las cinco filas declaradas del
+proyecto, cada una en O0, O2 con assertions y ASan/UBSan: 15 jobs, con cuatro
+simultaneos, dos compiladores por job y un limite de 45 minutos por job.
+
+| Fila | Runner estandar | Compilador |
+|---|---|---|
+| macOS ARM64 | `macos-15` | Apple Clang |
+| Linux ARM64 | `ubuntu-24.04-arm` | Clang |
+| Linux ARM64 | `ubuntu-24.04-arm` | GCC |
+| Linux x86_64 | `ubuntu-24.04` | Clang |
+| Linux x86_64 | `ubuntu-24.04` | GCC |
+
+`python3 tools/ci/linux_native.py --row FILA --opt O0|O2|san` comprueba el SO e
+ISA reales antes de compilar y selecciona su toolchain existente. Sin argumentos
+conserva Linux x86_64/Clang/O2. Las herramientas deben estar preinstaladas: no
+instala paquetes ni usa Docker, MacHawk, secretos, caches de GitHub o artifacts.
+El repositorio es publico por instruccion del usuario; estos runners son estandar.
 
 Las micro-ROM MIT propias `boot.s` e `input_all.s` prueban headless/libretro y
 restore nativo respectivamente. `boot.s` evita depender de los puertos distintos
-por defecto de cada frontend. Ambos guardan/restauran en procesos nuevos y comparan futuro
-hardware/AV/PCM y fullstate exactos. Los estados temporales se eliminan al cerrar;
-la identidad de fuentes, patchset, codegen, compiladores y binarios sale por stdout.
-Falta de herramienta, salida incompleta, error, discrepancia o timeout impide PASS.
-Esta puerta nativa no sustituye PR/Waterbox Darwin ni nightly/release, su matriz,
-sanitizers, corpus privado o rendimiento; `puae6.yml` conserva esas selecciones.
+por defecto de cada frontend. Guardan/restauran en procesos nuevos y comparan
+futuro hardware/AV/PCM y fullstate exactos. Los estados temporales se eliminan al
+cerrar; revision, fila, flags, fuentes, patchset, codegen, compiladores y binarios
+salen por stdout. ASan/UBSan detienen el job ante hallazgos; LSan esta activo en
+Linux y no esta disponible en Darwin ARM64. La falta de herramientas, salida
+incompleta o un fallo termina el job. `fail-fast: false` permite ver las demas
+combinaciones sin ocultar el fallo.
+
+Esta puerta ejecuta pruebas nativas por combinacion. No acredita Waterbox Darwin,
+la comparacion completa entre ISA del corpus, las lanes acumuladas o la release.
+Windows y macOS Intel aun no tienen un port anunciado en la matriz del proyecto.

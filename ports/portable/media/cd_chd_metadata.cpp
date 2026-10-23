@@ -1,5 +1,6 @@
 #include "cd_chd_metadata.h"
 #include <libchdr/chd.h>
+#include <initializer_list>
 #include <string.h>
 namespace p6_cd {
 namespace {
