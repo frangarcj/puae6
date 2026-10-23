@@ -32,6 +32,114 @@ def elf64(loads, machine=183, elf_class=2, elf_type=2):
     return data
 
 
+class ManagedFeedSelectionTests(unittest.TestCase):
+    """Real feed verification with own archives; dotnet and runtime receipts mocked."""
+
+    def setUp(self):
+        from tests.ci import test_managed_inputs as feed_fixture
+        from ci import prepare_managed_inputs
+        self.preparer = prepare_managed_inputs
+        self.fixture = feed_fixture.ManagedInputTests(methodName='runTest')
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root, self.feed = self.fixture.root, self.fixture.feed
+        self.out = self.root / 'build/waterbox'
+        self.env = self.enterContext(mock.patch.dict(build_waterbox.os.environ))
+        self.env.pop(build_waterbox.MANAGED_FEED_ENV, None)
+        for name, value in (('ROOT', self.root), ('BUILD', self.out),
+                ('MANAGED', self.root / 'integration/bizhawk/smoke'),
+                ('FFI_PROJECT', self.root / 'tests/ffi/Ffi.csproj'), ('FFI_OUTPUT', self.root / 'build/ffi')):
+            self.enterContext(mock.patch.object(build_waterbox, name, value))
+        self.dotnet = self.enterContext(mock.patch.object(build_waterbox.shutil, 'which', return_value='/mock/dotnet'))
+        self.run = self.enterContext(mock.patch.object(build_waterbox, 'run_logged'))
+        self.verify = self.enterContext(mock.patch.object(self.preparer, 'prepare', wraps=self.preparer.prepare))
+        self.enterContext(mock.patch('urllib.request.build_opener', side_effect=AssertionError('network forbidden')))
+        receipt = self.out / 'puae6/puae6-receipt.json'
+        receipt.parent.mkdir(parents=True); receipt.write_text(json.dumps({'guest': {'sha256': 'a' * 64}}))
+        runtime_receipt = self.out / 'receipt.json'; runtime_receipt.write_text('{}')
+        dylib = self.out / 'mock.dylib'; dylib.write_bytes(b'own runtime fixture')
+        self.enterContext(mock.patch.object(build_waterbox, 'read_runtime_receipt', return_value={
+            'runtime_dylib': {'path': str(dylib), 'sha256': build_waterbox.sha256(dylib)}}))
+        self.enterContext(mock.patch.object(build_waterbox, 'runtime_receipt_path', return_value=runtime_receipt))
+        self.enterContext(mock.patch.object(build_waterbox, 'runtime_profile', return_value='release'))
+        self.enterContext(mock.patch.object(build_waterbox, 'default_runtime_profile', return_value='release'))
+        build_waterbox.FFI_OUTPUT.mkdir(parents=True)
+        self.clear()
+        self.addCleanup(self.clear)
+
+    @staticmethod
+    def clear():
+        build_waterbox.build_managed.cache_clear()
+        build_waterbox.build_core.cache_clear()
+
+    def install_feed(self):
+        self.feed.mkdir(parents=True)
+        for name, body in self.fixture.body.items():
+            (self.feed / f'{name}.1.0.0.nupkg').write_bytes(body)
+
+    def test_absent_selector_preserves_both_commands_and_existing_environments(self):
+        dotnet, env = build_waterbox.build_managed()
+        self.assertEqual('/mock/dotnet', dotnet)
+        self.run.assert_called_once_with([dotnet, 'build', 'Smoke.csproj', '--nologo'], env, build_waterbox.MANAGED)
+        self.assertEqual(str(self.out / 'nuget'), env['NUGET_PACKAGES'])
+        self.run.reset_mock()
+        dotnet, env, output = build_waterbox.build_core()
+        self.run.assert_called_once_with([dotnet, 'build', str(build_waterbox.FFI_PROJECT), '--nologo',
+            '-p:Puae6GuestSha256=' + 'a' * 64, f'-p:RestoreSources={Path.home() / ".nuget/packages"}'], env, self.root)
+        self.assertEqual(str(self.root / 'build/bizhawk-core/nuget'), env['NUGET_PACKAGES'])
+        self.assertEqual(build_waterbox.FFI_OUTPUT, output)
+        self.verify.assert_not_called()
+
+    def test_explicit_relative_and_absolute_feed_is_verified_offline_for_both_builders(self):
+        self.install_feed()
+        before = {p.name: p.read_bytes() for p in self.feed.iterdir()}
+        for value in ('build/hosted-managed-feed', str(self.feed)):
+            self.env[build_waterbox.MANAGED_FEED_ENV] = value
+            for builder in (build_waterbox.build_managed, build_waterbox.build_core):
+                self.clear(); self.run.reset_mock(); self.verify.reset_mock()
+                builder()
+                self.verify.assert_called_once_with(root=self.root, fetch=False)
+                command, env, _ = self.run.call_args.args
+                self.assertEqual([f'-p:RestoreSources={self.feed}'], [a for a in command if a.startswith('-p:RestoreSources=')])
+                self.assertEqual(value, env[build_waterbox.MANAGED_FEED_ENV])
+                self.assertEqual('/mock/dotnet', command[0])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.feed.iterdir()})
+
+    def assert_blocked_before_dotnet(self):
+        for builder in (build_waterbox.build_managed, build_waterbox.build_core):
+            self.clear(); self.dotnet.reset_mock(); self.run.reset_mock()
+            with self.assertRaises(build_waterbox.BuildError): builder()
+            self.dotnet.assert_not_called(); self.run.assert_not_called()
+
+    def test_empty_alias_escapes_and_other_locations_never_fall_back(self):
+        self.install_feed()
+        alias = self.root / 'build/alias'; alias.symlink_to(self.feed, target_is_directory=True)
+        for value in ('', 'build/alias', str(alias), 'build/../build/hosted-managed-feed',
+                      './build/hosted-managed-feed', str(self.root / 'foreign'), str(self.feed) + '/'):
+            self.env[build_waterbox.MANAGED_FEED_ENV] = value
+            self.assert_blocked_before_dotnet()
+        self.verify.assert_not_called()
+
+    def test_missing_corrupt_or_linked_fixed_feed_blocks_both_builders(self):
+        self.env[build_waterbox.MANAGED_FEED_ENV] = 'build/hosted-managed-feed'
+        self.assert_blocked_before_dotnet()
+        self.assertFalse(self.feed.exists())
+        self.install_feed()
+        archive = next(self.feed.iterdir()); body = archive.read_bytes()
+        archive.write_bytes(b'x' * len(body))
+        self.assert_blocked_before_dotnet()
+        self.assertEqual(b'x' * len(body), archive.read_bytes())
+        archive.write_bytes(body)
+        saved = self.feed.with_name('saved-feed'); self.feed.rename(saved)
+        self.feed.symlink_to(saved, target_is_directory=True)
+        self.assert_blocked_before_dotnet()
+        self.assertTrue(self.feed.is_symlink())
+        self.feed.unlink(); saved.rename(self.feed)
+        project = self.root / 'integration/bizhawk/smoke/Smoke.csproj'
+        project.write_text('changed project')
+        self.assert_blocked_before_dotnet()
+
+
 class ToolPathsTests(unittest.TestCase):
     """Real manifest/filesystem/hash checks; version/linker processes are mocked."""
 

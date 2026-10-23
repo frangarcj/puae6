@@ -34,6 +34,7 @@ RUNTIME_PROFILES = ("release", "debug")
 RUNTIME_ENV = "P6_WATERBOX_RUNTIME"
 SOURCE_AUDIT_ENV = "P6_WATERBOX_SOURCE_AUDIT"
 TOOLS_FILE_ENV = "P6_WATERBOX_TOOLS_FILE"
+MANAGED_FEED_ENV = "P6_WATERBOX_MANAGED_FEED"
 TOOLCHAIN_PROFILE_ENV = "P6_WATERBOX_TOOLCHAIN_PROFILE"
 TOOL_NAMES = ("clang", "lld", "cargo", "rustc", "make")
 RUNTIME_TEST_COUNT = 10
@@ -996,14 +997,30 @@ def managed_env() -> dict[str, str]:
             "DOTNET_ROLL_FORWARD": "Major", "DOTNET_NOLOGO": "1", "DOTNET_CLI_TELEMETRY_OPTOUT": "1"}
 
 
+def managed_restore_sources(default: Path | None = None) -> list[str]:
+    value = os.environ.get(MANAGED_FEED_ENV)
+    if value is None:
+        return [] if default is None else [f"-p:RestoreSources={default}"]
+    feed = ROOT / "build/hosted-managed-feed"
+    if value not in ("build/hosted-managed-feed", str(feed)):
+        raise BuildError(f"{MANAGED_FEED_ENV} requiere build/hosted-managed-feed canonico")
+    from ci import prepare_managed_inputs
+    try:
+        prepare_managed_inputs.prepare(root=ROOT, fetch=False)
+    except (OSError, ValueError) as error:
+        raise BuildError(f"{MANAGED_FEED_ENV}: {error}") from error
+    return [f"-p:RestoreSources={feed}"]
+
+
 @functools.cache
 def build_managed() -> tuple[str, dict[str, str]]:
     """Builds the managed harness once per process, however many runs follow."""
+    sources = managed_restore_sources()
     dotnet = shutil.which("dotnet")
     if not dotnet:
         raise BuildError("Falta dotnet para el harness managed")
     env = managed_env()
-    run_logged([dotnet, "build", "Smoke.csproj", "--nologo"], env, MANAGED)
+    run_logged([dotnet, "build", "Smoke.csproj", "--nologo", *sources], env, MANAGED)
     return dotnet, env
 
 
@@ -1017,7 +1034,8 @@ def build_core() -> tuple[str, dict[str, str], Path]:
     per process. The core is built together with the guest it belongs with: the SHA-256 in the receipt of the recipe is passed to the build and
     recorded in the assembly, and that is the only guest the wrapper will open. The runtime library is copied next to the test host, because
     BizHawk asks dlopen for the bare name libwaterboxhost.dylib and macOS looks for it in the working directory the host is run from.
-    Packages are restored from the local package cache, never from the network."""
+    Packages are restored from the selected verified feed or the local package cache, never from the network."""
+    sources = managed_restore_sources(Path.home() / ".nuget/packages")
     dotnet = shutil.which("dotnet")
     if not dotnet:
         raise BuildError("Falta dotnet para el core de BizHawk")
@@ -1029,9 +1047,8 @@ def build_core() -> tuple[str, dict[str, str], Path]:
     runtime = read_runtime_receipt(runtime_receipt)["runtime_dylib"]
     if sha256(Path(runtime["path"])) != runtime["sha256"]:
         raise BuildError("la biblioteca del runtime no es la del recibo")
-    cache = Path.home() / ".nuget/packages"
     env = {**managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
-    run_logged([dotnet, "build", str(FFI_PROJECT), "--nologo", f"-p:Puae6GuestSha256={guest_sha}", f"-p:RestoreSources={cache}"], env, ROOT)
+    run_logged([dotnet, "build", str(FFI_PROJECT), "--nologo", f"-p:Puae6GuestSha256={guest_sha}", *sources], env, ROOT)
     output = FFI_OUTPUT
     if runtime_profile() != default_runtime_profile():          # the other lane gets its own copy of the host, so that two lanes never share one libwaterboxhost.dylib
         output = ROOT / f"build/ffi/lane-{runtime_profile()}"
