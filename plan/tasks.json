@@ -11709,7 +11709,9 @@
         "tests/host/test_custom_cia.py",
         "tests/waterbox-smoke/test_puae6_contract.py",
         "manifests/release/native-preview.json",
-        "tests/packages/test_preview.py"
+        "tests/packages/test_preview.py",
+        "tests/host/custom_timing_probe.cpp",
+        "tests/host/test_custom_timing.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11774,7 +11776,8 @@
         "Ampliar previamente tests/host/cia_keyboard_probe.cpp: ACTION_REPLAY hace que WriteCIAA actualice ar_ciaa[reg], pero el probe selectivo no proporciona los16bytes declarados en ar.h. La fixture aislada debe poseer ese buffer y verificar que el handshake modifica solo el registro14 con los valores originales; conservar teclado/eventos/IRQ y el check O0/O2 ASanUBSan existente. No enlazar ni simular un cartucho, no añadir stubs de exito ni cambiar motor, flags de perfil o ar.cpp.",
         "Ampliar previamente tests/host/cia_overlay_state_probe.cpp y tests/host/test_cia_overlay_state.py: el enlace selectivo CIA/visitor necesita tambien ar_ciaa y la cola real keys_available/get_next_key. Materializar/verificar keybuf.cpp con los mismos parches y enlazarlo; la fixture posee el buffer16 y comprueba capturas de registro4 y que el visitor CIA no altera ese estado de otro propietario. Mantener los payloads143/144, negativos puros, mapeo observado, restauracion y ASanUBSan. Sin stubs de teclado, cambios al codec/motor ni claims de cartucho o mapa real.",
         "Ampliar previamente tests/host/test_cpu_prefetch.py: la expectativa conserva solo3tablasCE anteriores a Normal/Compatible y030/040/060. Contrastar cputbls con los modos implementados: 000/010/020 tienen Normal/Compatible/Exact y030/040/060 solo Normal. Comprobar exactamente la matriz6x8 y sus12imports, exigiendo NULL en slots JIT/MMU/no soportados; preservar igualdad del cuerpo prefetch con pristine, imports host prohibidos y pruebas O0/O2 ASanUBSan. No cambiar flags, generador, tablas generadas ni motor.",
-        "Ampliar previamente tests/host/custom_cia_probe.cpp y tests/host/test_custom_cia.py: el perfil ya compila CD32 y cia_hsync_do conserva la consulta Akiko que la fixture A500 solo declaraba en referencia. Compartir la frontera abortante entre ambas variantes; una llamada Akiko sigue fallando, nunca devuelve exito. La auditoria del custom completo debe exigir su import Akiko real y seguir rechazando BSD sockets; conservar comparacion pristine/producto, todas las ondas/TOD/IRQ/Copper/reset, negativos host y O0/O2 ASanUBSan. Sin cambios de motor ni flags y sin atribuir soporte CD32 al probe A500."
+        "Ampliar previamente tests/host/custom_cia_probe.cpp y tests/host/test_custom_cia.py: el perfil ya compila CD32 y cia_hsync_do conserva la consulta Akiko que la fixture A500 solo declaraba en referencia. Compartir la frontera abortante entre ambas variantes; una llamada Akiko sigue fallando, nunca devuelve exito. La auditoria del custom completo debe exigir su import Akiko real y seguir rechazando BSD sockets; conservar comparacion pristine/producto, todas las ondas/TOD/IRQ/Copper/reset, negativos host y O0/O2 ASanUBSan. Sin cambios de motor ni flags y sin atribuir soporte CD32 al probe A500.",
+        "Ampliar previamente tests/host/custom_timing_probe.cpp y tests/host/test_custom_timing.py: el parche0369 notifica devices_update_sound durante reset aun antes de abrir PCM, para inicializar CDDA con el reloj fisico. El probe conserva la condicion previa produce_sound>1; exigir una notificacion por recalculo y reloj/ajuste exactos en los cuatro modos0/1/2/3, sin alterar geometria ni pacing. Mantener O0/O2 ASanUBSan y todas las combinaciones PAL/NTSC/campo/refresh/turbo; temporales bajo build con limpieza automatica. Sin cambios al motor, guest, filtros ni transporte."
       ],
       "checks": [
         "PLAN01",

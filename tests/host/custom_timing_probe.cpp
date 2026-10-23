@@ -84,8 +84,9 @@ static void run(bool ntsc, bool lace, bool lof, bool half, float refresh,
     assert(currprefs.chipset_refreshrate == refresh);
     assert(changed_prefs.chipset_refreshrate == -123);
     assert(vsynctimebase == 731 && vsynctimebase_orig == 947 && cputimebase == 1291);
-    assert(sound_calls == (sound > 1));
-    if (sound > 1) assert(sound_clock == clock && sound_adjust == 1);
+    // 0369 initializes Paula/CDDA clocks even before the PCM transport opens.
+    assert(sound_calls == 1);
+    assert(sound_clock == clock && sound_adjust == 1);
     assert(sync_calls == 1 && sync_adjust == 1);
     assert(sync_vpos == current_linear_vpos_nom + (lace ? 0.5f : lof ? 1.0f : 0));
     assert(buffer_calls == 1 && ext_calls == 1 && config_calls == 1);
@@ -95,8 +96,8 @@ static void run(bool ntsc, bool lace, bool lof, bool half, float refresh,
     // Notifications before/after a refresh recalculation must agree as well.
     compute_vsynctime();
     assert(vblank_hz == field_rate && sync_calls == 2);
-    assert(sound_calls == 2 * (sound > 1));
-    if (sound > 1) assert(sound_clock == clock && sound_adjust == 1);
+    assert(sound_calls == 2);
+    assert(sound_clock == clock && sound_adjust == 1);
 }
 
 int main()

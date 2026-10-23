@@ -22,7 +22,7 @@ class CustomTimingTests(unittest.TestCase):
         # The probe includes real upstream declarations before these exact bodies.
         # P6_PORTABLE removes monitor negotiation and host pacing at compilation.
         header = vsync + framesync
-        with tempfile.TemporaryDirectory(prefix="p6-custom-timing-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="p6-custom-timing-", dir=ROOT / "build") as tmp:
             tmp = Path(tmp)
             (tmp / "custom_timing_under_test.h").write_text(header)
             common = ["clang++", "-std=c++17", "-UNDEBUG", "-fno-fast-math",
