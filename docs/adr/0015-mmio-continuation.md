@@ -71,9 +71,12 @@ deadline absoluto, cambia comportamiento; no se deduce de poder guardar locales.
 ## Hipotesis verificables pendientes
 
 1. Con DMA continuamente activo, el maximo de palabras, la latencia del evento y
-   el throttle del perfil pueden dar una cota finita de anidacion. Contrastar el
-   deadline del evento y profundidad frente al maximo permitido; incluir el
-   timeout externo sin suponer que progresa durante un hijo.
+   el throttle del perfil acotan un blit individual, pero no bastan para acotar
+   toda la cadena: `COPPER_BLTSIZE_RESTART` renueva el blit antes de que los
+   padres observen idle. Una posible cota global debe cubrir generaciones
+   sucesivas y los padres persistentes, incluyendo su timeout sin suponer que
+   progresa durante un hijo. La otra posibilidad es que esa renovacion permita
+   crecimiento no acotado y exija una decision causal separada.
 2. Un programa Copper puede deshabilitar DMA en los vencimientos y habilitarlo
    antes de otra espera, aplazando el blit y renovando esperas antes de actualizar
    los contadores exteriores. Contrastar DMACON, rearmes de `blitter_handler`,
@@ -92,6 +95,47 @@ progresa hasta que retorna cada hijo. Un limite de observacion del debugger solo
 interrumpe el experimento: no limita esa causalidad ni fija `state_bound`.
 Por ello siguen siendo necesarios el dispatcher iterativo y una cota global
 atribuida a todos los caminos, no una arena ajustada a la profundidad observada.
+
+## Reproducer de generaciones sucesivas
+
+`COPPER_BLTSIZE_RESTART`, en `tests/state/test_waiting_blits.py`, mantiene DMA
+activo y escribe BLTSIZE `$0050` desde Copper y desde VBI: una fila de 16 palabras.
+En Normal020 ese blit dura 32 CCK y se solapa con la siguiente iteracion Copper.
+`BLTSIZE_func` espera mediante `maybe_blit` y despues llama a `do_blitter`.
+Cuando el hijo retorna por fin de blit, su setter inicia el siguiente antes de
+que los padres consuman el resultado de `x_do_cycles`. La cadena real conserva
+padres y gana profundidad a traves de generaciones, aun observando `blit_main=0`
+entre un completado y el siguiente inicio. Un deadline por blit no es, por tanto,
+un deadline global. Esta observacion no demuestra crecimiento infinito.
+
+Construccion del fixture propio, sin compilar ni ejecutar el motor:
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+from tests.host.test_bridge_lifecycle import builder
+from tests.state.test_waiting_blits import COPPER_BLTSIZE_RESTART
+Path('build/waiting-blits-restart.rom').write_bytes(builder.build(COPPER_BLTSIZE_RESTART))
+PY
+```
+
+Para diagnosticarlo con el ejecutable existente con simbolos:
+
+```sh
+xcrun lldb -- build/state-opt/p6_state_probe build/waiting-blits-restart.rom --machine a1200 --cpu-compatibility normal --units 3 --every 1 --poke-at 1 waiting-blits:3
+```
+
+Antes de `run`, poner breakpoints en `waitingblits`, `do_blitter` y
+`blitter_doit`. Contrastar los marcos inline de `thread backtrace` con
+`target variable currcycle dmacon eventtab2 blt_info`; `continue` permite observar
+el siguiente inicio/completado. Terminar el inferior con `process kill` tras
+obtener la relacion causal y eliminar la ROM temporal. Un corte del debugger
+solo protege la observacion, nunca es una cota ni un resultado PASS.
+
+No se automatiza este caso esperando una caida o un timeout: aun falta una
+observacion acotada integrada en el probe. El gate de continuacion pendiente
+debera reutilizar el fixture para entregar unidades, guardar con padres
+persistentes y comparar su futuro tras restauracion, no aceptar un corte host.
 
 Hasta resolverlas, las pruebas de componente son avance del prototipo; DET02,
 STATE01, STEP01 y WB03 de T77b1 siguen pendientes.

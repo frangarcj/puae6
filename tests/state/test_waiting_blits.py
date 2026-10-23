@@ -69,10 +69,21 @@ COPPER_DMA_PULSE = COPPER_CHAIN.replace(
 )
 
 
+# Same MIT program, restarting a 1x16-word blit through Copper BLTSIZE.
+# Unlike the 1x8 control, its 32-CCK blit overlaps the next Copper iteration.
+# A completed child's setter can start another blit before its parents observe
+# idle, so a per-blit deadline does not bound the whole pending chain.
+# Raw mode is a debugger reproducer (ADR0015), not a test that passes on timeout.
+COPPER_BLTSIZE_RESTART = COPPER_CHAIN.replace(
+    "MOVE.L #$00400100,$2004.L", "MOVE.L #$00580050,$2004.L",
+).replace("MOVE.W #$FFC0,$DFF058.L", "MOVE.W #$0050,$DFF058.L")
+
+
 class WaitingBlitsReproducer(ProbeCase):
     ROMS = {"large-blit": (LARGE_BLIT, None, None),
             "copper-chain": (COPPER_CHAIN, None, None),
-            "copper-dma-pulse": (COPPER_DMA_PULSE, None, None)}
+            "copper-dma-pulse": (COPPER_DMA_PULSE, None, None),
+            "copper-bltsize-restart": (COPPER_BLTSIZE_RESTART, None, None)}
     MACHINE = "a1200"
 
     def audio_counts(self, raw_mode=None, scenario="large-blit", units=5):
