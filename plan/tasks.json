@@ -11695,6 +11695,7 @@
         "tests/portability/differential.golden.json",
         "manifests/waterbox-memory.json",
         "tests/codegen/test_compilers.py",
+        "tests/codegen/test_build_trees.py",
         "tests/waterbox-smoke/test_puae6_contract.py",
         "manifests/release/native-preview.json",
         "tests/packages/test_preview.py"
@@ -11752,7 +11753,8 @@
         "Renovacion rapida de preview tras0414/T55c13: actualizar solo docs/user/native-preview.md para distinguir restauracionFE corregida del casoCU06 pendiente y retirar la afirmacion anticuada de CDTVpublicoWB inexistente. Esta guia corresponde al ZIPnativo; Waterbox se distribuye aparte. Compilar incrementalmente con tools/package.py build sobrecheckoutlimpio y doscompiladores, fuentes/licencias/manifiesto actuales y smokeexistente desdeZIPextraido. Sin nuevasmatrices ni cierreT39b/release; conservan todas sus puertas.",
         "Tras T09d/T67d3/T67d4, guest a28cb6de y runtime Release9def19fe son inputs nuevos. Ampliacion previa a manifests/waterbox-memory.json: renovar atomicamente las16claves con la receta T48f existente (8maquinas,5memoria/FPU,2HDF y overlaylleno), sin reconstruir guest durante medidas, alterar budgets ni atribuir hashes nuevos a datos viejos. Ejecutar controles de identidad/fixtures/presupuestos ya existentes; temporales bajo build eliminados al terminar. Despues generar preview de revision limpia actual antes de union funcional. Matriz hosted15/FUZZ/clean anteriores conservan su alcance documentado, no se repiten por C#/texto.",
         "Preflight dirigido detecta tests obsoletos antes de union funcional: test_compilers solo busca LLVM22/GCC15 retirados, y contrato WB aun espera2objetos pese a cd_source.cpp. Ampliar previamente esas2rutas: seleccionar toolpaths instalados LLVM23/GCC16 y mantener tres compiladores con parallel2; comprobar conjunto exacto3 y nm de cada objeto. Capstone ya instalado para Python3.14: usar ese interprete existente en la lane, sin instalar ni omitir prueba. Probar contrato real nm y compiladores alternativos; no cambiar motor o expectativas semanticas.",
-        "Revision del paquete actual detecta que la nueva Directory.Build.targets de T09d no entra en source_paths. Ampliar previamente solo manifests/release/native-preview.json y test de politica existente para incluir la dependencia comun net8 offline. No modificar package.py ni sus gates, incluir el archivo real en source.tar.gz y verificarlo en ZIP extraido; evita entregar fuentes cuyo SDK cambia los targeting packs."
+        "Revision del paquete actual detecta que la nueva Directory.Build.targets de T09d no entra en source_paths. Ampliar previamente solo manifests/release/native-preview.json y test de politica existente para incluir la dependencia comun net8 offline. No modificar package.py ni sus gates, incluir el archivo real en source.tar.gz y verificarlo en ZIP extraido; evita entregar fuentes cuyo SDK cambia los targeting packs.",
+        "Ampliar previamente tests/codegen/test_build_trees.py: la union funcional detecta una expectativa de diagnostico anterior al guard de build/assets. Alinear el mensaje y comprobar recibos de upstream, generated y assets, incluido asset ausente, con el mismo caso existente. No modificar el guard, motor, guest ni presupuestos; conservar los modulos funcionales ya superados y continuar los restantes tras el check dirigido."
       ],
       "checks": [
         "PLAN01",

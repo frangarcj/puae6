@@ -1,4 +1,4 @@
-"""T48f: the Waterbox guest is only built (and measured) from build/upstream and build/generated of the CURRENT patch series.
+"""T48f: the Waterbox guest is only measured with current engine trees and generated builtin assets.
 
 Everything happens in a temporary project; the repository's own trees and series are not touched. The series is the one of test_materialize (one patch over one
 file), the generated tree carries a codegen receipt like the one tools/generate_cpu.py writes.
@@ -127,15 +127,29 @@ class CurrentTreesTests(unittest.TestCase):
     def test_a_guest_is_only_measured_if_it_was_built_from_the_files_on_disk(self):
         materializer.materialize(self.root)
         generated = self.write_generated()
+        asset = self.root / "build/assets/builtin.h"
+        asset.parent.mkdir(parents=True)
+        asset.write_bytes(b"builtin\n")
         receipt = self.root / "puae6-receipt.json"
-        sources = {"build/upstream/sample.cpp": digest(b"head\nnew\nfoot\n"), "build/generated/gen.c": digest(b"int gen;\n"), "bridge/other.c": "0" * 64}
+        sources = {"build/upstream/sample.cpp": digest(b"head\nnew\nfoot\n"), "build/generated/gen.c": digest(b"int gen;\n"),
+                   "build/assets/builtin.h": digest(asset.read_bytes()), "bridge/other.c": "0" * 64}
         receipt.write_text(json.dumps({"sources": sources}))
         with patch.object(build_waterbox, "_TREES_CHECKED", False):
             build_waterbox.check_guest_matches_trees(receipt, self.root)       # bridge/ is not an engine tree: not its business
-            sources["build/upstream/sample.cpp"] = digest(b"head\nold\nfoot\n")  # a guest built before the series changed
+            message = "otro build/upstream, build/generated o build/assets.*1 fuentes.*--puae6"
+            for name in sources:
+                if not name.startswith("build/"):
+                    continue
+                with self.subTest(source=name):
+                    receipt.write_text(json.dumps({"sources": {**sources, name: "0" * 64}}))
+                    with self.assertRaisesRegex(build_waterbox.BuildError, message) as error:
+                        build_waterbox.check_guest_matches_trees(receipt, self.root)
+                    self.assertIn(name, str(error.exception))
             receipt.write_text(json.dumps({"sources": sources}))
-            with self.assertRaisesRegex(build_waterbox.BuildError, "otro build/upstream o build/generated.*1 fuentes.*--puae6"):
+            asset.unlink()
+            with self.assertRaisesRegex(build_waterbox.BuildError, message) as error:
                 build_waterbox.check_guest_matches_trees(receipt, self.root)
+            self.assertIn("build/assets/builtin.h", str(error.exception))
         self.assertTrue(generated.is_dir())
 
 
