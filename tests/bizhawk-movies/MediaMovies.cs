@@ -313,5 +313,5 @@ internal static unsafe partial class Program
  }
  static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else if (args[0] == "hrtconfig") HrtConfig(args[1]);
   else if(args[0] == "arconfig") CartridgeConfig(args);
-  else { LoadRuntime(args[2]); if (args[0].StartsWith("hrt")) HrtMovies(args); else if(args[0].StartsWith("ar")) CartridgeWrapper(args); else Movies(args); } }
+  else { LoadRuntime(args[2]); if (args[0].StartsWith("hrt")) HrtMovies(args); else if(args[0].StartsWith("arreal-")) CommercialMovies(args); else if(args[0].StartsWith("ar")) CartridgeWrapper(args); else Movies(args); } }
 }

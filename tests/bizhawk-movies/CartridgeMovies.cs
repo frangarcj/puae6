@@ -141,4 +141,129 @@ internal static unsafe partial class Program
   }
   Console.WriteLine("Action Replay public wrapper/copy/StoreSaveRam/held/cold/full future PASS");
  }
+ // These are editor commands established by the pinned ROMs/native gates, not HRTMon aliases.
+ static Puae6Core CommercialOpen(string[] args,uint model,int variant=0)
+ {
+  uint selected=variant==2 && model!=1200 ? (model==1?2u:1u) : model;
+  var raw=File.ReadAllBytes(selected==model?args[7]:Environment.GetEnvironmentVariable("P6_ACTION_REPLAY"+selected+"_ROM"));
+  if(variant==1) {
+   raw[0x8000]^=1;
+   if(model!=1200) {
+    int end=raw.Length-4;while(end>0 && raw.AsSpan(end,4).SequenceEqual(new byte[4]))end-=4;
+    uint sum=0;for(int n=model==1?0:model==2?4:0x7c;n<end;n+=model==1?2:4)
+     sum=unchecked(sum+(model==1?(uint)System.Buffers.Binary.BinaryPrimitives.ReadInt16BigEndian(raw.AsSpan(n,2)):System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(raw.AsSpan(n,4))));
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(raw.AsSpan(end,4),sum);
+   }
+  }
+  var settings=CartridgeSettings(selected);
+  if(variant==2 && model==1200)settings.Cartridge=Puae6Cartridge.HrtMon;
+  if(variant==3)settings.CpuCompatibility=Puae6CpuCompatibility.Compatible;
+  if(variant==4)settings.Cartridge=Puae6Cartridge.Disabled;
+  var provider=new CartridgeProvider(File.ReadAllBytes(args[6]),raw,"AR"+selected);
+  var core=new Puae6Core(new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> {
+   Comm=new CoreComm(_=>{},(_,_)=>{},provider,CoreComm.CorePreferencesFlags.None,null),SyncSettings=settings });
+  Array.Fill(raw,(byte)0xA5);return core;
+ }
+ static uint CommercialCount(Puae6Core core)=>System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(CartMarkers(core));
+ static void CommercialUnits(Puae6Core core,HrtButtons buttons,int count,string key=null)
+ {
+  for(int n=0;n<count;++n) {
+   buttons.Frame=core.Frame; if(key!=null)HrtKeys[core.Frame]=key;
+   Require(core.FrameAdvance(buttons,true,true),"commercial boot/frame");
+  }
+ }
+ static void CommercialType(Puae6Core core,HrtButtons buttons,string command)
+ { int end=HrtType(core.Frame,command);CommercialUnits(core,buttons,end-core.Frame); }
+ static int CommercialReturned,CommercialRearmed,CommercialEnd;
+ static void CommercialSchedule()
+ {
+  HrtKeys.Clear();CommercialReturned=HrtType(8,"x");HrtRelease=CommercialReturned+8;
+  // The same bounded settling window as the native READY gate. Readiness is
+  // NOT asserted from elapsed time: X must resume the interrupted Chip program.
+  CommercialRearmed=HrtType(HrtRelease+601,"x");CommercialEnd=CommercialRearmed+8;
+ }
+ static void CommercialBoot(Puae6Core core,uint model)
+ {
+  HrtKeys.Clear();HrtRelease=-1;var buttons=new HrtButtons(core.ControllerDefinition);
+  CommercialUnits(core,buttons,300);
+  if(model is 2 or 3){CommercialUnits(core,buttons,3,"Key F1");CommercialUnits(core,buttons,26);}
+  else CommercialUnits(core,buttons,29); // Release at330, first Freeze at331: the accredited libretro boot sequence.
+  HrtRelease=core.Frame;CommercialUnits(core,buttons,1);CommercialUnits(core,buttons,620);
+  // No host PC/SR/IRQ edits: only a real editor command can start this program.
+  byte[] loop=[0x52,0xb9,0,1,0x10,0,0x60,0xf8];
+  for(int n=0;n<4;++n)CartSignal(core,0x11000+n,0);
+  for(int n=0;n<loop.Length;++n)CartSignal(core,0x12000+n,loop[n]);
+  if(model==1200){CommercialType(core,buttons,"r pc 73728");CommercialType(core,buttons,"x");}
+  else CommercialType(core,buttons,"g 12000");
+  Require(CommercialCount(core)>0,"real monitor command executes original Chip loop");
+  uint running=CommercialCount(core);CommercialUnits(core,buttons,8);Require(CommercialCount(core)>running,"held exit does not reenter monitor");
+  HrtRelease=core.Frame;CommercialUnits(core,buttons,1);CommercialUnits(core,buttons,1);
+  CommercialUnits(core,buttons,620);uint paused=CommercialCount(core);CommercialUnits(core,buttons,8);Require(CommercialCount(core)==paused,"new Freeze stops the running program");
+  core.ResetCounters();CommercialSchedule();
+ }
+ static string[] CommercialPlay(Puae6Core core,MovieSession session=null)
+ {
+  var rows=new List<string>();var buttons=session==null?new HrtButtons(core.ControllerDefinition):(HrtButtons)session.MovieIn;
+  int start=core.Frame;uint paused=CommercialCount(core),firstReturn=0,rearmed=0;
+  while(core.Frame<CommercialEnd) {
+   buttons.Frame=core.Frame;session?.HandleFrameBefore();IController input=session==null?buttons:session.MovieOut;
+   foreach(string name in core.ControllerDefinition.BoolButtons)Require(input.IsPressed(name)==buttons.IsPressed(name),"recorded controller level at "+core.Frame+" "+name);
+   Require(core.FrameAdvance(input,true,true),"commercial recorded frame");core.GetSamplesSync(out var samples,out int count);
+   var pcm=new byte[count*4];Buffer.BlockCopy(samples,0,pcm,0,pcm.Length);
+   var pixels=new byte[core.BufferWidth*core.BufferHeight*4];Buffer.BlockCopy(core.GetVideoBuffer(),0,pixels,0,pixels.Length);
+   rows.Add($"{core.Frame} {core.CycleCount} {core.BufferWidth}x{core.BufferHeight} {core.VsyncNumerator}/{core.VsyncDenominator} {core.IsLagFrame} {core.LagCount} {Hash(pixels)} {count} {Hash(pcm)} {Convert.ToHexString(CartMarkers(core))}");
+   uint counter=CommercialCount(core);
+   if(core.Frame==5)Require(counter==paused,"held cut remains frozen");
+   if(core.Frame==CommercialReturned){Require(counter>paused,"X resumes original program");firstReturn=counter;}
+   if(core.Frame==HrtRelease)Require(counter>firstReturn,"held level after X does not retrigger");
+   if(core.Frame==HrtRelease+3)rearmed=counter;
+   if(core.Frame==CommercialRearmed-20)Require(counter==rearmed,"release/rearm freezes program again");
+   if(core.Frame==CommercialEnd)Require(counter>rearmed,"second real X returns from rearmed Freeze");
+   session?.HandleFrameAfter(true);
+  }
+  Require(rows.Count==CommercialEnd-start,"every continuation frame captured");return rows.ToArray();
+ }
+ static void CommercialMovies(string[] args)
+ {
+  uint model=uint.Parse(args[5]);bool writing=args[0]=="arreal-save";Phase="Action Replay commercial "+model;
+  string initial=Path.Combine(args[1],model+".commercial");CommercialSchedule();
+  if(writing) {
+   using var original=CommercialOpen(args,model);CommercialBoot(original,model);File.WriteAllBytes(initial,Save(original));
+   File.WriteAllLines(initial+".future",CommercialPlay(original));File.WriteAllBytes(initial+".end",Save(original));
+   using(var reader=new BinaryReader(File.OpenRead(initial)))original.LoadStateBinary(reader);
+   Require(CommercialPlay(original).SequenceEqual(File.ReadAllLines(initial+".future")) && Save(original).SequenceEqual(Read(args[1],model+".commercial.end")),"local save/load full future");
+  }
+  var expected=File.ReadAllLines(initial+".future");var end=File.ReadAllBytes(initial+".end");
+  foreach(string extension in new[]{"bk2","tasproj"}) {
+   string path=initial+"."+extension;
+   if(writing) {
+    using var recording=CommercialOpen(args,model);var session=HrtSession(args[1],recording);var movie=session.Get(path,false);
+    movie.StartsFromSavestate=true;movie.BinarySavestate=File.ReadAllBytes(initial);movie.SyncSettingsJson=ConfigService.SaveWithType(recording.GetSyncSettings());
+    foreach(var h in Puae6Movie.HeaderForStart(recording,true,null))movie.HeaderEntries[h.Key]=h.Value;
+    Start(session,movie,recording,true);if(movie is ITasMovie tas)tas.Markers.Add(new TasMovieMarker(6,"held cut 5"));
+    Require(CommercialPlay(recording,session).SequenceEqual(expected) && Save(recording).SequenceEqual(end),"recorded BK2/TAS full future");
+    Require(!movie.Save().IsError,"save commercial movie");(movie as IDisposable)?.Dispose();
+   }
+   using var core=CommercialOpen(args,model);var replay=HrtSession(args[1],core);var loaded=replay.Get(path,true);
+   if(loaded is ITasMovie history)Require(history.TasStateManager.HasState(5),"serialized held TAS cut");
+   Start(replay,loaded,core,false);Require(CommercialPlay(core,replay).SequenceEqual(expected) && Save(core).SequenceEqual(end),"cold PID/movie full future");
+   if(loaded is ITasMovie seek) {
+    var state=seek.TasStateManager.GetStateClosestToFrame(5);Require(state.Key==5,"seek to held cut5");
+    using(var reader=new BinaryReader(state.Value))core.LoadStateBinary(reader);
+    Require(CommercialPlay(core,replay).SequenceEqual(expected.Skip(5)) && Save(core).SequenceEqual(end),"held seek full continuation");
+   }
+   (loaded as IDisposable)?.Dispose();
+   if(extension=="bk2")for(int variant=1;variant<=4;++variant) {
+    using var foreign=CommercialOpen(args,model,variant);var before=Save(foreign);bool refused=false;
+    try{using var r=new BinaryReader(File.OpenRead(initial));foreign.LoadStateBinary(r);}catch(StateRejectedException e){refused=e.Reason==StateRejection.OtherConfig;}
+    Require(refused && Save(foreign).SequenceEqual(before),"foreign ROM/model/config/off state refused before snapshot");
+    var session=HrtSession(args[1],foreign);var movie=session.Get(path,true);refused=false;
+    try{Start(session,movie,foreign,false);}catch(MovieRejectedException e){refused=e.Reason==MovieRejection.OtherConfig;}
+    Require(refused && session.Movie==null && movie.Emulator==null && Save(foreign).SequenceEqual(before),"foreign movie refused before Attach");
+    (movie as IDisposable)?.Dispose();
+   }
+  }
+  Console.WriteLine("Action Replay commercial commands/held/rearm/BK2/TAS/seek/cold/full state/identity PASS");
+ }
+
 }

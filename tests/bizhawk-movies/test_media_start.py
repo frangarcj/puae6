@@ -150,3 +150,34 @@ class ActionReplayWrapperTests(unittest.TestCase):
             for mode in ('arsave', 'arload'):
                 output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256'], str(model)])
                 self.assertEqual(output.count(' PASS'), 1, output)
+
+
+@unittest.skipUnless(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT'), 'BLOCKED: current coordinated guest required')
+class ActionReplayMoviesTests(unittest.TestCase):
+    def test_commercial_cartridges_bk2_tas_seek_and_cold_state(self):
+        models = (1, 2, 3, 1200)
+        names = ('Action_Replay_I_v1.00.rom', 'Action_Replay_II_v2.14.rom', 'Action_Replay_III_v3.17.rom', 'Action_Replay_1200.rom')
+        hashes = ('1ead9dda2dad29146441f5ef7218375022e01248', '255d6df63a4eab0a838eb1a16a267b0959dff634',
+                  '5d4987c2e3ffea8b1b02e31430ef190f2db76542', '0f6ab8342810094ac0642f62ba42f78bc0b07e6a')
+        carts = [Path(os.environ.get(f'P6_ACTION_REPLAY{model}_ROM', ROOT/'build/assets/action-replay'/name)) for model, name in zip(models, names)]
+        kicks = [Path(os.environ.get(key, Path.home()/'Downloads'/name)) for key, name in (
+            ('P6_KICKSTART_A500_ROM', 'Kickstart v1.3 r34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV)[!].rom'),
+            ('P6_KICKSTART_A1200_ROM', 'Kickstart v3.1 r40.68 (1993)(Commodore)(A1200)[!].rom'))]
+        for path in carts + kicks:
+            self.assertTrue(path.is_file(), f'BLOCKED: authorized firmware required: {path}')
+        for model, path, digest in zip(models, carts, hashes):
+            self.assertEqual(hashlib.sha1(path.read_bytes()).hexdigest(), digest, str(path))
+            ENV[f'P6_ACTION_REPLAY{model}_ROM'] = str(path)
+        data = json.loads(Path(os.environ['P6_MEDIA_MOVIE_GUEST_RECEIPT']).read_text())
+        wb.check_guest_matches_trees(Path(os.environ['P6_MEDIA_MOVIE_GUEST_RECEIPT']))
+        self.assertTrue(all(wb.sha256(ROOT/path) == digest for path, digest in data['sources'].items()))
+        guest = Path(data['guest']['path']); self.assertEqual(wb.sha256(guest), data['guest']['sha256'])
+        wb.validate_elf(guest); wb.check_no_compiler_tls(guest)
+        runtime = wb.read_runtime_receipt(wb.runtime_receipt_path())['runtime_dylib']
+        self.assertEqual(wb.sha256(Path(runtime['path'])), runtime['sha256'])
+        for model, cart in zip(models, carts):
+            for mode in ('arreal-save', 'arreal-load'):
+                output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256'],
+                              str(model), str(kicks[model == 1200]), str(cart)])
+                self.assertEqual(output.count(' PASS'), 1, output)
+        self.assertEqual(BEFORE, (build_tree.git('rev-parse', 'HEAD').stdout, build_tree.git('diff', '--no-ext-diff').stdout))
