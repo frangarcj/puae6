@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "origin": "PUAE6 offline source rebuild, exact locked inventory; no MacHawk binary inputs or emulator execution claims",
+  "archive": {
+    "file": "waterbox-sysroot-aarch64.tar.xz",
+    "size_bytes": 1920824,
+    "sha256": "b6a64eef7cdfa1910d433cd8be5b2e353b4fe9a69630f97c7844a63091b78a29",
+    "files": 1276,
+    "payload_bytes": 17653649
+  },
+  "limits": {
+    "decoded_bytes": 67108864,
+    "files": 1276
+  },
+  "sysroot": {
+    "file_count": 1270,
+    "inventory_sha256": "ee086b2a4403e8c17dfe93d04e944e660321d33249af50ce89abcbf2e28afc8b"
+  },
+  "notices": [
+    {
+      "path": "BizHawk-LICENSE",
+      "mode": "100644",
+      "sha256": "6601cab56cb56875001906593a3adf94d52a0b82e6919fcbee81c31a48499121"
+    },
+    {
+      "path": "compiler-rt/LICENSE.TXT",
+      "mode": "100644",
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+    },
+    {
+      "path": "libcxx/LICENSE.TXT",
+      "mode": "100644",
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+    },
+    {
+      "path": "libcxxabi/LICENSE.TXT",
+      "mode": "100644",
+      "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
+    },
+    {
+      "path": "libunwind/LICENSE.TXT",
+      "mode": "100644",
+      "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d"
+    },
+    {
+      "path": "musl-COPYRIGHT",
+      "mode": "100644",
+      "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+    }
+  ],
+  "notices_inventory_sha256": "2331da391dedb4270d550f1d88dea228c428f564b0ff42dd66eeff664d0891e7",
+  "sources": {
+    "machawk": {
+      "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+      "repository": null,
+      "tag": null,
+      "tag_object": null,
+      "snapshot_manifest_sha256": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3"
+    },
+    "waterbox_musl_darwin": {
+      "commit": "22440a465d6f7d3241e73bdf990c2b8026022625",
+      "repository": "https://github.com/Masterjun3/musl.git",
+      "tag": null,
+      "tag_object": null,
+      "snapshot_manifest_sha256": "bb962ceae3a5b7c116841e568f48704edd6d20dc5a3bada77370257d4429a04f"
+    },
+    "compiler_rt_emutls": {
+      "commit": "3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff",
+      "repository": "https://github.com/llvm/llvm-project.git",
+      "tag": "llvmorg-18.1.8",
+      "tag_object": "76caf4176cd7877ad5952737d56da6f515ee4602",
+      "snapshot_manifest_sha256": "66f01d7f0656b30749511417756255b6d0d97e06c115eeebfb91589594f96a88"
+    }
+  },
+  "rebuild": {
+    "recipe": "tools/build_waterbox_sysroot.py",
+    "recipe_sha256": "47d1de6a0042197329550dffa7df13882cc7787c3fbc13e3b666b5f7eea27797",
+    "image_id": "sha256:363470a24865dd2b92f7864c9e6281028d75faa157060b9f53ed51e2a6c7cfd1",
+    "llvm_closure_inventory_sha256": "47ea5d1b3d4b0a8a3f78913743b195ffcb93caaa91cb9a215725e65ae3d69f1a"
+  },
+  "llvm_source_url": "https://github.com/llvm/llvm-project/tree/llvmorg-18.1.8",
+  "llvm_complete_source_archive": "https://github.com/llvm/llvm-project/archive/3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff.tar.gz",
+  "notice_sources": {
+    "BizHawk-LICENSE": "references/machawk/LICENSE",
+    "musl-COPYRIGHT": "references/musl-darwin/COPYRIGHT",
+    "compiler-rt/LICENSE.TXT": "compiler-rt/LICENSE.TXT at the pinned complete LLVM source",
+    "libcxx/LICENSE.TXT": "libcxx/LICENSE.TXT at the pinned complete LLVM source",
+    "libcxxabi/LICENSE.TXT": "libcxxabi/LICENSE.TXT at the pinned complete LLVM source",
+    "libunwind/LICENSE.TXT": "libunwind/LICENSE.TXT at the pinned complete LLVM source"
+  }
+}

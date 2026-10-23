@@ -493,8 +493,8 @@
           "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
         }
       ],
-      "handling": "Source associated with the pinned local Darwin sysroot; preserve per-file notices. Cached LLVM runtime provenance remains a release limitation.",
-      "build_eligibility": "local_T09_smoke_only; release_closure_pending"
+      "handling": "Source of the Waterbox musl sysroot; preserve per-file notices. The project rebuilt all 1270 sysroot path/mode/hash entries exactly from the captured musl/MacHawk sources and the pinned full LLVM 18.1.8 source closure. third_party/waterbox-sysroot/PROVENANCE.json identifies the binary dependency, recipe and source pins; its archive preserves the six original musl, BizHawk and LLVM component notices. Keep those notices with any redistribution of this sysroot. This source-rebuild check does not certify a complete release.",
+      "build_eligibility": "selected_waterbox_sysroot; exact_source_rebuild_verified"
     },
     {
       "id": "compiler-rt-emutls",
@@ -507,7 +507,7 @@
           "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
         }
       ],
-      "handling": "Six pristine files only: emutls C runtime plus internal headers and full license. Preserve notices for source and binary distribution.",
+      "handling": "The versioned snapshot contains six pristine files only: emutls C runtime, internal headers and full license. The separate sysroot recipe requires the full clean LLVM 18.1.8 closure at this same source pin, including compiler-rt, libcxx, libcxxabi and libunwind; it verifies the Git blobs before building. The source-built sysroot bundle preserves their original LICENSE.TXT files. Preserve notices for source and binary distribution.",
       "build_eligibility": "selected_for_waterbox_C++_TLS"
     },
     {
