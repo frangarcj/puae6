@@ -428,6 +428,10 @@ for _gate in ('LR01', 'MED01', 'STATE01', 'DET02'):
         'cdtv_catalog_refusals': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals',
         'cd32_catalog_regression': 'tests.libretro-host.test_cd32_load.Cd32PlaylistTests.test_slots_initial_aliases_boundary_and_fixed_catalog',
         'cdtv_audio_edges_regression': 'tests.media.test_cdtv_state.CdtvMediaChangeTests.test_observed_absence_toc_audio_and_cold_restore'}
+TASK_SUITES[('ABI01', 'T67d3')] = {'cd_wire_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+TASK_SUITES[('WB03', 'T67d3')] = {
+    'cdtv_catalog_cold_future': 'tests.waterbox-media.test_cdtv_boot.CdtvCatalogWaterboxTests',
+    'cd32_catalog_regression': 'tests.waterbox-media.test_cd_source.Cd32CatalogWaterboxTests'}
 for _gate in ('MED01', 'DET02'):
     TASK_SUITES[(_gate, 'T67a')] = {'real_cdtv_dmac': 'tests.media.test_cdtv_link.CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle'}
 TASK_SUITES[('MED01', 'T66t15b')] = {'typed_regional_wire': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_regional_descriptor_materialization_identity_and_rejections', 'real_host_chd_regional': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership', 'legacy_source': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests'}
@@ -661,6 +665,19 @@ TASK_SUITES[('WB08', 'T36')] = {
 TASK_SUITES[('WB09', 'T36')] = {'movie_seek_branch_and_suppressed_delivery': 'tests.bizhawk-movies.test_movie_playback.MoviePlaybackTests'}
 TASK_SUITES[('WB12', 'T36')] = TASK_SUITES[('WB12', 'T33')]
 TASK_SUITES[('WB14', 'T36')] = {'actual_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb'}
+
+# Installed-toolchain refresh: one real mini-core run covers its runtime gates.
+TASK_SUITES[('BUILD01', 'T09d')] = {
+    'guest_recipe_and_cache': 'tests.waterbox-smoke.test_build.Puae6RecipeTests',
+    'cache_identity': 'tests.waterbox-smoke.test_build.GuestToolchainCacheTests',
+    'runtime_identity': 'tests.waterbox-smoke.test_runtime_tpidr.RuntimePatchTests',
+}
+TASK_SUITES[('ABI01', 'T09d')] = {'managed_offline_reference_packs_and_layout': 'tests.waterbox-media.test_cd_source.CdLayoutTests'}
+for _gate in ('WB01', 'WB13', 'WB14', 'WB15', 'WB16'):
+    TASK_SUITES[(_gate, 'T09d')] = {
+        'runtime_current_tools_smoke': 'tests.waterbox-smoke.test_build.RuntimeSmokeTests',
+    }
+TASK_SUITES[('WB13', 'T09d')]['engine_guest_callback_abi'] = 'tests.waterbox-smoke.test_puae6_wb.RealGuestTests.test_host_callbacks_cross_the_guest_between_units_without_disturbing_x18_x28_the_thread_state_or_the_machine'
 
 # One union of the real callback/page/cold-restore cases covers the three gates.
 TASK_SUITES[('BUILD01', 'T28c')] = {

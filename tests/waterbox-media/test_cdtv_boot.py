@@ -17,6 +17,7 @@ from tests.media import cdtv_boot_image
 
 
 class CdtvWaterboxBootTests(unittest.TestCase):
+    modes = ('cdtvsave', 'cdtvload')
     def test_original_iso_hunk_cold_snapshot_and_full_future(self):
         main, ext, tm = boot_inputs()
         guest = wb.BUILD / 'puae6/release/puae6.wbx'
@@ -30,15 +31,20 @@ class CdtvWaterboxBootTests(unittest.TestCase):
             work = Path(directory); assembly, env = build_disc_source(work)
             nonce = cdtv_boot_image.NONCE
             (work / 'original.iso').write_bytes(cdtv_boot_image.image(tm, nonce))
-            (work / 'other.iso').write_bytes(cdtv_boot_image.image(tm, bytes(b ^ 0xa5 for b in nonce)))
+            (work / 'other.iso').write_bytes(cdtv_boot_image.image(tm, bytes(b ^ 0xa5 for b in nonce))+bytes([0xa5])*(17*2048))
             # Each mode is a new process. LOAD has no frame before snapshot restore.
-            for mode in ('cdtvsave', 'cdtvload'):
+            for mode in self.modes:
                 result = subprocess.run(['dotnet', str(assembly), directory, str(work / 'original.iso'),
                                          runtime, str(guest), sha, mode, main, ext, nonce.hex()],
                                         env=env, capture_output=True, text=True, timeout=300)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn('Private CDTV Waterbox nonce/Delay local/fresh sandbox/cold process/full future/rejects/teardown PASS', result.stdout)
-                if mode == 'cdtvsave': self.assertIn('ISO/HUNK executed nonce and Delay by unit', result.stdout)
+                if mode.endswith('save'): self.assertIn('ISO/HUNK executed nonce and Delay by unit', result.stdout)
+                if mode.startswith('cdtvcatalog'): self.assertIn('CDTV catalog deferred BUSY/physical absence/ordinal B/opens/cold full future PASS', result.stdout)
+
+
+class CdtvCatalogWaterboxTests(CdtvWaterboxBootTests):
+    modes = ('cdtvcatalogsave', 'cdtvcatalogload')
 
 
 class CdtvPublicWaterboxTests(unittest.TestCase):

@@ -810,6 +810,58 @@
       "stop": "Sin runner real o sysroot valido queda blocked. No sustituir por cross-compile o mock ni posponer la incertidumbre hasta el final del proyecto."
     },
     {
+      "id": "T09d",
+      "title": "Renovar toolchain Waterbox instalada sin mezclar caches antiguas",
+      "status": "done",
+      "milestone": "M0",
+      "required": true,
+      "depends": [
+        "T09",
+        "T28c",
+        "T34a"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0017-darwin-host-tpidr.md"
+      ],
+      "touch": [
+        "plan/toolchains.json",
+        "tools/build_waterbox.py",
+        "tests/waterbox-smoke/test_build.py",
+        "tests/waterbox-smoke/test_runtime_tpidr.py",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "integration/bizhawk/smoke/global.json",
+        "integration/bizhawk/core/global.json",
+        "tests/ffi/global.json",
+        "tests/ffi/inventory/global.json",
+        "Directory.Build.targets"
+      ],
+      "steps": [
+        "LLVM/LLD22.1.8 y Rust1.95 ya no existen en Cellar; solo hay23.1.4/1.99.1. Fijar hashes/versiones reales instalados, sin instalar, descargar, modificar MacHawk ni cambiar sysroot/parches. Esta renovacion no acredita resultados anteriores con nuevos inputs.",
+        "El recibo runtime debe rechazar hashes/versiones de otras herramientas. El build guest debe identificar herramientas, sysroot, wrappers, receta y flags; forzar make -B cuando cambien o falte identidad. Invalidar recibo antes de compilar para no certificar objetos parciales tras fallo. Publicar identidad solo despues de ELF/TLS/imports satisfactorios. Capturar estos fallos con checks dirigidos existentes.",
+        "Ejecutar build runtime offline con sus10tests sin ignorar y --smoke real WB01/WB13/WB14/WB15/WB16. Reconstruir guest completo j2 una vez con herramientas nuevas, comprobar ELF/TLS/imports y callback real x18/x28. Reutilizar ese guest para T67d3; no repetir matriz, fuzz ni medidas historicas. Cierre de candidata conserva puerta de rendimiento/memoria con identidad nueva en T39b.",
+        "El primer build real confirma tambien SDK .NET10.0.400 ausente y10.0.402 instalado. Ampliacion previa solo a los cuatro global.json propios para fijar10.0.402 con rollForward disable; no tocar snapshot MacHawk ni instalar SDK. La hoja conserva una unica puerta atomica de herramientas locales que ejecutan el arnes.",
+        "El SDK nuevo pide targeting packs8.0.32, ausentes en la cache local; ambos packs8.0.30 ya estan disponibles y eran el input anterior. Fijar exclusivamente KnownFrameworkReference net8.0 de NETCore/AspNetCore a8.0.30 en Directory.Build.targets propio, compartido por proyectos temporales y reales. No descargar ni relajar fuentes offline. Ampliacion atomica explicita a11rutas de herramientas para preservar el arnes entero; ABI01 real debe compilar antes de cerrar renovacion."
+      ],
+      "checks": [
+        "BUILD01",
+        "WB01",
+        "WB13",
+        "WB14",
+        "WB15",
+        "WB16",
+        "ABI01"
+      ],
+      "acceptance": [
+        "Runtime y guest nuevos ejecutan Waterbox real con tools fijadas; no se reutiliza runtime con recibo obsoleto ni objeto guest de otra toolchain. Mini smoke completo y callback guest real preservan ABI/contexto; negatives de caches/recibos pasan."
+      ],
+      "stop": "Sin compilacion/runner real no marcar done; no rebajar hashes ni atribuir pruebas historicas al input nuevo."
+    },
+    {
       "id": "T05a",
       "title": "Accesos de memoria endian sin aliasing ni desalineacion UB",
       "milestone": "M1",
@@ -11586,11 +11638,12 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35",
-        "T28c"
+        "T28c",
+        "T09d"
       ],
       "read": [
         "docs/04-validation.md",
@@ -19681,6 +19734,50 @@
       "stop": "Trasdosintentoslocalesrazonadosfallidos conservarreproducer/doshipotesis ybloquear. Nocambiar golden/flags ni hacer avanzarhardware fuera de p6_run_frame; sinassets autorizados noPASS."
     },
     {
+      "id": "T67d3",
+      "title": "Transportar catalogo y ausencia CDTV dentro de Waterbox real",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T67d2",
+        "T67c3c",
+        "T66u4",
+        "T09d"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0009-state-format.md"
+      ],
+      "touch": [
+        "adapters/waterbox/cd_source.cpp",
+        "adapters/waterbox/p6w_cd.h",
+        "tests/media/csharp-disc/Cdtv.cs",
+        "tests/waterbox-media/test_cdtv_boot.py",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "HostprivadoCDTV admitecatalogo1..16 porbindv1/v2/v3existentes yactivate; conservarABI1,layout31,callbacks0/1 eidentidadordinalinmutable. p6w_cd_changeCDTVretira mediantebackend sinAkiko yreinserta soloalvercd_media0 porquery0415. Mientraselcontroladorconservapresencia, devolverBUSYsinIO, seleccionar ni mutar, paraqueelpropietarioreintenteenboundaryposterior. Publicwrapper siguefijohastaT67d4; nocolasguest nuevas, hilos niavanceextra.",
+        "Extender escenarioCdtvWaterboxexistente conmodoscatalogsave/load ydosISOpropiasbootCannon yaautorizado, IDs/TOCdistintos, lectoresporordinal. Guardarretirada pendienteantesdepoll; repetirlasmismasentradasChange/Step hastaaceptacion. SnapshotinmediatoidénticoanteBUSY/rebindajeno/argumentosinvalidos ysinIO. Futuro120RAM/AV/PCM/ticks/fullsnapshot exactolocal/nuevosandbox/procesofrioantesprimerframe; datosB yopens1 reales, cancelacion/retiroidempotentes. No guardarintencionenunfalsoPASS: lacapaC#publicaseracausalmentepropietariadeesaintencionenT67d4.",
+        "Rootmetadataybuildguest-j2 solounavezconsourceactual0414/0415; ELF/TLS/importsrealesyRuntimeReleasefijado. TestsWB03catalogCDTV+regresionCD32catalogoincluyenrunnerreal, sinatribuirpublicloader/peliculas/bateria. ABI01layoutactual+clasificacion/plan; reutilizarhelpers/normativa. Objetivo<300manuales salvoficha; sinmodificarMacHawk niinstalarherramientas. Prepararunbootnecesarioyrestaurar, norepetirmatriz/FUZZ niotrascampanas."
+      ],
+      "checks": [
+        "ABI01",
+        "WB03"
+      ],
+      "acceptance": [
+        "CatalogoCDTV/ausencia/reinsercion portransporteprivado funcionan enWaterboxreal; BUSYdiferidonotocaestado/IO ylamismasecuenciareanudatrasrestorelocal/nuevosandbox/proceso sinadvanceprevio, conservandolectoresordinales,datosB,opens1yfullfuture. APIpublica ypeliculas mantienenpuertasposteriores."
+      ],
+      "stop": "SinrunnerrealBLOCKED;trasdosintentosrazonadosconservarreproducerydoshipotesis.No fingirWaterboxconbibliotecanativa niinterpretarBUSYcomoexitoaplicado."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -19699,7 +19796,8 @@
         "T67c3c",
         "T67c3e",
         "T67d1",
-        "T67d2"
+        "T67d2",
+        "T67d3"
       ],
       "read": [
         "docs/01-architecture.md",

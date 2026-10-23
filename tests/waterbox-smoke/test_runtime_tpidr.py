@@ -63,16 +63,24 @@ class RuntimePatchTests(unittest.TestCase):
 
     def test_old_receipt_or_changed_patch_and_sources_cannot_select_a_runtime(self):
         lock = self.root / 'lock.json'
-        lock.write_text(json.dumps({'runtime': {'patches': [self.spec]}}))
+        tools = {'rustc': {'sha256': 'a' * 64, 'version': 'pinned rustc'}}
+        lock.write_text(json.dumps({'runtime': {'patches': [self.spec]}, 'tools': tools}))
         cached = self.root / 'runtime-src'; cached.mkdir()
         (cached / 'test.rs').write_bytes(self.after)
         path = self.root / 'receipt.json'; path.write_text('{}')
         with mock.patch.object(wb, 'LOCK', lock), mock.patch.object(wb, 'BUILD', self.root):
             with self.assertRaisesRegex(wb.BuildError, 'patchset'): wb.read_runtime_receipt(path)
             receipt = {'runtime_patchset_sha256': wb.canonical_hash([self.spec]),
-                       'runtime_source_inventory_sha256': wb.canonical_hash(wb.inventory(cached))}
+                       'runtime_source_inventory_sha256': wb.canonical_hash(wb.inventory(cached)),
+                       'tool_hashes': {'rustc': 'a' * 64}, 'tool_versions': {'rustc': 'pinned rustc'}}
             path.write_text(json.dumps(receipt))
             self.assertEqual(receipt, wb.read_runtime_receipt(path))
+            for field in ('tool_hashes', 'tool_versions'):
+                old = receipt[field]; receipt[field] = {'rustc': 'obsolete'}
+                path.write_text(json.dumps(receipt))
+                with self.assertRaisesRegex(wb.BuildError, 'herramientas'): wb.read_runtime_receipt(path)
+                receipt[field] = old
+            path.write_text(json.dumps(receipt))
             original = self.patch.read_bytes(); self.patch.write_bytes(original + b'changed')
             with self.assertRaisesRegex(wb.BuildError, 'parche'): wb.read_runtime_receipt(path)
             self.patch.write_bytes(original)

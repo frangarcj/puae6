@@ -2467,3 +2467,23 @@ P6CT conserva la fase del poll, unidad/opens, ausencia y TOC. La restauracion
 publica prueba un cambio pendiente, futuroRAM/AV/PCM/ticks y estado completo
 localmente y en proceso frio antes del primer frame. La puerta privada de audio
 T67d1 sigue siendo regresion cercana; cambio Waterbox y peliculas tienen puerta propia.
+
+## Transporte privado de cambio CDTV Waterbox (T67d3)
+
+El bind/catalogo privado V1/V2/V3 admite CDTV sin alterar ABI1, layout31 ni
+callbacks ordinales0/1. El catalogo permanece inmutable durante el snapshot;
+Activate no inicializa Akiko ni reinicia el controlador CDTV.
+
+Change devuelve OK solo al aplicar retirada o insercion. Si el backend ya esta
+ausente pero el controlador aun conserva cd_media=1, una insercion devuelve BUSY
+sin IO, seleccion ni mutacion. El propietario conserva su intencion y reintenta
+en fronteras posteriores; el guest no introduce otra cola ni avanza hardware.
+Status informa la seleccion/presencia fisicas. Un nuevo intento tras restaurar
+ve la misma fase causal del poll y del dispositivo en el snapshot Waterbox.
+
+La prueba real guarda la retirada pendiente, repite la secuencia de solicitudes
+y compara120unidades de RAM/AV/PCM/ticks, lecturas y snapshot completo en el mismo
+sandbox, otro sandbox y proceso nuevo antes de avanzar. Verifica el ordinalB,
+datos exclusivos del segundo ISO y opens1; rebind ajeno/BUSY/argumentosinvalidos
+no mutan. La publicacion de botones y de su intencion pendiente en C# tiene
+su propia puerta posterior; este transporte no acredita peliculas ni bateria.

@@ -65,7 +65,8 @@ def runtime_receipt_path(profile: str | None = None) -> Path:
 def read_runtime_receipt(path: Path) -> dict:
     """An old binary and its old receipt cannot certify the current patchset."""
     receipt = json.loads(path.read_text())
-    patches = json.loads(LOCK.read_text())["runtime"].get("patches", [])
+    lock = json.loads(LOCK.read_text())
+    patches = lock["runtime"].get("patches", [])
     import import_sources
     for patch in patches:
         import_sources.safe_name(patch["file"])
@@ -77,6 +78,9 @@ def read_runtime_receipt(path: Path) -> dict:
         raise BuildError(f"runtime construido con otro patchset: {path}; reconstruir runtime")
     if receipt.get("runtime_source_inventory_sha256") != canonical_hash(inventory(BUILD / "runtime-src")):
         raise BuildError(f"runtime construido con otras fuentes: {path}; reconstruir runtime")
+    if (receipt.get("tool_hashes") != {name: entry["sha256"] for name, entry in lock["tools"].items()}
+            or receipt.get("tool_versions") != {name: entry["version"] for name, entry in lock["tools"].items()}):
+        raise BuildError(f"runtime construido con otras herramientas: {path}; reconstruir runtime")
     return receipt
 
 
@@ -800,12 +804,27 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     sources = puae6_sources()
     sources_mk = out / "sources.mk"
     sources_mk.write_text("SRCS := " + " \\\n  ".join(sources) + "\n")
+    recipe = {"makefile": sha256(ROOT / "ports/waterbox/Makefile"), "common_mak": sha256(ROOT / "references/machawk/waterbox/common.mak"),
+              "linkscript_aarch64": sha256(ROOT / "references/machawk/waterbox/linkscript_aarch64.T"), "build_recipe": sha256(Path(__file__))}
+    flags = {"optimization": "-O2", "target": "aarch64", "host_page_size": PAGE_SIZE}
+    tool_hashes = {name: entry["sha256"] for name, entry in tc["lock"]["tools"].items()}
+    build_inputs = {"tools": tool_hashes, "versions": tc["versions"], "sysroot": canonical_hash(tc["sysroot_inventory"]),
+                    "cc_wrapper": sha256(tc["cc_wrapper"]), "ld_wrapper": sha256(tc["ld_wrapper"]), "recipe": recipe, "flags": flags, "sources": sources}
+    receipt_path = out / "puae6-receipt.json"
+    previous = json.loads(receipt_path.read_text()) if receipt_path.is_file() else {}
+    force = previous.get("build_inputs") != build_inputs
+    # make's .d files do not track compiler, sysroot or flag changes. A failed
+    # partial build must also lose its receipt before it can overwrite objects.
+    receipt_path.unlink(missing_ok=True)
     command = [str(tc["paths"]["make"]), "-C", str(ROOT), "-f", "ports/waterbox/Makefile", f"-j{jobs}", "release",
                f"REPO={ROOT}", f"ROOT_DIR={ROOT}", f"OUT_DIR={out}", f"SOURCES_MK={sources_mk}", f"SYSROOT={tc['sysroot_copy']}",
                f"CC={tc['cc_wrapper']}", f"CXX={tc['cc_wrapper']}", "WBX_TARGET_ARCH=aarch64", f"WBX_HOST_PAGE_SIZE={PAGE_SIZE}",
                "CCFLAGS_RELEASE=-O2", "CXXFLAGS_RELEASE=-O2"]
+    if force:
+        command.insert(1, "-B")
     log = out / "build.log"
-    result = subprocess.run(command, cwd=ROOT, env=tc["env"], text=True, stdout=log.open("w"), stderr=subprocess.STDOUT)
+    with log.open("w") as output:
+        result = subprocess.run(command, cwd=ROOT, env=tc["env"], text=True, stdout=output, stderr=subprocess.STDOUT)
     if result.returncode:
         raise BuildError(f"la receta de puae6.wbx fallo ({result.returncode}); ultimas lineas de {log}:\n" + "\n".join(log.read_text().splitlines()[-25:]))
     guest = out / "release" / PUAE6_GUEST
@@ -815,10 +834,8 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     imports = audit_imports(tc, [out / "release" / f"{source}.o" for source in sources])
     receipt = {"schema_version": 1, "status": "BUILD01_PASS_GUEST_NOT_EXECUTED", "guest": metadata, "imports": imports,
                "sources": {source: sha256(ROOT / source) for source in sources},
-               "recipe": {"makefile": sha256(ROOT / "ports/waterbox/Makefile"), "common_mak": sha256(ROOT / "references/machawk/waterbox/common.mak"),
-                          "linkscript_aarch64": sha256(ROOT / "references/machawk/waterbox/linkscript_aarch64.T"), "build_recipe": sha256(Path(__file__))},
-               "tool_versions": tc["versions"], "flags": {"optimization": "-O2", "target": "aarch64", "host_page_size": PAGE_SIZE}}
-    (out / "puae6-receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+               "recipe": recipe, "tool_hashes": tool_hashes, "tool_versions": tc["versions"], "flags": flags, "build_inputs": build_inputs}
+    receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(f"PUAE6 BUILD PASS: {guest} ({metadata['size']} bytes, sha256 {metadata['sha256'][:16]}...)")
     return receipt
 

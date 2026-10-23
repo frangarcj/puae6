@@ -1,10 +1,13 @@
 """Offline tests for the Waterbox ELF build gate."""
 
 import struct
+import json
+import platform
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +29,64 @@ def elf64(loads, machine=183, elf_class=2, elf_type=2):
     data[:64] = header
     data[64:64 + len(phdrs)] = phdrs
     return data
+
+
+class GuestToolchainCacheTests(unittest.TestCase):
+    def test_changed_inputs_or_partial_failure_force_a_complete_rebuild(self):
+        import prepare_hrtmon
+        with tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-toolchain-') as directory:
+            base = Path(directory)
+            cc, ld = base / 'cc', base / 'ld'
+            cc.write_text('compiler wrapper'); ld.write_text('linker wrapper')
+            tc = {'lock': {'tools': {'clang': {'sha256': 'a' * 64}}}, 'versions': {'clang': 'test compiler'},
+                  'paths': {'make': Path('/usr/bin/make')}, 'sysroot_copy': base,
+                  'sysroot_inventory': [{'sha256': 'b' * 64}], 'cc_wrapper': cc, 'ld_wrapper': ld, 'env': {}}
+            receipt = base / 'puae6/puae6-receipt.json'
+            commands = []
+            def make(command, **kwargs):
+                self.assertFalse(receipt.exists(), 'invalidate before any object is overwritten')
+                commands.append(command)
+                return subprocess.CompletedProcess(command, 0)
+            with (mock.patch.object(build_waterbox, 'BUILD', base),
+                  mock.patch.object(build_waterbox, 'ensure_current_trees'),
+                  mock.patch.object(prepare_hrtmon, 'prepare'),
+                  mock.patch.object(build_waterbox, 'puae6_sources', return_value=['adapters/waterbox/cd_source.cpp']),
+                  mock.patch.object(build_waterbox, 'validate_elf', return_value={'sha256': 'c' * 64, 'size': 1}),
+                  mock.patch.object(build_waterbox, 'check_no_compiler_tls', return_value={'wb16': 'PASS'}),
+                  mock.patch.object(build_waterbox, 'audit_imports', return_value={'unexpected': []}),
+                  mock.patch('builtins.print'),
+                  mock.patch.object(build_waterbox.subprocess, 'run', side_effect=make) as run):
+                def build(forced):
+                    result = build_waterbox.build_puae6(tc, 2)
+                    self.assertEqual(forced, '-B' in commands[-1])
+                    self.assertEqual(tc['lock']['tools']['clang']['sha256'], result['tool_hashes']['clang'])
+                build(True)   # No receipt, including existing objects from an older build.
+                build(False)  # Identical inputs keep the normal incremental build.
+                for change in ('compiler', 'version', 'sysroot', 'wrapper', 'flags', 'recipe', 'sources'):
+                    if change == 'compiler': tc['lock']['tools']['clang']['sha256'] = 'd' * 64
+                    elif change == 'version': tc['versions']['clang'] = 'another compiler'
+                    elif change == 'sysroot': tc['sysroot_inventory'][0]['sha256'] = 'e' * 64
+                    elif change == 'wrapper': cc.write_text('new wrapper')
+                    else:
+                        previous = json.loads(receipt.read_text())
+                        previous['build_inputs'][change] = {'obsolete': True}
+                        receipt.write_text(json.dumps(previous))
+                    build(True)
+                run.side_effect = lambda command, **kwargs: subprocess.CompletedProcess(command, 1)
+                with self.assertRaises(build_waterbox.BuildError): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists())
+                run.side_effect = make
+                build(True)   # A failed partial build must not reuse the prior identity.
+
+
+@unittest.skipUnless(sys.platform == 'darwin' and platform.machine() == 'arm64', 'BLOCKED: Darwin ARM64 runtime required')
+class RuntimeSmokeTests(unittest.TestCase):
+    def test_current_toolchain_builds_and_executes_the_complete_runtime_smoke(self):
+        result = subprocess.run([sys.executable, str(TOOL), '--smoke'], cwd=ROOT, capture_output=True, text=True, timeout=600)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('SMOKE_RUNTIME PASS: WB01 WB13 WB14 WB15 (WB16 en el build)', result.stdout)
+        build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path())
+        (build_waterbox.BUILD / 'smoke-result.json').unlink(missing_ok=True)
 
 
 class BuildElfTests(unittest.TestCase):

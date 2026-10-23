@@ -12,23 +12,23 @@
   "tools": {
     "clang": {
       "path": "/opt/homebrew/opt/llvm/bin/clang",
-      "sha256": "305697d3868243dca6e4aabf4f628df7de135d701eb4fd78f6a5d7528fef4395",
-      "version": "Homebrew clang version 22.1.8"
+      "sha256": "5c51770b83a5407e507ad19fcfe1ec141deeb15f0d86312568915f3637f31f5a",
+      "version": "Homebrew clang version 23.1.4"
     },
     "lld": {
       "path": "/opt/homebrew/bin/ld.lld",
-      "sha256": "49360efaf217d95b91799645d390f38eda27132d5dbdbe2ab459d361d3282f3b",
-      "version": "Homebrew LLD 22.1.8 (compatible with GNU linkers)"
+      "sha256": "4c6afc01e2cda45bd78412d6fadf140d94a84031647cdb05d75ad479145150b7",
+      "version": "Homebrew LLD 23.1.4 (compatible with GNU linkers)"
     },
     "cargo": {
       "path": "/opt/homebrew/bin/cargo",
-      "sha256": "c905263371d3b9cf800ff0e89bb255e03eca6ff0b1db576d316cd9b5f2b68532",
-      "version": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)"
+      "sha256": "1f8b06d63e8f79a53a6c7810baa27e5f8d4cf6788691671c8f7607ee0d15dd60",
+      "version": "cargo 1.99.1 (5f94df478 2026-08-27) (Homebrew)"
     },
     "rustc": {
       "path": "/opt/homebrew/bin/rustc",
-      "sha256": "54fc6be3de239a33058f5c11586b97d590337d26de9bcf575f28d9e6a43e4918",
-      "version": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)"
+      "sha256": "15c8512af3c0c302f0dbdc8d1037697914749f1250fa878060af06ee11b1792d",
+      "version": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (Homebrew)"
     },
     "make": {
       "path": "/usr/bin/make",

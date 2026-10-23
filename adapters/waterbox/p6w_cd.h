@@ -58,7 +58,10 @@ typedef int32_t (*p6w_cd_read_fn)(uint64_t offset, void *destination, uint32_t c
 typedef int32_t (*p6w_cd_catalog_read_fn)(uint32_t disc, uint64_t offset, void *destination, uint32_t count);
 /* New private exports borrow info[1..16]; rebind validates all before publishing
  * the thunk and preserves snapshot selection/presence. change requires absence
- * before choosing another ordinal. status writes count, selected, present, opens. */
+ * before choosing another ordinal. For CDTV, insertion returns BUSY without IO
+ * or mutation while its controller still sees the removed disc; the caller
+ * retains its intent and retries at later frame boundaries. No guest intent queue.
+ * status writes actual count, selected, present, opens (never desired state). */
 /* Adapter-internal teardown, called after the engine closes Akiko. */
 void p6w_cd_session_end(void);
 #endif
