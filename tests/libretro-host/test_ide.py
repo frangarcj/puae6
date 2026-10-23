@@ -108,7 +108,7 @@ class IdeTests(lr.LibretroHarness):
     def test_the_machine_without_gayle_refuses_the_ide_with_the_reason(self):
         path = self.hdf_file(self.image)
         result = self.frontend("ide", "--runs", 3, "--set", "puae6_machine=A500", *IDE, content=path, system=self.system("ide"), expect=3)
-        self.assertIn("A600 and the A1200", result.stdout + result.stderr)
+        self.assertIn("this machine has no supported IDE port", result.stdout + result.stderr)
 
     def test_a_state_takes_the_writes_back_with_the_controller_busy_and_loads_in_another_process(self):
         path = self.hdf_file(self.image)
