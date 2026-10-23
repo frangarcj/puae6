@@ -136,7 +136,7 @@ def docker(image, *args):
 
 def rebuild(llvm, output, image=None, execute=False):
     lock = json.loads((ROOT / 'plan/toolchains.json').read_text())
-    image = image or lock['portability_matrix']['image_ids']['linux/arm64']
+    image = image or lock['waterbox_sysroot_rebuild']['image_id']
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', image):
         raise Blocked('an immutable Docker image ID is required')
     output = output if output.is_absolute() else ROOT / output

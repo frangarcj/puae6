@@ -131,6 +131,20 @@ realmente ejecutada; los antiguos conservan su alcance original. Ambos modos
 compilan los mismos inputs. Este selector no proporciona el sysroot ni acredita
 su reconstruccion o una ejecucion remota.
 
+`python3 tools/build_waterbox_sysroot.py --llvm-source RUTA --output build/N`
+valida una candidata de reconstruccion del sysroot. LLVM debe ser una checkout
+limpia y poblada del pin `compiler_rt_emutls`, con `cmake`, `compiler-rt`,
+`libunwind`, `libcxx`, `libcxxabi`, `runtimes` y `llvm/cmake`. El proceso verifica
+sus blobs sin descargas implicitas y las capturas completas de musl y MacHawk.
+Usa la imagen local ARM64 fijada en `waterbox_sysroot_rebuild.image_id`;
+`--image sha256:...` declara otro input explicito. No aprovisiona herramientas.
+Sin `--execute` devuelve `NOT_RUN` y exit 3; con esa opcion compila en un staging
+nuevo, sin red, con fuentes de solo lectura y dos compiladores simultaneos.
+Solo aprueba si el inventario completo coincide con el sysroot fijado. Un fallo
+conserva la candidata para inspeccion y no cambia el sysroot utilizado por PUAE6.
+Los avisos quedan en `build/N/notices`, separados del sysroot; los marcadores
+vacios solo reproducen su inventario y no acreditan ejecuciones historicas.
+
 El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
 conservan pendientes sus puertas no ejecutadas en los runners declarados.

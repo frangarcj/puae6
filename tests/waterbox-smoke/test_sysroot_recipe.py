@@ -49,7 +49,7 @@ class SysrootRecipeTests(unittest.TestCase):
         self.image = 'sha256:' + 'c' * 64
         entries = [{'path': n, 'mode': '100644', 'sha256': hashlib.sha256(b'' if n in recipe.MARKERS else b'header').hexdigest()}
                    for n in sorted((*recipe.MARKERS, 'include/header.h'))]
-        self.lock = {'portability_matrix': {'image_ids': {'linux/arm64': self.image}},
+        self.lock = {'waterbox_sysroot_rebuild': {'image_id': self.image},
                      'sysroot': {'associated_source': 'musl', 'file_count': len(entries),
                                  'inventory_sha256': recipe.wb.canonical_hash(entries)}}
         self.lockpath = self.root / 'plan/toolchains.json'; self.lockpath.write_text(json.dumps(self.lock))
