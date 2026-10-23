@@ -6362,6 +6362,7 @@
         "docs/04-validation.md",
         "CMakeLists.txt",
         "tests/codegen/test_headless_link.py",
+        "tests/codegen/test_native_cmake.py",
         "docs/adr/0006-video-output.md",
         "docs/06-execution.md"
       ],
@@ -11758,7 +11759,8 @@
         "Revision del paquete actual detecta que la nueva Directory.Build.targets de T09d no entra en source_paths. Ampliar previamente solo manifests/release/native-preview.json y test de politica existente para incluir la dependencia comun net8 offline. No modificar package.py ni sus gates, incluir el archivo real en source.tar.gz y verificarlo en ZIP extraido; evita entregar fuentes cuyo SDK cambia los targeting packs.",
         "Ampliar previamente tests/codegen/test_build_trees.py: la union funcional detecta una expectativa de diagnostico anterior al guard de build/assets. Alinear el mensaje y comprobar recibos de upstream, generated y assets, incluido asset ausente, con el mismo caso existente. No modificar el guard, motor, guest ni presupuestos; conservar los modulos funcionales ya superados y continuar los restantes tras el check dirigido.",
         "Ampliar previamente tests/codegen/test_engine_includes.py: su contador47 precede las incorporaciones declaradas de cdrom/akiko/cdtv/flashrom/ar y cpuemu0/11/20. El conjunto compilado55 coincide exactamente con el manifiesto actual y todas sus dependencias siguen dentro de las raices permitidas. Sustituir el contador historico por igualdad de fuentes contra selection.upstream_units/generated_units; conservar intactos los guards de headers, od-win32 y arboles prohibidos. Solo check dirigido de includes/imports, sin cambios al motor ni nueva bateria de emulacion.",
-        "Ampliar previamente tests/codegen/test_headless_link.py: la identidad del CLI ya incluye CD32/CDTV/A4030/A4040 y caps INPUT_V2/HRTMON/AR1/AR23/AR1200, pero el test conserva ocho maquinas y0x3fe. Contrastar constantes ABI, p6_query_caps y parser CLI reales; actualizar solo expectativas de esas capacidades ya implementadas. Mantener las restricciones CDTV combinado sin entradaCD y A4000 Normal/sinMMU, todos los hashes de motor/video y los checks de enlace/errores; no modificar producto para satisfacer el test."
+        "Ampliar previamente tests/codegen/test_headless_link.py: la identidad del CLI ya incluye CD32/CDTV/A4030/A4040 y caps INPUT_V2/HRTMON/AR1/AR23/AR1200, pero el test conserva ocho maquinas y0x3fe. Contrastar constantes ABI, p6_query_caps y parser CLI reales; actualizar solo expectativas de esas capacidades ya implementadas. Mantener las restricciones CDTV combinado sin entradaCD y A4000 Normal/sinMMU, todos los hashes de motor/video y los checks de enlace/errores; no modificar producto para satisfacer el test.",
+        "Ampliar previamente tests/codegen/test_native_cmake.py: los presets se configuran en tempfile global fuera del destino build/ permitido por import_chd.materialize. Crear los directorios temporales de este arnes bajo build/ con limpieza automatica, como exige AGENTS. Conservar todos los asserts Debug/Release, sanitizers, fuentes/includes, CTest, rechazos explicitos y publicacion atomica; no relajar el guard CHD ni modificar las recetas del producto."
       ],
       "checks": [
         "PLAN01",

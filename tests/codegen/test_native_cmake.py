@@ -14,6 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 @unittest.skipUnless(all(shutil.which(t) for t in ("cmake", "ninja", "clang", "clang++")),
                      "Native CMake toolchain is unavailable")
 class NativeCMakeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        (ROOT / "build").mkdir(exist_ok=True)
+
     def configure(self, build, *options):
         return subprocess.run(
             ["cmake", "-S", str(ROOT), "-B", str(build), "-G", "Ninja",
@@ -62,7 +66,7 @@ class NativeCMakeTests(unittest.TestCase):
         presets = json.loads((ROOT / "CMakePresets.json").read_text())
         debug, release = presets["configurePresets"]
         for preset in (debug, release):
-            with self.subTest(preset=preset["name"]), tempfile.TemporaryDirectory() as tmp:
+            with self.subTest(preset=preset["name"]), tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:
                 variables = dict(debug["cacheVariables"], **preset["cacheVariables"])
                 result = self.configure(tmp, *[f"-D{k}={v}" for k, v in variables.items()])
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -92,7 +96,7 @@ class NativeCMakeTests(unittest.TestCase):
                  ("-DJIT=0", "Excluded feature requested: JIT"),
                  ("-DCMAKE_SYSTEM_NAME=Generic", "Only the native host architecture"))
         for option, diagnostic in cases:
-            with self.subTest(option=option), tempfile.TemporaryDirectory() as tmp:
+            with self.subTest(option=option), tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:
                 result = self.configure(tmp, option)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(diagnostic, result.stdout + result.stderr)
@@ -100,7 +104,7 @@ class NativeCMakeTests(unittest.TestCase):
     def test_ninja_fresh_build_and_clean_with_atomic_publication(self):
         # Isolate CMake's directory/order/clean behavior from the real shared
         # cache. The tiny publisher rejects partial trees just like codegen.
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(dir=ROOT / "build") as tmp:
             root = Path(tmp)
             for name in ("cmake", "manifests", "tools"):
                 (root / name).mkdir()
