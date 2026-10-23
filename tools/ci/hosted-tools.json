@@ -149,12 +149,14 @@
     {
       "path": "llvm/23.1.4/lib/libclang-cpp.23.1.dylib",
       "sha256": "99fd45ee5e6f7dd59056f00ead838f4f5c833eaa24b7105d316427faef902ded",
-      "bytes": 72293200
+      "bytes": 72293200,
+      "dylib_id": "/opt/homebrew/opt/llvm/lib/libclang-cpp.23.1.dylib"
     },
     {
       "path": "llvm/23.1.4/lib/libLLVM.23.1.dylib",
       "sha256": "330350c483df28104ac600fa2d1514b81f8a3aab7fc9850ca33ad7f08ac2efe0",
-      "bytes": 169318368
+      "bytes": 169318368,
+      "dylib_id": "/opt/homebrew/opt/llvm/lib/libLLVM.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/bin/lld",
@@ -164,32 +166,38 @@
     {
       "path": "lld/23.1.4/lib/liblldELF.23.1.dylib",
       "sha256": "1e15031d079fc045d739607a73123992920075df2ec09a17e5e78cc8ba78fc9a",
-      "bytes": 2838064
+      "bytes": 2838064,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldELF.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/lib/liblldMachO.23.1.dylib",
       "sha256": "cbe8b4ff00eebf447d19a508c1de6ca56f0b347e6f22e3f84171e415646d60bc",
-      "bytes": 1060752
+      "bytes": 1060752,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldMachO.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/lib/liblldMinGW.23.1.dylib",
       "sha256": "022e996712366855b31a955254f2fd0c67e3c2f365106defbea21834f38a84ca",
-      "bytes": 92736
+      "bytes": 92736,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldMinGW.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/lib/liblldWasm.23.1.dylib",
       "sha256": "9dc014564573e6de282d475688e048173f6e14e8d86c03835ce424bf70a674a6",
-      "bytes": 497632
+      "bytes": 497632,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldWasm.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/lib/liblldCOFF.23.1.dylib",
       "sha256": "2325643f80c14da69bb91247de19797a8dd6f49bfd984b5ce29c62b09c77dd05",
-      "bytes": 1185488
+      "bytes": 1185488,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldCOFF.23.1.dylib"
     },
     {
       "path": "lld/23.1.4/lib/liblldCommon.23.1.dylib",
       "sha256": "c505616ef8ae2bc276e6a198481de05231b16984f5869312c3113f9ed3ec3f73",
-      "bytes": 154544
+      "bytes": 154544,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldCommon.23.1.dylib"
     },
     {
       "path": "rust/1.99.1/bin/cargo",
@@ -204,47 +212,56 @@
     {
       "path": "rust/1.99.1/lib/librustc_driver-e4ae23791dbdbd23.dylib",
       "sha256": "cb7a5f89c1b5e54c0df1a20bce23300e13c65caf1b70ce5c14915eedc3bbc4df",
-      "bytes": 82193568
+      "bytes": 82193568,
+      "dylib_id": "/opt/homebrew/opt/rust/lib/librustc_driver-e4ae23791dbdbd23.dylib"
     },
     {
       "path": "z3/5.3.1/lib/libz3.5.3.1.0.dylib",
       "sha256": "181f649aff7768bc9821cecd3d49769d1ca395d2a89a545779441dfc2ab488c2",
-      "bytes": 19445968
+      "bytes": 19445968,
+      "dylib_id": "/opt/homebrew/opt/z3/lib/libz3.5.3.dylib"
     },
     {
       "path": "zstd/1.5.7_1/lib/libzstd.1.5.7.dylib",
       "sha256": "e2847c4613b386683c234913ae3b7b04299254096caf7616e3b3cd9bb97a39ab",
-      "bytes": 649648
+      "bytes": 649648,
+      "dylib_id": "/opt/homebrew/opt/zstd/lib/libzstd.1.dylib"
     },
     {
       "path": "libgit2/1.9.7_2/lib/libgit2.1.9.7.dylib",
       "sha256": "36ae171f054c7f95fcf70e0c2b38a093f3133f8c4f9ef8deb0ad05e5c6c73fdb",
-      "bytes": 1039040
+      "bytes": 1039040,
+      "dylib_id": "/opt/homebrew/opt/libgit2/lib/libgit2.1.9.dylib"
     },
     {
       "path": "libssh2/1.11.1_7/lib/libssh2.1.dylib",
       "sha256": "d99bb07df45438ee981b99f33878cdcf2da85dd31b9501de07d3770e2c3b9705",
-      "bytes": 265840
+      "bytes": 265840,
+      "dylib_id": "/opt/homebrew/opt/libssh2/lib/libssh2.1.dylib"
     },
     {
       "path": "openssl@4/4.0.3/lib/libssl.4.dylib",
       "sha256": "30e9143e497a5c94cf7d46ac2985da20f3a0e15097e0711e71b5dd95a537d8e0",
-      "bytes": 929408
+      "bytes": 929408,
+      "dylib_id": "/opt/homebrew/opt/openssl@4/lib/libssl.4.dylib"
     },
     {
       "path": "openssl@4/4.0.3/lib/libcrypto.4.dylib",
       "sha256": "5258d66dd91140ab48fdf294c4cfd752e2d99e7f93fc620d91a2226492518d4d",
-      "bytes": 4813232
+      "bytes": 4813232,
+      "dylib_id": "/opt/homebrew/opt/openssl@4/lib/libcrypto.4.dylib"
     },
     {
       "path": "llhttp/9.4.3/lib/libllhttp.9.4.3.dylib",
       "sha256": "78cd1d7e5016246878a00dbaf76300628e5f48aa2174bf2e83fe1b31dc3e5691",
-      "bytes": 77664
+      "bytes": 77664,
+      "dylib_id": "/opt/homebrew/opt/llhttp/lib/libllhttp.9.4.dylib"
     },
     {
       "path": "sqlite/3.54.1/lib/libsqlite3.3.54.1.dylib",
       "sha256": "996baaf61d06ff542bf73a2455027af5ed1af6b2065581bd4deba96a9a018a92",
-      "bytes": 1277184
+      "bytes": 1277184,
+      "dylib_id": "/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib"
     }
   ],
   "entrypoints": {
