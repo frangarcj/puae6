@@ -65,6 +65,9 @@ def inputs():
     paths = set()
     def owned(value):
         return any(relative(value).startswith(p + '/') for p in prefixes)
+    excluded = manifest['excluded_symlinks']
+    require(isinstance(excluded, dict) and all(owned(name) and isinstance(target, str) and 0 < len(target) <= 4096
+            and '\0' not in target for name, target in excluded.items()), 'invalid excluded symlink mapping')
     for row in targets:
         require(owned(row['path']) and row['path'] not in paths, 'invalid target path')
         paths.add(row['path'])
@@ -159,9 +162,10 @@ class Limited:
         return data
 
 
-def extract(archive, row, destination, budget=None):
+def extract(archive, row, destination, budget=None, excluded=None):
     require(regular(archive).st_size == row['bytes'] and digest(archive) == row['sha256'], 'archive SHA/size mismatch')
     seen, budget = set(), ([0, 0] if budget is None else budget)
+    required = {name: target for name, target in (excluded or {}).items() if name.startswith(row['prefix'] + '/')}
     with gzip.open(archive, 'rb') as decoded, tarfile.open(fileobj=Limited(decoded), mode='r|') as stream:
         for member in stream:
             name = relative(member.name.removesuffix('/'))
@@ -169,6 +173,10 @@ def extract(archive, row, destination, budget=None):
             seen.add(name)
             budget[0] += 1
             require(name == row['prefix'] or name.startswith(row['prefix'] + '/'), 'wrong archive prefix')
+            if name in required:
+                require(member.issym() and member.linkname == required[name], f'excluded symlink differs: {name}')
+                del required[name]
+                continue  # Never create this link or inspect its external target.
             require(member.isfile() or member.isdir() or member.issym() or member.islnk(), 'unsupported archive type')
             require(not member.mode & 0o7000 and 0 <= member.size <= MAX_FILE, 'archive mode/size limit')
             budget[1] += member.size
@@ -176,16 +184,20 @@ def extract(archive, row, destination, budget=None):
             if member.issym() or member.islnk():
                 link = member.linkname
                 target = (destination / name).parent / link if member.issym() else destination / link
-                require(not os.path.isabs(link) and '\\' not in link and target.resolve().is_relative_to(destination / row['prefix']), 'escaping archive link')
+                require(not os.path.isabs(link) and '\\' not in link and target.resolve().is_relative_to(destination / row['prefix']), f'escaping archive link: {name} -> {link}')
             stream.extract(member, destination, filter='data')
         while tail := stream.fileobj.read(1 << 20):
             require(not tail.strip(b'\0'), 'nonzero tar trailer')
+    require(not required, f'missing excluded symlink: {", ".join(sorted(required))}')
 
 
 def verify(base, manifest):
+    for name in manifest['excluded_symlinks']:
+        require(not os.path.lexists(base / name), f'excluded symlink present: {name}')
     for row in manifest['normalized_macho']:
         path = base / row['path']
-        require(regular(path).st_size == row['bytes'] and digest(path) == row['sha256'], 'normalized target mismatch')
+        size, checksum = regular(path).st_size, digest(path)
+        require(size == row['bytes'] and checksum == row['sha256'], f'normalized target mismatch: {row["path"]}; bytes={size}, sha256={checksum}; expected bytes={row["bytes"]}, sha256={row["sha256"]}')
     for archive in manifest['archives']:
         for name in archive['notices']:
             require(regular(base / name).st_size > 0, 'missing notice')
@@ -222,12 +234,13 @@ def prepare(fetch=False, ruby='ruby'):
         for row in manifest['archives']:
             archive = Path(temporary) / 'bottle.tar.gz'
             download(row, archive)
-            extract(archive, row, stage, budget)
+            extract(archive, row, stage, budget, manifest['excluded_symlinks'])
             archive.unlink()
         for row in manifest['normalized_macho']:
             regular(stage / row['path'])
             result = subprocess.run([ruby, str(ROOT / manifest['normalizer']['path']), str(stage / row['path'])], capture_output=True, text=True, timeout=120)
-            require(result.returncode == 0 and json.loads(result.stdout)['status'] == 'PASS', 'data normalization failed')
+            diagnostic = result.stdout.replace(str(stage) + '/', '').replace(str(ROOT) + '/', '')[:240]
+            require(result.returncode == 0 and json.loads(result.stdout)['status'] == 'PASS', f'data normalization failed: {row["path"]}: {diagnostic}')
         for alias, source in manifest['aliases'].items():
             target = stage / alias
             if target.is_symlink() or target.is_file():

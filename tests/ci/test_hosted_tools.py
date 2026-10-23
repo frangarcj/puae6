@@ -38,6 +38,7 @@ class HostedToolsTests(unittest.TestCase):
         self.members.append(('tool/1/bin/ld.lld', b'', 'lld'))
         self.blob = self.archive(self.members)
         self.manifest = {'schema_version': 1, 'bottle_arch': 'arm64_tahoe',
+            'excluded_symlinks': {},
             'normalizer': {'path': 'tools/ci/normalize_homebrew.rb', 'sha256': sha(b'mock normalizer source'),
                            'ruby_source_manifest_sha256': sha((self.root / 'references/ruby-macho.manifest.json').read_bytes())},
             'archives': [{'owner': 'tool', 'slug': 'tool', 'version': '1', 'prefix': 'tool/1', 'sha256': sha(self.blob), 'bytes': len(self.blob),
@@ -82,12 +83,14 @@ class HostedToolsTests(unittest.TestCase):
 
     def test_invalid_metadata_precedes_network(self):
         original = copy.deepcopy(self.manifest)
-        for case in ('url', 'sha', 'bytes', 'prefix', 'normalizer', 'ruby', 'entrypoint'):
+        for case in ('url', 'sha', 'bytes', 'prefix', 'normalizer', 'ruby', 'entrypoint', 'excluded_name', 'excluded_target', 'excluded_type'):
             with self.subTest(case=case):
                 self.manifest = copy.deepcopy(original)
                 if case in ('url', 'sha', 'bytes', 'prefix'):
                     self.manifest['archives'][0][{'sha': 'sha256'}.get(case, case)] = -1 if case == 'bytes' else '../bad'
                 elif case == 'entrypoint': self.manifest['entrypoints']['cargo'] = '../bad'
+                elif case.startswith('excluded_'):
+                    self.manifest['excluded_symlinks'] = [] if case == 'excluded_type' else {'../outside' if case == 'excluded_name' else 'tool/1/etc/clang': 42 if case == 'excluded_target' else '../outside'}
                 else: self.manifest['normalizer']['sha256' if case == 'normalizer' else 'ruby_source_manifest_sha256'] = '0' * 64
                 self.write_manifest()
                 with self.assertRaises((ValueError, KeyError)): h.prepare(True)
@@ -100,7 +103,7 @@ class HostedToolsTests(unittest.TestCase):
             self.assertFalse((self.root / 'build/hosted-tools').exists())
         self.network.return_value.open.side_effect = lambda request, **kw: io.BytesIO(b'{"token":"secret"}' if isinstance(request, str) else self.blob)
         self.normalizer.return_value = subprocess.CompletedProcess([], 1, '{"status":"FAIL"}')
-        with self.assertRaises(ValueError): h.prepare(True)
+        with self.assertRaisesRegex(ValueError, 'data normalization failed: tool/1/bin/clang: .*FAIL'): h.prepare(True)
         self.assertEqual(list((self.root / 'build').iterdir()), [])
 
     def test_archive_boundaries(self):
@@ -146,7 +149,7 @@ class HostedToolsTests(unittest.TestCase):
         receipt_path = output / 'cache.json'
         receipt = json.loads(receipt_path.read_text()); receipt['inventory'] = h.inventory(output, True)
         receipt_path.write_text(json.dumps(receipt))
-        with self.assertRaisesRegex(ValueError, 'normalized target mismatch'): h.prepare()
+        with self.assertRaisesRegex(ValueError, 'normalized target mismatch: tool/1/bin/cargo'): h.prepare()
         self.assertEqual((output / 'tool/1/bin/cargo').read_bytes(), b'evil')
 
     def test_source_extras_and_input_links_precede_network(self):
@@ -161,3 +164,31 @@ class HostedToolsTests(unittest.TestCase):
         output = h.prepare(True); receipt = output / 'cache.json'; saved = output / 'receipt.saved'
         receipt.rename(saved); receipt.symlink_to(saved)
         with self.assertRaisesRegex(ValueError, 'symlink component'): h.prepare()
+
+    def test_excluded_symlink_is_exact_required_and_absent_from_cache(self):
+        name, target = 'tool/1/etc/clang', '../../../../etc/clang'
+        self.manifest['excluded_symlinks'] = {name: target}
+        for case in ('target', 'type', 'missing', 'valid'):
+            with self.subTest(case=case):
+                members = self.members + [('tool/1/etc/internal', b'', '../lib/driver')]
+                if case != 'missing':
+                    members += [(name, b'data' if case == 'type' else b'', None if case == 'type' else target + ('x' if case == 'target' else ''))]
+                self.blob = self.archive(members)
+                row = self.manifest['archives'][0]
+                row.update(sha256=sha(self.blob), bytes=len(self.blob))
+                row['url'] = 'https://ghcr.io/v2/homebrew/core/tool/blobs/sha256:' + row['sha256']
+                self.write_manifest()
+                if case != 'valid':
+                    with self.assertRaisesRegex(ValueError, 'excluded symlink'): h.prepare(True)
+                    self.assertFalse((self.root / 'build/hosted-tools').exists())
+                else:
+                    output = h.prepare(True)
+                    self.assertFalse((output / name).is_symlink())
+                    self.assertFalse((output / name).exists())
+                    self.assertTrue((output / 'tool/1/etc/internal').is_symlink())
+                    self.assertEqual(h.prepare(), output)
+        (output / name).symlink_to('../lib/driver')
+        receipt_path = output / 'cache.json'
+        receipt = json.loads(receipt_path.read_text()); receipt['inventory'] = h.inventory(output, True)
+        receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, 'excluded symlink present: ' + name): h.prepare()
