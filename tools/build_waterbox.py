@@ -112,22 +112,37 @@ def inventory(path: Path) -> list[dict]:
         raise BuildError(f"inventario inválido {path}: {error}") from error
 
 
-def source_spec(source_id: str) -> tuple[dict, Path]:
+def source_spec(source_id: str, audit_mode: str = "checkout") -> tuple[dict, dict]:
+    """Audit a complete capture, optionally against its original checkout too.
+
+    Snapshot mode verifies the captured provenance, not the original Git objects.
+    Missing or changed checkouts never select it implicitly.
+    """
     sys.path.insert(0, str(ROOT / "tools"))
     import import_sources
 
     try:
+        if audit_mode not in ("checkout", "snapshot"):
+            raise BuildError(f"auditoria de fuentes desconocida: {audit_mode!r}")
         item = import_sources.source(ROOT, source_id)
-        if not item.get("local_path"):
-            raise BuildError(f"la fuente {source_id} no es un checkout local fijado")
-        checkout = (ROOT / item["local_path"]).resolve(strict=True)
-        import_sources.check_pins(checkout, item)
-        # blobs() also checks all selected worktree paths against their pinned
-        # Git blobs or explicitly recorded overlays, without writing there.
-        for _entry in import_sources.blobs(checkout, item):
-            pass
-        import_sources.verify_source(ROOT, source_id)
-        return item, checkout
+        if audit_mode == "checkout":
+            if not item.get("local_path"):
+                raise BuildError(f"la fuente {source_id} no es un checkout local fijado")
+            checkout = (ROOT / item["local_path"]).resolve(strict=True)
+            import_sources.check_pins(checkout, item)
+            # Includes worktree modes and all declared overlays, without writes.
+            for _entry in import_sources.blobs(checkout, item):
+                pass
+        capture = import_sources.verify_source(ROOT, source_id)
+        captured = {entry["path"]: entry["sha256"] for entry in capture["files"]}
+        for name, digest in item["snapshot"].get("overlay_sha256", {}).items():
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest) or captured.get(name) != digest:
+                raise BuildError(f"overlay capturado distinto del pin: {name}")
+        return item, {"commit": item["commit"],
+                      "manifest_sha256": sha256(ROOT / item["snapshot"]["manifest"]),
+                      "inventory_sha256": canonical_hash(capture["files"]),
+                      "file_count": len(capture["files"]),
+                      "checkout_head_blobs_overlays_verified": audit_mode == "checkout"}
     except (OSError, KeyError, StopIteration, subprocess.CalledProcessError,
             ValueError) as error:
         raise BuildError(f"SRC01 {source_id}: {error}") from error
@@ -495,7 +510,7 @@ def run_logged(command: list[str], env: dict[str, str], cwd: Path,
     return result.stdout
 
 
-def toolchain() -> dict:
+def toolchain(source_audit: str = "checkout") -> dict:
     """The pinned toolchain, the verified sysroot and the musl wrappers: what every WBX guest of this project is built with."""
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise BuildError("Este perfil requiere runner real Darwin ARM64")
@@ -508,8 +523,9 @@ def toolchain() -> dict:
         raise BuildError("schema_version de toolchains.json no es 1")
     paths, versions = locked_tools(lock)
 
-    machawk, _ = source_spec("machawk")
-    musl, _ = source_spec(lock["sysroot"]["associated_source"])
+    machawk, machawk_audit = source_spec("machawk", source_audit)
+    musl, musl_audit = source_spec(lock["sysroot"]["associated_source"], source_audit)
+    audit = {"mode": source_audit, "sources": {"machawk": machawk_audit, musl["id"]: musl_audit}}
     machawk_manifest = ROOT / machawk["snapshot"]["manifest"]
     source_manifest_hashes = {
         "machawk": sha256(machawk_manifest),
@@ -550,11 +566,11 @@ def toolchain() -> dict:
             "machawk_manifest": machawk_manifest, "source_manifest_hashes": source_manifest_hashes,
             "sysroot_copy": sysroot_copy, "sysroot_inventory": sysroot_inventory, "musl_root": musl_root,
             "cc_wrapper": cc_wrapper, "ld_wrapper": ld_wrapper, "runtime_copy": runtime_copy,
-            "runtime_inventory": runtime_inventory, "env": env}
+            "runtime_inventory": runtime_inventory, "env": env, "source_audit": audit}
 
 
 def build(args: argparse.Namespace) -> dict:
-    tc = toolchain()
+    tc = toolchain(args.source_audit)
     lock, paths, versions, machawk, musl = tc["lock"], tc["paths"], tc["versions"], tc["machawk"], tc["musl"]
     machawk_manifest, source_manifest_hashes = tc["machawk_manifest"], tc["source_manifest_hashes"]
     sysroot_copy, sysroot_inventory, musl_root = tc["sysroot_copy"], tc["sysroot_inventory"], tc["musl_root"]
@@ -643,6 +659,8 @@ def build(args: argparse.Namespace) -> dict:
         "status": "BUILD01_PASS_GUEST_NOT_EXECUTED",
         "profile": lock["profile"],
         "source_commits": {"machawk": machawk["commit"], "waterbox_musl_darwin": musl["commit"]},
+        "source_audit": tc["source_audit"],
+        "guest_source_audit": tc["source_audit"],
         "tool_versions": versions,
         "tool_hashes": {name: entry["sha256"] for name, entry in lock["tools"].items()},
         "sysroot": {"source_path": lock["sysroot"]["source_path"],
@@ -675,7 +693,7 @@ def cargo_build_runtime(tc: dict, profile: str) -> Path:
     return dylib
 
 
-def ensure_runtime_lane(profile: str) -> Path:
+def ensure_runtime_lane(profile: str, source_audit: str = "checkout") -> Path:
     """T34a: the receipt of the runtime built with `profile`, building it if it is missing or stale (the sources and the guest are the ones of build/waterbox/receipt.json).
     The default profile is what build() writes; the other lane is the same receipt with its own runtime_dylib, so both lanes run the same guest and the same managed harness."""
     if profile not in RUNTIME_PROFILES:
@@ -690,9 +708,12 @@ def ensure_runtime_lane(profile: str) -> Path:
     if not base_path.is_file():
         raise BuildError(f"falta {base_path}: ejecutar tools/build_waterbox.py")
     base = read_runtime_receipt(base_path)
-    tc = toolchain()
+    tc = toolchain(source_audit)
     dylib = cargo_build_runtime(tc, profile)
-    receipt = {**base, "runtime_dylib": {"path": str(dylib), "size": dylib.stat().st_size, "sha256": sha256(dylib)}, "runtime_profile": profile}
+    # The inherited smoke guest retains its own audit. Legacy receipts acquire
+    # no guest audit retroactively; only this newly built runtime is audited.
+    receipt = {**base, "source_audit": tc["source_audit"],
+               "runtime_dylib": {"path": str(dylib), "size": dylib.stat().st_size, "sha256": sha256(dylib)}, "runtime_profile": profile}
     text = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
     if not path.is_file() or path.read_text() != text:
         path.write_text(text)
@@ -833,6 +854,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     metadata["compiler_tls"] = check_no_compiler_tls(guest)
     imports = audit_imports(tc, [out / "release" / f"{source}.o" for source in sources])
     receipt = {"schema_version": 1, "status": "BUILD01_PASS_GUEST_NOT_EXECUTED", "guest": metadata, "imports": imports,
+               "source_audit": tc["source_audit"],
                "sources": {source: sha256(ROOT / source) for source in sources},
                "recipe": recipe, "tool_hashes": tool_hashes, "tool_versions": tc["versions"], "flags": flags, "build_inputs": build_inputs}
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
@@ -1038,6 +1060,9 @@ def record_memory(firmware: Path, units: int, result: dict, machine: str = "A500
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-audit", choices=("checkout", "snapshot"), default="checkout",
+                        help="checkout: verificar tambien HEAD/blobs/overlays originales (por defecto); "
+                             "snapshot: verificar solo la captura completa contra lock/manifiestos, sin fallback")
     parser.add_argument("--fetch", action="store_true",
                         help="hacer cargo fetch --locked para el target ARM64 antes del build")
     parser.add_argument("--puae6", action="store_true",
@@ -1064,16 +1089,16 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.runtime_lane:
-            print(f"RUNTIME LANE {args.runtime_lane}: {ensure_runtime_lane(args.runtime_lane)}")
+            print(f"RUNTIME LANE {args.runtime_lane}: {ensure_runtime_lane(args.runtime_lane, args.source_audit)}")
         elif args.check_artifact:
             metadata = validate_elf(args.check_artifact)
             metadata["compiler_tls"] = check_no_compiler_tls(args.check_artifact)
             print(json.dumps(metadata, indent=2, sort_keys=True))
         elif args.puae6:
-            build_puae6(toolchain(), args.jobs)
+            build_puae6(toolchain(args.source_audit), args.jobs)
         elif args.puae6_run:
             build(args)
-            build_puae6(toolchain(), args.jobs)
+            build_puae6(toolchain(args.source_audit), args.jobs)
             slow = args.slow if args.slow == "none" else int(args.slow)
             lines, measured = run_puae6(args.puae6_run.resolve(), args.units, machine=args.machine, chip_kib=args.chip, slow_kib=slow, fast_kib=args.fast, fpu_model=args.fpu,
                                           hard_files=tuple(args.hdf))

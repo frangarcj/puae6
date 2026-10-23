@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TOOL = ROOT / "tools" / "build_waterbox.py"
 sys.path.insert(0, str(TOOL.parent))
 import build_waterbox  # noqa: E402
+import import_sources  # noqa: E402
 
 
 def elf64(loads, machine=183, elf_class=2, elf_type=2):
@@ -40,7 +41,8 @@ class GuestToolchainCacheTests(unittest.TestCase):
             cc.write_text('compiler wrapper'); ld.write_text('linker wrapper')
             tc = {'lock': {'tools': {'clang': {'sha256': 'a' * 64}}}, 'versions': {'clang': 'test compiler'},
                   'paths': {'make': Path('/usr/bin/make')}, 'sysroot_copy': base,
-                  'sysroot_inventory': [{'sha256': 'b' * 64}], 'cc_wrapper': cc, 'ld_wrapper': ld, 'env': {}}
+                  'sysroot_inventory': [{'sha256': 'b' * 64}], 'cc_wrapper': cc, 'ld_wrapper': ld, 'env': {},
+                  'source_audit': {'mode': 'checkout', 'sources': {}}}
             receipt = base / 'puae6/puae6-receipt.json'
             commands = []
             def make(command, **kwargs):
@@ -60,8 +62,13 @@ class GuestToolchainCacheTests(unittest.TestCase):
                     result = build_waterbox.build_puae6(tc, 2)
                     self.assertEqual(forced, '-B' in commands[-1])
                     self.assertEqual(tc['lock']['tools']['clang']['sha256'], result['tool_hashes']['clang'])
+                    self.assertEqual(tc['source_audit'], result['source_audit'])
                 build(True)   # No receipt, including existing objects from an older build.
                 build(False)  # Identical inputs keep the normal incremental build.
+                command = commands[-1]
+                tc['source_audit'] = {'mode': 'snapshot', 'sources': {}}
+                build(False)  # Audit bookkeeping changes neither inputs nor make.
+                self.assertEqual(command, commands[-1])
                 for change in ('compiler', 'version', 'sysroot', 'wrapper', 'flags', 'recipe', 'sources'):
                     if change == 'compiler': tc['lock']['tools']['clang']['sha256'] = 'd' * 64
                     elif change == 'version': tc['versions']['clang'] = 'another compiler'
@@ -77,6 +84,194 @@ class GuestToolchainCacheTests(unittest.TestCase):
                 self.assertFalse(receipt.exists())
                 run.side_effect = make
                 build(True)   # A failed partial build must not reuse the prior identity.
+
+
+class SourceAuditTests(unittest.TestCase):
+    """Real Git/capture/wrapper checks; all compiler execution is mocked."""
+
+    def setUp(self):
+        (ROOT / 'build').mkdir(exist_ok=True)
+        temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-audit-')
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.out = self.root / 'build/waterbox'
+        (self.root / 'plan').mkdir()
+        self.items = []
+        for sid, content in (
+                ('machawk', {'waterbox/waterboxhost/src/core.rs': 'original\n',
+                             'waterbox/waterboxhost/Cargo.lock': 'lock',
+                             'waterbox/common.mak': 'make', 'waterbox/linkscript_aarch64.T': 'link',
+                             'waterbox/emulibc/emulibc.c': 'emulibc'}),
+                ('waterbox_musl_darwin', {f'tools/{n}': (ROOT / 'references/musl-darwin/tools' / n).read_text()
+                                        for n in ('musl-clang.in', 'ld.musl-clang.in')})):
+            checkout = self.root / ('origin-' + sid)
+            checkout.mkdir()
+            for name, text in content.items():
+                p = checkout / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(text)
+            self.git(checkout, 'init', '-q')
+            self.git(checkout, 'add', '.')
+            self.git(checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                     'commit', '-qm', 'fixture')
+            item = {'id': sid, 'repository': None, 'local_path': checkout.name,
+                    'commit': self.git(checkout, 'rev-parse', 'HEAD').strip(),
+                    'snapshot': {'destination': 'references/' + sid, 'manifest': 'references/' + sid + '.json'}}
+            if sid == 'machawk':
+                rel = 'waterbox/waterboxhost/src/core.rs'
+                (checkout / rel).write_text('overlay\n')
+                item['snapshot']['overlay_sha256'] = {rel: build_waterbox.sha256(checkout / rel)}
+            self.items.append(item)
+            dest = self.root / item['snapshot']['destination']; dest.mkdir(parents=True)
+            for name, mode, data in import_sources.blobs(checkout, item):
+                p = dest / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
+                p.chmod(0o755 if mode == '100755' else 0o644)
+            manifest = {**import_sources.metadata(item), 'files': import_sources.inventory(dest)}
+            (self.root / item['snapshot']['manifest']).write_text(json.dumps(manifest))
+        self.upstream = self.root / 'plan/upstream.lock.json'
+        self.upstream.write_text(json.dumps({'sources': self.items}))
+        sysroot = self.root / 'sysroot'; sysroot.mkdir(); (sysroot / 'header.h').write_text('header')
+        self.paths = {n: Path('/usr/bin/true') for n in ('clang', 'lld', 'cargo', 'rustc', 'make')}
+        self.versions = {n: 'mock compiler' for n in self.paths}
+        patch = self.root / 'integration/waterbox-runtime/fixture.patch'
+        patch.parent.mkdir(parents=True)
+        patch.write_text('diff --git a/src/core.rs b/src/core.rs\n--- a/src/core.rs\n+++ b/src/core.rs\n'
+                         '@@ -1 +1 @@\n-overlay\n+patched\n')
+        lock = {'schema_version': 1, 'profile': 'fixture',
+                'tools': {n: {'sha256': 'a' * 64, 'version': self.versions[n]} for n in self.paths},
+                'sysroot': {'source_path': 'sysroot', 'file_count': 1,
+                            'inventory_sha256': build_waterbox.canonical_hash(import_sources.inventory(sysroot)),
+                            'associated_source': 'waterbox_musl_darwin'},
+                'runtime': {'target': 'aarch64-apple-darwin', 'profile': 'release', 'rustc_bootstrap': '1',
+                            'patches': [{'file': str(patch.relative_to(self.root)), 'sha256': build_waterbox.sha256(patch),
+                                         'files': [{'path': 'src/core.rs',
+                                                    'before_sha256': self.items[0]['snapshot']['overlay_sha256']['waterbox/waterboxhost/src/core.rs'],
+                                                    'after_sha256': build_waterbox.hashlib.sha256(b'patched\n').hexdigest()}]}]}}
+        self.lock = self.root / 'plan/toolchains.json'; self.lock.write_text(json.dumps(lock))
+        for name, value in (('ROOT', self.root), ('BUILD', self.out), ('LOCK', self.lock)):
+            self.enterContext(mock.patch.object(build_waterbox, name, value))
+        self.enterContext(mock.patch.object(build_waterbox.platform, 'system', return_value='Darwin'))
+        self.enterContext(mock.patch.object(build_waterbox.platform, 'machine', return_value='arm64'))
+        self.enterContext(mock.patch.object(build_waterbox, 'locked_tools', return_value=(self.paths, self.versions)))
+
+    @staticmethod
+    def git(checkout, *args):
+        return subprocess.run(['git', '-C', str(checkout), *args], check=True, capture_output=True, text=True).stdout
+
+    def test_snapshot_needs_no_origin_checkout_and_preserves_all_materialized_bytes(self):
+        checkout = build_waterbox.toolchain()
+        before = import_sources.inventory(checkout['runtime_copy'])
+        checkout['runtime_copy'].rename(self.out / 'checkout-runtime')
+        for item in self.items:  # Valid captures, with deliberately missing origins.
+            (self.root / item['local_path']).rename(self.root / ('unused-' + item['id']))
+        with mock.patch.object(import_sources, 'git', side_effect=AssertionError('no origin Git inspection')):
+            snapshot = build_waterbox.toolchain('snapshot')
+        self.assertEqual(before, import_sources.inventory(snapshot['runtime_copy']))
+        self.assertEqual('patched\n', (snapshot['runtime_copy'] / 'src/core.rs').read_text())
+        self.assertEqual({k: v for k, v in checkout.items() if k != 'source_audit'},
+                         {k: v for k, v in snapshot.items() if k != 'source_audit'})
+        for sid, record in snapshot['source_audit']['sources'].items():
+            original = checkout['source_audit']['sources'][sid]
+            self.assertTrue(original['checkout_head_blobs_overlays_verified'])
+            self.assertFalse(record['checkout_head_blobs_overlays_verified'])
+            self.assertEqual({k: v for k, v in original.items() if k != 'checkout_head_blobs_overlays_verified'},
+                             {k: v for k, v in record.items() if k != 'checkout_head_blobs_overlays_verified'})
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain()
+
+    def test_checkout_rejects_changed_head_blobs_and_overlays_without_fallback(self):
+        origin = self.root / self.items[0]['local_path']
+        for rel in ('waterbox/common.mak', 'waterbox/waterboxhost/src/core.rs'):
+            p = origin / rel; before = p.read_bytes(); p.write_bytes(b'changed')
+            with self.subTest(rel=rel), self.assertRaises(build_waterbox.BuildError):
+                build_waterbox.source_spec('machawk')
+            p.write_bytes(before)
+        self.git(origin, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                 'commit', '--allow-empty', '-qm', 'wrong HEAD')
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk')
+        build_waterbox.source_spec('machawk', 'snapshot')
+
+    def test_snapshot_rejects_complete_capture_and_provenance_drift(self):
+        target = self.root / 'references/machawk/waterbox/common.mak'
+        manifest = self.root / self.items[0]['snapshot']['manifest']
+        original_manifest, original_lock = manifest.read_bytes(), self.upstream.read_bytes()
+        for change in ('content', 'mode', 'missing', 'extra', 'symlink', 'manifest', 'pin', 'overlay', 'overlay-bytes'):
+            before = target.read_bytes()
+            extra = target.parent / 'extra'
+            try:
+                if change == 'content': target.write_text('changed')
+                elif change == 'mode': target.chmod(0o755)
+                elif change == 'missing': target.unlink()
+                elif change == 'extra': extra.write_text('extra')
+                elif change == 'symlink': target.unlink(); target.symlink_to('/etc/passwd')
+                elif change == 'manifest': manifest.write_text('{}')
+                else:
+                    d = json.loads(original_lock)
+                    if change == 'pin': d['sources'][0]['commit'] = 'b' * 40
+                    elif change == 'overlay': d['sources'][0]['snapshot']['overlay_sha256'] = {}
+                    else:
+                        rel = 'waterbox/waterboxhost/src/core.rs'
+                        d['sources'][0]['snapshot']['overlay_sha256'][rel] = 'b' * 64
+                        captured = json.loads(original_manifest); captured['source'] = d['sources'][0]
+                        manifest.write_text(json.dumps(captured))
+                    self.upstream.write_text(json.dumps(d))
+                with self.subTest(change=change), self.assertRaises(build_waterbox.BuildError):
+                    build_waterbox.source_spec('machawk', 'snapshot')
+            finally:
+                target.unlink(missing_ok=True); target.write_bytes(before); target.chmod(0o644)
+                extra.unlink(missing_ok=True); manifest.write_bytes(original_manifest); self.upstream.write_bytes(original_lock)
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk', 'auto')
+
+    def mock_runtime_build(self, mode):
+        """Exercise receipt construction only: no compiler/runtime tests execute."""
+        for name in ('Makefile', 'guest.cpp', 'tls-negative/Makefile', 'tls-negative/guest.cpp'):
+            p = self.root / 'tests/waterbox-smoke' / name
+            p.parent.mkdir(parents=True, exist_ok=True); p.write_text('fixture')
+        dylib = self.root / 'mock.dylib'
+        raw = bytearray(32); struct.pack_into('<II', raw, 0, 0xfeedfacf, 0x100000c); struct.pack_into('<I', raw, 12, 6)
+        dylib.write_bytes(raw)
+        for name in ('guest/release/p6-smoke.wbx', 'tls-negative/release/p6-tls-negative.wbx'):
+            p = self.out / name; p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(elf64([(0x4000, 0x4000, 0x100, 0x4000, 5)]))
+        def tls(path):
+            if 'negative' in str(path): raise build_waterbox.BuildError('mock compiler TLS rejected')
+            return {'wb16': 'mocked'}
+        with (mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib),
+              mock.patch.object(build_waterbox, 'run_logged', return_value='mocked compiler/test output') as run,
+              mock.patch.object(build_waterbox, 'check_no_compiler_tls', side_effect=tls), mock.patch('builtins.print')):
+            result = build_waterbox.build(build_waterbox.argparse.Namespace(fetch=False, source_audit=mode))
+        return result, run.call_args_list, dylib
+
+    def test_runtime_commands_and_inputs_are_identical_and_receipts_record_the_audit(self):
+        checkout, commands, _ = self.mock_runtime_build('checkout')
+        snapshot, next_commands, _ = self.mock_runtime_build('snapshot')
+        self.assertEqual(commands, next_commands)
+        for name in ('input_sha256', 'guest', 'runtime_dylib', 'runtime_source_inventory_sha256'):
+            self.assertEqual(checkout[name], snapshot[name])
+        self.assertEqual('snapshot', snapshot['source_audit']['mode'])
+        self.assertEqual(snapshot['source_audit'], snapshot['guest_source_audit'])
+
+    def test_derived_lane_keeps_guest_audit_and_never_backfills_legacy_audit(self):
+        base, _, dylib = self.mock_runtime_build('checkout')
+        path = build_waterbox.runtime_receipt_path('release')
+        for legacy in (False, True):
+            receipt = dict(base)
+            if legacy:
+                for key in ('source_audit', 'guest_source_audit'): receipt.pop(key)
+            path.write_text(json.dumps(receipt))
+            self.assertEqual(receipt, build_waterbox.read_runtime_receipt(path))
+            with mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib):
+                derived = json.loads(build_waterbox.ensure_runtime_lane('debug', 'snapshot').read_text())
+            self.assertEqual('snapshot', derived['source_audit']['mode'])
+            if legacy: self.assertNotIn('guest_source_audit', derived)
+            else: self.assertEqual(base['source_audit'], derived['guest_source_audit'])
+
+    def test_cli_requires_explicit_known_mode_and_defaults_to_checkout(self):
+        for options, expected in (([], 'checkout'), (['--source-audit', 'snapshot'], 'snapshot')):
+            with (mock.patch.object(sys, 'argv', [str(TOOL), '--puae6', *options]),
+                  mock.patch.object(build_waterbox, 'toolchain', return_value={}) as tc,
+                  mock.patch.object(build_waterbox, 'build_puae6')):
+                self.assertEqual(0, build_waterbox.main())
+                tc.assert_called_once_with(expected)
+        with mock.patch.object(sys, 'argv', [str(TOOL), '--source-audit', 'auto']), mock.patch('sys.stderr'), self.assertRaises(SystemExit):
+            build_waterbox.main()
 
 
 @unittest.skipUnless(sys.platform == 'darwin' and platform.machine() == 'arm64', 'BLOCKED: Darwin ARM64 runtime required')
