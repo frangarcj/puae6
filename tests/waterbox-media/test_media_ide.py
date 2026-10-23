@@ -144,7 +144,7 @@ class IdeHardFileTests(Sessions):
 
     def test_the_ide_on_a_machine_without_gayle_fails_to_start_with_the_reason_of_the_bridge(self):
         out = self.run_ide([self.hcore("A", "a500")], expect=1)
-        self.assertIn("A600 and the A1200", out + self.stderr)
+        self.assertIn("this machine has no supported IDE port", out + self.stderr)
 
 
 if __name__ == "__main__":
