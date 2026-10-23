@@ -96,8 +96,8 @@ class MemoryOptionTests(lr.LibretroHarness):
                 out = self.frontend("boot", *options, name=name, expect=3).stdout
                 self.assertIn(text, out)
                 self.assertNotIn("run 1 ", out)
-        for key, value, allowed in (("puae6_fast_size", "MB16", "None, MB1, MB2, MB4, MB8"), ("puae6_chip_size", "mb2", "Auto, KB512, MB1, MB2"),
-                                    ("puae6_slow_size", "512", "Auto, None, KB512, MB1, MB1_5, MB1_75"), ("puae6_preset", "a4000", "none, a1200_fast8, a600_puae5")):
+        for key, value, allowed in (("puae6_fast_size", "MB16", "None, MB1, MB2, MB4, MB8, Auto"), ("puae6_chip_size", "mb2", "Auto, KB512, MB1, MB2"),
+                                    ("puae6_slow_size", "512", "Auto, None, KB512, MB1, MB1_5, MB1_75"), ("puae6_preset", "a4000", "none, a1200_fast8, a600_puae5, a4030_normal, cd32_fast8, a4040_normal, a4060_normal")):
             with self.subTest(key=key, value=value):
                 out = self.frontend("boot", "--set", f"{key}={value}", expect=3).stdout
                 self.assertIn(f'the option {key} has the value "{value}", which this core does not support (allowed: {allowed})', out)
@@ -106,7 +106,7 @@ class MemoryOptionTests(lr.LibretroHarness):
         system = self.system_for("identify", lr.KICKSTART_NAMES_A1200[0])
         base = self.frontend("identify", "--runs", 12, *lr.A1200, system=system).stdout
         changed = self.frontend("identify", "--runs", 12, *lr.A1200, "--set-at", "5:puae6_fast_size=MB8", system=system).stdout
-        self.assertEqual(self.messages(changed), ["PUAE6: puae6_fast_size is now MB8 but the machine runs with None: reload the content to apply it"])
+        self.assertEqual(self.messages(changed), ["PUAE6: puae6_fast_size is now MB8 but the machine runs with Auto: reload the content to apply it"])
         self.assertEqual(size_of(changed), size_of(base))                                    # nothing of the running machine moved, serialize_size included
         cycles = self.frontend("identify", "--runs", 12, *lr.A1200, "--set-at", "5:puae6_fast_size=MB8", "--cycles", 2, system=system).stdout
         sizes = STATE.findall(cycles)
