@@ -19,7 +19,7 @@ import build_waterbox as wb
 from tests.media import test_cd_source_csharp as source, test_chd_reader as reader, test_cd_chd as chd
 from tests.media.test_chd_canonical_csharp import subq
 from tests.media.cdtv_boot_image import image as original_amiga_iso
-from tests.media.test_nrg_canonical_csharp import nrg_fixture, dao_fixture, dao_metadata, dao_identity, sbi_fixture
+from tests.media.test_nrg_canonical_csharp import nrg_fixture, dao_fixture, dao_metadata, dao_identity, sbi_fixture, global_fixture
 
 
 def prepare_public_cd(cls, *, guest_required):
@@ -164,20 +164,34 @@ class NrgMultiPublicWaterboxTests(unittest.TestCase):
     def setUpClass(cls):
         prepare_public_cd(cls, guest_required=True)
 
-    def scenario(self,kind):
+    def scenario(self,kind,*,global_etnf=False):
         base,env,guest,sha,runtime,main,ext,output=self.prepared
         pattern=reader.dependency.load('multi_public_chd_pattern',ROOT/'tests/fixtures/chd/generate.py')
         audio=pattern.audio(); chdwire=b''.join(audio[n*2352:(n+1)*2352]+subq(1,1,n,0,0) for n in range(40))
         isowire=b''.join(chd.mode1(bytes(2048),n)+subq(1,1,n,0,4) for n in range(512))
         isoid=hashlib.sha256(b'P6CD2448\0'+struct.pack('<3I5i',1,512,1,0,0,512,1,4)+isowire).hexdigest().upper()
         chdid=hashlib.sha256(b'P6CD2448\0'+struct.pack('<3I12I',2,40,1,0,0,40,0,0,0,0,0,0,3,0,0)+chdwire).hexdigest().upper()
-        lbas=[*range(-150,11),*range(30,39)]; entries=((6,2,b'\x98\x76\x54'),(32,3,b'\x12\x34\x56'))
-        work=base/('multi-'+kind); work.mkdir(); path,raw,rows=dao_fixture(work,'disc')
+        work=base/(('global-' if global_etnf else 'multi-')+kind); work.mkdir()
+        if global_etnf:
+            path,raw,rows,_,_,_=global_fixture(work,'disc')
+            lbas=[*range(-150,302),*range(11552,12002)]
+            entries=((1,2,b'\x98\x76\x54'),(11702,3,b'\x12\x34\x56'))
+            # Independent virtual TOC, backing extents, samples, Mode1 views and holes.
+            geometry=((2,12002),(1,1,0,-150,302,2,2,32,11552,12002),
+                      (-150,302,11552,12002),(0,1,301,11552,11701,11702,12001),(),(302,11551,12002))
+        else:
+            path,raw,rows=dao_fixture(work,'disc')
+            lbas=[*range(-150,11),*range(30,39)]; entries=((6,2,b'\x98\x76\x54'),(32,3,b'\x12\x34\x56'))
+            geometry=((3,39),(1,2,0,-150,11,3,3,32,20,39),(-150,11,30,39),
+                      (0,3,4,5,6,10,30,31,32,38),(6,10),(11,20,29,39))
         wire=sbi_fixture(path.with_suffix('.sbi'),raw,entries,lbas)
-        ids=[dao_identity(wire,rows),isoid,chdid]
+        metadata,tracks,_=dao_metadata(rows)
+        identity=hashlib.sha256(metadata.replace(b'P6CD2448\0',b'P6ETGM2448\0',1)+wire).hexdigest().upper() if global_etnf else dao_identity(wire,rows)
+        ids=[identity,isoid,chdid]
+        (work/'geometry.txt').write_text('\n'.join(' '.join(map(str,row)) for row in geometry)+'\n')
         catalogid=hashlib.sha256(b'PUAE6 CD catalog/v1'+struct.pack('<I',3)+b''.join(bytes.fromhex(i) for i in ids)+struct.pack('<5I',4,0,1,2,0)).hexdigest().upper()
         (work/'ids.txt').write_text('\n'.join(ids+[catalogid])); (work/'wire.bin').write_bytes(wire)
-        (work/'tracks.bin').write_bytes(b''.join(struct.pack('<12I',*r) for r in dao_metadata(rows)[1]))
+        (work/'tracks.bin').write_bytes(b''.join(struct.pack('<12I',*r) for r in tracks))
         (work/'iso-wire.bin').write_bytes(isowire); (work/'chd-wire.bin').write_bytes(chdwire)
         (work/'legacy.iso').write_bytes(bytes(512*2048)); shutil.copy2(ROOT/'tests/fixtures/chd/cdzl.chd',work/'audio.chd')
         shutil.copy2(path,work/'alias.nrg'); shutil.copy2(path.with_suffix('.sbi'),work/'alias.sbi')
@@ -191,13 +205,18 @@ class NrgMultiPublicWaterboxTests(unittest.TestCase):
             data=bytearray(path.read_bytes())
             if change=='other': data[int(rows[-1].split()[3])+17]^=1 # Stored program in session2.
             if change=='shifted':
-                directory=int.from_bytes(data[-8:],'big'); cue=data.index(b'CUEX',data.index(b'CUEX',directory)+4)
-                struct.pack_into('>i',data,cue+12,21) # Valid CUE0, same readable wire; only metadata identity changes.
+                if global_etnf:
+                    # Low byte of valid global INDEX01 11702 -> 11703, not the BE32 MSB.
+                    self.assertEqual(data[1411104+60:1411104+64],struct.pack('>I',11702))
+                    data[1411104+63]^=1
+                else:
+                    directory=int.from_bytes(data[-8:],'big'); cue=data.index(b'CUEX',data.index(b'CUEX',directory)+4)
+                    struct.pack_into('>i',data,cue+12,21) # Valid CUE0, same readable wire; only metadata identity changes.
             if change in ('other','shifted'):
                 (other/'disc.nrg').write_bytes(data)
                 if kind=='catalog': (other/'alias.nrg').write_bytes(data)
             if change=='sbi':
-                sbi_fixture(other/'disc.sbi',raw,((6,2,b'abc'),entries[1]),lbas)
+                sbi_fixture(other/'disc.sbi',raw,((entries[0][0],2,b'abc'),entries[1]),lbas)
                 if kind=='catalog': shutil.copy2(other/'disc.sbi',other/'alias.sbi')
             assets=[names[0],names[2],names[1],names[3]] if change=='order' else names[:3]+[names[1]] if change=='map' else names
             xml(other,assets)
@@ -219,3 +238,12 @@ class NrgMultiPublicWaterboxTests(unittest.TestCase):
 
     def test_mixed_catalog_cold_restore(self):
         self.scenario('catalog')
+
+    def test_xml_global_etnf_cold_restore(self):
+        self.scenario('xml',global_etnf=True)
+
+    def test_direct_global_etnf_cold_restore(self):
+        self.scenario('direct',global_etnf=True)
+
+    def test_global_etnf_mixed_catalog_cold_restore(self):
+        self.scenario('catalog',global_etnf=True)

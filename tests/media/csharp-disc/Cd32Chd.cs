@@ -122,8 +122,15 @@ internal static unsafe partial class Program
   var infos=catalog?(P6CdInfoV3[])typeof(P6CdHost).GetField("catalogV3",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd):new[]{(P6CdInfoV3)typeof(P6CdHost).GetField("infoV3",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(guest.Cd)};
   var ids=File.ReadAllLines(Path.Combine(work,"ids.txt"));
   for(int n=0;n<infos.Length;++n) { var info=infos[n]; Require(info.Version==3&&info.SessionCount==(n==0?2u:0u)); Require(new ReadOnlySpan<byte>(info.Id,32).SequenceEqual(Convert.FromHexString(ids[n]))); }
-  var first=infos[0]; Require(first.Count==3&&first.Leadout==39&&new ReadOnlySpan<uint>(first.Sessions,10).SequenceEqual(new uint[]{1,2,0,unchecked((uint)-150),11,3,3,32,20,39}));
-  Require(new ReadOnlySpan<byte>(first.Tracks,3*48).SequenceEqual(File.ReadAllBytes(Path.Combine(work,"tracks.bin"))));
+  // Only the test's independent expected table changes between DAO and ETNF global.
+  var geometry=File.ReadAllLines(Path.Combine(work,"geometry.txt")).Select(row=>row.Split(' ',StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray()).ToArray();
+  Require(geometry.Length==6&&geometry[0].Length==2&&geometry[1].Length==10&&geometry[2].Length==4);
+  Require(geometry[0][0]>0&&geometry[0][0]<=99&&geometry[3].Length>0&&geometry[3].Length<=32&&geometry[4].Length<=32&&geometry[5].Length>0&&geometry[5].Length<=32);
+  var extents=geometry[2]; Require(extents[0]<extents[1]&&extents[1]<extents[2]&&extents[2]<extents[3]);
+  Require(wire.Length==((extents[1]-extents[0])+(extents[3]-extents[2]))*2448);
+  var first=infos[0]; Require(first.Count==(uint)geometry[0][0]&&first.Leadout==(uint)geometry[0][1]);
+  Require(new ReadOnlySpan<uint>(first.Sessions,10).SequenceEqual(geometry[1].Select(n=>unchecked((uint)n)).ToArray()));
+  Require(new ReadOnlySpan<byte>(first.Tracks,geometry[0][0]*48).SequenceEqual(File.ReadAllBytes(Path.Combine(work,"tracks.bin"))));
   var captured=(Puae6Parameters)typeof(Puae6Core).GetField("_parameters",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
   Require(Convert.ToHexString((byte[])Hidden(captured,"CdIdentity"))==ids[catalog?3:0]);
   if(catalog) { var iso=infos[1]; var chd=infos[2]; Require(iso.Tracks[6]==1&&iso.Tracks[9]==0&&chd.Tracks[9]==3); }
@@ -132,18 +139,20 @@ internal static unsafe partial class Program
    using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector(0,2448,(IntPtr)p,2448)==P6.Ok);
    Require(output.SequenceEqual(bytes.Take(2448))); return;
   }
-  foreach(int lba in new[]{0,3,4,5,6,10,30,31,32,38}) foreach(uint view in lba>=6&&lba<=10?new uint[]{2048,2352,2448}:new uint[]{2352,2448}) {
+  foreach(int lba in geometry[3]) foreach(uint view in geometry[4].Contains(lba)?new uint[]{2048,2352,2448}:new uint[]{2352,2448}) {
    var output=new byte[view]; using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector((uint)lba,view,(IntPtr)p,view)==P6.Ok);
-   int offset=(lba<11?lba+150:lba-30+161)*2448; Require(output.SequenceEqual(wire.Skip(offset+(view==2048?16:0)).Take((int)view)));
+   Require((lba>=extents[0]&&lba<extents[1])||(lba>=extents[2]&&lba<extents[3]));
+   int offset=(lba<extents[1]?lba-extents[0]:lba-extents[2]+extents[1]-extents[0])*2448;
+   Require(output.SequenceEqual(wire.Skip(offset+(view==2048?16:0)).Take((int)view)));
   }
   var reads=WatchCd(core,catalog); var before=Save(core); long count=reads();
-  foreach(int lba in new[]{11,20,29,39}) {
+  foreach(int lba in geometry[5]) {
    var output=Enumerable.Repeat((byte)0xcc,2448).ToArray();
    using(guest.Host.EnterExit()) fixed(byte* p=output) Require(guest.Lib.p6w_cd_read_sector((uint)lba,2448,(IntPtr)p,2448)!=P6.Ok);
    Require(output.All(b=>b==0xcc));
   }
   Require(count==reads()); // Sector describe rejects holes before the callback.
-  foreach(ulong at in new ulong[]{11UL*2448,20UL*2448,29UL*2448,39UL*2448,11UL*2448-1}) {
+  foreach(ulong at in geometry[5].Select(lba=>(ulong)lba*2448).Append((ulong)geometry[5][0]*2448-1)) {
    var output=Enumerable.Repeat((byte)0xcc,2448).ToArray(); Require(guest.Cd.ReadAt(guest,at,output)!=P6.Ok&&output.All(b=>b==0xcc));
   } // Raw transport may invoke the source preflight; CountingBlob covers physical IO in B.
   Require(before.SequenceEqual(Save(core)));
