@@ -112,7 +112,7 @@ static void dma(unsigned words, unsigned address)
     for (unsigned n = 0; n < 4; ++n) { put_byte(0xe90080 + n, words >> (24 - n * 8)); put_byte(0xe90084 + n, address >> (24 - n * 8)); }
     put_byte(0xe90043, 0x90); put_byte(0xe900e0, 0);
 }
-static void cut_at(unsigned cut)
+static void cut_at(unsigned cut, bool immediate = true)
 {
     if (cut == 0) { send({0x80}); frames(); }
     if (cut == 1) { send({0x80, 0}); frames(); assert(get_byte(0xe900a1) == 0xaa); }
@@ -129,7 +129,7 @@ static void cut_at(unsigned cut)
         // Program the original serial DAC latch to audible gain through 6525 port B.
         for (unsigned n = 0; n < 12; ++n) { put_byte(0xe900b2, 0x20); put_byte(0xe900b2, 0x60); }
         put_byte(0xe900b2, 0xa0);
-        for (auto word : {0x111u, 2u, 258u, 0u}) assert(p6_cdtv_private_request(word)); frames();
+        for (auto word : {immediate ? 0x111u : 0x110u, 2u, 258u, 0u}) assert(p6_cdtv_private_request(word)); frames();
         bool event = false;
         for (unsigned n = 0; n < 104 && !event; ++n) {
             for (const auto &slot : eventtab2) event |= slot.active && slot.handler == p6_cdtv_subcode_handler();
@@ -329,8 +329,15 @@ static void media_transition(const std::vector<uint8_t> &rom, const p6_config &c
                 assert(coalesced.cd_media && coalesced.device.disc_id[0] == 2 && coalesced.toc.lastaddress == 258);
                 assert(p6_state_load(baseline.data(), baseline.size(), &error) == P6_OK && save() == baseline);
             }
-            cut_at(5); bool signal = false; media_frame(nullptr, false, &signal);
-            auto playing = media_state(); assert(signal && playing.cd_playing && playing.device.audio.running);
+            // Normal PLAY publishes cd_playing. The immediate callback preassigns
+            // cd_audio_status before statusfunc and does not establish that bit.
+            cut_at(5, false); bool signal = false; media_frame(nullptr, false, &signal);
+            auto playing = media_state();
+            if (!signal || !playing.cd_playing || !playing.device.audio.running)
+                fprintf(stderr, "CDTV media start signal=%u playing=%d running=%u sector=%u delay=%llu status=%d\n",
+                    unsigned(signal), playing.cd_playing, playing.device.audio.running, playing.device.audio.sector,
+                    (unsigned long long)playing.device.audio.delay, playing.device.audio.status);
+            assert(signal && playing.cd_playing && playing.device.audio.running);
             if (cut >= 1) {
                 assert(p6_cd::device_set_inserted(false) == p6_cd::Result::Ok);
                 auto pending = media_state(); assert(pending.cd_media && !pending.device.inserted && !pending.device.audio.bound);
