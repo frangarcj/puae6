@@ -76,6 +76,12 @@ def inputs():
     for row in targets:
         require(owned(row['path']) and row['path'] not in paths, 'invalid target path')
         paths.add(row['path'])
+        if 'dylib_id' in row:
+            parts = PurePosixPath(row['path']).parts
+            parent = '/opt/homebrew/opt/' + parts[0] + '/' + '/'.join(parts[2:-1]) + '/'
+            value = row['dylib_id']
+            require(parts[2] == 'lib' and row['path'].endswith('.dylib') and isinstance(value, str)
+                    and value.startswith(parent) and re.fullmatch(r'[A-Za-z0-9_+.-]+\.dylib', value[len(parent):]), 'invalid explicit dylib ID')
         require(re.fullmatch('[0-9a-f]{64}', row['sha256']) and type(row['bytes']) is int and 0 < row['bytes'] <= MAX_FILE, 'invalid target pin')
     require(set(manifest['entrypoints']) == {'clang', 'lld', 'cargo', 'rustc'}, 'invalid entrypoints')
     aliases = manifest['aliases']
@@ -204,10 +210,16 @@ def verify(base, manifest):
     for name, item in manifest['materialized_symlinks'].items():
         require(digest(base / name) == digest(base / item['source'])
                 and stat.S_IMODE(regular(base / name).st_mode) == stat.S_IMODE(regular(base / item['source']).st_mode), f'materialized symlink mismatch: {name}')
+    mismatches = []
     for row in manifest['normalized_macho']:
         path = base / row['path']
-        size, checksum = regular(path).st_size, digest(path)
-        require(size == row['bytes'] and checksum == row['sha256'], f'normalized target mismatch: {row["path"]}; bytes={size}, sha256={checksum}; expected bytes={row["bytes"]}, sha256={row["sha256"]}')
+        try:
+            size, checksum = regular(path).st_size, digest(path)
+            if size != row['bytes'] or checksum != row['sha256']:
+                mismatches.append(f'normalized target mismatch: {row["path"]}; bytes={size}, sha256={checksum}; expected bytes={row["bytes"]}, sha256={row["sha256"]}')
+        except (OSError, ValueError) as error:
+            mismatches.append(f'normalized target mismatch: {row["path"]}; {error}')
+    require(not mismatches, '\n'.join(mismatches))
     for archive in manifest['archives']:
         for name in archive['notices']:
             require(regular(base / name).st_size > 0, 'missing notice')
@@ -248,7 +260,8 @@ def prepare(fetch=False, ruby='ruby'):
             archive.unlink()
         for row in manifest['normalized_macho']:
             regular(stage / row['path'])
-            result = subprocess.run([ruby, str(ROOT / manifest['normalizer']['path']), str(stage / row['path'])], capture_output=True, text=True, timeout=120)
+            options = ['--dylib-id', row['dylib_id']] if 'dylib_id' in row else []
+            result = subprocess.run([ruby, str(ROOT / manifest['normalizer']['path']), *options, str(stage / row['path'])], capture_output=True, text=True, timeout=120)
             diagnostic = result.stdout.replace(str(stage) + '/', '').replace(str(ROOT) + '/', '')[:240]
             require(result.returncode == 0 and json.loads(result.stdout)['status'] == 'PASS', f'data normalization failed: {row["path"]}: {diagnostic}')
         for name, item in manifest['materialized_symlinks'].items():

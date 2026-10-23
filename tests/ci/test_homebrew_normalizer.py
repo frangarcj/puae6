@@ -20,7 +20,7 @@ def command(kind, text, dylib=True):
     return (head + raw).ljust(size, b'\0')
 
 
-def fixture(dylib=False):
+def fixture(dylib=False, dylib_id="@@HOMEBREW_PREFIX@@/opt/test/lib/libtest.dylib"):
     def segment(name, offset, size):
         return struct.pack('<II16sQQQQiiII', 0x19, 72, name.encode(), offset, 0x1000, offset, size, 7, 5, 0, 0)
     commands = [segment('__TEXT', 0, 4096), segment('__LINKEDIT', 4096, 16),
@@ -31,7 +31,7 @@ def fixture(dylib=False):
                 command(0x8000001c, '@@HOMEBREW_CELLAR@@/llvm/23.1.4/lib', False),
                 command(0x8000001c, '@loader_path/../lib', False)]
     if dylib:
-        commands.append(command(0xd, '@@HOMEBREW_PREFIX@@/opt/test/lib/libtest.dylib'))
+        commands.append(command(0xd, dylib_id))
     body = b''.join(commands)
     return (struct.pack('<8I', 0xfeedfacf, 0x100000c, 0, 6 if dylib else 2, len(commands), len(body), 0, 0) + body).ljust(4112, b'\0')
 
@@ -67,8 +67,8 @@ class HomebrewNormalizerTests(unittest.TestCase):
         self.target.write_bytes(fixture())
         self.target.chmod(0o755)
 
-    def run_helper(self, target=None, prefix=()):
-        args = [self.ruby, *prefix, str(self.root / 'tools/ci/normalize_homebrew.rb'), str(target or self.target)]
+    def run_helper(self, target=None, prefix=(), options=()):
+        args = [self.ruby, *prefix, str(self.root / 'tools/ci/normalize_homebrew.rb'), *options, str(target or self.target)]
         result = subprocess.run(args, capture_output=True, text=True, timeout=30)
         return result, json.loads(result.stdout)
 
@@ -105,6 +105,45 @@ class HomebrewNormalizerTests(unittest.TestCase):
                 self.assertFalse(facts['modified'])
                 self.assertEqual((data, before.st_mtime_ns, before.st_ino), (self.target.read_bytes(), self.target.stat().st_mtime_ns, self.target.stat().st_ino))
                 self.assertEqual(self.target.stat().st_mode & 0o777, 0o755)
+
+    def test_explicit_rpath_id_uses_original_id_basename_signs_and_is_noop_when_equal(self):
+        self.target.write_bytes(fixture(True, '@rpath/liboriginal.1.dylib'))
+        self.assertEqual(0, self.run_helper()[0].returncode)
+        before = list(load_commands(self.target.read_bytes()))
+        identity = '/opt/homebrew/opt/test/lib/liboriginal.1.dylib'
+        result, facts = self.run_helper(options=('--dylib-id', identity))
+        self.assertEqual(0, result.returncode, facts); self.assertEqual(1, facts['replacements'])
+        data = self.target.read_bytes(); commands = list(load_commands(data))
+        id_command = next(raw for kind, raw in commands if kind == 0xd)
+        self.assertEqual(identity.encode(), id_command[struct.unpack_from('<I', id_command, 8)[0]:].split(b'\0')[0])
+        self.assertEqual([(k, v) for k, v in before if k not in (0xd, 0x1d)], [(k, v) for k, v in commands if k not in (0xd, 0x1d)])
+        signature = next(raw for kind, raw in commands if kind == 0x1d)
+        offset, size = struct.unpack_from('<II', signature, 8)
+        magic, length, count = struct.unpack_from('>III', data, offset)
+        self.assertEqual(0xfade0cc0, magic); self.assertLessEqual(length, size)
+        slots = dict(struct.unpack_from('>II', data, offset + 12 + i * 8) for i in range(count))
+        cd = offset + slots[0]; fields = struct.unpack_from('>9I4B', data, cd)
+        self.assertEqual((2, 32, 2, 12), (fields[3], fields[9], fields[10], fields[12]))
+        for index in range(fields[7]):
+            expected = hashlib.sha256(data[index * 4096:min((index + 1) * 4096, fields[8])]).digest()
+            self.assertEqual(expected, data[cd + fields[4] + index * 32:cd + fields[4] + (index + 1) * 32])
+        stat = self.target.stat()
+        result, facts = self.run_helper(options=('--dylib-id', identity))
+        self.assertEqual(0, result.returncode, facts); self.assertFalse(facts['modified'])
+        self.assertEqual((data, stat.st_ino, stat.st_mtime_ns), (self.target.read_bytes(), self.target.stat().st_ino, self.target.stat().st_mtime_ns))
+
+    def test_invalid_explicit_id_and_executable_are_unchanged(self):
+        valid = '/opt/homebrew/opt/test/lib/liboriginal.1.dylib'
+        for identity in ('', '@rpath/liboriginal.1.dylib', '/foreign/liboriginal.1.dylib',
+                         valid.replace('/lib/', '/../lib/'), valid.replace('/lib/', '//lib/'),
+                         valid.replace('liboriginal.1', 'different'), valid + '\n', valid + '/extra'):
+            self.target.write_bytes(fixture(True, '@rpath/liboriginal.1.dylib'))
+            before = self.target.read_bytes()
+            result, facts = self.run_helper(options=('--dylib-id', identity))
+            self.assertNotEqual(0, result.returncode, facts); self.assertEqual(before, self.target.read_bytes())
+        self.target.write_bytes(fixture(False)); before = self.target.read_bytes()
+        result, facts = self.run_helper(options=('--dylib-id', valid))
+        self.assertNotEqual(0, result.returncode, facts); self.assertEqual(before, self.target.read_bytes())
 
     def test_invalid_inputs_preserve_target(self):
         for case in ('bytes', 'type', 'signature_error', 'symlink', 'hardlink', 'outside', 'parent_link', 'extra_argument', 'old_ruby'):

@@ -84,6 +84,47 @@ class HostedToolsTests(unittest.TestCase):
         self.assertEqual(self.network.return_value.open.call_count, 2)
         self.assertEqual(json.loads((output / 'paths.json').read_text())['paths']['make'], '/usr/bin/make')
 
+    def test_explicit_dylib_id_is_propagated_only_for_library_rows(self):
+        row = self.manifest['normalized_macho'][-1]
+        row['path'] = 'tool/1/lib/driver.dylib'
+        row['dylib_id'] = '/opt/homebrew/opt/tool/lib/original.dylib'
+        self.members.append((row['path'], b'data', None))
+        self.blob = self.archive(self.members)
+        archive = self.manifest['archives'][0]
+        archive.update(sha256=sha(self.blob), bytes=len(self.blob))
+        archive['url'] = 'https://ghcr.io/v2/homebrew/core/tool/blobs/sha256:' + archive['sha256']
+        self.write_manifest(); h.prepare(True, 'mock-ruby')
+        calls = self.normalizer.call_args_list
+        self.assertEqual(5, len(calls))
+        for call in calls[:-1]: self.assertEqual(3, len(call.args[0]))
+        self.assertEqual(['--dylib-id', row['dylib_id']], calls[-1].args[0][2:4])
+        self.assertTrue(calls[-1].args[0][-1].endswith(row['path']))
+
+    def test_invalid_explicit_dylib_ids_and_executable_policy_precede_network(self):
+        row = self.manifest['normalized_macho'][-1]
+        row['path'] = 'tool/1/lib/driver.dylib'
+        for identity in (None, 7, '', '/opt/homebrew/opt/other/lib/driver.dylib',
+                         '/opt/homebrew/opt/tool/lib/sub/driver.dylib',
+                         '/opt/homebrew/opt/tool/lib/../driver.dylib',
+                         '/opt/homebrew/opt/tool/lib/driver.dylib\n'):
+            row['dylib_id'] = identity; self.write_manifest()
+            with self.assertRaisesRegex(ValueError, 'invalid explicit dylib ID'): h.prepare(True)
+        row['path'] = 'tool/1/bin/clang'; row['dylib_id'] = '/opt/homebrew/opt/tool/bin/clang.dylib'
+        self.manifest['normalized_macho'].pop(0)  # Avoid duplicate-path failure masking the policy check.
+        self.write_manifest()
+        with self.assertRaisesRegex(ValueError, 'invalid explicit dylib ID'): h.prepare(True)
+        self.network.assert_not_called(); self.normalizer.assert_not_called()
+
+    def test_verify_collects_all_independent_target_mismatches(self):
+        output = h.prepare(True)
+        rows = self.manifest['normalized_macho']
+        for row in rows: (output / row['path']).write_bytes(b'bad')
+        (output / rows[-1]['path']).unlink()
+        with self.assertRaises(ValueError) as error: h.verify(output, self.manifest)
+        message = str(error.exception)
+        self.assertEqual(len(rows), message.count('normalized target mismatch:'))
+        for row in rows: self.assertIn(row['path'], message)
+
     def test_invalid_metadata_precedes_network(self):
         original = copy.deepcopy(self.manifest)
         for case in ('url', 'sha', 'bytes', 'prefix', 'normalizer', 'ruby', 'entrypoint', 'excluded_name', 'excluded_target', 'excluded_type',

@@ -57,10 +57,10 @@ def audit_library
   source
 end
 
-def normalize(target)
+def normalize(target, dylib_id = nil)
   raise "Ruby >= 3.3 required" if (RUBY_VERSION.split('.').map(&:to_i) <=> [3, 3]) == -1
   source = audit_library # Do not load captured code before its complete audit.
-  raise "one explicit target required" unless target && ARGV.size == 1
+  raise "one explicit target required" unless target
   raise "noncanonical target path" if target.split('/').include?('..')
   path = File.expand_path(target)
   raise "target must be under project build/" unless path.start_with?("#{ROOT}/build/")
@@ -75,13 +75,20 @@ def normalize(target)
   raise "thin ARM64 executable/dylib required" unless header[0] == 0xfeedfacf && header[1] == 0x100000c && [2, 6].include?(header[3])
   require "#{ROOT}/references/ruby-macho/lib/macho"
   macho = MachO::MachOFile.new_from_bin(bytes.dup)
+  if dylib_id
+    # Explicit observed policy, not a universal Homebrew/Rust install-name rule.
+    canonical = dylib_id.match?(%r{\A/opt/homebrew/opt/[A-Za-z0-9@+_.-]+(?:/[A-Za-z0-9@+_.-]+)*/[A-Za-z0-9_+.-]+\.dylib\z}) &&
+                dylib_id.split('/').none? { |part| [".", ".."].include?(part) }
+    raise "invalid explicit dylib ID" unless canonical && header[3] == 6 && macho.dylib_id &&
+                                            File.basename(dylib_id) == File.basename(macho.dylib_id)
+  end
   replacements = 0
   relocate = lambda do |name|
     pairs = [["@@HOMEBREW_CELLAR@@", "/opt/homebrew/Cellar"], ["@@HOMEBREW_PREFIX@@", "/opt/homebrew"]]
     pair = pairs.find { |old, _new| name.start_with?(old) }
     pair ? name.sub(*pair) : name
   end
-  if macho.dylib_id && (name = relocate.call(macho.dylib_id)) != macho.dylib_id
+  if macho.dylib_id && (name = dylib_id || relocate.call(macho.dylib_id)) != macho.dylib_id
     macho.change_dylib_id(name)
     replacements += 1
   end
@@ -114,7 +121,10 @@ def normalize(target)
 end
 
 begin
-  puts JSON.generate(normalize(ARGV.first))
+  args = ARGV.dup
+  dylib_id = args.first == "--dylib-id" ? (args.shift; args.shift) : nil
+  raise "one target with optional --dylib-id ID required" unless args.size == 1 && (ARGV.size == 1 || (ARGV.size == 3 && dylib_id))
+  puts JSON.generate(normalize(args.first, dylib_id))
 rescue StandardError => error
   puts JSON.generate(status: "FAIL", scope: "host-tool-data-normalization-only", diagnostic: error.message)
   exit 1
