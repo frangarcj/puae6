@@ -13,8 +13,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 CANDIDATES = {
-    "llvm": ("/opt/homebrew/opt/llvm@22/bin/clang", "/opt/homebrew/opt/llvm@22/bin/clang++"),
-    "gcc": ("/opt/homebrew/opt/gcc@15/bin/gcc-15", "/opt/homebrew/opt/gcc@15/bin/g++-15"),
+    "llvm": ("/opt/homebrew/opt/llvm/bin/clang", "/opt/homebrew/opt/llvm/bin/clang++"),
+    "gcc": ("/opt/homebrew/opt/gcc/bin/gcc-16", "/opt/homebrew/opt/gcc/bin/g++-16"),
 }
 
 
@@ -23,7 +23,7 @@ def build(name, cc, cxx):
     subprocess.run(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja", f"-DCMAKE_C_COMPILER={cc}",
                     f"-DCMAKE_CXX_COMPILER={cxx}", "-DCMAKE_BUILD_TYPE=Release", "-DP6_SANITIZERS=OFF"],
                    check=True, capture_output=True, text=True, timeout=180)
-    subprocess.run(["cmake", "--build", str(directory), "--target", "p6_headless"], check=True,
+    subprocess.run(["cmake", "--build", str(directory), "--parallel", "2", "--target", "p6_headless"], check=True,
                    capture_output=True, text=True, timeout=3600)
     return directory / "p6_headless"
 
@@ -35,7 +35,7 @@ class CompilerMatrixTests(unittest.TestCase):
                                     "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
                                     "-DCMAKE_BUILD_TYPE=Release", "-DP6_SANITIZERS=OFF"],
                                    check=True, capture_output=True, text=True, timeout=180)
-        subprocess.run(["cmake", "--build", str(ROOT / "build/cc-apple"), "--target", "p6_headless"],
+        subprocess.run(["cmake", "--build", str(ROOT / "build/cc-apple"), "--parallel", "2", "--target", "p6_headless"],
                        check=True, capture_output=True, text=True, timeout=3600)
         expected = subprocess.run([str(ROOT / "build/cc-apple/p6_headless")], check=True,
                                   capture_output=True, text=True, timeout=30).stdout

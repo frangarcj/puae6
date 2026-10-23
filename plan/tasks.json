@@ -11638,7 +11638,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T39a",
         "T35",
@@ -11692,7 +11692,12 @@
         "tests/portability/test_portability.py",
         "bridge/state_probe.cpp",
         "tests/portability/corpus.golden.json",
-        "tests/portability/differential.golden.json"
+        "tests/portability/differential.golden.json",
+        "manifests/waterbox-memory.json",
+        "tests/codegen/test_compilers.py",
+        "tests/waterbox-smoke/test_puae6_contract.py",
+        "manifests/release/native-preview.json",
+        "tests/packages/test_preview.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11744,7 +11749,10 @@
         "PreparacionAMD64completa23octtrasliberarespacio: mismaDockerfileSHA25433f2d ybase68ee2200explícita --build-context. NuevoIDsha256:43d2b649d9bd1024a54aea310b143b2851233495bfa0bb62087e009afbfb9410,822461033bytes; runporID--pull=never--network=none confirmaLinuxAMD64/Ubuntu24.04.5,Clang18.1.3/GCC13.3/CMake3.28.3/Ninja1.11.1/Python3.12.3. Rootcongelaenautoridadunicaplan/toolchains.json,coherencia dirigidaPASS; noatestaemuladorconinputnuevo niatribuyeantiguosPASS. Amboscontenedoresdeportabilidadyadisponibles. RetroArchpropioausentesiguepreparacionpendienteparaunionfunctional; ARMhosted15/15noacreditaestaimagenDockerlocal.",
         "Preparar explicitamente el otro input faltante de unionfunctional: imagenpropiapuae6-libretro-test linux/arm64 desde tests/libretro-host/docker/Dockerfile intacto(aptRetroArch+Clang+CMake+Ninja+Python+Make+Git+CA), baseUbuntu24.04digest68ee2200fijada comoportabilidad. ci_close ejecutaDockerdesdecontextoreadonly, guardalibre2304MiB, sinfuentes/ROMs/motorencapa ni instalacionhost; ninguna suite debeautoprovisionarimagenes. VerificarporIDofflinesinred retroarch--version/ISA/toolchainyUDPloopbacklocal, rootcongelanuevoid/procedenciaenimage.json después. No atribuiremulatorPASS niusarIDanterior; recetaoriginalnosedebeeditarparareproducirunIDviejo. Sinpruneglobal/restart/cachesajenas/reportes.",
         "CandidataCDTVpublica revela input incorrecto enunionfunctional: boot_inputs permitefallback deTMdeljuegoCD32Brian,pero puertaCDTVvalidadaC3a2/C3c/C3e usaTMCannon. Exigir P6_CDTV_BOOT_CUE explicitoenASSETS/negativopreflight ydocumentar fuenteCDTVautorizada, sineditarhelper/ROMs/codec ni cambiarchecks. Root3rutasCIexistentes dentro touch; probarsoloausenciatemprana. PreparacionRetroArch realPASS: imagef3f20d9cd27d55d82524115ec602c0fbdd0a529235744bf9c887212418dd0ddf,linuxARM64/1502986371bytes, recetaSHAd236bf92/base68ee2200intactas. OfflineporIDRetroArch1.18.0Gitb2ceb50/Clang18.1.3/CMake3.28.3/Ninja1.11.1/Python3.12.3 yUDP127.0.0.1:55355 byteexactoPASS. Rootcongelaimage.json/precedenciapreflight; noejecutarcoreporprovisionarinput niatribuirPASSantiguos. Resultadointegrado:29testsinfraCI+manifiestoPASS3.306s, preflightrealguest/runtimefuentes/ELF/TLSPASS ylos3IDscongeladosverificadossimultaneamenteporimages(retroarch=True). No seacreditafunctional/optimization/performanceporpreflight; no repetircorpus15/FUZZyaPASS.",
-        "Renovacion rapida de preview tras0414/T55c13: actualizar solo docs/user/native-preview.md para distinguir restauracionFE corregida del casoCU06 pendiente y retirar la afirmacion anticuada de CDTVpublicoWB inexistente. Esta guia corresponde al ZIPnativo; Waterbox se distribuye aparte. Compilar incrementalmente con tools/package.py build sobrecheckoutlimpio y doscompiladores, fuentes/licencias/manifiesto actuales y smokeexistente desdeZIPextraido. Sin nuevasmatrices ni cierreT39b/release; conservan todas sus puertas."
+        "Renovacion rapida de preview tras0414/T55c13: actualizar solo docs/user/native-preview.md para distinguir restauracionFE corregida del casoCU06 pendiente y retirar la afirmacion anticuada de CDTVpublicoWB inexistente. Esta guia corresponde al ZIPnativo; Waterbox se distribuye aparte. Compilar incrementalmente con tools/package.py build sobrecheckoutlimpio y doscompiladores, fuentes/licencias/manifiesto actuales y smokeexistente desdeZIPextraido. Sin nuevasmatrices ni cierreT39b/release; conservan todas sus puertas.",
+        "Tras T09d/T67d3/T67d4, guest a28cb6de y runtime Release9def19fe son inputs nuevos. Ampliacion previa a manifests/waterbox-memory.json: renovar atomicamente las16claves con la receta T48f existente (8maquinas,5memoria/FPU,2HDF y overlaylleno), sin reconstruir guest durante medidas, alterar budgets ni atribuir hashes nuevos a datos viejos. Ejecutar controles de identidad/fixtures/presupuestos ya existentes; temporales bajo build eliminados al terminar. Despues generar preview de revision limpia actual antes de union funcional. Matriz hosted15/FUZZ/clean anteriores conservan su alcance documentado, no se repiten por C#/texto.",
+        "Preflight dirigido detecta tests obsoletos antes de union funcional: test_compilers solo busca LLVM22/GCC15 retirados, y contrato WB aun espera2objetos pese a cd_source.cpp. Ampliar previamente esas2rutas: seleccionar toolpaths instalados LLVM23/GCC16 y mantener tres compiladores con parallel2; comprobar conjunto exacto3 y nm de cada objeto. Capstone ya instalado para Python3.14: usar ese interprete existente en la lane, sin instalar ni omitir prueba. Probar contrato real nm y compiladores alternativos; no cambiar motor o expectativas semanticas.",
+        "Revision del paquete actual detecta que la nueva Directory.Build.targets de T09d no entra en source_paths. Ampliar previamente solo manifests/release/native-preview.json y test de politica existente para incluir la dependencia comun net8 offline. No modificar package.py ni sus gates, incluir el archivo real en source.tar.gz y verificarlo en ZIP extraido; evita entregar fuentes cuyo SDK cambia los targeting packs."
       ],
       "checks": [
         "PLAN01",

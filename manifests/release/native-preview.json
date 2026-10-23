@@ -4,6 +4,7 @@
   "source_paths": [
     "CMakeLists.txt",
     "CMakePresets.json",
+    "Directory.Build.targets",
     "README.md",
     "AGENTS.md",
     "adapters",

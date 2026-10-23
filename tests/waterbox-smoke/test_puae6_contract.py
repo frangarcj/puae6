@@ -33,7 +33,7 @@ class Puae6ContractTests(unittest.TestCase):
         tc = build_waterbox.toolchain()
         nm = tc["paths"]["clang"].parent / "llvm-nm"
         objects = [build_waterbox.BUILD / "puae6/release" / f"{source}.o" for source in build_waterbox.puae6_sources() if source.startswith("adapters/waterbox/")]
-        self.assertEqual(2, len(objects))
+        self.assertEqual({"abi_probe.cpp.o", "puae6_guest.cpp.o", "cd_source.cpp.o"}, {obj.name for obj in objects})
         for obj in objects:
             undefined = {line.split()[-1] for line in subprocess.run([str(nm), "--undefined-only", str(obj)], check=True, capture_output=True, text=True).stdout.splitlines()
                          if len(line.split()) == 2}

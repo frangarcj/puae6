@@ -16,6 +16,7 @@ class PolicyTests(unittest.TestCase):
         paths = package.source_paths()
         self.assertIn('upstream/winuae', paths)
         self.assertIn('third_party', paths)
+        self.assertIn('Directory.Build.targets', paths)
         self.assertIn('references/libretro-api', paths)
         self.assertNotIn('references', paths)
         self.assertNotIn('build', paths)
