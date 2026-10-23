@@ -144,3 +144,10 @@ combinaciones sin ocultar el fallo.
 Esta puerta ejecuta pruebas nativas por combinacion. No acredita Waterbox Darwin,
 la comparacion completa entre ISA del corpus, las lanes acumuladas o la release.
 Windows y macOS Intel aun no tienen un port anunciado en la matriz del proyecto.
+
+La comprobacion SRC01 de avisos incluye dependencias vendorizadas declaradas en
+el lock, ademas de los snapshots: para MAME/IPF valida offline el pin, PROVENANCE,
+todos los archivos derivados/originales, shims y licencia, sin rutas ajenas,
+symlinks ni archivos extra. Una fuente desconocida o un hash distinto falla.
+El productor CDI2Nero es solo un fixture de tests y conserva su verificacion
+independiente; no se enlaza en el producto.

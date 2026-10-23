@@ -77,3 +77,9 @@ sintetico pertenecen a la politica virtual de esta ADR; FullTOC fisico sigue
 sin implementarse. La fixture original, el productor fijado y los tests de
 metadata/propietario hacen reproducible el contrato; esta puerta privada no
 acredita los loaders publicos ni restauracion Waterbox.
+
+T66w3 implementa la normalizacion host DiscSystem con tabla inmutable y proveedor
+disperso. Su marca Canonical150 distingue el origen sintetico; los bytes/Q/SBI
+viajan completos en V3 y conservan precedencia sin resintesis del guest. El
+dominio managed P6ETGM2448 distingue este perfil de DAO, cuyos IDs no cambian.
+Esta puerta del host tampoco sustituye el snapshot publico Waterbox.

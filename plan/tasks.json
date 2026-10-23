@@ -11586,7 +11586,7 @@
       "title": "Integrar recetas acumuladas nightly/release, matriz y workflows",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T39a",
         "T35",
@@ -22603,7 +22603,7 @@
       "title": "Normalizar ETNF global Canonical150 en DiscSystem y descriptor Waterbox V3",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66w1",
         "T66v11"

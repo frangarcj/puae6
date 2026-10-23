@@ -276,6 +276,19 @@
       "verified": "Original eight source files and GPL-2.0 LICENSE retained byte exact with per-file hashes; own CDI fixture converted offline, ETNF payload and global coordinates checked by T66w1. Host adaptations apply only to temporary test copies.",
       "fixture_directory": "tests/fixtures/cdi2nero",
       "fixture_manifest": "tests/fixtures/cdi2nero/source.json"
+    },
+    {
+      "id": "mame_ipf",
+      "role": "vendored_free_ipf_decoder",
+      "repository": "https://github.com/mamedev/mame",
+      "commit": "7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8",
+      "required": true,
+      "verified": "T58a retained original decoder and BSD-3-Clause notice; SRC01 verifies pinned PROVENANCE, originals, compiled derivation, local changes, host shims and notice hashes offline.",
+      "vendored": {
+        "destination": "third_party/mame-ipf",
+        "provenance": "PROVENANCE.json",
+        "sha256": "e2599c8149fe6cd5dec89fe0148520f713dbb9d9e94c38a2dd2a79de36a6ff50"
+      }
     }
   ],
   "unresolved": [

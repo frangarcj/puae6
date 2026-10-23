@@ -2111,6 +2111,18 @@ libretro usa el mismo TOC virtual y P6ETGM, con restauracion local y en proceso
 nuevo antes del primer frame, futuro completo y negativos transaccionales.
 La carga publica Waterbox de este perfil conserva su puerta posterior.
 
+T66w3 extiende el opt-in DiscSystem con el mismo perfil global: reutiliza el
+parser ETNF y el proveedor disperso, congela la tabla y marca Canonical150 en
+metadata. Los pregaps se sintetizan en el host; el wire2448 transporta sus bytes
+y Q/SBI ya materializados como presentes, sin pedir resintesis al guest.
+El descriptor V3 conserva ABI, recorte inicial, regiones y sesiones. La identidad
+managed usa P6ETGM2448 seguido de NUL y version3, con los mismos campos de la
+identidad DAO y todos los intervalos respaldados, incluido el prefijo negativo
+canonico; no lee ni rellena huecos. P6CD2448 de DAO queda byte exacto.
+Rebind valida el perfil y el futuro lector antes de sustituirlo. MED01 comprueba
+wire, TOC, descriptor, identidad, SBI y errores/cierre; BUILD01 compila DiscSystem
+real con sus analyzers. La restauracion publica Waterbox sigue pendiente.
+
 ## Metadata DAO multisesion de NRG (T66v2)
 
 El parser conserva hasta 99 grupos y 99 pistas globales. Empareja el CUE, DAO y
