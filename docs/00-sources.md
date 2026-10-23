@@ -151,6 +151,17 @@ originales antes de copiarlos y elimina sus salidas. No se importa una imagen de
 terceros ni se atribuye este contrato a TINF, ETN2 multisesion o pregaps fisicos
 que ETNF no conserva. La politica Canonical150 explicita esta limitacion.
 
+### S11. Normalizacion de herramientas Homebrew
+
+[ruby-macho 7.0.0](https://github.com/Homebrew/ruby-macho/tree/2c3fdf705e0a77cd83a68363a83ec3d855e2a0d1)
+se captura sin cambios en `references/ruby-macho` (solo `lib/` y `LICENSE`, MIT).
+El tag ligero `v7.0.0` apunta directamente al commit fijado; el importer verifica
+los blobs y modos por commit, sin tratarlo como un tag anotado. Es una dependencia
+fuente de la herramienta host que reproduce relocaciones y firmas adhoc de los
+bottles; no entra en el motor ni el guest. No requiere instalar una gema global.
+Conservar su aviso MIT con cualquier copia. Los pins y el manifiesto identifican
+la captura; la normalizacion no acredita por si sola la ejecucion de Waterbox.
+
 ## Que falta comprobar (tareas, no conclusiones)
 
 No se ha clonado/compilado el commit WinUAE fijado, auditado todos sus globales,

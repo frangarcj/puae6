@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "source": {
+    "id": "ruby_macho",
+    "repository": "https://github.com/Homebrew/ruby-macho.git",
+    "commit": "2c3fdf705e0a77cd83a68363a83ec3d855e2a0d1",
+    "snapshot": {
+      "destination": "references/ruby-macho",
+      "manifest": "references/ruby-macho.manifest.json",
+      "include": [
+        "lib",
+        "LICENSE"
+      ]
+    }
+  },
+  "destination": "references/ruby-macho",
+  "files": [
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "sha256": "20059afd55157d55f148b9af4198d25bd45a017cad783ffdcc309233187b07be"
+    },
+    {
+      "path": "lib/macho.rb",
+      "mode": "100644",
+      "sha256": "12897f56a17a9574c2f3144b355411096b1d4c6fb152f1a4b2562945d5f145ae"
+    },
+    {
+      "path": "lib/macho/code_signing.rb",
+      "mode": "100644",
+      "sha256": "8f88cde2ae408a87b4c8f410b4a98f0a7af2ee371c870cda87e2bf6c59c00346"
+    },
+    {
+      "path": "lib/macho/exceptions.rb",
+      "mode": "100644",
+      "sha256": "fc1dd7ae79ba30d8f79ff7775e2eab8f3911be594b2721eb2ecf449944f8c685"
+    },
+    {
+      "path": "lib/macho/fat_file.rb",
+      "mode": "100644",
+      "sha256": "631c279c4aa764137b408ae1ec1f967cd3d51d15d98ac28d3e178d7216197149"
+    },
+    {
+      "path": "lib/macho/headers.rb",
+      "mode": "100644",
+      "sha256": "380480d24240af77cde0e6b7d850e5eda92b8d302cea0861f4b72f7879c253e7"
+    },
+    {
+      "path": "lib/macho/load_commands.rb",
+      "mode": "100644",
+      "sha256": "031d0961c0ee0835b7f59186253668fb839f2df8fee33b8bea6eaabef45c7df4"
+    },
+    {
+      "path": "lib/macho/macho_file.rb",
+      "mode": "100644",
+      "sha256": "fb24275c99cf51c64f4def0113ec1d60dee63a340cd78dd111e51940c99d64d1"
+    },
+    {
+      "path": "lib/macho/sections.rb",
+      "mode": "100644",
+      "sha256": "85b3838f2a3b9d08bad6fa08bc5a56596801bdb07efc66b322ff02c8dbc24e89"
+    },
+    {
+      "path": "lib/macho/structure.rb",
+      "mode": "100644",
+      "sha256": "79e6c0854f034078255fb91a4d8cd4b29f60d9b2fb67ab9f5ff4f2183090cf15"
+    },
+    {
+      "path": "lib/macho/tools.rb",
+      "mode": "100644",
+      "sha256": "289de54a12d3faca84e3e37a9c9422cf75f7fd1f0253c42ebdc488303fc2a29c"
+    },
+    {
+      "path": "lib/macho/utils.rb",
+      "mode": "100644",
+      "sha256": "e33c6c348be1ac4873d2c894053f70dff0ed0b6152c5f310ab58f741b3a5b682"
+    },
+    {
+      "path": "lib/macho/view.rb",
+      "mode": "100644",
+      "sha256": "990f5644b34c4ca896e59bf4ad805926b493645eba038cae4db02bd41980db32"
+    }
+  ]
+}
