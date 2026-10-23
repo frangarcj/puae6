@@ -1,5 +1,6 @@
 """T70c: absolute optical input, beam latch/event and transactional native states."""
 from pathlib import Path
+import re
 import struct
 import subprocess
 import tempfile
@@ -125,7 +126,10 @@ class PointerTests(Det02Case):
         self.assertEqual([(0, 0, "")], restored.loads[:1])
         for j in range(1, 4): self.assertEqual([], self.differing(run, restored, 5, 0, j))
         table_out = subprocess.run([str(self.exe), str(self.roms["pointer"]), "--units", "0", "--handler-table"], capture_output=True, text=True, check=True).stdout
-        self.assertIn("handler 13 OK", table_out); self.assertIn("handler 14 OK", table_out)
+        handlers = re.findall(r"^handler (\d+) (OK|BAD)$", table_out, re.M)
+        self.assertEqual(17, len(handlers))
+        self.assertEqual({i: "OK" for i in range(17)}, {int(i): status for i, status in handlers})
+        self.assertIn("handler foreign OK", table_out)
 
 
 if __name__ == "__main__":

@@ -60,6 +60,7 @@
 #include "drive_sound.h"
 #include "config.h"
 #include "p6_state_access.h"
+#include "cdtv_state.h"
 #include "sha256.h"
 #include "media.h"
 #include "blob_io.h"
@@ -575,13 +576,17 @@ void print_handler_table()
     struct Expected { uint8_t id; evfunc2 handler; };
     const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
                               {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
-                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)}, {13, p6_custom_event2_handler(4)}};
+                              {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)},
+                              {13, p6_custom_event2_handler(4)}, {14, p6_cdtv_subcode_handler()}};
     for (const Expected &e : table) {
         const bool ok = e.handler && p6_state::scheduler_handler(e.id) == e.handler && p6_state::scheduler_handler_id(e.handler) == e.id;
         printf("handler %u %s\n", unsigned(e.id), ok ? "OK" : "BAD");
     }
     printf("handler 0 %s\n", !p6_state::scheduler_handler(0) && p6_state::scheduler_handler_id(nullptr) == 0 ? "OK" : "BAD");
-    printf("handler 14 %s\n", !p6_state::scheduler_handler(14) ? "OK" : "BAD");
+    const evfunc2 ar_cia = p6_ar_cia_handler();
+    const bool ar_ok = p6_state::scheduler_handler(15) == ar_cia && (!ar_cia || p6_state::scheduler_handler_id(ar_cia) == 15);
+    printf("handler 15 %s\n", ar_ok ? "OK" : "BAD");
+    printf("handler 16 %s\n", !p6_state::scheduler_handler(16) ? "OK" : "BAD");
     printf("handler foreign %s\n", p6_state::scheduler_handler_id(foreign_handler) == 0 ? "OK" : "BAD");
 }
 

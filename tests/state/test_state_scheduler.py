@@ -62,7 +62,7 @@ class SchedulerChunkTests(ProbeCase):
             if line.startswith("handler "):
                 _, ident, verdict = line.split()
                 lines[ident] = verdict
-        self.assertEqual({str(i) for i in IDS} | {"0", "13", "14", "foreign"}, set(lines))
+        self.assertEqual({str(i) for i in IDS} | {"0", "13", "14", "15", "16", "foreign"}, set(lines))
         self.assertEqual({"OK"}, set(lines.values()), lines)
 
     # -- the chunk puts the scheduler back ---------------------------------------------------------------------------------------------------
@@ -292,7 +292,9 @@ class SchedulerChunkTests(ProbeCase):
             ("a secondary round of 17", forge({"ev2.idx": 17}), 9, rng_range),
             ("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
             ("a next slot of 16", forge({"ev2.next": 16}), 9, rng_range),
-            ("a handler id of 14", forge({"ev2.handler[1]": 14}), 9, rng_range),
+            ("a handler id of 16", forge({"ev2.handler[1]": 16}), 9, rng_range),
+            ("CDTV event without a device", forge({"ev2.handler[1]": 14, "ev2.data[1]": 0}), 9, "CDTV subcode event has no owner or invalid data"),
+            ("AR CIA event without a cartridge", forge({"ev2.handler[1]": 15, "ev2.data[1]": 0}), 9, "AR CIA event has no owner or invalid data"),
             ("an active slot with no handler", forge({"ev2.handler[1]": 0}), 9, "has no handler or is in the past"),
             ("an active slot in the past", forge({"ev2.evtime[1]": now - 1}), 9, "has no handler or is in the past"),
             ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
