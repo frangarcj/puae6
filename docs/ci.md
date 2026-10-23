@@ -100,6 +100,8 @@ conservan pendientes sus puertas no ejecutadas en los runners declarados.
 El workflow manual `native-linux.yml` ejecuta las cinco filas declaradas del
 proyecto, cada una en O0, O2 con assertions y ASan/UBSan: 15 jobs, con cuatro
 simultaneos, dos compiladores por job y un limite de 45 minutos por job.
+El selector manual `variants` usa `all` por defecto; `san` ejecuta solo las cinco
+filas con sanitizers para comprobar una correccion sin repetir O0/O2.
 
 | Fila | Runner estandar | Compilador |
 |---|---|---|
@@ -121,7 +123,9 @@ por defecto de cada frontend. Guardan/restauran en procesos nuevos y comparan
 futuro hardware/AV/PCM y fullstate exactos. Los estados temporales se eliminan al
 cerrar; revision, fila, flags, fuentes, patchset, codegen, compiladores y binarios
 salen por stdout. ASan/UBSan detienen el job ante hallazgos; LSan esta activo en
-Linux y no esta disponible en Darwin ARM64. La falta de herramientas, salida
+Linux y no esta disponible en Darwin ARM64. Ademas, dos ciclos de carga/avance/
+descarga en la misma biblioteca comparan el futuro y detectan caches no liberadas
+o no reconstruidas. La falta de herramientas, salida
 incompleta o un fallo termina el job. `fail-fast: false` permite ver las demas
 combinaciones sin ocultar el fallo.
 

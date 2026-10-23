@@ -1,6 +1,12 @@
 name: Native matrix
 on:
   workflow_dispatch:
+    inputs:
+      variants:
+        description: All combinations or sanitizer follow-up
+        type: choice
+        options: [all, san]
+        default: all
 permissions:
   contents: read
 concurrency:
@@ -16,6 +22,7 @@ jobs:
       max-parallel: 4
       matrix:
         optimization: [O0, O2, san]
+        exclude: ${{ fromJSON(inputs.variants == 'san' && '[{"optimization":"O0"},{"optimization":"O2"}]' || '[]') }}
         platform:
           - row: macos-arm64-appleclang
             runner: macos-15

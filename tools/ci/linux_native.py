@@ -139,6 +139,14 @@ def check_frontends(work, rom, tree=TREE, row=DEFAULT_ROW):
     require([[r[k] for k in keys] for r in observed[6:]] == [[r[k] for k in keys] for r in rows(cold, "run", 8)], "libretro cold AV/PCM future differs")
     finals = [re.search(r"^state final ok=1 size=(\d+) hash=([0-9a-f]+)$", t, re.M) for t in (original, cold)]
     require(all(finals) and finals[0][1] == size[1] and finals[0].groups() == finals[1].groups(), "libretro cold fullstate mismatch")
+    # A second load in the same image must rebuild freed host caches. Linux LSan
+    # also checks that all allocations are gone after the final dlclose.
+    cycled = execute([*host, "--runs", "2", "--cycles", "2"])
+    ends = re.findall(r"^cycle (\d+) end runs=(\d+) .*", cycled, re.M)
+    require(ends == [("1", "2"), ("2", "2")], "incomplete libretro reload cycles")
+    parts = re.split(r"^cycle \d+ end.*$", cycled, flags=re.M)
+    warm = [rows(part, "run", 2) for part in parts[:2]]
+    require([[r[k] for k in keys] for r in warm[0]] == [[r[k] for k in keys] for r in warm[1]], "libretro reload changed hardware/AV/PCM")
 
 
 def run(row=DEFAULT_ROW, opt="O2"):

@@ -6053,6 +6053,29 @@
           "after_sha256": "337a1bb6c9f1fa0dcae4e4bac0b512007e3269a996e61bd0d85e6e2b3959000e"
         }
       ]
+    },
+    {
+      "id": "0412-native-drawing-cache-cleanup",
+      "file": "patches/winuae/0412-native-drawing-cache-cleanup.patch",
+      "sha256": "64ec9d8f142ce1efc676fa8ecdfd630e122cda44934a7da191ba8ff4f6bf6075",
+      "title": "Release native drawing geometry caches and rebuild them after reload",
+      "reason": "T39b: hosted Linux LSan reports leaked aspect-map allocations at libretro dlclose. Free the drawing-owned maps on teardown and do not let unchanged cached dimensions bypass their reconstruction on a new load. Live frame and snapshot behavior is unchanged.",
+      "category": "host lifecycle",
+      "order": 227,
+      "symbols": [
+        "drawing_free",
+        "init_row_map"
+      ],
+      "test": "tests/ci/test_linux_native.py; tools/ci/linux_native.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "6af1f03f335196827febb68bfb02e13cd64c51fcf677583898758d666cdbd4ef",
+          "after_sha256": "8f7bce0856be8b456624a274f1e150c471f8df304330314b403681af2685abdf"
+        }
+      ]
     }
   ]
 }

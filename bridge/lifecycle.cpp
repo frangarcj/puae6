@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "custom.h"
 #include "newcpu.h"
+#include "readcpu.h"
 #include "inputdevice.h"
 #include "savestate.h"
 #include "keybuf.h"
@@ -284,6 +285,7 @@ extern "C" p6_result p6_shutdown(p6_error *error)
         return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
     // Preload owners exist even before start_engine; its Stage guards protect the engine.
     release_engine();
+    exit_table68k(); // init_m68k rebuilds this table on the next load; no image cache survives shutdown.
     p6_bridge::profile_state_supported = true;
     session.state = State::Uninitialized;
     return P6_OK;
