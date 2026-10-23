@@ -17,7 +17,7 @@ class CiaOverlayStateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='cia-overlay-', dir=ROOT / 'build') as tmp:
             tree = Path(tmp)
             series = json.loads((ROOT / 'patches/winuae/series.json').read_text())['patches']
-            names = {'cia.cpp', 'events.cpp'} | {f['path'] for e in series for f in e['files'] if f['path'].endswith('.h')}
+            names = {'cia.cpp', 'events.cpp', 'keybuf.cpp'} | {f['path'] for e in series for f in e['files'] if f['path'].endswith('.h')}
             for name in names:
                 dest = tree / name; dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes((ROOT / 'upstream/winuae' / name).read_bytes())
@@ -43,6 +43,6 @@ class CiaOverlayStateTests(unittest.TestCase):
             sources = ['tests/host/cia_overlay_state_probe.cpp', 'bridge/state_devices.cpp',
                        'ports/portable/gui.cpp', 'ports/portable/diagnostics.cpp']
             exe = tree / 'probe'
-            subprocess.run([*command, *(str(ROOT / p) for p in sources), str(tree / 'events.cpp'), '-o', str(exe)],
+            subprocess.run([*command, *(str(ROOT / p) for p in sources), str(tree / 'events.cpp'), str(tree / 'keybuf.cpp'), '-o', str(exe)],
                            check=True, timeout=60)
             subprocess.run([str(exe)], check=True, timeout=30)

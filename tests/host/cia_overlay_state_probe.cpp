@@ -13,6 +13,8 @@ uae_u32 hsync_counter, vsync_counter;
 int maxvpos = 312, maxvpos_nom = 312, maxhpos = 227;
 float vblank_hz = 50;
 uae_u8 agnus_hpos;
+// Test-owned cartridge shadow; the CIA visitor owns neither it nor a cartridge.
+uae_u8 ar_ciaa[16]{};
 static std::vector<int> maps;
 void map_overlay(int bank) { assert(bank == 0 || bank == 1); maps.push_back(bank); }
 // These boundaries are outside the probe; none acknowledges a device operation.
@@ -30,6 +32,7 @@ static void setup(bool cd32)
     currprefs.cs_cd32cd = currprefs.cs_cd32c2p = currprefs.cs_cd32nvram = cd32;
     currprefs.cs_cd32nvram_size = cd32 ? 1024 : 0;
     memset(cia, 0, sizeof cia); memset(eventtab, 0, sizeof eventtab); memset(eventtab2, 0, sizeof eventtab2);
+    memset(ar_ciaa, 0xa5, sizeof ar_ciaa);
     clear_events(); set_cycles(0); internaleclockphase = 0; cia_cycle_accurate = false;
     kbstate = kblostsynccnt = resetwarning_phase = resetwarning_timer = 0;
     led = 0; led_cycle = 0; led_cycles_on = led_cycles_off = 0; led_old_brightness = -1;
@@ -57,8 +60,12 @@ int main()
     setup(true); const auto on = save(); assert(on.size() == 144 && on.back() == 1);
     auto measure = p6_state::Archive::measurer(); p6_state::visit_cia(measure); assert(measure.position() == 144);
     uae_u32 flags = 0; WriteCIAA(4, 0x2a, &flags); // Timer latch, not PRA/DDRA.
+    assert(ar_ciaa[4] == 0x2a);
     assert(!oldovl && cia[0].pra == 1 && cia[0].dra == 1 && maps == std::vector<int>{1});
     WriteCIAA(4, 0x2b, &flags); assert(maps.size() == 1); // One-shot until reset/restore.
+    assert(ar_ciaa[4] == 0x2b);
+    for (unsigned i = 0; i < sizeof ar_ciaa; ++i)
+        if (i != 4) assert(ar_ciaa[i] == 0xa5);
     const auto off = save(); assert(off.size() == 144 && off.back() == 0);
     assert(load(on, false) && save() == off && maps.size() == 1); // Validate is pure.
     auto bad = on; bad.back() = 2;
@@ -66,6 +73,7 @@ int main()
     bad = on; bad.pop_back(); assert(!load(bad, false) && save() == off);
     assert(load(on, true) && oldovl && maps.back() == 0 && save() == on);
     assert(load(off, true) && !oldovl && maps.back() == 1 && save() == off);
+    assert(ar_ciaa[4] == 0x2b); // Restoring CIA leaves other owners' data alone.
     assert(cia[0].pra == 1 && cia[0].dra == 1); // Same pins, both latch values.
     const char *why = nullptr;
     currprefs.cs_compatible = CP_GENERIC; assert(!p6_cia_boundary(&why));
