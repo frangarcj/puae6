@@ -1,0 +1,68 @@
+name: Waterbox pinned hosted inputs
+on:
+  push:
+    branches: [codex/waterbox-hosted-inputs]
+    paths: [.github/workflows/waterbox-hosted-inputs.yml, tools/ci/prepare_hosted_tools.py, tools/ci/hosted-tools.json]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-inputs:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify host and select an existing Ruby
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, platform, shutil, subprocess, sys
+          assert sys.version_info >= (3, 12), 'Python >=3.12 required; no implicit install'
+          assert (platform.system(), platform.machine(), os.sysconf('SC_PAGE_SIZE')) == ('Darwin', 'arm64', 16384)
+          assert int(platform.mac_ver()[0].split('.')[0]) >= 26
+          lock = json.loads(pathlib.Path('plan/toolchains.json').read_text())
+          make = lock['toolchain_profiles']['hosted-macos26']['tools']['make']
+          assert hashlib.sha256(pathlib.Path(make['path']).read_bytes()).hexdigest() == make['sha256']
+          assert subprocess.check_output([make['path'], '--version'], text=True).splitlines()[0] == make['version']
+          for candidate in ['/opt/homebrew/opt/ruby/bin/ruby', '/opt/homebrew/opt/ruby@3.4/bin/ruby', '/opt/homebrew/opt/ruby@3.3/bin/ruby', 'ruby']:
+              ruby = shutil.which(candidate)
+              if ruby and subprocess.run([ruby, '-e', 'exit((RUBY_VERSION.split(".").map(&:to_i) <=> [3,3]) == -1 ? 2 : 0)']).returncode == 0:
+                  with open(os.environ['GITHUB_ENV'], 'a') as output:
+                      output.write('P6_HOSTED_RUBY=' + ruby + '\n')
+                  print(json.dumps(dict(status='PASS', scope='host preflight only', ruby=ruby, macos=platform.mac_ver()[0])))
+                  break
+          else:
+              raise SystemExit('BLOCKED: existing Ruby >=3.3 required; no implicit install')
+          PY
+      - name: Prepare authenticated compiler bottles as data
+        shell: bash
+        run: python3 -B tools/ci/prepare_hosted_tools.py --fetch --ruby "$P6_HOSTED_RUBY"
+      - name: Prepare the fixed offline managed feed
+        shell: bash
+        run: python3 -B tools/ci/prepare_managed_inputs.py --fetch
+      - name: Execute the pinned host tools with their verified libraries
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json, os, pathlib, subprocess
+          root = pathlib.Path.cwd()
+          spec = importlib.util.spec_from_file_location('hosted', root / 'tools/ci/prepare_hosted_tools.py')
+          helper = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(helper)
+          output = helper.prepare()
+          manifest, _ = helper.inputs()
+          lock = json.loads((root / 'plan/toolchains.json').read_text())
+          paths = json.loads((output / 'paths.json').read_text())['paths']
+          env = {**os.environ, 'DYLD_LIBRARY_PATH': ':'.join(str(output / p) for p in manifest['library_directories'])}
+          versions = {}
+          for name in ('clang', 'lld', 'cargo', 'rustc'):
+              result = subprocess.run([paths[name], '--version'], env=env, text=True, capture_output=True, check=True, timeout=60)
+              versions[name] = result.stdout.splitlines()[0].strip()
+              assert versions[name] == lock['tools'][name]['version'], (name, versions[name])
+          for name, argument, relative in [('clang', '-print-resource-dir', 'llvm/23.1.4/lib/clang/23'), ('rustc', '--print=sysroot', 'rust/1.99.1')]:
+              observed = subprocess.check_output([paths[name], argument], env=env, text=True, timeout=60).strip()
+              assert pathlib.Path(observed).resolve(strict=True) == (output / relative).resolve(strict=True), (name, observed)
+          print(json.dumps(dict(status='PASS', scope='pinned host-tool loading and resource discovery only; no Waterbox build or execution', versions=versions), sort_keys=True))
+          PY
