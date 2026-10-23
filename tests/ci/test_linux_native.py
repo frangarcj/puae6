@@ -1,5 +1,6 @@
 """Infrastructure only; no compiler, emulator, network or commercial ROM runs."""
 from pathlib import Path
+import ast
 import re
 import subprocess
 import tempfile
@@ -63,11 +64,28 @@ class LinuxNativeTests(unittest.TestCase):
     def test_native_future_requires_complete_hardware_video_and_pcm(self):
         def text(unit):
             return "\n".join([f"digest {unit} {name} {'a'*64} 4" for name in (*ci.HARDWARE, "video")]
-                             + [f"chip {unit} beam {'b'*64}", f"pcm {unit} {'c'*64} 882", f"picture {unit} none"])
+                             + [f"chip {unit} {name} {'b'*64}" for name in (*ci.CHIP_GROUPS,"registers")]
+                             + [f"pcm {unit} {'c'*64} 882", f"picture {unit} none"])
         self.assertEqual(ci.native_future(text(5), 5, 1), ci.native_future(text(1), 1, 1))
         for bad in ("", text(1).replace("digest 1 cpu", "ignored 1 cpu"), text(1).replace("pcm 1", "ignored 1")):
             with self.assertRaisesRegex(RuntimeError, "incomplete"):
                 ci.native_future(bad, 1, 1)
+
+    def test_restore_excludes_only_the_existing_noncausal_debug_shadow(self):
+        source=ast.parse((ci.ROOT/'tests/state/test_det02.py').read_text())
+        groups=next(node.value for node in source.body if isinstance(node,ast.Assign)
+                    and any(isinstance(target,ast.Name) and target.id=='CHIP_GROUPS' for target in node.targets))
+        self.assertEqual(ci.CHIP_GROUPS,ast.literal_eval(groups))
+        original='\n'.join([f'digest 1 {name} {"a"*64} 4' for name in (*ci.HARDWARE,'video')]
+                           + [f'chip 1 {name} {"b"*64}' for name in (*ci.CHIP_GROUPS,'registers')]
+                           + [f'pcm 1 {"c"*64} 882','picture 1 none'])
+        changed=original.replace(f'digest 1 chipset {"a"*64}',f'digest 1 chipset {"f"*64}').replace(f'chip 1 registers {"b"*64}',f'chip 1 registers {"f"*64}')
+        self.assertEqual(ci.native_future(original,1,1),ci.native_future(changed,1,1))
+        changed=original.replace(f'chip 1 irq_dma {"b"*64}',f'chip 1 irq_dma {"f"*64}')
+        self.assertNotEqual(ci.native_future(original,1,1),ci.native_future(changed,1,1))
+        for bad in (original.replace('chip 1 irq_dma','unknown 1 irq_dma'),original+f'\nchip 1 beam {"b"*64}'):
+            with self.assertRaisesRegex(RuntimeError,'incomplete'):
+                ci.native_future(bad,1,1)
 
     def test_cold_native_must_load_at_zero_and_reemit_fullstates(self):
         with tempfile.TemporaryDirectory() as directory:

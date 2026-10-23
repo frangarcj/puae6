@@ -13,7 +13,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tests.build_support import source_identity, digest  # noqa: E402
-from tests.portability.row_driver import classify, HARDWARE, DIGEST  # noqa: E402
+from tests.portability.row_driver import classify, HARDWARE, DIGEST, CHIP  # noqa: E402
 from tools.ci.run import command, redact  # noqa: E402
 from tests.portability.rows import ROWS, OPTS  # noqa: E402
 
@@ -24,6 +24,9 @@ HOSTED_RUNNERS = {"macos-arm64-appleclang": "macos-15", "linux-arm64-clang": "ub
                   "linux-x86_64-gcc": "ubuntu-24.04"}
 VARIANTS = ("O0", "O2", "san")
 DEFAULT_ROW = "linux-x86_64-clang"
+# Same causal groups as the existing DET02 oracle. custom_storage (registers)
+# records debugger write history, never read by emulation and never serialized.
+CHIP_GROUPS = ("beam", "counters", "irq_dma", "clxdat", "lof", "timing", "aga")
 
 
 def selection(row, opt):
@@ -92,8 +95,13 @@ def native_future(text, first, count):
         lines = units.get(n, {})
         hardware, av = lines.get("hardware", []), lines.get("av", [])
         names = [m[2] for line in hardware + av if (m := DIGEST.match(line))]
-        require(sorted(names) == sorted((*HARDWARE, "video")) and any(s.startswith("chip ") for s in hardware)
+        groups = [m[2] for line in hardware if (m := CHIP.match(line))]
+        require(sorted(names) == sorted((*HARDWARE, "video")) and sorted(groups) == sorted((*CHIP_GROUPS, "registers"))
                 and any(s.startswith("pcm ") for s in av) and any(s.startswith("picture ") for s in av), "incomplete native future")
+        # The aggregate chipset digest also includes that noncausal shadow.
+        # Keep every causal group exact rather than masking the aggregate hash.
+        hardware = [line for line in hardware if not ((m := DIGEST.match(line)) and m[2] == "chipset")
+                    and not ((m := CHIP.match(line)) and m[2] == "registers")]
         result.append([re.sub(r"^(\w+) \d+ ", r"\1 UNIT ", line) for line in hardware + av])
     return result
 
@@ -107,7 +115,9 @@ def check_native(work, rom, tree=TREE):
     require(re.search(r"^load 0 0 *$", cold, re.M), "native cold load was refused")
     require(again.is_file() and restored.is_file() and state.read_bytes() == again.read_bytes()
             and final.read_bytes() == restored.read_bytes(), "native cold fullstate mismatch")
-    require(native_future(original, 5, 4) == native_future(cold, 1, 4), "native cold hardware/AV/PCM future differs")
+    for unit, (expected, actual) in enumerate(zip(native_future(original, 5, 4), native_future(cold, 1, 4)), 1):
+        require(expected == actual, f"native cold future differs at unit {unit}: "
+                f"expected {[line for line in expected if line not in actual][:2]}, actual {[line for line in actual if line not in expected][:2]}")
 
 
 def check_frontends(work, rom, tree=TREE, row=DEFAULT_ROW):
