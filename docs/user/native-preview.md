@@ -67,10 +67,13 @@ memoria stock. El guardado comprueba la identidad de la ROM y conserva el estado
 del monitor; las ROMs
 comerciales se aportan por separado.
 
-CDTV esta disponible en libretro con un CD fijo: elige CDTV o usa esa etiqueta
+CDTV esta disponible en libretro con un catalogo fijo: elige CDTV o usa esa etiqueta
 en el nombre del CD en Automatic. Requiere `kick34005.A500` y la EXT2.7
 `kick34005.CDTV` (tambien admite `CDTV-Extended-ROMv2.7.rom`) en el directorio
-de sistema. No ofrece intercambio de CD ni carga ADF/HDF en este perfil.
+de sistema. Una M3U admite hasta16 CD; usa Disk Control para abrir la bandeja,
+elegir y cerrar. La insercion espera a que el controlador observe la ausencia
+del CD anterior. No permite añadir/quitar/reemplazar entradas ni carga ADF/HDF
+en este perfil.
 
 ## Controles y guardado
 

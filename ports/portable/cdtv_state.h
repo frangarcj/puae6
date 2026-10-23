@@ -92,3 +92,5 @@ bool p6_cdtv_state_preflight(const p6_cdtv_state *); // Runtime destination only
 bool p6_cdtv_state_apply(const p6_cdtv_state *, const p6_cdtv_context &);
 uint64_t p6_cdtv_callback_observations(); // Diagnostic only, never state.
 void (*p6_cdtv_subcode_handler())(uint32_t); // Stable callback binding, never serialized.
+
+bool p6_cdtv_media_absent(); // Pure quiescent query: the controller has observed removal.

@@ -235,7 +235,8 @@
     "0411-action-replay1200-native-state": "required",
     "0412-native-drawing-cache-cleanup": "required",
     "0413-nrg-etnf-global-sessions": "required",
-    "0414-frestore040-fe-normalized-exponent": "behavior"
+    "0414-frestore040-fe-normalized-exponent": "behavior",
+    "0415-cdtv-media-presence-query": "required"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {

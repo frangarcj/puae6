@@ -19623,6 +19623,64 @@
       "stop": "No levantar guards, resetear controlador ni inventar notificacion. Un desfase causal conserva reproducer y bloquea con hipotesis verificables; no aprobar por timeout, pantalla o compilacion."
     },
     {
+      "id": "T67d2",
+      "title": "Cambiar CDTV por Disk Control libretro con ausencia observada",
+      "milestone": "M3",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T67d1",
+        "T67c3a"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/00-sources.md",
+        "docs/adr/0009-state-format.md",
+        "docs/options.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "ports/portable/cdtv_state.h",
+        "patches/winuae/0415-cdtv-media-presence-query.patch",
+        "patches/winuae/series.json",
+        "tests/reference/patch-classes.json",
+        "adapters/libretro/cd_session.h",
+        "adapters/libretro/cd_session.cpp",
+        "adapters/libretro/libretro_core.cpp",
+        "tests/libretro-host/test_cdtv_load.py",
+        "config/schema/options.json",
+        "adapters/libretro/options_generated.h",
+        "config/schema/options_table.generated.json",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/user/native-preview.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical atomica host/controlador/schema y prueba publica sobreT67d1 y cargaCDTVexistente. Root implementa enmain, hasta400lineasmanuales salvometadata/generados; se enumeran rutas adicionales porque un callback aislado no habilita correctamente el catalogo ni su ausencia. No modificar runtime/BizHawk, modeloCDTV, ABI ni codecs; puente nativo existente ya identifica catalogoP6CT.",
+        "Query puro del controlador enpatch0415/header privado informa ausencia observada sin copias deNVRAM, MMIO, callbacks, relojhost ni avanzarhardware. CdSession triestado Applied/Deferred/Failed mantiene backend ausente hasta cd_media0, luego selecciona/inserta. apply_disk_requests conserva DiskTray dirty/in_drive y retorna para avanzar p6_run_frame duranteDeferred; el snapshot existente conserva la espera sin nuevos campos. CD32 usaAkiko comoantes. No coalescer eject+insert ni reiniciarcontrolador/opens.",
+        "Abrir catalogo fijo1..16 yseleccioninicial/aliases paraCDTV enlibretro, callbacks eject/indexpermitidos solo conownerCD. Mantenerrechazos paraadd/remove/replace, mezclarCDconfloppy/HDF/SAVEDISK ysincontenido. Actualizartextodeschema yregenerarsalidas conherramienta, guiasaclaranWBfijoindependiente.",
+        "LR01/MED01/STATE01/DET02 usan el mismo testpublico sintriplicarlo: firmwarelocalyaautorizado, dosISOpropias conTOC/IDs distintos, eject/index/insertentrefronteras, estadoenextraccionpendiente, ausenciayreinsercion observadas, futuroRAM/AV/PCM/ticks/fullstate local yprocesofrioantesprimerframe. Baselinecallback/catalogofijo debe fallar. RegresionCD32catalogoespecifica ynegativosCDTVexistentes; GEN01/paridad/clasificacion/plan dirigidos. Preparar un unico arranque hasta reconocerA para probar el cambio; no repetirla puerta completa deboot1000frames, matriz15/FUZZ/WB por este cambio nativo; la puertaWBpublica posterior conserva su propia aceptacion."
+      ],
+      "checks": [
+        "GEN01",
+        "LR01",
+        "MED01",
+        "STATE01",
+        "DET02"
+      ],
+      "acceptance": [
+        "El catalogo CDTV fijo se cambia por callbacks reales libretro y el controlador observa ausencia antes de nueva TOC sin perder unidad/opens; pending/futuro se restauran localmente y en proceso nuevo con estado completo exacto. Catalogo/negativos yCD32conservados; no acredita cambioWB, bateria ni peliculas."
+      ],
+      "stop": "Trasdosintentoslocalesrazonadosfallidos conservarreproducer/doshipotesis ybloquear. Nocambiar golden/flags ni hacer avanzarhardware fuera de p6_run_frame; sinassets autorizados noPASS."
+    },
+    {
       "id": "T67",
       "title": "CDTV",
       "milestone": "M3",
@@ -19640,7 +19698,8 @@
         "T67c3b",
         "T67c3c",
         "T67c3e",
-        "T67d1"
+        "T67d1",
+        "T67d2"
       ],
       "read": [
         "docs/01-architecture.md",

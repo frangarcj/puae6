@@ -2449,3 +2449,21 @@ en sandbox nuevo y en otro proceso antes de su primer frame. Identidad ajena
 y errores de firmware/perfil cierran las leases, incluido el segundo CD de un
 catalogo rechazado. Cambio de medio, bateria persistente y peliculas CDTV
 conservan sus puertas posteriores; la hoja privada T67d1 no las publica.
+
+## Cambio CDTV por libretro (T67d2)
+
+CDTV usa el catalogo fijo de1..16 discos/aliases y la identidad de sesion ya
+existentes. Disk Control registra eject/index/insert para la frontera siguiente;
+no permite modificar la lista ni mezclar CD con disquetes/HDF/#SAVEDISK.
+Sin contenido no se habilitan operaciones de bandeja. BizHawk conserva su CD fijo.
+
+Una retirada llama device_set_inserted(false), sin Akiko. La reinsercion se
+aplaza mientras el controlador stock conserve cd_media=1. Un query puro y acotado
+consulta ese campo al comienzo del frame; p6_run_frame sigue avanzando el poll
+hsync. No se introducen temporizadores host, esperas activas ni resets.
+El resultado Deferred conserva dirty/eject_seen/in_drive de DiskTray, ya incluidos
+en el estado; cuando cd_media=0 se selecciona/inserta y se liquida la peticion.
+P6CT conserva la fase del poll, unidad/opens, ausencia y TOC. La restauracion
+publica prueba un cambio pendiente, futuroRAM/AV/PCM/ticks y estado completo
+localmente y en proceso frio antes del primer frame. La puerta privada de audio
+T67d1 sigue siendo regresion cercana; cambio Waterbox y peliculas tienen puerta propia.

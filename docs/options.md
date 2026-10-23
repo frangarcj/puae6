@@ -492,17 +492,19 @@ Auto y Full comparten identidad de estados y peliculas; los otros niveles son
 incompatibles entre si.
 
 
-### CDTV con CD inicial fijo (T67c3b, T67c3e)
+### CDTV y cambio de CD (T67c3b, T67c3e, T67d2)
 
-`puae6_machine=CDTV` permite un CD inicial fijo o ningun contenido, 68000 exacto,
+`puae6_machine=CDTV` permite un catalogo fijo de hasta16 CD o ningun contenido, 68000 exacto,
 ECS Agnus y 1 MiB Chip. Automatic con etiqueta CDTV en un CD lo selecciona antes
 de CD32FR/FastRAM; modelo/preset explicito prevalece. Sin etiquetas, CD usa CD32;
 las etiquetas CDTV de disquetes mantienen su aviso y no eligen este modelo.
 Requiere KS1.3 `kick34005.A500` y EXT2.7 ID22: `kick34005.CDTV`,
 `amiga-os-130-cdtv-ext.rom` o `CDTV-Extended-ROMv2.7.rom`, 256 KiB cada ROM.
 Los nombres solo localizan; contenido/version se validan y no aceptan EXT1.0.
-No acepta ADF/HDF, Kickstart alternativo, listas de varios discos ni operaciones
-de cambio/eject/index/add/replace. Headless `--machine cdtv` recibe EXT+MAIN
+Libretro permite M3U de CD y cambio mediante eject/index/insert. La nueva
+insercion espera a que el controlador observe ausencia, en tiempo emulado;
+el estado conserva tambien un cambio pendiente. No acepta ADF/HDF,
+Kickstart alternativo, #SAVEDISK ni add/remove/replace. Headless `--machine cdtv` recibe EXT+MAIN
 combinados y no carga un CD. BizHawk ofrece `Machine=CDTV` con el mismo perfil fijo y pide `Amiga/CDTV`
 (KS1.3 ID6) y `Amiga/CDTVext27` (EXT2.7 ID22), 256 KiB cada una; valida los
 bytes y copia EXT+MAIN. La entrada `CDTVext` legacy conserva su seleccion previa. La referencia MacHawk
@@ -515,4 +517,4 @@ volumenes, expansiones ni cartuchos. No hay botones de seleccion/expulsion/inser
 inyectarlos tambien se rechaza antes de avanzar o cambiar el estado.
 Los estados conservan identidad de firmware, modelo, opciones y CD, con restauracion
 fria en sandbox y proceso nuevos. No se ofrece SaveRAM para este perfil: eso no
-acredita persistencia de bateria, peliculas CDTV ni cambio de CD, aun pendientes.
+acredita persistencia de bateria, peliculas CDTV ni cambio de CD en BizHawk, aun pendientes.

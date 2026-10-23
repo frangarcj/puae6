@@ -6120,6 +6120,28 @@
           "after_sha256": "cc16eeb4e53dd8395aafb51a8c56a4a9c1eb51b2865af1a35fcd59ba382ae3d4"
         }
       ]
+    },
+    {
+      "id": "0415-cdtv-media-presence-query",
+      "file": "patches/winuae/0415-cdtv-media-presence-query.patch",
+      "sha256": "d44028f502093f41b463264f00f3140869af643a2d559ce39d4f556db3e16f4f",
+      "title": "Query CDTV controller-observed absence without advancing hardware",
+      "reason": "T67d2: libretro retains physical absence until the stock controller sees it. A pure bounded query avoids copying NVRAM or reading MMIO; its result is derived from existing causal fields, with no new scheduler or state.",
+      "category": "host media hook",
+      "order": 230,
+      "symbols": [
+        "p6_cdtv_media_absent"
+      ],
+      "test": "tests/libretro-host/test_cdtv_load.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cdtv.cpp",
+          "before_sha256": "1eb76ddb956e73b30a6952b394ce67d345d0760e9ddd1ea22ef61e3e6665de78",
+          "after_sha256": "5b17acb80cc9b543447bce6156912a8e291a709a7bfad4ff87198747f31d19a8"
+        }
+      ]
     }
   ]
 }

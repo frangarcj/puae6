@@ -1263,7 +1263,9 @@ bool apply_disk_requests()
     const unsigned count = core.tray.due(changes);
     for (unsigned i = 0; i < count; ++i) {
         if (core.cd) {
-            if (!core.cd->apply(changes[i].mount, changes[i].medium)) {
+            const auto applied = core.cd->apply(changes[i].mount, changes[i].medium);
+            if (applied == p6_libretro::CdSession::Apply::Deferred) return true; // retain pending tray state
+            if (applied == p6_libretro::CdSession::Apply::Failed) {
                 notify_error("CD change failed at the frame boundary");
                 core.faulted = true;
                 environment_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
@@ -1327,7 +1329,7 @@ void refresh_options()
 
 bool RETRO_CALLCONV disk_set_eject_state(bool ejected)
 {
-    if (!core.loaded || core.faulted || core.settings.machine == P6_MACHINE_CDTV) return false;
+    if (!core.loaded || core.faulted || (core.settings.machine == P6_MACHINE_CDTV && !core.cd)) return false;
     return core.tray.set_ejected(ejected);
 }
 
@@ -1336,7 +1338,7 @@ unsigned RETRO_CALLCONV disk_get_image_index(void) { return core.tray.selected()
 
 bool RETRO_CALLCONV disk_set_image_index(unsigned index)
 {
-    if (!core.loaded || core.faulted || core.settings.machine == P6_MACHINE_CDTV) return false;
+    if (!core.loaded || core.faulted || (core.settings.machine == P6_MACHINE_CDTV && !core.cd)) return false;
     if (!core.tray.select(index)) {
         log(RETRO_LOG_WARN, "the image can only be chosen while the tray is open, and it must hold a disk");
         return false;
@@ -1961,7 +1963,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             cd_entries.push_back({game->path, p6_libretro::without_extension(p6_libretro::file_name(game->path))});
         }
         if (core.settings.machine == P6_MACHINE_CDTV && game && cd_entries.empty()) {
-            notify_error("CDTV requires a fixed CD or no content, not floppy/HDF/config content"); stop_image(); return false;
+            notify_error("CDTV requires a CD catalog or no content, not floppy/HDF/config content"); stop_image(); return false;
         }
         if (!cd_entries.empty()) {
             for (const auto &entry : cd_entries) {
@@ -2005,7 +2007,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             notify_error("CD32 requires a direct CD image"); stop_image(); return false;
         }
         if (core.settings.machine == P6_MACHINE_CDTV && (core.settings.kickstart || !core.media.empty() || configured)) {
-            notify_error("CDTV requires Automatic Kickstart and fixed CD or no content"); stop_image(); return false;
+            notify_error("CDTV requires Automatic Kickstart and CD catalog or no content"); stop_image(); return false;
         }
         // The image the frontend remembers from its last session, if the content still has it at that index; else the first.
         unsigned initial = 0;

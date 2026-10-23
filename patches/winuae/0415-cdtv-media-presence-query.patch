@@ -1,0 +1,11 @@
+diff --git a/cdtv.cpp b/cdtv.cpp
+--- a/cdtv.cpp
++++ b/cdtv.cpp
+@@ -1920,6 +1920,7 @@
+ }
+ static bool cdtv_ready() { return service_running && currprefs.cs_cdtvcd && !currprefs.cs_cdtvcr && unitnum >= -1 && unitnum <= 0; }
+ static bool cdtv_base(int base) { return (base >= 0x20 && base < 0xa0) || (base >= 0xe9 && base < 0xf0); }
++bool p6_cdtv_media_absent() { return cdtv_ready() && !cd_media; }
+ uint64_t p6_cdtv_callback_observations() { return callback_observations; }
+ void (*p6_cdtv_subcode_handler())(uint32_t) { return subcode_interrupt; }
+ bool p6_cdtv_state_get(p6_cdtv_state *s)

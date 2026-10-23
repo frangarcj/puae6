@@ -4,6 +4,7 @@
 #include "sysdeps.h"
 #include "cd_device.h"
 #include "akiko_state.h"
+#include "cdtv_state.h"
 #include "disk_control.h"
 #include "content.h"
 #include "firmware.h"
@@ -35,9 +36,6 @@ bool CdSession::open(uint32_t machine, const std::vector<PlaylistEntry> &slots, 
     if (data_->bound || slots.empty() || slots.size() > p6_cd::kDeviceMaxDiscs || selected >= slots.size()) {
         *why = "CD catalog requires 1..16 fixed images and a valid selection"; return false;
     }
-    if (machine == P6_MACHINE_CDTV && (slots.size() != 1 || selected)) {
-        *why = "CDTV requires one fixed initial CD"; return false;
-    }
     next->machine = machine;
     for (const auto &slot : slots) {
         std::unique_ptr<Data::Entry> entry(new Data::Entry);
@@ -62,16 +60,21 @@ bool CdSession::open(uint32_t machine, const std::vector<PlaylistEntry> &slots, 
     return true;
 }
 unsigned CdSession::count() const { return unsigned(data_->entries.size()); }
-bool CdSession::apply(bool mount, uint32_t medium)
+CdSession::Apply CdSession::apply(bool mount, uint32_t medium)
 {
-    if (data_->machine != P6_MACHINE_CD32) return false;
-    if (!mount) return p6_akiko_media_set(false);
-    if (medium >= count()) return false;
-    // A settled insertion of the same owner is a no-op; a different one needs
-    // the real absence action first, retaining the existing unit and open count.
+    using p6_cd::Result;
+    const bool cdtv = data_->machine == P6_MACHINE_CDTV;
+    if (!cdtv && data_->machine != P6_MACHINE_CD32) return Apply::Failed;
+    if (!mount) return (cdtv ? p6_cd::device_set_inserted(false) == Result::Ok : p6_akiko_media_set(false))
+        ? Apply::Applied : Apply::Failed;
+    if (medium >= count()) return Apply::Failed;
+    // CDTV must observe removal in its own hsync poll before any reinsertion.
+    // The tray retains the request while p6_run_frame advances that poll.
+    if (cdtv && !p6_cd::device_inserted() && !p6_cdtv_media_absent()) return Apply::Deferred;
     if (p6_cd::device_bound_disc() != &data_->entries[medium]->disc &&
-        p6_cd::device_select(medium) != p6_cd::Result::Ok) return false;
-    return p6_akiko_media_set(true);
+        p6_cd::device_select(medium) != Result::Ok) return Apply::Failed;
+    return (cdtv ? p6_cd::device_set_inserted(true) == Result::Ok : p6_akiko_media_set(true))
+        ? Apply::Applied : Apply::Failed;
 }
 bool CdSession::extend_firmware(uint32_t machine, const FileReader &files, const char *directory, std::vector<uint8_t> *rom, std::string *why)
 {

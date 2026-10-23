@@ -420,6 +420,14 @@ for _gate in ('STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T67b2')] = {'cdtv_cold_state': 'tests.media.test_cdtv_state.CdtvStateTests.test_cold_restore_and_future'}
 for _gate in ('MED01', 'STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T67d1')] = {'cdtv_media_edges_cold_restore': 'tests.media.test_cdtv_state.CdtvMediaChangeTests.test_observed_absence_toc_audio_and_cold_restore'}
+TASK_SUITES[('GEN01', 'T67d2')] = dict(TASK_SUITES[('GEN01', 'T67c3e')],
+    patch_classification='tests.reference.test_patch_classes.ClassificationTests')
+for _gate in ('LR01', 'MED01', 'STATE01', 'DET02'):
+    TASK_SUITES[(_gate, 'T67d2')] = {
+        'cdtv_pending_disc_change': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests.test_catalog_change_waits_for_observed_absence_and_restores_pending',
+        'cdtv_catalog_refusals': 'tests.libretro-host.test_cdtv_load.CdtvLoadTests.test_model_firmware_vfs_and_fixed_media_refusals',
+        'cd32_catalog_regression': 'tests.libretro-host.test_cd32_load.Cd32PlaylistTests.test_slots_initial_aliases_boundary_and_fixed_catalog',
+        'cdtv_audio_edges_regression': 'tests.media.test_cdtv_state.CdtvMediaChangeTests.test_observed_absence_toc_audio_and_cold_restore'}
 for _gate in ('MED01', 'DET02'):
     TASK_SUITES[(_gate, 'T67a')] = {'real_cdtv_dmac': 'tests.media.test_cdtv_link.CdtvLinkTests.test_real_dmac_commands_dma_and_lifecycle'}
 TASK_SUITES[('MED01', 'T66t15b')] = {'typed_regional_wire': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests.test_regional_descriptor_materialization_identity_and_rejections', 'real_host_chd_regional': 'tests.media.test_chd_host_csharp.ChdHostCSharpTests.test_four_codecs_real_mount_regions_audio_subq_crossings_and_ownership', 'legacy_source': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests'}
