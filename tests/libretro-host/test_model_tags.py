@@ -419,7 +419,7 @@ class ModelTagTests(lr.LibretroHarness):
 
     def test_the_menu_offers_the_automatic_values_and_starts_on_them(self):
         out = self.frontend("boot", "--runs", 1, system=self.everything).stdout
-        self.assertRegex(out, r"option puae6_machine default=auto values=auto\|A500\|A600\|A1200\|A500OG\|A500PLUS\|A1000\|A2000OG\|A2000 ")
+        self.assertRegex(out, r"option puae6_machine default=auto values=auto\|A500\|A600\|A1200\|A500OG\|A500PLUS\|A1000\|A2000OG\|A2000\|A4030\|CD32\|A4040\|CDTV ")
         self.assertRegex(out, r"option puae6_video_standard default=PAL auto values=PAL auto\|NTSC auto\|PAL\|NTSC ")
         self.assertRegex(out, r"option puae6_model_fd default=A500 values=A500\|")
         self.assertRegex(out, r"option puae6_model_hd default=A1200 values=A500\|")
