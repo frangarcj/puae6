@@ -81,8 +81,8 @@ sin leer el payload; las vistas conservan sus limites actuales de LBA/MSF.
 Libretro tambien admite el perfil ETNF multisesion global de CDI2Nero: conserva
 INDEX01 global y huecos, con pregap sintetico Canonical150 y TOC virtual.
 No recupera pregaps ni Q originales. Padding entre pistas, TINF y ETN2
-multisesion siguen sin soporte. BizHawk conserva pendiente la puerta publica
-de ETNF global; admite
+multisesion siguen sin soporte. BizHawk admite tambien ETNF global por XML,
+CD directo y catalogos mixtos, con restauracion en proceso nuevo; admite
 el mismo subconjunto ETNF/ETN2 con pregap canonico de 150 sectores al elegir
 PUAE6 explicitamente; esto no equivale a soporte TAO general.
 MDS admite una sesion CD y un MDF compartido: audio de 2352 bytes, Mode1 de

@@ -1,7 +1,7 @@
 # ADR 0018: TOC global virtual de CD multisesion
 
-Estado: aceptada para el dispositivo y la fabrica nativa/libretro (T66v9);
-el loader publico C#/Waterbox conserva su puerta pendiente.
+Estado: aceptada para dispositivo, fabrica nativa/libretro y loader publico
+C#/Waterbox, incluidas sus puertas de restauracion en proceso nuevo.
 
 ## Contexto y fuentes
 
@@ -83,3 +83,5 @@ disperso. Su marca Canonical150 distingue el origen sintetico; los bytes/Q/SBI
 viajan completos en V3 y conservan precedencia sin resintesis del guest. El
 dominio managed P6ETGM2448 distingue este perfil de DAO, cuyos IDs no cambian.
 Esta puerta del host tampoco sustituye el snapshot publico Waterbox.
+T66w4 comprueba ese snapshot por XML, CD directo y catalogo mixto, con Q/SBI,
+lease, SaveRAM, futuro exacto y negativos de identidad, sin reconstruir TOC fisico.

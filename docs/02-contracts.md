@@ -2109,7 +2109,7 @@ DAO explicito y ETNF global, sin cambiar los valores/rechazos de 0/1/2 ni
 identidades. La seleccion no reabre el archivo ni prueba otro decoder. La puerta
 libretro usa el mismo TOC virtual y P6ETGM, con restauracion local y en proceso
 nuevo antes del primer frame, futuro completo y negativos transaccionales.
-La carga publica Waterbox de este perfil conserva su puerta posterior.
+La carga publica Waterbox de este perfil se comprueba en T66w4.
 
 T66w3 extiende el opt-in DiscSystem con el mismo perfil global: reutiliza el
 parser ETNF y el proveedor disperso, congela la tabla y marca Canonical150 en
@@ -2121,7 +2121,17 @@ identidad DAO y todos los intervalos respaldados, incluido el prefijo negativo
 canonico; no lee ni rellena huecos. P6CD2448 de DAO queda byte exacto.
 Rebind valida el perfil y el futuro lector antes de sustituirlo. MED01 comprueba
 wire, TOC, descriptor, identidad, SBI y errores/cierre; BUILD01 compila DiscSystem
-real con sus analyzers. La restauracion publica Waterbox sigue pendiente.
+real con sus analyzers. La restauracion publica Waterbox se comprueba en T66w4.
+
+T66w4 conserva la misma ruta publica para XML, CD directo y catalogos mixtos
+ETNF/ISO/CHD/alias. El host publica descriptor V3, geometria dispersa y la
+identidad canonica que incluye SBI; el guest no vuelve a interpretar NRG.
+La prueba usa el guest/runtime de identidad comprobada, restaura antes del
+primer frame en otro proceso y compara RAM, chipset, video, PCM y snapshot
+completos. Comprueba SaveRAM/reboot, supresion, seleccion/alias de catalogo,
+huecos sin IO, Q y sectores exactos, cierre de leases y rechazo transaccional
+de otro payload, coordenadas, SBI u orden del catalogo. No acredita arranque
+de una aplicacion con esta fixture ni los formatos TINF/ETN2 multisesion.
 
 ## Metadata DAO multisesion de NRG (T66v2)
 

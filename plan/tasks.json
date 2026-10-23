@@ -18879,7 +18879,7 @@
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
       "stop": "No cargar el CD entero en memoria del guest.",
-      "blocked_reason": "ETNF global Canonical150 ya tiene contrato primario CDI2Nero y componentes/nativo/libretro/normalizacion C# cerrados en T66w1..w3; T66w4 conserva restauracion publica Waterbox pendiente. Bloqueo externo restante TINF: offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico, sin productor/documentacion que lo resuelva. ETN2 multisesion tampoco acreditado por ETNF: requiere productor multisesion y TOC original para distinguir coordenada global de reinicio. Mantener rechazos explicitos y fixtures; no recuperar Q/CUE0fisicos ausentes ni cerrarT66 con estas variantes pendientes."
+      "blocked_reason": "ETNF global Canonical150 tiene contrato primario CDI2Nero y componentes/nativo/libretro/normalizacion C#/restauracion publica Waterbox cerrados en T66w1..w4. Bloqueo externo restante TINF: offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico, sin productor/documentacion que lo resuelva. ETN2 multisesion tampoco acreditado por ETNF: requiere productor multisesion y TOC original para distinguir coordenada global de reinicio. Mantener rechazos explicitos y fixtures; no recuperar Q/CUE0fisicos ausentes ni cerrarT66 con estas variantes pendientes."
     },
     {
       "id": "T67a",
@@ -22651,7 +22651,7 @@
       "title": "Restaurar ETNF global por XML, CD directo y catalogo publico Waterbox",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66w3",
         "T66v12"
