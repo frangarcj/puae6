@@ -122,14 +122,21 @@ Control siguen por loopback dentro del mismo contenedor. El pin identifica una
 imagen local existente, sin prometer que reconstruir su Dockerfile reproduzca
 los mismos bytes.
 
-La receta Waterbox acepta `--source-audit checkout|snapshot`. El modo por defecto
-`checkout` verifica tambien HEAD, blobs y overlays de las referencias locales.
+La receta Waterbox acepta `--source-audit checkout|snapshot`; sus APIs y
+subprocesos tambien reconocen `P6_WATERBOX_SOURCE_AUDIT`. El argumento explicito
+prevalece sobre la variable, y sin ninguno se usa `checkout`. Un valor invalido
+se rechaza antes de preparar herramientas o ejecutar pruebas. `checkout`
+verifica tambien HEAD, blobs y overlays de las referencias locales.
 El modo explicito `snapshot` comprueba las capturas completas contra el lock y
 sus manifiestos, incluidos modos, hashes y overlays, sin consultar los checkouts
 originales. No hay fallback entre modos. Los receipts identifican la auditoria
 realmente ejecutada; los antiguos conservan su alcance original. Ambos modos
-compilan los mismos inputs. Este selector no proporciona el sysroot ni acredita
-su reconstruccion o una ejecucion remota.
+compilan los mismos inputs. Los runners PR y nightly ofrecen el mismo flag,
+con `checkout` fijado por defecto: para usar capturas en CI hay que pedir
+`--source-audit snapshot`. Propagan la seleccion a sus workers y subprocesos y
+la incluyen en la identidad del entorno; los receipts conservan la auditoria
+realmente ejecutada al construir. Este selector no proporciona el sysroot ni
+acredita su reconstruccion o una ejecucion remota.
 
 `python3 tools/build_waterbox_sysroot.py --llvm-source RUTA --output build/N`
 valida una candidata de reconstruccion del sysroot. LLVM debe ser una checkout
