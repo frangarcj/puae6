@@ -19504,7 +19504,8 @@
         "docs/options.md",
         "docs/02-contracts.md",
         "tools/check.py",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "tests/config/test_schema.py"
       ],
       "steps": [
         "cd32_close responsable en worktree aislado darwin-host-states desde main5a0f98c1; root metadata, dispatcher, contratos e integracion. Vertical atomica excepcional de unas320..380lineas manuales en rutas enumeradas: enum/modelo no publicable antes de constructor, proveedor, guards y puerta real. Dos salidas del esquema solo mediante generador. Dividir antes de superar400; no compilar guest ni ejecutar baterias por agente, root serializa builds-j2. T69 ya integrado se conserva como regresion de guards, sin convertir todas sus hojas opcionales en prerrequisito de release; las dependencias requeridas de esta vertical son c3b/c3c/T66w4.",
@@ -19512,7 +19513,8 @@
         "Proveedor firmware nuevo Amiga/CDTV paraKS1.3ID6 y Amiga/CDTVext27 paraEXT2.7ID22,256KiB cada una, EXT+MAIN copiados. Patch0017 reservado; conservar el CDTVext legacy y su Ideal1.0. Validar cada parte, identidad y negativos; no descargar/publicar ROM.",
         "Rechazar catalogo y controles CDTV Next/Eject/Insert antes de BuildInput y _started para conservar latches y snapshot. Ocultar controles de cambio. Transporte V1 guest existente trasSeal; no tocar guest, Akiko, codec o runtime. Cambio, persistencia de bateria y peliculas CDTV conservan puertas posteriores explicitas.",
         "CdtvPublicWaterboxTests.test_public_iso_cue_xml_boot_and_cold_restore usaRomLoader.LoadRom yLoadedEmulator/Puae6Core reales, ISO/HUNK propioC3a connonce yDelay creciente antes1000unidades. Un unico corte y futuro16 RAM/AV/PCM/ticks/fullsnapshot exactos conrestorelocal/sandboxnuevo/procesonuevo antesprimerframe; reutilizar corte equivalente paraXML/CUE eISOdirecto, no repetirarranque por formato.",
-        "CdtvPublicWaterboxTests.test_fixed_media_firmware_profiles_and_no_content cubre proveedores/copias, ROMausente/alterada, perfiles incompatibles, sinCD, catalogo rechazado, identidad ajena yleases/FD. Botones inyectados rechazan antesmutar. GEN01/paridad+BUILD01Client.Commonreal+WB03/DET02 yregresionCD32publica enmisma compilacion. Guestbyteidentico conserva medidas existentes; runnerausente dejaBLOCKED, noPASSporC#."
+        "CdtvPublicWaterboxTests.test_fixed_media_firmware_profiles_and_no_content cubre proveedores/copias, ROMausente/alterada, perfiles incompatibles, sinCD, catalogo rechazado, identidad ajena yleases/FD. Botones inyectados rechazan antesmutar. GEN01/paridad+BUILD01Client.Commonreal+WB03/DET02 yregresionCD32publica enmisma compilacion. Guestbyteidentico conserva medidas existentes; runnerausente dejaBLOCKED, noPASSporC#.",
+        "Ampliacion previa por codigo real: tests/config/test_schema.py contiene tres expectativas de exclusion CDTV que deben cambiar junto a wrapper:true. Conservar cobertura generica wrapper:false usando copia sintetica del schema, comprobar CDTV ofrecido yconfig10sinmodificargenerador;8..12lineas adicionales dentro presupuesto400. Revision expresamente pedida por usuario23oct contraMacHawk: reutilizar seleccionCDTVexplicita/KS1.3+EXT/controlesserializados como referencia, sin copiarhilo/scheduler ni tocarproyectohermano."
       ],
       "checks": [
         "GEN01",
