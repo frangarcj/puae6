@@ -783,7 +783,9 @@
             "savestate.cpp",
             "filesys.cpp",
             "hardfile.cpp",
-            "gayle.cpp"
+            "gayle.cpp",
+            "akiko.cpp",
+            "cdtv.cpp"
           ],
           "zfile_fwrite": [
             "cia.cpp",
@@ -793,7 +795,10 @@
             "rommgr.cpp",
             "savestate.cpp",
             "hardfile.cpp",
-            "gayle.cpp"
+            "gayle.cpp",
+            "akiko.cpp",
+            "cdtv.cpp",
+            "flashrom.cpp"
           ],
           "zfile_fread": [
             "cia.cpp",
@@ -804,7 +809,10 @@
             "expansion.cpp",
             "fdi2raw.cpp",
             "savestate.cpp",
-            "filesys.cpp"
+            "filesys.cpp",
+            "akiko.cpp",
+            "cdtv.cpp",
+            "ar.cpp"
           ],
           "zfile_fclose": [
             "cia.cpp",
@@ -818,7 +826,10 @@
             "savestate.cpp",
             "filesys.cpp",
             "hardfile.cpp",
-            "gayle.cpp"
+            "gayle.cpp",
+            "akiko.cpp",
+            "cdtv.cpp",
+            "ar.cpp"
           ],
           "zfile_size32": [
             "cia.cpp",
@@ -839,14 +850,19 @@
             "fdi2raw.cpp",
             "savestate.cpp",
             "filesys.cpp",
-            "hardfile.cpp"
+            "hardfile.cpp",
+            "cdtv.cpp",
+            "flashrom.cpp",
+            "ar.cpp"
           ],
           "zfile_gunzip": [
-            "memory.cpp"
+            "memory.cpp",
+            "ar.cpp"
           ],
           "zfile_fopen_data": [
             "memory.cpp",
-            "rommgr.cpp"
+            "rommgr.cpp",
+            "ar.cpp"
           ],
           "zfile_ftell32": [
             "memory.cpp",
@@ -855,7 +871,9 @@
             "rommgr.cpp",
             "fdi2raw.cpp",
             "savestate.cpp",
-            "filesys.cpp"
+            "filesys.cpp",
+            "flashrom.cpp",
+            "ar.cpp"
           ],
           "zfile_exists": [
             "memory.cpp",
@@ -981,7 +999,7 @@
           ]
         },
         "excluded_pending_link": {
-          "zfile_gunzip": "memory.cpp AROS embedded fallback excluded by ADR; remove/guard branch in T06.",
+          "zfile_gunzip": "memory.cpp AROS embedded fallback excluded by ADR; ar.cpp internal gzip fallback is guarded by ACTION_REPLAY_HRTMON && !P6_PORTABLE (patch 0394). External cartridge bytes use the implemented blob-backed API.",
           "zfile_zopen": "main.cpp host disk-swapper scan/history; exclude branch in T06.",
           "zfile_zcompress": "savestate.cpp legacy persistence; isolate from retained state globals/helpers in T06.",
           "zfile_zuncompress": "savestate.cpp legacy persistence; isolate in T06.",
