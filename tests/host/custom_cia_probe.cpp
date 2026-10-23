@@ -54,8 +54,9 @@ void event_doint_delay_do_ext(uae_u32) { abort(); }
 // Excluded-device boundaries fail if the A500 reference ever reaches them.
 volatile int bsd_int_requested;
 void bsdsock_fake_int_handler() { abort(); }
-bool akiko_ntscmode() { abort(); }
 #endif
+// Both A500 variants fail if they request a CD32 provider.
+bool akiko_ntscmode() { abort(); }
 #include "custom_cia_under_test.h"
 
 #ifndef TEST_REFERENCE

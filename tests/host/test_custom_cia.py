@@ -61,7 +61,10 @@ class CustomCIATests(unittest.TestCase):
                                 "-o", str(obj)], check=True, timeout=60)
                 imports = subprocess.run(["nm", "-u", str(obj)], check=True,
                                          text=True, capture_output=True).stdout
-                for symbol in ("bsdsock_fake_int_handler", "bsd_int_requested", "akiko_ntscmode"):
+                # The full profile uses real Akiko; the isolated A500 probe
+                # above aborts if that CD32-only boundary is ever reached.
+                self.assertIn("akiko_ntscmode", imports)
+                for symbol in ("bsdsock_fake_int_handler", "bsd_int_requested"):
                     self.assertNotIn(symbol, imports)
 
 
