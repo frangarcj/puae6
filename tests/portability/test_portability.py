@@ -14,6 +14,7 @@ import tempfile
 import unittest
 
 from tests.portability import corpus
+from tests.portability.row_driver import PROBE_SCHEMA
 from tests.portability.rows import OPT_ORDER, OUT_OF_SCOPE, ROWS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +26,8 @@ def golden(name):
 
 
 def check_corpus(test, expected, writer):
+    test.assertIs(type(expected["probe_schema"]), int)
+    test.assertEqual(expected["probe_schema"], PROBE_SCHEMA)
     with tempfile.TemporaryDirectory(prefix="p6-corpus-") as directory:
         listing = writer(directory)
         digest = hashlib.sha256()
@@ -34,6 +37,8 @@ def check_corpus(test, expected, writer):
     test.assertEqual(len(listing), expected["corpus"]["cases"])
     test.assertEqual(digest.hexdigest(), expected["corpus"]["sha256"])
     for case in expected["cases"].values():
+        test.assertIs(type(case["probe_schema"]), int)
+        test.assertEqual(case["probe_schema"], PROBE_SCHEMA)
         test.assertEqual((len(case["hardware"]), len(case["av"])), (64, 64))
         test.assertNotEqual(case["hardware"], case["av"])
 
@@ -110,11 +115,15 @@ def execute_matrix(test, dataset):
                 host = json.loads((folder / f"{opt}-host{suffix}.json").read_text())
                 record = json.loads((folder / f"{opt}-record{suffix}.json").read_text())
                 test.assertTrue(record["faketime"]["shifted"], "DET06 requires another host clock")
+                test.assertEqual(base["probe_schema"], expected["probe_schema"])
+                test.assertEqual(host["probe_schema"], expected["probe_schema"])
                 test.assertEqual(base["errors"], {})
                 test.assertEqual(host["errors"], {})
                 test.assertEqual(set(base["cases"]), set(expected["cases"]))
                 for case_id, wanted in expected["cases"].items():
                     got, shifted = base["cases"][case_id], host["cases"][case_id]
+                    test.assertEqual(got["probe_schema"], wanted["probe_schema"])
+                    test.assertEqual(shifted["probe_schema"], wanted["probe_schema"])
                     for field in ("hardware", "av"):
                         test.assertEqual(got[field], wanted[field], f"{name}/{opt} {case_id} {field}")
                         test.assertEqual(shifted[field], got[field], f"DET06 {name}/{opt} {case_id} {field}")

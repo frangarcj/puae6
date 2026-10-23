@@ -30,6 +30,7 @@ import sys
 import tempfile
 import time
 
+PROBE_SCHEMA = 2
 DIGEST = re.compile(r"^digest (\d+) (\w+) ([0-9a-f]{64}) (\d+)$")
 CHIP = re.compile(r"^chip (\d+) (\w+) ([0-9a-f]{64})$")
 PCM = re.compile(r"^pcm (\d+) ([0-9a-f]{64}) (\d+)$")
@@ -88,12 +89,15 @@ def run_case(probe, case, rom, env, cwd, timeout):
     result = subprocess.run(arguments, capture_output=True, text=True, env=env, cwd=cwd, timeout=timeout, errors="replace")
     if result.returncode:
         return {"error": f"exit {result.returncode}: {result.stderr[-300:]}"}
+    headers = [line for line in result.stdout.splitlines() if line.startswith("probe-schema")]
+    if headers != [f"probe-schema {PROBE_SCHEMA}"]:
+        return {"error": f"missing, duplicate or unsupported probe observation schema: {headers!r}"}
     units, recognized = classify(result.stdout)
     if not units or not recognized:
         return {"error": "the probe printed no digest: " + result.stdout[-200:]}
     hardware = [line for u in sorted(units) for line in units[u]["hardware"]]
     av = [line for u in sorted(units) for line in units[u]["av"]]
-    return {"hardware": digest(hardware), "av": digest(av), "units": len(units), "lines": recognized,
+    return {"probe_schema": PROBE_SCHEMA, "hardware": digest(hardware), "av": digest(av), "units": len(units), "lines": recognized,
             "per_unit": {str(u): [digest(units[u]["hardware"])[:16], digest(units[u]["av"])[:16]] for u in sorted(units)},
             "seconds": round(time.monotonic() - started, 2)}
 
@@ -157,7 +161,7 @@ def main():
                                     text=True, env=environment, cwd=str(cwd), timeout=args.timeout, errors="replace")
             lines = [line for line in result.stdout.splitlines() if line.startswith("unit ")]
             headless[name] = digest(lines) if result.returncode == 0 and lines else "error: " + result.stderr[-200:]
-    document = {"variant": args.variant, "probe": probe.name, "cases": results, "headless": headless,
+    document = {"probe_schema": PROBE_SCHEMA, "variant": args.variant, "probe": probe.name, "cases": results, "headless": headless,
                 "errors": {k: v["error"] for k, v in results.items() if "error" in v}}
     Path(args.out).write_text(json.dumps(document, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     work.cleanup()

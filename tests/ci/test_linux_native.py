@@ -124,9 +124,9 @@ class LinuxNativeTests(unittest.TestCase):
 class HostedCorpusTests(unittest.TestCase):
     @staticmethod
     def records(headless=False):
-        case = dict(hardware='a'*64, av='b'*64, units=1)
-        expected = dict(cases={'one': case})
-        record = dict(errors={}, cases={'one': dict(case, lines=19, per_unit={'0': ['a'*16, 'b'*16]})},
+        case = dict(probe_schema=2, hardware='a'*64, av='b'*64, units=1)
+        expected = dict(probe_schema=2, cases={'one': case})
+        record = dict(probe_schema=2, errors={}, cases={'one': dict(case, lines=19, per_unit={'0': ['a'*16, 'b'*16]})},
                       headless={name: 'c'*64 for name, _, _ in corpus_ci.row_driver.HEADLESS_CASES} if headless else {})
         return expected, dict(record, variant='baseline'), dict(copy.deepcopy(record), variant='host')
 
@@ -228,3 +228,26 @@ class HostedCorpusTests(unittest.TestCase):
             self.assertNotEqual(before, corpus_ci.recipe_identity(execute))
             clean.side_effect = ValueError('dirty sources')
             with self.assertRaisesRegex(ValueError, 'dirty'): corpus_ci.recipe_identity(execute)
+
+
+    def test_probe_schema_header_is_required_once_and_not_part_of_any_digest(self):
+        driver = corpus_ci.row_driver
+        text = 'digest 0 cpu '+'a'*64+' 4\n'+'pcm 0 '+'b'*64+' 882\n'
+        valid = subprocess.CompletedProcess([], 0, 'probe-schema 2\n'+text, '')
+        with mock.patch.object(driver.subprocess, 'run', return_value=valid):
+            record = driver.run_case('probe', {'args': []}, 'rom', {}, '.', 1)
+        self.assertEqual(record['probe_schema'], 2)
+        self.assertEqual(record['hardware'], hashlib.sha256(text.splitlines()[0].encode()).hexdigest())
+        for header in ('', 'probe-schema 1\n', 'probe-schema 3\n', 'probe-schema 2\nprobe-schema 2\n', 'probe-schema 2 extra\n'):
+            with self.subTest(header=header), mock.patch.object(driver.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, header+text, '')):
+                self.assertIn('observation schema', driver.run_case('probe', {'args': []}, 'rom', {}, '.', 1)['error'])
+
+    def test_old_missing_and_mixed_schema_metadata_cannot_pass_complete_hashes(self):
+        for target in ('golden', 'record', 'golden-case', 'case'):
+            for schema in (None, 1, 3, "2", 2.0):
+                expected, baseline, host = self.records()
+                item = {'golden': expected, 'record': baseline, 'golden-case': expected['cases']['one'], 'case': host['cases']['one']}[target]
+                if schema is None: del item['probe_schema']
+                else: item['probe_schema'] = schema
+                with self.subTest(target=target, schema=schema), self.assertRaisesRegex(RuntimeError, 'observation schema'):
+                    corpus_ci.compare(expected, baseline, host, headless=False)

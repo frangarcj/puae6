@@ -47,9 +47,12 @@ def clocks(base, shifted):
 def compare(expected, baseline, host, *, headless):
     wanted = expected['cases']
     require(bool(wanted), 'empty golden corpus')
+    require(type(expected.get('probe_schema')) is int and expected['probe_schema'] == row_driver.PROBE_SCHEMA, 'unsupported golden observation schema')
     for variant, record in (('baseline', baseline), ('host', host)):
+        require(type(record.get('probe_schema')) is int and record['probe_schema'] == row_driver.PROBE_SCHEMA, 'unsupported corpus observation schema')
         require(record['variant'] == variant and record['errors'] == {} and set(record['cases']) == set(wanted), 'missing/extra/failed corpus cases')
         for name, case in record['cases'].items():
+            require(all(type(item.get('probe_schema')) is int for item in (case, wanted[name])) and case.get('probe_schema') == wanted[name].get('probe_schema') == row_driver.PROBE_SCHEMA, 'unsupported case observation schema')
             require(all(re.fullmatch('[0-9a-f]{64}', case[key]) and re.fullmatch('[0-9a-f]{64}', wanted[name][key]) for key in ('hardware', 'av')), 'malformed corpus hash')
             require(type(case['units']) is int and case['units'] == wanted[name]['units'] > 0 and case['lines'] > 0, 'incomplete corpus units')
             require(len(case['per_unit']) == case['units'] and all(re.fullmatch(r'\d+', unit) and len(pair) == 2 and all(re.fullmatch('[0-9a-f]{16}', h) for h in pair) for unit, pair in case['per_unit'].items()), 'incomplete per-unit hashes')
@@ -62,7 +65,7 @@ def compare(expected, baseline, host, *, headless):
         result = run_matrix.compare(a, b)
         require(not result['errors'] and not result['differences'] and result['hardware_equal'] == result['av_equal'] == len(wanted), 'corpus mismatch: ' + str(result))
     require(baseline['headless'] == host['headless'], 'headless host environment mismatch')
-    return dict(cases=len(wanted), variants=['baseline', 'host'], hardware_equal=len(wanted), av_equal=len(wanted), headless=len(baseline['headless']))
+    return dict(probe_schema=row_driver.PROBE_SCHEMA, cases=len(wanted), variants=['baseline', 'host'], hardware_equal=len(wanted), av_equal=len(wanted), headless=len(baseline['headless']))
 
 
 def run(tree, cc, mode, execute):

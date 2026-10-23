@@ -1019,6 +1019,8 @@ int main(int argc, char **argv)
         for (const Probe &probe : kProbes) printf("%s\n", probe.subsystem);
         return 0;
     }
+    // Observation schema; hash domains and complete causal payloads stay unchanged.
+    printf("probe-schema 2\n");
     const char *rom_path = nullptr;
     uint64_t units = 3, every = 1, loads = 1;
     uint32_t standard = P6_VIDEO_PAL;
