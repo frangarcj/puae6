@@ -49,8 +49,10 @@ A4000 usa `kick40068.A4000` en el mismo directorio de sistema. Los presets
 `a4030_normal`, `a4040_normal` y `a4060_normal` seleccionan 030, 040 y 060.
 Su arranque con firmware real y restauracion estan probados; siguen siendo
 experimentales, sin MMU ni caches. La FPU interna de 040/060 se activa explicitamente
-con la CPU correspondiente y usa SoftFloat. FRESTORE040 incluye NaN SINGLE
-reconstruido por FPSP; denormales y otros formatos conservan casos pendientes.
+con la CPU correspondiente y usa SoftFloat. La restauracion FE del 68040 conserva
+los operandos pequenos normalizados por FPSP. FRESTORE040 admite tambien ciertos
+frames CU06 reconstruidos por FPSP, incluidos NaN SINGLE; los denormales CU06
+y la restauracion completa de todos los formatos siguen pendientes.
 
 En A1200 puedes elegir `Cartridge: HRTMon builtin` y asignar `HRTMon Freeze`
 en las opciones de hotkeys o del mapper. Activa el monitor una vez por pulsacion;
@@ -147,8 +149,8 @@ slave ambiguo; el core no descarga esos archivos.
 
 Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
 usan interprete de CPU; A4000 y CD32 conservan los limites experimentales indicados
-arriba. CDTV en BizHawk/Waterbox sigue pendiente. Algunos slaves WHDLoad
-necesitan Kickstarts o RTB adicionales; esos archivos debe aportarlos el usuario
+arriba. Algunos slaves WHDLoad necesitan Kickstarts o RTB adicionales; esos
+archivos debe aportarlos el usuario
 mediante el preparador explicito descrito en `docs/whdload.md` de los fuentes.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
 con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
