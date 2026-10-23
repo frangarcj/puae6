@@ -101,6 +101,33 @@ class NativeCMakeTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(diagnostic, result.stdout + result.stderr)
 
+    def test_rgb565_alternate_compiles_the_complete_adapter_with_only_its_route_macro(self):
+        # Real configure output, including per-source properties of cd_session.
+        # The engine objects are shared; this does not compile either frontend.
+        required = {str(ROOT / 'adapters/libretro' / name) for name in
+                    ('libretro_core.cpp', 'config_import.cpp', 'cd_session.cpp')}
+        names = ('puae6_libretro', 'puae6_libretro_rgb565_alternate')
+        for sanitizers in ('OFF', 'ON'):
+            with self.subTest(sanitizers=sanitizers), tempfile.TemporaryDirectory(dir=ROOT / 'build') as tmp:
+                result = self.configure(tmp, '-DP6_RGB565_EXPERIMENT=ON', f'-DP6_SANITIZERS={sanitizers}')
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                commands = json.loads((Path(tmp) / 'compile_commands.json').read_text())
+                targets = {name: {c['file']: shlex.split(c['command']) for c in commands
+                                 if f'CMakeFiles/{name}.dir/' in c['command']} for name in names}
+                self.assertTrue(required.issubset(targets[names[0]]))
+                self.assertEqual(set(targets[names[0]]), set(targets[names[1]]))
+                for source, ordinary in targets[names[0]].items():
+                    alternate = targets[names[1]][source]
+                    self.assertNotIn('-DP6_TEST_RGB565_ALTERNATE', ordinary)
+                    self.assertIn('-DP6_TEST_RGB565_ALTERNATE', alternate)
+                    for args in (ordinary, alternate):
+                        self.assertEqual('-fsanitize=address,undefined' in args, sanitizers == 'ON')
+                    # Ignore output names and CMake's target-specific export define.
+                    def properties(args):
+                        return {a for a in args if a.startswith(('-I', '-D', '-f'))
+                                and not a.endswith('_EXPORTS') and a != '-DP6_TEST_RGB565_ALTERNATE'}
+                    self.assertEqual(properties(ordinary), properties(alternate))
+
     def test_ninja_fresh_build_and_clean_with_atomic_publication(self):
         # Isolate CMake's directory/order/clean behavior from the real shared
         # cache. The tiny publisher rejects partial trees just like codegen.

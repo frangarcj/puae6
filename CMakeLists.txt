@@ -196,8 +196,8 @@ include(cmake/Libretro.cmake)
 # objects. The extra library selects the opposite presentation route.
 option(P6_RGB565_EXPERIMENT "Build the alternate RGB565 libretro test library" OFF)
 if(P6_RGB565_EXPERIMENT)
-    add_library(puae6_libretro_rgb565_alternate SHARED adapters/libretro/libretro_core.cpp
-        adapters/libretro/config_import.cpp $<TARGET_OBJECTS:p6_engine>)
+    get_target_property(_libretro_sources puae6_libretro SOURCES)
+    add_library(puae6_libretro_rgb565_alternate SHARED ${_libretro_sources})
     add_dependencies(puae6_libretro_rgb565_alternate p6_codegen)
     foreach(_property IN ITEMS INCLUDE_DIRECTORIES LINK_LIBRARIES COMPILE_DEFINITIONS LINK_OPTIONS
             PREFIX CXX_VISIBILITY_PRESET VISIBILITY_INLINES_HIDDEN)
