@@ -1,13 +1,13 @@
 name: Waterbox pinned hosted inputs
 on:
   push:
-    branches: [codex/waterbox-hosted-inputs]
-    paths: [.github/workflows/waterbox-hosted-inputs.yml, tools/ci/prepare_hosted_tools.py, tools/ci/hosted-tools.json]
+    branches: [codex/waterbox-hosted-inputs, codex/waterbox-hosted-gate]
+    paths: [.github/workflows/waterbox-hosted-inputs.yml, .github/actions/**, tools/ci/**, tools/build_waterbox.py, tests/waterbox-smoke/**]
   workflow_dispatch:
     inputs:
       component:
         type: choice
-        options: [all, tools, managed]
+        options: [all, tools, managed, gate]
         default: all
         required: true
 permissions:
@@ -16,7 +16,7 @@ jobs:
   pinned-inputs:
     if: github.event_name == 'push' || inputs.component != 'managed'
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -93,6 +93,27 @@ jobs:
           assert (smoke / 'own.rmeta').stat().st_size > 0
           print(json.dumps(dict(status='PASS', scope='pinned host tools, resources and SIP-safe tiny compile/link only; no Waterbox build or execution', versions=versions), sort_keys=True))
           PY
+      - name: Prepare the exact managed SDK for the full gate
+        if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
+        uses: ./.github/actions/prepare-managed-sdk
+      - name: Select the verified hosted Waterbox inputs
+        if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
+        shell: bash
+        run: |
+          printf '%s\n' 'P6_WATERBOX_SOURCE_AUDIT=snapshot' 'P6_WATERBOX_TOOLCHAIN_PROFILE=hosted-macos26' 'P6_WATERBOX_TOOLS_FILE=build/hosted-tools/paths.json' 'P6_WATERBOX_HOSTED_TOOLS=build/hosted-tools' 'P6_WATERBOX_MANAGED_FEED=build/hosted-managed-feed' 'CMAKE_BUILD_PARALLEL_LEVEL=2' 'CARGO_HTTP_CAINFO=/etc/ssl/cert.pem' 'SSL_CERT_FILE=/etc/ssl/cert.pem' >> "$GITHUB_ENV"
+          python3 -B tools/prepare_waterbox_sysroot.py
+      - name: Build and execute the real Waterbox runtime smoke
+        if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
+        shell: bash
+        run: python3 -B tools/build_waterbox.py --source-audit snapshot --fetch --smoke --jobs 2
+      - name: Build the complete ARM64 guest
+        if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
+        shell: bash
+        run: python3 -B tools/build_waterbox.py --source-audit snapshot --puae6 --jobs 2
+      - name: Execute all checks of the public PR recipe
+        if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
+        shell: bash
+        run: python3 -B tools/ci/run.py --source-audit snapshot
   managed-sdk:
     if: github.event_name == 'workflow_dispatch' && inputs.component != 'tools'
     runs-on: macos-26
@@ -101,43 +122,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Prepare the authenticated SDK under project build
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import hashlib, json, pathlib, subprocess, tarfile, tempfile, urllib.request
-          root = pathlib.Path.cwd()
-          build = root / 'build'
-          build.mkdir(exist_ok=True)
-          sdk = build / 'hosted-dotnet'
-          assert not sdk.exists() and not sdk.is_symlink()
-          url = 'https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.402/dotnet-sdk-10.0.402-osx-arm64.tar.gz'
-          expected = 'ee0d379c144ebddef6efe851e1514883d1b695430d13b3fb13e8153f8476e1e5ac7abc42c08668471aaf4d738ff367cf53009845f94d224ba126febe74d00b75'
-          with tempfile.TemporaryDirectory(prefix='.managed-sdk-', dir=build) as temporary:
-              archive = pathlib.Path(temporary) / 'sdk.tar.gz'
-              checksum, size = hashlib.sha512(), 0
-              with urllib.request.urlopen(url, timeout=60) as source, archive.open('xb') as output:
-                  assert source.status == 200 and source.geturl() == url
-                  while chunk := source.read(1 << 20):
-                      size += len(chunk)
-                      assert size <= 230833757
-                      checksum.update(chunk)
-                      output.write(chunk)
-              assert size == 230833757 and checksum.hexdigest() == expected
-              stage = pathlib.Path(temporary) / 'sdk'
-              stage.mkdir()
-              with tarfile.open(archive, 'r:gz') as source:
-                  entries, expanded = 0, 0
-                  for entry in source:
-                      entries += 1
-                      expanded += entry.size
-                      assert entries <= 100000 and expanded <= 2 << 30 and 0 <= entry.size <= 512 << 20
-                      assert entry.isfile() or entry.isdir() or entry.issym() or entry.islnk()
-                      assert not entry.mode & 0o7000
-                      source.extract(entry, stage, filter='data')
-              stage.rename(sdk)
-          print(json.dumps(dict(status='PASS', scope='official SDK archive preparation only', bytes=size)))
-          PY
+      - name: Prepare and select the pinned project-local SDK
+        uses: ./.github/actions/prepare-managed-sdk
       - name: Prepare the fixed offline managed feed
         shell: bash
         run: python3 -B tools/ci/prepare_managed_inputs.py --fetch
