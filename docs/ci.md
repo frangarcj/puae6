@@ -177,6 +177,29 @@ preparacion explicita: el constructor no la activa al faltar el sysroot.
 `PROVENANCE.json` identifica los fuentes, receta e imagen de su reconstruccion;
 usar este paquete no equivale a ejecutar de nuevo esa reconstruccion.
 
+`python3 tools/ci/prepare_hosted_tools.py --fetch --ruby RUTA` prepara las
+bottles ARM64 fijadas bajo `build/hosted-tools`, como dependencias del proyecto.
+Sin `--fetch` solo verifica una cache completa. Se conservan los recursos de
+Clang y Rust; la configuracion global opcional de Clang se excluye por su enlace
+exacto y rust-objcopy se materializa desde el LLVM capturado. Los ejecutables y
+las bibliotecas normalizadas deben coincidir con sus hashes fijados.
+
+Para usarlas, seleccionar `P6_WATERBOX_TOOLS_FILE=build/hosted-tools/paths.json`
+y `P6_WATERBOX_HOSTED_TOOLS=build/hosted-tools`. El constructor verifica primero
+la cache y genera launchers propios que restauran el entorno del cargador tras
+los shells protegidos de macOS; las identidades siguen siendo las de los
+binarios originales. `P6_WATERBOX_TOOLCHAIN_PROFILE=hosted-macos26` selecciona
+explicitamente el `make` observado en ese runner, con su propio pin.
+
+`python3 tools/ci/prepare_managed_inputs.py --fetch` prepara el feed NuGet fijado;
+sin `--fetch` lo verifica sin red. `P6_WATERBOX_MANAGED_FEED=build/hosted-managed-feed`
+lo conecta a ambos builders C#. El feed incluye los refpacks 8.0.32 que exige el
+SDK oficial 10.0.402 y los siete paquetes transitivos del wrapper.
+
+`waterbox-hosted-inputs.yml` comprueba en `macos-26` los archivos reales, la carga
+de las herramientas y el SDK aislado con restore desde el feed local. Es una
+puerta de preparacion: no sustituye al build y ejecucion reales de Waterbox.
+
 El repositorio publico `frangarcj/puae6` contiene los fuentes y workflows. Guardar
 workflows o ejecutar lanes locales no acredita ejecucion remota: T39b/T39
 conservan pendientes sus puertas no ejecutadas en los runners declarados.
