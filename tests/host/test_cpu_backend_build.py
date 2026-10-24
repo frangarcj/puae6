@@ -50,8 +50,9 @@ class BackendBuildTests(unittest.TestCase):
         self.assertEqual("EM_AARCH64", wb.validate_elf(guest, 16384)["machine"])
         wb.check_no_compiler_tls(guest)
         paths, _ = wb.locked_tools(json.loads(wb.LOCK.read_text()))
+        environment = wb.hosted_environment(paths)["direct_env"]
         nm = paths["clang"].parent / "llvm-nm"
-        names = subprocess.run([str(nm), "--defined-only", str(guest)], check=True, capture_output=True, text=True).stdout
+        names = subprocess.run([str(nm), "--defined-only", str(guest)], check=True, capture_output=True, text=True, env=environment).stdout
         self.assert_backend_symbols(names)
         exports = set()
         for source in (ROOT / "adapters/waterbox").glob("*.cpp"):
@@ -60,4 +61,4 @@ class BackendBuildTests(unittest.TestCase):
         symbols = {line.split()[-1] for line in names.splitlines() if line.split()}
         self.assertLessEqual(exports, symbols)
         objects = [wb.BUILD / "puae6/release" / f"{source}.o" for source in receipt["sources"]]
-        self.assertEqual([], wb.audit_imports({"paths": paths}, objects)["unexpected"])
+        self.assertEqual([], wb.audit_imports({"paths": paths, "env": environment}, objects)["unexpected"])
