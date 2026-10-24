@@ -12194,7 +12194,7 @@
       "title": "Empaquetar y ejecutar una preview Waterbox standalone fuera del checkout",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40d",
         "T40a",
