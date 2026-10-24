@@ -21,16 +21,7 @@ def current_inputs(row):
 class EquivalenceTests(unittest.TestCase):
     def test_actual_rgb565_and_same_and_new_process_restore_in_all_declared_rows(self):
         results = matrix.verify()
-        for row, result in results.items():
-            self.assertEqual(len(result["cases"]), 27, row)
-            self.assertEqual(set(result["build"]["binaries"]), {"current", "candidate", "host"})
-            variant = "candidate" if row in frontend.NEON_PRODUCT_ROWS else "current"
-            self.assertEqual(result["build"]["product_variant"], variant)
-            extension = ".dylib" if row.startswith("macos-") else ".so"
-            self.assertEqual(result["build"]["binaries"][variant], frontend.digest(matrix.directory(row) / "opt" / ("puae6_libretro" + extension)))
-            for case in result["cases"].values():
-                self.assertEqual(len(case["runs"]), 14)
-                self.assertTrue(case["same_process_restore"] and case["new_process_restore"])
+        matrix.compare_rows(results)
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "prepare T35c sanitizer rows")
@@ -39,17 +30,10 @@ class SafetyTests(unittest.TestCase):
         results = matrix.verify(True)
         self.assertEqual(set(results), set(matrix.ROWS))
         for row, result in results.items():
-            optimized = json.loads((matrix.directory(row) / "opt/verification.json").read_text())["cases"]
-            self.assertEqual(set(result["cases"]), set(optimized), row)
-            for name, case in result["cases"].items():
-                self.assertEqual(case["runs"], optimized[name]["runs"], f"{row}: sanitizers change {name}")
-            commands = json.loads((matrix.directory(row) / "san/compile_commands.json").read_text())
-            tested = [c["command"] for c in commands if any(target in c["command"] for target in
-                      ("p6_engine.dir/", "puae6_libretro.dir/", "puae6_libretro_rgb565_alternate.dir/"))]
-            self.assertTrue(tested, row)
-            for command in tested:
-                self.assertIn("-fsanitize=address,undefined", command, row)
-                self.assertIn("-fno-sanitize-recover=all", command, row)
+            optimized = json.loads((matrix.directory(row) / "opt/verification.json").read_text())
+            matrix.compare_variants(row, optimized, result)
+            commands = matrix.directory(row) / 'san/compile_commands.json'
+            matrix.sanitizer_commands(json.loads(commands.read_text()), frontend.digest(commands))
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "run the T35c measurements first")
