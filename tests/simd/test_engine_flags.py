@@ -64,27 +64,9 @@ class EquivalenceTests(unittest.TestCase):
     def receipt(self, variant):
         directory = experiment.WORK / variant
         r = json.loads((directory / "verification.json").read_text())
-        self.assertEqual(r["source_identity"], experiment.source_identity())
-        self.assertEqual(r["probe_sha256"], experiment.sha(directory / "p6_state_probe"))
-        for path, digest in r["harness"].items():
-            self.assertEqual(digest, experiment.sha(experiment.ROOT / path), path)
-        expected = [f"{e.id}@{n}/{mode}" for e in experiment.corpus.ENTRIES for n in e.points for mode in e.modes]
-        self.assertEqual(r["restored"], expected)
-        self.assertEqual(set(r["canonical"]["cases"]), {e.id for e in experiment.corpus.ENTRIES})
-        self.assertEqual(r["canonical"]["errors"], {})
         commands = json.loads((directory / "compile_commands.json").read_text())
-        for command in commands:
-            text = command["command"]
-            self.assertIn("-fno-fast-math", text)
-            self.assertIn("-ffp-contract=off", text)
-            self.assertNotIn("-march=native", text)
-            if variant.startswith("lto"):
-                self.assertIn("-flto", text)
-            if variant.startswith("pgo"):
-                self.assertIn("-fprofile-instr-use=", text)
-            if variant.endswith("-san"):
-                self.assertIn("-fsanitize=address,undefined", text)
-        return r
+        return experiment.validate_receipt(variant, r, commands, experiment.source_identity(),
+                                           experiment.sha(directory / "p6_state_probe"), experiment.verification_harness())
 
     def test_full_engine_and_restore_match_the_unoptimized_flag_fallback(self):
         base = self.receipt("base")["canonical"]["cases"]

@@ -1,0 +1,43 @@
+name: Prepare pinned public Waterbox performance inputs
+description: Project-local tools, SDK, feed, runtime and guest; no private assets or benchmark execution
+runs:
+  using: composite
+  steps:
+    - name: Select an existing Ruby on the declared host
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import os, platform, shutil, subprocess, sys
+        assert sys.version_info >= (3, 12)
+        assert (platform.system(), platform.machine(), os.sysconf('SC_PAGE_SIZE')) == ('Darwin', 'arm64', 16384)
+        assert platform.mac_ver()[0].split('.')[0] == '26'
+        for candidate in ['/opt/homebrew/opt/ruby/bin/ruby', '/opt/homebrew/opt/ruby@3.4/bin/ruby', '/opt/homebrew/opt/ruby@3.3/bin/ruby', 'ruby']:
+            ruby = shutil.which(candidate)
+            if ruby and subprocess.run([ruby, '-e', 'exit((RUBY_VERSION.split(".").map(&:to_i) <=> [3,3]) == -1 ? 2 : 0)']).returncode == 0:
+                with open(os.environ['GITHUB_ENV'], 'a') as output:
+                    output.write('P6_HOSTED_RUBY=' + ruby + '\n')
+                break
+        else:
+            raise SystemExit('BLOCKED: existing Ruby >=3.3 required')
+        PY
+    - name: Prepare the authenticated host tools
+      shell: bash
+      run: python3 -B tools/ci/prepare_hosted_tools.py --fetch --ruby "$P6_HOSTED_RUBY"
+    - name: Prepare the fixed offline managed feed
+      shell: bash
+      run: python3 -B tools/ci/prepare_managed_inputs.py --fetch
+    - name: Prepare and select the pinned project-local SDK
+      uses: ./.github/actions/prepare-managed-sdk
+    - name: Select the explicit hosted snapshot inputs
+      shell: bash
+      run: |
+        printf '%s\n' 'P6_WATERBOX_SOURCE_AUDIT=snapshot' 'P6_WATERBOX_TOOLCHAIN_PROFILE=hosted-macos26' 'P6_WATERBOX_TOOLS_FILE=build/hosted-tools/paths.json' 'P6_WATERBOX_HOSTED_TOOLS=build/hosted-tools' 'P6_WATERBOX_MANAGED_FEED=build/hosted-managed-feed' 'P6_WATERBOX_RUNTIME=release' 'P6_EVICT=0' 'CMAKE_BUILD_PARALLEL_LEVEL=2' 'CARGO_HTTP_CAINFO=/etc/ssl/cert.pem' 'SSL_CERT_FILE=/etc/ssl/cert.pem' >> "$GITHUB_ENV"
+        python3 -B tools/prepare_waterbox_sysroot.py
+    - name: Build the pinned Release runtime
+      shell: bash
+      run: python3 -B tools/build_waterbox.py --source-audit snapshot --fetch --jobs 2
+    - name: Build the complete ARM64 guest
+      shell: bash
+      run: |
+        python3 -B tools/generate_cpu.py
+        python3 -B tools/build_waterbox.py --source-audit snapshot --puae6 --jobs 2

@@ -104,22 +104,61 @@ class OptimizationEngineTests(unittest.TestCase):
 
     def test_actual_own_bytes_receipts_and_headers_detect_tamper_with_preserved_mtime(self):
         directory = self.root/'base'; directory.mkdir()
-        for name in ('p6_state_probe', 'p6_bench_probe', 'compile_commands.json', 'own.h'): (directory/name).write_text('own bytes '+name)
+        for name in ('p6_state_probe', 'p6_bench_probe', 'own.h'): (directory/name).write_text('own bytes '+name)
+        commands = [dict(command='own-c++ -fno-fast-math -ffp-contract=off -c own.cpp')]
+        (directory/'compile_commands.json').write_text(json.dumps(commands))
+        (self.root/'tests').mkdir(); harness=self.root/'tests/own.py'; harness.write_text('own harness')
         binaries = {name: engine.fact(directory/name) for name in ('p6_state_probe', 'p6_bench_probe')}
         built = dict(source_identity='f'*64, binaries=binaries, compile_commands_sha256=engine.fact(directory/'compile_commands.json')['sha256'])
         cases = {entry.id: dict(hardware='a'*64, av='b'*64, per_unit={'0': ['c'*16, 'd'*16]}, units=1, lines=3) for entry in engine.experiment.corpus.ENTRIES}
-        verified = dict(source_identity='f'*64, probe_sha256=binaries['p6_state_probe']['sha256'], canonical=dict(errors={}, cases=cases), restored=engine.restored())
+        verified = dict(source_identity='f'*64, probe_sha256=binaries['p6_state_probe']['sha256'], canonical=dict(errors={}, cases=cases),
+                        restored=engine.restored(), harness=engine.experiment.verification_harness(self.root))
         (directory/'build.json').write_text(json.dumps(built)); (directory/'verification.json').write_text(json.dumps(verified))
-        with mock.patch.object(engine.experiment, 'WORK', self.root), mock.patch.object(engine.matrix.native, 'execute', return_value=f'own.o: #deps 1 (VALID)\n    {directory}/own.h\n'):
+        with mock.patch.object(engine.experiment, 'WORK', self.root), mock.patch.object(engine.experiment, 'ROOT', self.root), \
+             mock.patch.object(engine.matrix.native, 'execute', return_value=f'own.o: #deps 1 (VALID)\n    {directory}/own.h\n'):
             before = engine.variant_record('base', 'f'*64)
             stat = (directory/'own.h').stat(); (directory/'own.h').write_text('own changed header')
             import os
             os.utime(directory/'own.h', ns=(stat.st_atime_ns, stat.st_mtime_ns))
             self.assertNotEqual(before['dependencies'], engine.variant_record('base', 'f'*64)['dependencies'])
+            stat=harness.stat(); harness.write_text('own changed harness'); os.utime(harness,ns=(stat.st_atime_ns,stat.st_mtime_ns))
+            with self.assertRaisesRegex(AssertionError,'harness differs'): engine.variant_record('base','f'*64)
+            harness.write_text('own harness')
+            for text in ('own-c++ -ffp-contract=off','own-c++ -fno-fast-math','own-c++ -fno-fast-math -ffp-contract=off -march=native'):
+                (directory/'compile_commands.json').write_text(json.dumps([dict(command=text)]))
+                built['compile_commands_sha256']=engine.fact(directory/'compile_commands.json')['sha256']
+                (directory/'build.json').write_text(json.dumps(built))
+                with self.assertRaisesRegex(AssertionError,'precision flags'): engine.variant_record('base','f'*64)
             (directory/'p6_bench_probe').write_bytes(b'tampered')
             with self.assertRaisesRegex(RuntimeError, 'binary changed'): engine.variant_record('base', 'f'*64)
         for text in ('', 'own.o (STALE)\n    '+str(directory/'own.h')):
             with mock.patch.object(engine.matrix.native, 'execute', return_value=text), self.assertRaisesRegex(RuntimeError, 'inventory'): engine.dependencies(directory)
+
+    def test_shared_pure_receipt_guard_retains_every_original_variant_and_rejects_omissions(self):
+        verified=dict(source_identity='own',probe_sha256='a'*64,harness={'tests/own.py':'b'*64},restored=engine.restored(),
+                      canonical=dict(errors={},cases={e.id:{} for e in engine.experiment.corpus.ENTRIES}))
+        for variant in engine.VARIANTS:
+            text='own-c++ -fno-fast-math -ffp-contract=off'
+            if variant.startswith('lto'): text+=' -flto'
+            if variant.startswith('pgo'): text+=' -fprofile-instr-use=own.profdata'
+            if variant.endswith('-san'): text+=' -fsanitize=address,undefined'
+            guard=engine.experiment.validate_receipt
+            self.assertIs(guard(variant,verified,[dict(command=text)],'own','a'*64,verified['harness']),verified)
+            for fault in ('source','probe','harness','harness-empty','restore','cases','errors','commands','flags'):
+                record=copy.deepcopy(verified); commands=[dict(command=text)]
+                if fault=='source': record['source_identity']='different'
+                if fault=='probe': record['probe_sha256']='c'*64
+                if fault=='harness': record['harness']['tests/own.py']='c'*64
+                if fault=='harness-empty': record['harness']={}
+                if fault=='restore': record['restored'].pop()
+                if fault=='cases': record['canonical']['cases'].pop(next(iter(record['canonical']['cases'])))
+                if fault=='errors': record['canonical']['errors']={'own':'failure'}
+                if fault=='commands': commands=[]
+                if fault=='flags': commands=[dict(command='own-c++')]
+                with self.subTest(variant=variant,fault=fault),self.assertRaises(AssertionError): guard(variant,record,commands,'own','a'*64,verified['harness'])
+            for flag in ('-flto','-fprofile-instr-use=own.profdata','-fsanitize=address,undefined'):
+                if flag in text:
+                    with self.assertRaises(AssertionError): guard(variant,verified,[dict(command=text.replace(flag,''))],'own','a'*64,verified['harness'])
 
     def test_training_is_local_public_and_bound_to_exact_profile_verification_and_tool(self):
         directory = self.root/'instrument'; (directory/'profiles').mkdir(parents=True)

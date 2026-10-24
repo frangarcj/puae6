@@ -71,9 +71,9 @@ def variant_record(variant, source):
     require(built['binaries'] == binaries and verified['probe_sha256'] == binaries['p6_state_probe']['sha256'], 'engine binary changed')
     compile_hash = fact(directory/'compile_commands.json')['sha256']
     require(built['compile_commands_sha256'] == compile_hash, 'compile commands changed')
+    experiment.validate_receipt(variant, verified, json.loads((directory/'compile_commands.json').read_text()),
+                                source, binaries['p6_state_probe']['sha256'], experiment.verification_harness())
     canonical = verified['canonical']
-    require(canonical['errors'] == {} and set(canonical['cases']) == {entry.id for entry in experiment.corpus.ENTRIES}
-            and verified['restored'] == restored(), 'incomplete original corpus/restoration')
     hashes = {name: {key: case[key] for key in ('hardware', 'av', 'per_unit', 'units', 'lines')}
               for name, case in canonical['cases'].items()}
     return dict(build=fact(directory/'build.json')['sha256'], verification=fact(directory/'verification.json')['sha256'],

@@ -365,3 +365,34 @@ identidad comun de fuente/receta/run/intento. No transfiere perfiles PGO ni
 publica artifacts. Esta receta no acredita rendimiento ni las otras lanes;
 su implementacion y sus tests de infraestructura tampoco acreditan ejecucion
 remota del emulador.
+
+El componente manual `rgb565-probe` del workflow de inputs comprueba primero
+un C++ propio minimo con ASan y despues los tres metodos originales de RGB565.
+No construye el motor, SDK o feed. La bottle autenticada conserva un ID ASan
+con `@@HOMEBREW_PREFIX@@`: la politica exclusiva `asan-arm64-rpath` extrae su
+slice ARM64, fija `@rpath/libclang_rt.asan_osx_dynamic.dylib` y firma de forma
+determinista. El manifest fija SHA/tamaño de entrada y salida. Los otros 21
+targets y el compilador no cambian; el rpath del resource resuelve este runtime
+sin instalarlo en Homebrew. Un fallo de carga conserva exit no-cero.
+
+## Rendimiento completo en runners publicos
+
+`gate: performance`, `variants: all` selecciona
+`hosted-native-performance-v1`: los doce selectores y 43 metodos originales.
+El job bench prepara los inputs publicos Waterbox, SDK/feed, ambos runtimes y
+hosts managed/nativos con las recetas existentes; ejecuta las 135 ventanas CPU
+y 39 metodos. Otro Mac26 conserva entrenamiento, cuatro variantes del motor,
+75 ventanas y dos metodos. Tras ambos jobs, hasta cuatro workers simultaneos
+construyen/verifican las cinco filas frontend; solo las tres filas medidas
+originales ejecutan 50 ventanas cada una.
+
+Los validadores de frontend comparten las assertions originales de muestras,
+restauracion, estadistica y decision. Las dos assertions distribuidas se
+distinguen de los 41 unittest ejecutados. Arrays completos se validan en el
+worker y se eliminan con sus temporales; los logs transportan procedencia,
+cobertura y resumenes de esta ejecucion, nunca PASS anteriores ni perfiles PGO.
+El agregado exige un mismo run/intento/revision y todos los workers completos.
+Cada fila mide en serie sin builds concurrentes en su runner. Los umbrales
+CoreIO y WB12 siguen siendo checks; los presupuestos 70%/5%/10% permanecen
+orientativos. La nube no se presenta como runner dedicado ni como las imagenes
+Docker locales, y escribir esta receta no acredita su ejecucion.

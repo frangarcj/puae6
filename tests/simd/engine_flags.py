@@ -37,6 +37,31 @@ def save(path, value):
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
+def verification_harness(root=None):
+    root = ROOT if root is None else Path(root)
+    return {str(p.relative_to(root)): sha(p) for p in (root / "tests").rglob("*.py") if p.is_file()}
+
+
+def validate_receipt(variant, record, commands, source, probe_sha, harness):
+    """Original equivalence receipt assertions, shared without executing an engine."""
+    def require(condition, message):
+        if not condition: raise AssertionError(message)
+    require(variant in VARIANTS and record["source_identity"] == source, "engine receipt source/variant differs")
+    require(record["probe_sha256"] == probe_sha, "engine receipt probe differs")
+    require(record["harness"] == harness and harness, "engine receipt harness differs or is incomplete")
+    expected = [f"{e.id}@{n}/{mode}" for e in corpus.ENTRIES for n in e.points for mode in e.modes]
+    require(record["restored"] == expected and set(record["canonical"]["cases"]) == {e.id for e in corpus.ENTRIES}
+            and record["canonical"]["errors"] == {}, "engine receipt corpus/restoration differs")
+    require(commands, "missing engine compile commands")
+    for command in commands:
+        text = command["command"]
+        require("-fno-fast-math" in text and "-ffp-contract=off" in text and "-march=native" not in text, "engine precision flags differ")
+        if variant.startswith("lto"): require("-flto" in text, "engine LTO flag missing")
+        if variant.startswith("pgo"): require("-fprofile-instr-use=" in text, "engine PGO flag missing")
+        if variant.endswith("-san"): require("-fsanitize=address,undefined" in text, "engine sanitizer flag missing")
+    return record
+
+
 def run(command, log=None):
     result = subprocess.run(list(map(str, command)), cwd=ROOT, env=ENV, capture_output=True, text=True, timeout=7200)
     if log:
@@ -138,7 +163,7 @@ def verify(variant):
             run(command, directory / (scenario.id + "-training.json"))
     save(directory / "verification.json", {"identity": identity(), "canonical": canonical, "restored": restored,
                                           "source_identity": source_identity(),
-                                          "harness": {str(p.relative_to(ROOT)): sha(p) for p in (ROOT / "tests").rglob("*.py") if p.is_file()},
+                                          "harness": verification_harness(),
                                           "probe_sha256": sha(directory / "p6_state_probe"),
                                           "raw_profiles": [str(p) for p in sorted(set((directory / "profiles").glob("*.profraw")) - previous_profiles)],
                                           "corpus_files": {p.name: sha(p) for p in sorted(target.iterdir()) if p.suffix != ".state"}})
