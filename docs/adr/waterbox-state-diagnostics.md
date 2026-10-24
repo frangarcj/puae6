@@ -98,3 +98,19 @@ y el futuro difiere del baseline; una carga que no hiciera nada no pasaría.
 El guest original se rechaza antes de saltar al detectar su slot no canónico.
 Los inputs se verifican antes/después y los outputs temporales se eliminan.
 La integración del sysroot y los guests derivados sigue pendiente en T40o.
+
+## Derivación de libc y metadatos del ensamblador
+
+La base conserva objetos ensamblados con LLVM 18. El compilador local fijado
+es LLVM 23. Al recompilar las dos fuentes originales, las instrucciones, tamaños
+y atributos coinciden; sólo cambia la etiqueta local STT_NOTYPE `$x.0` a `$x`
+en `.text+0`, de tamaño cero. Cambian también el orden de la tabla de strings
+y sus offsets en la tabla de símbolos.
+
+La comparación base/fuente actual debe identificar exactamente esa diferencia:
+conservar todos los demás símbolos y atributos, comprobar el mismo conjunto de
+strings salvo aquel token y rechazar cualquier cambio de código o relocación.
+La comparación entre original y parcheado con el compilador actual sigue siendo
+estricta sobre los metadatos y sólo admite la instrucción acordada. No se edita
+ningún ELF ni se normalizan snapshots. La base y el índice completo del archivo
+se conservan como inputs; el derivado tendrá identidad propia.
