@@ -911,6 +911,12 @@ TASK_SUITES[('PKG01', 'T40a')] = {'package_policy': 'tests.packages.test_preview
                                 'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 for _gate in ('BUILD01', 'LR01'):
     TASK_SUITES[(_gate, 'T40a')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+TASK_SUITES[('PKG01', 'T40c')] = {
+    'package_policy': 'tests.packages.test_preview.PolicyTests',
+    'linux_package_policy': 'tests.packages.test_linux_preview.LinuxPreviewTests',
+    'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
+for _gate in ('BUILD01', 'LR01'):
+    TASK_SUITES[(_gate, 'T40c')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 # Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
 TASK_SUITES[('IN01', 'T70a')] = {
     'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',

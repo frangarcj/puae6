@@ -1,14 +1,18 @@
-# PUAE6: primera preview para macOS ARM64
+# PUAE6: previews nativas
 
 Esta entrega contiene el core libretro y un ejecutable de consola. No es una
-aplicacion grafica independiente. Requiere un Mac Apple Silicon y un frontend
-libretro compatible ya instalado. No incluye ROMs Kickstart ni juegos.
+aplicacion grafica independiente. Cada ZIP identifica su plataforma en
+`manifest.json`: macOS ARM64, Linux ARM64 o Linux x86_64. Usa el paquete de tu
+arquitectura y un frontend libretro compatible ya instalado. No incluye ROMs
+Kickstart ni juegos. La receta Linux usa Clang y las bibliotecas de sistema de
+Ubuntu 24.04; no incorpora bibliotecas externas ni instala dependencias.
 
 ## Empezar
 
 1. Extrae el ZIP en una carpeta propia.
 2. En tu frontend, carga manualmente `bin/puae6_libretro.dylib` mediante
-   «Load Core / Cargar nucleo» y selecciona tu disco o playlist.
+   «Load Core / Cargar nucleo» y selecciona tu disco o playlist. En Linux el
+   archivo es `bin/puae6_libretro.so`.
 3. Pon tu Kickstart autorizado en el directorio de sistema del frontend:
    `kick34005.A500` para A500/1.3, `kick37350.A600` para A600/2.05 o
    `kick40068.A1200` para A1200/3.1. El core comprueba su contenido.
@@ -150,7 +154,8 @@ slave ambiguo; el core no descarga esos archivos.
 
 ## Limites de esta entrega
 
-Preview local del core nativo macOS ARM64. Las rutas iniciales A500, A600 y A1200
+Preview local del core nativo para la plataforma indicada en el ZIP. Las rutas
+iniciales A500, A600 y A1200
 usan interprete de CPU; A4000 y CD32 conservan los limites experimentales indicados
 arriba. Algunos slaves WHDLoad necesitan Kickstarts o RTB adicionales; esos
 archivos debe aportarlos el usuario
@@ -169,7 +174,16 @@ sustituye al frontend grafico.
 tests publicos. Extraelo y compila con Python3, CMake, Ninja y Xcode Command Line
 Tools: `cmake -S source -B source/build/native -G Ninja -DCMAKE_BUILD_TYPE=Release`,
 seguido de `cmake --build source/build/native --target puae6_libretro p6_headless`.
-No descarga dependencias. PUAE6 incluye un derivado de SoftFloat2a con cambios de
+En Linux se usan Clang/Clang++, CMake, Ninja y Python3 ya disponibles; añade
+`-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/linux-clang.cmake` al configurar. Para
+generar un ZIP y comprobarlo extraido, desde los fuentes limpios y comprometidos
+ejecuta `python3 tools/package.py build`. La receta elige la plataforma nativa,
+compila tambien el host de consola y ejecuta la misma prueba instalada de avance,
+restauracion y rechazo de firmware ausente.
+`python3 tools/package.py check --archive /ruta/preview.zip` repite esa comprobacion, sin necesitar el checkout
+usado para compilar los binarios. No descarga dependencias.
+
+PUAE6 incluye un derivado de SoftFloat2a con cambios de
 QEMU, WinUAE y PUAE6; conserva sus avisos mixtos SoftFloat2a/BSD/GPL y atribucion
 FPSP. `licenses/` acompaña los binarios con los textos GPL, MAME/IPF, libchdr,
 zlib, LZMA, dr_flac y SoftFloat; los fuentes y `manifests/licenses.json` conservan

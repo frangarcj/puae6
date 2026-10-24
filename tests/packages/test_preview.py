@@ -84,9 +84,9 @@ class PolicyTests(unittest.TestCase):
                 for path in sorted(sources): archive.add(package.ROOT/path,arcname='source/'+path)
             def manifest():
                 files={p.relative_to(stage).as_posix():package.sha(p) for p in stage.rglob('*') if p.is_file() and p.name!='manifest.json'}
-                (stage/'manifest.json').write_text(json.dumps({'files':files}))
+                (stage/'manifest.json').write_text(json.dumps({'platform':'macos-arm64','files':files}))
             # Only notice policy is under test; InstalledPreviewTests exercises binaries.
-            with mock.patch.object(package,'PRODUCTS',()):
+            with mock.patch.object(package,'verify_binaries'):
                 manifest(); package.verify(stage)
                 target=stage/'licenses/SOFTFLOAT-NOTICES.txt'; original=target.read_bytes()
                 for remove in (True,False):

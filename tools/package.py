@@ -7,7 +7,9 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
+import struct
 import subprocess
 import tarfile
 import tempfile
@@ -17,6 +19,80 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / 'manifests/release/native-preview.json'
 PRODUCTS = ('puae6_libretro.dylib', 'p6_headless', 'p6_libretro_host')
+PLATFORMS = {
+    'macos-arm64': ('Darwin', 'arm64', 'cmake/toolchains/macos-appleclang.cmake'),
+    'linux-arm64': ('Linux', 'arm64', 'cmake/toolchains/linux-clang.cmake'),
+    'linux-x86_64': ('Linux', 'x86_64', 'cmake/toolchains/linux-clang.cmake'),
+}
+
+
+def native_platform():
+    machine = 'arm64' if platform.machine() == 'aarch64' else platform.machine()
+    for name, (system, isa, _) in PLATFORMS.items():
+        if (platform.system(), machine) == (system, isa):
+            return name
+    raise ValueError('Preview requires macOS ARM64 or Linux ARM64/x86_64')
+
+
+def products(target):
+    if type(target) is not str or target not in PLATFORMS:
+        raise ValueError('Unknown package platform')
+    return (('puae6_libretro.so' if target.startswith('linux-') else PRODUCTS[0]), *PRODUCTS[1:])
+
+
+def configure_command(target, tree):
+    products(target)  # Validate before constructing a build command.
+    command = ['cmake', '-S', ROOT, '-B', tree, '-G', 'Ninja', '-DCMAKE_TOOLCHAIN_FILE=' + PLATFORMS[target][2],
+               '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=-O2', '-DCMAKE_CXX_FLAGS_RELEASE=-O2',
+               '-DP6_NATIVE_IPO=OFF', '-DP6_PGO_MODE=OFF', '-DP6_SANITIZERS=OFF']
+    if target == 'macos-arm64':
+        command += ['-DCMAKE_INSTALL_NAME_DIR=@rpath', '-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON']
+    return command
+
+
+def verify_binaries(directory, target):
+    for name in products(target):
+        binary = directory / 'bin' / name
+        if target == 'macos-arm64':
+            if 'arm64' not in run(['file', '-b', binary]):
+                raise ValueError('Wrong package architecture')
+            for line in run(['otool', '-L', binary]).splitlines()[1:]:
+                dependency = line.strip().split(' (')[0]
+                if not dependency.startswith('/usr/lib/') and dependency != '@rpath/puae6_libretro.dylib':
+                    raise ValueError('Non-system dependency: ' + dependency)
+            continue
+        with binary.open('rb') as stream:
+            header = stream.read(64)
+        types = (3,) if name.endswith('.so') else (2, 3)  # Shared core; EXEC or PIE executables.
+        machine = 183 if target == 'linux-arm64' else 62
+        if (len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01'
+                or struct.unpack_from('<HHI', header, 16) not in [(kind, machine, 1) for kind in types]):
+            raise ValueError('Wrong package ELF architecture/type: ' + name)
+        phoff = struct.unpack_from('<Q', header, 32)[0]
+        width, count = struct.unpack_from('<HH', header, 54)
+        size = binary.stat().st_size
+        if count and (width != 56 or phoff > size or count * width > size - phoff):
+            raise ValueError('Invalid ELF program headers: ' + name)
+        with binary.open('rb') as stream:
+            for number in range(count):
+                stream.seek(phoff + number * width); program = stream.read(width)
+                if struct.unpack_from('<I', program)[0] != 3: continue  # PT_INTERP
+                offset, length = struct.unpack_from('<Q', program, 8)[0], struct.unpack_from('<Q', program, 32)[0]
+                interpreter = b'/lib/ld-linux-aarch64.so.1\0' if machine == 183 else b'/lib64/ld-linux-x86-64.so.2\0'
+                if name.endswith('.so') or length != len(interpreter) or offset > size or length > size - offset:
+                    raise ValueError('Non-system ELF interpreter: ' + name)
+                stream.seek(offset)
+                if stream.read(length) != interpreter:
+                    raise ValueError('Non-system ELF interpreter: ' + name)
+        # Inspect metadata, never use ldd (which can execute the inspected input).
+        for line in run(['readelf', '--wide', '--dynamic', binary], env={**os.environ, 'LC_ALL': 'C'}).splitlines():
+            if '(RPATH)' in line or '(RUNPATH)' in line:
+                raise ValueError('Hidden package library search path: ' + name)
+            if '(NEEDED)' in line:
+                match = re.search(r'\(NEEDED\)[^\[]*\[([^\]]+)\]', line)
+                # Distribution Clang's C++/unwind/math/C runtime; no bundled decoder/plugin dependency.
+                if not match or match[1] not in {'libstdc++.so.6', 'libgcc_s.so.1', 'libm.so.6', 'libc.so.6'}:
+                    raise ValueError('Non-system dependency: ' + line.strip())
 
 
 def run(argv, **kwargs):
@@ -81,14 +157,8 @@ def verify(directory):
     for name, digest in manifest['files'].items():
         if Path(name).is_absolute() or '..' in Path(name).parts or sha(directory / name) != digest:
             raise ValueError('Package file changed: ' + name)
-    for name in PRODUCTS:
-        binary = directory / 'bin' / name
-        if 'arm64' not in run(['file', '-b', binary]):
-            raise ValueError('Wrong package architecture')
-        for line in run(['otool', '-L', binary]).splitlines()[1:]:
-            dependency = line.strip().split(' (')[0]
-            if not dependency.startswith('/usr/lib/') and dependency != '@rpath/puae6_libretro.dylib':
-                raise ValueError('Non-system dependency: ' + dependency)
+    products(manifest.get('platform'))
+    verify_binaries(directory, manifest['platform'])
     with tarfile.open(directory / 'source.tar.gz') as archive:
         members = {m.name for m in archive.getmembers() if m.isfile()}
         def read(path):
@@ -111,7 +181,9 @@ def verify(directory):
 def smoke(directory):
     """Exercise only extracted binaries and the public micro-ROM sources shipped with them."""
     directory = Path(directory).resolve()
-    verify(directory)
+    manifest = verify(directory)
+    if manifest['platform'] != native_platform():
+        raise ValueError('Installed smoke requires the matching native package platform')
     with tempfile.TemporaryDirectory(prefix='p6-installed-') as temporary:
         work = Path(temporary)
         with tarfile.open(directory / 'source.tar.gz') as archive:
@@ -125,8 +197,8 @@ def smoke(directory):
         system.mkdir()
         rom = system / 'kick34005.A500'
         rom.write_bytes(module.build((work / 'boot.s').read_text()))
-        host, core = (directory / 'bin' / n for n in ('p6_libretro_host', 'puae6_libretro.dylib'))
-        env = {k: v for k, v in os.environ.items() if not k.startswith(('DYLD_', 'LD_LIBRARY_PATH'))}
+        host, core = (directory / 'bin' / n for n in ('p6_libretro_host', products(manifest['platform'])[0]))
+        env = {k: v for k, v in os.environ.items() if not k.startswith(('DYLD_', 'LD_'))}
         output = run([host, core, '--system', system, '--runs', '12', '--do', '6:save:s', '--do', '9:load:s'], cwd=work, env=env)
         rows = [line.split(' ', 2)[2] for line in output.splitlines() if line.startswith('run ')]
         if len(rows) != 12 or rows[6:9] != rows[9:12] or 'state load s exact ok=1' not in output or 'VIOLATION' in output:
@@ -156,16 +228,12 @@ def unpack(archive, directory):
 
 
 def build(output, tree):
-    if (platform.system(), platform.machine()) != ('Darwin', 'arm64'):
-        raise ValueError('This preview requires the native macOS ARM64 host')
+    target = native_platform()
     revision = clean_revision()
     paths = source_paths()
     tree = Path(tree).resolve()
     tree.relative_to(ROOT / 'build')
-    run(['cmake', '-S', ROOT, '-B', tree, '-G', 'Ninja', '-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/macos-appleclang.cmake',
-         '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS_RELEASE=-O2', '-DCMAKE_CXX_FLAGS_RELEASE=-O2',
-         '-DCMAKE_INSTALL_NAME_DIR=@rpath', '-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON',
-         '-DP6_NATIVE_IPO=OFF', '-DP6_PGO_MODE=OFF', '-DP6_SANITIZERS=OFF'], cwd=ROOT)
+    run(configure_command(target, tree), cwd=ROOT)
     run(['cmake', '--build', tree, '--parallel', '2', '--target', 'puae6_libretro', 'p6_headless', 'p6_libretro_host'], cwd=ROOT)
     policy = json.loads(POLICY.read_text())
     output = Path(output).resolve()
@@ -176,7 +244,7 @@ def build(output, tree):
     with tempfile.TemporaryDirectory(prefix='p6-package-', dir=ROOT / 'build') as temporary:
         stage = Path(temporary)
         (stage / 'bin').mkdir()
-        for name in PRODUCTS:
+        for name in products(target):
             shutil.copy2(tree / name, stage / 'bin' / name)
         (stage / 'licenses').mkdir()
         for name, data in notice_files(policy, lambda path: (ROOT / path).read_bytes()).items():
@@ -185,7 +253,7 @@ def build(output, tree):
         with (stage / 'source.tar.gz').open('wb') as stream:
             subprocess.run(['git', 'archive', '--format=tar.gz', '--prefix=source/', revision, '--', *paths],
                            cwd=ROOT, stdout=stream, check=True, timeout=120)
-        manifest = {'schema_version': 1, 'kind': 'local-preview', 'platform': policy['platform'], 'revision': revision,
+        manifest = {'schema_version': 1, 'kind': 'local-preview', 'platform': target, 'revision': revision,
                     'compiler': run(['/usr/bin/clang', '--version']).splitlines()[0],
                     'headless_identity': run([tree / 'p6_headless', '--identity']),
                     'binary_reproducibility_verified': False,
@@ -210,9 +278,10 @@ def build(output, tree):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('build', 'check'))
-    parser.add_argument('--archive', type=Path, default=ROOT / 'build/product/puae6-preview-macos-arm64.zip')
+    parser.add_argument('--archive', type=Path)
     parser.add_argument('--build-dir', type=Path, default=ROOT / 'build/native-release')
     args = parser.parse_args()
+    args.archive = args.archive or ROOT / ('build/product/puae6-preview-' + native_platform() + '.zip')
     if args.command == 'build':
         result = build(args.archive, args.build_dir)
     else:
