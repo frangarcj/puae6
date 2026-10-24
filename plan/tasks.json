@@ -12259,7 +12259,8 @@
         "T40d",
         "T40g",
         "T40e",
-        "T40f"
+        "T40f",
+        "T40i"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12282,7 +12283,8 @@
         "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas.",
         "T40g entrega una preview Waterbox Darwin ARM64 standalone relocable con wrapper/FFI, guest/runtime y politica de fuentes/avisos completa. No es un plugin para copiar en EmuHawk; esta ficha conserva integracion porruntime, coexistencia y dos builds limpios reproducibles, ademas de la CI completa.",
         "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
-        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."
+        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad.",
+        "T40i compara dos reconstrucciones limpias del payload Waterbox standalone con rutas fijas y conserva la diferencia entre binarios iguales entre si y reproducibilidad del ZIP distribuido. Esta puerta no sustituye EmuHawk real ni la reproducibilidad de los productos nativos y del paquete completo."
       ],
       "checks": [
         "PKG01",
@@ -23510,6 +23512,45 @@
         "XML/direct/catalogo publico ETNFglobal normalizado conserva TOC/identidad/lease/SaveRAM y futuroAVPCM/RAM/estado exacto con snapshot en sandbox/proceso nuevos. Datos/Q/huecos y negativos son transaccionales; guest/runtime actuales y limitesmedidos, sin cambiarlegacy ni cerrarTINF/ETN2multi."
       ],
       "stop": "Sin runnerguest actual dejar gateBLOCKED. No aprobar conbibliotecanativa/snapshotprivado, timeout, solo pantallao compilacion; no repetir campañascompletas por cambio deharness."
+    },
+    {
+      "id": "T40i",
+      "title": "Comparar dos builds limpios del payload Waterbox standalone",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40d",
+        "T40g"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/reproduce_waterbox.py",
+        "tests/packages/test_waterbox_reproducible.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Construir dos veces desde objetos vacios en una misma ruta de staging aislada los ocho productos standalone: guest Release, runtime Release y seis outputs managed Release, con las recetas/flags/SDK/feed fijados actuales. Cachés de fuentes/dependencias verificadas pueden reutilizarse; no objetos ni salidas de una pasada anterior. Reutilizar funciones del builder; no ejecutar su build general ni repetir tests internos/smokes ya acreditados.",
+        "Exigir inventario completo, identidad de fuentes/herramientas/entorno estable antes/despues, pin managed del guest recien reconstruido y SHA-256 identicos de todos los ocho productos. El helper no instala ni descarga; faltantes bloquean. Aislar todos los outputs de los arboles oficiales y restaurar estado global/env incluso con fallo. Eliminar temporales propios al terminar.",
+        "Registrar CLI y gate real opt-in en PKG01/BUILD01; pruebas propias capturan build fallido, producto ausente/diferente, drift de inputs y limpieza, sin compilar el emulador en los tests de infraestructura. Root ejecuta el gate real despues de optimization, con builds pesados serializados.",
+        "Declarar el limite de rutas fijas: los DLL managed incluyen CodeView con path; no cambiar PathMap/PDB/flags ni normalizar binarios para aprobar. Dos builds iguales no acreditan igualdad con un ZIP existente si sus ocho hashes no coinciden; comparar sus pins antes de extender la afirmacion. T40 conserva integracion EmuHawk y reproducibilidad de la distribucion completa."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Dos reconstrucciones reales con todos los arboles de objetos inicialmente vacios producen exactamente los mismos ocho binarios en las condiciones y ruta declaradas.",
+        "Ningun output oficial o proyecto hermano se modifica, no hay descarga/instalacion ni casos omitidos convertidos a PASS. La igualdad del ZIP se afirma solo si coincide con sus ocho productos."
+      ],
+      "stop": "No simular exito ni relajar comparacion byte a byte. Tras dos fallos razonados conservar reproducer, dos hipotesis verificables y bloqueo; no sustituir EmuHawk real por standalone."
     }
   ],
   "max_in_progress": 4
