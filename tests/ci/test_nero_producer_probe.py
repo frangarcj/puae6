@@ -70,5 +70,30 @@ class NeroProducerProbeTests(unittest.TestCase):
         self.assertIn('exit 2', self.script)
         self.assertRegex(self.script, r'(?s)finally \{\s+if \(\$Created.*Remove-Item -LiteralPath \$Owned -Recurse -Force')
 
+    def test_registration_is_authenticated_readonly_and_precedes_download_or_execution(self):
+        pin = json.loads((ROOT / 'plan/upstream.lock.json').read_text())['reference_tools']['nero_2025']['registration']
+        self.assertEqual(pin, {
+            'hive': 'ClassesRoot', 'view': 'Registry32',
+            'key': r'CLSID\{8c3eda3f-f182-4617-a352-00b48a8e49f2}\InprocServer32',
+            'value_name': '', 'value_kind': 'REG_SZ', 'filename': 'AdvrCntr6.dll', 'bytes': 12027720,
+            'sha256': '05580111f2f7604b3c468badc1c2519a5664168c9371aabc2a66b620372e4f9c', 'export_ordinal': 5,
+            'source_payload': {'path': 'NeroInstaller/AdvrCntr6.zip', 'bytes': 11150970,
+                               'sha256': '561d672e263a26732dadf23f79c8f32a544e8286010bc371071a6bb9a4f2f1fc',
+                               'member': 'AdvrCntr6/AdvrCntr6.dll'}})
+        self.assertNotIn(pin['sha256'], self.script)
+        main = self.script[self.script.index('try {\n    Require ($IsWindows'):]
+        for operation in ('Download-Fixed $installer', '$seven = Get-Command', '$null = New-Item', 'Extract-App $archive', 'Read-Discovery $command'):
+            self.assertLess(main.index('Verify-Registration $pin.registration'), main.index(operation))
+        self.assertIn('[Microsoft.Win32.RegistryHive]::ClassesRoot', self.script)
+        self.assertIn('[Microsoft.Win32.RegistryView]::Registry32', self.script)
+        self.assertIn('$hive.OpenSubKey($Registration.key, $false)', self.script)
+        self.assertIn('[Microsoft.Win32.RegistryValueKind]::String', self.script)
+        self.assertIn('[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames', self.script)
+        self.assertIn('[IO.Path]::IsPathFullyQualified($path)', self.script)
+        self.assertIn('Verify-File $path ([long]$Registration.bytes) $Registration.sha256', self.script)
+        self.assertIn('Prerequisite absent: HKCR Registry32', self.script)
+        for forbidden in ('SetValue(', 'CreateSubKey(', 'DeleteSubKey', 'LoadLibrary', 'regsvr32', '40135161543'):
+            self.assertNotIn(forbidden, self.script)
+
 
 if __name__ == '__main__': unittest.main()

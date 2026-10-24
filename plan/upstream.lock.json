@@ -328,6 +328,23 @@
         "sha256": "9fffbea66c939f3933cd4c1efe5b6e44491f21865a35035e8eb75a10611ebd52"
       },
       "command_path": "Nero Burning ROM/NeroCmd.exe",
+      "registration": {
+        "hive": "ClassesRoot",
+        "view": "Registry32",
+        "key": "CLSID\\{8c3eda3f-f182-4617-a352-00b48a8e49f2}\\InprocServer32",
+        "value_name": "",
+        "value_kind": "REG_SZ",
+        "filename": "AdvrCntr6.dll",
+        "bytes": 12027720,
+        "sha256": "05580111f2f7604b3c468badc1c2519a5664168c9371aabc2a66b620372e4f9c",
+        "export_ordinal": 5,
+        "source_payload": {
+          "path": "NeroInstaller/AdvrCntr6.zip",
+          "bytes": 11150970,
+          "sha256": "561d672e263a26732dadf23f79c8f32a544e8286010bc371071a6bb9a4f2f1fc",
+          "member": "AdvrCntr6/AdvrCntr6.dll"
+        }
+      },
       "components": [
         {
           "path": "Nero Burning ROM/NeroAPIEngine.dll",
