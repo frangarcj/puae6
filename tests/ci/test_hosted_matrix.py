@@ -122,7 +122,7 @@ class HostedMatrixTests(unittest.TestCase):
 
     def test_aggregation_reads_only_current_attempt_logs_and_exactly_one_terminal_per_worker(self):
         records = self.records(); labels = ['matrix-infrastructure'] + [f'{r["row"]} / {r["optimization"]}' for r in records[1:]]
-        for fault in ('none', 'failed-job', 'missing-job', 'duplicate-json', 'missing-json', 'wrong-job'):
+        for fault in ('none', 'failed-job', 'missing-job', 'duplicate-json', 'missing-json', 'wrong-job', 'violation'):
             jobs = [dict(id=i+1, name=name, status='completed', conclusion='success') for i, name in enumerate(labels)]
             if fault == 'failed-job': jobs[0]['conclusion'] = 'failure'
             if fault == 'missing-job': jobs.pop()
@@ -135,6 +135,7 @@ class HostedMatrixTests(unittest.TestCase):
                 index = job_id-1; record = records[index]
                 if fault == 'wrong-job' and index == 0: record = records[1]
                 line = '2026-10-24T00:00:00Z ' + matrix.MARKER + json.dumps(record) + '\n'
+                if fault == 'violation': line += 'VIOLATION own fixture\n'
                 return '' if fault == 'missing-json' else line*2 if fault == 'duplicate-json' else line
             with self.subTest(fault=fault), mock.patch.object(matrix, 'common', return_value=self.context), \
                  mock.patch.object(matrix.native, 'execute', side_effect=execute), mock.patch.object(matrix, 'read_job_log', side_effect=log):

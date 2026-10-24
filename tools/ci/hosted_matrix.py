@@ -183,6 +183,7 @@ def aggregate():
     for job in selected:
         require(job['status'] == 'completed' and job['conclusion'] == 'success', 'matrix job not successful: ' + job['name'])
         log = read_job_log(repo, job['id'])
+        require('VIOLATION' not in log, 'worker log reported a protocol violation')
         matches = re.findall(r'^(?:\S+Z )?' + MARKER + r'(\{[^\n]+\})\r?$', log, re.M)
         require(len(matches) == 1, 'missing/duplicate terminal worker JSON: ' + job['name'])
         record = json.loads(matches[0])
