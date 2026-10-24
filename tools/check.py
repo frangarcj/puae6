@@ -918,6 +918,9 @@ TASK_SUITES[('PKG01', 'T40c')] = {
 for _gate in ('SRC01', 'PKG01'):
     TASK_SUITES[(_gate, 'T40d')] = {'waterbox_source_notice_policy': 'tests.packages.test_waterbox_policy.WaterboxPolicyTests'}
     TASK_SUITES[(_gate, 'T40d1')] = TASK_SUITES[(_gate, 'T40d')]
+TASK_SUITES[('PKG01', 'T40g')] = {'package_policy': 'tests.packages.test_waterbox_preview.PolicyTests',
+                                'installed_waterbox': 'tests.packages.test_waterbox_preview.InstalledPreviewTests'}
+TASK_SUITES[('WB11', 'T40g')] = {'installed_waterbox': 'tests.packages.test_waterbox_preview.InstalledPreviewTests'}
 for _gate in ('BUILD01', 'LR01'):
     TASK_SUITES[(_gate, 'T40c')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 for _gate in ('PKG01', 'STATE02'):
