@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tools.ci import hosted_matrix as matrix
+from tools.ci import hosted_matrix as matrix, action_logs as logs
 
 
 class HostedMatrixTests(unittest.TestCase):
@@ -147,17 +147,30 @@ class HostedMatrixTests(unittest.TestCase):
         headers = Message(); headers['Content-Type'] = 'text/plain; charset=utf-8'; headers['Content-Length'] = str(len(text))
         response = mock.MagicMock(status=200, headers=headers); response.__enter__.return_value = response
         response.read.return_value = text
-        opener = mock.Mock(); redirect = matrix.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': 'https://storage.example/own?signature=data'}, io.BytesIO())
+        opener = mock.Mock(); redirect = logs.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': 'https://storage.example/own?signature=data'}, io.BytesIO())
         opener.open.side_effect = [redirect, response]
-        with mock.patch.dict(matrix.os.environ, {'GH_TOKEN': 'own-token'}), mock.patch.object(matrix.urllib.request, 'build_opener', return_value=opener) as factory:
+        with mock.patch.dict(logs.os.environ, {'GH_TOKEN': 'own-token'}), mock.patch.object(logs.urllib.request, 'build_opener', return_value=opener) as factory:
             observed = matrix.read_job_log('own/repo', 1)
             self.assertEqual(observed, '2026-10-24T00:00:00Z P6_MATRIX_RESULT {"own":true}\n')
             api, storage = [call.args[0] for call in opener.open.call_args_list]
             self.assertEqual(api.host, 'api.github.com'); self.assertEqual(api.get_header('Authorization'), 'Bearer own-token')
             self.assertEqual(storage.host, 'storage.example'); self.assertIsNone(storage.get_header('Authorization'))
-            self.assertEqual(storage.header_items(), [('User-agent', matrix.PROFILE), ('Accept-encoding', 'identity')])
+            self.assertEqual(storage.header_items(), [('User-agent', logs.USER_AGENT), ('Accept-encoding', 'identity')])
             self.assertIsNone(factory.call_args.args[0]().redirect_request(None, None, 302, '', {}, 'https://other.example'))
             response.read.assert_called_once_with(8*1024*1024+1)
+
+    def test_log_reader_loads_by_filepath_without_project_imports_or_path_changes(self):
+        script = '''import importlib.util, sys
+before = list(sys.path)
+spec = importlib.util.spec_from_file_location("own_action_logs", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert before == sys.path
+assert not any(n in sys.modules for n in ("tools", "tests", "tools.ci.hosted_matrix"))
+assert callable(module.read_job_log)
+'''
+        process = subprocess.run([matrix.sys.executable, '-I', '-c', script, logs.__file__], capture_output=True, text=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
 
     def test_log_transport_rejects_unsafe_redirect_types_limits_and_invalid_descriptors(self):
         for fault in ('http', 'credentials', 'control', 'redirect-again', 'type', 'length', 'body', 'status', 'token', 'descriptor'):
@@ -166,13 +179,13 @@ class HostedMatrixTests(unittest.TestCase):
             response = mock.MagicMock(status=500 if fault == 'status' else 200, headers=headers); response.__enter__.return_value = response
             response.read.return_value = b'x'*(8*1024*1024+1) if fault == 'body' else b'own text'
             location = {'http': 'http://storage.example/', 'credentials': 'https://user:pass@storage.example/', 'control': 'https://storage.example/\n'}.get(fault, 'https://storage.example/')
-            redirect = lambda: matrix.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': location}, io.BytesIO())
+            redirect = lambda: logs.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': location}, io.BytesIO())
             first, second = redirect(), redirect() if fault == 'redirect-again' else response
             self.addCleanup(first.close)
             if fault == 'redirect-again': self.addCleanup(second.close)
             opener = mock.Mock(); opener.open.side_effect = [first, second]
-            with self.subTest(fault=fault), mock.patch.dict(matrix.os.environ, {'GH_TOKEN': '' if fault == 'token' else 'own-token'}), \
-                 mock.patch.object(matrix.urllib.request, 'build_opener', return_value=opener), self.assertRaises(RuntimeError):
+            with self.subTest(fault=fault), mock.patch.dict(logs.os.environ, {'GH_TOKEN': '' if fault == 'token' else 'own-token'}), \
+                 mock.patch.object(logs.urllib.request, 'build_opener', return_value=opener), self.assertRaises(RuntimeError):
                 matrix.read_job_log('foreign.example/../repo' if fault == 'descriptor' else 'own/repo', 1)
 
     def test_common_identity_requires_clean_current_actions_revision_and_attempt(self):
