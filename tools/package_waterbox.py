@@ -80,6 +80,8 @@ def preflight(managed_dir, managed_receipt):
     require('Release' in Path(managed_dir).parts and 'Debug' not in Path(managed_dir).parts, 'Explicit Release managed directory required')
     for path in [Path(managed_receipt), *(Path(managed_dir) / n for n in BINS[:6])]: import_sources.no_links(ROOT, path)
     lock = wb.selected_toolchain(); receipt = json.loads((wb.BUILD / 'puae6/puae6-receipt.json').read_bytes())
+    wb.check_puae6_guest_abi(receipt, root=ROOT)
+    guest_abi = receipt['guest_abi']
     from tools.ci.managed_release import verify_receipt
     managed_build = verify_receipt(managed_receipt, managed_dir, receipt['guest']['sha256'], root=ROOT)
     runtime = wb.read_runtime_receipt(wb.runtime_receipt_path('release'))
@@ -106,8 +108,9 @@ def preflight(managed_dir, managed_receipt):
     inputs = {'profile': lock['profile'], 'toolchain_profile': lock['toolchain_profile'],
               'recipe': {k: sha(ROOT / n) for k, n in recipes.items()}, 'sources': sources,
               'tools': {k: v['sha256'] for k, v in lock['tools'].items()}, 'versions': {k: v['version'] for k, v in lock['tools'].items()},
-              'flags': {'optimization': '-O2', 'target': 'aarch64', 'host_page_size': 16384}, 'sysroot': lock['sysroot']['inventory_sha256'],
-              'cc_wrapper': sha(wb.BUILD / 'toolchain/bin/musl-clang'), 'ld_wrapper': sha(wb.BUILD / 'toolchain/bin/ld.musl-clang')}
+              'flags': {'optimization': '-O2', 'target': 'aarch64', 'host_page_size': 16384}, 'sysroot': guest_abi['inventory_sha256'],
+              'guest_abi': guest_abi,
+              'cc_wrapper': sha(wb.BUILD / 'guest-toolchain/bin/musl-clang'), 'ld_wrapper': sha(wb.BUILD / 'guest-toolchain/bin/ld.musl-clang')}
     require(all(receipt['build_inputs'].get(k) == v for k, v in inputs.items()), 'Guest build recipe/toolchain changed')
     guest = wb.BUILD / 'puae6/release/puae6.wbx'; runtime_path = Path(runtime['runtime_dylib']['path'])
     for path in (guest, runtime_path): import_sources.no_links(ROOT, path)
@@ -150,6 +153,17 @@ def verify(directory):
         require({'source/tests/fixtures/microrom/' + n for n in ('build_rom.py', 'boot.s')} <= set(names), 'Missing installed micro-ROM sources')
         composed = policy.compose(read=read)
         require(composed['rust_std_external_complete'] and not composed['rust_std_external_pending'], 'Incomplete source/notice policy')
+        overlay = 'integration/waterbox-guest/0001-setjmp-x28.patch'
+        required = {overlay, 'tools/build_waterbox_guest_sysroot.py', 'plan/toolchains.json', 'references/musl-darwin.manifest.json',
+                    *('references/musl-darwin/src/setjmp/waterbox_aarch64/' + n + '.s' for n in ('setjmp', 'longjmp'))}
+        require({'source/' + n for n in required} <= set(names), 'Missing derived sysroot recipe/patch/sources')
+        pin = json.loads(read('plan/toolchains.json'))['waterbox_guest_sysroot']['patch']
+        require(pin['file'] == overlay and policy.digest(read(overlay)) == pin['sha256'], 'Derived sysroot patch differs')
+        captured = json.loads(read('references/musl-darwin.manifest.json'))['files']
+        for name in ('setjmp', 'longjmp'):
+            path = 'src/setjmp/waterbox_aarch64/' + name + '.s'; entries = [n for n in captured if n['path'] == path]
+            require(len(entries) == 1 and entries[0]['mode'] == '100644'
+                    and policy.digest(read('references/musl-darwin/' + path)) == entries[0]['sha256'], 'Derived sysroot captured ASM differs')
         source_links(members, read)
         require(m['managed_sdk_version'] == json.loads(read('tests/ffi/global.json'))['sdk']['version'], 'Managed SDK source differs')
         for name in names:

@@ -1,5 +1,7 @@
 """Own data fixtures exercise packaging; only the opt-in class executes Waterbox."""
 import io
+import copy
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -23,6 +25,57 @@ class PolicyTests(unittest.TestCase):
             release = self.root / 'Release'; release.mkdir(); receipt = self.root / 'receipt'; receipt.symlink_to('/dev/null')
             with self.assertRaises(ValueError): p.preflight(release, receipt)
             tools.assert_not_called()
+
+    def test_preflight_accepts_only_current_derived_proof_and_guest_wrappers(self):
+        from tools.ci import managed_release
+        root = self.root; build = root / 'build/waterbox'; release = root / 'Release'; release.mkdir()
+        recipes = {'makefile': 'ports/waterbox/Makefile', 'common_mak': 'references/machawk/waterbox/common.mak',
+                   'linkscript_aarch64': 'references/machawk/waterbox/linkscript_aarch64.T', 'build_recipe': 'tools/build_waterbox.py'}
+        for name in (*recipes.values(), 'own.cpp', 'own.h', 'manifests/source-manifest.json',
+                     'build/waterbox/guest-toolchain/bin/musl-clang', 'build/waterbox/guest-toolchain/bin/ld.musl-clang',
+                     'build/waterbox/puae6/release/puae6.wbx', 'build/own-runtime.dylib'):
+            path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(('own '+name).encode())
+        (root / 'manifests/codegen.json').write_text('{"generators":[{"outputs":["own.cpp"]}]}')
+        (root / 'references/machawk.manifest.json').write_text('{"files":[]}')
+        lock = {'profile': 'own', 'toolchain_profile': 'local', 'tools': {'clang': {'sha256': 'c'*64, 'version': 'own'}},
+                'runtime': {}, 'sysroot': {'inventory_sha256': 'base-sysroot'}}
+        proof = {'inventory_sha256': 'derived-sysroot', 'inputs': {'source': 'own authenticated capture'}}
+        manual = {'own.h': p.sha(root / 'own.h')}
+        inputs = {'profile': 'own', 'toolchain_profile': 'local', 'recipe': {k:p.sha(root/n) for k,n in recipes.items()},
+                  'sources': ['own.cpp'], 'tools': {'clang': 'c'*64}, 'versions': {'clang': 'own'},
+                  'flags': {'optimization': '-O2', 'target': 'aarch64', 'host_page_size': 16384}, 'sysroot': proof['inventory_sha256'],
+                  'guest_abi': proof, 'manual_inputs': manual,
+                  'cc_wrapper': p.sha(build/'guest-toolchain/bin/musl-clang'), 'ld_wrapper': p.sha(build/'guest-toolchain/bin/ld.musl-clang')}
+        receipt = {'guest': {'sha256': p.sha(build/'puae6/release/puae6.wbx')}, 'sources': {'own.cpp': p.sha(root/'own.cpp')},
+                   'manual_inputs': manual, 'guest_abi': proof, 'build_inputs': inputs}
+        runtime = {'runtime_profile': 'release', 'runtime_dylib': {'path': str(root/'build/own-runtime.dylib'), 'sha256': p.sha(root/'build/own-runtime.dylib')}}
+        generated = {'identity': {'upstream_commit': 'a'*40, 'series': 'b'*64,
+                                 'recipe': p.sha(root/'manifests/codegen.json'), 'source_manifest': p.sha(root/'manifests/source-manifest.json')}}
+        def write(value): (build/'puae6/puae6-receipt.json').write_text(json.dumps(value))
+        with ExitStack() as stack:
+            for obj,name,value in ((p,'ROOT',root),(p.wb,'BUILD',build)):
+                stack.enter_context(mock.patch.object(obj,name,value))
+            for obj,name,value in ((p.platform,'system','Darwin'),(p.platform,'machine','arm64'),(p.wb,'selected_toolchain',lock),
+                    (p.wb,'puae6_guest_abi',proof),(p.wb,'read_runtime_receipt',runtime),(p.wb,'inventory',[]),
+                    (p.import_sources,'verify_source',{'source':{'commit':'a'*40}}),(p.import_sources,'inventory',[]),
+                    (p.materialize,'_series',([], 'b'*64)),(p.materialize,'_expected_receipt',{'files':[], 'upstream_commit':'a'*40}),
+                    (p.generate_cpu,'_cached_output',generated),(p.wb,'puae6_sources',['own.cpp']),(p.wb,'puae6_manual_inputs',manual),
+                    (managed_release,'verify_receipt',{'inputs':{},'outputs':{},'sdk_version':'own'})):
+                stack.enter_context(mock.patch.object(obj,name,return_value=value))
+            write(receipt); self.assertEqual(p.preflight(release,root/'managed-receipt')[0],build/'puae6/release/puae6.wbx')
+            for change in ('missing', 'top-proof', 'inner-proof', 'base', 'wrapper', 'source'):
+                bad = copy.deepcopy(receipt)
+                if change=='missing': del bad['guest_abi']
+                if change=='top-proof': bad['guest_abi']['inputs']['source']='stale'
+                if change=='inner-proof': bad['build_inputs']['guest_abi']={}
+                if change=='base': bad['build_inputs']['sysroot']='base-sysroot'
+                if change=='wrapper': bad['build_inputs']['cc_wrapper']='base-wrapper'
+                if change=='source': bad['sources']['own.cpp']='altered'
+                write(bad)
+                with self.subTest(change=change), self.assertRaises(ValueError): p.preflight(release,root/'managed-receipt')
+            write(receipt)
+            p.wb.puae6_guest_abi.side_effect=ValueError('altered derived capture')
+            with self.assertRaisesRegex(ValueError,'altered derived capture'): p.preflight(release,root/'managed-receipt')
 
     def test_managed_closure_pin_versions_paths_and_framework(self):
         stage = self.root / 'bin'; stage.mkdir()
@@ -49,9 +102,19 @@ class PolicyTests(unittest.TestCase):
         for n in ('bin', 'config', 'licenses'): (self.root / n).mkdir()
         sources = {'manifests/waterbox-memory.json': b'{}', 'docs/user/waterbox-preview.md': b'own guide', 'notice': b'own notice', 'tests/ffi/global.json': b'{"sdk":{"version":"own"}}', 'references/machawk.manifest.json': b'{"files":[]}',
                    **{'tests/fixtures/microrom/' + n: b'own fixture' for n in ('build_rom.py', 'boot.s')}}
-        with tarfile.open(self.root / 'source.tar.gz', 'w:gz') as archive:
-            for n, data in sources.items():
-                info = tarfile.TarInfo('source/' + n); info.size = len(data); archive.addfile(info, io.BytesIO(data))
+        overlay = 'integration/waterbox-guest/0001-setjmp-x28.patch'; sources[overlay]=b'own source patch'
+        sources['tools/build_waterbox_guest_sysroot.py']=b'own derivation recipe'
+        sources['plan/toolchains.json']=json.dumps({'waterbox_guest_sysroot':{'patch':{'file':overlay,'sha256':p.policy.digest(sources[overlay])}}}).encode()
+        captured=[]
+        for name in ('setjmp','longjmp'):
+            path='src/setjmp/waterbox_aarch64/'+name+'.s'; sources['references/musl-darwin/'+path]=('own '+name).encode()
+            captured.append({'path':path,'mode':'100644','sha256':p.policy.digest(sources['references/musl-darwin/'+path])})
+        sources['references/musl-darwin.manifest.json']=json.dumps({'files':captured}).encode()
+        def archive_sources():
+            with tarfile.open(self.root / 'source.tar.gz', 'w:gz') as archive:
+                for n, data in sources.items():
+                    info = tarfile.TarInfo('source/' + n); info.size = len(data); archive.addfile(info, io.BytesIO(data))
+        archive_sources()
         for n in p.BINS: (self.root / 'bin' / n).write_bytes(b'own ' + n.encode())
         for name, data in [('config/waterbox-memory.json', b'{}'), ('LEEME.md', b'own guide'), ('licenses/N.txt', b'own notice')]: (self.root / name).write_bytes(data)
         m = {'schema_version': 1, 'kind': 'waterbox-standalone-preview', 'paths': p.PATHS, 'platform': 'macos-arm64', 'revision': 'a' * 40,
@@ -75,6 +138,13 @@ class PolicyTests(unittest.TestCase):
                 if before is None: path.unlink()
                 else: path.write_bytes(before)
                 manifest()
+            for name in (overlay,'references/musl-darwin/src/setjmp/waterbox_aarch64/setjmp.s'):
+                before=sources[name]; sources[name]=b'changed'; archive_sources(); manifest()
+                with self.assertRaises(ValueError): p.verify(self.root)
+                sources[name]=before
+            del sources[overlay]; archive_sources(); manifest()
+            with self.assertRaisesRegex(ValueError,'Missing derived'): p.verify(self.root)
+            sources[overlay]=b'own source patch'; archive_sources(); manifest()
             (self.root / 'bin/puae6.wbx').unlink()
             with self.assertRaises(ValueError): p.verify(self.root)
 
