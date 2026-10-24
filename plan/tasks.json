@@ -12322,7 +12322,8 @@
       "read": [
         "docs/05-maintenance.md",
         "docs/07-machawk.md",
-        "integration/bizhawk/patches/build_tree.py"
+        "integration/bizhawk/patches/build_tree.py",
+        "tools/ci/managed-inputs.json"
       ],
       "touch": [
         "integration/bizhawk/patches/0024-emuhawk-self-check.patch",
@@ -12337,7 +12338,8 @@
         "Leer Program.cs, resolver y csproj reales del pin MacHawk antes de derivar parche. Añadir opcion CLI inequivoca que instala el resolver antes de dependencias y evita exclusivamente la comprobacion ReflectionOnlyLoad WinForms para ese modo; despachar mediante metodo NoInlining antes de SubMain. Conservar el arranque normal y proyectos/assemblies completos net48. El self-check obtiene todos los tipos del ensamblado real de cores: ReflectionTypeLoadException o dependencia faltante falla con detalles; no aceptar inventario parcial ni ReflectionCache que oculta errores.",
         "Construir EmuHawk.exe original completo con SDK/feed offline existentes y fuentes pinadas en arbol propio. build_tree puede omitir explicitamente solo build_chd_host para esta prueba sin medios, conservando el valor por defecto de las llamadas existentes. No instalar runtime/paquetes ni usar red. Runner crea staging temporal bajo build con EXE y closure completa, runtimeconfig10 explicito para el runtime10.0.13 ya instalado; identifica los bytes realmente ejecutados y DLLs. Framework existente puede resolver assemblies de plataforma, sin stubs ni exclusiones.",
         "Tests dirigidos de procedencia/closure, argumentos, fallo del EXE, tipos incompletos y cleanup con fixtures de infraestructura; no acreditan arranque real. Registrar selector PKG01/BUILD01 propio; la aceptacion real opt-in debe lanzar ese EmuHawk.exe y verificar proceso terminal0, inventario completo y presencia de UAE y PUAE6 originales, sin omisiones. Root puede invocar el mismo helper una vez sin duplicar la ejecucion unittest. Todos los temporales de prueba se limpian; no informes ni evidencias historicas.",
-        "Objetivo cuatro rutas de implementacion y menos400lineas logicas, mas registro tools/check.py y metadata/tests del plan por coordinador. Tras bootstrap real, dividir escenario RomLoader+MovieSession mismo proceso en ficha sucesora antes de implementarlo. Ambos cores comparten WaterboxHost.NativeImpl; el runtime nuevo debe probarse con legacy realmente, sin trasladar PASS de procesos separados. No afirmar GUI ni coexistencia por este bootstrap."
+        "Objetivo cuatro rutas de implementacion y menos400lineas logicas, mas registro tools/check.py y metadata/tests del plan por coordinador. Tras bootstrap real, dividir escenario RomLoader+MovieSession mismo proceso en ficha sucesora antes de implementarlo. Ambos cores comparten WaterboxHost.NativeImpl; el runtime nuevo debe probarse con legacy realmente, sin trasladar PASS de procesos separados. No afirmar GUI ni coexistencia por este bootstrap.",
+        "Primer EXE real compila y supera GetTypes/CoreInventory, pero el asset Newtonsoft.Json net45 intenta cargar System.Security.Permissions ausente al serializar. Para el host .NET10 declarar una politica explicita: seleccionar exclusivamente lib/net6.0/Newtonsoft.Json.dll del mismo paquete13.0.3 ya fijado en tools/ci/managed-inputs.json y presente en el feed offline. Verificar tamaño/SHA512 del NUPKG, assetSHA256 y bytes antes/despues; copiarlo solo al staging propio y registrar ambas identidades, sin cambiar el EXE, ningun ensamblado BizHawk net48, proyectos o salida original. No instalar ni descargar compatibilidadCAS, no evitar la serializacion para ocultar la dependencia. Test negativo captura archivo/asset alterado y staging distinto; default GUI/build conserva su closure original. Esta seleccion de runtime no acredita otros frameworks ni la UI."
       ],
       "checks": [
         "PKG01",
