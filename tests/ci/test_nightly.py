@@ -192,7 +192,7 @@ class NightlyRecipeTests(unittest.TestCase):
         required = {"P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
                     "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_CDTV_BOOT_CUE", "P6_KICKSTART_A500_ROM",
                     "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM",
-                    "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE", "P6_LEGACY_UAE_HOST"}
+                    "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE", "P6_LEGACY_UAE_HOST", "P6_WATERBOX_PACKAGE_ZIP"}
         self.assertLessEqual(required, set(ci.ASSETS))
         with tempfile.TemporaryDirectory() as directory:
             asset = Path(directory) / "fixture"
@@ -222,14 +222,17 @@ class NightlyRecipeTests(unittest.TestCase):
             for name in (*sources, *recipes.values(), "guest.wbx", "runtime.dylib"):
                 path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(name.encode())
             runtime = dict(path=str(root / "runtime.dylib"), sha256=ci.wb.sha256(root / "runtime.dylib"))
+            manual = {"bridge/own.h": "a" * 64}
             valid = dict(schema_version=1, status="BUILD01_PASS_GUEST_NOT_EXECUTED",
                          sources={name: ci.wb.sha256(root / name) for name in sources},
+                         manual_inputs=manual, build_inputs={"manual_inputs": manual},
                          recipe={key: ci.wb.sha256(root / name) for key, name in recipes.items()},
                          guest=dict(path=str(root / "guest.wbx"), sha256=ci.wb.sha256(root / "guest.wbx")))
             receipt = root / "receipt.json"
             stack.enter_context(mock.patch.object(ci, "GUEST_RECEIPT", receipt))
             stack.enter_context(mock.patch.object(ci.ci, "ROOT", root))
             stack.enter_context(mock.patch.object(ci.wb, "puae6_sources", return_value=list(sources)))
+            headers = stack.enter_context(mock.patch.object(ci.wb, "puae6_manual_inputs", return_value=manual))
             trees = stack.enter_context(mock.patch.object(ci.wb, "ensure_current_trees"))
             elf = stack.enter_context(mock.patch.object(ci.wb, "validate_elf"))
             tls = stack.enter_context(mock.patch.object(ci.wb, "check_no_compiler_tls"))
@@ -239,7 +242,8 @@ class NightlyRecipeTests(unittest.TestCase):
             trees.assert_called_once_with(root=root)
             elf.assert_called_once_with(root / "guest.wbx"); tls.assert_called_once_with(root / "guest.wbx")
             runtime_path.assert_called_once_with("release")
-            for kind in ("schema", "status", "selection", "source", "recipe", "guest", "runtime", "trees"):
+            for kind in ("schema", "status", "selection", "source", "recipe", "guest", "runtime", "trees",
+                         "manual_missing", "manual_receipt", "manual_build_inputs", "manual_header"):
                 data = json.loads(json.dumps(valid))
                 if kind == "schema": data["schema_version"] = 0
                 if kind == "status": data["status"] = "PASS"
@@ -247,6 +251,10 @@ class NightlyRecipeTests(unittest.TestCase):
                 if kind == "source": data["sources"][sources[0]] = "0" * 64
                 if kind == "recipe": data["recipe"]["makefile"] = "0" * 64
                 if kind == "guest": data["guest"]["sha256"] = "0" * 64
+                if kind == "manual_missing": data.pop("manual_inputs")
+                if kind == "manual_receipt": data["manual_inputs"] = {}
+                if kind == "manual_build_inputs": data["build_inputs"]["manual_inputs"] = {}
+                headers.return_value = {"bridge/own.h": "b" * 64} if kind == "manual_header" else manual
                 runtime["sha256"] = "0" * 64 if kind == "runtime" else ci.wb.sha256(root / "runtime.dylib")
                 trees.side_effect = ValueError("stale derived tree") if kind == "trees" else None
                 receipt.write_text(json.dumps(data))

@@ -159,6 +159,9 @@ def waterbox_inputs():
             raise ValueError("invalid guest receipt")
         if set(data["sources"]) != set(wb.puae6_sources()):
             raise ValueError("guest source selection differs from the current sources")
+        manual = wb.puae6_manual_inputs(root=ci.ROOT)
+        if data.get("manual_inputs") != manual or data.get("build_inputs", {}).get("manual_inputs") != manual:
+            raise ValueError("guest manual headers/sources differ from the current sources")
         for name, digest in data["sources"].items():
             if wb.sha256(ci.ROOT / name) != digest:
                 raise ValueError("guest was built from other sources: " + name)
