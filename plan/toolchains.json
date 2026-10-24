@@ -219,5 +219,17 @@
       },
       "provenance": "Explicit additional host-tool input observed on the declared public GitHub macos-26 ARM64 runner. Its make differs from the local default; every build must verify this SHA and version. This profile does not claim a remote Waterbox build or execution."
     }
+  },
+  "waterbox_guest_sysroot": {
+    "schema_version": 1,
+    "archiver": {
+      "path": "/opt/homebrew/opt/llvm/bin/llvm-ar",
+      "sha256": "aa6beb9ec36a604bda581a547a8915d0a669ca410b9311d4b802781f66218840",
+      "version": "Homebrew LLVM version 23.1.4"
+    },
+    "patch": {
+      "file": "integration/waterbox-guest/0001-setjmp-x28.patch",
+      "sha256": "397568a78f79f6ca861226961d8f9f30276cbefdf284487a622ea0cd04431c4b"
+    }
   }
 }
