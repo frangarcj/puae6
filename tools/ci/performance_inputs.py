@@ -26,11 +26,11 @@ class DiagnosticDrift(RuntimeError):
 
 def identity():
     return dict(common=bench.hosted.common(), tools=bench.tools(),
-                source_environment=bench.build_support.source_identity(), generated=bench.hosted.generated())
+                source_environment=bench.build_support.source_identity())
 
 
 def snapshot():
-    return dict(**identity(), inputs=bench.inputs())
+    return dict(**identity(), generated=bench.hosted.generated(), inputs=bench.inputs())
 
 
 def stable(label, before, after):
@@ -58,8 +58,11 @@ def validate(record, expected):
                   and [step['constructor'] for step in record['completed']] == list(NAMES),
                   'missing/duplicate diagnostic constructor')
     preparation = record['preparation']
-    stable('preparation', preparation['before'], preparation['after'])
+    stable('preparation', preparation['before'], {k:v for k,v in preparation['after'].items() if k != 'generated'})
     stable('preparation boundary', preparation['after'], {k:v for k,v in record['baseline'].items() if k != 'inputs'})
+    bench.require(isinstance(preparation['generated_before'],dict) and preparation['generated_before'],
+                  'missing preparation codegen observation')
+    stable('preparation codegen observation', preparation['generated_after'], preparation['after']['generated'])
     for step, (name, command) in zip(record['completed'], CONSTRUCTORS):
         bench.require(step['argv'][1:] == ['-B','-c',command] and step['argv'][0], 'foreign constructor command')
         stable(name+' boundary', record['baseline'], step['before'])
@@ -70,12 +73,14 @@ def validate(record, expected):
 def run():
     bench.require(tuple(name for name,_ in CONSTRUCTORS) == NAMES, 'diagnostic constructor coverage changed')
     bench.require(bench.os.environ.get('P6_TEST_BUILD_RECEIPT') is None, 'foreign native build receipt')
-    before = identity()
+    before, generated_before = identity(), bench.hosted.generated()
     env = dict(bench.nightly.ENV, P6_RUN_CPU_PERF='0')
     # Reuse precisely the real preparation, without entering campaign()/selectors.
     bench.prepare(env)
     baseline = snapshot(); prepared = {k:v for k,v in baseline.items() if k != 'inputs'}
-    stable('preparation', before, prepared)
+    # The original worker fixes codegen after prepare. Observe its preparation
+    # transition explicitly; every later constructor keeps that full baseline.
+    stable('preparation', before, {k:v for k,v in prepared.items() if k != 'generated'})
     completed = []
     for name, command in CONSTRUCTORS:
         current = snapshot(); stable(name+' boundary', baseline, current)
@@ -88,7 +93,8 @@ def run():
         after = snapshot(); stable(name, current, after)
         completed.append(dict(constructor=name, argv=argv, before=current, after=after))
     result = dict(status='DIAGNOSTIC_STABLE', scope=SCOPE, baseline=baseline,
-                  preparation=dict(before=before, after=prepared), completed=completed,
+                  preparation=dict(before=before, after=prepared, generated_before=generated_before,
+                                   generated_after=baseline['generated']), completed=completed,
                   coverage=dict(constructors=4, campaign_windows=0, original_methods=0))
     return validate(result, before['common'])
 

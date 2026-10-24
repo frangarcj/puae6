@@ -13,13 +13,14 @@ class PerformanceInputsTests(unittest.TestCase):
     def setUp(self):
         self.identity = dict(common=dict(repository='own/repo',revision='a'*40,source_tree_sha256='b'*64,
                                          run_id='123',run_attempt='1'), tools={'own':'tool'},
-                             source_environment='c'*64, generated={'own':'codegen'})
-        self.snapshot = dict(**self.identity, inputs={'native':{'state-opt':{'cache_sha256':'d'*64}}})
+                             source_environment='c'*64)
+        self.snapshot = dict(**self.identity, generated={'own':'codegen'},inputs={'native':{'state-opt':{'cache_sha256':'d'*64}}})
 
     @contextlib.contextmanager
     def plumbing(self):
         # Every operation that could build/measure is mocked explicitly.
         with mock.patch.object(diag,'identity',return_value=self.identity), \
+             mock.patch.object(diag.bench.hosted,'generated',return_value=self.snapshot['generated']), \
              mock.patch.object(diag,'snapshot',side_effect=lambda:copy.deepcopy(self.snapshot)) as capture, \
              mock.patch.object(diag.bench,'prepare') as prepare, mock.patch.object(diag.bench,'execute') as execute, \
              mock.patch.object(diag.bench,'campaign') as campaign, mock.patch.object(diag.bench,'partition') as partition, \
@@ -67,6 +68,34 @@ class PerformanceInputsTests(unittest.TestCase):
         with self.plumbing() as (_,_,execute,*_):
             execute.side_effect=RuntimeError('own failed compiler mock')
             with self.assertRaisesRegex(RuntimeError,'ffi-release: own failed compiler mock'): diag.run()
+
+    def test_codegen_transition_during_preparation_is_observed_then_all_four_constructors_run(self):
+        with self.plumbing() as (_,prepare,execute,*_):
+            prepare.side_effect=lambda env:self.snapshot.update(generated={'own':'prepared-codegen'})
+            record=diag.run()
+            self.assertEqual(execute.call_count,4)
+            self.assertEqual(record['preparation']['generated_before'],{'own':'codegen'})
+            self.assertEqual(record['preparation']['generated_after'],{'own':'prepared-codegen'})
+            self.assertEqual(record['preparation']['after'],{k:v for k,v in record['baseline'].items() if k != 'inputs'})
+            self.assertTrue(all(step['before']['generated'] == step['after']['generated'] == {'own':'prepared-codegen'}
+                                for step in record['completed']))
+            broken=copy.deepcopy(record); broken['preparation']['generated_after']={'own':'foreign-codegen'}
+            with self.assertRaisesRegex(diag.DiagnosticDrift,'preparation codegen observation'):
+                diag.validate(broken,self.identity['common'])
+
+    def test_codegen_drift_during_a_constructor_is_still_an_exact_failure(self):
+        with self.plumbing() as (capture,_,execute,*_):
+            count=0
+            def snapshot():
+                nonlocal count
+                result=copy.deepcopy(self.snapshot)
+                if count == 2: result['generated']['own']='changed-by-constructor'
+                count+=1
+                return result
+            capture.side_effect=snapshot
+            with self.assertRaisesRegex(diag.DiagnosticDrift,'ffi-release: .*?/generated/own'):
+                diag.run()
+            self.assertEqual(execute.call_count,1)
 
     def test_missing_duplicate_commands_coverage_and_foreign_identity_are_rejected(self):
         with self.plumbing(): record=diag.run()
