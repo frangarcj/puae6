@@ -33,7 +33,8 @@ def inspect_run(repository, run, attempt):
             and type(data['workflow_id']) is int and data['workflow_id'] == workflow['id'] and data['path'] == WORKFLOW, 'foreign workflow')
     require(data['repository']['full_name'] == data['head_repository']['full_name'] == repository, 'foreign source repository')
     require(type(data['id']) is int and data['id'] == int(run) and type(data['run_attempt']) is int
-            and data['run_attempt'] == int(attempt) and data['event'] == 'workflow_dispatch' and data['status'] == 'completed', 'source run/attempt is not completed manual matrix')
+            and data['run_attempt'] == int(attempt) and data['event'] == 'workflow_dispatch' and data['status'] == 'completed'
+            and data['conclusion'] == 'failure', 'source run/attempt is not a completed failed manual matrix')
     sha = data['head_sha']
     require(isinstance(sha, str) and re.fullmatch('[0-9a-f]{40}', sha), 'invalid API source revision')
     return dict(repository=repository, run_id=run, run_attempt=attempt, revision=sha,

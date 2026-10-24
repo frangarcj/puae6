@@ -26,13 +26,13 @@ class MatrixRecoveryTests(unittest.TestCase):
                          event='workflow_dispatch', status='completed', conclusion='failure')
 
     def test_descriptor_comes_from_completed_original_attempt_and_rejects_foreign_context(self):
-        for fault in ('none', 'repository', 'fork', 'workflow', 'path', 'run', 'attempt', 'event', 'status', 'sha', 'bool'):
+        for fault in ('none', 'repository', 'fork', 'workflow', 'path', 'run', 'attempt', 'event', 'status', 'conclusion', 'sha', 'bool'):
             data = copy.deepcopy(self.data)
             if fault == 'repository': data['repository']['full_name'] = 'other/repo'
             if fault == 'fork': data['head_repository']['full_name'] = 'other/repo'
             for name, key, value in [('workflow','workflow_id',8), ('path','path','other.yml'), ('run','id',124),
                                      ('attempt','run_attempt',2), ('event','event','push'), ('status','status','in_progress'),
-                                     ('sha','head_sha','../bad'), ('bool','run_attempt',True)]:
+                                     ('conclusion','conclusion','success'), ('sha','head_sha','../bad'), ('bool','run_attempt',True)]:
                 if fault == name: data[key] = value
             with self.subTest(fault=fault), mock.patch.object(r, 'api', side_effect=[self.workflow, data]) as api:
                 if fault == 'none': self.assertEqual(r.inspect_run('own/repo','123','1')['revision'], 'a'*40)
