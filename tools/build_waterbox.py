@@ -502,8 +502,10 @@ def verify_smoke(result: dict, receipt: dict, damaged_dir: Path) -> dict:
 
 
 def install_wrappers(sysroot: Path, clang: Path, lld: Path, musl_root: Path,
-                     shell_exports: str = "") -> tuple[Path, Path]:
-    wrapper_dir = BUILD / "toolchain/bin"
+                     shell_exports: str = "", *, wrapper_dir: Path | None = None) -> tuple[Path, Path]:
+    wrapper_dir = wrapper_dir or BUILD / "toolchain/bin"
+    import import_sources
+    import_sources.no_links(ROOT, wrapper_dir)
     wrapper_dir.mkdir(parents=True, exist_ok=True)
     values = {
         "@CC@": str(clang),
@@ -964,9 +966,40 @@ def ensure_current_trees(root: Path = ROOT) -> dict:
     return {"upstream": str(upstream), "generated": str(generated), **expected}
 
 
+def puae6_guest_abi(root: Path = ROOT) -> dict:
+    """Authenticate the derived libc without changing the base mini/runtime lane."""
+    from build_waterbox_guest_sysroot import verify
+    try:
+        proof = verify(root=root)
+    except (OSError, ValueError, KeyError) as error:
+        raise BuildError(f"sysroot ABI derivado no disponible o distinto: {error}") from error
+    return {key: str(value) if isinstance(value, Path) else value for key, value in proof.items()}
+
+
+def check_puae6_guest_abi(receipt: dict, root: Path = ROOT) -> None:
+    proof = puae6_guest_abi(root)
+    if (receipt.get("guest_abi") != proof or receipt.get("build_inputs", {}).get("guest_abi") != proof
+            or receipt.get("build_inputs", {}).get("sysroot") != proof["inventory_sha256"]):
+        raise BuildError("guest PUAE6 no fue construido con el sysroot ABI derivado actual")
+
+
+def puae6_guest_toolchain(tc: dict) -> dict:
+    proof = puae6_guest_abi(ROOT)
+    if (canonical_hash(tc["sysroot_inventory"]) != proof["inputs"]["base"]
+            or str(tc["paths"]["clang"]) != proof["inputs"]["compiler_path"]
+            or tc["lock"]["tools"]["clang"] != proof["inputs"]["compiler"]):
+        raise BuildError("toolchain base y sysroot ABI derivado no coinciden")
+    derived = Path(proof["sysroot"])
+    wrappers = install_wrappers(derived, tc["paths"]["clang"], tc["paths"]["lld"], tc["musl_root"],
+        hosted_environment(tc["paths"])["shell_exports"], wrapper_dir=BUILD / "guest-toolchain/bin")
+    return {**tc, "sysroot_copy": derived, "sysroot_inventory": inventory(derived),
+            "cc_wrapper": wrappers[0], "ld_wrapper": wrappers[1], "guest_abi": proof}
+
+
 def build_puae6(tc: dict, jobs: int) -> dict:
     """Compile and link puae6.wbx with the pinned recipe and check the result; it does not run a machine."""
     ensure_current_trees()
+    tc = puae6_guest_toolchain(tc)
     import prepare_hrtmon
     prepare_hrtmon.prepare(ROOT)
     out = BUILD / "puae6"
@@ -985,7 +1018,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     tool_hashes = {name: entry["sha256"] for name, entry in tc["lock"]["tools"].items()}
     build_inputs = {**toolchain_receipt(tc), "tools": tool_hashes, "versions": tc["versions"], "sysroot": canonical_hash(tc["sysroot_inventory"]),
                     "cc_wrapper": sha256(tc["cc_wrapper"]), "ld_wrapper": sha256(tc["ld_wrapper"]), "recipe": recipe, "flags": flags, "sources": sources,
-                    "manual_inputs": manual_inputs}
+                    "manual_inputs": manual_inputs, "guest_abi": tc["guest_abi"]}
     force = previous.get("build_inputs") != build_inputs
     # make's .d files do not track compiler, sysroot or flag changes. A failed
     # partial build must also lose its receipt before it can overwrite objects.
@@ -1012,8 +1045,9 @@ def build_puae6(tc: dict, jobs: int) -> dict:
                **toolchain_receipt(tc),
                "source_audit": tc["source_audit"],
                "sources": {source: sha256(ROOT / source) for source in sources},
-               "manual_inputs": manual_inputs,
+               "manual_inputs": manual_inputs, "guest_abi": tc["guest_abi"],
                "recipe": recipe, "tool_hashes": tool_hashes, "tool_versions": tc["versions"], "flags": flags, "build_inputs": build_inputs}
+    check_puae6_guest_abi(receipt)
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(f"PUAE6 BUILD PASS: {guest} ({metadata['size']} bytes, sha256 {metadata['sha256'][:16]}...)")
     return receipt
@@ -1031,6 +1065,7 @@ def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
         ensure_current_trees(root)
         _TREES_CHECKED = True
     receipt = json.loads(Path(guest_receipt).read_text())
+    check_puae6_guest_abi(receipt, root)
     sources = receipt["sources"]
     stale = sorted(name for name, digest in sources.items()
                    if name.startswith(("build/upstream/", "build/generated/", "build/assets/")) and (not (root / name).is_file() or sha256(root / name) != digest))

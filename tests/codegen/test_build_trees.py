@@ -137,7 +137,7 @@ class CurrentTreesTests(unittest.TestCase):
         def write_sources(value):
             receipt.write_text(json.dumps({"sources": value, "manual_inputs": manual, "build_inputs": {"manual_inputs": manual}}))
         write_sources(sources)
-        with patch.object(build_waterbox, "_TREES_CHECKED", False), patch.object(build_waterbox, "puae6_manual_inputs", return_value=manual):
+        with patch.object(build_waterbox, "_TREES_CHECKED", False), patch.object(build_waterbox, "puae6_manual_inputs", return_value=manual), patch.object(build_waterbox, "check_puae6_guest_abi"):
             build_waterbox.check_guest_matches_trees(receipt, self.root)       # Manual closure is checked independently from engine/generated inputs.
             message = "otro build/upstream, build/generated o build/assets.*1 fuentes.*--puae6"
             for name in sources:
