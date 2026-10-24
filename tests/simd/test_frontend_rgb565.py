@@ -1,20 +1,14 @@
 """T35c scoped gates; no matrix or measurements means BLOCKED, never PASS."""
 import json
 import os
-import tempfile
 import unittest
 
 from tests.simd import frontend_matrix as matrix
 from tests.simd import frontend_rgb565 as frontend
-from tests.simd.frontend_statistics import compare
 
 
 def current_inputs(row):
-    directory = matrix.directory(row)
-    binaries = frontend.core_paths(row, directory / "opt")
-    with tempfile.TemporaryDirectory(prefix="p6-timing-inputs-") as work:
-        frontend.assets.write_differential(work)
-        return frontend.timing_inputs({**binaries, "host": directory / "opt/p6_libretro_host"}, work)
+    return matrix.current_inputs(row)
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "prepare the T35c frontend rows and set P6_TEST_RGB565_FRONTEND=1")
@@ -42,28 +36,7 @@ class PerformanceTests(unittest.TestCase):
         for row in matrix.MEASURED:
             r = json.loads((matrix.directory(row) / "opt/measurements.json").read_text())
             verified = json.loads((matrix.directory(row) / "opt/verification.json").read_text())
-            self.assertEqual(r["inputs"], verified["inputs"])
-            self.assertEqual(r["inputs"], current_inputs(row))
-            self.assertEqual(len(r["runs"]), 50)
-            for scenario in frontend.WORKLOADS:
-                facts = []
-                for variant in ("current", "candidate"):
-                    samples = [x for x in r["runs"] if x["scenario"] == scenario.id and x["variant"] == variant]
-                    self.assertEqual({x["repeat"] for x in samples}, set(range(5)))
-                    for sample in samples:
-                        self.assertEqual(sample["warmup"], 300)
-                        self.assertEqual(sample["units"], 10000 if scenario.primary else 3000)
-                        raw = sample["raw"]
-                        self.assertEqual(len(raw["run_cpu_ns"]), 300 + sample["units"])
-                        self.assertTrue(all(n > 0 for n in raw["run_cpu_ns"]))
-                        self.assertEqual(len(raw["state_load_ns"]), 20)
-                        facts.append(tuple(raw[k] for k in ("state_bytes", "pictures", "audio_frames")) +
-                                     (tuple(sample["last_run"]), tuple(sample["final_state"])))
-                self.assertEqual(len(set(facts)), 1, scenario.id)
-                comparison = compare([x for x in r["runs"] if x["scenario"] == scenario.id])
-                self.assertEqual(len(comparison["paired_reductions_percent"]), 5)
-                for variant in ("current", "candidate"):
-                    self.assertEqual(comparison["variants"][variant]["median_cpu_ns"], r["summary"][scenario.id][variant]["median_cpu_ns"])
+            matrix.validate_measurements(r, verified['inputs'], current_inputs(row))
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_RGB565_FRONTEND") == "1", "T35c needs the measured platform decision")
@@ -72,9 +45,8 @@ class DecisionTests(unittest.TestCase):
         adr = (frontend.ROOT / "docs/adr/0004-native-optimizations.md").read_text()
         self.assertIn("## Decision de frontend T35c", adr, "T35c requires the measured platform decision")
         for row in matrix.MEASURED:
-            self.assertIn(row, adr)
             result = json.loads((matrix.directory(row) / "opt/measurements.json").read_text())
-            self.assertEqual(result["inputs"], current_inputs(row))
+            matrix.validate_decision(row, result['inputs'], current_inputs(row), adr)
 
 
 if __name__ == "__main__":

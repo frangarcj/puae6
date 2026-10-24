@@ -5,7 +5,7 @@
   "bottle_arch": "arm64_tahoe",
   "normalizer": {
     "path": "tools/ci/normalize_homebrew.rb",
-    "sha256": "e656a7d877170cec082869cc7729ac7be7a75e8d28a1a29a5c65316facc1c5f3",
+    "sha256": "08b1a651e6a8d51a9e1377559b4bd5f63dc60d2ca75f0d63c984c3d68cf76daa",
     "ruby_source_manifest_sha256": "5b31fc89cdbc960f7207649a4acd1b998d8c6786434a6504363ce373e69e4a86"
   },
   "archives": [
@@ -263,6 +263,15 @@
       "sha256": "996baaf61d06ff542bf73a2455027af5ed1af6b2065581bd4deba96a9a018a92",
       "bytes": 1277184,
       "dylib_id": "/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib"
+    },
+    {
+      "path": "llvm/23.1.4/lib/clang/23/lib/darwin/libclang_rt.asan_osx_dynamic.dylib",
+      "sha256": "8c8883d8ca701c5fb8001291a00e4e5b68976696db330fd5c3adacbfbc1e0ba4",
+      "bytes": 1115280,
+      "dylib_id": "@rpath/libclang_rt.asan_osx_dynamic.dylib",
+      "signature_policy": "asan-arm64-rpath",
+      "source_sha256": "7c8af9f0737137dcb777c0d964753a1161f00a8314450dc4fc5eff6a1728af87",
+      "source_bytes": 3966096
     }
   ],
   "entrypoints": {

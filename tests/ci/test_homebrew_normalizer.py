@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import re
 import struct
 import subprocess
 import tempfile
@@ -70,6 +71,20 @@ def preserved_fixture():
     signature = struct.pack('>9I', 0xfade0cc0, length, 3, 0, 36, 2, 36 + len(directory), 65536, length - 8)
     signature += directory + requirements + wrapper
     return bytes(data) + signature + (b'own opaque tail!' * 100)[:allocation - length]
+
+
+def fat_fixture(arm_slices=1):
+    """Own two-architecture container; neither slice is executed."""
+    arm = fixture(True, '@@HOMEBREW_PREFIX@@/opt/llvm/lib/clang/23/lib/darwin/libclang_rt.asan_osx_dynamic.dylib')
+    intel = bytearray(arm); struct.pack_into('<II', intel, 4, 0x1000007, 3)
+    slices = [arm] * arm_slices + [bytes(intel)]
+    header = struct.pack('>II', 0xcafebabe, len(slices))
+    for n,data in enumerate(slices,1):
+        cpu,subtype = struct.unpack_from('<II', data, 4)
+        header += struct.pack('>IIIII',cpu,subtype,n*16384,len(data),14)
+    result = header
+    for n,data in enumerate(slices,1): result = result.ljust(n*16384,b'\0') + data
+    return result
 
 
 class HomebrewNormalizerTests(unittest.TestCase):
@@ -159,6 +174,52 @@ class HomebrewNormalizerTests(unittest.TestCase):
         result, facts = self.run_helper(options=('--dylib-id', identity))
         self.assertEqual(0, result.returncode, facts); self.assertFalse(facts['modified'])
         self.assertEqual((data, stat.st_ino, stat.st_mtime_ns), (self.target.read_bytes(), self.target.stat().st_ino, self.target.stat().st_mtime_ns))
+
+    def asan_fixture(self, data):
+        self.target = self.root/'build/llvm/23.1.4/lib/clang/23/lib/darwin/libclang_rt.asan_osx_dynamic.dylib'
+        self.target.parent.mkdir(parents=True,exist_ok=True); self.target.write_bytes(data); self.target.chmod(0o755)
+        # Re-pin only this isolated test helper to our own synthetic data.
+        source = (ROOT/'tools/ci/normalize_homebrew.rb').read_text()
+        source = re.sub(r'^ASAN_SOURCE_SHA = .*$',f'ASAN_SOURCE_SHA = "{hashlib.sha256(data).hexdigest()}"',source,flags=re.M)
+        source = re.sub(r'^ASAN_SOURCE_BYTES = .*$',f'ASAN_SOURCE_BYTES = {len(data)}',source,flags=re.M)
+        (self.root/'tools/ci/normalize_homebrew.rb').write_text(source)
+        return ('--signature-policy','asan-arm64-rpath','--dylib-id','@rpath/libclang_rt.asan_osx_dynamic.dylib')
+
+    def test_only_pinned_asan_fat_extracts_arm64_relocates_signs_and_repeats_without_writes(self):
+        original = fat_fixture(); options = self.asan_fixture(original)
+        result,facts = self.run_helper(options=options); self.assertEqual(0,result.returncode,facts)
+        data = self.target.read_bytes(); self.assertLess(len(data),len(original))
+        self.assertEqual((0xfeedfacf,0x100000c),struct.unpack_from('<II',data))
+        self.assertIn(b'@rpath/libclang_rt.asan_osx_dynamic.dylib\0',data); self.assertNotIn(b'@@HOMEBREW_',data)
+        signature = next(raw for kind,raw in load_commands(data) if kind==0x1d)
+        offset,size = struct.unpack_from('<II',signature,8); self.assertEqual(0xfade0cc0,struct.unpack_from('>I',data,offset)[0])
+        slots = dict(struct.unpack_from('>II',data,offset+12+i*8) for i in range(struct.unpack_from('>I',data,offset+8)[0]))
+        cd=offset+slots[0]; fields=struct.unpack_from('>9I4B',data,cd)
+        self.assertEqual((2,32,2,12),(fields[3],fields[9],fields[10],fields[12]))
+        for n in range(fields[7]): self.assertEqual(hashlib.sha256(data[n*4096:min((n+1)*4096,fields[8])]).digest(),data[cd+fields[4]+n*32:cd+fields[4]+(n+1)*32])
+        helper=self.root/'tools/ci/normalize_homebrew.rb'; source=helper.read_text()
+        source=re.sub(r'^ASAN_RESULT_SHA = .*$',f'ASAN_RESULT_SHA = "{hashlib.sha256(data).hexdigest()}"',source,flags=re.M)
+        helper.write_text(re.sub(r'^ASAN_RESULT_BYTES = .*$',f'ASAN_RESULT_BYTES = {len(data)}',source,flags=re.M))
+        before=self.target.stat(); result,facts=self.run_helper(options=options)
+        self.assertEqual(0,result.returncode,facts); self.assertFalse(facts['modified'])
+        self.assertEqual((data,before.st_ino,before.st_mtime_ns),(self.target.read_bytes(),self.target.stat().st_ino,self.target.stat().st_mtime_ns))
+
+    def test_asan_policy_rejects_wrong_sha_path_id_architecture_and_sign_failure_atomically(self):
+        for case in ('sha','path','id','no-arm','duplicate-arm','thin','sign'):
+            data=fat_fixture(0 if case=='no-arm' else 2 if case=='duplicate-arm' else 1)
+            if case=='thin': data=fixture(True)
+            options=self.asan_fixture(data); target=self.target
+            if case=='sha': target.write_bytes(data[:-1]+b'x')
+            if case=='path': target=target.with_name('foreign.dylib'); target.write_bytes(data)
+            if case=='id': options=(*options[:-1],'@rpath/foreign.dylib')
+            prefix=()
+            if case=='sign':
+                hook=self.root/'sign-failure.rb'; hook.write_text('TracePoint.new(:call) { |t| raise "own signing failure" if t.method_id == :codesign! }.enable')
+                prefix=('-r',str(hook))
+            before=target.stat(); saved=target.read_bytes(); result,facts=self.run_helper(target,prefix,options)
+            with self.subTest(case=case):
+                self.assertNotEqual(0,result.returncode,facts)
+                self.assertEqual((saved,before.st_ino,before.st_mtime_ns),(target.read_bytes(),target.stat().st_ino,target.stat().st_mtime_ns))
 
     def test_invalid_explicit_id_and_executable_are_unchanged(self):
         valid = '/opt/homebrew/opt/test/lib/liboriginal.1.dylib'

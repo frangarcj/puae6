@@ -18,6 +18,10 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_FILES, MAX_EXPANDED, MAX_FILE = 200000, 4 << 30, 512 << 20
+ASAN_PATH = 'llvm/23.1.4/lib/clang/23/lib/darwin/libclang_rt.asan_osx_dynamic.dylib'
+ASAN_ID = '@rpath/libclang_rt.asan_osx_dynamic.dylib'
+ASAN_SOURCE_SHA = '7c8af9f0737137dcb777c0d964753a1161f00a8314450dc4fc5eff6a1728af87'
+ASAN_SOURCE_BYTES = 3966096
 
 
 def require(condition, message):
@@ -76,15 +80,22 @@ def inputs():
     for row in targets:
         require(owned(row['path']) and row['path'] not in paths, 'invalid target path')
         paths.add(row['path'])
+        asan = row.get('signature_policy') == 'asan-arm64-rpath'
+        if asan:
+            require(row['path'] == ASAN_PATH and row.get('dylib_id') == ASAN_ID
+                    and row.get('source_sha256') == ASAN_SOURCE_SHA and row.get('source_bytes') == ASAN_SOURCE_BYTES,
+                    'invalid ASan source/path/ID policy')
+        else:
+            require('source_sha256' not in row and 'source_bytes' not in row, 'source pins require explicit ASan policy')
         if 'dylib_id' in row:
             parts = PurePosixPath(row['path']).parts
             parent = '/opt/homebrew/opt/' + parts[0] + '/' + '/'.join(parts[2:-1]) + '/'
             value = row['dylib_id']
-            require(parts[2] == 'lib' and row['path'].endswith('.dylib') and isinstance(value, str)
-                    and value.startswith(parent) and re.fullmatch(r'[A-Za-z0-9_+.-]+\.dylib', value[len(parent):]), 'invalid explicit dylib ID')
+            require(asan or (parts[2] == 'lib' and row['path'].endswith('.dylib') and isinstance(value, str)
+                    and value.startswith(parent) and re.fullmatch(r'[A-Za-z0-9_+.-]+\.dylib', value[len(parent):])), 'invalid explicit dylib ID')
         if 'signature_policy' in row:
-            require(row['path'] == 'zstd/1.5.7_1/lib/libzstd.1.5.7.dylib' and 'dylib_id' in row
-                    and row['signature_policy'] == 'preserve-adhoc-layout', 'invalid signature policy')
+            require(asan or (row['path'] == 'zstd/1.5.7_1/lib/libzstd.1.5.7.dylib' and 'dylib_id' in row
+                    and row['signature_policy'] == 'preserve-adhoc-layout'), 'invalid signature policy')
         require(re.fullmatch('[0-9a-f]{64}', row['sha256']) and type(row['bytes']) is int and 0 < row['bytes'] <= MAX_FILE, 'invalid target pin')
     require(set(manifest['entrypoints']) == {'clang', 'lld', 'cargo', 'rustc'}, 'invalid entrypoints')
     aliases = manifest['aliases']
@@ -263,6 +274,8 @@ def prepare(fetch=False, ruby='ruby'):
             archive.unlink()
         for row in manifest['normalized_macho']:
             regular(stage / row['path'])
+            if row.get('signature_policy') == 'asan-arm64-rpath':
+                require(regular(stage / row['path']).st_size == row['source_bytes'] and digest(stage / row['path']) == row['source_sha256'], 'ASan source SHA/size mismatch')
             options = ['--dylib-id', row['dylib_id']] if 'dylib_id' in row else []
             if 'signature_policy' in row:
                 options += ['--signature-policy', row['signature_policy']]

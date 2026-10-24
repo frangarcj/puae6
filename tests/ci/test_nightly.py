@@ -185,6 +185,10 @@ class NightlyRecipeTests(unittest.TestCase):
         self.assertIn('P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json', step)
         self.assertIn('python3 -B -m tools.ci.rgb565_loader_probe', step)
         self.assertNotRegex(step, r'continue-on-error|\|\| true|upload-artifact|build_waterbox|nightly.py|prepare_managed')
+        followup = job.split('- name: Verify all three original RGB565 methods after the loader probe', 1)[1].split('      - name:', 1)[0]
+        self.assertIn("if: inputs.component == 'rgb565-probe'", followup)
+        self.assertIn('python3 -B -m tools.ci.optimization_simd standalone', followup)
+        self.assertNotRegex(followup, r'always\(\)|continue-on-error|\|\| true|upload-artifact')
 
     def test_hosted_terminal_json_is_validated_with_full_counts_and_status(self):
         counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
