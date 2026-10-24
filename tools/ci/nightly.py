@@ -220,9 +220,9 @@ def prepare(lane):
                 execute([py, "-m", "tests.simd.engine_flags", "merge"])
             execute([py, "-m", "tests.simd.engine_flags", "build", "--variant", variant])
             execute([py, "-m", "tests.simd.engine_flags", "verify", "--variant", variant])
-        execute([py, "-m", "tests.simd.frontend_matrix", "prepare"])
+        execute([py, "-m", "tests.simd.frontend_matrix", "build" if lane == "optimization" else "prepare"])
         if lane == "optimization":
-            execute([py, "-m", "tests.simd.frontend_matrix", "prepare", "--sanitizers"])
+            execute([py, "-m", "tests.simd.frontend_matrix", "build", "--sanitizers"])
         else:
             execute([py, "tools/bench.py", "build", "--jobs", "2"])
             execute([py, "-m", "tests.simd.engine_flags", "measure"])

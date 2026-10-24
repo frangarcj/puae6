@@ -84,8 +84,12 @@ dependencias ni considera una omision de Capstone como prueba superada.
 - `matrix`: los dos corpus completos, cinco filas, O0/O2/sanitizers y entorno
   host alterado; comprueba los IDs de las imagenes locales fijadas, sin pulls/red.
 - `sanitizers`: toda la suite fuzz; conserva semillas y conteos.
-- `optimization`: prepara/valida todos los experimentos de flags y los cinco
-  frontends normales/sanitizados; incluye equivalencia SIMD y guardas.
+- `optimization`: prepara/valida todos los experimentos de flags y construye los
+  cinco frontends normales/sanitizados con `frontend_matrix build`. Los selectores
+  Equivalence/Safety ejecutan despues la verificacion real una sola vez por fila y
+  variante, conservando corpus, restauraciones y comparacion entre filas.
+  `frontend_matrix prepare` conserva el flujo manual build+verify; `performance`
+  lo sigue usando antes de medir. Incluye equivalencia SIMD y guardas.
   Tras esa preparacion secuencial, ejecuta dos colas simultaneas: equivalencia
   y seguridad del frontend RGB565 comparten una cola porque regeneran el mismo
   corpus; configuracion y receipts de flags, matriz SIMD y tests de pixeles usan

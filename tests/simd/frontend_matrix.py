@@ -53,9 +53,9 @@ def verify(sanitizers=False):
     return results
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "verify", "measure"))
+    parser.add_argument("action", choices=("build", "prepare", "verify", "measure"))
     parser.add_argument("--row", choices=tuple(ROWS), action="append")
     parser.add_argument("--sanitizers", action="store_true")
     args = parser.parse_args()
@@ -65,3 +65,7 @@ if __name__ == "__main__":
         for row in args.row or (MEASURED if args.action == "measure" else tuple(ROWS)):
             for action in (("build", "verify") if args.action == "prepare" else (args.action,)):
                 execute(row, action, args.sanitizers)
+
+
+if __name__ == "__main__":
+    main()
