@@ -2,6 +2,7 @@
   "schema_version": 1,
   "platform": "macos-arm64",
   "source_paths": [
+    ".gitignore",
     "CMakeLists.txt",
     "CMakePresets.json",
     "Directory.Build.targets",

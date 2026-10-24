@@ -1,6 +1,9 @@
 """Package policy checks and opt-in execution of the actual installed preview."""
+import io
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 import tarfile
 import tempfile
@@ -24,6 +27,37 @@ class PolicyTests(unittest.TestCase):
         for spec in policy['licenses'].values():
             for path in ([spec] if isinstance(spec, str) else [p['path'] for p in spec]):
                 self.assertTrue((package.ROOT / path).is_file(), path)
+
+    def test_selected_git_snapshot_ignores_python_and_build_outputs_but_rejects_new_sources(self):
+        (package.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='source-selection-', dir=package.ROOT / 'build') as temp:
+            origin, snapshot = Path(temp) / 'origin', Path(temp) / 'snapshot'
+            origin.mkdir(); snapshot.mkdir()
+            files = {'.gitignore': (package.ROOT / '.gitignore').read_bytes(), 'README.md': b'own fixture',
+                     'tools/__init__.py': b'', 'tools/fixture.py': b'VALUE = 1\n'}
+            for name, data in files.items():
+                path = origin / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+            def git(root, *args):
+                return subprocess.check_output(['git', '-C', str(root), *args], stderr=subprocess.PIPE)
+            def commit(root):
+                git(root, 'init', '-q'); git(root, 'add', '.')
+                git(root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'own sources')
+            commit(origin)
+            with mock.patch.object(package, 'ROOT', origin):
+                selected = git(origin, 'ls-files', '--', *package.source_paths()).decode().splitlines()
+            archive = git(origin, 'archive', 'HEAD', '--', *selected)
+            with tarfile.open(fileobj=io.BytesIO(archive)) as stream: stream.extractall(snapshot, filter='data')
+            commit(snapshot)
+            with mock.patch.object(package, 'ROOT', snapshot):
+                revision = package.clean_revision()
+                env = {k: v for k, v in os.environ.items() if k not in ('PYTHONDONTWRITEBYTECODE', 'PYTHONPYCACHEPREFIX')}
+                subprocess.run([sys.executable, '-c', 'import tools.fixture'], cwd=snapshot, env=env, check=True)
+                output = snapshot / 'build/fixture.o'; output.parent.mkdir(); output.write_bytes(b'own build output')
+                self.assertTrue(list(snapshot.rglob('*.pyc')))
+                self.assertEqual(revision, package.clean_revision())
+                self.assertIn('.gitignore', selected)
+                (snapshot / 'unexpected-source.py').write_text('new source')
+                with self.assertRaisesRegex(ValueError, 'Commit the public sources'): package.clean_revision()
 
     def test_linked_component_notices_and_inclusive_slices_preserve_bytes(self):
         policy=json.loads(package.POLICY.read_text()); notices=package.notice_files(policy,lambda p:(package.ROOT/p).read_bytes())
