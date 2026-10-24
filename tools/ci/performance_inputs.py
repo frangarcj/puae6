@@ -7,11 +7,14 @@ from tools.ci import performance_bench as bench
 
 MARKER = 'P6_PERFORMANCE_INPUTS_DIAGNOSTIC '
 SCOPE = 'constructor-only; no CPU campaign, original selector or performance-gate verdict'
+# Match tests.bench.test_wb12's root/tools search order and bare module import.
+WATERBOX_BOOTSTRAP = ("from pathlib import Path; import sys; root=Path.cwd(); "
+                     "sys.path.insert(0,str(root)); sys.path.insert(0,str(root/'tools')); import build_waterbox as wb; ")
 CONSTRUCTORS = (
     ('ffi-release', 'from tools import bench; bench.build_ffi_release()'),
     ('state-opt', "from tools.ci import performance_bench as p; p.build_support.build_targets(p.ROOT/'build/state-opt', p.TARGETS, optimized=True)"),
-    ('smoke', 'from tools import build_waterbox as wb; wb.build_managed()'),
-    ('runtime-debug', "from tools import build_waterbox as wb; wb.ensure_runtime_lane('debug')"),
+    ('smoke', WATERBOX_BOOTSTRAP+'wb.build_managed()'),
+    ('runtime-debug', WATERBOX_BOOTSTRAP+"wb.ensure_runtime_lane('debug')"),
 )
 NAMES = ('ffi-release', 'state-opt', 'smoke', 'runtime-debug')
 

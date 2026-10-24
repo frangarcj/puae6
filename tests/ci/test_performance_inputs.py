@@ -3,10 +3,12 @@ import contextlib
 import copy
 import io
 from pathlib import Path
+import subprocess
 import unittest
 from unittest import mock
 
 from tools.ci import performance_inputs as diag
+from tests.ci import test_managed_inputs as managed_fixture
 
 
 class PerformanceInputsTests(unittest.TestCase):
@@ -57,6 +59,33 @@ class PerformanceInputsTests(unittest.TestCase):
                 self.assertEqual(raised.exception.observation['before'],self.snapshot)
                 self.assertEqual(raised.exception.observation['after']['inputs']['native']['state-opt']['cache_sha256'],'e'*64)
                 self.assertEqual(execute.call_count,index+1)
+
+    def test_fresh_waterbox_child_bootstrap_reads_verified_offline_feed_without_building(self):
+        fixture=managed_fixture.ManagedInputTests(methodName='runTest')
+        self.addCleanup(fixture.doCleanups); fixture.setUp()
+        fixture.feed.mkdir(parents=True)
+        for item in fixture.data['packages']:
+            (fixture.feed/f"{item['id']}.{item['version']}.nupkg").write_bytes(fixture.body[item['id']])
+        root=Path(diag.__file__).resolve().parents[2]
+        env=dict(diag.bench.os.environ,P6_WATERBOX_MANAGED_FEED='build/hosted-managed-feed')
+        # -I supplies a fresh search path; add only the project root as -c does
+        # in the real worker. Then exercise each import prefix, not its build API.
+        setup=f"import sys; sys.path.insert(0,{str(root)!r}); "
+        verify=(f"; from pathlib import Path; wb.ROOT=Path({str(fixture.root)!r}); "
+                "assert wb.managed_restore_sources()==['-p:RestoreSources='+str(wb.ROOT/'build/hosted-managed-feed')]; "
+                "print('verified offline inputs only')")
+        for name,body in diag.CONSTRUCTORS[2:]:
+            prefix,call=body.rsplit('; ',1)
+            self.assertIn('import build_waterbox as wb',prefix)
+            self.assertEqual(call,'wb.build_managed()' if name=='smoke' else "wb.ensure_runtime_lane('debug')")
+            process=subprocess.run([diag.sys.executable,'-I','-B','-c',setup+prefix+verify],
+                                   cwd=root,env=env,capture_output=True,text=True,timeout=30)
+            self.assertEqual(process.returncode,0,process.stdout+process.stderr)
+            self.assertEqual(process.stdout.strip(),'verified offline inputs only')
+        wrong=subprocess.run([diag.sys.executable,'-I','-B','-c',setup+'from tools import build_waterbox as wb'+verify],
+                             cwd=root,env=env,capture_output=True,text=True,timeout=30)
+        self.assertNotEqual(wrong.returncode,0)
+        self.assertIn("No module named 'ci'",wrong.stderr)
 
     def test_preparation_and_source_run_environment_drift_cannot_be_stable(self):
         for field,value in (('common',dict(self.identity['common'],run_attempt='2')),('source_environment','f'*64)):
