@@ -284,3 +284,22 @@ todos los archivos derivados/originales, shims y licencia, sin rutas ajenas,
 symlinks ni archivos extra. Una fuente desconocida o un hash distinto falla.
 El productor CDI2Nero es solo un fixture de tests y conserva su verificacion
 independiente; no se enlaza en el producto.
+
+## Clean y sanitizers en runners publicos
+
+El selector manual `component: clean|sanitizers` de `waterbox-hosted-inputs.yml`
+ejecuta cada lane completa en su propio job `macos-26`, con un limite de seis
+horas y dos compiladores simultaneos. Usa Python, Git, CMake, Ninja y Apple Clang
+ya presentes. Estas dos lanes no consumen Waterbox, SDK/feed managed ni las
+bottles del compilador: su preflight exige el host ARM64/16 KiB y las herramientas
+nativas, sin exigir guest/runtime o dotnet. Las demas lanes y PR conservan su
+preflight Waterbox estricto. No se descargan paquetes ni se usan Docker o assets
+privados para estos dos selectores.
+
+Seleccionar cualquiera desactiva los jobs de preparacion y la puerta PR incluso
+en la rama `codex/waterbox-hosted-gate`. Para publicar esta vertical sin activar
+el trigger push de esa rama, se usa una rama separada y despacho manual. El job
+ejecuta el CLI nightly con auditoria `snapshot` y valida su JSON terminal: fuentes,
+seleccion completa, conteos sin omisiones y resultados de clean. No vuelve a
+ejecutar PR68 ni las matrices native/corpus ya aprobadas. Estos dos jobs no
+acreditan las otras cuatro lanes acumuladas ni el cierre global de T39b/T39.

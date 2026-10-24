@@ -5,8 +5,10 @@ from contextlib import ExitStack
 import io
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
+import textwrap
 import threading
 import unittest
 from unittest import mock
@@ -125,6 +127,76 @@ class ParallelOptimizationTests(unittest.TestCase):
 
 
 class NightlyRecipeTests(unittest.TestCase):
+    def test_native_preflight_needs_native_tools_but_pr_still_requires_dotnet_and_waterbox(self):
+        (ci.ci.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='native-preflight-', dir=ci.ci.ROOT / 'build') as directory, \
+             mock.patch.object(ci.ci, 'ROOT', Path(directory)), \
+             mock.patch.object(ci.ci.platform, 'system', return_value='Darwin'), \
+             mock.patch.object(ci.ci.platform, 'machine', return_value='arm64'), \
+             mock.patch.object(ci.ci.os, 'sysconf', return_value=16384), \
+             mock.patch.object(ci.ci.shutil, 'which', side_effect=lambda name: None if name == 'dotnet' else '/own/tool') as which:
+            ci.ci.preflight(require_waterbox=False)
+            self.assertNotIn(mock.call('dotnet'), which.call_args_list)
+            with self.assertRaisesRegex(ValueError, 'missing tool: dotnet'): ci.ci.preflight()
+            which.side_effect = None; which.return_value = '/own/tool'
+            with self.assertRaisesRegex(ValueError, 'missing actual Waterbox'): ci.ci.preflight()
+            which.return_value = None
+            with self.assertRaisesRegex(ValueError, 'missing tool: git'): ci.ci.preflight(require_waterbox=False)
+            with mock.patch.object(ci.ci.os, 'sysconf', return_value=4096), self.assertRaisesRegex(ValueError, 'declared macOS'):
+                ci.ci.preflight(require_waterbox=False)
+
+    def hosted_jobs(self):
+        workflow = (ci.ci.ROOT / '.github/workflows/waterbox-hosted-inputs.yml').read_text()
+        return dict(re.findall(r'^  ([a-z-]+):\n(.*?)(?=^  [a-z-]+:\n|\Z)', workflow.split('jobs:\n', 1)[1], re.M | re.S))
+
+    def test_hosted_native_selectors_do_not_start_existing_jobs_even_on_the_gate_branch(self):
+        jobs = self.hosted_jobs()
+        for event in ('push', 'workflow_dispatch'):
+            for component in ('all', 'tools', 'managed', 'gate', 'clean', 'sanitizers'):
+                enabled = set()
+                for name, job in jobs.items():
+                    condition = re.search(r'^    if: (.+)$', job, re.M)[1]
+                    expression = condition.replace('github.event_name', repr(event)).replace('inputs.component', repr(component))
+                    if eval(expression.replace('&&', ' and ').replace('||', ' or '), {'__builtins__': {}}): enabled.add(name)
+                expected = {'pinned-inputs'} if event == 'push' else (
+                    {component} if component in ('clean', 'sanitizers') else
+                    {'managed-sdk'} if component == 'managed' else
+                    {'pinned-inputs', 'managed-sdk'} if component == 'all' else {'pinned-inputs'})
+                self.assertEqual(expected, enabled, (event, component))
+        for lane in ('clean', 'sanitizers'):
+            job = jobs[lane]
+            self.assertIn('runs-on: macos-26', job); self.assertIn('timeout-minutes: 360', job)
+            self.assertIn('CMAKE_BUILD_PARALLEL_LEVEL:', job)
+            self.assertEqual(job.count('uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683'), 1)
+            for forbidden in ('tools/ci/run.py', 'linux_native.py', 'build_waterbox.py', 'prepare_managed', 'prepare_hosted',
+                              'docker', 'continue-on-error', 'upload-artifact', 'needs:'):
+                self.assertNotIn(forbidden, job)
+
+    def test_hosted_terminal_json_is_validated_with_full_counts_and_status(self):
+        counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        for lane in ('clean', 'sanitizers'):
+            good = dict(status='PASS', lane=lane, identity=dict(source_tree_sha256='a' * 64, inputs={'own': 'fixture'}),
+                        completed=[dict(module=m, counts=counts) for m in ci.suites(lane)],
+                        preparation={'p6_headless': 'a', 'puae6_libretro.dylib': 'b'})
+            job = self.hosted_jobs()[lane]
+            source = textwrap.dedent(job.split("          python3 -B - <<'PY'\n", 1)[1].split('\n          PY', 1)[0])
+            cases = [(good, 0, 0), ({**good, 'status': 'BLOCKED'}, 0, 1), (good, 1, 1)]
+            invalid = json.loads(json.dumps(good)); invalid['identity'] = {}; cases.append((invalid, 0, ValueError))
+            invalid = json.loads(json.dumps(good))
+            if lane == 'sanitizers':
+                invalid['completed'][0]['counts']['skipped'] = 1
+                cases.append((invalid, 0, ValueError))
+                invalid = json.loads(json.dumps(good)); invalid['completed'].pop()
+            else: invalid['preparation'].pop('p6_headless')
+            cases.append((invalid, 0, ValueError))
+            for payload, code, expected in cases:
+                with mock.patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], code, json.dumps(payload))) as run, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaises(ValueError if expected is ValueError else SystemExit) as error:
+                        exec(compile(source, '<hosted native lane fixture>', 'exec'), {})
+                if expected is not ValueError: self.assertEqual(expected, error.exception.code)
+                self.assertEqual(run.call_args.args[0][-4:], ['--source-audit', 'snapshot', '--lane', lane])
+
     def test_every_current_module_is_selected_and_split_simd_classes_are_all_covered(self):
         selected = {s for lane in ci.LANES for s in ci.suites(lane)}
         for path in (ci.ci.ROOT / "tests").rglob("test_*.py"):
@@ -360,7 +432,7 @@ class NightlyRecipeTests(unittest.TestCase):
         for lane in ("clean", "sanitizers"):
             selected = ci.suites(lane)
             with self.subTest(lane=lane), ExitStack() as stack:
-                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                preflight = stack.enter_context(mock.patch.object(ci.ci, "preflight"))
                 stack.enter_context(mock.patch.object(ci, "execute"))
                 stack.enter_context(mock.patch.object(ci, "prepare", return_value={"p6_headless": "a", "puae6_libretro.dylib": "b"}))
                 identity = stack.enter_context(mock.patch.object(ci, "identity", return_value=facts))
@@ -368,6 +440,7 @@ class NightlyRecipeTests(unittest.TestCase):
                 command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")))
                 result = ci.run(lane)
             self.assertEqual("PASS", result["status"])
+            preflight.assert_called_once_with(require_waterbox=False)
             self.assertEqual({}, result["images"])
             self.assertEqual(selected, [record["module"] for record in result["completed"]])
             self.assertEqual(selected, [call.args[0][-1] for call in command.call_args_list])
@@ -410,11 +483,12 @@ class NightlyRecipeTests(unittest.TestCase):
             with self.subTest(lane=lane), ExitStack() as stack:
                 for name in ("candidate_package", "waterbox_inputs"):
                     stack.enter_context(mock.patch.object(ci, name))
-                stack.enter_context(mock.patch.object(ci.ci, "preflight"))
+                preflight = stack.enter_context(mock.patch.object(ci.ci, "preflight"))
                 execute = stack.enter_context(mock.patch.object(ci, "execute"))
                 prepare = stack.enter_context(mock.patch.object(ci, "prepare"))
                 command = stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 1, "", "absent")))
                 result = ci.run(lane)
+            preflight.assert_called_once_with(ci.ASSETS if lane == "functional" else ())
             self.assertEqual("BLOCKED", result["status"])
             self.assertIn("required offline Docker image absent", result["diagnostic"])
             self.assertEqual(["docker", "image", "inspect"], command.call_args.args[0][:3])

@@ -82,16 +82,17 @@ def identity():
     return result
 
 
-def preflight(assets=()):
+def preflight(assets=(), *, require_waterbox=True):
     if (platform.system(), platform.machine(), os.sysconf("SC_PAGE_SIZE")) != ("Darwin", "arm64", 16384):
         raise ValueError("requires the declared macOS ARM64 runner with 16 KiB pages")
-    for tool in ("git", "cmake", "ninja", "clang", "clang++", "dotnet"):
+    tools = ("git", "cmake", "ninja", "clang", "clang++") + (("dotnet",) if require_waterbox else ())
+    for tool in tools:
         if not shutil.which(tool):
             raise ValueError(f"missing tool: {tool}")
     for name in assets:
         if not os.environ.get(name) or not Path(os.environ[name]).is_file():
             raise ValueError(f"missing required asset: {name}")
-    for receipt in ("puae6/puae6-receipt.json", "receipt.json"):
+    for receipt in (("puae6/puae6-receipt.json", "receipt.json") if require_waterbox else ()):
         if not (ROOT / "build/waterbox" / receipt).is_file():
             raise ValueError("missing actual Waterbox guest/runtime: prepare tools/build_waterbox.py --puae6")
 

@@ -254,7 +254,10 @@ def _run(lane):
     try:
         selected = suites(lane)
         queues = optimization_queues(selected) if lane == "optimization" else None
-        ci.preflight(ASSETS if lane == "functional" else ())
+        if lane in ("clean", "sanitizers"):
+            ci.preflight(require_waterbox=False)
+        else:
+            ci.preflight(ASSETS if lane == "functional" else ())
         if lane == "functional":
             candidate_package()
             waterbox_inputs()
