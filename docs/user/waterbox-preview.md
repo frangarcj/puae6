@@ -2,7 +2,7 @@
 
 Preview FFI para macOS ARM64, páginas de 16 KiB y runtime .NET ARM64 compatible
 con net8.0 instalado (roll-forward Major). No incluye SDK. No es un plugin EmuHawk;
-esa integración y la reproducibilidad siguen pendientes. Estados ligados al build.
+esa integración sigue pendiente. Estados ligados al build.
 
 Extrae el ZIP completo conservando bin/, config/, licenses/ y source.tar.gz juntos:
 
