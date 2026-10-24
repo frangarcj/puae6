@@ -917,6 +917,20 @@ TASK_SUITES[('LR01', 'T55c')] = {
 for _gate in ('GEN01', 'DET02', 'WB03', 'LR01'):
     # T55b adds the real 030 preset; shared schema/parity selectors keep one name.
     TASK_SUITES[(_gate, 'T55')] = {**TASK_SUITES[(_gate, 'T55c')], **TASK_SUITES[(_gate, 'T55b')]}
+# T44 is a matrix/subbacklog study. Runtime selectors preserve MMU0 only.
+TASK_SUITES[('GEN01', 'T44')] = {
+    'study_contract': 'tests.test_future_extensions.MmuStudyTests',
+    'current_no_mmu_generation': 'tests.codegen.test_gencpu_models.GencpuModelTests',
+}
+TASK_SUITES[('DET02', 'T44')] = {
+    'pmmu_rejection_regression': 'tests.state.test_cpu_modes.Cpu020NoMmuTests',
+    'current_030_restore': 'tests.state.test_a4030',
+    'current_040_060_restore': 'tests.state.test_a4040.A4040Tests',
+    'current_z3_restore': 'tests.state.test_z3',
+    'current_late_cpu_controls': 'tests.host.test_cpu_late_state.CpuLateStateTests',
+    'current_internal_fpu_state': 'tests.host.test_internal_fpu_state.InternalFpuStateTests',
+    'current_admitted_frestore': 'tests.host.test_frestore040.Frestore040Tests',
+}
 TASK_SUITES[('PERF01', 'T53')] = {'measured_cpu_levels': 'tests.bench.test_cpu_campaign.CpuCampaignMeasurements'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):

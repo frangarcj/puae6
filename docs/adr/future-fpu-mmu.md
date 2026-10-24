@@ -37,7 +37,8 @@ Solo las siete entradas MMU0 son perfiles publicos actuales: Normal, sin caches
 de instrucciones/datos ofrecidas para 040/060 y con SoftFloat entero si hay FPU.
 FPU ninguna es una configuracion del port, no una promesa de reproducir todas las
 variantes fisicas EC/LC. Se rechazan FPU interna de otro modelo, FPU externa en
-A4040 y CPU/MMU diferentes. Compatible/Exact 030/040/060, 68020+68851, JIT,
+A4040. La matriz futura descarta parejas CPU/MMU diferentes; el ABI actual no
+ofrece selector MMU. Compatible/Exact 030/040/060, 68020+68851, JIT,
 aceleradoras y floats host no se incorporan a esta matriz. Una futura MMU no
 autoriza ofrecer esos otros niveles ni cambiar el defecto.
 
