@@ -12097,6 +12097,48 @@
       "stop": "No editar main durante la matriz ni ejecutar builds pesados por agente. No publicar, instalar, modificar MacHawk, relajar los checks existentes o cerrar T40/T41 por estas previews."
     },
     {
+      "id": "T40d",
+      "title": "Cerrar la politica de fuentes y avisos para distribuir Waterbox standalone",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40a",
+        "T28c",
+        "T09d"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "manifests/release/native-preview.json",
+        "manifests/licenses.json"
+      ],
+      "touch": [
+        "manifests/release/waterbox-preview.json",
+        "manifests/release/waterbox-notices.txt",
+        "tools/waterbox_package_policy.py",
+        "tests/packages/test_waterbox_policy.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Division independiente de T40: preparar la politica legal/de fuentes que falta para guest, runtime Darwin y wrapper/FFI standalone; no construir ni empaquetar aun el producto. Root define metadata y toolchain_review implementa en worktree waterbox-package-policy. Main48c74 permanece inmutable hasta terminal de matriz; integrar despues. Esta pieza no satisface el paquete instalado, plugin EmuHawk, coexistencia ni reproducibilidad de T40.",
+        "Definir descriptor de politica Waterbox que reutilice la politica nativa y añada capturas references/machawk, references/musl-darwin, references/compiler-rt-emutls y sus manifests necesarios. El helper debe producir source_paths/licenses con el contrato de package.notice_files, sin duplicar ni debilitar la seleccion original. Ningun asset privado, binario de build, captura antigua PUAE excluida o ruta absoluta local en la distribucion.",
+        "Identificar los componentes realmente enlazados del sysroot, runtime Rust y dependencias managed de Ffi/Puae6.Core. Verificar pins/manifests/archivos ya disponibles; Cargo.lock y la identidad fijada de NuGet son autoridades para cada version/checksum. Cargo metadata offline/locked con herramientas existentes es lectura permitida, sin build/fetch/instalacion ni modificar caches ajenas. No usar una lista adivinada ni atribuir el ensamblado Release antiguo al guest actual.",
+        "Conservar los avisos originales y su atribucion/procedencia en waterbox-notices.txt, con hashes/identidades verificables en la politica. Texto de licencias importado se conserva exacto, sin reescribirlo, y no cuenta como logica manual; objetivo restante menor300lineas en cuatro rutas. Usar entradas locales verificadas (crates/paquetes o fuentes capturadas). Si falta texto, consultar unicamente fuentes primarias y fijar commit/version/hash para cualquier texto importado, sin bajar paquetes/binarios nuevos ni ROMs. No inventar licencias ni crear informes historicos.",
+        "Añadir tests dirigidos de union de politica, cobertura exacta de componentes seleccionados y rechazo de aviso ausente/alterado o fuente/pin inesperado. Registrar SRC01/PKG01 con este scope explicito de politica, sin mocks acreditados como ejecucion Waterbox. La politica y su comprobacion real offline deben aprobar antes de done; la generacion/verificacion del ZIP y smoke instalado pertenecen a otra vertical y T40 conserva su puerta completa."
+      ],
+      "checks": [
+        "SRC01",
+        "PKG01"
+      ],
+      "acceptance": [
+        "La politica compuesta proporciona fuentes/recetas fijadas y avisos exactos de todos los componentes distribuidos de la preview Waterbox standalone; cada importacion tiene procedencia verificable, sin datos privados ni paths de desarrollo.",
+        "Tests negativos y comprobacion offline real de la politica pasan; ninguna prueba de catalogo se presenta como binario empaquetado, ejecucion instalada o cierre de T40/T41."
+      ],
+      "stop": "No editar main/metadata por agente, compilar, instalar, publicar ni afirmar un plugin EmuHawk. Ante procedencia/licencia no acreditada conservar bloqueo explicito, sin texto supuesto ni omitir componente."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12110,7 +12152,8 @@
         "T35",
         "T36",
         "T40a",
-        "T40c"
+        "T40c",
+        "T40d"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12129,7 +12172,8 @@
         "Construir dos veces desde limpio en condiciones fijadas; comparar artefactos y explicar cualquier metadata variable.",
         "Probar instalacion aislada, firmware ausente, estado incompatible y coexistencia con UAE antiguo.",
         "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados.",
-        "T40c adelanta exclusivamente previews locales Linux ARM64/x86_64 con dependencias T38/T40a ya resueltas, aislada de la candidata T39b. T40 conserva todos los productos nativos/Waterbox, reproducibilidad en dos builds limpios, instalacion/estados incompatibles/coexistencia y documentacion; no se cierra por previews ni por checks de infraestructura."
+        "T40c adelanta exclusivamente previews locales Linux ARM64/x86_64 con dependencias T38/T40a ya resueltas, aislada de la candidata T39b. T40 conserva todos los productos nativos/Waterbox, reproducibilidad en dos builds limpios, instalacion/estados incompatibles/coexistencia y documentacion; no se cierra por previews ni por checks de infraestructura.",
+        "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas."
       ],
       "checks": [
         "PKG01",
