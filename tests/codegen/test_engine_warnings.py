@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from tests.build_support import _compiler_options
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "build/link-audit"
@@ -26,7 +27,7 @@ WARNING = re.compile(r"^(?P<file>[^\s:][^:]*):(?P<line>\d+):\d+: warning: (?P<me
 def engine_commands():
     if not (BUILD / "compile_commands.json").exists():
         subprocess.run(["cmake", "-S", str(ROOT), "-B", str(BUILD), "-G", "Ninja",
-                        "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
+                        *_compiler_options(BUILD),
                         "-DCMAKE_BUILD_TYPE=Debug", "-DP6_SANITIZERS=OFF"],
                        check=True, capture_output=True, text=True, timeout=120)
     commands = json.loads((BUILD / "compile_commands.json").read_text())
