@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -97,6 +98,32 @@ def _command(args, timeout):
         raise RuntimeError(f"Build command failed ({result.returncode}): {args}\n{result.stdout[-4000:]}\n{result.stderr[-4000:]}")
 
 
+def _compiler_options(directory):
+    """Select on the first configure; validate without rewriting warm cache entries."""
+    selected = {}
+    for variable, command in (("CMAKE_C_COMPILER", "clang"), ("CMAKE_CXX_COMPILER", "clang++")):
+        executable = shutil.which(command)  # Same inherited PATH/cwd as _command.
+        if not executable or not Path(executable).is_file():
+            raise RuntimeError(f"Missing required test compiler: {command}")
+        # Preserve the command's basename (clang++ selects the C++ driver), not
+        # its symlink target. Resolve only when checking equivalent cache paths.
+        selected[variable] = Path(executable).absolute()
+    cache = directory / "CMakeCache.txt"
+    if not cache.exists():
+        return [f"-D{variable}={path}" for variable, path in selected.items()]
+    lines = cache.read_text().splitlines()
+    for variable, expected in selected.items():
+        entries = [line.partition("=") for line in lines if line.startswith(variable + ":")]
+        if len(entries) != 1 or not entries[0][1]:
+            raise RuntimeError(f"Missing/duplicate cached test compiler: {variable}")
+        actual = Path(entries[0][2])
+        if not actual.is_absolute() or not actual.is_file() or actual.resolve() != expected.resolve():
+            raise RuntimeError(f"Cached test compiler differs from current PATH selection: {variable}")
+    # Repeating -D changes CMake's detected compiler cache type/help comment,
+    # even for the same absolute path. Keep CMake's own entry byte-for-byte.
+    return []
+
+
 def state_probe_variant():
     """"optimized" (default) or "debug": which tree the native-state tests take p6_state_probe from."""
     variant = os.environ.get(STATE_PROBE_ENV, "optimized")
@@ -150,7 +177,7 @@ def build_targets(directory, targets, *, sanitizers=False, trace=False, optimize
         _BUILDS.pop(str(directory), None)
         if record is None:
             _command(["cmake", "-S", str(ROOT), "-B", str(directory), "-G", "Ninja",
-                      "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++", f"-DCMAKE_BUILD_TYPE={config['build_type']}",
+                      *_compiler_options(directory), f"-DCMAKE_BUILD_TYPE={config['build_type']}",
                       # RelWithDebInfo's default is "-O2 -g -DNDEBUG": the flags are replaced, not extended, so that the asserts stay.
                       *([f"-DCMAKE_C_FLAGS_RELWITHDEBINFO={OPTIMIZED_FLAGS}", f"-DCMAKE_CXX_FLAGS_RELWITHDEBINFO={OPTIMIZED_FLAGS}"] if optimized else []),
                       f"-DP6_SANITIZERS={'ON' if sanitizers else 'OFF'}", f"-DP6_UNIT_TRACE={'ON' if trace else 'OFF'}"], 120)

@@ -4,6 +4,7 @@ from contextlib import redirect_stdout, nullcontext
 import io
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,11 @@ class BuildSupportTests(unittest.TestCase):
         (generated / "codegen-receipt.json").write_text("verified")
         environment = dict(os.environ)
         environment.pop(b.RECEIPT_ENV, None)
+        compilers = self.root / "compiler-fixtures"; compilers.mkdir()
+        for name in ("clang","clang++"):
+            (compilers/name).write_text("own compiler fixture, never executed")
+            (compilers/name).chmod(0o755)
+        environment["PATH"] = str(compilers)+os.pathsep+environment.get("PATH","")
         for mock in (patch.object(b, "ROOT", self.root), patch.dict(b._BUILDS, {}, clear=True), patch.dict(os.environ, environment, clear=True)):
             mock.start(); self.addCleanup(mock.stop)
         self.commands = []
@@ -41,7 +47,13 @@ class BuildSupportTests(unittest.TestCase):
             for target in args[args.index("--target") + 1:]:
                 b.output_path(self.directory, target).write_text("executable-" + target)
         else:
-            (self.directory / "CMakeCache.txt").write_text("\n".join(args))
+            cache = self.directory / "CMakeCache.txt"
+            entries = {line.split(":",1)[0]:line for line in cache.read_text().splitlines()
+                       if line.startswith(("CMAKE_C_COMPILER:","CMAKE_CXX_COMPILER:"))} if cache.exists() else {}
+            for variable in ("CMAKE_C_COMPILER","CMAKE_CXX_COMPILER"):
+                values = [arg.split("=",1)[1] for arg in args if arg.startswith("-D"+variable+"=")]
+                if values: entries[variable] = variable+":STRING="+values[0]
+            cache.write_text("\n".join([*entries.values(),*args]))
 
     def build(self, targets=("probe",), **kwargs):
         return b.build_targets(self.directory, targets, **kwargs)
@@ -144,6 +156,40 @@ class BuildSupportTests(unittest.TestCase):
         self.build()
         self.assertEqual(len(self.commands), 2)
 
+    def test_cold_compilers_follow_path_and_warm_cache_is_only_validated(self):
+        own = self.root / "own-tools"; own.mkdir()
+        for name in ("clang","clang++"):
+            (own / name).write_text("own compiler fixture, never executed")
+            (own / name).chmod(0o755)
+        with patch.dict(os.environ, {"PATH":str(own)}):
+            self.build()
+            self.assertIn("-DCMAKE_C_COMPILER="+str(own/"clang"),self.commands[0])
+            self.assertIn("-DCMAKE_CXX_COMPILER="+str(own/"clang++"),self.commands[0])
+            b._BUILDS.clear(); self.commands.clear(); self.build()
+            self.assertFalse(any(arg.startswith(("-DCMAKE_C_COMPILER=","-DCMAKE_CXX_COMPILER=")) for arg in self.commands[0]))
+            link = own/"cxx-link"; link.symlink_to(own/"clang++")
+            cache = self.directory/"CMakeCache.txt"
+            cache.write_text(cache.read_text().replace("CMAKE_CXX_COMPILER:STRING="+str(own/"clang++"),
+                                                       "CMAKE_CXX_COMPILER:STRING="+str(link)))
+            b._BUILDS.clear(); self.build()  # Explicitly equivalent symlink target.
+
+    def test_missing_duplicate_and_foreign_cached_compilers_fail_before_configure(self):
+        self.build(); cache=self.directory/"CMakeCache.txt"; original=cache.read_text()
+        for variable in ("CMAKE_C_COMPILER","CMAKE_CXX_COMPILER"):
+            line=next(line for line in original.splitlines() if line.startswith(variable+":"))
+            for bad in (original.replace(line,""), original+"\n"+line,
+                        original.replace(line,variable+":FILEPATH="+str(self.root/"foreign-compiler"))):
+                with self.subTest(variable=variable,cache=bad):
+                    (self.root/"foreign-compiler").write_text("different compiler")
+                    cache.write_text(bad); b._BUILDS.clear(); self.commands.clear()
+                    with self.assertRaisesRegex(RuntimeError,"cached test compiler|Cached test compiler"):
+                        self.build()
+                    self.assertEqual(self.commands,[]); self.assertEqual(cache.read_text(),bad)
+        cache.write_text(original); b._BUILDS.clear(); self.commands.clear()
+        with patch.object(b.shutil,"which",return_value=None),self.assertRaisesRegex(RuntimeError,"Missing required test compiler"):
+            self.build()
+        self.assertEqual(self.commands,[])
+
     def test_deleted_executable_is_built_again_but_altered_one_is_rejected(self):
         self.build()
         (self.directory / "probe").unlink()
@@ -197,6 +243,29 @@ class BuildSupportTests(unittest.TestCase):
                 child.kill(); child.wait(); raise
         self.assertEqual(child.wait(timeout=10), 0)
         self.assertTrue(entered.exists())
+
+
+class RealCompilerCacheTests(unittest.TestCase):
+    @unittest.skipUnless(all(shutil.which(name) for name in ("cmake","ninja","clang","clang++")),"requires the native CMake/Clang tools")
+    def test_cold_and_new_process_reconfigure_preserve_cache_bytes(self):
+        # CMake's own compiler ABI checks are tiny; no emulator source is used.
+        build = Path(b.__file__).resolve().parents[1]/"build"; build.mkdir(exist_ok=True)
+        parent_records = dict(b._BUILDS)
+        with tempfile.TemporaryDirectory(prefix="own-cmake-cache-",dir=build) as temporary:
+            root=Path(temporary).resolve(); generated=root/"build/generated"; generated.mkdir(parents=True)
+            (generated/"codegen-receipt.json").write_text("own fixture, not product codegen")
+            (root/"CMakeLists.txt").write_text('cmake_minimum_required(VERSION 3.21)\nproject(OwnCache LANGUAGES C CXX)\n'
+                'add_custom_target(probe COMMAND "${CMAKE_COMMAND}" -E touch "${CMAKE_BINARY_DIR}/probe")\n')
+            code=(f"from pathlib import Path; from tests import build_support as b; b.ROOT=Path({str(root)!r}); "
+                  "b.build_targets(b.ROOT/'build/probe',('probe',),optimized=True)")
+            cache=root/"build/probe/CMakeCache.txt"
+            for iteration in range(2):
+                process=subprocess.run([sys.executable,"-B","-c",code],cwd=Path(b.__file__).resolve().parents[1],
+                                       capture_output=True,text=True,timeout=90)
+                self.assertEqual(process.returncode,0,process.stdout+process.stderr)
+                if iteration == 0: first=cache.read_bytes()
+                else: self.assertEqual(cache.read_bytes(),first)
+            self.assertEqual(b._BUILDS,parent_records,"child builds do not populate the parent record cache")
 
 
 class RunnerSummaryTests(unittest.TestCase):
