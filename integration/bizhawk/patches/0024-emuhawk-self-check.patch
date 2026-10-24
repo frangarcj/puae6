@@ -1,0 +1,84 @@
+--- a/src/BizHawk.Client.EmuHawk/Program.cs
++++ b/src/BizHawk.Client.EmuHawk/Program.cs
+@@ -46,6 +46,13 @@
+ 
+ 		static Program()
+ 		{
++			// Explicit CLI only: resolve dependencies before any GUI initialization.
++			if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault() == "--puae6-self-check")
++			{
++				AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
++				return;
++			}
++
+ 			// Quickly check if the user is running this as a 32 bit process somehow
+ 			// TODO: We may want to remove this sometime, EmuHawk should be able to run somewhat as 32 bit if the user really wants to
+ 			// (There are no longer any hard 64 bit deps, i.e. SlimDX is no longer around)
+@@ -101,7 +108,7 @@
+ 
+ 		[STAThread]
+ 		private static int Main(string[] args)
+-			=> SubMain(args);
++			=> args.Length > 0 && args[0] == "--puae6-self-check" ? Puae6SelfCheck.Run(args) : SubMain(args);
+ 
+ 		// NoInlining should keep this code from getting jammed into Main() which would create dependencies on types which havent been setup by the resolver yet... or something like that
+ 		[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+--- /dev/null
++++ b/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs
+@@ -0,0 +1,56 @@
++using System.IO;
++using System.Linq;
++using System.Reflection;
++using System.Runtime.CompilerServices;
++using System.Runtime.Versioning;
++using System.Security.Cryptography;
++using System.Text;
++using BizHawk.Emulation.Cores;
++using Newtonsoft.Json;
++
++namespace BizHawk.Client.EmuHawk
++{
++	internal static class Puae6SelfCheck
++	{
++		private static string Hash(byte[] bytes)
++		{
++			using var sha = SHA256.Create();
++			return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
++		}
++
++		[MethodImpl(MethodImplOptions.NoInlining)]
++		public static int Run(string[] args)
++		{
++			try
++			{
++				if (args.Length != 1) throw new ArgumentException("--puae6-self-check accepts no other arguments");
++				var entry = Assembly.GetEntryAssembly();
++				var cores = typeof(CoreInventory).Assembly;
++				// ReflectionCache.Types silently drops failed types; never use it here.
++				var types = cores.GetTypes();
++				var names = types.Select(t => t.FullName).OrderBy(n => n, StringComparer.Ordinal).ToArray();
++				var amiga = CoreInventory.Instance.GetCores("Amiga")
++					.Select(c => new { name = c.Name, type = c.Type.FullName, priority = (int)c.Priority }).OrderBy(c => c.name).ToArray();
++				if (amiga.Length != 2 || !amiga.Any(c => c.name == "UAE" && c.type == "BizHawk.Emulation.Cores.Computers.Amiga.UAE")
++					|| !amiga.Any(c => c.name == "PUAE6" && c.type == "Puae6.Puae6Core")) throw new InvalidOperationException("Incomplete Amiga inventory");
++				Console.WriteLine("P6_EMUHAWK_BOOTSTRAP " + JsonConvert.SerializeObject(new {
++					schema_version = 1, kind = "emuhawk-cli-bootstrap", runtime = Environment.Version.ToString(),
++					entry_name = entry.GetName().Name, entry_type = entry.EntryPoint.DeclaringType.FullName,
++					entry_path = entry.Location, entry_sha256 = Hash(File.ReadAllBytes(entry.Location)),
++					framework = entry.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
++					cores_path = cores.Location, cores_sha256 = Hash(File.ReadAllBytes(cores.Location)),
++					cores_framework = cores.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
++					types_count = types.Length, types_sha256 = Hash(Encoding.UTF8.GetBytes(string.Join("\n", names))), amiga
++				}));
++				return 0;
++			}
++			catch (ReflectionTypeLoadException error)
++			{
++				Console.Error.WriteLine(error);
++				foreach (var failure in error.LoaderExceptions) Console.Error.WriteLine("LOADER " + failure);
++				return 2;
++			}
++			catch (Exception error) { Console.Error.WriteLine(error); return 2; }
++		}
++	}
++}
