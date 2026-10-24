@@ -103,6 +103,14 @@ jobs:
           P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json
           P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools
         run: python3 -B -m tools.ci.rgb565_loader_probe
+      - name: Verify all three original RGB565 methods after the loader probe
+        if: inputs.component == 'rgb565-probe'
+        env:
+          P6_WATERBOX_SOURCE_AUDIT: snapshot
+          P6_WATERBOX_TOOLCHAIN_PROFILE: hosted-macos26
+          P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json
+          P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools
+        run: python3 -B -m tools.ci.optimization_simd standalone
       - name: Prepare the exact managed SDK for the full gate
         if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
         uses: ./.github/actions/prepare-managed-sdk
