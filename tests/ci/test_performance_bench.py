@@ -102,4 +102,39 @@ class PerformanceBenchTests(unittest.TestCase):
             directory=Path(commands[1][1]['P6_CPU_PERF_DIR']); self.assertFalse(directory.parent.exists())
             self.assertTrue(all(env['P6_RUN_CPU_PERF']=='0' for _,env in commands))
             commands.clear(); inputs.side_effect=[record['inputs'],dict(record['inputs'],manual_sha256='b'*64)]
-            with self.assertRaisesRegex(RuntimeError,'inputs/outputs/headers changed'): p.run()
+            with self.assertRaisesRegex(RuntimeError,'/inputs/manual_sha256'): p.run()
+
+    def test_drift_names_every_boundary_family_and_nested_artifact_without_disclosing_values(self):
+        record=self.record()
+        before={k:record[k] for k in ('common','tools','generated','inputs')}
+        before['source_environment']='a'*64
+        fields=(('common','own'),('tools','sdk','path'),('source_environment',),
+                ('generated','receipt_sha256'),('generated','files',next(iter(record['generated']['files']))),
+                ('inputs','native','state-opt','cache_sha256'),('inputs','native','state-opt','commands_sha256'),
+                ('inputs','native','state-opt','headers','sha256'),('inputs','native','release','binaries','p6_bench_probe'),
+                ('inputs','runtime','debug','receipt_sha256'),('inputs','runtime','debug','sha256'),
+                ('inputs','managed','debug','Ffi.dll'),('inputs','managed','smoke','Smoke.dll'),
+                ('inputs','guest','sha256'),('inputs','manual_sha256'))
+        self.assertIsNone(p.require_unchanged(before,copy.deepcopy(before)))
+        for field in fields:
+            after=copy.deepcopy(before); cursor=after; original=before
+            for name in field[:-1]: cursor=cursor[name]; original=original[name]
+            old=original[field[-1]]; cursor[field[-1]]='/private/own-input-not-for-logs'
+            with self.subTest(field=field),self.assertRaises(RuntimeError) as raised:
+                p.require_unchanged(before,after)
+            diagnostic=str(raised.exception)
+            changes=json.loads(diagnostic.split(': ',1)[1])
+            self.assertEqual(changes,[dict(field='/'+'/'.join(n.replace('~','~0').replace('/','~1') for n in field),
+                before_sha256=p.checksum(dict(present=True,value=old)),
+                after_sha256=p.checksum(dict(present=True,value=cursor[field[-1]])))])
+            self.assertNotIn('/private/own-input-not-for-logs',diagnostic)
+
+    def test_drift_reports_all_changes_and_distinguishes_added_removed_and_null_fields(self):
+        with self.assertRaises(RuntimeError) as raised:
+            p.require_unchanged({'same':1,'removed':None,'changed':{'a':1}},
+                                {'same':1,'added':None,'changed':{'a':2}})
+        changes=json.loads(str(raised.exception).split(': ',1)[1])
+        self.assertEqual([r['field'] for r in changes],['/added','/changed/a','/removed'])
+        absent=p.checksum(dict(present=False)); null=p.checksum(dict(present=True,value=None))
+        self.assertEqual((changes[0]['before_sha256'],changes[0]['after_sha256']),(absent,null))
+        self.assertEqual((changes[2]['before_sha256'],changes[2]['after_sha256']),(null,absent))

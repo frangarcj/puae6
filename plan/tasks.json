@@ -11925,7 +11925,12 @@
         "Preparar performance hosted completo en paralelo a su ejecucion local congelada, sin compilar ni medir localmente. Conservar12selectores/43metodos originales: workerMac26 bench ejecuta las27filasCPU por5repeticiones(135ventanas), siete modulosbench(38metodos) ypixelPerf(1); necesita guest actual, runtimesRelease/Debug,Smoke,FFIDebug/Release,nativoRelease ystate-opt adicional con SDK/feed ya autenticados, sin assets privados. Un worker engine conserva cuatrovariantes/training y75medidas con sus dosmetodos originales. Cinco workersfrontend opt construyen/verifican; solo las tres filas MEASURED miden50cadauna(150), compartiendo validadores puros originales deprotocolo/estadistica/decision y sin ficcion unittest distribuida. Perfilhostedexplicito separado de IDsDockerlocales, medidas seriales dentrodecadafila, sin sanitizers concurrentes en su runner ni transferencia de perfiles. Preservar umbrales reales CoreIO yWB12 y politicaadvisory70%/5%/10%; cloud no se anuncia runnerdedicado. Rawarrays sevalidan donde seproducen, resumentransportable actual lleva cobertura/provenance/binarios/headers verificables. Primera vertical performance_bench.py ysu testpropio dentroderutasCI permitidas; rootscopea ycoordina elresto antesdedespachar receta completa. Maximo1-5rutas/<400lineasporvertical; sin ampliar checks, reports ni cerrar lane conun subconjunto.",
         "El reproducer propio confirma H1 del loader: LC_ID_DYLIB del ASan bundled conserva @@HOMEBREW_PREFIX@@ literal y el linker lo copia a LC_LOAD_DYLIB; los exports ARM64 existen y resource-dir apunta al bundle. Corregir solo empaquetado del runtime autenticado: extraer su slice ARM64 si FAT mediante biblioteca MachO vendorizada ya auditada, relocar su ID a @rpath/libclang_rt.asan_osx_dynamic.dylib (rpath del resource observado en driver), firmar ad-hoc determinista y fijar SHA/bytes reales del resultado y SHA original. Politica estrecha exclusiva de esta ruta/version; todos los otros targets/pins y flags/LSan se conservan. Ampliar normalizer/preparador/manifest y fixtures dirigidos dentro de tools/ci y tests/ci ya permitidos, dividir verticales si supera400lineas/5rutas. Obtener bytes de cache propia autenticada o misma bottle oficial fijada; no tocar Homebrew ni usar installedruntime como sustituto del input. Tras fixtures, ejecutar probecloud y los tres metodos RGB originales; una observacion de carga no cierra la lane. Mantener resultados del motor con su fuente real y no relanzarlo durante diagnostico; cualquier candidata completa posterior conserva identidad/aceptacion estrictas, sin importar PASS de otras revisiones como actuales.",
         "Revision independiente del worker performance-engine detecta que variant_record acredita hashes de comandos/verification pero no ejecuta las assertions de precision y harness de EquivalenceTests.receipt. Ampliar touch exclusivamente tests/simd/test_engine_flags.py para extraer el validador puro compartido a engine_flags.py y usarlo tanto desde el metodo original como desde optimization_engine.variant_record antes y despues de medir. Conservar source/probe/harness/restores/corpus y flags estrictos de FP, LTO, PGO y sanitizers; mismos selectores y counts originales, negativos dirigidos sin compilacion ni medidas locales mientras sigue la candidata755. No publicar la proyeccion preparada hasta integrar y revisar esta correccion.",
-        "Integrar el nuevo bootstrap real T40j en la lane functional acumulada: activar P6_TEST_EMUHAWK_SELFCHECK=1 junto a los opt-ins existentes y extender el test dirigido de seleccion/ENV. Su modulo completo debe ejecutarse, sin convertir el nuevo opt-in ausente en omision verde; preparar el EmuHawk real actual por la receta ya existente. No repetir lanes anteriores por esta integracion de runner ni atribuirles la nueva prueba. Dos rutas ya autorizadas: tools/ci/nightly.py y tests/ci/test_nightly.py."
+        "Integrar el nuevo bootstrap real T40j en la lane functional acumulada: activar P6_TEST_EMUHAWK_SELFCHECK=1 junto a los opt-ins existentes y extender el test dirigido de seleccion/ENV. Su modulo completo debe ejecutarse, sin convertir el nuevo opt-in ausente en omision verde; preparar el EmuHawk real actual por la receta ya existente. No repetir lanes anteriores por esta integracion de runner ni atribuirles la nueva prueba. Dos rutas ya autorizadas: tools/ci/nightly.py y tests/ci/test_nightly.py.",
+        "Integrar T40k en la lane functional sin omisiones: activar P6_TEST_EMUHAWK_COEXISTENCE=1 y extender el mismo test dirigido de seleccion/ENV. El escenario usa el EmuHawk actual preparado por las recetas existentes, ambos guests y un solo runtime actual. Este registro no acredita ejecucion de coexistencia ni repite lanes anteriores; root conserva pendiente la aceptacion real hasta que pase. Rutas ya autorizadas: tools/ci/nightly.py y tests/ci/test_nightly.py.",
+        "Registrar el diagnostico dirigido T40l dentro de functional: activar P6_TEST_WATERBOX_STATE_PROBE=1 y conservar seleccion del modulo completo mediante el test de ENV existente. El diagnostico clasifica snapshots del mini-guest y nunca acredita la coexistencia T40k ni sus cuatro escenarios; su fallo/ambiguedad no se convierte en omision verde. Rutas ya autorizadas tools/ci/nightly.py y tests/ci/test_nightly.py; no repetir otras lanes por la integracion del runner.",
+        "El run publico40093393108/8f termina FAIL en el guard final de performance-bench120883346190: benchmark inputs/outputs/headers changed, sin identificar componente. Engine120883346043 conserva75ventanas/2metodos PASS de esa revision; frontends no ejecutados y agregador falla por jobs ausentes, no atribuirles PASS. Antes de repetir135ventanas, ampliar exclusivamente tools/ci/performance_bench.py y tests/ci/test_performance_bench.py (ya dentro touch): conservar captura y comparacion final estrictas en su mismo punto, representar familias common/tools/source_environment/generated/inputs con nombres y diagnosticar paths exactos de hojas diferentes mediante hashes before/after, sin valores privados ni tolerancias. Fixture corto provoca drift de cada familia/subcampo sin compilar ni medir. Despues aislar mutantes potenciales mediante inventarios antes/despues de los constructores reales build_ffi_release, build_targets(state-opt,TARGETS,optimized=True) y build_managed/ensure_runtime_lane(debug) sobre inputs propios ya existentes; no ejecutar la campana135/39 ni atribuir causa a8f sin observacion real. Agente ci_close implementa2rutas en worktree aislado, root integra metadata/publicacion; ninguna nueva corrida remota antes de causa concreta.",
+        "Registrar T40m en functional mediante P6_TEST_EMUHAWK_STATE_PROBE=1 y test dirigido existente de seleccion/ENV (tools/ci/nightly.py y tests/ci/test_nightly.py ya permitidos); el probe dirigido no sustituye a T40k ni se atribuye a lanes anteriores.",
+        "El reproducer local de constructores confirma igualdad tras preparar inputs actuales (FFI Release, state-opt, Smoke y Debug runtime); las primeras actualizaciones de outputs locales previos no acreditan causa remota. Para aislar el fallo40093393108 sin repetir135ventanas, anadir diagnostico manual publico separado performance-inputs en .github/workflows/native-linux.yml, tools/ci/performance_inputs.py y tests/ci/test_performance_inputs.py; si un fixture de workflow necesita ajuste acotado hacerlo dentro tests/ci ya permitido. Reutilizar action prepare-performance-waterbox y performance_bench.prepare originales y ejecutar cada uno de los cuatro constructores en su proceso/ENV original; inventarios completos common/tools/source/generated/inputs antes/despues con guard estricto por paso, sin emular/medir ni cambiar el worker completo. Marker propio DIAGNOSTIC_STABLE/FAIL, nunca PASS de135/39 o relevo del gate original. Fixture debe rechazar drift en cualquier paso, identidad incompleta/cambio de cobertura y comprobar ausencia de campaign/selectores completos. Root revisa y publica proyeccion segura antes de un unico dispatch de este diagnostico, sin relanzar engine/frontend/campana anterior."
       ],
       "checks": [
         "PLAN01",
@@ -12352,6 +12357,147 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer como test, dos hipotesis verificables y blocked_reason; no instalar ni cambiar framework/flags al azar. Falta de closure o carga incompleta no produce PASS. Agente no modifica metadata compartida ni publica."
     },
     {
+      "id": "T40k",
+      "title": "Probar UAE y PUAE6 con RomLoader y peliculas en el mismo EmuHawk real",
+      "milestone": "M4",
+      "required": true,
+      "status": "blocked",
+      "depends": [
+        "T40j",
+        "T21",
+        "T22",
+        "T40f",
+        "T40g"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "tools/emuhawk_selfcheck.py",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch",
+        "tools/emuhawk_selfcheck.py",
+        "tools/emuhawk_coexistence.py",
+        "tests/packages/test_emuhawk_coexistence.py",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Continuacion de T40 tras bootstrap real T40j DONE. hosted_bootstrap implementa en worktree aislado desde candidata limpia actual; root registra metadata, revisa e integra y serializa build/ejecucion. No tocar MacHawk, copiar motorlegacy al nuevo ni usar hostFFI alternativo. Mantener EXE/proyectos/assembliesBizHawk completos net48 y politica Newtonsoft13.0.3net6 deT40j para runtime10.0.13.",
+        "Añadir entrada CLI explicita al EmuHawk original mediante parche derivado0025. Inicializar Database.InitializeDatabase y MAMEMachineDB.Initialize reales con DB del microROM/ADF propios y MAMEvacio, todos dentro del staging. CoreFileProvider y FirmwareManager originales resuelven seleccion explicita del firmware propio; Config.DontTryOtherCores=true evita fallback. Cargar mediante RomLoader.LoadRom, primero UAE por defecto y luego PUAE6 explicito. No invocar constructoresdirectos de cores, cambiar macroGAMEDB_ALWAYS_MISS ni filtrar CoreInventory.",
+        "Copiar exclusivamente el runtime Release actual verificado dePUAE6 y ambos guests reales: puae6.wbx del reciboactual y uae.wbx de la closurelegacy autorizada enMacHawk. Todos originales readonly identificados antes/despues; validar arquitectura/identidad actuales antes de ejecutar. Ambos cores comparten WaterboxHost.NativeImpl: probarlos realmente con un solo runtime, sin copiar runtimelegacy distinto ni trasladar PASSentreprocesos deT40f. Proveedor/ROM/ADF propios sin assets comerciales; ningun input nuevo por red/instalacion.",
+        "Mantener ambos cores vivos en ese proceso y alternar al menos12frames porcore; observar A/V y estado y demostrar que avanzar uno no muta el otro. Grabar pelicula porcore mediante MovieSession original con nombre/syncsettings e identidad reales. Para reproducir, partir de preferencia contraria y usar QueueNewMovie, QueuedCoreName, RomLoader.LoadRom y RunQueuedMovie comoMainForm; comprobar eleccioncorrecta sinfallback y replayexacto A/V/estadofinal porcore. Nunca comparar entre motores como si fueran equivalentes. Cubrir BK2 y TASproj si cabe en el mismo bucle/vertical sin exceder400lineas; si TAS exige otra vertical, registrar su sucesora sin borrar la puerta completa de T40.",
+        "Runner reutiliza la preparacion/verificacion de staging deT40j, sin compilar implicitamente ni reemplazar sus asserts. Añadir fixtures propios para identidad/runtimeunico/inventario/cuentas/fallo/cleanup y un opt-in real P6_TEST_EMUHAWK_COEXISTENCE=1. Root registraPKG01/WB09 y activa opt-infunctional dentroT39b. Gate real exige todos los escenarios declarados, ningunSKIP/PASSparcial; datos temporales desaparecen inclusoantefallo. Comprobar previamente los hashes de runtime y ambos guests, y despues closure y referenciaMacHawk intactos. No afirmar GUI, compatibilidadentrecores/builds ni cierre deotraspuertas WB09/WB11.",
+        "Objetivo cuatro rutas de implementacion y menos400lineas logicas nuevas, mas registro decheck/metadata coordinador. Primero pruebas dirigidas e independiente revision, despues una compilacion del EXE afectado y ejecucion del mismo runner. No repetir motor/codegen/matriz/rendimiento por cambios deCLI. Tras dos intentos razonados del mismo fallo conservar reproducer, dos hipotesis verificables y blocked_reason.",
+        "Primera ejecucion real supera bootstrap y falla antes de crear el guest: dlopen del nombre corto libwaterboxhost.dylib no usa la ruta DYLD del proceso en este host, comportamiento ya documentado en tests/ffi/Program.cs y Runtime.cs. Cargar explicitamente la ruta absoluta verificada stage/dll/libwaterboxhost.dylib mediante el gestor real OSTailoredCode.LinkedLibManager antes de RomLoader, como hace el lanzador existente; comprobar dyld/identidad inmediatamente y despues. No cambiar runtime, ABI, flags, core ni resolver por otro binario. La prueba del EXE completo sigue exigida."
+      ],
+      "checks": [
+        "PKG01",
+        "WB09"
+      ],
+      "acceptance": [
+        "El EmuHawk.exe original completo carga mediante RomLoader ambos cores con el mismo runtime actual, los mantiene vivos y demuestra aislamiento al alternar al menos12frames. Graba y reproduce peliculas por MovieSession y el nombre grabado elige el core correcto frente a una preferencia contraria, con continuacion A/V/estado exacta porcore y ninguna omision.",
+        "Todos los fixtures y el escenario real declarado pasan; fuentes/outputs/guests/runtime/MacHawk permanecen intactos y temporales propios se limpian. El resultado identifica realmente las tres piezas nativas y el EXE, sin atribuir GUI ni el resto de T40 por esta puerta."
+      ],
+      "stop": "No instalar dependencias/runtime ni descargar assets, no usar stubs, constructores directos o hostreducido para superar el escenario. Incompatibilidad real legacy/runtimeunico requiere reproducer y decision; no cambiar CPU/ABIflags al azar ni recuperar el runtimelegacy como fallback. Agente no edita metadata ni publica ni ejecuta baterias/buildpesado.",
+      "blocked_reason": "Dos fallos reales BK2/UAE conservan comparacion exacta/reproducer. T40l negativo real descarta reproduccion por mini-guest y T40m localiza la diferencia UAE: solo byte73 de __exbuf y byte73 del primer jmp_buf s_try_stack, ambos RW3, con iniciales/guardados consecutivos/cola managed/threading identicos. ELF real y musl guardan/restauran x28 en offset72 mediante stp/ldp x27,x28; Waterbox interop pone Context* host en x28 reservado, y __pushtry copia el buffer. Se requiere decision/reproducer de ABI setjmp/longjmp y correccion explicita de guest derivado en outputs propios, sin tocar MacHawk ni ocultar bytes. H1: setjmp persiste Context* dependiente del sandbox y longjmp podria reinyectarlo tras restore en otro; H2: cualquier otra diferencia de las variantes aun no ejercidas exige su reproducer, no se acredita con AV o este unico BK2. Mantener cuatro casos originales pendientes hasta correccion y aceptacion completa; no cambiar hashes/golden para taparlo."
+    },
+    {
+      "id": "T40l",
+      "title": "Aislar la divergencia de snapshots mediante el mini-guest Waterbox real",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T40j",
+        "T09d",
+        "T28c"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0017-darwin-host-tpidr.md",
+        "integration/bizhawk/smoke/Native.cs",
+        "tests/waterbox-smoke/guest.cpp",
+        "tools/build_waterbox.py"
+      ],
+      "touch": [
+        "tools/waterbox_state_probe.py",
+        "tests/waterbox-smoke/StateProbe.cs",
+        "tests/waterbox-smoke/test_state_probe.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical de diagnostico independiente tras los dos fallos exactos de T40k, que permanece BLOCKED y conserva su reproducer. hosted_bootstrap implementa en worktree aislado, root registra metadata y ejecuta una vez el probe dirigido. No repetir EmuHawk/WinUAE/codegen/matriz/rendimiento para investigar la misma diferencia. Runtime/guest/ABI de producto quedan intactos durante esta vertical; ninguna prueba de este host pequeño sustituye el escenario original T40k.",
+        "Reutilizar el runtime Release y el p6-smoke.wbx existentes, verificados por recibos/pins/arquitectura y fuentes actuales; no construir runtime ni guest. Compilar offline solamente un host C# pequeño bajo build, enlazando el Native.cs real existente y las clases propias de StateProbe. Crear dos sandboxes del mismo mini-guest, con los mismos inputs y buffers host diferentes mantenidos vivos; llamar smoke_frame real y comparar resultados causales. Capturar snapshots completos al inicio y tras avanzar, dos saves consecutivos por instancia y entre ambas, conservando bytes exactos en memoria. Preflight detecto que el mini-guest existente conserva build_recipe8b151b30 y toolchains_jsonf5c6e023 del productor0713ffa1b62fa55518ac17f3d33087b3b4adbbcf, mientras la receta actual incorpora seleccion hosted y tracking PUAE6. Verificar los dos blobs historicos por sus SHA completos contra el recibo, sin ejecutarlos, y exigir igualdad actual de las secciones causales tools/runtime/guest/sysroot del lock local y de cada fuente/wrapper/manifest inventariado del mini-guest. Registrar por separado hashes de productor y receta actual antes/despues; no atribuir al binario una receta nueva ni reconstruirlo por diferencias de perfiles hosted. Cualquier origen distinto no acreditado bloquea, sin bypass ni cambio de artefactos.",
+        "Registrar los limites exactos de cada callback Write de wbx_save_state y PageCount/PageInfo reales. Identificar estructuralmente la secuencia de escrituras de ActivatedMemoryBlock, hash32, direccion/tamaño, mapa status/dirty y las paginas de4096bytes, contrastando cantidades con page_info (stack0x10/dirty0x80/invisible0x40). No asumir representacion Rust del enum PageAllocation ni buscar el magic ingenuamente en RAM. Mantener separadas las regiones GuestThreadSet y el resto del formato; rechazar fragmentacion/esquema ambiguos o incoherentes, truncados y mapas imposibles.",
+        "Clasificar cada rango distinto como encabezado/hash, pagina real con direccion/proteccion, threading u otra seccion, sin modificar ni excluir ningun byte. Si una pagina RWStack contiene un puntero host identificado y cambia al cambiar exclusivamente ese buffer, la observacion apoya causalmente H1; un cambio en threading requiere demostrar layout/orden antes de atribuirlo a padding. Resultados iguales refutan solo la reproduccion por este camino; una observacion ambigua permanece unresolved y no es una correccion. Publicar solo stdout compacto y decision util en ADR, sin informes ni datos historicos.",
+        "Fixtures dirigidos deben rechazar datos truncados, chunks ambiguos, mapas incompatibles y clasificaciones inventadas. Añadir gate real opt-in P6_TEST_WATERBOX_STATE_PROBE=1; root registra WB03/ABI01 con alcance exclusivamente diagnostico. Verificar identidades de runtime/guest/fuentes antes y despues y limpiar todos los outputs propios al terminar. Ninguna instalacion, red, modificacion de MacHawk ni cambio de comparadores, hashes, tolerancias, alloc_invisible o flags de CPU.",
+        "Objetivo cuatro rutas de implementacion, menos400lineas logicas nuevas, mas registro tools/check.py y metadata/tests del plan por coordinador. Antes de tocar runtime o interop, revisar en ADR el reproducer y la decision correspondiente; si se acredita una causa, registrar la ficha atomica de correccion con su propia aceptacion antes de implementarla. No convertir el diagnostico en PASS del emulador ni cerrar T40k por AV coincidente."
+      ],
+      "checks": [
+        "WB03",
+        "ABI01"
+      ],
+      "acceptance": [
+        "El mini-guest y runtime reales producen una observacion verificable de snapshots exactos de ambas instancias; cada diferencia observada se localiza sin ambiguedad usando callbacks y mapa de paginas reales. Se demuestra o refuta el camino causal propuesto para el mini-guest, con limites expresos sobre la divergencia de UAE que sigue abierta.",
+        "Fixtures y probe dirigido pasan con inputs estables y sin alterar productos/referencia ni dejar temporales. La decision de ABI/snapshot queda revisable antes de cualquier correccion; datos ambiguos o faltantes no se presentan como causa demostrada ni como aceptacion de T40k."
+      ],
+      "stop": "No corregir runtime/ABI/legacy a ciegas ni normalizar/eliminar partes de snapshot para aprobar. Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis verificables, marcar blocked y elegir trabajo independiente. Agente no modifica metadata, publica ni ejecuta compilaciones pesadas o el escenario EmuHawk completo."
+    },
+    {
+      "id": "T40m",
+      "title": "Localizar la diferencia de estado UAE real por seccion, pagina y campo",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T40j",
+        "T40l"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch",
+        "tools/emuhawk_selfcheck.py",
+        "tools/emuhawk_coexistence.py",
+        "references/machawk/src/BizHawk.Emulation.Cores/Waterbox/WaterboxHost.cs",
+        "references/machawk/src/BizHawk.Emulation.Cores/Waterbox/WaterboxCore.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0026-emuhawk-state-probe.patch",
+        "tools/emuhawk_state_probe.py",
+        "tools/emuhawk_selfcheck.py",
+        "tests/packages/test_emuhawk_state_probe.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "tests/packages/test_emuhawk_selfcheck.py"
+      ],
+      "steps": [
+        "Resultado negativo real de T40l: el mini-guest no reproduce y las pilas de entrada principal/alternativa ya son invisible por elf.rs. Mantener T40k BLOCKED: ninguna correccion ABI/runtime esta acreditada. hosted_bootstrap implementa esta vertical dirigida en worktree aislado; root integra, revisa y serializa la unica compilacion managed necesaria. No repetir matrices/CPU/WinUAE/codegen/runtime/guest ni los cuatro casos completos de T40k.",
+        "Añadir una entrada CLI explicita de diagnostico a EmuHawk real mediante parche0026, conservando intacta la comparacion y los cuatro casos de0025. Compartir metodos privados haciendo parcial Puae6Coexistence, sin copiar RomLoader/MovieSession ni inventar APIs. Ejecutar solo el caso BK2 de12frames con UAE y PUAE6 vivos/alternados en ambos pases para conservar las condiciones del fallo, A/V e identidad. No presentar este recorrido como aceptacion completa de coexistencia o de UI.",
+        "Capturar SaveStateBinary original de UAE mediante Stream que registra cada Write/WriteByte real, sin cambiar bytes ni callbacks nativos. Leer el mapa real con WaterboxHost.GetPagesDomain del mismo core, por acceso diagnostico verificable al campo existente _exe; no modificar wrapper/runtime. Capturar inicial/final y dos saves consecutivos por pase para separar inestabilidad de save frente a diferencia de arranque/replay. Dividir estructuralmente runtime y cola managed original, validar todas las escrituras/longitudes desde WaterboxCore/UAE reales; reutilizar decoder T40l para runtime y clasificar tambien todos los bytes de wrapper. Comparar SHA/tamano de estado completo ademas de rangos por seccion/pagina/proteccion; no omitir la cola ni buscar magic ingenuamente en RAM.",
+        "Orquestador comparte staging autenticado de emuhawk_selfcheck y emuhawk_coexistence.prepare, con entrada/marker/cota de transporte explicitas. Mantener .NET10.0.13/SDK10.0.402, closure real, assets propios, runtime y ambos guests antes/despues y fallo de inventario incompleto. Datos solo memoria/pipe acotado y build temporal limpio, stdout compacto; no informes ni cambios en MacHawk. Fixtures rechazan mapa/cola/truncamiento/cobertura falsa, y opt-in P6_TEST_EMUHAWK_STATE_PROBE=1. Root registra checks y lane functional sin sustituir T40k.",
+        "Objetivo cinco rutas de implementacion y menos400lineas logicas, mas registro del coordinador; si necesita otra ruta explicitar motivo antes de editar. Primer resultado debe identificar seccion/pagina real de cada diferencia o declarar no-reproduccion limitada. No atribuir padding, punteros o ciclo causal por semejanza de bytes. Revisar ADR y registrar correccion atomica antes de tocar runtime/motor/ABI. Tras dos fallos de este reproducer, conservarlo y bloquear con dos hipotesis verificables.",
+        "El check de export normal BootstrapTests asumia que todo --- a/ de la cola era fuente pristina;0026 modifica una clase introducida por0025. Coordinador ajusta exclusivamente tests/packages/test_emuhawk_selfcheck.py para aceptar fuentes creadas por parches PREVIOS, conservando rechazo de originales ausentes del export o modificaciones anteriores a su introduccion. No editar helper de export, MacHawk ni omitir la cola ordenada real."
+      ],
+      "checks": [
+        "WB03",
+        "WB09"
+      ],
+      "acceptance": [
+        "Una ejecucion real del caso dirigido con ambos cores identifica sin ambiguedad los rangos diferentes del estado UAE completo, incluida cola managed, o acredita la no-reproduccion en este recorrido con sus limites. Identidades, A/V, numero de frames y mapa de paginas son reales y actuales; ninguna simulacion de core ni comparacion tolerante.",
+        "Fixtures de esquema/cobertura pasan, cola y runtime no pierden bytes, temporales se limpian e inputs/referencia quedan intactos. La observacion produce una decision causal revisable sin declarar resuelta T40k ni ejecutar otra vez todas sus variantes."
+      ],
+      "stop": "No cambiar ABI/CPU/runtime, excluir bytes, normalizar estados ni modificar hashes/comparadores para aprobar. Dos intentos razonados sin localizar la misma diferencia requieren blocked_reason y trabajo independiente. Agente no edita metadata compartida, instala, publica ni ejecuta compilaciones pesadas."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12372,7 +12518,10 @@
         "T40f",
         "T40h",
         "T40i",
-        "T40j"
+        "T40j",
+        "T40k",
+        "T40l",
+        "T40m"
       ],
       "read": [
         "docs/05-maintenance.md",

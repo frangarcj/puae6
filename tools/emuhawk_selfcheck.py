@@ -58,7 +58,14 @@ def validate(record, stage, files):
         raise ValueError("EmuHawk provenance/framework/inventory differs")
 
 
-def run(*, without_virtu=False):
+def run(*, without_virtu=False, coexistence=False, state_probe=False):
+    if sum((without_virtu, coexistence, state_probe)) > 1:
+        raise ValueError("Independent explicit probes cannot be combined")
+    if state_probe:
+        from tools import emuhawk_state_probe as scenario
+    elif coexistence:
+        from tools import emuhawk_coexistence as scenario
+    native_mode = coexistence or state_probe
     builder.check_source()
     output = builder.TREE_EMUHAWK / "output"
     receipt = output / "bootstrap-receipt.json"
@@ -86,6 +93,9 @@ def run(*, without_virtu=False):
         expected["dll/Newtonsoft.Json.dll"] = json_sha
         if without_virtu:
             (stage / "dll/Virtu.dll").unlink(); del expected["dll/Virtu.dll"]
+        if native_mode:
+            native = scenario.prepare(stage)
+            expected = builder.output_closure(stage)
         config = stage / "EmuHawk.runtimeconfig.json"
         config.write_text(json.dumps({"runtimeOptions": {"tfm": "net10.0", "rollForward": "Disable",
             "framework": {"name": "Microsoft.NETCore.App", "version": "10.0.13"}}}))
@@ -93,12 +103,17 @@ def run(*, without_virtu=False):
             raise ValueError("Staged EmuHawk closure differs")
         environment = {k: v for k, v in os.environ.items() if not k.startswith(("DOTNET_", "COMPlus_", "COREHOST_"))}
         environment.update(DOTNET_ROOT=str(dotnet.parent), DOTNET_MULTILEVEL_LOOKUP="0", DOTNET_EnableDiagnostics="0")
+        if native_mode:
+            temporary_home = stage / "tmp"; temporary_home.mkdir()
+            environment.update(BIZHAWK_HOME=str(stage), BIZHAWK_DATA_HOME=str(stage), HOME=str(stage),
+                TMPDIR=str(temporary_home), TMP=str(temporary_home), TEMP=str(temporary_home), DYLD_LIBRARY_PATH=str(stage / "dll"))
         result = subprocess.run([str(dotnet), "exec", "--runtimeconfig", str(config), str(stage / "EmuHawk.exe"),
-            "--puae6-self-check"], cwd=stage, env=environment, capture_output=True, text=True, timeout=60)
+            "--puae6-state-probe" if state_probe else "--puae6-coexistence" if coexistence else "--puae6-self-check"], cwd=stage, env=environment,
+            capture_output=True, text=True, timeout=300 if native_mode else 60)
         if (builder.output_closure(stage) != expected or builder.output_closure(output) != files
                 or hashlib.sha256(dotnet.read_bytes()).hexdigest() != host_sha
                 or runtime_json_asset() != json_asset
-                or len(result.stdout) + len(result.stderr) > 1024 * 1024):
+                or len(result.stdout) + len(result.stderr) > ((32 << 20) if state_probe else (1 << 20))):
             raise ValueError("EmuHawk inputs changed or output exceeded limit")
         lines = [line[len(MARKER):] for line in result.stdout.splitlines() if line.startswith(MARKER)]
         if without_virtu:
@@ -108,6 +123,17 @@ def run(*, without_virtu=False):
         if result.returncode or len(lines) != 1 or "VIOLATION" in result.stdout + result.stderr:
             raise ValueError("EmuHawk bootstrap failed: " + result.stdout[-1500:] + result.stderr[-3000:])
         record = json.loads(lines[0]); validate(record, stage, files)
+        if native_mode:
+            if scenario.inputs() != native:
+                raise ValueError("Native inputs changed after coexistence/disposal")
+            records = [json.loads(line[len(scenario.MARKER):]) for line in result.stdout.splitlines() if line.startswith(scenario.MARKER)]
+            if len(records) != 1: raise ValueError("Missing/duplicate coexistence result")
+            observation = scenario.validate(records[0], native)
+            if state_probe:
+                return {"status": "OBSERVATION", "scope": "legacy-state-localization", "files": files,
+                    "tree_key": builder.tree_key(), "dotnet_sha256": host_sha, **observation}
+            return {"status": "PASS", "scope": "same-process-coexistence", "files": files,
+                    "tree_key": builder.tree_key(), "dotnet_sha256": host_sha, **records[0]}
         return {"status": "PASS", "scope": "bootstrap-only", "tree_key": builder.tree_key(), "runtime": record["runtime"],
             "dotnet_sha256": host_sha, "files": files, "runtime_assets": {"dll/Newtonsoft.Json.dll": {
                 "package": "newtonsoft.json/13.0.3", "asset": "lib/net6.0/Newtonsoft.Json.dll", "sha256": json_sha}}, "types_count": record["types_count"], "types_sha256": record["types_sha256"], "amiga": record["amiga"]}

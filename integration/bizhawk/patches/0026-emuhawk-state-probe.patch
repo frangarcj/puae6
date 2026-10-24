@@ -1,0 +1,108 @@
+--- a/src/BizHawk.Client.EmuHawk/Program.cs
++++ b/src/BizHawk.Client.EmuHawk/Program.cs
+@@ -49,1 +49,1 @@
+-			if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault() is "--puae6-self-check" or "--puae6-coexistence")
++			if (Environment.GetCommandLineArgs().Skip(1).FirstOrDefault() is "--puae6-self-check" or "--puae6-coexistence" or "--puae6-state-probe")
+@@ -111,1 +111,2 @@
+-			=> args.Length > 0 && args[0] == "--puae6-coexistence" ? Puae6Coexistence.Run(args)
++			=> args.Length > 0 && args[0] == "--puae6-state-probe" ? Puae6Coexistence.RunStateProbe(args)
++				: args.Length > 0 && args[0] == "--puae6-coexistence" ? Puae6Coexistence.Run(args)
+--- a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+@@ -18,1 +18,1 @@
+- internal static class Puae6Coexistence
++ internal static partial class Puae6Coexistence
+--- /dev/null
++++ b/src/BizHawk.Client.EmuHawk/Puae6StateProbe.cs
+@@ -0,0 +1,91 @@
++using System.Collections.Generic;
++using System.IO;
++using System.Linq;
++using System.Reflection;
++using System.Runtime.CompilerServices;
++using System.Text;
++using BizHawk.Common;
++using BizHawk.Client.Common;
++using BizHawk.Emulation.Common;
++using BizHawk.Emulation.Cores.Arcades.MAME;
++using BizHawk.Emulation.Cores.Computers.Amiga;
++using BizHawk.Emulation.Cores.Waterbox;
++using Newtonsoft.Json;
++
++namespace BizHawk.Client.EmuHawk
++{
++ internal static partial class Puae6Coexistence
++ {
++  private sealed class RecordingStream : Stream
++  {
++   private readonly MemoryStream _bytes = new MemoryStream();
++   public readonly List<long[]> Chunks = new List<long[]>();
++   public override bool CanRead => false;
++   public override bool CanSeek => false;
++   public override bool CanWrite => true;
++   public override long Length => _bytes.Length;
++   public override long Position { get => _bytes.Position; set => throw new NotSupportedException(); }
++   public override void Flush() => _bytes.Flush();
++   public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
++   public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
++   public override void SetLength(long value) => throw new NotSupportedException();
++   public override void Write(byte[] buffer, int offset, int count) { Require(count > 0 && Length + count <= 8 << 20, "Snapshot write bound"); Chunks.Add(new[] { Position, (long)count }); _bytes.Write(buffer, offset, count); }
++   public override void WriteByte(byte value) { Require(Length < 8 << 20, "Snapshot byte bound"); Chunks.Add(new[] { Position, 1L }); _bytes.WriteByte(value); }
++   public byte[] Bytes() => _bytes.ToArray();
++   protected override void Dispose(bool disposing) { if (disposing) _bytes.Dispose(); base.Dispose(disposing); }
++  }
++  private static Dictionary<string, object> CaptureLegacy(IEmulator core)
++  {
++   Require(core is UAE, "Only the original UAE state is being localized");
++   var field = typeof(WaterboxCore).GetField("_exe", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
++   Require(field != null && field.IsFamily && field.DeclaringType == typeof(WaterboxCore) && field.FieldType == typeof(WaterboxHost), "Unexpected Waterbox host field");
++   var host = field.GetValue(core) as WaterboxHost; Require(host != null, "Missing original Waterbox host");
++   using (host.EnterExit()) {
++    using var stream = new RecordingStream();
++    using (var writer = new BinaryWriter(stream, Encoding.UTF8, true)) core.AsStatable().SaveStateBinary(writer);
++    var domain = host.GetPagesDomain(); Require(domain.Size > 0 && domain.Size <= 1 << 20 && !domain.Writable, "Unexpected page domain");
++    var pages = new byte[(int)domain.Size]; for (int i = 0; i < pages.Length; i++) pages[i] = domain.PeekByte(i);
++    return new Dictionary<string, object> { ["data"] = stream.Bytes(), ["chunks"] = stream.Chunks, ["pages"] = pages };
++   }
++  }
++  [MethodImpl(MethodImplOptions.NoInlining)]
++  public static int RunStateProbe(string[] args)
++  {
++   try {
++    if (args.Length != 1) throw new ArgumentException("--puae6-state-probe accepts no other arguments", nameof(args));
++    Require(Puae6SelfCheck.Run(new[] { "--puae6-self-check" }) == 0, "Full inventory bootstrap failed");
++    HawkFile.DearchivalMethod = SharpCompressDearchivalMethod.Instance;
++    var db = Path.Combine(Stage, "gamedb"); Database.InitializeDatabase(db, db, true); MAMEMachineDB.Initialize(db);
++    foreach (var directory in new[] { "User", "Movies", "Movie backups", "Temp Files" }) Directory.CreateDirectory(Path.Combine(Stage, directory));
++    var native = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Stage, "native.json")));
++    _ = OSTailoredCode.LinkedLibManager.LoadOrThrow(Path.Combine(Stage, "dll", "libwaterboxhost.dylib")); Identity(native);
++    var captures = new Dictionary<string, object>(); var names = new[] { "UAE", "PUAE6" };
++    var rows = new[] { new List<string[]>(), new List<string[]>() };
++    for (int pass = 0; pass < 2; pass++) {
++     var phase = pass == 0 ? "record" : "replay"; var sessions = new[] { Session(), Session() }; var cores = new IEmulator[2];
++     try {
++      for (int i = 0; i < 2; i++) cores[i] = Open(names[i], sessions[i], Path.Combine(Stage, "Movies", names[i] + ".bk2"), pass == 0);
++      Identity(native);
++      void Take(string point) { for (int n = 0; n < 2; n++) captures.Add(phase + "." + point + n, CaptureLegacy(cores[0])); }
++      Take("initial"); _ = State(cores[1]);
++      for (int frame = 0; frame < 12; frame++) for (int i = 0; i < 2; i++) {
++       var other = State(cores[1 - i]); var row = Step(cores[i], sessions[i]);
++       Require(other.SequenceEqual(State(cores[1 - i])), "Advancing one sandbox changed the other");
++       if (pass == 0) rows[i].Add(row); else Require(row.SequenceEqual(rows[i][frame]), "Replay A/V differs");
++      }
++      Take("final"); _ = State(cores[1]);
++      for (int i = 0; i < 2; i++) {
++       Require(cores[i].Frame == 12 && sessions[i].Movie.InputLogLength == 12, "Incomplete BK2 scenario");
++       if (pass == 0) Require(!sessions[i].Movie.Save().IsError, "Movie save failed");
++      }
++     } finally { for (int i = 0; i < 2; i++) { if (sessions[i].Movie != null) Close(sessions[i]); cores[i]?.Dispose(); } }
++     Identity(native);
++    }
++    var av = names.Select((name, i) => new KeyValuePair<string, string>(name, Hash(Encoding.UTF8.GetBytes(string.Join("\n", rows[i].Select(row => string.Join(" ", row))))))).ToDictionary(pair => pair.Key, pair => pair.Value);
++    var payload = JsonConvert.SerializeObject(new Dictionary<string, object> { ["runtime"] = Environment.Version.ToString(), ["format"] = "bk2", ["frames"] = 12,
++     ["cores"] = names, ["native"] = native, ["isolation"] = true, ["av"] = av, ["captures"] = captures });
++    Require(Encoding.UTF8.GetByteCount(payload) <= 31 << 20, "Diagnostic transport bound"); Console.WriteLine("P6_EMUHAWK_STATE_PROBE " + payload); return 0;
++   } catch (Exception error) { Console.Error.WriteLine(error); return 2; }
++  }
++ }
++}
