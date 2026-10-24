@@ -1,0 +1,16 @@
+name: Portable Nero help probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  help:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Authenticate portable files and inspect help only
+        shell: pwsh
+        run: ./tools/ci/nero_producer_probe.ps1
