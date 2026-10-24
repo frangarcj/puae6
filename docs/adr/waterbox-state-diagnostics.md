@@ -43,3 +43,13 @@ esa política. Marcar RWStack dirty no implica que toda pila entre en el snapsho
 Antes de intervenir sobre registros, pilas o threading hay que localizar la
 diferencia de UAE en su sección y página reales. El resultado negativo no cubre
 pilas de hilos virtuales ni el recorrido de ejecución del guest antiguo.
+
+T40m prepara una localización de UAE dentro del EXE original: sólo BK2, ambos
+cores vivos y doce frames alternos por pase, con RomLoader/MovieSession y las
+comparaciones A/V originales. Un Stream compositivo conserva cada Write y
+WriteByte de SaveStateBinary; el mapa procede del mismo WaterboxHost por el
+campo protegido `_exe` verificado. El decoder T40l valida el prefijo runtime;
+las diecinueve escrituras finales son los 69 bytes originales de WaterboxCore y
+UAE, también comparados y nombrados. SHA/tamaño siguen cubriendo el estado entero.
+Esta observación no acredita padding, punteros ni una corrección y no sustituye
+los cuatro casos ni el comparador intacto de T40k. Datos ambiguos bloquean.
