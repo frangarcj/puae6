@@ -166,3 +166,45 @@ class ManagedInputTests(unittest.TestCase):
         self.assertEqual(run.returncode, 2, run.stderr)
         self.assertEqual(json.loads(run.stdout)['status'], 'BLOCKED')
         self.assertFalse((self.root / 'build').exists())
+
+    def test_release_benchmark_uses_verified_feed_and_rejects_tamper_before_build(self):
+        from tools import bench
+        wb = bench.build_waterbox
+        managed.prepare(self.root, fetch=True, opener=self.response)
+        receipt = self.root / 'guest.json'
+        receipt.write_text(json.dumps({'guest': {'sha256': 'a' * 64}}))
+        with mock.patch.object(bench, 'ROOT', self.root), mock.patch.object(bench, 'GUEST_RECEIPT', receipt), \
+             mock.patch.object(wb, 'ROOT', self.root), mock.patch.object(wb, 'managed_env', return_value={}), \
+             mock.patch.object(bench, 'sh') as build, \
+             mock.patch('urllib.request.build_opener', side_effect=AssertionError('implicit network')):
+            for selector in ('build/hosted-managed-feed', str(self.feed)):
+                with self.subTest(selector=selector), mock.patch.dict(os.environ, {wb.MANAGED_FEED_ENV: selector}):
+                    bench.build_ffi_release()
+                    argv = list(map(str, build.call_args.args[0]))
+                    self.assertIn(f'-p:RestoreSources={self.feed}', argv)
+                    self.assertIn('-p:Puae6GuestSha256=' + 'a' * 64, argv)
+                    self.assertIn('Release', argv)
+                    self.assertNotIn(f'-p:RestoreSources={Path.home() / ".nuget/packages"}', argv)
+                    self.assertEqual(str(self.root / 'build/bizhawk-core/nuget'), build.call_args.kwargs['env']['NUGET_PACKAGES'])
+            build.reset_mock()
+            for selector in ('build/unverified-feed', 'build/hosted-managed-feed'):
+                with self.subTest(rejected=selector), mock.patch.dict(os.environ, {wb.MANAGED_FEED_ENV: selector}):
+                    if selector == 'build/hosted-managed-feed':
+                        next(self.feed.iterdir()).write_bytes(b'tampered own archive')
+                    with self.assertRaises(wb.BuildError):
+                        bench.build_ffi_release()
+                    build.assert_not_called()
+
+    def test_release_benchmark_keeps_local_cache_default_without_a_feed_selection(self):
+        from tools import bench
+        wb = bench.build_waterbox
+        receipt = self.root / 'guest.json'
+        receipt.write_text(json.dumps({'guest': {'sha256': 'b' * 64}}))
+        with mock.patch.object(bench, 'GUEST_RECEIPT', receipt), \
+             mock.patch.object(wb, 'managed_env', return_value={}), mock.patch.object(bench, 'sh') as build, \
+             mock.patch.dict(os.environ, clear=True), \
+             mock.patch('urllib.request.build_opener', side_effect=AssertionError('implicit network')):
+            bench.build_ffi_release()
+        argv = list(map(str, build.call_args.args[0]))
+        self.assertEqual([value for value in argv if value.startswith('-p:RestoreSources=')],
+                         [f'-p:RestoreSources={Path.home() / ".nuget/packages"}'])

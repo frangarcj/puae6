@@ -978,9 +978,9 @@ def build_ffi_release():
     """The host of the FFI tests and the core, Release (the managed build BizHawk ships), built with the guest it belongs with (the SHA-256 of the receipt)."""
     import build_waterbox
     receipt = json.loads(GUEST_RECEIPT.read_text())["guest"]["sha256"]
-    cache = Path.home() / ".nuget/packages"
+    sources = build_waterbox.managed_restore_sources(Path.home() / ".nuget/packages")
     env = {**build_waterbox.managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
-    sh(["dotnet", "build", ROOT / "tests/ffi/Ffi.csproj", "-c", "Release", "--nologo", f"-p:Puae6GuestSha256={receipt}", f"-p:RestoreSources={cache}"], env=env, cwd=ROOT)
+    sh(["dotnet", "build", ROOT / "tests/ffi/Ffi.csproj", "-c", "Release", "--nologo", f"-p:Puae6GuestSha256={receipt}", *sources], env=env, cwd=ROOT)
 
 
 def build_command(args):
