@@ -28,7 +28,7 @@ ASSETS = ("P6_KICKSTART_ROM", "P6_KICKSTART_A600_ZIP", "P6_WB205_ZIP", "P6_KICKS
           "P6_KICKSTART_A4000_ROM", "P6_CD32_ROM_MAIN", "P6_CD32_ROM_EXT", "P6_CD32_GAME_CUE",
           "P6_CDTV_ROM_MAIN", "P6_CDTV_ROM_EXT", "P6_CDTV_BOOT_CUE", "P6_KICKSTART_A500_ROM",
           "P6_ACTION_REPLAY1_ROM", "P6_ACTION_REPLAY2_ROM", "P6_ACTION_REPLAY3_ROM", "P6_ACTION_REPLAY1200_ROM",
-          "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE")
+          "P6_CD_CUE_FILE", "P6_CD_CCD_FILE", "P6_CD_NRG_FILE", "P6_CD_ISO_FILE", "P6_CD_WAV_FILE", "P6_LEGACY_UAE_HOST")
 SIMD = {
     "test_decision": {"functional": ("DecisionTests",), "performance": ("PerformanceTests",)},
     "test_engine_flags": {"optimization": ("ConfigurationTests", "EquivalenceTests", "SafetyTests"), "performance": ("PerformanceTests", "DecisionTests")},

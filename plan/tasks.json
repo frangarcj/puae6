@@ -11766,7 +11766,8 @@
         ".github/actions/**",
         "tests/waterbox-poison/test_poison.py",
         "patches/winuae/0416-display-owner-interlace-power-on.patch",
-        "CMakeLists.txt"
+        "CMakeLists.txt",
+        "tools/bench.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11897,7 +11898,8 @@
         "Run40040558484 supera inputs/sysroot, construye runtimeRelease+miniguest y testsRust, pero restoreSmoke exige refs8.0.30 por Directory.Build.targets mientras Ffi/Core SDK10.0.402 exigen8.0.32. Feed debecontener AMBASversionesnetcore/aspnetcore: añadir2pins8.0.30 originalesautenticados de1f2543sinreemplazar9anteriores. tools/ci/prepare_managed_inputs.py ya permitido debe deduplicar por(id,version), no soloid, manteniendo rechazo mismo par ytodoslimites/hashes/urls. Incluir Directory.Build.targets y tests/waterbox-poison/Poison.csproj en source_files parafijarsusinputs efectivos, sin cambiarcsproj/defaulttargeting/versionesSDK/proyectos. Regresion con2versionesdelmismoid yduplicadoexacto/invalidosantesred, yactualfetch11SHA512. No instalarSDKglobal ni cambiarcacheextranjera; feed9propioanterior solo se retiratrasvalidarnuevofeed11completo. Luego relanzarunicamente gateafectado; no afirmarWBsmoke ejecutado por buildruntime.",
         "Unionparalela0713: test_sprite_nearestapruebaNearestCounter yWaterboxSpritepero2FrontendSpritefallanenlinkRGB565alternate porCdSession faltante. Ampliar previamente CMakeLists.txt: alternate debe reutilizar SOURCESdelcorelibretroreal(incluidocd_session.cpp yengineobjects), no mantenerlista2TUsanterioraT66. Mantenercopiadepropiedades/macroRGB565/flagsSAN/goldens/asserts; cambioacotadodegrafo, sinmotor. Añadirregresion degrafo en tests/codegen/test_native_cmake.py ya permitido: configureEXPERIMENTON y verificar mismosadaptadores amboscore ymacroopuesto. Agente preparaenCIWTsinmetadata ysinbuildpesado; raizcompilaRGB565san/opt y reintentasoLO2metodosfallidos trascolasinmutables, conservando2PASSactualesconidentidad ycompletando4tail noejecutados aparte. No anunciar spriteDONEporconfigure, no cambiarfixtureprepatchni golden.",
         "La matriz nativa publica de la candidata pasa las15combinaciones; el corpus se bloquea antesdebuild porque la seleccionpublica omite.gitignore y los importsPython crean __pycache__ noignorados. Incluir.gitignore existente como fuente en manifests/release/native-preview.json y regression Gittemporal en tests/packages/test_preview.py (rutasyaautorizadas): fuente seleccionadaconserva reglas y outputsPython/build noensuciancheckout, mientras archivosajenos sigueninvalidando clean_revision. No relajar guarda ni golden ni engine. Publicar unicamente.gitignore y estasfuentes/metadata propias sobre parentpublico autorizado; relanzar SOLOcorpus15, conservar native15 y WaterboxPR yaPASS con sus identidadeshistoricas.",
-        "Acelerar la matriz local sin recortar checks: tests/portability/test_portability.py ejecutara ambos corpus por cada fila/variante antes de --drop-tree, reutilizando el mismo arbol con la comprobacion normal de CMake y todas las assertions existentes. Cache de proceso solo para resultados producidos en esa ejecucion, ligada a la identidad actual de fuentes/codegen y revalidando JSON/goldens ante cada metodo; no importar PASS historicos. Regresion sin motor con fixtures propios prueba ambos corpus, build normal conservado entre ellos, limpieza solo tras el segundo y rechazo de resultados alterados/inputs cambiados. Quince compilaciones efectivas para treinta ejecuciones de corpus; ninguna omision de fila/opt/SAN/reloj/entorno ni cambio de goldens. Ruta ya permitida por esta ficha; maximo un arbol pesado por vez."
+        "Acelerar la matriz local sin recortar checks: tests/portability/test_portability.py ejecutara ambos corpus por cada fila/variante antes de --drop-tree, reutilizando el mismo arbol con la comprobacion normal de CMake y todas las assertions existentes. Cache de proceso solo para resultados producidos en esa ejecucion, ligada a la identidad actual de fuentes/codegen y revalidando JSON/goldens ante cada metodo; no importar PASS historicos. Regresion sin motor con fixtures propios prueba ambos corpus, build normal conservado entre ellos, limpieza solo tras el segundo y rechazo de resultados alterados/inputs cambiados. Quince compilaciones efectivas para treinta ejecuciones de corpus; ninguna omision de fila/opt/SAN/reloj/entorno ni cambio de goldens. Ruta ya permitida por esta ficha; maximo un arbol pesado por vez.",
+        "Vertical pequena de procedencia managed para T40g: ci_close reutiliza native-state-smoke limpio tras T40f; responsable de T39b delegado, root coordina integracion. Editar solo tools/bench.py, tools/ci/managed_release.py, tests/ci/test_managed_release.py y tests/ci/test_managed_inputs.py. Capturar antes/despues de build_ffi_release las entradas versionadas CSharp/proyectos/props/targets/global.json mas manifests de toolchain/feed y recipe, guest SHA y SDK; escribir receipt atomico solo tras build Release correcto con hashes exactos de cuatro assemblies/deps/runtimeconfig. No atribuir revision completa al pin guest. Exportar verify_receipt(receipt_path, output_dir, guest_sha, root=ROOT) puro sin build/red/escritura: revalida fuentes actuales, recipe, SDK declarado y outputs Release, rechaza receipt ausente/tampered o CSharp cambiado aunque guest igual. Pruebas de infraestructura propias verifican fuente cambiada durante/despues, output alterado, archivo ausente y build fallido sin receipt; adaptar mocks existentes del feed sin repetir su red/build real. Delta manual menor400lineas/cuatro rutas; ninguna compilacion pesada, metadatos compartidos ni rutas T40g. Root reconstruye Release una vez con feed offline verificado y ejecuta consumidor instalado."
       ],
       "checks": [
         "PLAN01",
@@ -12249,8 +12251,9 @@
         "T40a",
         "T40c",
         "T40d",
-        "T40g"
-      ],
+        "T40g",
+        "T40e",
+        "T40f"      ],
       "read": [
         "docs/05-maintenance.md",
         "docs/03-waterbox.md",
@@ -12270,8 +12273,9 @@
         "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados.",
         "T40c adelanta exclusivamente previews locales Linux ARM64/x86_64 con dependencias T38/T40a ya resueltas, aislada de la candidata T39b. T40 conserva todos los productos nativos/Waterbox, reproducibilidad en dos builds limpios, instalacion/estados incompatibles/coexistencia y documentacion; no se cierra por previews ni por checks de infraestructura.",
         "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas.",
-        "T40g entrega una preview Waterbox Darwin ARM64 standalone relocable con wrapper/FFI, guest/runtime y politica de fuentes/avisos completa. No es un plugin para copiar en EmuHawk; esta ficha conserva integracion porruntime, coexistencia y dos builds limpios reproducibles, ademas de la CI completa."
-      ],
+        "T40g entrega una preview Waterbox Darwin ARM64 standalone relocable con wrapper/FFI, guest/runtime y politica de fuentes/avisos completa. No es un plugin para copiar en EmuHawk; esta ficha conserva integracion porruntime, coexistencia y dos builds limpios reproducibles, ademas de la CI completa.",
+        "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
+        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."      ],
       "checks": [
         "PKG01",
         "SRC01",
@@ -12284,6 +12288,93 @@
         "Distribucion no implica publicacion: paquetes quedan locales para revision."
       ],
       "stop": "Un binario sin fuentes/licencias o con reproducibilidad no demostrada no satisface release; registrar diferencias en vez de afirmar byte identity."
+    },
+    {
+      "id": "T40e",
+      "title": "Probar estado incompatible y rechazo transaccional en la preview nativa instalada",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T40a",
+        "T30",
+        "T31"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md",
+        "docs/user/native-preview.md",
+        "manifests/release/native-preview.json"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_preview.py",
+        "docs/user/native-preview.md",
+        "tools/check.py",
+        "tests/packages/test_linux_preview.py"
+      ],
+      "steps": [
+        "Vertical independiente de T40: completar el rechazo de estados incompatibles del paquete instalado sin modificar motor ni host. Agent ci_close trabaja en worktree native-state-smoke desde4831c0e1, coordinador conserva metadata. Main48c74 congelado hasta terminal de su matriz; no modificar ni reiniciar esa ejecucion.",
+        "Usar exclusivamente host/core extraidos y micro-ROM propia de source.tar.gz. El smoke PAL con puae6_video_line_mode=single produce archivo valido guardado enunidad6 y futuro comparado; comprobar tambien carga positiva de ese archivo en otra sesionPAL con las mismas opciones para evitar falso positivo por archivo no valido. Una sesionNTSC del mismo core con line_mode=double intenta cargar ese estado: exigir rechazo conconfig_hash, no version/CRC corruptos. La incompatibilidad probada incluye ambas diferencias de configuracion (PAL/single frenteNTSC/double); no atribuirla exclusivamente al estandar deTV.",
+        "Comparar estado full antes/despues del intento en la misma boundary bytea byte, futuro y estadofinal contra controlNTSC nuevo. Conservar registros hardware/ticks, video y PCM exactos con dumps temporales propios y sinVIOLATION. Reutilizar acciones savefile/loadfile y orden existente delhost, sin nuevas APIs ni cambiar fixture/goldens/tolerancias.",
+        "Integrar en package.smoke y su InstalledPreviewTests existente, conservando sus12unidadeslibretro,3restore,3headless yrechazofirmware. No duplicar un mismo escenario por añadir otro TestCase que lo ejecuteotra vez. Ajustar assertions para cobertura nueva y registrar los checks PKG01/STATE02 con el mismo installedselector, deduplicado al ejecutarpuertas juntas. Guia describe alcance de smoke y limites sin prometer compatibilidad entre builds.",
+        "Ejecutar una sola comprobacion instalada dirigida contra ZIP real verificado en /Users/frangar/Fun/uae/build/product/puae6-preview-20261024-macos-arm64.zip (SHA96427b763473b16d38d50fef46fdf7b0e892c88f75a5a2a489cf02c02c2fd719, fuente48c74). Conservar ese alcance preciso: prueba comportamiento de los binarios extraidos existentes; el coordinador renovara el payload de fuentes/checkhelper al integrar y construir nueva candidata. No recompilar motor, ejecutarDocker ni repetir matrices/fuzz/lanes. Estados/dumps solo en TemporaryDirectory propio y eliminar al terminar.",
+        "Ampliacion concreta previa al cambio: el mock instalado Linux de T40c presupone dos respuestas de package.run y el resultado anterior exacto. Añadir quinta ruta tests/packages/test_linux_preview.py SOLO para ajustar ese metodo a la ampliacion de smoke (mock explicito de helper nuevo y assertions de resultado), sin mover tests, suprimir assertions ni volver a ejecutar toda la bateria Linux. Comprobar metodo afectado junto al smoke instalado real.",
+        "Setup final comprobable: PALsingle mantiene lastpicture y viewport dentro de los limites de NTSCdouble, de modo que la puerta reachconfig_hash sin manipular elarchivo ni elcodec. video_line_mode es semantica delmotor y se declara como segunda diferencia de configuracion, no como mera presentacion. Conservar todoslos counts/controles/restore/dumps de la ficha. Dos ejecuciones dirigidas fueron justificadas porrechazo anterior geometrico delsetup inicial y su correccion causal; la segundaPALsingle/NTSCdouble pasa, no ejecutar una tercera por el setup boundary0 propuesto pero no adoptado."
+      ],
+      "checks": [
+        "PKG01",
+        "STATE02"
+      ],
+      "acceptance": [
+        "Un estado PAL/single valido se carga en PAL/single y se rechaza por identidad config_hash en NTSC/double sin modificar estado; la continuacion hardware/video/PCM/fullstate coincide exactamente con controlNTSC/double. Se declara que ambas opciones difieren; solo se ejecutan binarios extraidos delZIP.",
+        "Los checks dirigidos del installedselector pasan sin omisiones; Git/diff y salidaactual registran el alcance. Se conservan todas las assertions anteriores y T40 mantiene coexistencia, fuentes/avisos y reproducibilidad pendientes."
+      ],
+      "stop": "No editar main/metadata, motor, host o MacHawk por el agente, ni compilar/instalar/publicar. Si se descubre fallo de comportamiento real conservar reproducer y escalar al coordinador antes de cambiar alcance; no relajar identidad, hashes ni assertions."
+    },
+    {
+      "id": "T40f",
+      "title": "Probar coexistencia aislada con la distribucion UAE antigua de MacHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T40a",
+        "T30",
+        "T31",
+        "T40e"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/native-preview.md",
+        "tools/package.py"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_preview.py",
+        "tools/check.py",
+        "tools/ci/nightly.py",
+        "tests/ci/test_nightly.py"
+      ],
+      "steps": [
+        "Vertical independiente de T40 tras el rechazo instalado T40e; reutilizar su worktree native-state-smoke limpio aee036f2. Agente ci_close implementa, root conserva metadata y compila pesado por separado. Main48c74 sigue inmutable hasta terminal de matriz. Mantener todos los smokes/politicas anteriores.",
+        "La referencia existente localizada es ../MacHawk/waterbox/waterboxhost/uae-cd32-headless/bin/Release/net8.0/osx-arm64/Waterbox.UaeCd32Headless con19entradas (18archivos regulares y un enlace libzstd.so.1)/140.7MBincluyendo DLLs,libwaterboxhost.dylib,dll/uae.wbx. Seleccion explicita porvariable P6_LEGACY_UAE_HOST(file apphost); su lectura/copia a TemporaryDirectory propio bajo build esta autorizada, NUNCA escribir/limpiar/instalar en MacHawk. Identificarclosure/hashoriginalantes/despuesy ejecutar unicamente copias propias relocadas; no incorporar binarioslegacy a fuentes ni ZIPproducto.",
+        "Leer elCLI y proveedor de firmware reales de esa referencia antes de llamar: parametros SYSTEM none 3 OUTPUT y syncA500/controllerNone ya observados se concretan contra su codigo. Aportar micro-ROM propia delsource.tar.gz depreview como Own.A500.rom, sinROMprivada, con variables SYNC explicitas. Dotnet/runtime ya instalados, entorno local aislado y sin red/instalacion; si falta runtime comunicar bloqueo, no instalarlo.",
+        "Ejecutarlegacycontrol3unidades, smokePUAE6extraido, legacydespues3unidades en staging separado con mismas entradas. Comprobar salidaslegado completas y avance real segunCLI/source, hardware/AVqueexpone sin comparar camposhostvariables. Comparar sus resultados relevantes entre ambas ejecuciones y hashes deTODOS los19originales para acreditarquePUAE6nolosmodifica; no usar solo filenameosentinelpropio como prueba de UAEantiguo real. No afirmar compatibilidad deestadosentrecores ni mismoEmuHawk.",
+        "Añadir helper pequeno enpackage.py y CoexistenceTests separado en test_preview.py; selector PKG01 deT40f se registra sin duplicar installedsmoke porotrasclases. El caso de coexistencia integra el smokeactual como paso entrelosdoslegacy, sin compilarni repetir otroscasos/lanes. Todosstaging/ROMsalidasdumpspropios temporales seeliminan inclusoanteerror. Hashes/resultados porstdout normal, sininformesnihistoricos.",
+        "Registrar P6_LEGACY_UAE_HOST enASSETS de nightlyfunctional comoarchivo requerido, de modo que ausencia bloquee antesdepreparacion. Añadirlo a regresion existente deassets requeridos en tests/ci/test_nightly.py, sin runners/serviciosnuevos. Validar solocasoafectado+testcoexistencia real existenteZIP48c74 SHA96427b..., scopeincluye esa identidad, renovaciondeZIPfuentes lahararootalintegrar. Aplicar el limite de AGENTS a dos intentos razonados del mismo fallo; preparaciones distintas con causa demostrada se corrigen sin repetir motor por inercia. Fallo real conserva reproducer y bloqueo explicito, sin omitir/alterar legacy.",
+        "Matiz de closure descubierto antes de ejecutar legacy: unico enlace nominal libzstd.so.1 -> /opt/homebrew/lib/libzstd.1.dylib, resuelto a /opt/homebrew/Cellar/zstd/1.5.7_1/lib/libzstd.1.5.7.dylib (649648bytes, SHA256e2847c4613b386683c234913ae3b7b04299254096caf7616e3b3cd9bb97a39ab, dependencia ya instalada/fijada). Permitir exclusivamente esa relacion y SHA: lectura deldestino y materializacion de sus bytes como archivo regular en staging propio. Inventariar texto del enlace y hash/tamaño de destino antes/despues, ademas de18regulares; ningun enlace externo en staging ni fallback paraotro enlace/pin distinto. No cambiar original, instalar o normalizar el binario; segundo intento dirigido tras corregir esta preparacion, no fallo delmotor.",
+        "Descubrimiento .NET verificado sololectura: apphost net8 no encuentra Homebrew por sus ubicaciones default, y solo estan instalados hostfxr/framework10.0.13 (dotnetSDK10.0.402). Ejecutar exclusivamente la DLL copiada mediante dotnet exec --roll-forward Major con dotnet real /opt/homebrew/Cellar/dotnet/10.0.402/bin/dotnet; no cambiar runtimeconfig, registro global ni instalar .NET8. Es una compatibilidad dirigida sobre runtime10 existente, que se declara en resultado, sin atribuir ejecucion a runtime8 ni probararranqueapphostpor defecto. Los fallos anteriores fueron dos preparaciones distintas (enlace y discovery), ninguna ejecuto el guest; se autoriza una comprobacion acotada con este host explicito. Si el core no funciona con runtime10, conservar bloqueo/reproducer y no instalar ni seguir cambiando flags."
+      ],
+      "checks": [
+        "PKG01"
+      ],
+      "acceptance": [
+        "La distribucionlegacyARM64 real ejecuta sus3unidades antesydespuesdelsmokenuevo extraido; sus salidas relevantes igualan y todos sus archivosoriginales permanecen byteidenticos. La prueba usa solo staging propio y no modifica MacHawk ni mezcla motores.",
+        "La ausencia delegacy o preview producebloqueo explicito sinPASSparcial; asset requierepreflightfuncional. Testsdirigidos pasan sinomisiones, temporaleslimpios y T40 conserva instalacionWaterbox,reproducibilidadyotroschecks."
+      ],
+      "stop": "No modificar MacHawk, copiar motorantiguo al nuevo, instalar frameworks/runtime, publicar ni usar red para suplir referencia. Tras dos intentos locales razonados del mismo fallo conservar reproducer y motivo bloqueado conforme AGENTS; un proceso sin outputs/avance comprobables no aprueba. Runtime10 con host explicito solo acredita esa configuracion."
     },
     {
       "id": "T49a",

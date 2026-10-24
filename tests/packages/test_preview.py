@@ -15,6 +15,17 @@ from tools import package
 
 
 class PolicyTests(unittest.TestCase):
+    def test_legacy_diagnostics_ignore_wall_clock_culture_but_require_complete_advancement(self):
+        signature = '720x574 vis=  0% sig=628a191d same=0 audio_nz=0 cd=0'
+        def text(decimal):
+            return f'frame      0 t=    0{decimal}0s {signature}\ndone frames=3 nonzero_audio=0 elapsed=0{decimal}1s\n'
+        for decimal in ('.', ','):
+            self.assertEqual(package.legacy_diagnostics(text(decimal)), (signature, '0'))
+        for bad in (text('.').replace('frames=3', 'frames=2'), text('.') + text(','),
+                    text('.').replace('sig=628a191d', 'sig=invalid'), text('.').splitlines()[0]):
+            with self.assertRaisesRegex(RuntimeError, 'Incomplete legacy advancement'):
+                package.legacy_diagnostics(bad)
+
     def test_sources_do_not_ship_reference_disks_capsimg_or_private_builds(self):
         paths = package.source_paths()
         self.assertIn('upstream/winuae', paths)
@@ -113,3 +124,33 @@ class InstalledPreviewTests(unittest.TestCase):
             result = package.smoke(directory)
         self.assertEqual(result['restored_units_compared'], 3)
         self.assertTrue(result['missing_firmware_rejected'])
+        self.assertEqual(result['libretro_units'], 12)
+        self.assertEqual(result['headless_units'], 3)
+        self.assertEqual(result['pal_file_restored_units'], 3)
+        self.assertTrue(result['incompatible_config_rejected'])
+        self.assertTrue(result['rejection_state_unchanged'])
+        self.assertEqual(result['incompatible_future_units_compared'], 8)
+        self.assertEqual(result['incompatible_av_dumps_compared'], 11)
+
+
+@unittest.skipUnless(os.environ.get('P6_PACKAGE_ZIP') and os.environ.get('P6_LEGACY_UAE_HOST'),
+                     'P6_PACKAGE_ZIP and P6_LEGACY_UAE_HOST require both real distributions')
+class CoexistenceTests(unittest.TestCase):
+    def test_copied_legacy_advances_identically_around_extracted_preview(self):
+        (package.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='p6-coexistence-test-', dir=package.ROOT / 'build') as directory:
+            package.unpack(os.environ['P6_PACKAGE_ZIP'], directory)
+            result = package.coexistence(directory, os.environ['P6_LEGACY_UAE_HOST'])
+        self.assertEqual(result['legacy_frames'], 3)
+        self.assertEqual(result['legacy_files_unchanged'], 19)
+        self.assertEqual(len(result['legacy_original_sha256']), 19)
+        self.assertEqual(result['legacy_outputs_compared'], 6)
+        self.assertEqual(result['legacy_dotnet_sdk'], '10.0.402')
+        self.assertEqual(result['legacy_runtime'], '10.0.13')
+        self.assertTrue(result['legacy_dotnet_host'].endswith('/dotnet/10.0.402/libexec/dotnet'))
+        self.assertEqual(result['legacy_launch'], 'dotnet exec --roll-forward Major (copied DLL)')
+        self.assertEqual(result['preview'], dict(libretro_units=12, restored_units_compared=3, headless_units=3,
+                         missing_firmware_rejected=True, pal_file_restored_units=3, incompatible_config_rejected=True,
+                         rejection_state_unchanged=True, incompatible_future_units_compared=8,
+                         incompatible_av_dumps_compared=11))
+        print(json.dumps(result, sort_keys=True))

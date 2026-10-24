@@ -19,6 +19,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / 'manifests/release/native-preview.json'
 PRODUCTS = ('puae6_libretro.dylib', 'p6_headless', 'p6_libretro_host')
+# PAL single (287 rows) fits the NTSC double (484 rows) adapter bounds, so
+# a valid foreign state reaches config_hash rather than an earlier geometry check.
+PAL_SMOKE_OPTIONS = ('--set', 'puae6_video_line_mode=single')
 PLATFORMS = {
     'macos-arm64': ('Darwin', 'arm64', 'cmake/toolchains/macos-appleclang.cmake'),
     'linux-arm64': ('Linux', 'arm64', 'cmake/toolchains/linux-clang.cmake'),
@@ -178,6 +181,179 @@ def verify(directory):
     return manifest
 
 
+def state_identity_smoke(host, core, system, work, env, pal_rows):
+    """Valid foreign config, not a damaged header; only installed executables."""
+    pal, pal_end = work / 'pal.state', work / 'pal-end.state'
+    def checked(*args):
+        output = run([host, core, '--system', system, *args], cwd=work, env=env)
+        if 'VIOLATION' in output:
+            raise RuntimeError('Installed state contract violation:\n' + output[-2000:])
+        return output
+    def views(output, count):
+        rows = [line.split(' ', 2)[2] for line in output.splitlines() if line.startswith('run ')]
+        if len(rows) != count or any(not all(key in row for key in ('ahash=', 'unit=', 'ticks=')) for row in rows):
+            raise RuntimeError('Incomplete installed state future:\n' + output[-2000:])
+        return rows
+    def equal(left, right):
+        if not left.is_file() or not right.is_file() or not left.stat().st_size or left.read_bytes() != right.read_bytes():
+            raise RuntimeError('Installed fullstate/AV differs: ' + left.name + ' / ' + right.name)
+    # A second PAL process must accept the actual file and reproduce its future.
+    again = work / 'pal-again.state'
+    positive = checked(*PAL_SMOKE_OPTIONS, '--runs', '3', '--do', f'0:loadfile:{pal}:pos=6', '--do', f'3:savefile:{again}')
+    if f'state load {pal} pos=6 ok=1' not in positive or views(positive, 3) != pal_rows[6:9]:
+        raise RuntimeError('Installed PAL file failed positive restore:\n' + positive[-2000:])
+    equal(pal_end, again)
+    outputs = {}
+    for name in ('control', 'trial'):
+        target = work / name; target.mkdir()
+        for folder in ('audio', 'video'): (target / folder).mkdir()
+        arguments = ['--set', 'puae6_video_standard=NTSC', '--set', 'puae6_video_line_mode=double', '--no-dupe', '--runs', '8',
+                     '--dump-audio', target / 'audio', '--dump-pictures', target / 'video', '--dump-from', '6']
+        if name == 'trial':
+            arguments += ['--do', f'5:savefile:{target}/before.state', '--do', f'5:loadfile:{pal}',
+                          '--do', f'5:savefile:{target}/after.state']
+        arguments += ['--do', f'8:savefile:{target}/final.state']
+        outputs[name] = checked(*arguments)
+    refused = outputs['trial']
+    if (f'state load {pal} exact ok=0' not in refused or
+            'p6_state_load failed (10): state refused: config_hash:' not in refused):
+        raise RuntimeError('Installed foreign state was not refused by config identity:\n' + refused[-2000:])
+    equal(work / 'trial/before.state', work / 'trial/after.state')
+    if views(outputs['control'], 8) != views(refused, 8):
+        raise RuntimeError('Installed continuation changed after incompatible state')
+    equal(work / 'control/final.state', work / 'trial/final.state')
+    expected = {f'audio/audio-{n:03d}.bin' for n in range(1, 9)} | {f'video/picture-{n:03d}.bin' for n in range(6, 9)}
+    for name in ('control', 'trial'):
+        actual = {p.relative_to(work / name).as_posix() for folder in ('audio', 'video')
+                  for p in (work / name / folder).iterdir() if p.is_file()}
+        if actual != expected: raise RuntimeError('Incomplete installed AV dumps: ' + name)
+    for name in sorted(expected): equal(work / 'control' / name, work / 'trial' / name)
+    return dict(pal_file_restored_units=3, incompatible_config_rejected=True, rejection_state_unchanged=True,
+                incompatible_future_units_compared=8, incompatible_av_dumps_compared=len(expected))
+
+
+def micro_rom(directory, work):
+    """Build only the own micro-ROM shipped in the selected source archive."""
+    with tarfile.open(directory / 'source.tar.gz') as archive:
+        for name in ('build_rom.py', 'boot.s'):
+            with archive.extractfile('source/tests/fixtures/microrom/' + name) as member:
+                (work / name).write_bytes(member.read())
+    spec = importlib.util.spec_from_file_location('package_microrom', work / 'build_rom.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.build((work / 'boot.s').read_text())
+
+
+def legacy_diagnostics(text):
+    # Wall times use the legacy process culture (e.g. 0.1s or 0,1s); discard
+    # those tokens rather than changing its environment or comparing host time.
+    done = re.findall(r'^done frames=3 nonzero_audio=(\d+) elapsed=\S+s$', text, re.M)
+    frame = re.findall(r'^frame\s+0 t=\s*\S+s (.+)$', text, re.M)
+    if len(done) != 1 or len(frame) != 1 or not re.fullmatch(
+            r'[1-9]\d*x[1-9]\d* vis=\s*\d+% sig=[0-9a-f]{8} same=\d+ audio_nz=\d+ cd=[01]', frame[0]):
+        raise RuntimeError('Incomplete legacy advancement diagnostics:\n' + text[-2000:])
+    return frame[0], done[0]
+
+
+def coexistence(directory, legacy_host):
+    """Run the copied legacy UAE around an installed PUAE6 smoke, never in its source tree.
+
+    The legacy CLI exposes video, PCM and the CD light; no cross-engine state or
+    internal hardware digest equivalence is implied by this isolated coexistence.
+    """
+    directory, legacy_host = Path(directory).resolve(), Path(legacy_host)
+    if legacy_host.is_symlink() or not legacy_host.is_file() or legacy_host.name != 'Waterbox.UaeCd32Headless':
+        raise ValueError('P6_LEGACY_UAE_HOST requires the regular legacy apphost')
+    legacy_host = legacy_host.resolve()
+    origin = legacy_host.parent
+    zstd = Path('/opt/homebrew/Cellar/zstd/1.5.7_1/lib/libzstd.1.5.7.dylib')
+    zstd_sha = 'e2847c4613b386683c234913ae3b7b04299254096caf7616e3b3cd9bb97a39ab'
+    def inventory(root):
+        files = {}
+        for path in sorted(root.rglob('*')):
+            if root == origin and path == origin / 'libzstd.so.1':
+                # This one observed dependency is copied as bytes, never a live link.
+                if (not path.is_symlink() or path.readlink() != Path('/opt/homebrew/lib/libzstd.1.dylib')
+                        or path.resolve(strict=True) != zstd or path.stat().st_size != 649648 or sha(path) != zstd_sha):
+                    raise ValueError('Legacy Zstd dependency differs from its observed pin')
+            elif path.is_symlink() or not (path.is_file() or path.is_dir()):
+                raise ValueError('Unsupported legacy closure entry: ' + str(path))
+            if path.is_file(): files[path.relative_to(root).as_posix()] = sha(path)
+        return files
+    originals = inventory(origin)
+    required = {legacy_host.name, legacy_host.name + '.dll', legacy_host.name + '.deps.json',
+                legacy_host.name + '.runtimeconfig.json', 'libwaterboxhost.dylib', 'dll/uae.wbx', 'libzstd.so.1'}
+    if len(originals) != 19 or not required <= originals.keys():
+        raise ValueError('Expected the complete 19-file legacy distribution')
+    verify(directory)
+    dotnet = shutil.which('dotnet')
+    if not dotnet: raise RuntimeError('Legacy coexistence requires the existing dotnet host; no installation is attempted')
+    dotnet = Path(dotnet).resolve()
+    # Homebrew's bin wrapper invokes protected /bin/bash, which strips DYLD.
+    if dotnet.read_bytes().startswith(b'#!'):
+        dotnet = dotnet.parent.parent / 'libexec/dotnet'
+    if not dotnet.is_file() or dotnet.read_bytes()[:8] != b'\xcf\xfa\xed\xfe\x0c\x00\x00\x01':
+        raise RuntimeError('Legacy coexistence requires the existing native ARM64 dotnet host')
+    sdk = run([dotnet, '--version']).strip()
+    runtimes = re.findall(r'^Microsoft.NETCore.App ([^ ]+) \[([^\]]+)\]$', run([dotnet, '--list-runtimes']), re.M)
+    if sdk != '10.0.402' or len(runtimes) != 1 or runtimes[0][0] != '10.0.13':
+        raise RuntimeError('Legacy coexistence is scoped to existing SDK10.0.402/runtime10.0.13')
+    (ROOT / 'build').mkdir(exist_ok=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix='p6-coexistence-', dir=ROOT / 'build') as temporary:
+            work = Path(temporary)
+            staged = work / 'legacy'
+            shutil.copytree(origin, staged)
+            if inventory(staged) != originals: raise RuntimeError('Legacy staging differs from original')
+            system = work / 'system'; system.mkdir()
+            (system / 'Own.A500.rom').write_bytes(micro_rom(directory, work))
+            controls = {'STATE_TEST', 'STATE_SAVE', 'STATE_LOAD', 'SAVERAM', 'EXTRA_HDF', 'ROWDIFF',
+                        'CD32_FMV', 'CD_VOLUME', 'PNG_INTERVAL', 'WAV_DUMP', 'AUDIO_LOG'}
+            env = {k: v for k, v in os.environ.items()
+                   if k not in controls and not k.startswith(('SYNC_', 'DYLD_', 'LD_'))}
+            env.update(SYNC_MACHINE='A500_OCS_130_512K_512K', SYNC_CD_CONTROLLER='None', PNG_INTERVAL='1',
+                       DOTNET_CLI_HOME=str(work / 'dotnet-home'), DOTNET_CLI_TELEMETRY_OPTOUT='1',
+                       DOTNET_SKIP_FIRST_TIME_EXPERIENCE='1', DOTNET_ROOT=str(dotnet.parent),
+                       DYLD_LIBRARY_PATH=str(staged), BIZHAWK_HOME=str(staged), BIZHAWK_DATA_HOME=str(work))
+            def legacy(name):
+                output = work / name; output.mkdir()
+                # Run the unchanged net8 DLL on the explicitly authorized existing net10 host.
+                text = run([dotnet, 'exec', '--roll-forward', 'Major', staged / (legacy_host.name + '.dll'),
+                            system, 'none', '3', output], cwd=work,
+                           env={**env, 'WAV_DUMP': str(output / 'audio.wav'), 'AUDIO_LOG': str(output / 'audio.csv')})
+                diagnostics = legacy_diagnostics(text)
+                expected = {f'frame-{n:06d}.png' for n in range(4)} | {'audio.wav', 'audio.csv'}
+                if {p.name for p in output.iterdir()} != expected:
+                    raise RuntimeError('Incomplete legacy AV outputs')
+                for n in range(4):
+                    png = (output / f'frame-{n:06d}.png').read_bytes()
+                    if len(png) < 33 or png[:8] != b'\x89PNG\r\n\x1a\n' or min(struct.unpack_from('>II', png, 16)) == 0:
+                        raise RuntimeError('Invalid legacy video output')
+                rows = (output / 'audio.csv').read_text().splitlines()
+                if len(rows) != 4 or rows[0] != 'frame,count,nz': raise RuntimeError('Incomplete legacy PCM log')
+                samples = 0
+                for n, row in enumerate(rows[1:]):
+                    fields = row.split(',')
+                    if len(fields) != 3 or not all(f.isdecimal() for f in fields): raise RuntimeError('Invalid legacy PCM log')
+                    index, count, nz = map(int, fields)
+                    if index != n or count <= 0 or nz > count * 2: raise RuntimeError('Missing legacy audio advance')
+                    samples += count
+                wav = (output / 'audio.wav').read_bytes()
+                if (len(wav) != 44 + samples * 4 or wav[:4] != b'RIFF' or wav[8:16] != b'WAVEfmt '
+                        or wav[36:40] != b'data' or struct.unpack_from('<I', wav, 40)[0] != samples * 4):
+                    raise RuntimeError('Incomplete legacy PCM output')
+                return inventory(output), diagnostics
+            before = legacy('before')
+            preview = smoke(directory)
+            after = legacy('after')
+            if before != after: raise RuntimeError('Legacy AV/CD diagnostics changed around installed PUAE6')
+    finally:
+        if inventory(origin) != originals: raise RuntimeError('Original legacy distribution changed')
+    return {'legacy_frames': 3, 'legacy_files_unchanged': len(originals), 'legacy_outputs_compared': len(before[0]),
+            'legacy_original_sha256': originals, 'legacy_dotnet_sdk': sdk, 'legacy_runtime': runtimes[0][0], 'legacy_dotnet_host': str(dotnet),
+            'legacy_launch': 'dotnet exec --roll-forward Major (copied DLL)', 'preview': preview}
+
+
 def smoke(directory):
     """Exercise only extracted binaries and the public micro-ROM sources shipped with them."""
     directory = Path(directory).resolve()
@@ -186,23 +362,19 @@ def smoke(directory):
         raise ValueError('Installed smoke requires the matching native package platform')
     with tempfile.TemporaryDirectory(prefix='p6-installed-') as temporary:
         work = Path(temporary)
-        with tarfile.open(directory / 'source.tar.gz') as archive:
-            for name in ('build_rom.py', 'boot.s'):
-                member = archive.extractfile('source/tests/fixtures/microrom/' + name)
-                (work / name).write_bytes(member.read())
-        spec = importlib.util.spec_from_file_location('package_microrom', work / 'build_rom.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
         system = work / 'system'
         system.mkdir()
         rom = system / 'kick34005.A500'
-        rom.write_bytes(module.build((work / 'boot.s').read_text()))
+        rom.write_bytes(micro_rom(directory, work))
         host, core = (directory / 'bin' / n for n in ('p6_libretro_host', products(manifest['platform'])[0]))
         env = {k: v for k, v in os.environ.items() if not k.startswith(('DYLD_', 'LD_'))}
-        output = run([host, core, '--system', system, '--runs', '12', '--do', '6:save:s', '--do', '9:load:s'], cwd=work, env=env)
+        output = run([host, core, '--system', system, *PAL_SMOKE_OPTIONS, '--runs', '12', '--do', '6:save:s',
+                      '--do', f'6:savefile:{work}/pal.state', '--do', '9:load:s',
+                      '--do', f'12:savefile:{work}/pal-end.state'], cwd=work, env=env)
         rows = [line.split(' ', 2)[2] for line in output.splitlines() if line.startswith('run ')]
         if len(rows) != 12 or rows[6:9] != rows[9:12] or 'state load s exact ok=1' not in output or 'VIOLATION' in output:
             raise RuntimeError('Installed libretro advance/restore failed:\n' + output[-2000:])
+        state_checks = state_identity_smoke(host, core, system, work, env, rows)
         empty = work / 'empty-system'
         empty.mkdir()
         missing = subprocess.run([str(host), str(core), '--system', str(empty)], cwd=work, env=env,
@@ -212,7 +384,7 @@ def smoke(directory):
         headless = run([directory / 'bin/p6_headless', '--run', rom, '--units', '3'], cwd=work, env=env)
         if len([line for line in headless.splitlines() if line.startswith('unit ')]) != 3:
             raise RuntimeError('Installed headless did not advance')
-    return {'libretro_units': 12, 'restored_units_compared': 3, 'headless_units': 3, 'missing_firmware_rejected': True}
+    return {'libretro_units': 12, 'restored_units_compared': 3, 'headless_units': 3, 'missing_firmware_rejected': True, **state_checks}
 
 
 def unpack(archive, directory):
