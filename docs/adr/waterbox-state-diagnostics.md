@@ -68,3 +68,24 @@ del guest, manteniendo el contexto vigente al saltar y evitando persistir aquel
 puntero host. La corrección requiere un test de salto real y restauración en otro
 sandbox, además del escenario original. No basta con ocultar el slot al comparar
 ni parchear datos de estado. MacHawk y su binario original permanecen intactos.
+
+## Decisión ABI de T40n, pendiente de ejecución
+
+El overlay es exclusivo de `src/setjmp/waterbox_aarch64`: cambiar juntos el
+escritor a `stp x27,xzr` y el lector a `ldp x27,xzr`, conservando el contexto x28
+vigente. No cambia ningún slot, tamaño, SP, registro restante ni el retorno
+`longjmp(env,0) == 1`. El AArch64 genérico y los saves de x28 del interop host
+mantienen su contrato. Sólo ignorar el slot al leer dejaría el puntero variable
+en el estado; sólo cambiar el escritor rompería el lector.
+
+El oráculo debe mantener vivo el frame C entre setjmp y longjmp, verificar el
+slot escrito cero y en ese mismo frame introducir un canario para comprobar que
+el lector conserva x28/TLS. Los canarios WB13 cubren los otros registros. Ningún
+salto atraviesa un frame C++ ni vuelve a un frame que ya retornó. Después se
+comprueba el snapshot completo y su restauración en otro sandbox/proceso.
+
+Esta decisión no acredita sigsetjmp: falta una implementación específica para
+waterbox_aarch64 y la variante AArch64 genérica usa otro tamaño de `__jmp_buf`.
+Tampoco acredita otros caminos de señales o corutinas. Sysroot y guest derivados
+requieren identidad nueva y las puertas de integración originales antes de cerrar
+T40o y T40k; el overlay del oráculo no cambia todavía los productos.
