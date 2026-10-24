@@ -1,4 +1,4 @@
-# Portable help only. No installer execution, activation or image production.
+# Portable drive discovery only, using options observed in NeroCmd's own Usage.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Owned = $null
@@ -82,25 +82,30 @@ function Extract-App([string]$Archive, [string]$Destination) {
     } finally { $zip.Dispose() }
 }
 
-function Read-Help([string]$Command, [string]$Directory) {
+function Read-Discovery([string]$Command, [string]$Directory) {
     $info = [Diagnostics.ProcessStartInfo]::new()
     $info.FileName = $Command
-    $info.ArgumentList.Add('--help')
+    $info.ArgumentList.Add('--listdrives')
+    $info.ArgumentList.Add('--no_user_interaction')
+    $info.ArgumentList.Add('--no_error_log')
     $info.WorkingDirectory = $Directory
     $info.UseShellExecute = $false; $info.CreateNoWindow = $true
     $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
     $process = [Diagnostics.Process]::new(); $process.StartInfo = $info; $started = $false
     try {
         $started = $process.Start()
-        Require $started 'Portable help process did not start'
+        Require $started 'Portable discovery process did not start'
         $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
-        Require ($process.WaitForExit(60000)) 'Portable help timeout; dependencies/license/COM may be unavailable'
-        Require ([Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($stdout, $stderr), 5000)) 'Portable help pipes did not close'
+        Require ($process.WaitForExit(60000)) 'Portable discovery timeout'
+        Require ([Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($stdout, $stderr), 5000)) 'Portable discovery pipes did not close'
         $text = $stdout.GetAwaiter().GetResult(); $errors = $stderr.GetAwaiter().GetResult()
-        Require ($text.Length + $errors.Length -le 1048576) 'Portable help output limit'
-        Write-Output $text.Replace($Owned, '@temp')
-        Write-Output $errors.Replace($Owned, '@temp')
-        Require ($process.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($text)) 'Portable help failed; missing dependencies/license/COM are BLOCKED, without installer fallback'
+        Require ($text.Length + $errors.Length -le 1048576) 'Portable discovery output limit'
+        $exitCode = $process.ExitCode
+        $unsigned = [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]$exitCode), 0)
+        Write-Output ('NeroCmd discovery ExitCode={0} (0x{1:X8})' -f $exitCode, $unsigned)
+        Write-Output ('NeroCmd discovery stdout: ' + $text.Replace($Owned, '@temp'))
+        Write-Output ('NeroCmd discovery stderr: ' + $errors.Replace($Owned, '@temp'))
+        Require ($exitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($text)) 'Portable discovery failed; see observed ExitCode and output above'
     } finally {
         if ($started -and -not $process.HasExited) { $process.Kill($true); $process.WaitForExit() }
         $process.Dispose()
@@ -142,8 +147,8 @@ try {
     Verify-File $archive $ZipBytes $ZipSha
     $app = Join-Path $Owned 'app'
     $command = Extract-App $archive $app
-    Read-Help $command ([IO.Path]::GetDirectoryName($command))
-    Write-Output 'P6_NERO_PROBE PORTABLE_HELP_ONLY; no discovery, TOC or image production attempted'
+    Read-Discovery $command ([IO.Path]::GetDirectoryName($command))
+    Write-Output 'P6_NERO_PROBE DISCOVERY_ONLY; no producer, TOC or image generation capability established'
 } catch {
     $message = $_.Exception.Message
     if ($Owned) { $message = $message.Replace($Owned, '@temp') }
