@@ -53,7 +53,7 @@
 +  }
 +  private static Dictionary<string, object> CaptureLegacy(IEmulator core)
 +  {
-+   Require(core.GetType() == typeof(UAE), "Only the original UAE state is being localized");
++   Require(core is UAE, "Only the original UAE state is being localized");
 +   var field = typeof(WaterboxCore).GetField("_exe", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 +   Require(field != null && field.IsFamily && field.DeclaringType == typeof(WaterboxCore) && field.FieldType == typeof(WaterboxHost), "Unexpected Waterbox host field");
 +   var host = field.GetValue(core) as WaterboxHost; Require(host != null, "Missing original Waterbox host");
