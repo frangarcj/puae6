@@ -56,7 +56,7 @@ EXPORT = [".editorconfig", ".global.editorconfig.ini", ".stylecop.json", "Common
           "ExternalProjects", "src/.gitignore", "src/BannedSymbols.BannedApiAnalyzers.txt", "src/MainSlnCommon.props", "src/Menees.Analyzers.Settings.xml",
           "src/BizHawk.BizInvoke", "src/BizHawk.Common", "src/BizHawk.Emulation.Common", "src/BizHawk.Emulation.Cores", "src/BizHawk.Emulation.DiscSystem",
           "src/BizHawk.Client.Common/config/Config.cs", "src/BizHawk.Client.Common/RomLoader.cs", "src/BizHawk.Client.Common/movie/MovieSession.cs", "src/BizHawk.Client.Common/rewind/ZwinderBuffer.cs",
-          "src/BizHawk.Client.EmuHawk/MainForm.cs", "src/BizHawk.Client.EmuHawk/MainForm.Movie.cs"]
+          "src/BizHawk.Client.EmuHawk/MainForm.cs", "src/BizHawk.Client.EmuHawk/MainForm.Movie.cs", "src/BizHawk.Client.EmuHawk/Program.cs"]
 EXPORT_EMUHAWK = [path for path in EXPORT if not path.startswith(("src/BizHawk.Client.Common/", "src/BizHawk.Client.EmuHawk/"))] + [
     "src/MainSlnExecutable.props", "src/BizHawk.Bizware.Audio", "src/BizHawk.Bizware.Graphics", "src/BizHawk.Bizware.Graphics.Controls", "src/BizHawk.Bizware.Input",
     "src/BizHawk.Client.Common", "src/BizHawk.Client.EmuHawk", "src/BizHawk.WinForms.Controls"]
@@ -137,7 +137,7 @@ def install_sources(tree: Path = TREE) -> None:
 
 
 def build(guest_sha256: str, tree: Path = TREE, project: str = "src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj",
-          output: str = "src/BizHawk.Emulation.Cores/bin/Debug/BizHawk.Emulation.Cores.dll") -> Path:
+          output: str = "src/BizHawk.Emulation.Cores/bin/Debug/BizHawk.Emulation.Cores.dll", *, chd_host: bool = True) -> Path:
     dotnet = shutil.which("dotnet")
     if not dotnet:
         raise RecipeError("falta dotnet")
@@ -153,24 +153,45 @@ def build(guest_sha256: str, tree: Path = TREE, project: str = "src/BizHawk.Emul
     assembly = tree / output
     if not assembly.is_file():
         raise RecipeError(f"no se encuentra {assembly}")
-    build_chd_host(assembly.parent)
+    if chd_host:
+        build_chd_host(assembly.parent)
     return assembly
 
 
-def build_emuhawk(guest_sha256: str) -> Path:
-    """EmuHawk.exe (net48, WinForms) of the patched tree: it is compiled, which is what proves that the lines the patches change in MainForm.cs are valid against the core; it
-    is not run (it is a Windows program)."""
+def output_closure(directory: Path) -> dict:
+    if directory.resolve() != directory or not directory.is_dir():
+        raise RecipeError("missing/linked EmuHawk output directory")
+    files = [directory / "EmuHawk.exe", directory / "EmuHawk.exe.config"]
+    members = list((directory / "dll").rglob("*"))
+    if (directory / "dll").is_symlink() or any(p.is_symlink() for p in members):
+        raise RecipeError("linked EmuHawk closure")
+    files += [p for p in members if not p.is_dir()]
+    if not any(p.name == "BizHawk.Emulation.Cores.dll" for p in files):
+        raise RecipeError("missing EmuHawk core assembly")
+    if any(p.is_symlink() or not p.is_file() for p in files):
+        raise RecipeError("missing/nonregular EmuHawk closure")
+    return {p.relative_to(directory).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
+
+
+def build_emuhawk(guest_sha256: str, *, chd_host: bool = True) -> Path:
+    """Build the complete net48 application; tools/emuhawk_selfcheck.py runs its explicit CLI separately."""
     if export_tree(TREE_EMUHAWK, EXPORT_EMUHAWK):
         apply_patches(TREE_EMUHAWK)
         install_sources(TREE_EMUHAWK)
-    return build(guest_sha256, TREE_EMUHAWK, "src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj", "output/EmuHawk.exe")
+    assembly = build(guest_sha256, TREE_EMUHAWK, "src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj", "output/EmuHawk.exe", chd_host=chd_host)
+    (assembly.parent / "bootstrap-receipt.json").write_text(json.dumps({"tree_key": tree_key(),
+        "commit": pinned_commit(), "files": output_closure(assembly.parent)}, sort_keys=True) + "\n")
+    return assembly
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--emuhawk", action="store_true", help="build EmuHawk.exe in a second tree instead of the core's assembly")
+    parser.add_argument("--skip-chd-host", action="store_true", help="explicit CLI bootstrap without the unused native CD provider")
     options = parser.parse_args()
+    if options.skip_chd_host and not options.emuhawk:
+        parser.error("--skip-chd-host requires --emuhawk")
     check_patches()
     if options.check:
         print(f"OK: {len(PATCHES)} parche(s) se aplican a MacHawk {pinned_commit()}")
@@ -180,7 +201,7 @@ def main() -> int:
         raise RecipeError(f"falta {receipt}: ejecutar tools/build_waterbox.py --puae6")
     guest = json.loads(receipt.read_text())["guest"]["sha256"]
     if options.emuhawk:
-        print(build_emuhawk(guest))
+        print(build_emuhawk(guest, chd_host=not options.skip_chd_host))
         return 0
     if export_tree():
         apply_patches()
