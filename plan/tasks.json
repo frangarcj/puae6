@@ -12200,7 +12200,8 @@
         "T40a",
         "T40c",
         "T40d",
-        "T40e"
+        "T40e",
+        "T40f"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12221,7 +12222,8 @@
         "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados.",
         "T40c adelanta exclusivamente previews locales Linux ARM64/x86_64 con dependencias T38/T40a ya resueltas, aislada de la candidata T39b. T40 conserva todos los productos nativos/Waterbox, reproducibilidad en dos builds limpios, instalacion/estados incompatibles/coexistencia y documentacion; no se cierra por previews ni por checks de infraestructura.",
         "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas.",
-        "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha."
+        "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
+        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."
       ],
       "checks": [
         "PKG01",
@@ -12278,6 +12280,48 @@
         "Los checks dirigidos del installedselector pasan sin omisiones; Git/diff y salidaactual registran el alcance. Se conservan todas las assertions anteriores y T40 mantiene coexistencia, fuentes/avisos y reproducibilidad pendientes."
       ],
       "stop": "No editar main/metadata, motor, host o MacHawk por el agente, ni compilar/instalar/publicar. Si se descubre fallo de comportamiento real conservar reproducer y escalar al coordinador antes de cambiar alcance; no relajar identidad, hashes ni assertions."
+    },
+    {
+      "id": "T40f",
+      "title": "Probar coexistencia aislada con la distribucion UAE antigua de MacHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40a",
+        "T30",
+        "T31",
+        "T40e"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/native-preview.md",
+        "tools/package.py"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_preview.py",
+        "tools/check.py",
+        "tools/ci/nightly.py",
+        "tests/ci/test_nightly.py"
+      ],
+      "steps": [
+        "Vertical independiente de T40 tras el rechazo instalado T40e; reutilizar su worktree native-state-smoke limpio aee036f2. Agente ci_close implementa, root conserva metadata y compila pesado por separado. Main48c74 sigue inmutable hasta terminal de matriz. Mantener todos los smokes/politicas anteriores.",
+        "La referencia existente localizada es ../MacHawk/waterbox/waterboxhost/uae-cd32-headless/bin/Release/net8.0/osx-arm64/Waterbox.UaeCd32Headless con19archivos/140.7MBincluyendo DLLs,libwaterboxhost.dylib,dll/uae.wbx. Seleccion explicita porvariable P6_LEGACY_UAE_HOST(file apphost); su lectura/copia a TemporaryDirectory propio bajo build esta autorizada, NUNCA escribir/limpiar/instalar en MacHawk. Identificarclosure/hashoriginalantes/despuesy ejecutar unicamente copias propias relocadas; no incorporar binarioslegacy a fuentes ni ZIPproducto.",
+        "Leer elCLI y proveedor de firmware reales de esa referencia antes de llamar: parametros SYSTEM none 3 OUTPUT y syncA500/controllerNone ya observados se concretan contra su codigo. Aportar micro-ROM propia delsource.tar.gz depreview como Own.A500.rom, sinROMprivada, con variables SYNC explicitas. Dotnet/runtime ya instalados, entorno local aislado y sin red/instalacion; si falta runtime comunicar bloqueo, no instalarlo.",
+        "Ejecutarlegacycontrol3unidades, smokePUAE6extraido, legacydespues3unidades en staging separado con mismas entradas. Comprobar salidaslegado completas y avance real segunCLI/source, hardware/AVqueexpone sin comparar camposhostvariables. Comparar sus resultados relevantes entre ambas ejecuciones y hashes deTODOS los19originales para acreditarquePUAE6nolosmodifica; no usar solo filenameosentinelpropio como prueba de UAEantiguo real. No afirmar compatibilidad deestadosentrecores ni mismoEmuHawk.",
+        "Añadir helper pequeno enpackage.py y CoexistenceTests separado en test_preview.py; selector PKG01 deT40f se registra sin duplicar installedsmoke porotrasclases. El caso de coexistencia integra el smokeactual como paso entrelosdoslegacy, sin compilarni repetir otroscasos/lanes. Todosstaging/ROMsalidasdumpspropios temporales seeliminan inclusoanteerror. Hashes/resultados porstdout normal, sininformesnihistoricos.",
+        "Registrar P6_LEGACY_UAE_HOST enASSETS de nightlyfunctional comoarchivo requerido, de modo que ausencia bloquee antesdepreparacion. Añadirlo a regresion existente deassets requeridos en tests/ci/test_nightly.py, sin runners/serviciosnuevos. Validar solocasoafectado+testcoexistencia real existenteZIP48c74 SHA96427b..., scopeincluye esa identidad, renovaciondeZIPfuentes lahararootalintegrar. Maximo1a2intentosrazonados; falloreal se conserva como reproducer ybloqueoexplicito, noomitir/alterarlegacy."
+      ],
+      "checks": [
+        "PKG01"
+      ],
+      "acceptance": [
+        "La distribucionlegacyARM64 real ejecuta sus3unidades antesydespuesdelsmokenuevo extraido; sus salidas relevantes igualan y todos sus archivosoriginales permanecen byteidenticos. La prueba usa solo staging propio y no modifica MacHawk ni mezcla motores.",
+        "La ausencia delegacy o preview producebloqueo explicito sinPASSparcial; asset requierepreflightfuncional. Testsdirigidos pasan sinomisiones, temporaleslimpios y T40 conserva instalacionWaterbox,reproducibilidadyotroschecks."
+      ],
+      "stop": "No modificar MacHawk, copiar motorantiguo al nuevo, instalar frameworks/runtime, publicar ni usar red para suplir referencia. Tras dos intentos locales razonados conservar reproducer y motivo bloqueado; no devolver exito por proceso sin outputs/avance comprobables."
     },
     {
       "id": "T49a",
