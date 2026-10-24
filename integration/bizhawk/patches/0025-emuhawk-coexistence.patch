@@ -9,7 +9,7 @@
 +				: args.Length > 0 && args[0] == "--puae6-self-check" ? Puae6SelfCheck.Run(args) : SubMain(args);
 --- /dev/null
 +++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,144 @@
 +using System.Collections.Generic;
 +using System.IO;
 +using System.Linq;
@@ -72,6 +72,7 @@
 +  private static IEmulator Open(string name, MovieSession session, string path, bool record)
 +  {
 +   var config = Configuration(record ? name : name == "UAE" ? "PUAE6" : "UAE");
++   if (record && name == "UAE") config.PreferredCores.Remove("Amiga");
 +   if (!record) {
 +    Require(config.PreferredCores["Amiga"] != name, "Replay preference is not contrary");
 +    session.QueueNewMovie(session.Get(path, true), "Amiga", Database.GetGameInfo(File.ReadAllBytes(Path.Combine(Stage, "Own.adf")), "Own.adf").Hash, config.PathEntries, config.PreferredCores);
