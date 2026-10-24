@@ -12057,6 +12057,46 @@
       "stop": "Sinpublicar/push/alterarproyectoshermanos, niacreditarWaterboxporelZIPnativo. Pruebainstaladasobrebinarioempaquetado,noarboldesarrollo."
     },
     {
+      "id": "T40c",
+      "title": "Preparar previews locales Linux ARM64 y x86_64 con fuentes y smoke instalado",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40a"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/native-preview.md"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_linux_preview.py",
+        "tests/packages/test_preview.py",
+        "tools/check.py",
+        "docs/user/native-preview.md"
+      ],
+      "steps": [
+        "Division de T40 para adelantar trabajo independiente de distribucion mientras T39b valida la candidata inmutable. Coordinador root define esta ficha solo en worktree linux-packaging; ci_close implementa sin editar metadata ni ejecutar builds pesados. Integrar despues de terminar la matriz actual, sin cambiar fuentes de main durante esa ejecucion. Dependencias reales de esta vertical: importacion/receta T38 y empaquetador util T40a ya DONE; CI completa, dos builds limpios, Waterbox y release conservan su puerta en T40/T41.",
+        "Extender la receta local existente a hosts Linux ARM64 y x86_64 con las toolchains Clang declaradas. Empaquetar core .so, headless y host libretro, fuentes correspondientes, avisos exactos y guia de uso; mantener macOS ARM64 y el CLI existente. No instalar herramientas, descargar inputs, incluir assets privados ni declarar nuevas plataformas o publicar paquetes.",
+        "Verificar plataforma real y ELF/ISA de los binarios, dependencias de sistema y ausencia de rutas locales ocultas. Reutilizar politica de fuentes/licencias sin duplicarla; conservar conjunto exacto de archivos, hashes, revision limpia y rechazo de estados/firmware de la prueba instalada existente. No simular ELF exitoso en el check real.",
+        "Vertical orientativa de cinco archivos y menos de350lineas manuales, sin cambios al motor, CMake, goldens ni pins. Pruebas de infraestructura con fixtures propios y mocks etiquetados cubren ambas ISA, formato equivocado, dependencia/ruta ajena y fallback macOS. Registrar PKG01/BUILD01/LR01 para la ficha usando las pruebas instaladas existentes y el nuevo scope de politica; no quitar assertions anteriores.",
+        "El coordinador ejecuta una vez package.build y su smoke sobre cada ZIP Linux extraido dentro de las imagenes locales fijadas y sin red; revalida la preview macOS afectada. Libretro12 unidades, restore3, headless3 y firmware ausente rechazado se comparten entre los tres checks. Los tests de fixtures no acreditan BUILD01 ni LR01 y la ficha queda in_progress hasta ese control real. No afirmar reproducibilidad binaria: los dos builds limpios de la distribucion formal siguen en T40."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01",
+        "LR01"
+      ],
+      "acceptance": [
+        "Los ZIP locales Linux ARM64 y x86_64 contienen los tres binarios de su ISA, fuentes/avisos y ejecutan desde un directorio extraido el smoke real completo en sus runners declarados; macOS conserva su comportamiento.",
+        "No hay dependencia del checkout al usar los binarios ni firmware privado distribuido. Son previews locales, sin cierre de CI completa, reproducibilidad binaria ni release formal."
+      ],
+      "stop": "No editar main durante la matriz ni ejecutar builds pesados por agente. No publicar, instalar, modificar MacHawk, relajar los checks existentes o cerrar T40/T41 por estas previews."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12069,7 +12109,8 @@
         "T31",
         "T35",
         "T36",
-        "T40a"
+        "T40a",
+        "T40c"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12087,7 +12128,8 @@
         "Empaquetar core libretro por plataforma y WBX/integracion por runtime, cada uno con build ID, perfiles, fuentes/parches y licencias.",
         "Construir dos veces desde limpio en condiciones fijadas; comparar artefactos y explicar cualquier metadata variable.",
         "Probar instalacion aislada, firmware ausente, estado incompatible y coexistencia con UAE antiguo.",
-        "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados."
+        "Escribir limites de soporte, controles, opciones, medios/overlays, estados y recuperacion de errores sin incluir assets privados.",
+        "T40c adelanta exclusivamente previews locales Linux ARM64/x86_64 con dependencias T38/T40a ya resueltas, aislada de la candidata T39b. T40 conserva todos los productos nativos/Waterbox, reproducibilidad en dos builds limpios, instalacion/estados incompatibles/coexistencia y documentacion; no se cierra por previews ni por checks de infraestructura."
       ],
       "checks": [
         "PKG01",
