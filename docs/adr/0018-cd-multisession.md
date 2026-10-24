@@ -85,3 +85,83 @@ dominio managed P6ETGM2448 distingue este perfil de DAO, cuyos IDs no cambian.
 Esta puerta del host tampoco sustituye el snapshot publico Waterbox.
 T66w4 comprueba ese snapshot por XML, CD directo y catalogo mixto, con Q/SBI,
 lease, SaveRAM, futuro exacto y negativos de identidad, sin reconstruir TOC fisico.
+
+## Productor original Nero ETN2: contrato parcial, sin habilitar formatos
+
+El [instalador oficial Nero Burning ROM 2025 27.0.1000](https://ecloud.nero.com/index.php/s/pBxLJzgPaNtAJBi)
+contiene codigo original inspeccionable sin ejecutarlo ni instalarlo. Su SHA-256
+es `3fbc9dd234eb1dec0d5a51bd2c9df2dfad0144c5cdb3d1d353ba91c9f2618f94`
+(275434744 bytes). Dentro del contenedor PE/7z,
+`NeroInstaller/NeroBurningROM.zip` tiene SHA-256
+`9fffbea66c939f3933cd4c1efe5b6e44491f21865a35035e8eb75a10611ebd52`.
+Los componentes siguientes son PE32 x86, version 27.0.1.3, bajo el directorio
+`Nero Burning ROM/` de ese ZIP:
+
+| Componente | SHA-256 |
+| --- | --- |
+| `uimage.dll` | `59522845afe8a67110b5934cb8583b1e172994f948420b67c2abcbbbd77ba623` |
+| `NeroAPIEngine.dll` | `5c09c57a441d34af2a75d82e74acce412c1bbeb6d31af7645849a7f060039879` |
+| `uImageGen.dll` | `5d6523cf6dc558667ea3546a9b893d2b0cf4e1ee413aaf4586d3e92e1133587c` |
+
+Las direcciones siguientes son VA con base de imagen `0x10000000`; restar esa
+base da el RVA. Son puntos de codigo privado, no nombres de funciones deducidos
+del simbolo exportado mas cercano que muestra el desensamblador.
+
+En `uimage.dll`, `0x10005150..0x100052aa` construye la cabecera ETN2,
+longitud `32 * numero_de_entradas`, y escribe cada registro de 32 bytes mediante
+el mismo sink que recibe el payload. Comprueba el numero de bytes escritos.
+Sea `T` la estructura interna de pista de 40 bytes copiada por esa rutina:
+
+| Offset del registro ETN2 | Escritura observada desde T |
+| --- | --- |
+| 0 | BE64 de `T+0` |
+| 8 | BE64 de `T+8` |
+| 16 | BE32 de la palabra sin signo de `T+16` |
+| 20 | BE32 de `T+24` |
+| 24 | BE32 del byte sin signo de `T+28` |
+| 28 | BE32 de `T+32` |
+
+El inicio de pista `0x10004599..0x1000467a` obtiene la posicion del sink por
+`0x10007b87` y la guarda en `T+0`. El final de pista
+`0x100046e4..0x10004785` guarda en `T+8` la posicion final menos la inicial.
+Esto atribuye los dos primeros campos a posiciones/longitudes del archivo;
+todavia no identifica su frontera como INDEX00 o INDEX01. `T+24` recibe el
+cursor del driver en `+0x48` (`0x10004632..0x10004637`), y la escritura de
+payload `0x1000467d..0x100046e1` incrementa ese cursor con las unidades recibidas.
+`T+32` procede de sumar una tabla del descriptor de entrada: contador en `+0x2c`
+y elementos de 32 bits desde `+0x34`, mediante `0x10002e22`. No se ha atribuido
+el significado de esa tabla ni del byte que llega a `T+28`. Por tanto, el
+escritor no demuestra que los ocho bytes finales sean siempre reservas cero.
+La restriccion del perfil canonico actual sigue siendo una restriccion de ese
+perfil, no una descripcion general de Nero.
+
+En este camino del footer hay una tabla ETN2 para toda la coleccion de pistas.
+Despues, `0x1000548e..0x1000553d` recorre otra coleccion del driver (`+0x4c`)
+y escribe un chunk SINF de cuatro bytes por entrada. Esta organizacion permite
+un ETN2 seguido de varios SINF; no debe imponerse el emparejamiento de un
+ETNF/SINF por sesion del productor CDI2Nero. Tampoco demuestra que todos los
+caminos de Nero emitan ese footer.
+
+La globalidad del cursor entre sesiones sigue siendo una hipotesis: la rutina
+`0x10004583` cambia el campo de sesion y pone a cero su contador de pistas,
+sin borrar `+0x48`; `0x10005a0f` si borra ese cursor y las colecciones.
+Las ramas `0x10004815..0x100048dc` tambien lo ajustan segun el tipo de medio.
+Falta demostrar la secuencia de llamadas efectiva para dos sesiones propias y
+contrastar los campos con su TOC original. Estos hechos no fijan pregaps,
+CUE0/A2 fisicos ni Q, ni autorizan trasladar Canonical150 de ETNF a ETN2.
+
+TINF esta identificado como **lector**, no como productor: en
+`NeroAPIEngine.dll`, `0x10069033` lee cabeceras y
+`0x1006a0c7..0x1006a153` selecciona registros TINF de 12 bytes, ETNF de 20 o
+ETN2 de 32. La conversion `0x1006dfbb` amplia los offsets y longitudes BE32
+de los dos primeros formatos a 64 bits sin ajustar pregap en esa conversion.
+No establece la semantica INDEX00/INDEX01 del offset. `uImageGen.dll`,
+`0x10001f82` y `0x100025c2..0x100026d4`, localiza TINF y recorre sus registros
+para formatear texto; esa ruta no es un escritor NRG.
+
+Decision: conservar los rechazos TINF/ETN2 multisesion y las identidades actuales.
+El siguiente contrato requiere una salida propia del productor autenticado,
+con configuracion y TOC independientes que distingan los significados pendientes;
+una etiqueta, un literal o esta lectura estatica parcial no sustituyen ese
+oraculo. No se incorpora codigo ni binarios propietarios al proyecto y esta
+decision no cierra T66.
