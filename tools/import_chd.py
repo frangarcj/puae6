@@ -10,8 +10,10 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "bizhawk_uae_reference"
@@ -122,24 +124,34 @@ def verify(destination=DEST):
     return expected
 
 
-def materialize(destination):
-    expected = verify()
-    outputs = {f["path"]: f["sha256"] for f in expected["files"]}
-    for patch in PATCHES:
-        outputs.update(patch["after"])
-    destination = destination.resolve()
-    destination.relative_to((ROOT / "build").resolve())
-    if destination == (ROOT / "build").resolve():
+def derived_destination(destination):
+    """Check nominal paths before following any existing build-tree links."""
+    destination = Path(destination).absolute()
+    build = ROOT / "build"
+    relative = destination.relative_to(build)
+    if not relative.parts or ".." in relative.parts:
         raise ValueError("CHD derived destination must be new and inside build/")
-    if destination.exists():
-        receipt = json.loads((destination / "receipt.json").read_text())
-        hashes = {str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in destination.rglob("*") if p.is_file() and p != destination / "receipt.json"}
-        if (receipt != {"selection": expected, "files": outputs} or hashes != outputs or
-            any(p.is_symlink() for p in destination.rglob("*"))):
-            raise ValueError("CHD derived receipt differs")
-        return
-    destination.mkdir(parents=True)
+    for path in (build, *(build.joinpath(*relative.parts[:n]) for n in range(1, len(relative.parts) + 1))):
+        if path.is_symlink():
+            raise ValueError("CHD derived destination contains symlinks")
+        if path.exists() and not path.is_dir():
+            raise ValueError("CHD derived destination must be a directory")
+    return destination
+
+
+def verify_derived(destination, expected, outputs):
+    paths = list(destination.rglob("*"))
+    if any(p.is_symlink() or not (p.is_dir() or p.is_file()) for p in paths):
+        raise ValueError("CHD derived receipt differs: linked/nonregular file")
+    hashes = {str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in paths if p.is_file() and p != destination / "receipt.json"}
+    receipt = json.loads((destination / "receipt.json").read_text())
+    if receipt != {"selection": expected, "files": outputs} or hashes != outputs:
+        raise ValueError("CHD derived receipt differs")
+
+
+def stage_derived(destination, expected, outputs):
+    destination.mkdir()
     for f in expected["files"]:
         path = destination / f["path"]
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -154,6 +166,40 @@ def materialize(destination):
     if hashes != outputs:
         raise ValueError("CHD patch output differs from pinned after hashes")
     (destination / "receipt.json").write_text(json.dumps({"selection": expected, "files": hashes}, indent=2) + "\n")
+
+
+def materialize(destination):
+    expected = verify()
+    outputs = {f["path"]: f["sha256"] for f in expected["files"]}
+    for patch in PATCHES:
+        outputs.update(patch["after"])
+    destination = derived_destination(destination)
+    if destination.exists():
+        verify_derived(destination, expected, outputs)
+        return  # An immutable cache hit needs neither a lock nor any writes.
+    try:
+        import fcntl
+        if not hasattr(fcntl, "flock") or not hasattr(os, "O_NOFOLLOW"):
+            raise ImportError("POSIX locking/NOFOLLOW unavailable")
+    except ImportError as error:
+        raise ValueError("CHD materialization requires POSIX file locking (Darwin/Linux)") from error
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = destination.with_name("." + destination.name + ".lock")
+    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "rb") as lock:
+        info = os.fstat(lock.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ValueError("CHD derivation lock must be a regular file with one link")
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        derived_destination(destination)
+        if destination.exists():
+            verify_derived(destination, expected, outputs)
+            return
+        with tempfile.TemporaryDirectory(prefix="." + destination.name + "-", dir=destination.parent) as temporary:
+            staged = Path(temporary) / "tree"
+            stage_derived(staged, expected, outputs)
+            verify_derived(staged, expected, outputs)
+            staged.rename(destination)
 
 
 def main():

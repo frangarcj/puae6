@@ -7,7 +7,9 @@ execute_process(COMMAND "${Python3_EXECUTABLE}" "${_chd_root}/tools/import_chd.p
 if(NOT _chd_verified EQUAL 0)
     message(FATAL_ERROR "CHD source verification failed: ${_chd_output}${_chd_error}")
 endif()
-set(_chd "${CMAKE_CURRENT_BINARY_DIR}/p6-chd")
+# Keep assertion source paths stable across clean object directories. The importer
+# verifies this shared derived tree and publishes it atomically under a lock.
+set(_chd "${_chd_root}/build/p6-chd")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${_chd_root}/tools/import_chd.py"
     --materialize "${_chd}" RESULT_VARIABLE _chd_materialized ERROR_VARIABLE _chd_error)
 if(NOT _chd_materialized EQUAL 0)
