@@ -176,6 +176,9 @@ class ManagedInputTests(unittest.TestCase):
         with mock.patch.object(bench, 'ROOT', self.root), mock.patch.object(bench, 'GUEST_RECEIPT', receipt), \
              mock.patch.object(wb, 'ROOT', self.root), mock.patch.object(wb, 'managed_env', return_value={}), \
              mock.patch.object(bench, 'sh') as build, \
+             mock.patch('tools.ci.managed_release.capture_inputs', return_value={}), \
+             mock.patch('tools.ci.managed_release.expected_sdk', return_value='10.0.402'), \
+             mock.patch('tools.ci.managed_release.record'), mock.patch.object(bench.subprocess, 'check_output', return_value='10.0.402'), \
              mock.patch('urllib.request.build_opener', side_effect=AssertionError('implicit network')):
             for selector in ('build/hosted-managed-feed', str(self.feed)):
                 with self.subTest(selector=selector), mock.patch.dict(os.environ, {wb.MANAGED_FEED_ENV: selector}):
@@ -200,9 +203,12 @@ class ManagedInputTests(unittest.TestCase):
         wb = bench.build_waterbox
         receipt = self.root / 'guest.json'
         receipt.write_text(json.dumps({'guest': {'sha256': 'b' * 64}}))
-        with mock.patch.object(bench, 'GUEST_RECEIPT', receipt), \
+        with mock.patch.object(bench, 'ROOT', self.root), mock.patch.object(bench, 'GUEST_RECEIPT', receipt), \
              mock.patch.object(wb, 'managed_env', return_value={}), mock.patch.object(bench, 'sh') as build, \
              mock.patch.dict(os.environ, clear=True), \
+             mock.patch('tools.ci.managed_release.capture_inputs', return_value={}), \
+             mock.patch('tools.ci.managed_release.expected_sdk', return_value='10.0.402'), \
+             mock.patch('tools.ci.managed_release.record'), mock.patch.object(bench.subprocess, 'check_output', return_value='10.0.402'), \
              mock.patch('urllib.request.build_opener', side_effect=AssertionError('implicit network')):
             bench.build_ffi_release()
         argv = list(map(str, build.call_args.args[0]))

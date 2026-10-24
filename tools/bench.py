@@ -977,10 +977,21 @@ def sh(command, **kwargs):
 def build_ffi_release():
     """The host of the FFI tests and the core, Release (the managed build BizHawk ships), built with the guest it belongs with (the SHA-256 of the receipt)."""
     import build_waterbox
+    from tools.ci import managed_release
+    managed_release.invalidate(ROOT)
     receipt = json.loads(GUEST_RECEIPT.read_text())["guest"]["sha256"]
     sources = build_waterbox.managed_restore_sources(Path.home() / ".nuget/packages")
     env = {**build_waterbox.managed_env(), "NUGET_PACKAGES": str(ROOT / "build/bizhawk-core/nuget")}
+    inputs = managed_release.capture_inputs(ROOT)
+    def sdk():
+        version = subprocess.check_output(["dotnet", "--version"], env=env, cwd=ROOT, text=True, timeout=30).strip()
+        if version != managed_release.expected_sdk(ROOT): raise ValueError("Managed Release SDK differs from pin")
+        return version
+    version = sdk()
     sh(["dotnet", "build", ROOT / "tests/ffi/Ffi.csproj", "-c", "Release", "--nologo", f"-p:Puae6GuestSha256={receipt}", *sources], env=env, cwd=ROOT)
+    if sdk() != version or managed_release.capture_inputs(ROOT) != inputs:
+        raise ValueError("Managed Release inputs/SDK changed during build")
+    return managed_release.record(inputs, version, receipt, sources, root=ROOT)
 
 
 def build_command(args):
