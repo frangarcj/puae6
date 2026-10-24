@@ -116,3 +116,14 @@ def aggregate():
             self.assertEqual(r.recover(self.source,descriptor),1)
         self.assertIn('-I',run.call_args.args[0]); self.assertEqual(run.call_args.kwargs['env']['GITHUB_SHA'],'a'*40)
         self.assertNotIn('GITHUB_TOKEN',run.call_args.kwargs['env']); self.assertEqual(dict(os.environ),before)
+
+    def test_workflow_recovery_derives_original_sha_and_never_selects_build_jobs(self):
+        workflow=(r.ROOT/'.github/workflows/native-linux.yml').read_text()
+        native=workflow.split('  matrix-infrastructure:',1)[0]
+        self.assertIn("if: inputs.gate == 'native' || inputs.gate == 'corpus'",native)
+        recovery=workflow.split('  matrix-recovery:',1)[1]
+        self.assertIn("if: inputs.gate == 'matrix-recover'",recovery); self.assertIn('actions: read',recovery)
+        self.assertEqual(recovery.count('persist-credentials: false'),2)
+        self.assertIn('ref: ${{ github.sha }}',recovery); self.assertIn('ref: ${{ steps.source.outputs.source_sha }}',recovery)
+        self.assertIn('inspect --source-run "$SOURCE_RUN" --source-attempt "$SOURCE_ATTEMPT"',recovery)
+        self.assertNotRegex(recovery,r'hosted_matrix.py cell|cmake|nightly.py|build_waterbox|--fetch|upload-artifact')

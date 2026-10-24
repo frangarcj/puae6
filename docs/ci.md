@@ -121,6 +121,17 @@ actuales por resultados guardados. Los datos intermedios de experimentos estan e
 build/ mientras se validan; al cerrar la ejecucion se eliminan las medidas/logs.
 No se modifica el ADR para ajustar decisiones a medidas nuevas.
 
+Si solo falla el transporte de logs del agregador distribuido, el workflow
+registrado `native-linux.yml` ofrece `gate=matrix-recover`, `source_run` y
+`source_attempt`. No reconstruye las filas: valida por API el repositorio,
+workflow, evento manual, intento terminado y SHA original, y obtiene de esa API
+el ref del segundo checkout. El tooling actual y la fuente original quedan
+separados. Un proceso Python aislado conserva agregador, oráculos y contexto
+originales; sustituye únicamente la lectura de logs de jobs del intento verificado.
+El resultado `P6_MATRIX_RECOVERY` identifica `directed-log-transport-recovery`,
+la ejecución original y la recuperadora. No cambia la conclusión del workflow
+original ni presenta una ejecución nueva del emulador como realizada.
+
 El workflow local `.github/workflows/puae6.yml` ofrece PR/nightly/release manuales,
 con checkout fijado a un commit y sin credenciales persistentes. Requiere runners
 ya preparados: etiquetas `puae6` y `puae6-perf`, herramientas/caches offline,
