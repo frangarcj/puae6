@@ -230,6 +230,10 @@
     "patch": {
       "file": "integration/waterbox-guest/0001-setjmp-x28.patch",
       "sha256": "397568a78f79f6ca861226961d8f9f30276cbefdf284487a622ea0cd04431c4b"
+    },
+    "result": {
+      "inventory_sha256": "da1e68a61facac5dae1b5100b8c5be083bb1df2163a6ef8dfe5d223e8a7c9d70",
+      "libc_sha256": "61e45c3dd75c395b1d7e06dba231da2962060bee7390cef0bad2b70d81cb6d6c"
     }
   }
 }

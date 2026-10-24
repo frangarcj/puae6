@@ -11935,7 +11935,8 @@
         "El reproducer local de constructores confirma igualdad tras preparar inputs actuales (FFI Release, state-opt, Smoke y Debug runtime); las primeras actualizaciones de outputs locales previos no acreditan causa remota. Para aislar el fallo40093393108 sin repetir135ventanas, anadir diagnostico manual publico separado performance-inputs en .github/workflows/native-linux.yml, tools/ci/performance_inputs.py y tests/ci/test_performance_inputs.py; si un fixture de workflow necesita ajuste acotado hacerlo dentro tests/ci ya permitido. Reutilizar action prepare-performance-waterbox y performance_bench.prepare originales y ejecutar cada uno de los cuatro constructores en su proceso/ENV original; inventarios completos common/tools/source/generated/inputs antes/despues con guard estricto por paso, sin emular/medir ni cambiar el worker completo. Marker propio DIAGNOSTIC_STABLE/FAIL, nunca PASS de135/39 o relevo del gate original. Fixture debe rechazar drift en cualquier paso, identidad incompleta/cambio de cobertura y comprobar ausencia de campaign/selectores completos. Root revisa y publica proyeccion segura antes de un unico dispatch de este diagnostico, sin relanzar engine/frontend/campana anterior.",
         "Integracion portable del probe T40l en functional: la procedencia0713/guest62199 es una lane HISTORICA local y requiereobjetosGitprivados; no debe ser requisito para un mini-guest recien construido enCI/publico. Antes de publicar una lane functional completa, anadir modo de productor ACTUAL cuando receipt.input_sha256.build_recipe/toolchains_json coincidan exactamente con archivosactuales; validar todoslosinputs delrecibo/sysroot/arquitectura/herramientas igualqueantes, sinGit historico ysin asumir SHA guest62199. El modo historico mantiene suallowlistexacta yblobsverificados, no fallback paraotrosreceiptsviejos. Seleccionar rutasdeherramientas con selected_tool_paths(lock) para perfiles/relocacionesya fijados, conservando SHA/versions de selected_toolchain. Dosrutasexplicitas tools/waterbox_state_probe.py/tests/waterbox-smoke/test_state_probe.py. Fixtures actuales/historicos/hostedpaths niegancambiosnoacreditados; no repetirprobe real6PASS si el cambio queda limitado a procedencia/rutas y el preflight de losmismosinputs sigueigual. Noatribuir estearregloaldiagnosticoperformance-inputs publicado, que no llamaalmini-probe.",
         "Registrar oraculo ABI T40n en functional: P6_TEST_WATERBOX_SETJMP=1 y seleccion del modulo tests.waterbox-smoke.test_setjmp en test deENVexistente, sin acreditarproducto/coexistencia desdeesteprobe. Coordinador modifica tools/ci/nightly.py ytests/ci/test_nightly.py yaautorizados; no repetir otraslanes porintegracion de runner.",
-        "Causa reproducida con proyecto CMake C/CXX minimo: segundo configure reintroduce -DCMAKE_*_COMPILER y cambia tipo/comentario del cache aun con ruta absoluta FILEPATH; todosbinariosremotos eraniguales. Correccion acotada tests/build_support.py y tests/test_build_support.py: seleccionar clang/clang++ en cachefrio, en caliente validar ambas entradas unicas/rutasreales contra las herramientas actuales y omitir solo esos dos -D. Mantener restantes flags yguard SHA exacto. Fixture CMake real frio→reconfigure en proyecto propio sin motor y negativos de compilador distinto/entradas faltantes o duplicadas. ci_close implementa aislado; root integra/revisa y ejecuta diagnostico constructor4, sin repetir135/75 ventanas."
+        "Causa reproducida con proyecto CMake C/CXX minimo: segundo configure reintroduce -DCMAKE_*_COMPILER y cambia tipo/comentario del cache aun con ruta absoluta FILEPATH; todosbinariosremotos eraniguales. Correccion acotada tests/build_support.py y tests/test_build_support.py: seleccionar clang/clang++ en cachefrio, en caliente validar ambas entradas unicas/rutasreales contra las herramientas actuales y omitir solo esos dos -D. Mantener restantes flags yguard SHA exacto. Fixture CMake real frio→reconfigure en proyecto propio sin motor y negativos de compilador distinto/entradas faltantes o duplicadas. ci_close implementa aislado; root integra/revisa y ejecuta diagnostico constructor4, sin repetir135/75 ventanas.",
+        "Diagnostico publico c7a764f5/run40109360859: ffi-release ystate-opt ESTABLES bajo guard completo trasfixcache. Driver se detiene en Smoke por ModuleNotFoundError ci: snippets hijos importan tools.build_waterbox sin bootstraptools en sys.path que sihaceWB12original. Corregir solo snippetsSmoke/Debug en tools/ci/performance_inputs.py yfixtureen tests/ci/test_performance_inputs.py, reproducirimportoriginal y probarprocesofresco sin rebuild. No repetir135/75; siguiente dispatchsoloconstructor4, sin atribuir esteFAIL a cache ni anunciar benchPASS."
       ],
       "checks": [
         "PLAN01",
@@ -12558,7 +12559,7 @@
       "title": "Derivar sysroot Waterbox con libc setjmp corregida desde fuentes y base autenticadas",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40n"
       ],
@@ -12582,7 +12583,8 @@
         "Fijar llvm-ar efectivo por ruta/SHA/version antesdeejecutarlo. Reemplazar solo miembros setjmp.o/longjmp.o en copia libc.a, preservando secuencia yocurrencias de todoslosdemas miembros incluido nombreduplicado. Verificar ASM originales/parcheados, aliases y ELF AArch64 de nuevosobjetos, original/fixed .text difiere exclusivamente instruccion x28 acordada. Indice/relocs validos, resto de payload miembros identico y restantes1269paths iguales. No usar diccionario que oculte duplicados.",
         "Recibo derivado identifica baseinventario/parche/receta/compilador/archiver/fuentes/objetos/archivo y nuevoinventario, antes/despues. Publicar solo outputnuevo exclusivo, fallo no deja producto parcial ni edita autoridad. Root fija nuevaidentidad tras ejecucionreal; agente hosted_bootstrap solo dosrutas implementacion, sin metadata ni compilacionesproducto.",
         "Fixtures de miembrosduplicados/deltaextra/ISA/inputs/outputs rechazan falsoPASS; ejecucionreal reconstruye dosobjetos/fuente ylibc propia, con control positivo/negativo original-fix de T40n y sysrootbase intacto. Recibo nuevo no acredita legacy, producto o peliculas; T40o conserva puertaoriginal.",
-        "Primer derive real para en comparacion original/base. Reproducer minimo independiente demuestra tamanos616/600 y .text/.note.GNU-stack iguales; LLVM23 cambia SOLO etiqueta local STT_NOTYPE $x.0→$x en .text+0, size0, y empaquetado strtab/offsets n_name derivados frenteLLVM18. Revisar comparador separado base→sourceactual con inventario/atributos secciones ysimbolosdecodificados estrictos, unicaexcepcionlocal y tokenpool equivalente; ningun global/reloc/codigoextra permitido. Originalactual→fixedactual sigue byteestricto salvo opcode x28; verify aplica la mismacomparacion semantica de metadata base/fixed. No modificar ELF niestados ni autoridadbase; fixture captura positivo yrechazos."
+        "Primer derive real para en comparacion original/base. Reproducer minimo independiente demuestra tamanos616/600 y .text/.note.GNU-stack iguales; LLVM23 cambia SOLO etiqueta local STT_NOTYPE $x.0→$x en .text+0, size0, y empaquetado strtab/offsets n_name derivados frenteLLVM18. Revisar comparador separado base→sourceactual con inventario/atributos secciones ysimbolosdecodificados estrictos, unicaexcepcionlocal y tokenpool equivalente; ningun global/reloc/codigoextra permitido. Originalactual→fixedactual sigue byteestricto salvo opcode x28; verify aplica la mismacomparacion semantica de metadata base/fixed. No modificar ELF niestados ni autoridadbase; fixture captura positivo yrechazos.",
+        "Derivacion fuente real y verificacionreadonly pasan. Inventario derivado da1e68a6... ylibc61e45c3d... fijadosen waterbox_guest_sysroot.result;1269paths restantes y todoslosmiembros/indiceordenado de libc preservados. Tresfixtures maslectura deartifact realPASS; patch/code/text/metadata delta validado ybase intacta. Solo sysroot+receipt publicados; temporaleseliminados. No acreditaguestrauntime/coexistencia."
       ],
       "checks": [
         "BUILD01",
@@ -12609,20 +12611,25 @@
         "references/machawk/waterbox/uae/Makefile",
         "references/machawk/waterbox/common.mak",
         "tools/build_waterbox.py",
-        "tools/emuhawk_coexistence.py"
+        "tools/emuhawk_coexistence.py",
+        "references/machawk-uae/sources/src/fpp_softfloat.c",
+        "references/machawk-uae/sources/src/softfloat/softfloat.h",
+        "references/machawk-uae/sources/src/softfloat/softfloat.c"
       ],
       "touch": [
         "tools/build_legacy_guest.py",
         "tests/waterbox-smoke/test_legacy_guest.py",
         "tools/check.py",
         "docs/adr/waterbox-state-diagnostics.md",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "integration/waterbox-guest/0002-legacy-softfloat-quotient.patch"
       ],
       "steps": [
         "Construir receta fuente propia de legacy para T40o, independiente de implementar sysroot T40o1. Preflight valida capturas machawk/bizhawk_uae_reference/machawk_capsimg y8overlays, herramientas actuales fijadas, sysrootderivado/reciboT40o1 y baseinmutable. No copiar guest390cc como producto ni afirmar bitidentidadhistorica. Solo lectura MacHawk/capturas; outputs exclusivos bajo build.",
         "Copiar cierres de referencia y montar layout waterbox/uae/libretro-uae + capsimg, common/linkscript/emulibc propios. Wrappers musl propios apuntan al sysrootderivado y herramientas fijadas; flags ARM64/16KiB/x18/x28 ytarget DEBUG -O0 -g comooriginal390cc. Compilar make debug -j2 nunca install/clean delproyectohermano. No cambiosmanualesCPUgenerated ni ajustesdecomportamiento.",
         "Recibo nuevo BUILD01_GUEST_NOT_EXECUTED con fuente/inventarios/overlays/flags/tools/sysroot/receta/hashguest verificados antes/despues yELF/tls/imports adecuados. Temporales/compilerlogs borrados trasresultado; artefactosnecesarios yrecibo de identidad se conservan. Compilacionreal soloroot serializada trasT40o1 disponible; agente toolchain_review implementa2rutas yfixtures sin metadata/buildmotor.",
-        "Fixtures exigeninputs completos/targetdebug/outputs propios/noinstall y rechazan mismatch/ISA/derivacionausente. Gatebuildreal no acredita runtime, coexistencia ni peliculas; T40o mantiene4casosT40k/T40m/WB13/WB15 yproducto corregido antesdecierre."
+        "Fixtures exigeninputs completos/targetdebug/outputs propios/noinstall y rechazan mismatch/ISA/derivacionausente. Gatebuildreal no acredita runtime, coexistencia ni peliculas; T40o mantiene4casosT40k/T40m/WB13/WB15 yproducto corregido antesdecierre.",
+        "Primer buildsource real fallaen fp_mod/fp_rem: uae_u64* unsignedlonglong frente uint64_t* unsignedlong; Clang23 rechaza tipo incompatible. No suprimir warningerror ni cast dealiasing. Overlayfuente acotado en copia: temporal uint64_tquotient=0, llamada con&temporal ycopianumerica de salida *q=quotient. Softfloat original inicializa*q=0 antesretornos (2901/3009), caller tambienq0. Patch nuevo estricto/reverse/inputs yclosure efectiva conunico archivo permitido; fuenteoriginal intacta. Harness C dirigido con funcionesoriginales extraidas/stubs verifica cociente64bits/sign/zero y tiposconWerror antessegundobuildfull. Mantener perfil/debug y operacionesFPU; no heredargateFPU ni tocarCU06."
       ],
       "checks": [
         "BUILD01",

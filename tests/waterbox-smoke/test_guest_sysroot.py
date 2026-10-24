@@ -1,4 +1,4 @@
-"""Owned ELF/ar byte fixtures. No compiler, archive executable or guest is run."""
+"""Owned byte fixtures and read-only verification of the current derived artifact."""
 import importlib.util
 import json
 from pathlib import Path
@@ -116,3 +116,9 @@ class GuestSysrootTests(unittest.TestCase):
                 (verified['sysroot']/'own.h').write_bytes(b'changed')
                 with self.assertRaises(ValueError): p.verify(root=root)
             self.assertEqual(p.wb.inventory(base),original)
+
+
+class DerivedArtifactTests(unittest.TestCase):
+    def test_current_derived_sysroot_matches_its_sources_and_authority(self):
+        result = p.verify()
+        self.assertEqual(result["inventory_sha256"], json.loads((ROOT / "plan/toolchains.json").read_text())["waterbox_guest_sysroot"]["result"]["inventory_sha256"])

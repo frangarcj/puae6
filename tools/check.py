@@ -1025,6 +1025,13 @@ for _gate in ('IN01', 'DET02', 'LR01', 'WB03'):
     TASK_SUITES[(_gate, 'T70')] = {
         f'{_task}:{_name}': _suite for _task in ('T70a', 'T70b', 'T70c', 'T70d')
         for _name, _suite in TASK_SUITES[(_gate, _task)].items()}
+for _gate in ('BUILD01', 'ABI01'):
+    TASK_SUITES[(_gate, 'T40o1')] = {'sysroot_recipe': 'tests.waterbox-smoke.test_guest_sysroot.GuestSysrootTests',
+                                   'current_derived_sysroot': 'tests.waterbox-smoke.test_guest_sysroot.DerivedArtifactTests'}
+for _gate in ('BUILD01', 'ABI01', 'SRC01'):
+    TASK_SUITES[(_gate, 'T40o2')] = {'legacy_recipe': 'tests.waterbox-smoke.test_legacy_guest.LegacyGuestTests',
+                                   'current_source_guest': 'tests.waterbox-smoke.test_legacy_guest.LegacyArtifactTests'}
+
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

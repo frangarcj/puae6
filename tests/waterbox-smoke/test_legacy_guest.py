@@ -1,4 +1,4 @@
-"""Own data fixtures and explicit subprocess mocks; never compile or run UAE."""
+"""Owned fixtures and read-only verification; never compile or run UAE here."""
 import importlib.util
 import json
 from pathlib import Path
@@ -157,3 +157,10 @@ class LegacyGuestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'imports/exports'): p.symbols(path)
         fixture(); path.write_bytes(path.read_bytes()[:100])
         with self.assertRaisesRegex(ValueError, 'sections'): p.symbols(path)
+
+
+class LegacyArtifactTests(unittest.TestCase):
+    def test_current_source_built_guest_matches_all_effective_inputs(self):
+        result = p.verify()
+        self.assertEqual(result["status"], p.STATUS)
+        self.assertFalse(result["historical_binary_reproduction"])
