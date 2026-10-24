@@ -272,6 +272,11 @@
       "signature_policy": "asan-arm64-rpath",
       "source_sha256": "7c8af9f0737137dcb777c0d964753a1161f00a8314450dc4fc5eff6a1728af87",
       "source_bytes": 3966096
+    },
+    {
+      "path": "llvm/23.1.4/bin/llvm-ar",
+      "bytes": 109432,
+      "sha256": "aa6beb9ec36a604bda581a547a8915d0a669ca410b9311d4b802781f66218840"
     }
   ],
   "entrypoints": {

@@ -225,7 +225,8 @@
     "archiver": {
       "path": "/opt/homebrew/opt/llvm/bin/llvm-ar",
       "sha256": "aa6beb9ec36a604bda581a547a8915d0a669ca410b9311d4b802781f66218840",
-      "version": "Homebrew LLVM version 23.1.4"
+      "version": "Homebrew LLVM version 23.1.4",
+      "hosted_path": "build/hosted-tools/llvm/23.1.4/bin/llvm-ar"
     },
     "patch": {
       "file": "integration/waterbox-guest/0001-setjmp-x28.patch",
