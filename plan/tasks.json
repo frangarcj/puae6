@@ -12312,7 +12312,7 @@
       "title": "Arrancar el EmuHawk completo mediante un self-check CLI explicito",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T20",
         "T38",
