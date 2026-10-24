@@ -1,8 +1,15 @@
 """Hosted SIMD infrastructure fixtures; never compile or execute a probe."""
 import copy
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from tests.simd import evaluate, matrix
+from tools.ci import optimization_simd as hosted
 
 
 def fixture(row, mode):
@@ -41,3 +48,108 @@ class RecordTests(unittest.TestCase):
                 if mode == "fallback":
                     self.assertIn("-DP6_SIMD_NO_NEON=1", flags)
                     self.assertIn("-fno-tree-vectorize" if row.endswith("gcc") else "-fno-vectorize", flags)
+
+
+class HostedTests(unittest.TestCase):
+    common = {'revision': 'fixture', 'run_id': '123', 'run_attempt': '1'}
+
+    def records(self):
+        records = []
+        for row in matrix.ROWS:
+            results = {mode: {**fixture(row, mode), 'sources': hosted.SOURCES, 'binary_sha256': 'e'*64,
+                       'compiler_path': '/fixture/clang++', 'driver_mode': 'g++',
+                       'compiler_implementation': {'path': '/fixture/actual', 'sha256': 'd'*64}} for mode in hosted.MODES}
+            compiler = {key: results['opt'][key] for key in ('compiler', 'compiler_sha256', 'compiler_path', 'driver_mode', 'compiler_implementation')}
+            records.append(dict(status='PASS', profile=hosted.PROFILE, kind='simd-row', common=self.common,
+                                source_environment_sha256='c'*64, row=row, compiler=compiler, results=results))
+        return records
+
+    def standalone_record(self):
+        counts = {name: 0 for name in hosted.ci.COUNTS}; counts['tests'] = 3
+        compiler = dict(compiler=hosted.LLVM['version'], compiler_sha256=hosted.LLVM['sha256'], driver_mode='g++',
+                        compiler_path=str(hosted.ROOT/'build/hosted-tools/llvm/23.1.4/bin/clang-23'),
+                        compiler_implementation={'path': str(hosted.ROOT/'build/hosted-tools/llvm/23.1.4/bin/clang-23'), 'sha256': hosted.LLVM['sha256']})
+        return dict(status='PASS', profile=hosted.PROFILE, kind='simd-standalone', common=self.common,
+                    source_environment_sha256='c'*64, selector=hosted.SELECTOR, compiler=compiler, counts=counts)
+
+    def test_complete_rows_reject_missing_duplicate_mixed_context_and_corrupt_observations(self):
+        good = self.records()
+        self.assertEqual(hosted.validate_rows(good, self.common)['modes'], 15)
+        for bad in (good[:-1], good+[good[0]]):
+            with self.assertRaises(RuntimeError): hosted.validate_rows(bad, self.common)
+        for key, value in (('status', 'FAIL'), ('profile', 'foreign'), ('common', {}), ('source_environment_sha256', 'bad')):
+            bad = copy.deepcopy(good); bad[0][key] = value
+            with self.assertRaises(RuntimeError): hosted.validate_rows(bad, self.common)
+        for key, value in (('rgb_digest', 'f'*16), ('sources', {}), ('binary_sha256', 'bad'), ('compiler_sha256', 'a'*64)):
+            bad = copy.deepcopy(good); bad[0]['results']['san'][key] = value
+            with self.assertRaises((RuntimeError, ValueError)): hosted.validate_rows(bad, self.common)
+
+    def test_standalone_requires_three_actual_tests_and_exact_raw_llvm_pin(self):
+        good = self.standalone_record()
+        self.assertEqual(hosted.validate_standalone(good, self.common)['tests'], 3)
+        redacted = json.loads(hosted.ci.redact(json.dumps(good)))
+        self.assertTrue(redacted['compiler']['compiler_path'].startswith('@repo/'))
+        self.assertEqual(hosted.validate_standalone(redacted, self.common)['tests'], 3)
+        for key in hosted.ci.COUNTS:
+            bad = copy.deepcopy(good); bad['counts'][key] = 2 if key == 'tests' else 1
+            with self.assertRaises(RuntimeError): hosted.validate_standalone(bad, self.common)
+        for key, value in (('compiler_sha256', 'a'*64), ('compiler', 'other LLVM'), ('driver_mode', 'gcc')):
+            bad = copy.deepcopy(good); bad['compiler'][key] = value
+            with self.assertRaises(RuntimeError): hosted.validate_standalone(bad, self.common)
+
+    def test_worker_executes_all_modes_once_cleans_temporary_outputs_and_rejects_drift(self):
+        row = next(iter(matrix.ROWS)); expected = self.records()[0]
+        calls = []
+        def execute(directory, mode, selected_row):
+            self.assertEqual(selected_row, row); calls.append((Path(directory), mode))
+            return copy.deepcopy(expected['results'][mode])
+        with tempfile.TemporaryDirectory() as temporary, patch.object(hosted, 'ROOT', Path(temporary)), \
+             patch.object(hosted.hosted, 'common', return_value=self.common), patch.object(hosted.hosted.native, 'preflight'), \
+             patch.object(hosted, 'source_identity', return_value='c'*64), patch.object(evaluate, 'evaluate', side_effect=execute), \
+             patch.object(evaluate, 'compiler_configuration', return_value=([], None, expected['compiler'])):
+            self.assertEqual(hosted.row(row)['results'], expected['results'])
+            self.assertEqual([mode for _, mode in calls], list(hosted.MODES))
+            self.assertTrue(all(not path.exists() for path, _ in calls))
+            with patch.object(hosted, 'source_identity', side_effect=['c'*64, 'd'*64]):
+                with self.assertRaises(RuntimeError): hosted.row(row)
+            with patch.object(evaluate, 'evaluate', side_effect=RuntimeError('fixture failed')):
+                with self.assertRaises(RuntimeError): hosted.row(row)
+            self.assertEqual(list((Path(temporary)/'build').iterdir()), [])
+
+    def test_standalone_launches_original_selector_and_propagates_subprocess_failure(self):
+        record = self.standalone_record()
+        ok = subprocess.CompletedProcess([], 0, json.dumps(record['counts']), '')
+        with tempfile.TemporaryDirectory() as temporary, patch.object(hosted, 'ROOT', Path(temporary)), \
+             patch.object(hosted.hosted, 'common', return_value=self.common), patch.object(hosted, 'source_identity', return_value='c'*64), \
+             patch.object(evaluate, 'compiler_configuration', return_value=([], None, record['compiler'])), \
+             patch.dict(os.environ, P6_WATERBOX_HOSTED_TOOLS='build/hosted-tools'), patch.object(hosted.ci, 'command', return_value=ok) as command:
+            self.assertEqual(hosted.standalone()['counts']['tests'], 3)
+            self.assertEqual(command.call_args.args[0][-1], hosted.SELECTOR)
+            self.assertIn('-B', command.call_args.args[0]); self.assertFalse(Path(command.call_args.kwargs['env']['TMPDIR']).exists())
+            command.return_value = subprocess.CompletedProcess([], 1, json.dumps(record['counts']), 'fixture failed')
+            with self.assertRaises(RuntimeError): hosted.standalone()
+
+
+class CompilerTests(unittest.TestCase):
+    def test_relocation_hashes_raw_clang_but_invokes_authenticated_cpp_launcher(self):
+        from tools.ci import hosted_environment as environment
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); (root/'plan').mkdir(); raw = root/'build/hosted-tools/llvm/bin/clang-23'
+            raw.parent.mkdir(parents=True); raw.write_bytes(b'compiler fixture')
+            launcher = root/'cpp-launcher'; launcher.write_bytes(b'launcher must never be hashed as compiler')
+            pin = dict(path='/default/clang', version='LLVM fixture', sha256=evaluate.digest(raw))
+            (root/'plan/toolchains.json').write_text(json.dumps({'tools': {'clang': pin}}))
+            manifest = {'entrypoints': {'clang': 'llvm/bin/clang-23'}}
+            selected = dict(launchers={'clang++': launcher}, tool_env={'fixture': 'compile'}, direct_env={'fixture': 'version'})
+            with patch.object(evaluate, 'ROOT', root), patch.dict(os.environ, P6_WATERBOX_HOSTED_TOOLS='build/hosted-tools'), \
+                 patch.object(environment.hosted, 'inputs', return_value=(manifest, None)), patch.object(environment, 'select', return_value=selected), \
+                 patch.object(evaluate.subprocess, 'check_output', return_value='LLVM fixture\n') as version:
+                driver, env, metadata = evaluate.compiler_configuration()
+                self.assertEqual(driver, [str(launcher)]); self.assertEqual(env, selected['tool_env'])
+                self.assertEqual(metadata['compiler_sha256'], evaluate.digest(raw))
+                self.assertEqual(metadata['compiler_implementation']['sha256'], evaluate.digest(raw))
+                self.assertEqual(version.call_args.args[0], [str(raw), '--driver-mode=g++', '--version'])
+                self.assertEqual(version.call_args.kwargs['env'], selected['direct_env'])
+                raw.write_bytes(b'changed compiler')
+                with self.assertRaises(ValueError): evaluate.compiler_configuration()
+                self.assertEqual(version.call_count, 1)
