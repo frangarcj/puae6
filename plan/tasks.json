@@ -19877,7 +19877,7 @@
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
       "stop": "No cargar el CD entero en memoria del guest.",
-      "blocked_reason": "ETNF global Canonical150 tiene contrato primario CDI2Nero y componentes/nativo/libretro/normalizacion C#/restauracion publica Waterbox cerrados en T66w1..w4. Bloqueo externo restante TINF: offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico, sin productor/documentacion que lo resuelva. ETN2 multisesion tampoco acreditado por ETNF: requiere productor multisesion y TOC original para distinguir coordenada global de reinicio. Mantener rechazos explicitos y fixtures; no recuperar Q/CUE0fisicos ausentes ni cerrarT66 con estas variantes pendientes."
+      "blocked_reason": "ETNF global Canonical150 y sus componentes/nativo/libretro/C#/restauracion publica Waterbox cerrados en T66w1..w4. Nero2025 autenticado aporta un escritor ETN2 original: offsets/longitudes de archivo, cursor por pista y un ETN2 seguido de varios SINF (ADR0018). Falta su secuencia efectiva de dos sesiones y TOC independiente: H1 cursor global frente reinicio/ajustes de lead-in/out. TINF solo tiene lector identificado: H2 offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico. La ayuda portable de NeroCmd ejecuta, pero no acredita productor ni esas semanticas. Mantener rechazos y fixtures; no trasladar Canonical150 a ETN2 ni inventar Q/CUE0 fisicos."
     },
     {
       "id": "T67a",
