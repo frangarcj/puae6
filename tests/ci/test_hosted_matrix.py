@@ -1,5 +1,7 @@
 """Own records and mocked processes only; never build, run an engine or use GitHub."""
 import copy
+from email.message import Message
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -121,21 +123,57 @@ class HostedMatrixTests(unittest.TestCase):
     def test_aggregation_reads_only_current_attempt_logs_and_exactly_one_terminal_per_worker(self):
         records = self.records(); labels = ['matrix-infrastructure'] + [f'{r["row"]} / {r["optimization"]}' for r in records[1:]]
         for fault in ('none', 'failed-job', 'missing-job', 'duplicate-json', 'missing-json', 'wrong-job'):
-            jobs = [dict(id=i, name=name, status='completed', conclusion='success') for i, name in enumerate(labels)]
+            jobs = [dict(id=i+1, name=name, status='completed', conclusion='success') for i, name in enumerate(labels)]
             if fault == 'failed-job': jobs[0]['conclusion'] = 'failure'
             if fault == 'missing-job': jobs.pop()
             def execute(argv):
                 self.assertEqual(argv[:2], ['gh', 'api'])
                 if '/attempts/2/jobs?' in argv[2]: return json.dumps(dict(total_count=len(jobs), jobs=jobs))
-                index = int(argv[2].split('/')[-2]); record = records[index]
+                self.fail('unexpected GitHub CLI request')
+            def log(repository, job_id):
+                self.assertEqual(repository, 'own/repository')
+                index = job_id-1; record = records[index]
                 if fault == 'wrong-job' and index == 0: record = records[1]
                 line = '2026-10-24T00:00:00Z ' + matrix.MARKER + json.dumps(record) + '\n'
                 return '' if fault == 'missing-json' else line*2 if fault == 'duplicate-json' else line
             with self.subTest(fault=fault), mock.patch.object(matrix, 'common', return_value=self.context), \
-                 mock.patch.object(matrix.native, 'execute', side_effect=execute):
+                 mock.patch.object(matrix.native, 'execute', side_effect=execute), mock.patch.object(matrix, 'read_job_log', side_effect=log):
                 if fault == 'none': self.assertEqual(matrix.aggregate()['status'], 'PASS')
                 else:
                     with self.assertRaises(RuntimeError): matrix.aggregate()
+
+    def test_log_transport_authenticates_only_api_and_sanitizes_bounded_data(self):
+        text = b'2026-10-24T00:00:00Z \x1b[32mP6_MATRIX_RESULT {"own":true}\x1b[0m\n\x1b]0;own title\x07\x00\x7f\xc2\x9b'
+        headers = Message(); headers['Content-Type'] = 'text/plain; charset=utf-8'; headers['Content-Length'] = str(len(text))
+        response = mock.MagicMock(status=200, headers=headers); response.__enter__.return_value = response
+        response.read.return_value = text
+        opener = mock.Mock(); redirect = matrix.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': 'https://storage.example/own?signature=data'}, io.BytesIO())
+        opener.open.side_effect = [redirect, response]
+        with mock.patch.dict(matrix.os.environ, {'GH_TOKEN': 'own-token'}), mock.patch.object(matrix.urllib.request, 'build_opener', return_value=opener) as factory:
+            observed = matrix.read_job_log('own/repo', 1)
+            self.assertEqual(observed, '2026-10-24T00:00:00Z P6_MATRIX_RESULT {"own":true}\n')
+            api, storage = [call.args[0] for call in opener.open.call_args_list]
+            self.assertEqual(api.host, 'api.github.com'); self.assertEqual(api.get_header('Authorization'), 'Bearer own-token')
+            self.assertEqual(storage.host, 'storage.example'); self.assertIsNone(storage.get_header('Authorization'))
+            self.assertEqual(storage.header_items(), [('User-agent', matrix.PROFILE), ('Accept-encoding', 'identity')])
+            self.assertIsNone(factory.call_args.args[0]().redirect_request(None, None, 302, '', {}, 'https://other.example'))
+            response.read.assert_called_once_with(8*1024*1024+1)
+
+    def test_log_transport_rejects_unsafe_redirect_types_limits_and_invalid_descriptors(self):
+        for fault in ('http', 'credentials', 'control', 'redirect-again', 'type', 'length', 'body', 'status', 'token', 'descriptor'):
+            headers = Message(); headers['Content-Type'] = 'application/json' if fault == 'type' else 'text/plain'
+            if fault == 'length': headers['Content-Length'] = str(8*1024*1024+1)
+            response = mock.MagicMock(status=500 if fault == 'status' else 200, headers=headers); response.__enter__.return_value = response
+            response.read.return_value = b'x'*(8*1024*1024+1) if fault == 'body' else b'own text'
+            location = {'http': 'http://storage.example/', 'credentials': 'https://user:pass@storage.example/', 'control': 'https://storage.example/\n'}.get(fault, 'https://storage.example/')
+            redirect = lambda: matrix.urllib.error.HTTPError('https://api.github.com/', 302, 'Found', {'Location': location}, io.BytesIO())
+            first, second = redirect(), redirect() if fault == 'redirect-again' else response
+            self.addCleanup(first.close)
+            if fault == 'redirect-again': self.addCleanup(second.close)
+            opener = mock.Mock(); opener.open.side_effect = [first, second]
+            with self.subTest(fault=fault), mock.patch.dict(matrix.os.environ, {'GH_TOKEN': '' if fault == 'token' else 'own-token'}), \
+                 mock.patch.object(matrix.urllib.request, 'build_opener', return_value=opener), self.assertRaises(RuntimeError):
+                matrix.read_job_log('foreign.example/../repo' if fault == 'descriptor' else 'own/repo', 1)
 
     def test_common_identity_requires_clean_current_actions_revision_and_attempt(self):
         identity = dict(revision='a'*40, dirty=False, source_tree_sha256='b'*64)
