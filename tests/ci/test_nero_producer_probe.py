@@ -24,7 +24,7 @@ class NeroProducerProbeTests(unittest.TestCase):
         for token in ('pull_request:', 'push:', 'schedule:', 'upload-artifact', 'continue-on-error', 'secrets.', 'write'):
             self.assertNotIn(token, self.workflow)
 
-    def test_fixed_archives_and_component_identity_precede_the_only_help_execution(self):
+    def test_fixed_archives_and_component_identity_precede_documented_discovery(self):
         pin = json.loads((ROOT / 'plan/upstream.lock.json').read_text())['reference_tools']['nero_2025']
         self.assertEqual(pin['version'], '27.0.1000')
         self.assertEqual((pin['bytes'], pin['sha256']), (275434744, '3fbc9dd234eb1dec0d5a51bd2c9df2dfad0144c5cdb3d1d353ba91c9f2618f94'))
@@ -39,18 +39,19 @@ class NeroProducerProbeTests(unittest.TestCase):
         self.assertEqual(re.findall(r'https://[^\s\']+', self.script), ['https://ecloud.nero.com/public.php/dav/files/pBxLJzgPaNtAJBi'])
         self.assertEqual(pin['url'], 'https://ecloud.nero.com/public.php/dav/files/pBxLJzgPaNtAJBi')
         self.assertEqual(pin['payload']['path'], 'NeroInstaller/NeroBurningROM.zip')
-        self.assertEqual(re.findall(r'ArgumentList\.Add\(([^)]*)\)', self.script), ["'--help'"])
+        self.assertEqual(re.findall(r'ArgumentList\.Add\(([^)]*)\)', self.script),
+                         ["'--listdrives'", "'--no_user_interaction'", "'--no_error_log'"])
         self.assertEqual(pin['command_path'], 'Nero Burning ROM/NeroCmd.exe')
         self.assertIn('$_.FullName -ceq $CommandMember', self.script)
         self.assertIn('$CommandMember = $pin.command_path', self.script)
-        self.assertIn('Read-Help $command ([IO.Path]::GetDirectoryName($command))', self.script)
+        self.assertIn('Read-Discovery $command ([IO.Path]::GetDirectoryName($command))', self.script)
         main = self.script[self.script.index('try {\n    Require ($IsWindows'):]
         self.assertLess(main.index('Verify-File $archive'), main.index('Extract-App $archive'))
-        self.assertLess(main.index('Extract-App $archive'), main.index('Read-Help $command'))
+        self.assertLess(main.index('Extract-App $archive'), main.index('Read-Discovery $command'))
 
     def test_no_installer_or_system_mutation_fallback_and_failures_clean_owned_temp(self):
         for token in ('Invoke-Expression', 'Start-Process', 'msiexec', 'winget', 'choco', 'Set-ItemProperty',
-                      'New-Service', 'Start-Service', 'reg.exe', 'AcceptEula', 'ExecutionPolicy', '--write', '--listdrives'):
+                      'New-Service', 'Start-Service', 'reg.exe', 'AcceptEula', 'ExecutionPolicy', '--write', '--help'):
             self.assertNotIn(token.lower(), self.script.lower())
         self.assertIn('$handler.AllowAutoRedirect = $false', self.script)
         self.assertIn('$total -le $InstallerBytes', self.script)
@@ -61,6 +62,11 @@ class NeroProducerProbeTests(unittest.TestCase):
         self.assertIn('if ($started -and -not $process.HasExited)', self.script)
         self.assertNotIn('$process.Id', self.script)
         self.assertIn('P6_NERO_PROBE BLOCKED:', self.script)
+        self.assertIn("'NeroCmd discovery ExitCode={0} (0x{1:X8})'", self.script)
+        self.assertIn('[BitConverter]::GetBytes([int]$exitCode)', self.script)
+        self.assertIn('$exitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($text)', self.script)
+        self.assertIn('DISCOVERY_ONLY; no producer, TOC or image generation capability established', self.script)
+        self.assertNotIn('dependencies/license/COM', self.script)
         self.assertIn('exit 2', self.script)
         self.assertRegex(self.script, r'(?s)finally \{\s+if \(\$Created.*Remove-Item -LiteralPath \$Owned -Recurse -Force')
 
