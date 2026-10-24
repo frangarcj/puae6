@@ -21,3 +21,12 @@ atribuir hasta demostrar layout/orden; resultados ambiguos no acreditan causas.
 El resultado no corrige el runtime ni desbloquea T40k. Antes de cambiar interop,
 pilas o serialización, registrar una ficha de corrección con reproducer y puerta
 propia. No normalizar snapshots, excluir bytes ni cambiar hashes/comparadores.
+
+El mini-guest aprobado es `62199dd9…`, producido por la receta `8b151b30…`
+y lock `f5c6e023…` del commit `0713ffa1b62fa55518ac17f3d33087b3b4adbbcf`.
+El probe lee ambos blobs Git por sus SHA completos sin ejecutarlos; verifica las
+secciones causales del lock, todas las fuentes/wrappers/manifiestos del recibo
+y ambos inventarios sysroot. La receta y el lock actuales se identifican por
+separado antes/después. El runtime actual tiene su propia validación de recibo,
+fuentes, patchset, herramientas, arquitectura y bytes; no se fija al antiguo
+productor del mini-guest ni se le atribuye aquella receta por herencia del recibo.

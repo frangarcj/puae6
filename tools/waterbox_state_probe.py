@@ -96,6 +96,52 @@ def compare(left, right, buffers):
         'left_sha256': hashlib.sha256(a).hexdigest(), 'right_sha256': hashlib.sha256(b).hexdigest()}
 
 
+
+GUEST_PRODUCER = {'commit': '0713ffa1b62fa55518ac17f3d33087b3b4adbbcf',
+    'guest_sha256': '62199dd9663df5a9250fb61ccb61544bfdc0963a18b99f8a273c6afbe1eab6ba',
+    'recipe_sha256': '8b151b3027f9736446b147ec0b38aba0c1a5b18b41f7e01be948e07073548737',
+    'toolchain_sha256': 'f5c6e0231f82d1cebf07738faac302e21257bbe4aa170d0911fdaa226ed30385'}
+RECORDED_INPUTS = {'cargo_lock': 'build/waterbox/runtime-src/Cargo.lock', 'common_mak': 'references/machawk/waterbox/common.mak',
+    'emulibc_source': 'references/machawk/waterbox/emulibc/emulibc.c', 'guest_cpp': 'tests/waterbox-smoke/guest.cpp',
+    'guest_wrapper': 'build/waterbox/toolchain/bin/musl-clang', 'ld_wrapper': 'build/waterbox/toolchain/bin/ld.musl-clang',
+    'linkscript_aarch64': 'references/machawk/waterbox/linkscript_aarch64.T', 'machawk_manifest': 'references/machawk.manifest.json',
+    'musl_clang_template': 'references/musl-darwin/tools/musl-clang.in', 'musl_ld_template': 'references/musl-darwin/tools/ld.musl-clang.in',
+    'musl_manifest': 'references/musl-darwin.manifest.json', 'smoke_makefile': 'tests/waterbox-smoke/Makefile',
+    'tls_negative_guest_cpp': 'tests/waterbox-smoke/tls-negative/guest.cpp', 'tls_negative_makefile': 'tests/waterbox-smoke/tls-negative/Makefile'}
+
+
+def git_blob(root, commit, name):
+    result = subprocess.run(['git', 'cat-file', 'blob', commit + ':' + name], cwd=root, capture_output=True, timeout=10)
+    require(result.returncode == 0 and 0 < len(result.stdout) < 512 << 10, 'Missing/oversized pinned producer blob')
+    return result.stdout
+
+
+def provenance(receipt, root):
+    recorded = receipt['input_sha256']; pin = GUEST_PRODUCER
+    require(receipt['guest']['sha256'] == pin['guest_sha256'] and recorded['build_recipe'] == pin['recipe_sha256']
+        and recorded['toolchains_json'] == pin['toolchain_sha256'], 'Unapproved mini-guest producer')
+    blobs = {name: git_blob(root, pin['commit'], name) for name in ('tools/build_waterbox.py', 'plan/toolchains.json')}
+    for name, key in (('tools/build_waterbox.py', 'recipe_sha256'), ('plan/toolchains.json', 'toolchain_sha256')):
+        require(hashlib.sha256(blobs[name]).hexdigest() == pin[key], 'Producer raw Git blob differs')
+    old = json.loads(blobs['plan/toolchains.json']); current = json.loads((root / 'plan/toolchains.json').read_text())
+    require(os.environ.get(wb.TOOLCHAIN_PROFILE_ENV, 'local') == 'local'
+        and all(old[k] == current[k] for k in ('profile', 'tools', 'runtime', 'guest', 'sysroot')), 'Producer causal toolchain differs')
+    require(set(recorded) == set(RECORDED_INPUTS) | {'build_recipe', 'toolchains_json'}, 'Uninventoried producer inputs')
+    proof = {}
+    for key, name in RECORDED_INPUTS.items():
+        path = root / name
+        require(path.resolve() == path and not path.is_symlink() and path.is_file(), 'Linked/missing producer input')
+        proof[str(path)] = wb.sha256(path)
+        require(proof[str(path)] == recorded[key], 'Producer source/wrapper/manifest differs: ' + key)
+    require(receipt['sysroot']['source_path'] == old['sysroot']['source_path'], 'Producer sysroot path differs')
+    for path in (root / old['sysroot']['source_path'], root / 'build/waterbox/sysroot'):
+        inventory = wb.inventory(path)
+        require(len(inventory) == receipt['sysroot']['file_count'] == old['sysroot']['file_count']
+            and wb.canonical_hash(inventory) == receipt['sysroot']['inventory_sha256'] == old['sysroot']['inventory_sha256'], 'Producer sysroot inventory differs')
+        proof[str(path)] = wb.canonical_hash(inventory)
+    return {**proof, 'guest_producer': dict(pin)}
+
+
 def inputs():
     receipt_path = wb.runtime_receipt_path('release'); receipt = wb.read_runtime_receipt(receipt_path)
     require(receipt['runtime_profile'] == 'release', 'Release runtime required')
@@ -109,13 +155,10 @@ def inputs():
         require(wb.sha256(Path(tool['path'])) == tool['sha256'], 'Pinned compiler/tool differs')
     header = paths['runtime'].read_bytes()[:32]
     require(len(header) == 32 and struct.unpack_from('<II', header) == (0xfeedfacf, 0x100000c), 'Runtime ISA differs')
-    for name, path in {'guest_cpp': ROOT / 'tests/waterbox-smoke/guest.cpp', 'smoke_makefile': ROOT / 'tests/waterbox-smoke/Makefile',
-        'common_mak': ROOT / 'references/machawk/waterbox/common.mak', 'linkscript_aarch64': ROOT / 'references/machawk/waterbox/linkscript_aarch64.T',
-        'emulibc_source': ROOT / 'references/machawk/waterbox/emulibc/emulibc.c', 'build_recipe': ROOT / 'tools/build_waterbox.py', 'toolchains_json': ROOT / 'plan/toolchains.json'}.items():
-        require(wb.sha256(path) == receipt['input_sha256'][name], 'Smoke recipe/source differs: ' + name)
-    sources = [ROOT / p for p in ('integration/bizhawk/smoke/Native.cs', 'tests/waterbox-smoke/StateProbe.cs', 'integration/bizhawk/smoke/global.json', 'tools/waterbox_state_probe.py', 'Directory.Build.targets')]
+    producer = provenance(receipt, ROOT)
+    sources = [ROOT / p for p in ('integration/bizhawk/smoke/Native.cs', 'tests/waterbox-smoke/StateProbe.cs', 'integration/bizhawk/smoke/global.json', 'tools/waterbox_state_probe.py', 'Directory.Build.targets', 'tools/build_waterbox.py', 'plan/toolchains.json')]
     require(json.loads(sources[2].read_text()) == {'sdk': {'version': '10.0.402', 'rollForward': 'disable'}}, 'SDK pin differs')
-    proof = {str(p): wb.sha256(p) for p in [receipt_path, *paths.values(), *sources]}
+    proof = {**producer, **{str(p): wb.sha256(p) for p in [receipt_path, *paths.values(), *sources]}}
     dotnet = Path(shutil.which('dotnet') or '/missing-dotnet').resolve(); proof[str(dotnet)] = wb.sha256(dotnet)
     return paths, proof, dotnet
 
@@ -150,7 +193,7 @@ def run():
         observations = {a + ':' + b: compare(captures[a], captures[b], record['buffers']) for a, b in pairs}
         require(inputs()[1] == before, 'Inputs changed during diagnostic')
         spills = observations['afterA0:interventionA0']['identified_buffer_spills']
-        return {'scope': 'mini-guest-only', 'eviction': True, 'inputs': before, 'observations': observations,
+        return {'scope': 'mini-guest-only', 'eviction': True, 'guest_producer': before['guest_producer'], 'current_inputs': {k: v for k, v in before.items() if k != 'guest_producer'}, 'observations': observations,
             'conclusion': 'host-buffer-spill-proven' if spills else 'unresolved' if any(not o['equal'] for o in observations.values()) else 'no-divergence-in-this-path'}
 
 
