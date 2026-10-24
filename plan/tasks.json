@@ -12324,7 +12324,7 @@
         "integration/bizhawk/patches/build_tree.py"
       ],
       "touch": [
-        "integration/bizhawk/patches/0022-emuhawk-self-check.patch",
+        "integration/bizhawk/patches/0024-emuhawk-self-check.patch",
         "integration/bizhawk/patches/build_tree.py",
         "tools/emuhawk_selfcheck.py",
         "tests/packages/test_emuhawk_selfcheck.py",
