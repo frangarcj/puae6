@@ -861,9 +861,7 @@ TASK_SUITES[('STATE01', 'T55c7')] = {
 TASK_SUITES[('STATE01', 'T55c8')] = dict(TASK_SUITES[('STATE01', 'T55c7')],
     private_frame_regression='tests.host.test_internal_fpu_state.InternalFpuStateTests')
 TASK_SUITES[('STATE01', 'T55c11')] = dict(TASK_SUITES[('STATE01', 'T55c8')])
-TASK_SUITES[('STATE01', 'T55c12')] = {
-    'frestore040_single_denorm': 'tests.host.test_frestore040.Frestore040Tests',
-    'private_frame_regression': 'tests.host.test_internal_fpu_state.InternalFpuStateTests'}
+# T55c12 remains unsupported: the admitted-frame probe is not a CU06 denormal oracle.
 TASK_SUITES[('STATE01', 'T55c13')] = {
     'frestore040_fe_normalized_operands': 'tests.host.test_frestore040.Frestore040Tests',
     'private_frame_regression': 'tests.host.test_internal_fpu_state.InternalFpuStateTests',
@@ -885,6 +883,40 @@ TASK_SUITES[('DET02', 'T55c5')] = {'all_z3_sizes_autoconfig_and_restore': 'tests
 TASK_SUITES[('LR01', 'T55c5')] = {'all_z3_sizes_native_frontends': 'tests.libretro-host.test_z3'}
 TASK_SUITES[('WB03', 'T55c5')] = TASK_SUITES[('WB03', 'T55c3')]
 TASK_SUITES[('PERF01', 'T55c5')] = TASK_SUITES[('PERF01', 'T55c3')]
+# Public CPU closure, limited to the formats/profiles documented in the contract.
+# GEN01's two clean HOST generations remain tools/generate_cpu.py --check.
+TASK_SUITES[('GEN01', 'T55c')] = {
+    'schema': 'tests.config.test_schema',
+    'frontend_parity': 'tests.config.test_parity',
+    'generic_040_060_no_mmu': 'tests.codegen.test_gencpu_models',
+}
+TASK_SUITES[('DET02', 'T55c')] = {
+    'a4040_public_restore': 'tests.state.test_a4040.A4040Tests',
+    'all_z3_sizes_native_restore': 'tests.state.test_z3',
+    'cpu_accuracy_restore_regression': 'tests.state.test_cpu_modes',
+    'cache_and_no_mmu_policy': 'tests.host.test_cache040.Cache040Tests',
+    'late_cpu_controls_and_fpu': 'tests.host.test_cpu_late_state.CpuLateStateTests',
+    'internal_fpu_owner_and_frames': 'tests.host.test_internal_fpu_state.InternalFpuStateTests',
+    'admitted_frestore040_frames': 'tests.host.test_frestore040.Frestore040Tests',
+    'external_fpu_state_regression': 'tests.state.test_state_fpu.FpuLayoutTests',
+    'real_a4000_040_native_restore': 'tests.state.test_kickstart_a4040.NativeKickstart040Tests',
+    'real_a4000_060_native_restore': 'tests.state.test_kickstart_a4040.NativeKickstart060Tests',
+}
+TASK_SUITES[('WB03', 'T55c')] = {
+    'a4040_sandbox_restore': 'tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests',
+    'all_z3_sizes_sandbox_restore': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore',
+    'all_z3_sizes_measured_heap_margin': 'tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin',
+    'real_a4000_040_060_boot_restore': 'tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_wb03_real_a4000_040_060_boot_and_snapshot',
+}
+TASK_SUITES[('LR01', 'T55c')] = {
+    'a4040_frontend_restore': 'tests.libretro-host.test_a4040.A4040FrontendTests',
+    'all_z3_sizes_native_frontends': 'tests.libretro-host.test_z3',
+    'real_a4000_040_libretro_restore': 'tests.state.test_kickstart_a4040.LibretroKickstart040Tests',
+    'real_a4000_060_libretro_restore': 'tests.state.test_kickstart_a4040.LibretroKickstart060Tests',
+}
+for _gate in ('GEN01', 'DET02', 'WB03', 'LR01'):
+    # T55b adds the real 030 preset; shared schema/parity selectors keep one name.
+    TASK_SUITES[(_gate, 'T55')] = {**TASK_SUITES[(_gate, 'T55c')], **TASK_SUITES[(_gate, 'T55b')]}
 TASK_SUITES[('PERF01', 'T53')] = {'measured_cpu_levels': 'tests.bench.test_cpu_campaign.CpuCampaignMeasurements'}
 TASK_SUITES[('GEN01', 'T53')] = {'supported_cpu_families_and_unchanged_exact': 'tests.codegen.test_gencpu_models'}
 for _gate in ('DET02', 'STATE01'):

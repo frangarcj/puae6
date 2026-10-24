@@ -125,5 +125,102 @@ class TaskSuiteDispatchTests(unittest.TestCase):
             self.assertEqual(check.dispatch("SAFE01", task="T26")["status"], "BLOCKED")
 
 
+class PublicCpuDispatchTests(unittest.TestCase):
+    # Exact selectors are the coverage contract, independent of registry labels.
+    LATE = {
+        "GEN01": {
+            "tests.config.test_schema", "tests.config.test_parity",
+            "tests.codegen.test_gencpu_models",
+        },
+        "DET02": {
+            "tests.state.test_a4040.A4040Tests", "tests.state.test_z3",
+            "tests.state.test_cpu_modes", "tests.host.test_cache040.Cache040Tests",
+            "tests.host.test_cpu_late_state.CpuLateStateTests",
+            "tests.host.test_internal_fpu_state.InternalFpuStateTests",
+            "tests.host.test_frestore040.Frestore040Tests",
+            "tests.state.test_state_fpu.FpuLayoutTests",
+            "tests.state.test_kickstart_a4040.NativeKickstart040Tests",
+            "tests.state.test_kickstart_a4040.NativeKickstart060Tests",
+        },
+        "WB03": {
+            "tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests",
+            "tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_domains_and_same_new_sandbox_and_process_restore",
+            "tests.waterbox-state.test_wrapper_z3.WrapperZ3Tests.test_actual_heap_commitment_has_the_existing_two_times_margin",
+            "tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_wb03_real_a4000_040_060_boot_and_snapshot",
+        },
+        "LR01": {
+            "tests.libretro-host.test_a4040.A4040FrontendTests",
+            "tests.libretro-host.test_z3",
+            "tests.state.test_kickstart_a4040.LibretroKickstart040Tests",
+            "tests.state.test_kickstart_a4040.LibretroKickstart060Tests",
+        },
+    }
+    EARLY = {
+        "GEN01": set(),
+        "DET02": {"tests.state.test_a4030", "tests.state.test_kickstart_a4030.NativeKickstartTests"},
+        "WB03": {"tests.waterbox-state.test_wrapper_machine.WrapperMachineTests.test_wb03_real_a4000_boot_and_snapshot_in_same_new_sandbox_and_process"},
+        "LR01": {"tests.state.test_kickstart_a4030.LibretroKickstartTests"},
+    }
+
+    def selections(self):
+        for task in ("T55c", "T55"):
+            for gate in self.LATE:
+                yield task, gate, check.TASK_SUITES[(gate, task)]
+
+    def test_public_cpu_gates_have_exact_unique_coverage(self):
+        for task, gate, suites in self.selections():
+            with self.subTest(task=task, gate=gate):
+                expected = self.LATE[gate] | (self.EARLY[gate] if task == "T55" else set())
+                self.assertEqual(expected, set(suites.values()))
+                self.assertEqual(len(expected), len(suites), "one execution per selector")
+
+    def test_mocked_public_cpu_gates_transport_every_selector_as_harness_only(self):
+        for task, gate, suites in self.selections():
+            with self.subTest(task=task, gate=gate), \
+                    mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+                    mock.patch.object(check, "_run_suite", return_value=completed(COUNTS)) as runner:
+                result = check.dispatch(gate, task=task)
+            self.assertEqual("PASS", result["status"])
+            self.assertEqual("HARNESS", result["evidence"])
+            self.assertFalse(result["scenario_executed"])
+            self.assertIsNone(result["core_build_id"])
+            self.assertEqual(sorted(suites), result["assertions_executed"])
+            self.assertEqual(sorted(suites), result["assertion_set"])
+            self.assertEqual([suites[name] for name in sorted(suites)],
+                             [call.args[0] for call in runner.call_args_list])
+            self.assertTrue(all(call.args[1] == check.TASK_SUITE_ENV for call in runner.call_args_list))
+
+    def test_public_cpu_failures_skips_empty_or_invalid_results_never_pass(self):
+        cases = [(completed(COUNTS, 1), "FAIL"),
+                 (completed(dict(COUNTS, failures=1)), "FAIL"),
+                 (completed(dict(COUNTS, errors=1)), "FAIL"),
+                 (completed(dict(COUNTS, unexpected_successes=1)), "FAIL"),
+                 (completed(dict(COUNTS, tests=0)), "FAIL"),
+                 (completed(dict(COUNTS, skipped=1)), "BLOCKED"),
+                 (completed(dict(COUNTS, expected_failures=1)), "BLOCKED"),
+                 (subprocess.CompletedProcess([], 0, "{", ""), "FAIL")]
+        for task, gate, _ in self.selections():
+            for process, expected in cases:
+                with self.subTest(task=task, gate=gate, counts=process.stdout), \
+                        mock.patch.object(check.shutil, "which", return_value="/usr/bin/tool"), \
+                        mock.patch.object(check, "_run_suite", return_value=process) as runner:
+                    result = check.dispatch(gate, task=task)
+                self.assertEqual(expected, result["status"])
+                self.assertNotEqual(0, result["exit_code"])
+                self.assertEqual([], result["assertions_executed"])
+                self.assertEqual(1, runner.call_count)
+
+    def test_cu06_denormal_and_unknown_required_coverage_do_not_run_admitted_frames(self):
+        with mock.patch.object(check, "_run_suite") as runner:
+            result = check.dispatch("STATE01", task="T55c12")
+            self.assertEqual("NOT_IMPLEMENTED", result["status"])
+            self.assertEqual([], result["assertions_executed"])
+            for task, gate, _ in self.selections():
+                result = check.dispatch(gate, task=task, required=("cu06_denormal",))
+                self.assertEqual("NOT_IMPLEMENTED", result["status"])
+                self.assertEqual([], result["assertions_executed"])
+            runner.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
