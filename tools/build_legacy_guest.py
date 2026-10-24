@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a source-derived debug UAE reference; never install or execute a guest."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,8 @@ import build_waterbox as wb
 import import_sources as sources
 
 IDS = ('machawk', 'bizhawk_uae_reference', 'machawk_capsimg', 'waterbox_musl_darwin')
+PATCH = 'integration/waterbox-guest/0002-legacy-softfloat-quotient.patch'
+SOFTFLOAT = 'sources/src/fpp_softfloat.c'
 STATUS = 'BUILD01_GUEST_NOT_EXECUTED'
 FLAGS = ['--target=aarch64-linux-gnu', '-ffixed-x18', '-ffixed-x28', '-DWBX_HOST_PAGE_SIZE=16384',
          '-fvisibility=hidden', '-mcmodel=large', '-mstack-protector-guard=global', '-fno-pic', '-fno-pie',
@@ -31,6 +34,24 @@ def require(ok, message):
 def derived():
     from tools.build_waterbox_guest_sysroot import verify
     return verify(root=ROOT)
+
+
+def adapted(data):
+    for name in ('mod', 'rem'):
+        old = ('\ta->fpx = floatx80_'+name+'(a->fpx, b->fpx, q, s, &fs);').encode()
+        new = ('\tuint64_t quotient = 0;\n\ta->fpx = floatx80_'+name+'(a->fpx, b->fpx, &quotient, s, &fs);\n\t*q = quotient;').encode()
+        require(data.count(old) == 1, 'Unexpected legacy softfloat adapter')
+        data = data.replace(old, new)
+    return data
+
+
+def source_overlay(tree):
+    before = (tree / SOFTFLOAT).read_bytes()
+    for flags in (['--forward'], ['--reverse', '--dry-run']):
+        result = subprocess.run(['patch', '-p1', '--batch', '--fuzz=0', '--no-backup-if-mismatch', *flags, '-i', str(ROOT / PATCH)],
+                                cwd=tree, capture_output=True, timeout=10)
+        require(result.returncode == 0, 'Legacy source overlay rejected: ' + result.stderr.decode()[-1000:])
+    require((tree / SOFTFLOAT).read_bytes() == adapted(before), 'Unexpected source overlay delta')
 
 
 def inputs():
@@ -52,6 +73,9 @@ def inputs():
              'sysroot': {k: str(v) if isinstance(v, Path) else v for k, v in sysroot.items()},
              'recipe_sha256': wb.sha256(Path(__file__)), 'profile': lock['profile'], 'toolchain_profile': lock['toolchain_profile'],
              'reference_fingerprint_sha256': wb.sha256(ROOT / 'plan/machawk.reference.json')}
+    original = paths['bizhawk_uae_reference'] / SOFTFLOAT
+    proof['source_overlay'] = {'file': PATCH, 'sha256': wb.sha256(ROOT / PATCH), 'target': SOFTFLOAT,
+                              'original_sha256': wb.sha256(original), 'patched_sha256': hashlib.sha256(adapted(original.read_bytes())).hexdigest()}
     return paths, tools, sysroot['sysroot'], proof
 
 
@@ -92,6 +116,7 @@ def prepare(stage, paths):
     for name in ('emulibc', 'uae'): shutil.copytree(captured / name, waterbox / name, symlinks=True)
     for sid, name in (('bizhawk_uae_reference', 'libretro-uae'), ('machawk_capsimg', 'capsimg')):
         shutil.copytree(paths[sid], waterbox / 'uae' / name, symlinks=True)
+    source_overlay(waterbox / 'uae/libretro-uae')
     audit_copy(stage, paths)
     return waterbox
 
@@ -106,7 +131,10 @@ def audit_copy(stage, paths):
         actual = [e for e in wb.inventory(waterbox / name) if name != 'uae' or not e['path'].startswith(('libretro-uae/', 'capsimg/'))]
         require(actual == expected, 'Copied MacHawk source differs')
     for sid, name in (('bizhawk_uae_reference', 'libretro-uae'), ('machawk_capsimg', 'capsimg')):
-        require(wb.inventory(waterbox / 'uae' / name) == wb.inventory(paths[sid]), 'Copied legacy source differs')
+        expected = wb.inventory(paths[sid])
+        if sid == 'bizhawk_uae_reference':
+            expected = [{**e, 'sha256': hashlib.sha256(adapted((paths[sid] / SOFTFLOAT).read_bytes())).hexdigest()} if e['path'] == SOFTFLOAT else e for e in expected]
+        require(wb.inventory(waterbox / 'uae' / name) == expected, 'Copied legacy source differs outside overlay')
 
 
 def commands(stage, tools, sysroot):

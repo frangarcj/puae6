@@ -1,9 +1,12 @@
 """Owned fixtures and read-only verification; never compile or run UAE here."""
 import importlib.util
 import json
+import os
 from pathlib import Path
+import re
 import shutil
 import struct
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -12,6 +15,12 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('legacy_builder', ROOT / 'tools/build_legacy_guest.py')
 p = importlib.util.module_from_spec(spec); spec.loader.exec_module(p)
+
+
+def adapters(text):
+    found = re.findall(r'static void fp_(?:mod|rem)\([^)]*\)\n\{[^}]*\}', text)
+    if len(found) != 2: raise ValueError('Missing real softfloat adapters')
+    return '\n'.join(found)
 
 
 class LegacyGuestTests(unittest.TestCase):
@@ -25,6 +34,9 @@ class LegacyGuestTests(unittest.TestCase):
         for name in ('common.mak', 'linkscript_aarch64.T', 'uae/Makefile', 'emulibc/Makefile', 'emulibc/emulibc.c'):
             path = waterbox / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('owned source fixture\n')
         for sid in ('bizhawk_uae_reference', 'machawk_capsimg'): (self.paths[sid] / 'fixture.c').write_text('own source\n')
+        target = self.paths['bizhawk_uae_reference'] / p.SOFTFLOAT; target.parent.mkdir(parents=True)
+        target.write_bytes((ROOT / 'references/machawk-uae' / p.SOFTFLOAT).read_bytes())
+        patch = self.root / p.PATCH; patch.parent.mkdir(parents=True); shutil.copyfile(ROOT / p.PATCH, patch)
         musl = self.paths['waterbox_musl_darwin']; (musl / 'tools').mkdir()
         for name in ('musl-clang.in', 'ld.musl-clang.in'): shutil.copyfile(ROOT / 'references/musl-darwin/tools' / name, musl / 'tools' / name)
         self.tools = {n: self.root / n for n in ('clang', 'lld', 'cargo', 'rustc', 'make')}
@@ -36,6 +48,7 @@ class LegacyGuestTests(unittest.TestCase):
         mock.patch.object(p, 'ROOT', self.root).start()
 
     def mocks(self):
+        real_run = p.subprocess.run
         mock.patch.object(p, 'inputs', return_value=(self.paths, self.tools, self.sysroot, self.proof)).start()
         mock.patch.object(p.wb, 'selected_toolchain', return_value={}).start()
         mock.patch.object(p.wb, 'locked_tools', return_value=(self.tools, self.versions)).start()
@@ -46,6 +59,7 @@ class LegacyGuestTests(unittest.TestCase):
         mock.patch.object(p.wb, 'check_no_compiler_tls', return_value={}).start()
         mock.patch.object(p, 'symbols', return_value={'own': 'fixture'}).start()
         def compile_fixture(command, **kwargs):
+            if command[0] == 'patch': return real_run(command, **kwargs)
             self.assertEqual(command[0], str(self.tools['make'])); self.assertIn('-j2', command)
             self.assertNotIn('install', command); self.assertNotIn('clean', command)
             stage = Path(command[2]).parents[1]
@@ -54,15 +68,17 @@ class LegacyGuestTests(unittest.TestCase):
             if 'debug' in command:
                 guest = stage / 'objects/uae/debug/uae.wbx'; guest.parent.mkdir(parents=True); guest.write_bytes(b'own fixture, not executable')
             return SimpleNamespace(returncode=0)
-        return mock.patch.object(p.subprocess, 'run', side_effect=compile_fixture).start()
+        child = mock.patch.object(p.subprocess, 'run', side_effect=compile_fixture).start()
+        child.fixture_effect = compile_fixture
+        return child
 
     def test_debug_recipe_wrappers_atomic_publication_and_readonly_verification(self):
         child = self.mocks(); result = p.build(self.output, execute=True)
         self.assertEqual(result['status'], p.STATUS); self.assertFalse(result['historical_binary_reproduction'])
-        self.assertEqual(p.verify(self.output), result); self.assertEqual(child.call_count, 2)
+        self.assertEqual(p.verify(self.output), result)
         self.assertEqual(set(x.name for x in self.output.iterdir()), {'uae.wbx', 'receipt.json'})
         self.assertFalse(list((self.root / 'build').glob('.legacy-source-*')))
-        first, second = [call.args[0] for call in child.call_args_list]
+        first, second = [call.args[0] for call in child.call_args_list if call.args[0][0] != 'patch']
         self.assertTrue(first[3].endswith('/emulibc/debug/emulibc.c.o')); self.assertEqual(second[3], 'debug')
         for command in (first, second):
             for flag in ('WBX_TARGET_ARCH=aarch64', 'WBX_HOST_PAGE_SIZE=16384', 'CCFLAGS_DEBUG=-O0 -g', 'CXXFLAGS_DEBUG=-O0 -g'): self.assertIn(flag, command)
@@ -88,7 +104,7 @@ class LegacyGuestTests(unittest.TestCase):
             child.assert_not_called()
 
     def test_compile_failure_input_drift_and_bad_isa_never_publish(self):
-        child = self.mocks(); child.side_effect = lambda *a, **k: SimpleNamespace(returncode=1)
+        child = self.mocks(); child.side_effect = lambda command, **kw: child.fixture_effect(command, **kw) if command[0] == 'patch' else SimpleNamespace(returncode=1)
         with self.assertRaisesRegex(ValueError, 'compilation failed'): p.build(self.output, execute=True)
         self.assertFalse(self.output.exists()); self.assertFalse(list((self.root / 'build').glob('.legacy-source-*')))
         mock.patch.stopall(); mock.patch.object(p, 'ROOT', self.root).start(); self.mocks()
@@ -158,6 +174,67 @@ class LegacyGuestTests(unittest.TestCase):
         fixture(); path.write_bytes(path.read_bytes()[:100])
         with self.assertRaisesRegex(ValueError, 'sections'): p.symbols(path)
 
+    def test_overlay_is_exact_reversible_and_neighbor_changes_are_rejected(self):
+        stage = self.root / 'stage'; stage.mkdir(); p.prepare(stage, self.paths)
+        original = self.paths['bizhawk_uae_reference'] / p.SOFTFLOAT
+        copied = stage / 'waterbox/uae/libretro-uae' / p.SOFTFLOAT
+        self.assertEqual(copied.read_bytes(), p.adapted(original.read_bytes()))
+        with self.assertRaisesRegex(ValueError, 'overlay rejected'): p.source_overlay(copied.parents[2])
+        (stage / 'waterbox/uae/libretro-uae/fixture.c').write_text('unexpected neighbor change')
+        with self.assertRaisesRegex(ValueError, 'outside overlay'): p.audit_copy(stage, self.paths)
+        with self.assertRaisesRegex(ValueError, 'adapter'): p.adapted(b'not the captured functions')
+
+
+class LegacySoftfloatAdapterTests(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get('P6_TEST_LEGACY_SOFTFLOAT_COMPILER') == '1', 'requires the pinned native compiler for a tiny adapter fixture')
+    def test_real_lp64_pointer_diagnostic_and_patched_adapter_values(self):
+        p.wb.source_spec('bizhawk_uae_reference', 'snapshot')
+        lock = p.wb.selected_toolchain(); tools = p.wb.selected_tool_paths(lock); compiler = tools['clang']
+        self.assertEqual(p.wb.sha256(compiler), lock['tools']['clang']['sha256'])
+        env = p.wb.hosted_environment(tools)['direct_env']
+        self.assertEqual(subprocess.check_output([str(compiler), '--version'], env=env, text=True).splitlines()[0], lock['tools']['clang']['version'])
+        original = (ROOT / 'references/machawk-uae' / p.SOFTFLOAT).read_bytes()
+        # Guest musl LP64 uses unsigned long; Darwin stdint could hide this error.
+        prefix = '''typedef unsigned long uint64_t;
+typedef unsigned long long uae_u64;
+typedef unsigned char uae_u8;
+_Static_assert(sizeof(uint64_t)==8 && sizeof(uae_u64)==8, "LP64 guest types");
+typedef struct { uint64_t fpx; } fpdata;
+static int fs, failure, writes; static uint64_t expected; static uae_u8 sign;
+static uint64_t stub(uint64_t a,uint64_t b,uint64_t*q,uae_u8*s,int*status) {
+ if(a!=11 || b!=3 || *q!=0 || status!=&fs) failure=1;
+ if(writes) *q=expected; *s=sign; return 42;
+}
+static uint64_t floatx80_mod(uint64_t a,uint64_t b,uint64_t*q,uae_u8*s,int*status) { return stub(a,b,q,s,status); }
+static uint64_t floatx80_rem(uint64_t a,uint64_t b,uint64_t*q,uae_u8*s,int*status) { return stub(a,b,q,s,status); }
+'''
+        suffix = '''int main(void) {
+ uint64_t values[]={0UL,1UL,0x8000000000000000UL,0xfedcba9876543210UL,0xffffffffffffffffUL};
+ for(unsigned op=0;op<2;op++) for(unsigned mode=0;mode<2;mode++)
+ for(unsigned si=0;si<2;si++) for(unsigned n=0;n<5;n++) {
+  fpdata a={11},b={3}; uae_u64 q=123; uae_u8 s=99;
+  writes=mode; expected=values[n]; sign=si;
+  if(op) fp_rem(&a,&b,&q,&s); else fp_mod(&a,&b,&q,&s);
+  if(failure || q!=(mode?expected:0) || s!=sign || a.fpx!=42 || b.fpx!=3) return 1;
+ }
+ return 0;
+}
+'''
+        with tempfile.TemporaryDirectory(prefix='softfloat-adapter-', dir=ROOT / 'build') as temporary:
+            stage = Path(temporary); source = stage / 'fixture.c'; binary = stage / 'fixture'
+            env = {**env, 'TMPDIR': str(stage), 'TMP': str(stage), 'TEMP': str(stage)}
+            args = [str(compiler), '-std=c11', '-O2', '-fstrict-aliasing', '-Werror=incompatible-pointer-types', str(source), '-o', str(binary)]
+            source.write_text(prefix+adapters(original.decode())+'\n'+suffix)
+            bad = subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(bad.returncode, 0); self.assertIn('incompatible pointer types', bad.stderr)
+            copied = stage / p.SOFTFLOAT; copied.parent.mkdir(parents=True); copied.write_bytes(original)
+            p.source_overlay(stage)
+            source.write_text(prefix+adapters(copied.read_text())+'\n'+suffix)
+            good = subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(good.returncode, 0, good.stderr)
+            self.assertEqual(subprocess.run([str(binary)], env=env, timeout=10).returncode, 0)
+        self.assertEqual((ROOT / 'references/machawk-uae' / p.SOFTFLOAT).read_bytes(), original)
+        self.assertEqual(p.wb.sha256(compiler), lock['tools']['clang']['sha256'])
 
 class LegacyArtifactTests(unittest.TestCase):
     def test_current_source_built_guest_matches_all_effective_inputs(self):
