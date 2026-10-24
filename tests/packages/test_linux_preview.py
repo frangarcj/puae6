@@ -159,14 +159,20 @@ class LinuxPreviewTests(unittest.TestCase):
                 archive.add(package.ROOT/'tests/fixtures/microrom'/name,arcname='source/tests/fixtures/microrom/'+name)
         rows = ['a','b','c','d','e','f','g','h','i','g','h','i']
         output = '\n'.join(f'run {n} {row}' for n,row in enumerate(rows))+'\nstate load s exact ok=1'
+        checks = dict(pal_file_restored_units=3,incompatible_config_rejected=True,rejection_state_unchanged=True,
+                      incompatible_future_units_compared=8,incompatible_av_dumps_compared=11)
         with mock.patch.object(package,'verify',return_value={'platform':'linux-arm64'}), \
              mock.patch.object(package,'native_platform',return_value='linux-arm64'), \
+             mock.patch.object(package,'state_identity_smoke',return_value=checks) as state_smoke, \
              mock.patch.object(package,'run',side_effect=[output,'unit 0\nunit 1\nunit 2\n']) as run, \
              mock.patch.object(package.subprocess,'run',return_value=subprocess.CompletedProcess([],3,'no Kickstart','')), \
              mock.patch.dict(package.os.environ,{'LD_PRELOAD':'/own/untrusted','DYLD_LIBRARY_PATH':'/own/untrusted'}):
             self.assertEqual(package.smoke(self.work),{'libretro_units':12,'restored_units_compared':3,
-                             'headless_units':3,'missing_firmware_rejected':True})
+                             'headless_units':3,'missing_firmware_rejected':True,**checks})
+        state_smoke.assert_called_once()
+        self.assertEqual(state_smoke.call_args.args[1],self.work/'bin/puae6_libretro.so')
         self.assertEqual(run.call_args_list[0].args[0][1],self.work/'bin/puae6_libretro.so')
+        self.assertIn('puae6_video_line_mode=single',run.call_args_list[0].args[0])
         self.assertFalse(any(k.startswith(('LD_','DYLD_')) for k in run.call_args_list[0].kwargs['env']))
         with mock.patch.object(package,'verify',return_value={'platform':'linux-arm64'}), \
              mock.patch.object(package,'native_platform',return_value='macos-arm64'), \

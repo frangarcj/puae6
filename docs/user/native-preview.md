@@ -179,7 +179,13 @@ En Linux se usan Clang/Clang++, CMake, Ninja y Python3 ya disponibles; añade
 generar un ZIP y comprobarlo extraido, desde los fuentes limpios y comprometidos
 ejecuta `python3 tools/package.py build`. La receta elige la plataforma nativa,
 compila tambien el host de consola y ejecuta la misma prueba instalada de avance,
-restauracion y rechazo de firmware ausente.
+restauracion y rechazo de firmware ausente. El smoke instalado guarda un estado
+PAL valido de linea simple y lo carga en otro proceso con las mismas opciones.
+Una sesion NTSC de linea doble lo rechaza por
+identidad de configuracion: su estado antes/despues permanece byte exacto y
+sus ocho unidades, estado final y dumps de video/PCM coinciden con un control
+NTSC independiente. Los datos temporales se eliminan al terminar. Esta prueba
+no promete compatibilidad de estados entre builds ni con otros cores.
 `python3 tools/package.py check --archive /ruta/preview.zip` repite esa comprobacion, sin necesitar el checkout
 usado para compilar los binarios. No descarga dependencias.
 

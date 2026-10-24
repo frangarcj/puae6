@@ -19,6 +19,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / 'manifests/release/native-preview.json'
 PRODUCTS = ('puae6_libretro.dylib', 'p6_headless', 'p6_libretro_host')
+# PAL single (287 rows) fits the NTSC double (484 rows) adapter bounds, so
+# a valid foreign state reaches config_hash rather than an earlier geometry check.
+PAL_SMOKE_OPTIONS = ('--set', 'puae6_video_line_mode=single')
 PLATFORMS = {
     'macos-arm64': ('Darwin', 'arm64', 'cmake/toolchains/macos-appleclang.cmake'),
     'linux-arm64': ('Linux', 'arm64', 'cmake/toolchains/linux-clang.cmake'),
@@ -178,6 +181,57 @@ def verify(directory):
     return manifest
 
 
+def state_identity_smoke(host, core, system, work, env, pal_rows):
+    """Valid foreign config, not a damaged header; only installed executables."""
+    pal, pal_end = work / 'pal.state', work / 'pal-end.state'
+    def checked(*args):
+        output = run([host, core, '--system', system, *args], cwd=work, env=env)
+        if 'VIOLATION' in output:
+            raise RuntimeError('Installed state contract violation:\n' + output[-2000:])
+        return output
+    def views(output, count):
+        rows = [line.split(' ', 2)[2] for line in output.splitlines() if line.startswith('run ')]
+        if len(rows) != count or any(not all(key in row for key in ('ahash=', 'unit=', 'ticks=')) for row in rows):
+            raise RuntimeError('Incomplete installed state future:\n' + output[-2000:])
+        return rows
+    def equal(left, right):
+        if not left.is_file() or not right.is_file() or not left.stat().st_size or left.read_bytes() != right.read_bytes():
+            raise RuntimeError('Installed fullstate/AV differs: ' + left.name + ' / ' + right.name)
+    # A second PAL process must accept the actual file and reproduce its future.
+    again = work / 'pal-again.state'
+    positive = checked(*PAL_SMOKE_OPTIONS, '--runs', '3', '--do', f'0:loadfile:{pal}:pos=6', '--do', f'3:savefile:{again}')
+    if f'state load {pal} pos=6 ok=1' not in positive or views(positive, 3) != pal_rows[6:9]:
+        raise RuntimeError('Installed PAL file failed positive restore:\n' + positive[-2000:])
+    equal(pal_end, again)
+    outputs = {}
+    for name in ('control', 'trial'):
+        target = work / name; target.mkdir()
+        for folder in ('audio', 'video'): (target / folder).mkdir()
+        arguments = ['--set', 'puae6_video_standard=NTSC', '--set', 'puae6_video_line_mode=double', '--no-dupe', '--runs', '8',
+                     '--dump-audio', target / 'audio', '--dump-pictures', target / 'video', '--dump-from', '6']
+        if name == 'trial':
+            arguments += ['--do', f'5:savefile:{target}/before.state', '--do', f'5:loadfile:{pal}',
+                          '--do', f'5:savefile:{target}/after.state']
+        arguments += ['--do', f'8:savefile:{target}/final.state']
+        outputs[name] = checked(*arguments)
+    refused = outputs['trial']
+    if (f'state load {pal} exact ok=0' not in refused or
+            'p6_state_load failed (10): state refused: config_hash:' not in refused):
+        raise RuntimeError('Installed foreign state was not refused by config identity:\n' + refused[-2000:])
+    equal(work / 'trial/before.state', work / 'trial/after.state')
+    if views(outputs['control'], 8) != views(refused, 8):
+        raise RuntimeError('Installed continuation changed after incompatible state')
+    equal(work / 'control/final.state', work / 'trial/final.state')
+    expected = {f'audio/audio-{n:03d}.bin' for n in range(1, 9)} | {f'video/picture-{n:03d}.bin' for n in range(6, 9)}
+    for name in ('control', 'trial'):
+        actual = {p.relative_to(work / name).as_posix() for folder in ('audio', 'video')
+                  for p in (work / name / folder).iterdir() if p.is_file()}
+        if actual != expected: raise RuntimeError('Incomplete installed AV dumps: ' + name)
+    for name in sorted(expected): equal(work / 'control' / name, work / 'trial' / name)
+    return dict(pal_file_restored_units=3, incompatible_config_rejected=True, rejection_state_unchanged=True,
+                incompatible_future_units_compared=8, incompatible_av_dumps_compared=len(expected))
+
+
 def smoke(directory):
     """Exercise only extracted binaries and the public micro-ROM sources shipped with them."""
     directory = Path(directory).resolve()
@@ -199,10 +253,13 @@ def smoke(directory):
         rom.write_bytes(module.build((work / 'boot.s').read_text()))
         host, core = (directory / 'bin' / n for n in ('p6_libretro_host', products(manifest['platform'])[0]))
         env = {k: v for k, v in os.environ.items() if not k.startswith(('DYLD_', 'LD_'))}
-        output = run([host, core, '--system', system, '--runs', '12', '--do', '6:save:s', '--do', '9:load:s'], cwd=work, env=env)
+        output = run([host, core, '--system', system, *PAL_SMOKE_OPTIONS, '--runs', '12', '--do', '6:save:s',
+                      '--do', f'6:savefile:{work}/pal.state', '--do', '9:load:s',
+                      '--do', f'12:savefile:{work}/pal-end.state'], cwd=work, env=env)
         rows = [line.split(' ', 2)[2] for line in output.splitlines() if line.startswith('run ')]
         if len(rows) != 12 or rows[6:9] != rows[9:12] or 'state load s exact ok=1' not in output or 'VIOLATION' in output:
             raise RuntimeError('Installed libretro advance/restore failed:\n' + output[-2000:])
+        state_checks = state_identity_smoke(host, core, system, work, env, rows)
         empty = work / 'empty-system'
         empty.mkdir()
         missing = subprocess.run([str(host), str(core), '--system', str(empty)], cwd=work, env=env,
@@ -212,7 +269,7 @@ def smoke(directory):
         headless = run([directory / 'bin/p6_headless', '--run', rom, '--units', '3'], cwd=work, env=env)
         if len([line for line in headless.splitlines() if line.startswith('unit ')]) != 3:
             raise RuntimeError('Installed headless did not advance')
-    return {'libretro_units': 12, 'restored_units_compared': 3, 'headless_units': 3, 'missing_firmware_rejected': True}
+    return {'libretro_units': 12, 'restored_units_compared': 3, 'headless_units': 3, 'missing_firmware_rejected': True, **state_checks}
 
 
 def unpack(archive, directory):
