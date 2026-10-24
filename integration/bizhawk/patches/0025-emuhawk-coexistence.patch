@@ -9,7 +9,7 @@
 +				: args.Length > 0 && args[0] == "--puae6-self-check" ? Puae6SelfCheck.Run(args) : SubMain(args);
 --- /dev/null
 +++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,146 @@
 +using System.Collections.Generic;
 +using System.IO;
 +using System.Linq;
@@ -122,6 +122,8 @@
 +    var db = Path.Combine(Stage, "gamedb"); Database.InitializeDatabase(db, db, true); MAMEMachineDB.Initialize(db);
 +    foreach (var directory in new[] { "User", "Movies", "Movie backups", "Temp Files" }) Directory.CreateDirectory(Path.Combine(Stage, directory));
 +    var native = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Stage, "native.json")));
++    _ = OSTailoredCode.LinkedLibManager.LoadOrThrow(Path.Combine(Stage, "dll", "libwaterboxhost.dylib"));
++    Identity(native);
 +    var cases = new List<Dictionary<string, object>>(); var names = new[] { "UAE", "PUAE6" };
 +    foreach (string format in new[] { "bk2", "tasproj" }) {
 +     var rows = new[] { new List<string[]>(), new List<string[]>() }; var states = new byte[2][];
