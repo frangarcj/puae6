@@ -12501,6 +12501,105 @@
       "stop": "No cambiar ABI/CPU/runtime, excluir bytes, normalizar estados ni modificar hashes/comparadores para aprobar. Dos intentos razonados sin localizar la misma diferencia requieren blocked_reason y trabajo independiente. Agente no edita metadata compartida, instala, publica ni ejecuta compilaciones pesadas."
     },
     {
+      "id": "T40n",
+      "title": "Corregir y probar atomicamente setjmp/longjmp del ABI Waterbox AArch64",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40m",
+        "T09d",
+        "T28c"
+      ],
+      "read": [
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "integration/bizhawk/smoke/Native.cs",
+        "tests/waterbox-smoke/guest.cpp",
+        "tests/waterbox-smoke/Makefile",
+        "references/musl-darwin/src/setjmp/waterbox_aarch64/setjmp.s",
+        "references/musl-darwin/src/setjmp/waterbox_aarch64/longjmp.s",
+        "references/musl-darwin/arch/waterbox_aarch64/bits/setjmp.h",
+        "tools/build_waterbox.py"
+      ],
+      "touch": [
+        "integration/waterbox-guest/0001-setjmp-x28.patch",
+        "tools/waterbox_setjmp.py",
+        "tests/waterbox-smoke/setjmp_probe.c",
+        "tests/waterbox-smoke/SetjmpProbe.cs",
+        "tests/waterbox-smoke/test_setjmp.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Decision revisada independientemente tras T40m: __exbuf y s_try_stack difieren exclusivamente en slot x28(72..79), que contiene Context* del host. El arreglo es atomicamente writer+reader y SOLO waterbox_aarch64: stp x27,xzr en setjmp y ldp x27,xzr en longjmp, conservando offsets/tamanos/SP/x19..x27/x29/d8..d15/retorno0a1. No cambiar AArch64generico, x28 del interopHOST ni snapshots/datos/comparadores. Agente hosted_bootstrap implementa5rutas en worktree aislado; root metadata/revision/ejecucion serializada.",
+        "Crear parche fuente pequeno sobre copias temporales de ambos ASM fijados; referencia y sysrootbase intactos. Construir dos mini-guests propios (original y overlay) con compilador/sysroot/wrappers/sourcepins actuales verificados. Reutilizar guest.cpp y su wbx_probe_abi sin editarlo, enlazando ademas fuente C propia y los dos ASM originales o parcheados antes de libc; un Makefile temporal puede incluir common.mak original con mismos flags/16KiB/x18/x28. No recompilar WinUAE, runtime, sysrootcompleto ni legacy durante esta prueba de ABI.",
+        "El test C hace setjmp y longjmp DENTRO de una activacion viva, nunca retornar del export y luego saltar al frame caducado. Comprobar slot72..79 escrito0, retorno0→1 yvalor distinto, TLS pthread_key/errno/x28 actual antes/despues. En el MISMO frame poner canario en slotx28 antesdelongjmp para demostrar que lector mantienecontextoactivo. Negativooriginal rechaza slotnozero antes de saltar con canario peligroso, en procesoaislado yconstatusdistinto; no anunciarlo como emuladorPASS. Reusar canarios wb13 existentes para x19..x27/x29/SP/d8..d15 y evitar C++ con destructores atravesado porlongjmp.",
+        "Host C# minimo enlaza Native.cs real y runtimeRelease actual. Dos sandboxes y restore en segundo/proceso nuevo comparan snapshotscompletos y resultados tras saltosvalidos; no ejecutar longjmp a marco que ya retorno. Todosbytes siguenincluidos y no se normaliza jmpbuf para comparar. Identidades de runtime/baseguest/sysroot/herramientas/fuentes propias antes/despues, restore real y numero de escenarios claros. No afirmar soporte sigsetjmp, POSIXsignals, nuevos pthreads/corutinas: faltaimplementacionwaterboxde sigsetjmp y la aarch64generica usaotro__jmp_buf.",
+        "Orquestadoroffline, compilacionesen build temporal propio, host .NET/SDKfijados, datos temporales borrados, stdout compacto. Fixtures de parche/aplicacionreversa/ISA/bounds/procedencia/resultado incompleto niegan falsoPASS. Gate real opt-in P6_TEST_WATERBOX_SETJMP=1; coordinador registra ABI01/WB13/WB15 yfunctional cuando exista modulo. Cinco rutasimplementacion ymenos400lineaslogicasorientativo; decidir/APIrevisar antes de escribir si no cabe. T40o conserva integracion de sysroot/guestderivado yT40k sus4casos completos, sin marcarlosDONE desde esteoraculo."
+      ],
+      "checks": [
+        "ABI01",
+        "WB13",
+        "WB15"
+      ],
+      "acceptance": [
+        "El guestoriginal demuestra el slot host no canonico y el guest con ambos ASM corregidos supera saltosvalidos, canario de lector, registros/TLS/retornos y snapshotscompletos en dos sandboxes/proceso nuevo con inputsautenticados. No salto a framecaducado ni C++ atravesado porlongjmp.",
+        "Fixture/negativos/probe real pasan con fuente/snapshot/reference/baseintactos ytemporaleslimpios. Parchefuente mantiene ABI y es exclusivo waterbox_aarch64; ningunaseccion/byte quedaoculta y no se acreditaT40k/T40o/sigsetjmp por inferencia."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo conservar reproducer y doshipotesis; bloquear antes de knobs/ABI alazar. Sin paquetes/red/escrituraMacHawk ni artefactos producto sustituidos. Agente no edita metadata ni compila/runtime/guest/EmuHawk ni publica."
+    },
+    {
+      "id": "T40o",
+      "title": "Integrar el ABI setjmp corregido en sysroot y guests derivados sin modificar MacHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "pending",
+      "depends": [
+        "T40n"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/build_waterbox_sysroot.py",
+        "tools/build_waterbox.py",
+        "tools/emuhawk_coexistence.py"
+      ],
+      "touch": [
+        "tools/waterbox_setjmp.py",
+        "tools/build_waterbox_sysroot.py",
+        "tools/build_waterbox.py",
+        "tools/build_legacy_guest.py",
+        "tools/emuhawk_coexistence.py",
+        "tests/packages/test_emuhawk_coexistence.py",
+        "tests/waterbox-smoke/test_setjmp.py",
+        "plan/toolchains.json",
+        "manifests/waterbox-memory.json",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "DespuesdeloraculoT40n revisar receta minima de overlayfuente/sysrootderivado con identidadnueva y compilacion legacy en outputs propios. La base1270inputs y elguestoriginal390cc permanecen intactos; no editarcapturas/manifestsdeupstream ni MacHawk. No sustituir ELF a mano ni editar bytes de estados paraaprobar. Acreditar cada nuevoartefactodesdesusfuentes/pins/flags; actualizarautoridadtoolchains explicitamente trasverificacion, sin cambiarinventariosgoldenpara ocultar diferencias.",
+        "Conectar productoPUAE6 a variante fuente corregida y construir guestlegacy derivado desde referencia/fingerprint autorizados en checkout/output propio sin escribir ni instalar sobreMacHawk. Conservar configuracion/ABI/filas originales. Antesdeimplementar desglosar si supera400lineas/5rutas medianteverticales causalmente independientes conmismaaceptacion, sinfragmentarparASMwriter/reader.",
+        "Ejecutar una candidata integrada: T40m debe darfullstateexacto y los4casosBK2/TAS deT40k debenpasar conamboscores vivos, A/V/aislamiento/identidad/replay/preferenciacontraria completos. Revalidar regresionesWB13/WB15 y memoria/restauracion afectadas por nuevaidentidad; no heredarPASS delguestanterior ni repetirbatallasnativas no afectadas. Mantenerlimitacionestadosentrebuilds y dejarfunciones no acreditadas pendientes."
+      ],
+      "checks": [
+        "BUILD01",
+        "ABI01",
+        "WB03",
+        "WB09",
+        "WB13",
+        "WB15"
+      ],
+      "acceptance": [
+        "Sysroot y guestsderivados tienen receta/pins/identidad verificables, parchefuenteatomicamenteaplicado ybase/referenciainmutables. Producto usa la variantevalidada; el nuevoinsumo no es solo pruebaaislada.",
+        "Coexistencia4casos yrestauracionesafectadas pasan enruntimeactual sinmascarar snapshots ni reinterpretarcompatibilidadentrebuilds. Referenciasintactas,temporaleslimpios yplanvalidado."
+      ],
+      "stop": "No marcarDONE si solo pasaoraculoABI o compila. Si falta receta fuente reproducible delegacy o uncontrol real permanecefallando, registrarblocked_reason; no normalizar ni cambiarhashesgoldenparaaprobar."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12524,7 +12623,9 @@
         "T40j",
         "T40k",
         "T40l",
-        "T40m"
+        "T40m",
+        "T40n",
+        "T40o"
       ],
       "read": [
         "docs/05-maintenance.md",
