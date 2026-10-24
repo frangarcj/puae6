@@ -23,26 +23,34 @@ def sha(path):
 
 
 def inputs():
-    from tools import build_waterbox as wb
-    runtime = wb.read_runtime_receipt(wb.runtime_receipt_path("release"))
-    guest = json.loads((ROOT / "build/waterbox/puae6/puae6-receipt.json").read_text())
+    from tools import build_legacy_guest as legacy, build_waterbox as wb
+    receipts = {"libwaterboxhost.dylib": wb.runtime_receipt_path("release"),
+                "puae6.wbx": ROOT / "build/waterbox/puae6/puae6-receipt.json",
+                "uae.wbx": ROOT / "build/legacy-guest/receipt.json"}
+    receipt_hashes = {name: sha(path) for name, path in receipts.items()}
+    runtime = wb.read_runtime_receipt(receipts["libwaterboxhost.dylib"])
+    guest = json.loads(receipts["puae6.wbx"].read_text())
+    wb.check_puae6_guest_abi(guest)
+    reference = legacy.verify(ROOT / "build/legacy-guest")
     if runtime["runtime_profile"] != "release" or guest["manual_inputs"] != wb.puae6_manual_inputs(root=ROOT):
         raise ValueError("Current Release runtime/guest sources required")
     if any(sha(ROOT / name) != digest for name, digest in guest["sources"].items()):
         raise ValueError("Guest source receipt differs")
     paths = {"libwaterboxhost.dylib": Path(runtime["runtime_dylib"]["path"]),
              "puae6.wbx": ROOT / "build/waterbox/puae6/release/puae6.wbx",
-             "uae.wbx": s.builder.MACHAWK / "waterbox/waterboxhost/uae-cd32-headless/bin/Release/net8.0/osx-arm64/dll/uae.wbx"}
-    result = {name: {"path": str(path), "sha256": sha(path)} for name, path in paths.items()}
-    if result["libwaterboxhost.dylib"]["sha256"] != runtime["runtime_dylib"]["sha256"] or result["puae6.wbx"]["sha256"] != guest["guest"]["sha256"]:
+             "uae.wbx": ROOT / "build/legacy-guest/uae.wbx"}
+    result = {name: {"path": str(path), "sha256": sha(path), "receipt_sha256": receipt_hashes[name]} for name, path in paths.items()}
+    if (result["libwaterboxhost.dylib"]["sha256"] != runtime["runtime_dylib"]["sha256"]
+            or result["puae6.wbx"]["sha256"] != guest["guest"]["sha256"]
+            or result["uae.wbx"]["sha256"] != reference["guest"]["sha256"]):
         raise ValueError("Runtime/guest receipt artifact mismatch")
-    if result["uae.wbx"]["sha256"] != "390cc3473c2a78f0a4b63a1a06e07ba49afcf6d39a7ff5f5773daf9f92b7ce92":
-        raise ValueError("Legacy guest differs from authorized reference")
     for name, path in paths.items():
         with path.open("rb") as stream: header = stream.read(64)
         if len(header) != 64: raise ValueError("Truncated native input")
         valid = header[:4] == b"\xcf\xfa\xed\xfe" and struct.unpack_from("<I", header, 4)[0] == 0x100000c if name.endswith("dylib") else header[:7] == b"\x7fELF\x02\x01\x01" and struct.unpack_from("<H", header, 18)[0] == 183
         if not valid: raise ValueError("Wrong Darwin ARM64/runtime or guest ELF ISA")
+    if receipt_hashes != {name: sha(path) for name, path in receipts.items()}:
+        raise ValueError("Native receipts changed during authentication")
     return result
 
 

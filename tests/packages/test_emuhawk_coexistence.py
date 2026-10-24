@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import unittest
 from unittest import mock
@@ -48,6 +49,49 @@ class CoexistenceTests(unittest.TestCase):
             link = root / "linked"; link.symlink_to(root / "uae.wbx")
             with self.assertRaises(ValueError): c.sha(link)
 
+    def test_inputs_require_both_derived_guests_and_track_authenticated_receipts(self):
+        from tools import build_legacy_guest as legacy, build_waterbox as wb
+        with tempfile.TemporaryDirectory(dir=c.ROOT / "build", prefix="coexist-inputs-") as tmp:
+            root = Path(tmp); (root / "build/waterbox/puae6/release").mkdir(parents=True)
+            (root / "build/legacy-guest").mkdir()
+            source = root / "own.cpp"; source.write_bytes(b"own source fixture")
+            paths = {"libwaterboxhost.dylib": root / "build/own-runtime.dylib",
+                     "puae6.wbx": root / "build/waterbox/puae6/release/puae6.wbx",
+                     "uae.wbx": root / "build/legacy-guest/uae.wbx"}
+            for name, path in paths.items():
+                data = bytearray(64)
+                if name.endswith("dylib"): struct.pack_into("<II", data, 0, 0xfeedfacf, 0x100000c)
+                else: data[:7] = b"\x7fELF\x02\x01\x01"; struct.pack_into("<H", data, 18, 183)
+                path.write_bytes(data + name.encode())
+            runtime_path = root / "build/runtime-receipt.json"
+            guest_path = root / "build/waterbox/puae6/puae6-receipt.json"
+            legacy_path = root / "build/legacy-guest/receipt.json"
+            runtime = {"runtime_profile": "release", "runtime_dylib": {"path": str(paths["libwaterboxhost.dylib"]), "sha256": c.sha(paths["libwaterboxhost.dylib"])}}
+            guest = {"manual_inputs": {"own": "pin"}, "sources": {"own.cpp": c.sha(source)},
+                     "guest": {"sha256": c.sha(paths["puae6.wbx"])}, "guest_abi": {"variant": "own-derived"}}
+            reference = {"guest": {"sha256": c.sha(paths["uae.wbx"])}}
+            runtime_path.write_text(json.dumps(runtime)); legacy_path.write_text(json.dumps(reference))
+            def write(): guest_path.write_text(json.dumps(guest))
+            def abi(receipt):
+                if receipt.get("guest_abi") != {"variant": "own-derived"}: raise ValueError("Guest ABI missing/stale")
+            write()
+            with mock.patch.object(c, "ROOT", root), mock.patch.object(wb, "runtime_receipt_path", return_value=runtime_path), \
+                    mock.patch.object(wb, "read_runtime_receipt", return_value=runtime), mock.patch.object(wb, "puae6_manual_inputs", return_value={"own": "pin"}), \
+                    mock.patch.object(wb, "check_puae6_guest_abi", side_effect=abi, create=True) as check, mock.patch.object(legacy, "verify", return_value=reference) as verify:
+                before = c.inputs(); check.assert_called_once_with(guest); verify.assert_called_once_with(root / "build/legacy-guest")
+                self.assertEqual(before["uae.wbx"]["path"], str(paths["uae.wbx"]))
+                guest["provenance"] = "changed receipt only"; write(); after = c.inputs()
+                self.assertNotEqual(before, after); self.assertEqual(before["puae6.wbx"]["sha256"], after["puae6.wbx"]["sha256"])
+                for value in (None, {"variant": "base"}):
+                    guest["guest_abi"] = value; write()
+                    with self.assertRaisesRegex(ValueError, "ABI missing/stale"): c.inputs()
+                guest["guest_abi"] = {"variant": "own-derived"}; guest["manual_inputs"] = {}; write()
+                with self.assertRaisesRegex(ValueError, "sources required"): c.inputs()
+                guest["manual_inputs"] = {"own": "pin"}; write(); verify.side_effect = ValueError("Legacy base/stale receipt")
+                with self.assertRaisesRegex(ValueError, "Legacy base/stale"): c.inputs()
+                verify.side_effect = None; reference["guest"]["sha256"] = "f" * 64
+                with self.assertRaisesRegex(ValueError, "artifact mismatch"): c.inputs()
+
     def test_staging_context_failure_duplicate_and_input_drift_never_accept_partial_result(self):
         fixture = bootstrap.BootstrapTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
         def execute(command, **kwargs):
@@ -59,12 +103,13 @@ class CoexistenceTests(unittest.TestCase):
         with mock.patch.object(c, "prepare", return_value=self.native()), mock.patch.object(c, "inputs", return_value=self.native()):
             fixture.process.side_effect = execute
             self.assertEqual(c.s.run(coexistence=True)["scope"], "same-process-coexistence")
-            for mode in ("failed", "duplicate", "drift"):
+            for mode in ("failed", "duplicate", "drift", "receipts"):
                 def invalid(command, **kwargs):
                     result = execute(command, **kwargs)
                     if mode == "failed": result.returncode = 2
                     if mode == "duplicate": result.stdout += c.MARKER + json.dumps(self.record()) + "\n"
                     if mode == "drift": (Path(kwargs["cwd"]) / "dll/Other.dll").write_bytes(b"changed")
+                    if mode == "receipts": c.inputs.return_value = {**self.native(), "uae.wbx": {**self.native()["uae.wbx"], "receipt_sha256": "changed"}}
                     return result
                 fixture.process.side_effect = invalid
                 with self.subTest(mode=mode), self.assertRaises(ValueError): c.s.run(coexistence=True)
