@@ -258,7 +258,8 @@ class NightlyRecipeTests(unittest.TestCase):
                              ("P6_TEST_EMUHAWK_COEXISTENCE", "tests.packages.test_emuhawk_coexistence"),
                              ("P6_TEST_WATERBOX_STATE_PROBE", "tests.waterbox-smoke.test_state_probe"),
                              ("P6_TEST_EMUHAWK_STATE_PROBE", "tests.packages.test_emuhawk_state_probe"),
-                             ("P6_TEST_WATERBOX_SETJMP", "tests.waterbox-smoke.test_setjmp")):
+                             ("P6_TEST_WATERBOX_SETJMP", "tests.waterbox-smoke.test_setjmp"),
+                             ("P6_TEST_LEGACY_SOFTFLOAT_COMPILER", "tests.waterbox-smoke.test_legacy_guest")):
             self.assertEqual(ci.ENV[flag], "1")
             self.assertIn(module, ci.suites("functional"))
 

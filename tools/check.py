@@ -1031,6 +1031,7 @@ for _gate in ('BUILD01', 'ABI01'):
 for _gate in ('BUILD01', 'ABI01', 'SRC01'):
     TASK_SUITES[(_gate, 'T40o2')] = {'legacy_recipe': 'tests.waterbox-smoke.test_legacy_guest.LegacyGuestTests',
                                    'current_source_guest': 'tests.waterbox-smoke.test_legacy_guest.LegacyArtifactTests'}
+TASK_SUITES[('ABI01', 'T40o2')]['legacy_quotient_adapter'] = 'tests.waterbox-smoke.test_legacy_guest.LegacySoftfloatAdapterTests'
 
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
