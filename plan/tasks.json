@@ -12357,7 +12357,7 @@
       "title": "Probar UAE y PUAE6 con RomLoader y peliculas en el mismo EmuHawk real",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T40j",
         "T21",
@@ -12397,7 +12397,8 @@
         "El EmuHawk.exe original completo carga mediante RomLoader ambos cores con el mismo runtime actual, los mantiene vivos y demuestra aislamiento al alternar al menos12frames. Graba y reproduce peliculas por MovieSession y el nombre grabado elige el core correcto frente a una preferencia contraria, con continuacion A/V/estado exacta porcore y ninguna omision.",
         "Todos los fixtures y el escenario real declarado pasan; fuentes/outputs/guests/runtime/MacHawk permanecen intactos y temporales propios se limpian. El resultado identifica realmente las tres piezas nativas y el EXE, sin atribuir GUI ni el resto de T40 por esta puerta."
       ],
-      "stop": "No instalar dependencias/runtime ni descargar assets, no usar stubs, constructores directos o hostreducido para superar el escenario. Incompatibilidad real legacy/runtimeunico requiere reproducer y decision; no cambiar CPU/ABIflags al azar ni recuperar el runtimelegacy como fallback. Agente no edita metadata ni publica ni ejecuta baterias/buildpesado."
+      "stop": "No instalar dependencias/runtime ni descargar assets, no usar stubs, constructores directos o hostreducido para superar el escenario. Incompatibilidad real legacy/runtimeunico requiere reproducer y decision; no cambiar CPU/ABIflags al azar ni recuperar el runtimelegacy como fallback. Agente no edita metadata ni publica ni ejecuta baterias/buildpesado.",
+      "blocked_reason": "Dos ejecuciones reales tras corregir la carga absoluta del runtime (76900 y54248) reproducen bk2/UAE: 12frames y replayA/V/aislamiento pasan, pero snapshot final de2733230B difiere. Segunda corrida: primer byte distinto2027554 (C5 frenteCD), conservada comparacion exacta y reproducer RealCoexistenceTests/0025. H1: se serializan residuos de punteros/registros host en paginas RWStack del guest; interop_aarch64 conserva GPR host al entrar y Darwin vuelca todas esas paginas. H2: GuestThreadSet serializa structs Rust incluyendo padding/HashMap; localizar seccion y rango reales antes de decidir. La coincidencia A/V no prueba estado completo; no normalizar, omitir bytes, cambiar hashes ni declarar los cuatro casos aprobados. Se requiere reproducer dirigido y revision de la decision ABI/snapshot antes de otra corrida completa."
     },
     {
       "id": "T40",
