@@ -234,6 +234,10 @@ class NightlyRecipeTests(unittest.TestCase):
     def test_functional_keeps_the_frame_boundary_mutation_checks_enabled(self):
         self.assertEqual(ci.ENV["P6_TEST_MUTANTS"], "1")
         self.assertIn("tests.step.test_step", ci.suites("functional"))
+        for flag, module in (("P6_TEST_NATIVE_REPRODUCIBLE", "tests.packages.test_reproducible"),
+                             ("P6_TEST_WATERBOX_REPRODUCIBLE", "tests.packages.test_waterbox_reproducible")):
+            self.assertEqual(ci.ENV[flag], "1")
+            self.assertIn(module, ci.suites("functional"))
 
     def test_programmable_beam_audio_is_selected_on_both_supported_presets(self):
         from tests.audio.test_audio import AudioTests, AudioA600Tests, AudioA1200Tests
