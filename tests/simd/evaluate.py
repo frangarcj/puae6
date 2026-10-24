@@ -14,6 +14,25 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def sources():
+    return {name: digest(ROOT / name) for name in (
+        "tests/simd/rgb565_probe.cpp", "tests/simd/rgb565_candidate.h", "ports/portable/simd/rgb565.h",
+        "adapters/libretro/present.h", "adapters/libretro/options_generated.h", "bridge/include/p6.h",
+        "references/libretro-api/include/libretro.h", "tests/simd/evaluate.py")}
+
+
+def flags(mode, row=None):
+    if mode not in ("opt", "fallback", "san"):
+        raise ValueError("unknown SIMD mode")
+    result = ["-std=c++17", "-O2", "-fno-fast-math", "-ffp-contract=off", "-Wall", "-Wextra", "-Werror"]
+    if mode == "san":
+        result += ["-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"]
+    if mode == "fallback":
+        result += ["-DP6_SIMD_NO_NEON=1"] + (["-fno-tree-vectorize", "-fno-tree-slp-vectorize"]
+                  if row and row.endswith("gcc") else ["-fno-vectorize", "-fno-slp-vectorize"])
+    return result
+
+
 def build(directory, mode, row=None):
     toolchains = json.loads((ROOT / "plan/toolchains.json").read_text())
     pin = toolchains["portability_matrix"]["rows"][row] if row else toolchains["tools"]["clang"]
@@ -24,22 +43,17 @@ def build(directory, mode, row=None):
     version = subprocess.check_output([str(compiler), "--version"], text=True).splitlines()[0]
     if version != pin["compiler_version" if row else "version"]:
         raise ValueError(f"T35 compiler version differs: {version}")
-    flags = ["-std=c++17", "-O2", "-fno-fast-math", "-ffp-contract=off", "-Wall", "-Wextra", "-Werror"]
-    if mode == "san":
-        flags += ["-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"]
-    if mode == "fallback":
-        flags += ["-DP6_SIMD_NO_NEON=1"] + (["-fno-tree-vectorize", "-fno-tree-slp-vectorize"] if row and row.endswith("gcc") else ["-fno-vectorize", "-fno-slp-vectorize"])
+    selected_flags = flags(mode, row)
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     exe = directory / f"rgb565-{mode}"
     includes = [ROOT / p for p in ("tests/simd", "adapters/libretro", "references/libretro-api/include", "bridge/include")]
     source = ROOT / "tests/simd/rgb565_probe.cpp"
-    command = [str(compiler), *flags, *[f"-I{p}" for p in includes], str(source), "-o", str(exe)]
+    command = [str(compiler), *selected_flags, *[f"-I{p}" for p in includes], str(source), "-o", str(exe)]
     compiled = subprocess.run(command, capture_output=True, text=True)
     if compiled.returncode:
         raise RuntimeError(f"T35 compile failed: {compiled.stderr[-4000:]}")
-    return exe, {"compiler": version, "compiler_sha256": compiler_sha, "flags": flags,
-                 "sources": {str(p.relative_to(ROOT)): digest(p) for p in (source, ROOT / "tests/simd/rgb565_candidate.h", ROOT / "ports/portable/simd/rgb565.h", ROOT / "adapters/libretro/present.h", ROOT / "adapters/libretro/options_generated.h", ROOT / "bridge/include/p6.h", ROOT / "references/libretro-api/include/libretro.h", Path(__file__))}}
+    return exe, {"compiler": version, "compiler_sha256": compiler_sha, "flags": selected_flags, "sources": sources()}
 
 
 def run(exe, *args, asan_options=None):
