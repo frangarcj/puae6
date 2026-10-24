@@ -14371,42 +14371,6 @@
       "stop": "Sin fuente primaria o tras dos intentos razonados fallidos, conservar reproducer y marcar bloqueo con dos hipotesis; no ampliar a formatos desconocidos."
     },
     {
-      "id": "T55c12",
-      "title": "Reanudar denormales SINGLE reconstruidos por FPSP en CU06 rev40",
-      "milestone": "M3",
-      "required": true,
-      "status": "blocked",
-      "depends": [
-        "T55c11"
-      ],
-      "read": [
-        "docs/01-architecture.md",
-        "docs/02-contracts.md",
-        "docs/04-validation.md",
-        "docs/05-maintenance.md",
-        "docs/07-machawk.md"
-      ],
-      "touch": [
-        "patches/winuae/0397-frestore040-fpsp-cu06-single-denorm.patch",
-        "tests/host/frestore040_probe.cpp",
-        "tests/host/test_frestore040.py",
-        "docs/adr/0016-frestore040-cu06-denormals.md"
-      ],
-      "steps": [
-        "Solo rev40/CU06/CMD15400/STAG5/absETEMPexp3c00/fraccion23bitsno0/J0/low8=0/ETM2=0. FPSP bugfix.S:op2sgl/op2_xi/op2_com yget_op.S:src_sd_dnrm/is_single/common enpinLinux1da177e4c3f41524e886b7f1b8a0c1fc7321cac2, MC68040UM9.3tabla9-3/9.8: reconstruir bitsSINGLEsigno|ETM1>>8, fpp_to_single+fpp_normalize antesdearitmeticaexistente. Allowunnormal solo no basta; no inventarotrobackend.",
-        "Oraculoindependiente F23representa signo×F×2^-149; k=floor(log2F), extendedexp3f6a+k/mantisaF<<(63-k). Probar23potencias+max/ambossignos/FP0..7, FMOVE/FMUL/FDIV/raizexacta, FCMP/FTSTsinwrite, FADD1±minen4roundmodes×precision24/53/64 convecinosliterales/INEX; INEXhabilitada, OPERRraiznegativa yE3prioritario. Bus25lecturas/A0+100, FPIAR/vector/FSAVE, codecprivadoreinicializadoyfuturo. Baseline395 fallaantesdelparche.",
-        "Tresrutas150..220lineasmanuales, patchsolo fpp.cpp; busy_referenceusa ramacodex/frestore040-denorm aislada conservandoWIPT77b enramaanterior. Rootregistra serie/hash/clasificacion ycompila-j2; agente puede probeaisladoreutilizandoobjetos identificados sinbuildmotor/guest. STATE01dirigidoFrestore040Tests+InternalFpuStateTests; padreconservaDOUBLE06nativo/rev41/otrosCU/dirty/SX/firmware/WB ypuertaacumulada."
-      ],
-      "checks": [
-        "STATE01"
-      ],
-      "acceptance": [
-        "DenormalesSINGLEreconstruidosreanudanconvalor/redondeo/flags/excepciones independientes ycodecprivadocausal, sin ampliarformatosdesconocidosnicerrarFRESTOREcompleto."
-      ],
-      "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
-      "blocked_reason": "Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
-    },
-    {
       "id": "T55c13",
       "title": "Preservar operandos normalizados por FPSP al reanudar FE040",
       "milestone": "M3",
@@ -14451,7 +14415,7 @@
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55b",
         "T55c1",
@@ -14465,7 +14429,6 @@
         "T55c9",
         "T55c10",
         "T55c11",
-        "T55c12",
         "T55c13"
       ],
       "read": [
@@ -14515,7 +14478,8 @@
         "Candidata0384: IntegerFlineTests3PASS; firmware real040/060 nativo ylibretro4testsPASS (boot visual/animado, paridad headless yrestoreSame/Newproceso). WBguestce7f0918/91sources+4recipe:040 realPASS y060PASS en repeticion dirigida con el mismo guest/runtime, incluidos nuevo sandbox/proceso. El primer060 falloSIGBUS host en _xzm_xzone_malloc_tiny→verify_hash→wbx_load_state, guardpageMALLOC, antes de aplicar paginas de esa carga; causa ultima pendiente, no first-pass ni falloCPU demostrado. Mantener visible la inestabilidad host para candidata/release. FRESTORE completo y puerta acumulada del padre siguen pendientes.",
         "Incremento0386: reanudar solo CU06rev40 reconstruido porFPSP op2_xi/op2_com desde SINGLEnormal, CMD15400, STAG0, exp3f81..407e y significando24bits. Oraculo literal paraaritmetica/FP0..7/limites/compare/INEX/E3; no acreditar DOUBLE06nativo ni especiales/denorms. El padre mantiene la puerta completa, cuyo siguiente incremento decodifica esas variantes con fuenteprimaria, y no se cierra por este subcaso.",
         "Incremento0387 validado: CU06double reconstruido desde SINGLE zero/infinity, STAG1/ex3c00 o STAG2/ex43ff, mantisa0 y signo conservado. Baseline0386 reproduce fallo en primer+0; Frestore040Tests86casosPASS en candidata0387, incluidos12 nuevos de signo/resultados/flags, prioridadE3 y DZ50/OPERR52 con destino intacto, FPIAR4000 y FSAVEUNIMP28. No cerrar padre ni acreditar NaNs/denorms o DOUBLE06nativo.",
-        "Tras0387 y86casosPASS, el responsable pasa al frente de formatosCD para priorizar producto utilizable. FRESTORE completo, inestabilidad host y todas las puertasCPU pendientes conservan su alcance; esta ficha vuelve a pending hasta retomar implementacion, no se considera terminada ni bloqueada."
+        "Tras0387 y86casosPASS, el responsable pasa al frente de formatosCD para priorizar producto utilizable. FRESTORE completo, inestabilidad host y todas las puertasCPU pendientes conservan su alcance; esta ficha vuelve a pending hasta retomar implementacion, no se considera terminada ni bloqueada.",
+        "Decision del usuario: T55c12 pasa a extra final opcional despues de T41 y deja de bloquear este cierre. Se conservan los checks GEN01/DET02/WB03/LR01 y la aceptacion de arranque/restauracion040/060/Z3; no se promete FRESTORE040 universal ni soporte del formato CU06 denormal pendiente. Añadir al dispatcher la union deduplicada de los escenarios existentes que realmente cubren estas puertas, firmware y presupuesto, con fixtures de cobertura; no repetir emulacion que ya cubra la candidata acumulada. Registrar limites en docs/02-contracts.md y ADR0016. Esta vertical modifica plan, dispatcher, sus tests y esos dos documentos; no cambia el motor ni los formatos de estado."
       ],
       "checks": [
         "GEN01",
@@ -14566,7 +14530,8 @@
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece A4030 y A4040. CPUs 030/040/060 sin MMU (la MMU es T44, opcional), presets A4000, Fast Z3 medido contra el presupuesto Waterbox.",
-        "Dividida por dependencias reales: RTC Ricoh, luego A4000/030 y CPU030, luego040/060/Z3. Conserva todos los checks y aceptacion originales; ningun preset se simula copiando un A1200."
+        "Dividida por dependencias reales: RTC Ricoh, luego A4000/030 y CPU030, luego040/060/Z3. Conserva todos los checks y aceptacion originales; ningun preset se simula copiando un A1200.",
+        "T55c12 es un extra final posterior a T41 por decision expresa del usuario. El cierre publico030/040/060 conserva sus pruebas y limites declarados; el extra sigue visible y pendiente, sin atribuirle soporte ni exito."
       ],
       "checks": [
         "GEN01",
@@ -24031,6 +23996,43 @@
         "Ningun output oficial o proyecto hermano se modifica, no hay descarga/instalacion ni casos omitidos convertidos a PASS. La igualdad del ZIP se afirma solo si coincide con sus ocho productos."
       ],
       "stop": "No simular exito ni relajar comparacion byte a byte. Tras dos fallos razonados conservar reproducer, dos hipotesis verificables y bloqueo; no sustituir EmuHawk real por standalone."
+    },
+    {
+      "id": "T55c12",
+      "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "blocked",
+      "depends": [
+        "T55c11",
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "patches/winuae/0397-frestore040-fpsp-cu06-single-denorm.patch",
+        "tests/host/frestore040_probe.cpp",
+        "tests/host/test_frestore040.py",
+        "docs/adr/0016-frestore040-cu06-denormals.md"
+      ],
+      "steps": [
+        "Extra final por decision del usuario: completar despues de la primera release. Obtener antes una fuente primaria adicional o un reproducer de hardware que atribuya los campos legales CU06 rev40 y su relacion con el workaround FPSP1238. No identificar SINGLE por STAG5/exp3c00/ancho de fraccion: esa hipotesis se retiro por ambiguedad con DOUBLE; conservar ADR0016 y los rechazos de formatos no soportados.",
+        "Tras demostrar la representacion, conservar el oraculo independiente signo*F*2^-149: 23 potencias y fraccion maxima, ambos signos, FP0..7, FMOVE/FMUL/FDIV/raiz exacta, FCMP/FTST sin escritura y FADD 1+/-min en cuatro redondeos y precisiones24/53/64. Mantener INEX habilitada, OPERR para raiz negativa, prioridadE3, bus, FPIAR/vector/FSAVE y codec privado tras reinicializar el backend.",
+        "Implementar solo el formato acreditado mediante parche a fpp.cpp y pruebas dirigidas Frestore040Tests/InternalFpuStateTests. No editar upstream ni generados, cambiar flagsCPU o ampliar otros formatos; ejecutar STATE01 completo antes de done."
+      ],
+      "checks": [
+        "STATE01"
+      ],
+      "acceptance": [
+        "DenormalesSINGLEreconstruidosreanudanconvalor/redondeo/flags/excepciones independientes ycodecprivadocausal, sin ampliarformatosdesconocidosnicerrarFRESTOREcompleto."
+      ],
+      "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
+      "blocked_reason": "Extra final solicitado por el usuario; no dispone de un 68040 fisico. Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
     }
   ],
   "max_in_progress": 4

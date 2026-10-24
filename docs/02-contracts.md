@@ -64,6 +64,13 @@ FPU interna, sin punteros ni padding. La identidad distingue CPU/FPU, incluso
 sin FPU; Auto y68040 explicito representan la misma configuracion. No se anuncia
 compatibilidad universal de framesFRESTORE ni de estados entre builds.
 
+Los denormales SINGLE reconstruidos por FPSP en CU06 rev40 no forman parte
+del cierre publico de CPU: T55c12 queda como extra final opcional despues de
+la primera release por decision del usuario. La reanudacion de ese formato
+sigue sin acreditarse; se conservan los rechazos existentes y no se amplian
+las variantes admitidas por heuristicas (ADR0016). El cierre de A4000/040,
+68060 y Z3 conserva sus pruebas de arranque, restauracion y presupuesto real.
+
 ## ABI C pequena
 
 Operaciones del motor: p6_abi_version, p6_query_caps, p6_init, p6_load,

@@ -67,7 +67,7 @@ class PlanTests(unittest.TestCase):
         by_id = {task["id"]: task for task in data["tasks"]}
         self.assertEqual(529, len(by_id))
         self.assertEqual(["T28a", "T09b2", "T34a"], by_id["T28c"]["depends"])
-        self.assertEqual(500, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(499, sum(task["required"] for task in by_id.values()))
         self.assertEqual(["T38", "T40a"], by_id["T40c"]["depends"])
         self.assertIn("T40d1", by_id["T40d"]["depends"])
         for task_id in ("T40c", "T40d", "T40e", "T40f", "T40g", "T40h", "T40i", "T40j", "T40k", "T40l", "T40m", "T40n", "T40o"):
@@ -204,8 +204,11 @@ class PlanTests(unittest.TestCase):
         self.assertIn("T55c10", by_id["T55c"]["depends"])
         self.assertEqual(["T55c8"], by_id["T55c11"]["depends"])
         self.assertIn("T55c11", by_id["T55c"]["depends"])
-        self.assertEqual(["T55c11"], by_id["T55c12"]["depends"])
-        self.assertIn("T55c12", by_id["T55c"]["depends"])
+        self.assertEqual(["T55c11", "T41"], by_id["T55c12"]["depends"])
+        self.assertFalse(by_id["T55c12"]["required"])
+        self.assertEqual("FUTURE", by_id["T55c12"]["milestone"])
+        self.assertNotIn("T55c12", by_id["T55c"]["depends"])
+        self.assertEqual("T55c12", data["tasks"][-1]["id"])
         self.assertEqual(["T55c11"], by_id["T55c13"]["depends"])
         self.assertIn("T55c13", by_id["T55c"]["depends"])
         self.assertEqual(["T55c7"], by_id["T55c8"]["depends"])

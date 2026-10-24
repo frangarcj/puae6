@@ -2,12 +2,19 @@
 
 ## Decision
 
-T55c12 queda bloqueada. No identificar un SINGLE reconstruido por su fraccion
+Por decision del usuario, T55c12 es un extra final opcional posterior a la
+primera release (T41); no bloquea el cierre publico de CPU T55c/T55. Sigue
+bloqueada por falta de una representacion atribuida a una fuente primaria o
+hardware, y no se declara implementada.
+
+No identificar un SINGLE reconstruido por su fraccion
 de 23 bits ni interpretar el minimo de formato como exponente de un denormal.
 El decoder propuesto 0397 se ha retirado; sus pruebas partian del mismo supuesto
 y no aportaban un oraculo de la representacion del frame.
 
-La restauracion general de BUSY040 sigue pendiente. Los casos normales,
+El cierre publico de CPU conserva sus checks de arranque, restauracion y
+presupuesto Waterbox, con los limites documentados en docs/02-contracts.md.
+No se promete restauracion universal de BUSY040. Los casos normales,
 ceros/infinidades y NaN ya admitidos no demuestran el caso denormal.
 
 ## Reproducer de la ambiguedad
