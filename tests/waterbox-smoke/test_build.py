@@ -493,7 +493,50 @@ class ToolchainProfileTests(unittest.TestCase):
             self.assertEqual(derived, build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path('debug')))
 
 
+class Puae6DerivedToolchainTests(unittest.TestCase):
+    def test_derived_headers_and_wrappers_are_selected_without_changing_base_lane(self):
+        with tempfile.TemporaryDirectory(prefix='derived-toolchain-', dir=ROOT / 'build') as temporary:
+            root = Path(temporary); base = root / 'base'; derived = root / 'derived'
+            base.mkdir(); derived.mkdir(); (base / 'header').write_text('same'); (derived / 'header').write_text('same')
+            compiler = root / 'clang'; compiler.write_text('own compiler fixture, never executed')
+            pin = {'path': str(compiler), 'sha256': build_waterbox.sha256(compiler), 'version': 'own compiler'}
+            inventory = build_waterbox.inventory(base)
+            proof = {'sysroot': str(derived), 'inventory_sha256': build_waterbox.canonical_hash(build_waterbox.inventory(derived)),
+                     'receipt_sha256': 'a'*64, 'inputs': {'base': build_waterbox.canonical_hash(inventory), 'compiler_path': str(compiler), 'compiler': pin}}
+            out = root / 'build/waterbox'; original = out / 'toolchain/bin'; original.mkdir(parents=True)
+            for name in ('musl-clang', 'ld.musl-clang'): (original / name).write_text('preserved base wrapper')
+            tc = {'paths': {'clang': compiler, 'lld': compiler}, 'lock': {'tools': {'clang': pin}},
+                  'sysroot_copy': base, 'sysroot_inventory': inventory, 'musl_root': ROOT / 'references/musl-darwin', 'env': {'own': 'unchanged'}}
+            with mock.patch.object(build_waterbox, 'ROOT', root), mock.patch.object(build_waterbox, 'BUILD', out), mock.patch.object(build_waterbox, 'puae6_guest_abi', return_value=proof), mock.patch.object(build_waterbox, 'hosted_environment', return_value={'shell_exports': ''}):
+                selected = build_waterbox.puae6_guest_toolchain(tc)
+                self.assertEqual(selected['sysroot_copy'], derived); self.assertEqual(selected['guest_abi'], proof)
+                self.assertEqual(selected['cc_wrapper'].parent, out / 'guest-toolchain/bin')
+                self.assertIn(str(derived), selected['cc_wrapper'].read_text()); self.assertEqual(selected['env'], tc['env'])
+                self.assertEqual(tc['sysroot_copy'], base); self.assertNotIn('guest_abi', tc)
+                for name in ('musl-clang', 'ld.musl-clang'): self.assertEqual((original / name).read_text(), 'preserved base wrapper')
+                for key, value in (('base', 'bad'), ('compiler_path', '/other/compiler'), ('compiler', {**pin, 'sha256': 'bad'})):
+                    with mock.patch.object(build_waterbox, 'puae6_guest_abi', return_value={**proof, 'inputs': {**proof['inputs'], key: value}}), mock.patch.object(build_waterbox, 'install_wrappers') as install:
+                        with self.assertRaisesRegex(build_waterbox.BuildError, 'no coinciden'): build_waterbox.puae6_guest_toolchain(tc)
+                        install.assert_not_called()
+
+    def test_missing_or_stale_abi_and_different_sysroot_receipts_are_rejected(self):
+        proof = {'inventory_sha256': 'a'*64, 'receipt_sha256': 'b'*64}
+        good = {'guest_abi': proof, 'build_inputs': {'guest_abi': proof, 'sysroot': proof['inventory_sha256']}}
+        with mock.patch.object(build_waterbox, 'puae6_guest_abi', return_value=proof):
+            build_waterbox.check_puae6_guest_abi(good)
+            for bad in ({}, {**good, 'guest_abi': {}}, {**good, 'build_inputs': {}}, {**good, 'build_inputs': {**good['build_inputs'], 'sysroot': 'wrong'}}):
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'sysroot ABI'): build_waterbox.check_puae6_guest_abi(bad)
+        import build_waterbox_guest_sysroot
+        with mock.patch.object(build_waterbox_guest_sysroot, 'verify', side_effect=ValueError('missing derived archive')):
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'missing derived archive'): build_waterbox.puae6_guest_abi()
+
+
 class GuestToolchainCacheTests(unittest.TestCase):
+    def setUp(self):
+        # These mocks isolate cache invalidation; derived ABI selection is tested separately.
+        self.enterContext(mock.patch.object(build_waterbox, 'puae6_guest_toolchain', side_effect=lambda tc: {**tc, 'guest_abi': {'own': 'fixture'}}))
+        self.enterContext(mock.patch.object(build_waterbox, 'check_puae6_guest_abi'))
+
     def test_changed_inputs_or_partial_failure_force_a_complete_rebuild(self):
         import prepare_hrtmon
         with tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-toolchain-') as directory:

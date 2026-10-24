@@ -12649,7 +12649,7 @@
       "title": "Integrar el ABI setjmp corregido en sysroot y guests derivados sin modificar MacHawk",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T40n",
         "T40o1",
@@ -12675,12 +12675,14 @@
         "manifests/waterbox-memory.json",
         "docs/adr/waterbox-state-diagnostics.md",
         "tests/test_plan.py",
-        "tests/waterbox-smoke/test_legacy_guest.py"
+        "tests/waterbox-smoke/test_legacy_guest.py",
+        "tests/waterbox-smoke/test_build.py"
       ],
       "steps": [
         "DespuesdeloraculoT40n revisar receta minima de overlayfuente/sysrootderivado con identidadnueva y compilacion legacy en outputs propios. La base1270inputs y elguestoriginal390cc permanecen intactos; no editarcapturas/manifestsdeupstream ni MacHawk. No sustituir ELF a mano ni editar bytes de estados paraaprobar. Acreditar cada nuevoartefactodesdesusfuentes/pins/flags; actualizarautoridadtoolchains explicitamente trasverificacion, sin cambiarinventariosgoldenpara ocultar diferencias.",
         "Conectar productoPUAE6 a variante fuente corregida y construir guestlegacy derivado desde referencia/fingerprint autorizados en checkout/output propio sin escribir ni instalar sobreMacHawk. Conservar configuracion/ABI/filas originales. Antesdeimplementar desglosar si supera400lineas/5rutas medianteverticales causalmente independientes conmismaaceptacion, sinfragmentarparASMwriter/reader.",
-        "Ejecutar una candidata integrada: T40m debe darfullstateexacto y los4casosBK2/TAS deT40k debenpasar conamboscores vivos, A/V/aislamiento/identidad/replay/preferenciacontraria completos. Revalidar regresionesWB13/WB15 y memoria/restauracion afectadas por nuevaidentidad; no heredarPASS delguestanterior ni repetirbatallasnativas no afectadas. Mantenerlimitacionestadosentrebuilds y dejarfunciones no acreditadas pendientes."
+        "Ejecutar una candidata integrada: T40m debe darfullstateexacto y los4casosBK2/TAS deT40k debenpasar conamboscores vivos, A/V/aislamiento/identidad/replay/preferenciacontraria completos. Revalidar regresionesWB13/WB15 y memoria/restauracion afectadas por nuevaidentidad; no heredarPASS delguestanterior ni repetirbatallasnativas no afectadas. Mantenerlimitacionestadosentrebuilds y dejarfunciones no acreditadas pendientes.",
+        "Integracion minima trasT40o1/T40o2DONE: root cambia build_waterbox.py ytest_build para que build_puae6 seleccione sysrootderivado verificado ywrapperspropios guest-toolchain/bin, sinmutar toolchain/sysrootbase ni runtime/mini. Recibo guest_abi ycheck_puae6_guest_abi pruebanvariantareal enbuild/run. hosted_bootstrap modifica soloemuhawk_coexistence.py+su test parausar guestlegacyderivado verify() yexigir guest_abi dePUAE6; no binariooriginal390cc comofallback. Mantener todosloscasos/comparadores actuales. Root compilaPUAE6 una vez(serializado), recompilaEXEconguestpinactual sihacefalta y ejecuta T40m/T40k/WB13..15+medidasafectadas. Ningun PASS heredado decompilacion."
       ],
       "checks": [
         "BUILD01",
