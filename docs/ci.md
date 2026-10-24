@@ -282,6 +282,27 @@ goldens por fila cuando se ejecuta realmente. Ninguno acredita Waterbox Darwin,
 las lanes acumuladas o la release.
 Windows y macOS Intel aun no tienen un port anunciado en la matriz del proyecto.
 
+`gate: matrix` con `variants: all` selecciona el perfil explicito
+`hosted-native-distributed-v1`. Ejecuta las 18 pruebas de infraestructura originales
+una vez y las 15 combinaciones nativas completas, sin ejecutar los selectores
+`native` o `corpus` anteriores como efecto lateral. Cada combinacion comprueba
+ambos corpus baseline/host contra los goldens con el mismo validador de la matriz
+local; conserva tambien unidades, hashes por unidad y headless. El programa de
+reloj comprueba tres relojes civiles, monotono y stderr vacio; las cinco variantes
+`san` lo ejecutan con ASan/UBSan y LSan desactivado como el reproducer original.
+
+El agregador lee solo los logs de los jobs de ese run/intento mediante permiso
+`actions: read`. Exige un JSON terminal por worker, particion completa sin
+duplicados, conteos estrictos y revision/fuentes/receta/goldens comunes. Cada
+worker verifica antes/despues sus herramientas reales (SHA/version y la
+implementacion Apple Clang resuelta con xcrun), codegen y binarios. Las herramientas
+pueden diferir entre filas; no se les atribuyen los IDs Docker locales. La salida
+distingue 18 unittest, 30 comparaciones de corpus y cinco filas sanitizer con reloj,
+sin inventar un conteo unittest para los checks distribuidos. No sube artifacts ni
+usa resultados de runs anteriores. La receta local con Docker fijado no cambia;
+este perfil no acredita reproducibilidad binaria de release, Waterbox ni las otras
+lanes. Un selector incompleto, job fallido o log ausente bloquea la agregacion.
+
 La comprobacion SRC01 de avisos incluye dependencias vendorizadas declaradas en
 el lock, ademas de los snapshots: para MAME/IPF valida offline el pin, PROVENANCE,
 todos los archivos derivados/originales, shims y licencia, sin rutas ajenas,
