@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 
 from tests.portability.rows import ROWS
 from tests.simd import matrix
@@ -69,6 +70,47 @@ def sanitizer_commands(commands, sha256):
         seen.add(key); counts[target] += 1
     require(all(counts.values()) and re.fullmatch('[0-9a-f]{64}', sha256), 'incomplete sanitizer compile commands')
     return dict(count=sum(counts.values()), sha256=sha256, targets=counts, flags=list(SAN_FLAGS))
+
+
+def current_inputs(row, work=None):
+    tree = (directory(row) if work is None else Path(work)) / 'opt'
+    binaries = frontend.core_paths(row, tree)
+    (ROOT/'build').mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='frontend-inputs-', dir=ROOT/'build') as fresh:
+        frontend.assets.write_differential(fresh)
+        return frontend.timing_inputs({**binaries, 'host': tree/'p6_libretro_host'}, fresh)
+
+
+def validate_measurements(result, verified_inputs, current):
+    """Original performance assertions on actual arrays, shared by local/hosted."""
+    from tests.simd.frontend_statistics import compare
+    require(result['inputs'] == verified_inputs == current, 'frontend timing/verification/current inputs differ')
+    require(len(result['runs']) == 50, 'frontend requires fifty measured windows')
+    comparisons = {}
+    for scenario in frontend.WORKLOADS:
+        facts = []
+        for variant in ('current', 'candidate'):
+            samples = [x for x in result['runs'] if x['scenario'] == scenario.id and x['variant'] == variant]
+            require({x['repeat'] for x in samples} == set(range(5)), 'frontend repetitions missing')
+            for sample in samples:
+                require(sample['warmup'] == 300 and sample['units'] == (10000 if scenario.primary else 3000), 'frontend protocol changed')
+                raw = sample['raw']
+                require(len(raw['run_cpu_ns']) == 300 + sample['units'] and all(n > 0 for n in raw['run_cpu_ns'])
+                        and len(raw['state_load_ns']) == 20, 'frontend timing samples incomplete')
+                facts.append(tuple(raw[k] for k in ('state_bytes', 'pictures', 'audio_frames')) +
+                             (tuple(sample['last_run']), tuple(sample['final_state'])))
+        require(len(set(facts)) == 1, 'frontend timed machines differ: ' + scenario.id)
+        comparison = compare([x for x in result['runs'] if x['scenario'] == scenario.id])
+        require(len(comparison['paired_reductions_percent']) == 5, 'frontend paired comparisons missing')
+        for variant in ('current', 'candidate'):
+            require(comparison['variants'][variant]['median_cpu_ns'] == result['summary'][scenario.id][variant]['median_cpu_ns'], 'frontend statistics differ')
+        comparisons[scenario.id] = comparison
+    return comparisons
+
+
+def validate_decision(row, inputs, current, adr):
+    require(row in MEASURED and '## Decision de frontend T35c' in adr and row in adr, 'frontend platform decision missing')
+    require(inputs == current, 'frontend decision uses stale timing inputs')
 
 
 def directory(row):
