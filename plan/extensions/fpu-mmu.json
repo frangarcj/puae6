@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "task": "T44",
+  "scope": "study_only_no_profile_changes",
+  "upstream": {
+    "source_id": "winuae",
+    "tag": "6030",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "snapshot_manifest": "manifests/upstream-files.json"
+  },
+  "matrix": [
+    {"cpu": 68030, "machine": "A4030", "fpu": 0, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68030, "machine": "A4030", "fpu": 0, "mmu": 68030, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68030, "machine": "A4030", "fpu": 68881, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68030, "machine": "A4030", "fpu": 68881, "mmu": 68030, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68030, "machine": "A4030", "fpu": 68882, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68030, "machine": "A4030", "fpu": 68882, "mmu": 68030, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68040, "machine": "A4040", "fpu": 0, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68040, "machine": "A4040", "fpu": 0, "mmu": 68040, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68040, "machine": "A4040", "fpu": 68040, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68040, "machine": "A4040", "fpu": 68040, "mmu": 68040, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68060, "machine": "A4040", "fpu": 0, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68060, "machine": "A4040", "fpu": 0, "mmu": 68060, "accuracy": "Normal", "status": "planned_unimplemented"},
+    {"cpu": 68060, "machine": "A4040", "fpu": 68060, "mmu": 0, "accuracy": "Normal", "status": "supported_no_mmu"},
+    {"cpu": 68060, "machine": "A4040", "fpu": 68060, "mmu": 68060, "accuracy": "Normal", "status": "planned_unimplemented"}
+  ],
+  "invalid_combinations": [
+    "A4030 with internal FPU68040/68060",
+    "A4040 with external FPU68881/68882 or internal FPU of another CPU",
+    "MMU model different from CPU",
+    "Compatible/Exact late CPU in the current public profile"
+  ],
+  "outside_scope": ["68020+68851", "JIT", "host floating point", "EC/LC silicon variant parity", "T55c12 CU06 denormal after T41"],
+  "current_checks": {
+    "GEN01": {
+      "command": "python3 tools/generate_cpu.py --check",
+      "selectors": ["tests.codegen.test_gencpu_models.GencpuModelTests"],
+      "covers": "Two clean HOST generations and the current no-MMU model selection; no MMU tables are validated"
+    },
+    "DET02": {
+      "selectors": [
+        "tests.state.test_cpu_modes.Cpu020NoMmuTests",
+        "tests.state.test_a4030",
+        "tests.state.test_a4040.A4040Tests",
+        "tests.state.test_z3",
+        "tests.host.test_cpu_late_state.CpuLateStateTests",
+        "tests.host.test_internal_fpu_state.InternalFpuStateTests",
+        "tests.host.test_frestore040.Frestore040Tests"
+      ],
+      "covers": "Current no-MMU state, line-F policy, CPU/FPU controls and admitted FRESTORE frames; not MMU restore"
+    }
+  },
+  "subbacklog": [
+    {
+      "id": "MMU-A", "depends": [], "status": "proposed", "kind": "decision",
+      "cpus": [68030, 68040, 68060],
+      "source_paths": ["bridge/config.cpp", "bridge/include/p6.h", "config", "docs/02-contracts.md"],
+      "deliverable": "Specify explicit restart MMU setting/ABI version and CPU/FPU pairing; separate cache/accuracy decisions and unchanged MMU0 identities",
+      "oracle": "Schema/API reject mismatched or unknown modes; no MMU option exposed before its complete row gate"
+    },
+    {
+      "id": "MMU-B", "depends": ["MMU-A"], "status": "proposed", "kind": "probe",
+      "cpus": [68030, 68040, 68060],
+      "source_paths": ["upstream/winuae/gencpu.cpp", "upstream/winuae/newcpu.cpp", "upstream/winuae/include/mmu_common.h", "patches/winuae/0141-fpu-without-mmu030-and-x87.patch", "patches/winuae/0349-generic-040-060-no-mmu-cache.patch", "manifests/codegen.json"],
+      "deliverable": "Inventory source/import closure and Normal tables32/31/33, prove C++ exception and p6_run_frame return paths with faults pending; keep current no-MMU paths unchanged",
+      "oracle": "GEN01 twice-clean outputs and selected handlers; linked native/whole-guest imports; no longjmp across C++, no alternative scheduler or host callbacks per access"
+    },
+    {
+      "id": "MMU-C", "depends": ["MMU-B"], "status": "proposed", "kind": "probe",
+      "cpus": [68030],
+      "source_paths": ["upstream/winuae/cpummu30.cpp", "upstream/winuae/include/cpummu030.h"],
+      "deliverable": "Independent own tables for TC/SRP/CRP/TT0/TT1, FC/supervisor rights, descriptor used/modified, ATC22 replacement/flush and fault/RTE re-execution",
+      "oracle": "Pinned CPU manual expected physical addresses, RAM effects and bus-error frame; cross-page read/write/fetch, MOVEM and FMOVEM retry without duplicate side effects, with FPU0/68881/68882"
+    },
+    {
+      "id": "MMU-D", "depends": ["MMU-B"], "status": "proposed", "kind": "probe",
+      "cpus": [68040],
+      "source_paths": ["upstream/winuae/cpummu.cpp", "upstream/winuae/include/cpummu.h", "upstream/winuae/include/newcpu.h"],
+      "deliverable": "Separate instruction/data translation, TC/URP/SRP/ITT/DTT and4/8KiB pages, permissions, PTEST/PFLUSH, ATC and frame7/writeback/RTE/MOVE16 faults",
+      "oracle": "Pinned040 manual offsets/values, page-table and RAM mutations, exact successful/faulting access sequence and continued execution; FPU0/68040 without assuming universal FRESTORE"
+    },
+    {
+      "id": "MMU-E", "depends": ["MMU-D"], "status": "proposed", "kind": "probe",
+      "cpus": [68060],
+      "source_paths": ["upstream/winuae/cpummu.cpp", "upstream/winuae/include/mmu_common.h", "upstream/winuae/newcpu.cpp"],
+      "deliverable": "Distinguish060 FSLW/fault stages, PLPAR/PLPAW, instruction-fetch and locked/RMW/unaligned access restart from040 behaviour",
+      "oracle": "Pinned060 manual independent addresses/status/frame/RTE expectations and no duplicated writes; FPU0/68060 including pending internal-FPU exception"
+    },
+    {
+      "id": "MMU-F", "depends": ["MMU-B"], "status": "proposed", "kind": "decision",
+      "cpus": [68030, 68040, 68060],
+      "source_paths": ["upstream/winuae/cpummu30.cpp", "upstream/winuae/cpummu.cpp", "upstream/winuae/newcpu.cpp", "bridge/state_cpu.cpp", "bridge/state_probe.cpp", "manifests/state-inventory.json"],
+      "deliverable": "Classify each register, ATC/MRU/replacement slot, stale translation, prefetch, descriptor RAM effect, partial-access/retry and writeback field as serialized or proven reconstructible",
+      "oracle": "Poison/rebind host pointers and translation caches; never equate flush with restore without equal future/ticks. Upstream save_mmu model/flags alone is insufficient"
+    },
+    {
+      "id": "MMU-G", "depends": ["MMU-C", "MMU-D", "MMU-E", "MMU-F"], "status": "proposed", "kind": "probe",
+      "cpus": [68030, 68040, 68060],
+      "source_paths": ["bridge/state_cpu.cpp", "bridge/state_probe.cpp", "tests/state/test_cpu_modes.py", "tests/state/test_a4040.py"],
+      "deliverable": "Versioned semantic codec/digests and DET02 cuts before/after fault, table remap without flush, flush, handler and RTE; test CPU translation separately from physical chipset DMA",
+      "oracle": "Same/new process exact CPU, RAM, scheduler, chipset, video/PCM and ticks; foreign mode, bad descriptors/state bounds and truncation reject before any mutation"
+    },
+    {
+      "id": "MMU-H", "depends": ["MMU-G"], "status": "proposed", "kind": "acceptance_gate",
+      "cpus": [68030, 68040, 68060],
+      "source_paths": ["tests/waterbox-state", "tests/libretro-host", "tests/portability", "manifests/waterbox-memory.json", "docs/04-validation.md"],
+      "deliverable": "Expose only complete matrix rows through one schema; measure heap/state bounds and preserve real Waterbox ARM64/x18/x28/4-16KiB and existing no-MMU profiles",
+      "oracle": "GEN01/DET02 plus native/libretro parity, same/new sandbox/process snapshot, replay, ISA/compiler matrix, sanitizer and memory budgets; no new host runners or claimed results from this study"
+    }
+  ],
+  "future_gates": {
+    "GEN01": "MMU tables32/31/33 need two clean HOST generations with fixed toolchain; preserve current no-MMU outputs or explain a separately scoped change",
+    "DET02": "Every planned matrix row needs MMU-C..H oracles and actual restore execution; current no-MMU PASS cannot authorize an MMU row"
+  }
+}
