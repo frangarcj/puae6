@@ -64,9 +64,18 @@ def tools(row):
     return result
 
 
+def generated_names():
+    manifest = json.loads((ROOT/'manifests/codegen.json').read_text())
+    names = [name for generator in manifest['generators'] for name in generator['outputs']]
+    require(manifest['schema_version'] == 1 and names and len(names) == len(set(names)), 'invalid codegen output manifest')
+    return set(names)
+
+
 def generated():
     path = ROOT/'build/generated/codegen-receipt.json'
     receipt = json.loads(path.read_text())
+    names, expected = [item['path'] for item in receipt['files']], generated_names()
+    require(len(names) == len(expected) and set(names) == expected, 'incomplete/duplicate codegen inventory')
     for item in receipt['files']:
         target = path.parent/item['path']
         require(target.resolve().is_relative_to(path.parent.resolve()) and native.digest(target) == item['sha256'], 'generated source drift')
@@ -85,6 +94,7 @@ def strict_clock(argv, timeout=180, env=None):
 def cell(row, opt):
     partition(); native.preflight(row, opt)
     before, toolset, source = common(), tools(row), native.source_identity()
+    require(re.fullmatch('[0-9a-f]{64}', source) is not None, 'invalid source/environment identity')
     tree = ROOT/'build/hosted-matrix'/row/opt
     targets = ('p6_state_probe', 'p6_headless')
     _, mode = native.selection(row, opt)
@@ -94,7 +104,7 @@ def cell(row, opt):
     require((common(), tools(row), native.source_identity(), native.binary_identity(tree, row, targets), generated())
             == (before, toolset, source, built, codegen), 'worker sources/tools/generated outputs/binaries changed')
     return dict(status='PASS', profile=PROFILE, kind='cell', common=before, row=row, optimization=opt,
-                tools=toolset, generated=codegen, build=built, observations=observations,
+                tools=toolset, generated=codegen, build=built, observations=observations, source_environment_sha256=source,
                 runner=dict(os=native.platform.system(), isa=native.platform.machine(), description=native.platform.platform()),
                 flags=mode, scope='native hosted execution; no local Docker image identity')
 
@@ -127,6 +137,7 @@ def validate(records, expected):
         require(record['kind'] == 'cell', 'unknown matrix record')
         key = (record['row'], record['optimization'])
         require(key in cells and key not in found, 'unknown/duplicate matrix cell'); found.add(key)
+        require(re.fullmatch('[0-9a-f]{64}', record.get('source_environment_sha256', '')) is not None, 'missing source/environment identity')
         _, mode = native.selection(*key)
         require(record['flags'] == mode and record['runner']['os'] == ('Darwin' if key[0].startswith('macos-') else 'Linux')
                 and record['runner']['isa'] in (('arm64', 'aarch64') if native.ROWS[key[0]]['isa'] == 'arm64' else ('x86_64',)), 'wrong worker ISA/flags')
@@ -139,7 +150,8 @@ def validate(records, expected):
         hashes = [record['build'][name] for name in ('cmake_cache_sha256', 'codegen_sha256')]
         require(set(record['build']['binaries']) == {'p6_state_probe', 'p6_headless'}, 'missing binaries')
         hashes += list(record['build']['binaries'].values()) + list(record['generated']['files'].values())
-        require(bool(record['generated']['files']) and record['generated']['receipt_sha256'] == record['build']['codegen_sha256']
+        require(set(record['generated']['files']) == generated_names() and len(record['generated']['files']) == len(generated_names())
+                and record['generated']['receipt_sha256'] == record['build']['codegen_sha256']
                 and all(re.fullmatch('[0-9a-f]{64}', h) for h in hashes), 'incomplete build/codegen identity')
         compilers = record['generated']['compilers']
         require(set(compilers) == {'c', 'c++'} and all(compilers[language]['sha256'] == record['tools'][tool]['sha256']

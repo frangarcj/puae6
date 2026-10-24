@@ -19,7 +19,7 @@ class HostedMatrixTests(unittest.TestCase):
         for name in ('cc', 'cxx'): self.toolset[name]['implementation'] = dict(path='/own/'+name, sha256='a'*64)
         self.build = dict(cmake_cache_sha256='b'*64, codegen_sha256='c'*64,
                           binaries={name: 'd'*64 for name in ('p6_state_probe', 'p6_headless')})
-        self.generated = dict(receipt_sha256='c'*64, files={'own.cpp': 'e'*64},
+        self.generated = dict(receipt_sha256='c'*64, files={name: 'e'*64 for name in matrix.generated_names()},
                               compilers={name: dict(sha256='a'*64, version='own tool 1') for name in ('c', 'c++')})
 
     def observations(self):
@@ -41,7 +41,7 @@ class HostedMatrixTests(unittest.TestCase):
                 result.append(dict(status='PASS', profile=matrix.PROFILE, kind='cell', common=self.context, row=row, optimization=opt,
                                    flags=matrix.native.selection(row, opt)[1], tools=self.toolset, generated=self.generated, build=self.build,
                                    runner=dict(os='Darwin' if row.startswith('macos-') else 'Linux', isa=matrix.native.ROWS[row]['isa']),
-                                   observations=self.observations()))
+                                   observations=self.observations(), source_environment_sha256=f'{len(result):064x}'))
         return copy.deepcopy(result)
 
     def test_complete_partition_and_current_records_reject_omissions_duplicates_mixing_and_false_counts(self):
@@ -49,7 +49,8 @@ class HostedMatrixTests(unittest.TestCase):
         result = matrix.validate(self.records(), self.context)
         self.assertEqual(result['coverage'], dict(original_methods=21, unittest_tests=18, corpus_cells=30, sanitized_clock_rows=5, clock_checks=15))
         faults = ('missing', 'duplicate', 'no-infra', 'extra-infra', 'attempt', 'revision', 'source', 'profile', 'fail', 'skip',
-                  'zero', 'wrong-count', 'flags', 'isa', 'tools', 'codegen', 'compiler', 'binary', 'cases', 'clock', 'host', 'corpus')
+                  'zero', 'wrong-count', 'flags', 'isa', 'tools', 'codegen', 'compiler', 'binary', 'cases', 'clock', 'host', 'corpus',
+                  'missing-output', 'extra-output', 'missing-environment', 'bad-environment')
         for fault in faults:
             records = self.records(); infra, cell = records[0], records[1]
             if fault == 'missing': records.pop()
@@ -74,6 +75,10 @@ class HostedMatrixTests(unittest.TestCase):
             if fault == 'clock': cell['observations']['clock']['civil_clocks'] = 2
             if fault == 'host': cell['observations']['corpora']['corpus']['variants'] = ['baseline']
             if fault == 'corpus': cell['observations']['corpora'].pop('differential')
+            if fault == 'missing-output': cell['generated']['files'].pop(next(iter(cell['generated']['files'])))
+            if fault == 'extra-output': cell['generated']['files']['own-extra.cpp'] = 'f'*64
+            if fault == 'missing-environment': del cell['source_environment_sha256']
+            if fault == 'bad-environment': cell['source_environment_sha256'] = 'partial'
             with self.subTest(fault=fault), self.assertRaises(RuntimeError): matrix.validate(records, self.context)
 
     def test_worker_builds_only_probe_headless_and_compares_before_after_every_input(self):
@@ -81,12 +86,12 @@ class HostedMatrixTests(unittest.TestCase):
             with self.subTest(drift=drift), mock.patch.object(matrix.native, 'preflight'), \
                  mock.patch.object(matrix, 'common', side_effect=[self.context, {} if drift == 'common' else self.context]), \
                  mock.patch.object(matrix, 'tools', side_effect=[self.toolset, {} if drift == 'tools' else self.toolset]), \
-                 mock.patch.object(matrix.native, 'source_identity', side_effect=['a', 'b' if drift == 'source' else 'a']), \
+                 mock.patch.object(matrix.native, 'source_identity', side_effect=['f'*64, ('e' if drift == 'source' else 'f')*64]), \
                  mock.patch.object(matrix.native, 'binary_identity', side_effect=[self.build, {} if drift == 'binary' else self.build]), \
                  mock.patch.object(matrix, 'generated', side_effect=[self.generated, {} if drift == 'generated' else self.generated]), \
                  mock.patch.object(matrix.corpus, 'run', return_value=self.observations()) as run, \
                  mock.patch.object(matrix.native, 'execute') as execute:
-                if drift == 'none': self.assertEqual(matrix.cell('linux-arm64-clang', 'san')['status'], 'PASS')
+                if drift == 'none': self.assertEqual(matrix.cell('linux-arm64-clang', 'san')['source_environment_sha256'], 'f'*64)
                 else:
                     with self.assertRaisesRegex(RuntimeError, 'changed'): matrix.cell('linux-arm64-clang', 'san')
                 self.assertEqual(execute.call_count, 2)
@@ -159,9 +164,20 @@ class HostedMatrixTests(unittest.TestCase):
                 self.assertEqual(observed['cc']['implementation']['sha256'], matrix.native.digest(compiler))
             directory = root/'build/generated'; directory.mkdir(parents=True)
             source = directory/'own.cpp'; source.write_bytes(b'own generated bytes')
-            receipt = dict(files=[dict(path='own.cpp', sha256=matrix.native.digest(source))], identity=dict(compilers={}))
+            other = directory/'other.cpp'; other.write_bytes(b'own second generated output')
+            (root/'manifests').mkdir()
+            (root/'manifests/codegen.json').write_text(json.dumps(dict(schema_version=1, generators=[dict(outputs=['own.cpp', 'other.cpp'])])))
+            files = [dict(path=p.name, sha256=matrix.native.digest(p)) for p in (source, other)]
+            receipt = dict(files=files, identity=dict(compilers={}))
             (directory/'codegen-receipt.json').write_text(json.dumps(receipt))
             with mock.patch.object(matrix, 'ROOT', root):
-                self.assertEqual(matrix.generated()['files'], {'own.cpp': matrix.native.digest(source)})
+                self.assertEqual(matrix.generated()['files'], {p.name: matrix.native.digest(p) for p in (source, other)})
+                for invalid in (files[:-1], files+[dict(path='extra.cpp', sha256='f'*64)], [files[0], files[0]]):
+                    (directory/'codegen-receipt.json').write_text(json.dumps(dict(receipt, files=invalid)))
+                    with self.subTest(invalid=invalid), mock.patch.object(matrix.native, 'digest') as digest, \
+                         self.assertRaisesRegex(RuntimeError, 'codegen inventory'):
+                        matrix.generated()
+                    digest.assert_not_called()
+                (directory/'codegen-receipt.json').write_text(json.dumps(receipt))
                 source.write_bytes(b'own altered bytes')
                 with self.assertRaisesRegex(RuntimeError, 'generated source drift'): matrix.generated()
