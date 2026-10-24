@@ -152,7 +152,7 @@ class NightlyRecipeTests(unittest.TestCase):
     def test_hosted_native_selectors_do_not_start_existing_jobs_even_on_the_gate_branch(self):
         jobs = self.hosted_jobs()
         for event in ('push', 'workflow_dispatch'):
-            for component in ('all', 'tools', 'managed', 'gate', 'clean', 'sanitizers'):
+            for component in ('all', 'tools', 'managed', 'gate', 'clean', 'sanitizers', 'rgb565-probe'):
                 enabled = set()
                 for name, job in jobs.items():
                     condition = re.search(r'^    if: (.+)$', job, re.M)[1]
@@ -171,6 +171,20 @@ class NightlyRecipeTests(unittest.TestCase):
             for forbidden in ('tools/ci/run.py', 'linux_native.py', 'build_waterbox.py', 'prepare_managed', 'prepare_hosted',
                               'docker', 'continue-on-error', 'upload-artifact', 'needs:'):
                 self.assertNotIn(forbidden, job)
+
+    def test_rgb565_probe_prepares_only_pinned_tools_and_reports_loader_failure_without_suppressing_it(self):
+        job = self.hosted_jobs()['pinned-inputs']
+        self.assertIn('runs-on: macos-26', job)
+        self.assertIn('prepare_hosted_tools.py --fetch', job)
+        for name in ('Prepare the fixed offline managed feed', 'Execute the pinned host tools with their verified libraries'):
+            step = job.split('- name: ' + name, 1)[1].split('      - name:', 1)[0]
+            self.assertIn("if: inputs.component != 'rgb565-probe'", step)
+        step = job.split('- name: Diagnose the pinned LLVM sanitizer loader with one own program', 1)[1].split('      - name:', 1)[0]
+        self.assertIn("if: inputs.component == 'rgb565-probe'", step)
+        self.assertIn('P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools', step)
+        self.assertIn('P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json', step)
+        self.assertIn('python3 -B -m tools.ci.rgb565_loader_probe', step)
+        self.assertNotRegex(step, r'continue-on-error|\|\| true|upload-artifact|build_waterbox|nightly.py|prepare_managed')
 
     def test_hosted_terminal_json_is_validated_with_full_counts_and_status(self):
         counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)

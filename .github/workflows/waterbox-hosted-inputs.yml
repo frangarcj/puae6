@@ -7,7 +7,7 @@ on:
     inputs:
       component:
         type: choice
-        options: [all, tools, managed, gate, clean, sanitizers]
+        options: [all, tools, managed, gate, clean, sanitizers, rgb565-probe]
         default: all
         required: true
 permissions:
@@ -47,9 +47,11 @@ jobs:
         shell: bash
         run: python3 -B tools/ci/prepare_hosted_tools.py --fetch --ruby "$P6_HOSTED_RUBY"
       - name: Prepare the fixed offline managed feed
+        if: inputs.component != 'rgb565-probe'
         shell: bash
         run: python3 -B tools/ci/prepare_managed_inputs.py --fetch
       - name: Execute the pinned host tools with their verified libraries
+        if: inputs.component != 'rgb565-probe'
         shell: bash
         run: |
           python3 - <<'PY'
@@ -93,6 +95,14 @@ jobs:
           assert (smoke / 'own.rmeta').stat().st_size > 0
           print(json.dumps(dict(status='PASS', scope='pinned host tools, resources and SIP-safe tiny compile/link only; no Waterbox build or execution', versions=versions), sort_keys=True))
           PY
+      - name: Diagnose the pinned LLVM sanitizer loader with one own program
+        if: inputs.component == 'rgb565-probe'
+        env:
+          P6_WATERBOX_SOURCE_AUDIT: snapshot
+          P6_WATERBOX_TOOLCHAIN_PROFILE: hosted-macos26
+          P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json
+          P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools
+        run: python3 -B -m tools.ci.rgb565_loader_probe
       - name: Prepare the exact managed SDK for the full gate
         if: inputs.component == 'gate' || github.ref == 'refs/heads/codex/waterbox-hosted-gate'
         uses: ./.github/actions/prepare-managed-sdk
