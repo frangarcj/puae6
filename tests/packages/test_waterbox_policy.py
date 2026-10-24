@@ -95,6 +95,74 @@ class WaterboxPolicyTests(unittest.TestCase):
         self.p.pop('rust_std_external_pending')
         with self.assertRaisesRegex(ValueError, 'Missing std external coverage declaration'): policy.compose(self.p)
 
+    def test_std_conservative_closure_rejects_missing_packages_false_pins_notices_and_band_origins(self):
+        e = self.p['rust_std_external']
+        self.assertEqual((len(e['registry']), len(e['local'])), (30, 19))
+        self.assertTrue(policy.compose(self.p)['rust_std_external_complete'])
+        for mode in ('registry', 'local', 'version', 'checksum', 'notice', 'band-notice', 'gitlink', 'repository', 'local-path', 'lock', 'vcs'):
+            with self.subTest(mode=mode):
+                p = copy.deepcopy(self.p); e = p['rust_std_external']
+                if mode == 'registry': e['registry'].pop()
+                if mode == 'local': e['local'].pop()
+                if mode == 'version': e['registry'][0]['version'] = '0'
+                if mode == 'checksum': e['registry'][0]['checksum'] = '0' * 64
+                if mode == 'notice': e['registry'][0]['notices'].pop()
+                if mode == 'band-notice': e['bands'][0]['notices'].pop()
+                if mode == 'gitlink': next(b for b in e['bands'] if b['kind'] == 'commit')['commit'] = '0' * 40
+                if mode == 'repository': e['bands'][0]['repository'] = 'https://github.com/invalid/source.git'
+                if mode == 'local-path': e['local'][0]['path'] = '../Cargo.toml'
+                if mode == 'vcs': next(c for c in e['registry'] if c.get('vcs')).pop('vcs')
+                if mode == 'lock':
+                    e['lock']['text'] += '\n'; e['lock']['sha256'] = policy.digest(e['lock']['text'].encode())
+                with self.assertRaises(ValueError): policy.compose(p)
+
+    def test_clearing_pending_without_authenticated_std_coverage_cannot_make_cli_accept(self):
+        p = copy.deepcopy(self.p); p.pop('rust_std_external'); p['rust_std_external_pending'] = {}
+        self.assertFalse(policy.compose(p)['rust_std_external_complete'])
+        (policy.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='wb-policy-', dir=policy.ROOT / 'build') as temporary:
+            fixture = Path(temporary) / 'policy.json'; fixture.write_text(json.dumps(p))
+            with mock.patch.object(policy, 'POLICY', fixture), mock.patch('sys.argv', ['waterbox_package_policy']), \
+                    mock.patch('sys.stdout', new_callable=io.StringIO):
+                self.assertEqual(policy.main(), 2)
+
+    def test_own_std_archive_and_primary_source_cache_are_checked_offline(self):
+        (policy.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='wb-policy-', dir=policy.ROOT / 'build') as temporary:
+            root = Path(temporary); (root / 'crates').mkdir(); (root / 'sources').mkdir()
+            text = b'Own license\r\n'; manifest = b'[package]\nname="own"\nversion="1"\n'
+            n = {'member': 'LICENSE', 'offset': 0, 'bytes': len(text), 'sha256': policy.digest(text)}
+            (root / 'notices').write_bytes(text); (root / 'sources' / n['sha256']).write_bytes(text)
+            source = {'text': manifest.decode(), 'sha256': policy.digest(manifest)}
+            (root / 'sources' / source['sha256']).write_bytes(manifest)
+            path = root / 'crates/own-1.crate'
+            with tarfile.open(path, 'w') as archive:
+                for name, data in (('Cargo.toml', manifest), ('LICENSE', text)):
+                    item = tarfile.TarInfo('own-1/' + name); item.size = len(data); archive.addfile(item, io.BytesIO(data))
+            c = {'name': 'own', 'version': '1', 'archive_bytes': path.stat().st_size,
+                 'checksum': policy.digest(path.read_bytes()), 'manifest': source, 'notices': [n]}
+            e = {k: source for k in ('lock', 'root_tree', 'library_tree', 'gitmodules')}
+            e.update(registry=[c], local=[{'manifest': source}], bands=[{'notices': [n]}])
+            p = {'notices': {'path': 'notices'}, 'rust_std_external': e}
+            with mock.patch.object(policy, 'ROOT', root):
+                policy.verify_std_archives(p, root)
+                n['range'] = [-1, 1]
+                with self.assertRaisesRegex(ValueError, 'Std notice slice'): policy.verify_std_archives(p, root)
+                n.pop('range')
+                original = path.read_bytes(); path.write_bytes(original + b'changed')
+                with self.assertRaisesRegex(ValueError, 'Std crate archive pin'): policy.verify_std_archives(p, root)
+                path.write_bytes(original)
+                with tarfile.open(path, 'a') as archive:
+                    item = tarfile.TarInfo('own-1/NOTICE'); item.size = len(text); archive.addfile(item, io.BytesIO(text))
+                c['checksum'] = policy.digest(path.read_bytes()); c['archive_bytes'] = path.stat().st_size
+                with self.assertRaisesRegex(ValueError, 'Std archive notice inventory'): policy.verify_std_archives(p, root)
+                path.write_bytes(original); c['checksum'] = policy.digest(original); c['archive_bytes'] = len(original)
+                (root / 'sources' / n['sha256']).write_bytes(b'wrong')
+                with self.assertRaisesRegex(ValueError, 'Std cached band notice mismatch'): policy.verify_std_archives(p, root)
+                (root / 'sources' / n['sha256']).write_bytes(text); (root / 'notices').write_bytes(b'X' + text[1:])
+                n['sha256'] = policy.digest((root / 'notices').read_bytes())
+                with self.assertRaisesRegex(ValueError, 'Std archive notice mismatch'): policy.verify_std_archives(p, root)
+
     def test_own_archive_fixtures_authenticate_original_bytes_before_reading_notices(self):
         (policy.ROOT / 'build').mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='wb-policy-', dir=policy.ROOT / 'build') as temporary:

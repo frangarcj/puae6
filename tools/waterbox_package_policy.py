@@ -2,6 +2,7 @@
 """Compose and verify standalone Waterbox source/notice policy, without building."""
 import argparse
 import base64
+import configparser
 import hashlib
 import json
 import os
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tarfile
 import tomllib
+from urllib.parse import quote
 import zipfile
 
 if not __package__:
@@ -33,6 +35,11 @@ WINDOWS = {'winapi': '0.3.9', 'winapi-i686-pc-windows-gnu': '0.4.0', 'winapi-x86
 NUGET = {'communitytoolkit.highperformance': ['License.md', 'ThirdPartyNotices.txt'], 'newtonsoft.json': ['LICENSE.md']}
 RUST = {'COPYRIGHT', 'LICENSE-MIT', 'LICENSE-APACHE', 'license-metadata.json',
         'LICENSES/Unicode-3.0.txt', 'LICENSES/BSD-2-Clause.txt'}
+STD_LOCK = '53d9ccff0c906de434b65af90d5c30063894b940fc839261f1fb06ef2e69e3d3'
+STD_BANDS = {'compiler-builtins': ['LICENSE.txt', 'libm/LICENSE.txt'], 'backtrace': ['LICENSE-APACHE', 'LICENSE-MIT'],
+             'portable-simd': ['LICENSE-APACHE', 'LICENSE-MIT', 'crates/core_simd/LICENSE-APACHE', 'crates/core_simd/LICENSE-MIT'],
+             'stdarch': ['LICENSE-APACHE', 'LICENSE-MIT', 'crates/core_arch/LICENSE-APACHE', 'crates/core_arch/LICENSE-MIT',
+                         'crates/intrinsic-test/LICENSE-APACHE', 'crates/intrinsic-test/LICENSE-MIT']}
 
 
 def digest(data):
@@ -108,6 +115,7 @@ def compose(policy=None, read=None):
             require(all(c[k] == pin[k] for k in ('version', 'bytes', 'archive_sha512_base64'))
                     and c['source_url'] == pin['url'], 'NuGet component pin')
     verify_std(p, blob, read)
+    std_complete = verify_std_external(p, blob)
     # Prove all six imported sysroot notices against the committed, authenticated archive.
     import io
     with tarfile.open(fileobj=io.BytesIO(read(sysroot['archive']))) as archive:
@@ -120,6 +128,7 @@ def compose(policy=None, read=None):
     result['source_paths'] += EXTRA
     result['licenses']['WATERBOX-NOTICES.txt'] = p['notices']['path']
     result['rust_std_external_pending'] = p['rust_std_external_pending']
+    result['rust_std_external_complete'] = std_complete
     package.notice_files(result, read)
     return result
 
@@ -151,6 +160,115 @@ def verify_std(p, blob, read):
         licenses.update(entry['spdx'].replace('(', '').replace(')', '').split())
     licenses -= {'OR', 'AND'}
     require(licenses == set(std['licenses']) == {'MIT', 'Apache-2.0', 'BSD-2-Clause', 'Unicode-3.0'}, 'Std license coverage')
+
+
+def source_body(record, url=None):
+    data = record['text'].encode()
+    require(digest(data) == record['sha256'] and (url is None or record['url'] == url), 'Std primary source pin')
+    return data
+
+
+def verify_std_external(p, blob):
+    e = p.get('rust_std_external')
+    if e is None:
+        return False
+    commit = p['rust_std']['commit']; raw = f'https://raw.githubusercontent.com/rust-lang/rust/{commit}/'
+    lock = source_body(e['lock'], raw + 'library/Cargo.lock')
+    require(digest(lock) == STD_LOCK, 'Std Cargo.lock pin')
+    packages = tomllib.loads(lock.decode())['package']
+    registry = {(c['name'], c['version']): c for c in packages if c.get('checksum')}
+    local = {(c['name'], c['version']) for c in packages if not c.get('checksum')}
+    require(len(packages) == 49 and len(registry) == 30 and len(local) == 19, 'Std lock coverage')
+    tree = json.loads(source_body(e['root_tree'], 'https://api.github.com/repos/rust-lang/rust/git/trees/' + commit))
+    library = next(n for n in tree['tree'] if n['path'] == 'library')
+    subtree = json.loads(source_body(e['library_tree'], 'https://api.github.com/repos/rust-lang/rust/git/trees/' + library['sha']))
+    require(library['type'] == 'tree' and subtree['sha'] == library['sha']
+            and not tree.get('truncated') and not subtree.get('truncated'), 'Std library tree pin')
+    entries = {n['path']: n for n in subtree['tree']}
+    modules = configparser.ConfigParser(); modules.read_string(source_body(e['gitmodules'], raw + '.gitmodules').decode())
+    repos = {modules[s]['path']: modules[s]['url'] for s in modules.sections()}
+    require({n['path'] for n in subtree['tree'] if n['type'] == 'commit'} == {'backtrace'}, 'Std gitlink coverage')
+    require(len(e['bands']) == 4 and {b['path'] for b in e['bands']} == set(STD_BANDS), 'Std source band coverage')
+    for b in e['bands']:
+        name = b['path']; entry = entries[name]; linked = name == 'backtrace'
+        repo = repos['library/' + name] if linked else 'https://github.com/rust-lang/rust.git'
+        revision = entry['sha'] if linked else commit
+        slug = repo.removeprefix('https://github.com/').removesuffix('.git')
+        require(entry['type'] == ('commit' if linked else 'tree') and b['kind'] == entry['type']
+                and b['tree_sha'] == entry['sha'] and b['repository'] == repo and b['commit'] == revision, 'Std band origin pin')
+        require(b['required_notices'] == STD_BANDS[name]
+                and sorted(n['member'] for n in b['notices']) == sorted(STD_BANDS[name]), 'Std band notice coverage')
+        for n in b['notices']:
+            path = n['member'] if linked else 'library/' + name + '/' + n['member']
+            require(n['url'] == f"https://raw.githubusercontent.com/{slug}/{revision}/{path}", 'Std band notice source')
+            notice_bytes(blob, n)
+    actual = [(c['name'], c['version']) for c in e['registry']]
+    require(len(actual) == len(set(actual)) and set(actual) == set(registry), 'Std registry coverage')
+    for c in e['registry']:
+        key = (c['name'], c['version']); pin = registry[key]
+        require(c['checksum'] == pin['checksum'] and c['source_url'] ==
+                f"https://static.crates.io/crates/{key[0]}/{key[0]}-{quote(key[1], safe='')}.crate", 'Std crate pin')
+        meta = tomllib.loads(source_body(c['manifest']).decode())['package']
+        require((meta['name'], meta['version']) == key and c['license'] == meta.get('license')
+                and c['license_file'] == meta.get('license-file'), 'Std crate manifest')
+        names = [n['member'] for n in c['notices']]
+        require(names and len(names) == len(set(names)) and sorted(names) == sorted(c['required_notices'])
+                and (not c['license_file'] or c['license_file'] in names), 'Std crate notice coverage')
+        require(not any('url' in n for n in c['notices']) or bool(c.get('vcs')), 'Std upstream notice lacks VCS pin')
+        if c.get('vcs'):
+            vcs = json.loads(source_body(c['vcs']))
+            repo = meta['repository'].rstrip('/').removesuffix('.git')
+            for n in c['notices']:
+                if 'url' in n:
+                    path = n['origin_path']
+                    require(path and not path.startswith('/') and '..' not in Path(path).parts
+                            and n['url'] == f"https://raw.githubusercontent.com/{repo[19:]}/{vcs['git']['sha1']}/{path}",
+                            'Std crate upstream notice pin')
+        if c['name'] in ('r-efi', 'r-efi-alloc'):
+            require(c['selected_license'] == 'MIT' and 'MIT' in c['license'].split() and 'AUTHORS' in names,
+                    'Std selected license coverage')
+        for n in c['notices']:
+            notice_bytes(blob, n)
+    actual = [(c['name'], c['version']) for c in e['local']]
+    require(len(actual) == len(set(actual)) and set(actual) == local, 'Std local package coverage')
+    for c in e['local']:
+        path = {'compiler_builtins': 'compiler-builtins/compiler-builtins', 'windows-link': 'windows_link'}.get(c['name'], c['name'])
+        require(c['path'] == path + '/Cargo.toml', 'Std local source path')
+        meta = tomllib.loads(source_body(c['manifest'], raw + 'library/' + c['path']).decode())['package']
+        require((meta['name'], meta['version']) == (c['name'], c['version']) and c['license'] == meta.get('license')
+                and c['notice_band'] == ('compiler-builtins' if c['name'] == 'compiler_builtins' else 'rust-own'), 'Std local attribution')
+    return True
+
+
+def verify_std_archives(p, cache):
+    e = p['rust_std_external']; cache = Path(cache); blob = (ROOT / p['notices']['path']).read_bytes()
+    for c in e['registry']:
+        path = cache / 'crates' / f"{c['name']}-{c['version']}.crate"; data = path.read_bytes()
+        require(len(data) == c['archive_bytes'] and digest(data) == c['checksum'], 'Std crate archive pin')
+        with tarfile.open(path) as archive:
+            prefix = f"{c['name']}-{c['version']}/"
+            require(archive.extractfile(prefix + 'Cargo.toml').read() == source_body(c['manifest']), 'Std archive manifest mismatch')
+            if c.get('vcs'):
+                require(archive.extractfile(prefix + '.cargo_vcs_info.json').read() == source_body(c['vcs']), 'Std archive VCS mismatch')
+            for n in c['notices']:
+                data = ((cache / 'sources' / n['sha256']).read_bytes() if 'url' in n
+                        else archive.extractfile(prefix + n['member']).read())
+                if 'range' in n:
+                    start, end = n['range']
+                    require(type(start) is int and type(end) is int and 0 <= start < end <= len(data), 'Std notice slice')
+                    data = data[start:end]
+                require(data == notice_bytes(blob, n), 'Std archive notice mismatch')
+            found = {m.name.removeprefix(prefix) for m in archive.getmembers() if m.isfile()
+                     and (any(word in m.name.upper() for word in ('LICENSE', 'LICENCE', 'COPYING', 'NOTICE', 'COPYRIGHT', 'AUTHORS'))
+                          or m.name == prefix + (c.get('license_file') or ''))}
+            require(found == {n['member'] for n in c['notices'] if 'url' not in n and 'range' not in n},
+                    'Std archive notice inventory')
+    records = [e[k] for k in ('lock', 'root_tree', 'library_tree', 'gitmodules')] + [c['manifest'] for c in e['local']]
+    for record in records:
+        require((cache / 'sources' / record['sha256']).read_bytes() == source_body(record), 'Std cached primary source mismatch')
+    for b in e['bands']:
+        for n in b['notices']:
+            require((cache / 'sources' / n['sha256']).read_bytes() == notice_bytes(blob, n), 'Std cached band notice mismatch')
 
 
 def verify_archives(p, crate_cache, nuget_feed):
@@ -193,13 +311,15 @@ def metadata_selection(metadata):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('crate-cache', 'nuget-feed', 'cargo', 'cargo-home'):
+    for name in ('crate-cache', 'nuget-feed', 'cargo', 'cargo-home', 'std-source-cache'):
         parser.add_argument('--' + name, type=Path)
     args = parser.parse_args(); p = json.loads((ROOT / POLICY).read_bytes())
-    compose(p)
+    composed = compose(p)
     require(bool(args.crate_cache) == bool(args.nuget_feed), 'Supply both archive caches')
     if args.crate_cache:
         verify_archives(p, args.crate_cache, args.nuget_feed)
+    if args.std_source_cache:
+        verify_std_archives(p, args.std_source_cache)
     require(bool(args.cargo) == bool(args.cargo_home), 'Supply Cargo executable and home')
     if args.cargo:
         pin = json.loads((ROOT / 'plan/toolchains.json').read_bytes())['tools']['cargo']
@@ -209,7 +329,7 @@ def main():
                                          env={**os.environ, 'CARGO_HOME': str(args.cargo_home)}, timeout=120)
         actual = {(c['name'], c['version']): c['phase'] for c in p['components'] if c['kind'] == 'crate'}
         require(metadata_selection(json.loads(output)) == actual, 'Offline Cargo selection changed')
-    if p['rust_std_external_pending']:
+    if p['rust_std_external_pending'] or not composed['rust_std_external_complete']:
         print('BLOCKED: Rust std external-crate notices remain uncovered; partial policy inputs verified, no package claim')
         return 2
     print('Waterbox source/notice policy verified; no package or execution claim')

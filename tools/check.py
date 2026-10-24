@@ -917,6 +917,7 @@ TASK_SUITES[('PKG01', 'T40c')] = {
     'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 for _gate in ('SRC01', 'PKG01'):
     TASK_SUITES[(_gate, 'T40d')] = {'waterbox_source_notice_policy': 'tests.packages.test_waterbox_policy.WaterboxPolicyTests'}
+    TASK_SUITES[(_gate, 'T40d1')] = TASK_SUITES[(_gate, 'T40d')]
 for _gate in ('BUILD01', 'LR01'):
     TASK_SUITES[(_gate, 'T40c')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 # Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
