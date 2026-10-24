@@ -79,28 +79,35 @@ def validate(records, expected):
                 scope='all original optimization assertions on pinned native hosted rows; no performance or other lane claim')
 
 
-def records_from_log(log, job):
+def records_from_log(log, job, jobs=None, marker=MARKER, describe=label):
+    jobs = JOBS if jobs is None else jobs
     require('VIOLATION' not in log, 'worker log reported a protocol violation')
-    matches = re.findall(r'^(?:\S+Z )?' + MARKER + r'(\{[^\n]+\})\r?$', log, re.M)
-    require(len(matches) == len(JOBS[job]), 'missing or duplicate terminal optimization JSON: ' + job)
+    matches = re.findall(r'^(?:\S+Z )?' + re.escape(marker) + r'(\{[^\n]+\})\r?$', log, re.M)
+    require(len(matches) == len(jobs[job]), 'missing or duplicate terminal worker JSON: ' + job)
     records = [json.loads(item) for item in matches]
-    require({item['kind'] for item in records} == set(JOBS[job])
-            and all(label(item) == job for item in records), 'job/optimization descriptor mismatch')
+    require({item['kind'] for item in records} == set(jobs[job])
+            and all(describe(item) == job for item in records), 'job/worker descriptor mismatch')
+    return records
+
+
+def collect(jobs, marker, describe, before):
+    """One attempt's complete workers; each caller retains its own full oracle."""
+    repo, run, attempt = (before[key] for key in ('repository', 'run_id', 'run_attempt'))
+    listing = json.loads(matrix.native.execute(['gh', 'api', f'repos/{repo}/actions/runs/{run}/attempts/{attempt}/jobs?per_page=100']))
+    require(listing['total_count'] == len(listing['jobs']) < 100, 'incomplete Actions job listing')
+    selected = [job for job in listing['jobs'] if job['name'] in jobs]
+    require(len(selected) == len(jobs) and {job['name'] for job in selected} == set(jobs), 'missing or duplicate current-attempt jobs')
+    require(len({job['id'] for job in selected}) == len(selected), 'duplicate current-attempt job ID')
+    records = []
+    for job in selected:
+        require(job['status'] == 'completed' and job['conclusion'] == 'success', 'worker job not successful: ' + job['name'])
+        records.extend(records_from_log(read_job_log(repo, job['id']), job['name'], jobs, marker, describe))
     return records
 
 
 def aggregate():
-    before = matrix.common(); repo, run, attempt = (before[key] for key in ('repository', 'run_id', 'run_attempt'))
-    listing = json.loads(matrix.native.execute(['gh', 'api', f'repos/{repo}/actions/runs/{run}/attempts/{attempt}/jobs?per_page=100']))
-    require(listing['total_count'] == len(listing['jobs']) < 100, 'incomplete Actions job listing')
-    selected = [job for job in listing['jobs'] if job['name'] in JOBS]
-    require(len(selected) == len(JOBS) and {job['name'] for job in selected} == set(JOBS), 'missing or duplicate current-attempt jobs')
-    require(len({job['id'] for job in selected}) == len(selected), 'duplicate current-attempt job ID')
-    records = []
-    for job in selected:
-        require(job['status'] == 'completed' and job['conclusion'] == 'success', 'optimization job not successful: ' + job['name'])
-        records.extend(records_from_log(read_job_log(repo, job['id']), job['name']))
-    result = validate(records, before)
+    before = matrix.common()
+    result = validate(collect(JOBS, MARKER, label, before), before)
     require(matrix.common() == before, 'aggregate sources changed')
     return result
 
