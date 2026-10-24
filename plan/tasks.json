@@ -11777,7 +11777,9 @@
         "tests/simd/test_rgb565.py",
         "tests/simd/test_engine_flags.py",
         "tools/waterbox_state_probe.py",
-        "tests/waterbox-smoke/test_state_probe.py"
+        "tests/waterbox-smoke/test_state_probe.py",
+        "tools/build_waterbox_guest_sysroot.py",
+        "tests/waterbox-smoke/test_guest_sysroot.py"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11938,7 +11940,8 @@
         "Causa reproducida con proyecto CMake C/CXX minimo: segundo configure reintroduce -DCMAKE_*_COMPILER y cambia tipo/comentario del cache aun con ruta absoluta FILEPATH; todosbinariosremotos eraniguales. Correccion acotada tests/build_support.py y tests/test_build_support.py: seleccionar clang/clang++ en cachefrio, en caliente validar ambas entradas unicas/rutasreales contra las herramientas actuales y omitir solo esos dos -D. Mantener restantes flags yguard SHA exacto. Fixture CMake real frio→reconfigure en proyecto propio sin motor y negativos de compilador distinto/entradas faltantes o duplicadas. ci_close implementa aislado; root integra/revisa y ejecuta diagnostico constructor4, sin repetir135/75 ventanas.",
         "Diagnostico publico c7a764f5/run40109360859: ffi-release ystate-opt ESTABLES bajo guard completo trasfixcache. Driver se detiene en Smoke por ModuleNotFoundError ci: snippets hijos importan tools.build_waterbox sin bootstraptools en sys.path que sihaceWB12original. Corregir solo snippetsSmoke/Debug en tools/ci/performance_inputs.py yfixtureen tests/ci/test_performance_inputs.py, reproducirimportoriginal y probarprocesofresco sin rebuild. No repetir135/75; siguiente dispatchsoloconstructor4, sin atribuir esteFAIL a cache ni anunciar benchPASS.",
         "Conectar adaptadorC legacyT40o2 a functional con P6_TEST_LEGACY_SOFTFLOAT_COMPILER=1 ytest deENV/moduloexistente. ABI01 incluye supequeno harnessreal (originalrechazado,40casosparcheados); BUILD01/SRC01 conservan fixtures ylectura deartifactsourceactual, no ejecutanemulador ni repitenbuild. Gatefullcoexistencia siguesiendoT40o/T40k.",
-        "Run40110923389/attempt1 sourcepublicf64631e0 terminalSUCCESS DIAGNOSTIC_STABLE: cuatroconstructores ffi-release/state-opt/smoke/runtime-debug conservaninventariosenteros con0deltas;13otrosjobsskipped. coverage4constructors/0campaign_windows/0original_methods validada contra codigoactualpublico. Arreglocache eimporthijos verificados; NOcampana135/39 ni gateperformancecompleto. Mantenercampanafinal pendiente, sin repetirahora matriz/engine/frontend sobrecandidatas intermedias."
+        "Run40110923389/attempt1 sourcepublicf64631e0 terminalSUCCESS DIAGNOSTIC_STABLE: cuatroconstructores ffi-release/state-opt/smoke/runtime-debug conservaninventariosenteros con0deltas;13otrosjobsskipped. coverage4constructors/0campaign_windows/0original_methods validada contra codigoactualpublico. Arreglocache eimporthijos verificados; NOcampana135/39 ni gateperformancecompleto. Mantenercampanafinal pendiente, sin repetirahora matriz/engine/frontend sobrecandidatas intermedias.",
+        "Preparar derivacion ABI fuente en hosted-macos26 antes build_puae6: ampliar touch productor build_waterbox_guest_sysroot.py y test_guest_sysroot.py; seleccionar archiver hosted explicitamente por perfil fijado, autenticar SHA/version/ruta efectiva y entorno loader del bundle existente. Helper tools/ci/prepare_guest_sysroot.py verifica/reutiliza salida exacta o deriva2ASM, paso accion performance antesguest, sin tocar5TOOL_NAMES ni descargar paquetes locales. Root integra pins observados llvm-ar de la botella fijada, nunca inventados. Compilaciones y campañas siguen serializadas/coordinadas; preview local anterior puede generarse primero con revision explicita y sin atribuirle CI de otra candidata."
       ],
       "checks": [
         "PLAN01",
@@ -12678,7 +12681,12 @@
         "tests/test_plan.py",
         "tests/waterbox-smoke/test_legacy_guest.py",
         "tests/waterbox-smoke/test_build.py",
-        "tests/codegen/test_build_trees.py"
+        "tests/codegen/test_build_trees.py",
+        "tools/package_waterbox.py",
+        "tests/packages/test_waterbox_preview.py",
+        "manifests/release/waterbox-preview.json",
+        "tools/reproduce_waterbox.py",
+        "tests/packages/test_waterbox_reproducible.py"
       ],
       "steps": [
         "DespuesdeloraculoT40n revisar receta minima de overlayfuente/sysrootderivado con identidadnueva y compilacion legacy en outputs propios. La base1270inputs y elguestoriginal390cc permanecen intactos; no editarcapturas/manifestsdeupstream ni MacHawk. No sustituir ELF a mano ni editar bytes de estados paraaprobar. Acreditar cada nuevoartefactodesdesusfuentes/pins/flags; actualizarautoridadtoolchains explicitamente trasverificacion, sin cambiarinventariosgoldenpara ocultar diferencias.",
@@ -12686,7 +12694,9 @@
         "Ejecutar una candidata integrada: T40m debe darfullstateexacto y los4casosBK2/TAS deT40k debenpasar conamboscores vivos, A/V/aislamiento/identidad/replay/preferenciacontraria completos. Revalidar regresionesWB13/WB15 y memoria/restauracion afectadas por nuevaidentidad; no heredarPASS delguestanterior ni repetirbatallasnativas no afectadas. Mantenerlimitacionestadosentrebuilds y dejarfunciones no acreditadas pendientes.",
         "Integracion minima trasT40o1/T40o2DONE: root cambia build_waterbox.py ytest_build para que build_puae6 seleccione sysrootderivado verificado ywrapperspropios guest-toolchain/bin, sinmutar toolchain/sysrootbase ni runtime/mini. Recibo guest_abi ycheck_puae6_guest_abi pruebanvariantareal enbuild/run. hosted_bootstrap modifica soloemuhawk_coexistence.py+su test parausar guestlegacyderivado verify() yexigir guest_abi dePUAE6; no binariooriginal390cc comofallback. Mantener todosloscasos/comparadores actuales. Root compilaPUAE6 una vez(serializado), recompilaEXEconguestpinactual sihacefalta y ejecuta T40m/T40k/WB13..15+medidasafectadas. Ningun PASS heredado decompilacion.",
         "Ampliacion minima test_build_trees: sufixture positiva de inventario usa proyecto sintetico sin sysroot; aislar nuevo check_puae6_guest_abi mediante mock explicito para conservar pruebaindependiente de engine/headers. La seleccionderivada tiene susfixturespropios positivos/negativos. RevisionRO sinbloqueantesparacompilar; preflight package_waterbox aunrequierebase, actualizarlo en fasepaquetesT40 antesderegenerarZIP, sin declararpaqueteactualporcompilarP6.",
-        "BuildPUAE6desde sysrootderivadoPASS yELF b8e09133... byteidentico alprevio; runtime9defintacto,coreEXE7cb se reutiliza conpinactual. T40m ycuatrocasosT40k realesyaPASS. Checkmemorymanifest detectadeudaprevia:16claves aún a28cb6de ynoP6b8e; re-registrorealcon APIs directas una pasada(15×60u+WB12×5600), sinrebuildporfila ni cambiargoldensinmedir. WB13/WB15 afectados ypaquetepreflight nuevos quedanpendientes antesfinalesoriginales."
+        "BuildPUAE6desde sysrootderivadoPASS yELF b8e09133... byteidentico alprevio; runtime9defintacto,coreEXE7cb se reutiliza conpinactual. T40m ycuatrocasosT40k realesyaPASS. Checkmemorymanifest detectadeudaprevia:16claves aún a28cb6de ynoP6b8e; re-registrorealcon APIs directas una pasada(15×60u+WB12×5600), sinrebuildporfila ni cambiargoldensinmedir. WB13/WB15 afectados ypaquetepreflight nuevos quedanpendientes antesfinalesoriginales.",
+        "Integracion final de consumidores ABI: ampliar touch solo package_waterbox.py y test_waterbox_preview.py para autenticar guest_abi actual, inventario derivado y wrappers guest-toolchain/bin; conservar guardas y exigir fuentes/ASM/parche dentro del source archive. Root refresca exclusivamente pin toolchains de waterbox-preview.json cuando lock final estable; misma musl/licencias, sin schema nuevo ni relajar procedencia. Agente hosted_bootstrap implementa en worktree aislado sin metadata; root integra, prueba y genera preview propia, sin atribuir release formal. Medidas16 completas y coherencia5/presupuestos7/HDF/floppy pasan; regresiones RealGuestTests WB13..15 diez PASS en73.860s.",
+        "Revision RO detecta consumidor reproducible aun sin preflight ABI: ampliar solo reproduce_waterbox.py y test_waterbox_reproducible.py para autenticar y capturar guest_abi antes outputs/builds. Missing/stale bloquea temprano; identidad prueba drift durante dosbuilds. No repetir dosbuilds por fixture ni atribuir reproducibilidad nueva por preflight. Responsable toolchain_review aislado, root metadata e integracion."
       ],
       "checks": [
         "BUILD01",
