@@ -22454,7 +22454,7 @@
       "title": "MMU 68030/040/060 (opcional, al final)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T55"
       ],
