@@ -22454,7 +22454,7 @@
       "title": "MMU 68030/040/060 (opcional, al final)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T55"
       ],
@@ -22465,10 +22465,13 @@
       ],
       "touch": [
         "docs/adr/future-fpu-mmu.md",
-        "plan/extensions/fpu-mmu.json"
+        "plan/extensions/fpu-mmu.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
-        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: la MMU es opcional y al final (la FPU y las CPUs 030/040/060 pasaron a T54/T55)."
+        "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Decision del usuario 2026-10-08: la MMU es opcional y al final (la FPU y las CPUs 030/040/060 pasaron a T54/T55).",
+        "Estudio acotado a ADR y matriz/subbacklog JSON; conservar perfiles y rechazos actuales de MMU. Ampliar touch al validador de esa matriz y al dispatcher para que GEN01 compruebe sus invariantes y DET02 reutilice las regresiones existentes de CPU sin MMU. No habilitar dispositivos, cambiar flags ni acreditar soporte MMU; no repetir la emulacion ya cubierta por la candidata acumulada cuando sus inputs no cambian."
       ],
       "checks": [
         "GEN01",
