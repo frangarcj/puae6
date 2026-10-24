@@ -122,6 +122,29 @@ class LinuxNativeTests(unittest.TestCase):
 
 
 class HostedCorpusTests(unittest.TestCase):
+    def test_local_and_hosted_cells_share_exact_schema_cases_and_both_digests(self):
+        from tests.portability import test_portability as local
+        (ci.ROOT/'build').mkdir(exist_ok=True)
+        for fault in ('none', 'schema', 'missing', 'extra-host', 'error', 'hardware', 'av'):
+            expected, base, host = self.records()
+            if fault == 'schema': host['probe_schema'] = True
+            if fault == 'missing': base['cases'] = {}
+            if fault == 'extra-host': host['cases']['extra'] = host['cases']['one']
+            if fault == 'error': base['errors'] = {'one': 'own failure'}
+            if fault == 'hardware': base['cases']['one']['hardware'] = 'd'*64
+            if fault == 'av': host['cases']['one']['av'] = 'd'*64
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(dir=ci.ROOT/'build') as directory:
+                root = Path(directory); folder = root/'build/portability/own-row'; folder.mkdir(parents=True)
+                for name, data in (('baseline', base), ('host', host), ('record', {'faketime': {'shifted': True}})):
+                    (folder/f'O2-{name}.json').write_text(json.dumps(data))
+                with mock.patch.object(local, 'ROOT', root), mock.patch.object(local, 'golden', return_value=expected):
+                    if fault == 'none':
+                        local.check_matrix_result(self, '', 'own-row', 'O2')
+                        corpus_ci.compare(expected, base, host, headless=False)
+                    else:
+                        with self.assertRaises(AssertionError): local.check_matrix_result(self, '', 'own-row', 'O2')
+                        with self.assertRaises(RuntimeError): corpus_ci.compare(expected, base, host, headless=False)
+
     @staticmethod
     def records(headless=False):
         case = dict(probe_schema=2, hardware='a'*64, av='b'*64, units=1)
