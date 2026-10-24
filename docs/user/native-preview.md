@@ -189,6 +189,14 @@ no promete compatibilidad de estados entre builds ni con otros cores.
 `python3 tools/package.py check --archive /ruta/preview.zip` repite esa comprobacion, sin necesitar el checkout
 usado para compilar los binarios. No descarga dependencias.
 
+`python3 tools/package.py reproducible` comprueba exclusivamente los tres binarios
+nativos de la plataforma actual. Requiere fuentes limpias y los arboles canonicos
+`build/upstream` y `build/generated` ya verificados. Compila dos veces los objetos
+en directorios nuevos con la receta Release del paquete y compara bytes exactos,
+sin ejecutar el motor. Devuelve hashes/identidad por stdout y elimina temporales
+incluso si falla. No demuestra reproducibilidad de Waterbox, EmuHawk o del ZIP
+completo, ni cambia el manifest de los paquetes existentes.
+
 PUAE6 incluye un derivado de SoftFloat2a con cambios de
 QEMU, WinUAE y PUAE6; conserva sus avisos mixtos SoftFloat2a/BSD/GPL y atribucion
 FPSP. `licenses/` acompaña los binarios con los textos GPL, MAME/IPF, libchdr,
