@@ -5,13 +5,21 @@ on:
       gate:
         description: Native cold restore, public corpora, or complete distributed matrix
         type: choice
-        options: [native, corpus, matrix]
+        options: [native, corpus, matrix, matrix-recover]
         default: native
       variants:
         description: All combinations or sanitizer follow-up
         type: choice
         options: [all, san]
         default: all
+      source_run:
+        description: Original completed matrix run, only for matrix-recover
+        type: string
+        default: ''
+      source_attempt:
+        description: Original run attempt, only for matrix-recover
+        type: string
+        default: '1'
 permissions:
   contents: read
 concurrency:
@@ -19,7 +27,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   native:
-    if: inputs.gate != 'matrix'
+    if: inputs.gate == 'native' || inputs.gate == 'corpus'
     name: ${{ matrix.platform.row }} / ${{ matrix.optimization }}
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
@@ -103,3 +111,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/ci/hosted_matrix.py aggregate
+  matrix-recovery:
+    if: inputs.gate == 'matrix-recover'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+      - name: Verify original completed run and derive its source revision
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+          SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
+        run: python3 -I -B tooling/tools/ci/recover_matrix.py inspect --source-run "$SOURCE_RUN" --source-attempt "$SOURCE_ATTEMPT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.source.outputs.source_sha }}
+          path: source
+          persist-credentials: false
+      - name: Recover original aggregation with directed log transport only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+          SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
+        run: python3 -I -B tooling/tools/ci/recover_matrix.py recover --source "$GITHUB_WORKSPACE/source" --source-run "$SOURCE_RUN" --source-attempt "$SOURCE_ATTEMPT"

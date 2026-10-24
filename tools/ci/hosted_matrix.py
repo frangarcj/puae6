@@ -13,6 +13,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.ci import hosted_corpus as corpus, linux_native as native, run as ci
+from tools.ci.action_logs import read_job_log
 
 PROFILE = 'hosted-native-distributed-v1'
 MARKER = 'P6_MATRIX_RESULT '
@@ -181,7 +182,8 @@ def aggregate():
     records = []
     for job in selected:
         require(job['status'] == 'completed' and job['conclusion'] == 'success', 'matrix job not successful: ' + job['name'])
-        log = native.execute(['gh', 'api', f'repos/{repo}/actions/jobs/{job["id"]}/logs'])
+        log = read_job_log(repo, job['id'])
+        require('VIOLATION' not in log, 'worker log reported a protocol violation')
         matches = re.findall(r'^(?:\S+Z )?' + MARKER + r'(\{[^\n]+\})\r?$', log, re.M)
         require(len(matches) == 1, 'missing/duplicate terminal worker JSON: ' + job['name'])
         record = json.loads(matches[0])
