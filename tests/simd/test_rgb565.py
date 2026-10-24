@@ -26,8 +26,8 @@ class PixelTests(unittest.TestCase):
 
     def test_the_comparison_harness_can_fail(self):
         with tempfile.TemporaryDirectory(prefix="p6-simd-") as directory:
-            exe, _ = evaluate.build(Path(directory), "opt")
-            result = evaluate.run(exe, "--selftest-fail")
+            exe, inputs = evaluate.build(Path(directory), "opt")
+            result = evaluate.run(exe, "--selftest-fail", build_inputs=inputs)
         self.assertEqual(2, result.returncode)
         self.assertIn("RGB domain differs", result.stderr)
 

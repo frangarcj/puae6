@@ -104,19 +104,20 @@ class LinuxNativeTests(unittest.TestCase):
         workflow = (ci.ROOT / ".github/workflows/native-linux.yml").read_text()
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("runs-on: ${{ matrix.platform.runner }}", workflow)
-        self.assertEqual(dict(re.findall(r"- row: (\S+)\n\s+runner: (\S+)",workflow)),ci.HOSTED_RUNNERS)
+        native = workflow.split('  matrix-infrastructure:', 1)[0]
+        self.assertEqual(dict(re.findall(r"- row: (\S+)\n\s+runner: (\S+)",native)),ci.HOSTED_RUNNERS)
         variants=re.search(r"optimization: \[([^\]]+)\]",workflow)
         self.assertEqual(tuple(v.strip() for v in variants[1].split(',')),ci.VARIANTS)
         self.assertIn('fail-fast: false',workflow)
         self.assertIn('max-parallel: 4',workflow)
         self.assertIn('options: [all, san]',workflow)
-        self.assertIn('options: [native, corpus, matrix, matrix-recover]',workflow)
+        self.assertIn('options: [native, corpus, matrix, matrix-recover, optimization]',workflow)
         self.assertIn("--gate '${{ inputs.gate }}'",workflow)
         self.assertIn('default: all',workflow)
         self.assertIn('inputs.variants == \'san\' && \'[{"optimization":"O0"},{"optimization":"O2"}]\'',workflow)
         self.assertIn("--row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}'",workflow)
         self.assertIn("timeout-minutes: 45", workflow)
-        self.assertEqual(workflow.count("uses:"), 6)
+        self.assertEqual(workflow.count("uses:"), 10)
         self.assertIn("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683", workflow)
         self.assertNotRegex(workflow, r"upload-artifact|actions/cache|secrets\.|pull_request:|schedule:|continue-on-error")
 
@@ -126,6 +127,7 @@ class LinuxNativeTests(unittest.TestCase):
         self.assertIn("if: inputs.gate == 'native' || inputs.gate == 'corpus'", native)
         infrastructure, rest = rest.split('  matrix-worker:', 1)
         workers, aggregate = rest.split('  matrix-result:', 1)
+        aggregate = aggregate.split('  matrix-recovery:', 1)[0]
         self.assertIn("test '${{ inputs.variants }}' = all", infrastructure)
         self.assertIn('hosted_matrix.py infrastructure', infrastructure)
         self.assertIn('needs: matrix-infrastructure', workers)
@@ -138,7 +140,7 @@ class LinuxNativeTests(unittest.TestCase):
         self.assertIn('needs: [matrix-infrastructure, matrix-worker]', aggregate)
         self.assertIn('actions: read', aggregate)
         self.assertIn('hosted_matrix.py aggregate', aggregate)
-        self.assertNotRegex(rest, r'linux_native.py|nightly.py|build_waterbox|dotnet|docker|--fetch')
+        self.assertNotRegex(workers + aggregate, r'linux_native.py|nightly.py|build_waterbox|dotnet|docker|--fetch')
 
 
 class HostedCorpusTests(unittest.TestCase):

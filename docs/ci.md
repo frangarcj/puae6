@@ -339,3 +339,29 @@ ejecuta el CLI nightly con auditoria `snapshot` y valida su JSON terminal: fuent
 seleccion completa, conteos sin omisiones y resultados de clean. No vuelve a
 ejecutar PR68 ni las matrices native/corpus ya aprobadas. Estos dos jobs no
 acreditan las otras cuatro lanes acumuladas ni el cierre global de T39b/T39.
+
+## Optimizacion completa en runners publicos
+
+`gate: optimization`, `variants: all` en `native-linux.yml` selecciona
+`hosted-native-optimization-v1`. Conserva los siete selectores y once metodos
+originales: cuatro tests unittest del motor, tres de RGB565 y las assertions
+distribuidas de equivalencia/seguridad del frontend y SIMD. La particion falla
+si cambia el inventario; no convierte los cinco workers de una assertion en
+cinco ejecuciones del metodo original.
+
+El motor mantiene entrenamiento, merge PGO y las seis variantes originales en
+un solo job Mac26. Otro job Mac26 ejecuta RGB565 con el bundle LLVM 23.1.4 ya
+autenticado por la receta existente. Despues, hasta cuatro jobs simultaneos
+ejecutan las cinco filas: cada una verifica frontend optimizado y sanitizer,
+y SIMD optimizado, fallback y sanitizer. Apple Clang 21 y los pins Linux
+originales siguen siendo obligatorios; una version distinta falla.
+
+La agregacion usa los validadores compartidos con los checks locales y los
+logs del intento actual: exige todas las filas/modos, igualdad de observaciones
+entre filas, restauracion, dominio RGB completo y conteos sin omisiones. Los
+workers comprueban fuentes, herramientas, headers efectivos, codegen y binarios
+antes/despues. La identidad ambiental de cada worker permanece separada de la
+identidad comun de fuente/receta/run/intento. No transfiere perfiles PGO ni
+publica artifacts. Esta receta no acredita rendimiento ni las otras lanes;
+su implementacion y sus tests de infraestructura tampoco acreditan ejecucion
+remota del emulador.

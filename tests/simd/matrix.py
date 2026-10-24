@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -13,6 +14,33 @@ from tests.simd import evaluate
 
 BUILD = ROOT / "build/simd/matrix"
 IMAGES = json.loads((ROOT / "plan/toolchains.json").read_text())["portability_matrix"]["image_ids"]
+PINS = json.loads((ROOT / "plan/toolchains.json").read_text())["portability_matrix"]["rows"]
+
+
+def validate_record(record, row, mode, expected_digest, sources):
+    """Pure shared oracle: callers supply the current checkout's source hashes."""
+    spec = ROWS[row]
+    isa = record["environment"]["isa"]
+    backend = "neon" if spec["isa"] == "arm64" and mode != "fallback" else "scalar"
+    product = "neon" if row.startswith("linux-arm64-") and mode != "fallback" else "portable"
+    checks = (
+        (record["row"] == row and record["mode"] == mode, "wrong row/mode"),
+        (("arm64" if isa == "aarch64" else isa) == spec["isa"], "wrong executable ISA"),
+        (type(record["verified_rgb_values"]) is int and record["verified_rgb_values"] == 1 << 24
+         and record["forced_fallback"] == "scalar", "incomplete comparison"),
+        (record["backend"] == backend, "wrong dispatch"),
+        (record["product_backend"] == product, "wrong product selection"),
+        (re.fullmatch("[0-9a-f]{16}", record["rgb_digest"]) is not None
+         and (expected_digest is None or record["rgb_digest"] == expected_digest), "RGB differs between rows"),
+        (record["sources"] == sources, "stale/incomplete sources"),
+        (record["compiler"] == PINS[row]["compiler_version"], "wrong compiler version"),
+        (re.fullmatch("[0-9a-f]{64}", record["compiler_sha256"]) is not None, "missing compiler identity"),
+        (record["flags"] == evaluate.flags(mode, row) and record["sanitizer_options"] == "detect_leaks=0", "wrong flags/sanitizer policy"),
+    )
+    for valid, message in checks:
+        if not valid:
+            raise ValueError(f"{message}: {row}/{mode}")
+    return record["rgb_digest"]
 
 
 def command(argv, timeout=180):
@@ -43,25 +71,9 @@ def run(modes=("opt", "fallback", "san")):
                          "-v", f"{ROOT}:/src:ro", "-v", f"{directory}:/out", "-w", "/src", image,
                          "python3", "tests/simd/evaluate.py", "--row", row, "--mode", mode, "--build-dir", "/out", "--output", f"/out/{target}"])
                 record = json.loads((directory / target).read_text())
-            isa = record["environment"]["isa"]
-            if ("arm64" if isa == "aarch64" else isa) != spec["isa"]:
-                raise ValueError(f"the executable did not run on the row's ISA: {row}: {isa}")
-            if record["verified_rgb_values"] != 1 << 24 or record["forced_fallback"] != "scalar":
-                raise ValueError(f"incomplete comparison: {row}/{mode}")
-            backend = "neon" if spec["isa"] == "arm64" and mode != "fallback" else "scalar"
-            if record["backend"] != backend:
-                raise ValueError(f"wrong dispatch: {row}/{mode}")
-            product = "neon" if row.startswith("linux-arm64-") and mode != "fallback" else "portable"
-            if record["product_backend"] != product:
-                raise ValueError(f"wrong product selection: {row}/{mode}")
-            if expected_digest is None:
-                expected_digest = record["rgb_digest"]
-            if record["rgb_digest"] != expected_digest:
-                raise ValueError(f"RGB differs between rows: {row}/{mode}")
-            if any(evaluate.digest(ROOT / path) != sha for path, sha in record["sources"].items()):
-                raise ValueError(f"stale sources: {row}/{mode}")
+            expected_digest = validate_record(record, row, mode, expected_digest, evaluate.sources())
             records[mode] = record
-            print(f"T35a {row}/{mode}: equal ({backend})", flush=True)
+            print(f"T35a {row}/{mode}: equal ({record['backend']})", flush=True)
         evidence["rows"][row] = {"native_hardware": spec["native_hardware"], "execution": spec["execution"], "results": records}
     return evidence
 
