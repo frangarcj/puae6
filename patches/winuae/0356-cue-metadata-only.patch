@@ -1,0 +1,438 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -11,6 +11,7 @@
+ * Copyright 2010-2013 Toni Wilen
+ *
+ */
++#ifndef P6_CUE_METADATA
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ 
+@@ -1204,6 +1205,53 @@
+ 	return 1;
+ }
+ 
++#else
++#include "cd_cue_metadata.h"
++#include <ctype.h>
++#include <string.h>
++#include <initializer_list>
++namespace p6_cd {
++using TCHAR = char;
++#define _T(x) x
++#define _istspace(x) isspace(static_cast<unsigned char>(x))
++static int cue_compare(const char *a, const char *b, size_t count)
++{
++    for (size_t n = 0; n < count; ++n) {
++        const unsigned x = static_cast<unsigned char>(a[n]), y = static_cast<unsigned char>(b[n]);
++        const unsigned ax = x >= 'a' && x <= 'z' ? x - 32 : x, by = y >= 'a' && y <= 'z' ? y - 32 : y;
++        if (ax != by || !x) return int(ax) - int(by);
++    }
++    return 0;
++}
++#define _tcsnicmp cue_compare
++#define _tcsicmp(a,b) cue_compare(a,b,SIZE_MAX)
++#define _tstoi cue_number
++#define MAX_DPATH 4096
++enum audenc { AUDENC_NONE, AUDENC_PCM };
++struct cdtoc {
++    CueTrack raw{};
++    CueSource source{};
++    uint64_t filesize = 0;
++    int track = 0, ctrl = 0, adr = 0, size = 0;
++    bool index_seen = false, zero_seen = false, pre_seen = false, post_seen = false;
++};
++struct cdunit { int tracks = 0; cdtoc toc[99]; };
++static int cue_number(const char *s)
++{
++    if (!s || !*s) return -1;
++    int value = 0;
++    for (; *s; ++s) { if (*s < '0' || *s > '9' || value > 99) return -1; value = value * 10 + *s - '0'; }
++    return value;
++}
++static int cue_time(const char *s)
++{
++    if (!s || strlen(s) != 8 || s[2] != ':' || s[5] != ':') return -1;
++    for (unsigned n : {0u, 1u, 3u, 4u, 6u, 7u}) if (s[n] < '0' || s[n] > '9') return -1;
++    const int seconds = (s[3] - '0') * 10 + s[4] - '0', frames = (s[6] - '0') * 10 + s[7] - '0';
++    return seconds < 60 && frames < 75 ? ((s[0] - '0') * 10 + s[1] - '0') * 4500 + seconds * 75 + frames : -1;
++}
++#endif
++
+ static void skipspace (TCHAR **s)
+ {
+ 	while (_istspace (**s))
+@@ -1211,8 +1259,14 @@
+ }
+ static void skipnspace (TCHAR **s)
+ {
+-	while (!_istspace (**s))
++	while (**s && !_istspace (**s))
+ 		(*s)++;
++}
++
++static int cue_command(const TCHAR *p, const TCHAR *name, size_t length)
++{
++    const int diff = _tcsnicmp(p, name, length);
++    return diff ? diff : !p[length] || _istspace(p[length]) ? 0 : 1;
+ }
+ 
+ static TCHAR *nextstring (TCHAR **sp)
+@@ -1227,16 +1281,18 @@
+ 		out = s;
+ 		while (*s && *s != '\"')
+ 			s++;
++		if (!*s) return NULL;
+ 		*s++ = 0;
+ 	} else if (*s) {
+ 		out = s;
+ 		skipnspace (&s);
+-		*s++ = 0;
++		if (*s) *s++ = 0;
+ 	}
+ 	*sp = s;
+ 	return out;
+ }
+ 
++#ifndef P6_CUE_METADATA
+ static int readval (const TCHAR *s)
+ {
+ 	int base = 10;
+@@ -1657,46 +1713,89 @@
+ 	return cdu->tracks;
+ }
+ 
++#else
++Result cue_metadata(const CueIo &io, CueMetadata *out)
++#endif
++#ifndef P6_CUE_METADATA
+ static int parsecue (struct cdunit *cdu, struct zfile *zcue, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+-{
+-	int tracknum, pregap, postgap, lastpregap, lastpostgap;
+-	int newfile, secoffset;
+-	uae_s64 fileoffset;
+-	int index0;
++#endif
++{
++#ifdef P6_CUE_METADATA
++    if (!out || !io.read_line || !io.resolve) return Result::Invalid;
++    cdunit storage{}; auto *cdu = &storage;
++    char filename[MAX_DPATH]; size_t text_bytes = 0;
++    Encoding file_type = Encoding::Opaque; bool file_pending = false;
++#else
++	int pregap, postgap, lastpregap, lastpostgap;
++    int newfile, secoffset;
++    uae_s64 fileoffset;
++    mp3decoder *mp3dec = NULL;
++#endif
++	int tracknum;
++	[[maybe_unused]] int index0;
+ 	TCHAR *fname, *fnametype;
+-	audenc fnametypeid;
++	[[maybe_unused]] audenc fnametypeid;
+ 	int ctrl;
+-	mp3decoder *mp3dec = NULL;
+ 
+ 	fname = NULL;
+ 	fnametype = NULL;
+ 	tracknum = 0;
++#ifndef P6_CUE_METADATA
+ 	fileoffset = 0;
+ 	secoffset = 0;
+ 	newfile = 0;
++#endif
+ 	ctrl = 0;
+ 	index0 = -1;
++#ifndef P6_CUE_METADATA
+ 	pregap = 0;
+ 	postgap = 0;
+ 	lastpregap = 0;
+ 	lastpostgap = 0;
++#endif
+ 	fnametypeid = AUDENC_NONE;
+ 
++#ifndef P6_CUE_METADATA
+ 	write_log (_T("CUE TOC: '%s'\n"), img);
++#endif
+ 	for (;;) {
+ 		TCHAR buf[MAX_DPATH], *p;
++#ifdef P6_CUE_METADATA
++        const int length = io.read_line(io.context, buf, sizeof buf);
++        if (length < 0) return Result::ReadError;
++        if (!length) break;
++        if (size_t(length) >= sizeof buf || memchr(buf, 0, size_t(length)) || buf[length] || (text_bytes += size_t(length)) > 65536) return Result::Invalid;
++        bool quoted = false;
++        for (int n = 0; n < length; ++n) if (buf[n] == '"') {
++            quoted = !quoted;
++            if (!quoted && buf[n + 1] && !_istspace(buf[n + 1])) return Result::Invalid;
++        }
++        if (quoted) return Result::Invalid;
++#else
+ 		if (!zfile_fgets (buf, sizeof buf / sizeof (TCHAR), zcue))
+ 			break;
++#endif
+ 
+ 		p = buf;
+ 		skipspace (&p);
+ 
+-		if (!_tcsnicmp (p, _T("FILE"), 4)) {
++		if (!cue_command (p, _T("FILE"), 4)) {
+ 			p += 4;
++#ifdef P6_CUE_METADATA
++            if (file_pending || (tracknum && !cdu->toc[tracknum - 1].index_seen)) return Result::Invalid;
++            const char *name = nextstring(&p);
++            if (!name || !*name) return Result::Invalid;
++            strcpy(filename, name); fname = filename;
++#else
+ 			xfree (fname);
+ 			fname = my_strdup (nextstring (&p));
++#endif
+ 			fnametype = nextstring (&p);
+ 			fnametypeid = AUDENC_NONE;
++#ifdef P6_CUE_METADATA
++            if (!fnametype || (_tcsicmp(fnametype, "BINARY") && _tcsicmp(fnametype, "WAVE")) || nextstring(&p)) return Result::Unsupported;
++            file_type = !_tcsicmp(fnametype, "WAVE") ? Encoding::AudioPcmS16Le : Encoding::Opaque; file_pending = true;
++#else
+ 			TCHAR *ext = _tcsrchr(fname, '.');
+ 			if (ext) {
+ 				ext++;
+@@ -1713,8 +1812,14 @@
+ 				fnametypeid = AUDENC_FLAC;
+ 			fileoffset = 0;
+ 			newfile = 1;
++#endif
+ 			ctrl = 0;
+-		} else if (!_tcsnicmp (p, _T("FLAGS"), 5)) {
++		} else if (!cue_command (p, _T("FLAGS"), 5)) {
++            p += 5;
++#ifdef P6_CUE_METADATA
++            if (!tracknum || cdu->toc[tracknum - 1].index_seen) return Result::Invalid;
++            bool flags_seen = false;
++#endif
+ 			ctrl &= ~(1 | 2 | 8);
+ 			for (;;) {
+ 				TCHAR *f = nextstring (&p);
+@@ -1726,25 +1831,46 @@
+ 					ctrl |= 2;
+ 				if (!_tcsicmp (f, _T("4CH")))
+ 					ctrl |= 8;
+-			}
+-		} else if (!_tcsnicmp (p, _T("TRACK"), 5)) {
++#ifdef P6_CUE_METADATA
++                flags_seen = true;
++                if (_tcsicmp(f, "PRE") && _tcsicmp(f, "DCP") && _tcsicmp(f, "4CH")) return Result::Unsupported;
++#endif
++			}
++#ifdef P6_CUE_METADATA
++            if (!flags_seen) return Result::Invalid;
++#endif
++		} else if (!cue_command (p, _T("TRACK"), 5)) {
+ 			int size;
+ 			TCHAR *tracktype;
+ 			
+ 			p += 5;
++#ifdef P6_CUE_METADATA
++            ctrl = 0;
++#endif
+ 			index0 = -1;
++#ifndef P6_CUE_METADATA
+ 			lastpregap = 0;
+ 			lastpostgap = 0;
++#endif
+ 			skipspace(&p);
++#ifndef P6_CUE_METADATA
+ 			TCHAR *pt = p;
++#endif
+ 			tracknum = _tstoi (nextstring (&p));
++#ifndef P6_CUE_METADATA
+ 			// fix broken "TRACK 0"
+ 			if (tracknum == 0 && pt[0] == '0' && pt[1] == 0 && cdu->tracks == 0) {
+ 				tracknum = 1;
+ 			}
++#endif
+ 			tracktype = nextstring (&p);
++#ifdef P6_CUE_METADATA
++            if (!fname || tracknum != cdu->tracks + 1 || tracknum > 99 || !tracktype || nextstring(&p) ||
++                (cdu->tracks && !cdu->toc[cdu->tracks - 1].index_seen)) return Result::Invalid;
++#else
+ 			if (!tracktype)
+ 				break;
++#endif
+ 			size = 2352;
+ 			if (!_tcsicmp (tracktype, _T("AUDIO"))) {
+ 				ctrl &= ~4;
+@@ -1759,11 +1885,27 @@
+ 				else if (!_tcsicmp (tracktype, _T("MODE2/2352")) || !_tcsicmp (tracktype, _T("CDI/2352")))
+ 					size = 2352;
+ 				else {
++#ifdef P6_CUE_METADATA
++                    return Result::Unsupported;
++#else
+ 					write_log (_T("CUE: unknown tracktype '%s' ('%s')\n"), tracktype, fname);
++#endif
+ 				}
+ 			}
+ 			if (tracknum >= 1 && tracknum <= 99) {
+ 				struct cdtoc *t = &cdu->toc[tracknum - 1];
++#ifdef P6_CUE_METADATA
++                const auto type = file_type; t->raw.new_file = file_pending; file_pending = false;
++                if (type == Encoding::AudioPcmS16Le && (ctrl & 4)) return Result::Unsupported;
++                const auto resolved = io.resolve(io.context, fname, type, &t->source);
++                if (resolved != Result::Ok) return resolved;
++                if (!t->source.bytes || t->source.ordinal >= 99) return Result::Range;
++                t->filesize = t->source.bytes;
++                t->raw.source = t->source.ordinal;
++                t->raw.stride = unsigned(size);
++                t->raw.mode = !(ctrl & 4) ? Mode::Audio : size == 2048 ? Mode::Mode1_2048 :
++                    !_tcsnicmp(tracktype, "MODE1/", 6) ? Mode::Mode1Raw : Mode::Mode2Raw;
++#else
+ 				struct zfile *ztrack;
+ 
+ 				if (tracknum > 1 && newfile) {
+@@ -1806,48 +1948,96 @@
+ 						ztrack = zfile_fopen (tmp, _T("rb"), ZFD_ARCHIVE | ZFD_DELAYEDOPEN);
+ 					}
+ 				}
++#endif
+ 				t->track = tracknum;
+ 				t->ctrl = ctrl;
+ 				t->adr = 1;
++#ifndef P6_CUE_METADATA
+ 				t->handle = ztrack;
++#endif
+ 				t->size = size;
++#ifndef P6_CUE_METADATA
+ 				t->fname = my_strdup (fname);
++#endif
+ 				if (tracknum > cdu->tracks)
+ 					cdu->tracks = tracknum;
++#ifndef P6_CUE_METADATA
+ 				if (t->handle)
+ 					t->filesize = zfile_size (t->handle);
+-			}
+-		} else if (!_tcsnicmp (p, _T("PREGAP"), 6)) {
++#endif
++			}
++		} else if (!cue_command (p, _T("PREGAP"), 6)) {
+ 			TCHAR *tt;
+ 			int tn;
+ 			p += 6;
+ 			tt = nextstring (&p);
++#ifdef P6_CUE_METADATA
++            tn = cue_time(tt);
++            if (tn < 0 || nextstring(&p) || !tracknum || tracknum > cdu->tracks) return Result::Invalid;
++#else
+ 			tn = _tstoi (tt) * 60 * 75;
+ 			tn += _tstoi (tt + 3) * 75;
+ 			tn += _tstoi (tt + 6);
++#endif
++#ifdef P6_CUE_METADATA
++            auto &t = cdu->toc[tracknum - 1];
++            if (t.pre_seen || t.index_seen) return Result::Invalid;
++            t.pre_seen = true; t.raw.pregap = unsigned(tn);
++#else
+ 			pregap += tn;
+ 			lastpregap = tn;
+-		} else if (!_tcsnicmp (p, _T("POSTGAP"), 7)) {
++#endif
++		} else if (!cue_command (p, _T("POSTGAP"), 7)) {
++#ifndef P6_CUE_METADATA
+ 			struct cdtoc *t = &cdu->toc[tracknum - 1];
++#endif
+ 			TCHAR *tt;
+ 			int tn;
+ 			p += 7;
+ 			tt = nextstring (&p);
++#ifdef P6_CUE_METADATA
++            tn = cue_time(tt);
++            if (tn < 0 || nextstring(&p) || !tracknum || tracknum > cdu->tracks) return Result::Invalid;
++#else
+ 			tn = _tstoi (tt) * 60 * 75;
+ 			tn += _tstoi (tt + 3) * 75;
+ 			tn += _tstoi (tt + 6);
++#endif
++#ifdef P6_CUE_METADATA
++            auto &t = cdu->toc[tracknum - 1];
++            if (t.post_seen) return Result::Invalid;
++            t.post_seen = true; t.raw.postgap = unsigned(tn);
++#else
+ 			postgap += tn;
+ 			lastpostgap = tn;
+-		} else if (!_tcsnicmp (p, _T("INDEX"), 5)) {
++#endif
++		} else if (!cue_command (p, _T("INDEX"), 5)) {
+ 			int idxnum;
+ 			int tn = 0;
+ 			TCHAR *tt;
+ 			p += 5;
+ 			idxnum = _tstoi (nextstring (&p));
+ 			tt = nextstring (&p);
++#ifdef P6_CUE_METADATA
++            tn = cue_time(tt);
++            if (tn < 0 || nextstring(&p) || !tracknum || tracknum > cdu->tracks) return Result::Invalid;
++#else
+ 			tn = _tstoi (tt) * 60 * 75;
+ 			tn += _tstoi (tt + 3) * 75;
+ 			tn += _tstoi (tt + 6);
++#endif
++#ifdef P6_CUE_METADATA
++            auto &t = cdu->toc[tracknum - 1];
++            if (idxnum == 0) {
++                if (t.zero_seen || t.index_seen) return Result::Invalid;
++                t.zero_seen = true; t.raw.has_index0 = true; t.raw.index0 = unsigned(tn);
++            } else if (idxnum == 1) {
++                if (t.index_seen || (t.zero_seen && unsigned(tn) < t.raw.index0)) return Result::Invalid;
++                if (!t.raw.new_file && tracknum > 1 && cdu->toc[tracknum - 2].raw.source == t.raw.source &&
++                    unsigned(tn) <= cdu->toc[tracknum - 2].raw.index1) return Result::Invalid;
++                t.index_seen = true; t.raw.index1 = unsigned(tn); t.raw.control = uint8_t(ctrl);
++            } else return Result::Unsupported;
++#else
+ 			if (idxnum == 0) {
+ 				index0 = tn;
+ 			} else if (idxnum == 1 && tracknum >= 1 && tracknum <= 99) {
+@@ -1915,8 +2105,21 @@
+ 					}
+ 				}
+ 			}
+-		}
+-	}
++#endif
++        }
++#ifdef P6_CUE_METADATA
++        else if (*p && cue_command(p, "REM", 3) && cue_command(p, "CATALOG", 7) && cue_command(p, "TITLE", 5) &&
++                 cue_command(p, "PERFORMER", 9) && cue_command(p, "SONGWRITER", 10) && cue_command(p, "ISRC", 4)) return Result::Unsupported;
++#endif
++    }
++
++#ifdef P6_CUE_METADATA
++    if (file_pending || !cdu->tracks || !cdu->toc[cdu->tracks - 1].index_seen) return Result::Invalid;
++    CueMetadata candidate{}; candidate.tracks = unsigned(cdu->tracks);
++    for (unsigned n = 0; n < candidate.tracks; ++n) candidate.track[n] = cdu->toc[n].raw;
++    *out = candidate;
++    return Result::Ok;
++#else
+ 
+ 	struct cdtoc *t = &cdu->toc[cdu->tracks - 1];
+ 	uae_s64 size = t->filesize;
+@@ -1932,8 +2135,10 @@
+ 	delete mp3dec;
+ 
+ 	return cdu->tracks;
+-}
+-
++#endif
++}
++
++#ifndef P6_CUE_METADATA
+ static int parsenrg(struct cdunit *cdu, struct zfile *znrg, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+ {
+ 	uae_s64 size;
+@@ -2390,3 +2595,7 @@
+ 	command_toc, command_read, command_rawread, 0,
+ 	0, ismedia
+ };
++
++#else
++} // namespace p6_cd
++#endif

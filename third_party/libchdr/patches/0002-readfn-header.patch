@@ -1,0 +1,436 @@
+Read immutable CDv5 bytes by bounded ReadFn offsets, validating geometry before
+divisions/allocations. Context is borrowed; filename/precache are unsupported.
+Map/metadata/codec hardening is deliberately retained for T66t3/T66t4.
+--- a/include/libchdr/coretypes.h
++++ b/include/libchdr/coretypes.h
+@@ -4,54 +4,24 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ 
+-#ifdef USE_LIBRETRO_VFS
+-#include <streams/file_stream_transforms.h>
++#include <stdbool.h>
++#include <stddef.h>
++#define ARRAY_LENGTH(x) (sizeof(x)/sizeof(x[0]))
++typedef uint64_t UINT64; typedef uint32_t UINT32; typedef uint16_t UINT16; typedef uint8_t UINT8;
++typedef int64_t INT64; typedef int32_t INT32; typedef int16_t INT16; typedef int8_t INT8;
++/* Borrowed immutable bytes. No host file, position, ownership or reentry. */
++typedef bool (*chd_read_fn)(const void *, uint64_t, void *, size_t, size_t *);
++typedef struct { chd_read_fn read; const void *context; uint64_t bytes; } core_file;
++static size_t core_read_at(core_file *file, uint64_t offset, void *out, size_t length)
++{
++    size_t done = 0;
++    if (!file || !file->read || (length && !out) || offset > file->bytes || length > file->bytes - offset) return 0;
++    while (done < length) {
++        const size_t take = length - done < 2448 ? length - done : 2448;
++        size_t got = 0;
++        if (!file->read(file->context, offset + done, (uint8_t *)out + done, take, &got) || got != take) return 0;
++        done += take;
++    }
++    return length;
++}
+ #endif
+-
+-#define ARRAY_LENGTH(x) (sizeof(x)/sizeof(x[0]))
+-
+-typedef uint64_t UINT64;
+-typedef uint32_t UINT32;
+-typedef uint16_t UINT16;
+-typedef uint8_t UINT8;
+-
+-typedef int64_t INT64;
+-typedef int32_t INT32;
+-typedef int16_t INT16;
+-typedef int8_t INT8;
+-
+-#ifdef USE_LIBRETRO_VFS
+-#define core_file RFILE
+-#define core_fopen(file) rfopen(file, "rb")
+-#define core_fseek rfseek
+-#define core_ftell rftell
+-#define core_fread(fc, buff, len) fread(buff, 1, len, fc)
+-#define core_fclose rfclose
+-#else /* USE_LIBRETRO_VFS */
+-#define core_file FILE
+-#define core_fopen(file) fopen(file, "rb")
+-#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(__WIN64__)
+-	#define core_fseek _fseeki64
+-	#define core_ftell _ftelli64
+-#elif defined(_LARGEFILE_SOURCE) && defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64
+-	#define core_fseek fseeko64
+-	#define core_ftell ftello64
+-#else
+-	#define core_fseek fseeko
+-	#define core_ftell ftello
+-#endif
+-#define core_fread(fc, buff, len) fread(buff, 1, len, fc)
+-#define core_fclose fclose
+-#endif /* USE_LIBRETRO_VFS */
+-
+-static UINT64 core_fsize(core_file *f)
+-{
+-    UINT64 rv;
+-    UINT64 p = core_ftell(f);
+-    core_fseek(f, 0, SEEK_END);
+-    rv = core_ftell(f);
+-    core_fseek(f, p, SEEK_SET);
+-    return rv;
+-}
+-
+-#endif
+--- a/src/libchdr_chd.c
++++ b/src/libchdr_chd.c
+@@ -552,7 +552,8 @@
+ 	lzma_codec_data* lzma_codec = (lzma_codec_data*) codec;
+ 
+ 	/* free memory */
+-	LzmaDec_Free(&lzma_codec->decoder, (ISzAlloc*)&lzma_codec->allocator);
++	if (lzma_codec->allocator.Free)
++        LzmaDec_Free(&lzma_codec->decoder, (ISzAlloc*)&lzma_codec->allocator);
+ 	lzma_allocator_free(&lzma_codec->allocator);
+ }
+ 
+@@ -1000,7 +1001,7 @@
+ 
+ static inline UINT32 get_bigendian_uint32(const UINT8 *base)
+ {
+-	return (base[0] << 24) | (base[1] << 16) | (base[2] << 8) | base[3];
++	return ((uint32_t)base[0] << 24) | (base[1] << 16) | (base[2] << 8) | base[3];
+ }
+ 
+ /*-------------------------------------------------
+@@ -1182,15 +1183,18 @@
+ 	if (!chd_compressed(header))
+ 	{
+ 		header->rawmap = (uint8_t*)malloc(rawmapsize);
+-		core_fseek(chd->file, header->mapoffset, SEEK_SET);
+-		result = core_fread(chd->file, header->rawmap, rawmapsize);
+-		return CHDERR_NONE;
++        if (!header->rawmap) return CHDERR_OUT_OF_MEMORY;
++		result = core_read_at(chd->file, header->mapoffset, header->rawmap, rawmapsize);
++		return result == rawmapsize ? CHDERR_NONE : CHDERR_READ_ERROR;
+ 	}
+ 
+ 	/* read the reader */
+-	core_fseek(chd->file, header->mapoffset, SEEK_SET);
+-	result = core_fread(chd->file, rawbuf, sizeof(rawbuf));
++	result = core_read_at(chd->file, header->mapoffset, rawbuf, sizeof(rawbuf));
++    if (result != sizeof(rawbuf)) return CHDERR_READ_ERROR;
+ 	mapbytes = get_bigendian_uint32(&rawbuf[0]);
++    if (mapbytes > 16 * 1024 * 1024) return CHDERR_NOT_SUPPORTED;
++    if (header->mapoffset > chd->file->bytes - 16 || mapbytes > chd->file->bytes - header->mapoffset - 16)
++        return CHDERR_INVALID_DATA;
+ 	firstoffs = get_bigendian_uint48(&rawbuf[4]);
+ 	mapcrc = get_bigendian_uint16(&rawbuf[10]);
+ 	lengthbits = rawbuf[12];
+@@ -1199,10 +1203,13 @@
+ 
+ 	/* now read the map */
+ 	compressed_ptr = (uint8_t*)malloc(sizeof(uint8_t) * mapbytes);
+-	core_fseek(chd->file, header->mapoffset + 16, SEEK_SET);
+-	result = core_fread(chd->file, compressed_ptr, mapbytes);
++    if (!compressed_ptr) return CHDERR_OUT_OF_MEMORY;
++	result = core_read_at(chd->file, header->mapoffset + 16, compressed_ptr, mapbytes);
++    if (result != mapbytes) { free(compressed_ptr); return CHDERR_READ_ERROR; }
+ 	bitbuf = create_bitstream(compressed_ptr, sizeof(uint8_t) * mapbytes);
+-	header->rawmap = (uint8_t*)malloc(rawmapsize);
++	if (!bitbuf) { free(compressed_ptr); return CHDERR_OUT_OF_MEMORY; }
++    header->rawmap = (uint8_t*)malloc(rawmapsize);
++    if (!header->rawmap) { free(compressed_ptr); free(bitbuf); return CHDERR_OUT_OF_MEMORY; }
+ 
+ 	/* first decode the compression types */
+ 	decoder = create_huffman_decoder(16, 8);
+@@ -1347,8 +1354,11 @@
+ 	int intfnum;
+ 
+ 	/* verify parameters */
+-	if (file == NULL)
++	if (chd) *chd = NULL;
++	if (!file || !file->read || !chd)
+ 		EARLY_EXIT(err = CHDERR_INVALID_PARAMETER);
++	if (mode != CHD_OPEN_READ || parent)
++		EARLY_EXIT(err = CHDERR_NOT_SUPPORTED);
+ 
+ 	/* punt if invalid parent */
+ 	if (parent != NULL && parent->cookie != COOKIE_VALUE)
+@@ -1472,7 +1482,12 @@
+ 			if (newchd->codecintf[decompnum] == NULL && newchd->header.compression[decompnum] != 0)
+ 				EARLY_EXIT(err = CHDERR_UNSUPPORTED_FORMAT);
+ 
+-			/* initialize the codec */
++			/* Each codec owns one shared state, even if header slots repeat. */
++            int previous;
++            for (previous = 0; previous < decompnum; ++previous)
++                if (newchd->codecintf[previous] == newchd->codecintf[decompnum]) break;
++            if (previous < decompnum) continue;
++            /* initialize the codec */
+ 			if (newchd->codecintf[decompnum]->init != NULL)
+ 			{
+ 				void* codec = NULL;
+@@ -1522,32 +1537,7 @@
+ 
+ CHD_EXPORT chd_error chd_precache(chd_file *chd)
+ {
+-#ifdef _MSC_VER
+-	size_t size, count;
+-#else
+-	ssize_t size, count;
+-#endif
+-
+-	if (chd->file_cache == NULL)
+-	{
+-		core_fseek(chd->file, 0, SEEK_END);
+-		size = core_ftell(chd->file);
+-		if (size <= 0)
+-			return CHDERR_INVALID_DATA;
+-		chd->file_cache = malloc(size);
+-		if (chd->file_cache == NULL)
+-			return CHDERR_OUT_OF_MEMORY;
+-		core_fseek(chd->file, 0, SEEK_SET);
+-		count = core_fread(chd->file, chd->file_cache, size);
+-		if (count != size)
+-		{
+-			free(chd->file_cache);
+-			chd->file_cache = NULL;
+-			return CHDERR_READ_ERROR;
+-		}
+-	}
+-
+-	return CHDERR_NONE;
++	return CHDERR_NOT_SUPPORTED;
+ }
+ 
+ /*-------------------------------------------------
+@@ -1557,40 +1547,8 @@
+ 
+ CHD_EXPORT chd_error chd_open(const char *filename, int mode, chd_file *parent, chd_file **chd)
+ {
+-	chd_error err;
+-	core_file *file = NULL;
+-
+-	/* choose the proper mode */
+-	switch(mode)
+-	{
+-		case CHD_OPEN_READ:
+-			break;
+-
+-		default:
+-			err = CHDERR_INVALID_PARAMETER;
+-			goto cleanup;
+-	}
+-
+-	/* open the file */
+-	file = core_fopen(filename);
+-	if (file == 0)
+-	{
+-		err = CHDERR_FILE_NOT_FOUND;
+-		goto cleanup;
+-	}
+-
+-	/* now open the CHD */
+-	err = chd_open_file(file, mode, parent, chd);
+-	if (err != CHDERR_NONE)
+-		goto cleanup;
+-
+-	/* we now own this file */
+-	(*chd)->owns_file = TRUE;
+-
+-cleanup:
+-	if ((err != CHDERR_NONE) && (file != NULL))
+-		core_fclose(file);
+-	return err;
++	if (chd) *chd = NULL;
++	return CHDERR_NOT_SUPPORTED;
+ }
+ 
+ /*-------------------------------------------------
+@@ -1618,7 +1576,11 @@
+ 			void* codec = NULL;
+ 
+ 			if (chd->codecintf[i] == NULL)
+-				continue;
++                continue;
++            int previous;
++            for (previous = 0; previous < i; ++previous)
++                if (chd->codecintf[previous] == chd->codecintf[i]) break;
++            if (previous < i) continue;
+ 
+ 			switch (chd->codecintf[i]->compression)
+ 			{
+@@ -1667,8 +1629,7 @@
+ 		free(chd->map);
+ 
+ 	/* close the file */
+-	if (chd->owns_file && chd->file != NULL)
+-		core_fclose(chd->file);
++	/* core_file and its immutable byte context are always borrowed. */
+ 
+ #ifdef NEED_CACHE_HUNK
+ 	if (PRINTF_MAX_HUNK) printf("Max hunk = %d/%d\n", chd->maxhunk, chd->header.totalhunks);
+@@ -1816,8 +1777,7 @@
+ 
+ 	/* read the metadata */
+ 	outputlen = MIN(outputlen, metaentry.length);
+-	core_fseek(chd->file, metaentry.offset + METADATA_HEADER_SIZE, SEEK_SET);
+-	count = core_fread(chd->file, output, outputlen);
++	count = core_read_at(chd->file, metaentry.offset + METADATA_HEADER_SIZE, output, outputlen);
+ 	if (count != outputlen)
+ 		return CHDERR_READ_ERROR;
+ 
+@@ -1968,8 +1928,7 @@
+ 		return CHDERR_INVALID_FILE;
+ 
+ 	/* seek and read */
+-	core_fseek(chd->file, 0, SEEK_SET);
+-	count = core_fread(chd->file, rawheader, sizeof(rawheader));
++	count = core_read_at(chd->file, 0, rawheader, sizeof(rawheader));
+ 	if (count != sizeof(rawheader))
+ 		return CHDERR_READ_ERROR;
+ 
+@@ -1981,6 +1940,7 @@
+ 	memset(header, 0, sizeof(*header));
+ 	header->length        = get_bigendian_uint32(&rawheader[8]);
+ 	header->version       = get_bigendian_uint32(&rawheader[12]);
++	if (header->version != 5) return CHDERR_UNSUPPORTED_VERSION;
+ 
+ 	/* make sure it's a version we understand */
+ 	if (header->version == 0 || header->version > CHD_HEADER_VERSION)
+@@ -2061,15 +2021,30 @@
+ 		header->mapoffset       = get_bigendian_uint64(&rawheader[40]);
+ 		header->metaoffset      = get_bigendian_uint64(&rawheader[48]);
+ 		header->hunkbytes       = get_bigendian_uint32(&rawheader[56]);
+-		header->hunkcount       = (header->logicalbytes + header->hunkbytes - 1) / header->hunkbytes;
++		/* Validate before division, narrowing or map/codec allocation. */
++        header->unitbytes = get_bigendian_uint32(&rawheader[60]);
++        if (!header->logicalbytes || !header->hunkbytes || !header->unitbytes ||
++            header->logicalbytes % header->unitbytes || header->hunkbytes % header->unitbytes)
++            return CHDERR_INVALID_DATA;
++        if (header->unitbytes != 2448) return CHDERR_NOT_SUPPORTED;
++        if (header->hunkbytes > 512 * 1024) return CHDERR_NOT_SUPPORTED;
++        uint64_t count = 1 + (header->logicalbytes - 1) / header->hunkbytes;
++        if (count > (1u << 20)) return CHDERR_NOT_SUPPORTED;
++        header->hunkcount = (uint32_t)count;
+ 		header->unitbytes       = get_bigendian_uint32(&rawheader[60]);
+-		header->unitcount       = (header->logicalbytes + header->unitbytes - 1) / header->unitbytes;
++		header->unitcount = header->logicalbytes / header->unitbytes;
++        header->flags = 0;
+ 		memcpy(header->sha1, &rawheader[84], CHD_SHA1_BYTES);
+ 		memcpy(header->parentsha1, &rawheader[104], CHD_SHA1_BYTES);
+ 		memcpy(header->rawsha1, &rawheader[64], CHD_SHA1_BYTES);
+ 
+ 		/* determine properties of map entries */
+ 		header->mapentrybytes = chd_compressed(header) ? 12 : 4;
++        if (memcmp(header->parentsha1, nullsha1, 20)) return CHDERR_NOT_SUPPORTED;
++        uint64_t mapbytes = chd_compressed(header) ? 16 : (uint64_t)header->hunkcount * 4;
++        if (header->mapoffset > chd->file->bytes || mapbytes > chd->file->bytes - header->mapoffset ||
++            (header->metaoffset && (header->metaoffset > chd->file->bytes || 16 > chd->file->bytes - header->metaoffset)))
++            return CHDERR_INVALID_DATA;
+ 
+ 		/* hack */
+ 		header->totalhunks 		= header->hunkcount;
+@@ -2107,8 +2082,7 @@
+ 	}
+ 	else
+ 	{
+-		core_fseek(chd->file, offset, SEEK_SET);
+-		bytes = core_fread(chd->file, chd->compressed, size);
++		bytes = core_read_at(chd->file, offset, chd->compressed, size);
+ 		if (bytes != size)
+ 			return NULL;
+ 		return chd->compressed;
+@@ -2133,8 +2107,7 @@
+ 	}
+ 	else
+ 	{
+-		core_fseek(chd->file, offset, SEEK_SET);
+-		bytes = core_fread(chd->file, dest, size);
++		bytes = core_read_at(chd->file, offset, dest, size);
+ 		if (bytes != size)
+ 			return CHDERR_READ_ERROR;
+ 	}
+@@ -2268,8 +2241,8 @@
+ 		{
+ 			blockoffs = (uint64_t)get_bigendian_uint32(rawmap) * (uint64_t)chd->header.hunkbytes;
+ 			if (blockoffs != 0) {
+-				core_fseek(chd->file, blockoffs, SEEK_SET);
+-				int result = core_fread(chd->file, dest, chd->header.hunkbytes);
++				int result = core_read_at(chd->file, blockoffs, dest, chd->header.hunkbytes);
++                if (result != chd->header.hunkbytes) return CHDERR_READ_ERROR;
+ 			/* TODO
+ 			else if (m_parent_missing)
+ 				throw CHDERR_REQUIRES_PARENT; */
+@@ -2391,8 +2364,7 @@
+ 			entries = MAP_STACK_ENTRIES;
+ 
+ 		/* read that many */
+-		core_fseek(chd->file, fileoffset, SEEK_SET);
+-		count = core_fread(chd->file, raw_map_entries, entries * entrysize);
++		count = core_read_at(chd->file, fileoffset, raw_map_entries, entries * entrysize);
+ 		if (count != entries * entrysize)
+ 		{
+ 			err = CHDERR_READ_ERROR;
+@@ -2420,8 +2392,7 @@
+ 	}
+ 
+ 	/* verify the cookie */
+-	core_fseek(chd->file, fileoffset, SEEK_SET);
+-	count = core_fread(chd->file, &cookie, entrysize);
++	count = core_read_at(chd->file, fileoffset, &cookie, entrysize);
+ 	if (count != entrysize || memcmp(&cookie, END_OF_LIST_COOKIE, entrysize))
+ 	{
+ 		err = CHDERR_INVALID_FILE;
+@@ -2429,7 +2400,7 @@
+ 	}
+ 
+ 	/* verify the length */
+-	if (maxoffset > core_fsize(chd->file))
++	if (maxoffset > chd->file->bytes)
+ 	{
+ 		err = CHDERR_INVALID_FILE;
+ 		goto cleanup;
+@@ -2464,8 +2435,7 @@
+ 		UINT32	count;
+ 
+ 		/* read the raw header */
+-		core_fseek(chd->file, metaentry->offset, SEEK_SET);
+-		count = core_fread(chd->file, raw_meta_header, sizeof(raw_meta_header));
++		count = core_read_at(chd->file, metaentry->offset, raw_meta_header, sizeof(raw_meta_header));
+ 		if (count != sizeof(raw_meta_header))
+ 			break;
+ 
+--- a/src/libchdr_bitstream.c
++++ b/src/libchdr_bitstream.c
+@@ -26,6 +26,7 @@
+ struct bitstream* create_bitstream(const void *src, uint32_t srclength)
+ {
+ 	struct bitstream* bitstream = (struct bitstream*)malloc(sizeof(struct bitstream));
++	if (!bitstream) return NULL;
+ 	bitstream->buffer = 0;
+ 	bitstream->bits = 0;
+ 	bitstream->read = (const uint8_t*)src;
+@@ -52,7 +53,7 @@
+ 		while (bitstream->bits <= 24)
+ 		{
+ 			if (bitstream->doffset < bitstream->dlength)
+-				bitstream->buffer |= bitstream->read[bitstream->doffset] << (24 - bitstream->bits);
++				bitstream->buffer |= (uint32_t)bitstream->read[bitstream->doffset] << (24 - bitstream->bits);
+ 			bitstream->doffset++;
+ 			bitstream->bits += 8;
+ 		}
+--- a/src/libchdr_huffman.c
++++ b/src/libchdr_huffman.c
+@@ -131,11 +131,13 @@
+ 	if (maxbits > 24)
+ 		return NULL;
+ 
+-	decoder = (struct huffman_decoder*)malloc(sizeof(struct huffman_decoder));
++	decoder = (struct huffman_decoder*)calloc(1, sizeof(struct huffman_decoder));
++    if (!decoder) return NULL;
+ 	decoder->numcodes = numcodes;
+ 	decoder->maxbits = maxbits;
+ 	decoder->lookup = (lookup_value*)malloc(sizeof(lookup_value) * (1 << maxbits));
+ 	decoder->huffnode = (struct node_t*)malloc(sizeof(struct node_t) * numcodes);
++	if (!decoder->lookup || !decoder->huffnode) { delete_huffman_decoder(decoder); return NULL; }
+ 	decoder->datahisto = NULL;
+ 	decoder->prevdata = 0;
+ 	decoder->rleremaining = 0;

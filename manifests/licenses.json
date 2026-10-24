@@ -1,0 +1,844 @@
+{
+  "schema_version": 1,
+  "scope": "Technical inventory of notices in pinned source snapshots; paths and hashes identify original evidence. Build eligibility describes the planned profile, not an already built or licensed release. Retained files preserve their own notices.",
+  "components": [
+    {
+      "id": "winuae-engine",
+      "source_id": "winuae",
+      "scope": "engine_snapshot",
+      "declared_license": "GPL declarations vary by file: include/uae/api.h says version 2; cpummu30.cpp says version 2 or later. Preserve these distinctions and embedded component notices.",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/fsusage.cpp",
+          "sha256": "21f4025088de9220a43c66c0f5a3ad3f3b74e247f8c5cf6f55ac366392946f2c"
+        },
+        {
+          "path": "upstream/winuae/include/uae/api.h",
+          "sha256": "d10c380338a3ef3b80d8d8dcb905d8419e28f38bc465d3e9f78ed8d9e97ce776"
+        },
+        {
+          "path": "upstream/winuae/cpummu30.cpp",
+          "sha256": "569099a1a51f90e248033ac8f373fcebb24cbcba90ee00311316062406c4e500"
+        }
+      ],
+      "handling": "Preserve per-file notices in imported files and include applicable license texts in source/binary distributions. This entry is an inventory, not a legal conclusion.",
+      "build_eligibility": "candidate_engine; selected files and platform surface remain for T02/T04"
+    },
+    {
+      "id": "winuae-slirp",
+      "source_id": "winuae",
+      "scope": "embedded_network_component",
+      "declared_license": "Slirp notice terms; source headers also contain BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        },
+        {
+          "path": "upstream/winuae/slirp/udp.h",
+          "sha256": "6a67efff8a7fd77a8252182f53b8e4d44d1dce88661eccf7ddc4b4df1a139937"
+        }
+      ],
+      "handling": "Exclude networking from the initial deterministic build; retain all notices in reference snapshots and any later distribution.",
+      "build_eligibility": "excluded_initial_deterministic_profile"
+    },
+    {
+      "id": "winuae-softfloat",
+      "source_id": "winuae",
+      "scope": "Paula audio tangent and the FPU 68881/68882 (T54): integer SoftFloat (softfloat.cpp), its decimal extension (softfloat_decimal.cpp), the FPSP transcendental functions (softfloat_fpsp.cpp) and the FPU front ends fpp.cpp and fpp_softfloat.cpp; fpp_native.cpp (host FPU, long double) is excluded",
+      "declared_license": "Mixed SoftFloat-2a, BSD and GPL-2.0-or-later portions as identified in retained source notices; the decimal and FPSP extensions are extensions to SoftFloat Release 2a (FPSP attributed to Andreas Grabher for Previous, NeXT Computer Emulator); fpp.cpp (Herman ten Brugge 1996, Peter Keunecke 2005, Toni Wilen) and fpp_softfloat.cpp (Andreas Grabher and Toni Wilen) are WinUAE sources under GPL-2.0-or-later like the rest of the engine",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/softfloat/softfloat.cpp",
+          "sha256": "59b23822f213f916df5f8525cad10ba9b369f3848b8f56fd719626849e2cd1e6"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat.h",
+          "sha256": "32d7b643a9b58afc557db367e232a63e0af6de18d35b5143d3e5e0f81a45ffca"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_fpsp.cpp",
+          "sha256": "1047b589a2307ee5d921357bc104f1749b9b6e4072494cea51a2e7b615f78ad2"
+        },
+        {
+          "path": "upstream/winuae/softfloat/SOFTFLOAT-MACROS.H",
+          "sha256": "a3302fceb7b9084bb6b17203d14026b491154f8ee21797bb7dc6c111f93f4e08"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat-specialize.h",
+          "sha256": "c0461bcf1d8ea1e32b503dbcc4eb173db56a3d6e5717a4f52074ef652edac51b"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_fpsp_tables.h",
+          "sha256": "9670ce7c4c9e6ddc2e811ca2e703eebcff62de512a8a4289301d4f64ba9d72bf"
+        },
+        {
+          "path": "upstream/winuae/softfloat/softfloat_decimal.cpp",
+          "sha256": "f10fa5b257fc278dc98446e2a6b9d1e41a694c45ef2ef6277af0d553ff4fced2"
+        },
+        {
+          "path": "upstream/winuae/fpp_softfloat.cpp",
+          "sha256": "dc81324b9044328973a20c099aba31ac7f972df95b02130d798491bf444a832d"
+        },
+        {
+          "path": "upstream/winuae/fpp.cpp",
+          "sha256": "35972c15328da20aa9bf644e70f631b390a9f4e26d6598dc4c42765f082327a1"
+        }
+      ],
+      "handling": "Retain all mixed notices and attribution for these nine files; do not relabel as BSD-only. Patches 0021 and 0143 (case-exact include of SOFTFLOAT-MACROS.H) and 0140-0142, 0144 and 0145 identify PUAE6 derivative changes. The FPSP source and tables identify an extension to SoftFloat2a/FPSP; the decimal file says it is an extension to SoftFloat 2a without further terms, so it is kept with the SoftFloat-2a notice. Release packaging must reproduce the retained notices. The FPU is computed only by these files, never by fpp_native.cpp, the host FPU or long double (determinism, T54).",
+      "build_eligibility": "selected: softfloat.cpp, softfloat_fpsp.cpp, softfloat_decimal.cpp, fpp.cpp and fpp_softfloat.cpp, four headers; fpp_native.cpp not selected"
+    },
+    {
+      "id": "winuae-tinyxml2",
+      "source_id": "winuae",
+      "scope": "embedded_xml_component",
+      "declared_license": "zlib-style license stated in source notice",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/tinyxml2.cpp",
+          "sha256": "5a77be61c1d8ab72dd510658c7ad9ceaba1400045b1efa6e266b933067b428c9"
+        },
+        {
+          "path": "upstream/winuae/include/tinyxml2.h",
+          "sha256": "79923d1f8e56cc454c4edda228943d682c1581d2532219687c459ca2c8463070"
+        }
+      ],
+      "handling": "Preserve embedded notices if the component is included.",
+      "build_eligibility": "candidate_dependency; confirm actual profile use at T02"
+    },
+    {
+      "id": "winuae-co8048",
+      "source_id": "winuae",
+      "scope": "embedded_keyboard_mcu_component",
+      "declared_license": "GPL-2.0-or-later notice is present; an alternate-license exception is referenced but cannot be established without COPYING.RMT.",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/kbmcu/8048/co8048.cpp",
+          "sha256": "d39937a26e415484d08a2aa49f3a795af46419da744e7070dffddfbdb8528e12"
+        },
+        {
+          "path": "upstream/winuae/kbmcu/8048/co8048.h",
+          "sha256": "903f6aef5ca6cda482e01357da8a34ba6f32de4d54f5ca9b686e1d971739a213"
+        }
+      ],
+      "handling": "The GPL notice is recorded as available. The missing COPYING.RMT means only that the alternate exception cannot be relied upon; it is not a blocker if the selected distribution path accepts the stated GPL terms.",
+      "build_eligibility": "eligible only under stated GPL terms if selected; do not rely on unverified alternate exception"
+    },
+    {
+      "id": "machawk-selected-runtime-managed-inputs",
+      "source_id": "machawk",
+      "scope": "selected_runtime_and_managed_reference_snapshot",
+      "declared_license": "Repository LICENSE identifies BizHawk original C# work as MIT, while explicitly warning that embedded projects have heterogeneous licenses and some embedded projects may lack their own notices; apply this only to the captured selected inputs and preserve their own notices.",
+      "notice_files": [
+        {
+          "path": "references/machawk/LICENSE",
+          "sha256": "6601cab56cb56875001906593a3adf94d52a0b82e6919fcbee81c31a48499121"
+        }
+      ],
+      "handling": "The snapshot contains selected runtime/managed recipe and source inputs; binary outputs, Assets, References DLLs, other cores, and untracked files were excluded. Crate/NuGet lock descriptors are captured, while provisioned packages and final toolchain binaries/sysroot are outside this inventory. Do not treat the repository-level MIT statement as a blanket license for all MacHawk content. The two committed interop .bin blobs required by include_bytes! are retained with their generator and assembly. Upstream csproj still reference excluded DLLs and need an isolated integration recipe.",
+      "build_eligibility": "selected_reference_inputs_for_initial_Waterbox_integration; final toolchain eligibility pending T09"
+    },
+    {
+      "id": "machawk-iso-parser",
+      "source_id": "machawk",
+      "scope": "selected_managed_dependency",
+      "declared_license": "MIT as stated by its project license file",
+      "notice_files": [
+        {
+          "path": "references/machawk/ExternalProjects/iso-parser/LICENSE.md",
+          "sha256": "85abaea0d5ef0eeed7cf385ed7d7f1c6c4eb7e542e7af3fe781abf96b8d17d02"
+        }
+      ],
+      "handling": "Preserve this project notice if the managed dependency is redistributed.",
+      "build_eligibility": "selected_managed_reference_dependency; package provisioning details remain governed by captured lock descriptors"
+    },
+    {
+      "id": "winuae-win32-resources",
+      "source_id": "winuae",
+      "scope": "platform_ui_resources",
+      "declared_license": "Per-file notices vary; not inventoried as distributable profile inputs here",
+      "notice_files": [],
+      "handling": "Windows UI/resource/plugin code is outside the initial deterministic profile. Audit each selected resource/plugin and its assets before any inclusion.",
+      "build_eligibility": "excluded_initial_deterministic_profile"
+    },
+    {
+      "id": "puae-reference",
+      "source_id": "puae_libretro_reference",
+      "scope": "reference_only",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "handling": "Reference source only; do not imply wholesale code reuse in PUAE6.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-adapter-video-presentation",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/present.h"
+      ],
+      "handling": "T31c: the crop level sizes (lores width and PAL/NTSC lines of Minimum ... Maximum), the 320x200 minimum and the idea of crop modes by picture aspect come from libretro-uae's libretro-core.c (update_av_info) as numbers and behaviour; the code in adapters/libretro/present.h is written for PUAE6 (it works on a copy of the XRGB raster and finds the drawn area from the pixels). No source file of libretro-uae is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
+      "id": "puae-adapter-input-mapper",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/mapper.h",
+        "adapters/libretro/input_map.h"
+      ],
+      "handling": "T31d: the analog stick mouse (deadzone scaling of the whole stick past the deadzone, speed per stick, carried sub-pixel remainder: libretro-uae's adjust_analog_deadzone / process_analogmouse and the corrections of its commits 106b98d5 and 237ca4a9), the D-Pad mouse speed, the turbo fire options, the face button options, the list of mapper inputs and hotkeys and the soft reset chord are PUAE5 behaviour reimplemented as integer arithmetic over p6_input in adapters/libretro/mapper.h; no libretro-uae source file is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
+      "id": "puae-adapter-osd",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/overlay.h",
+        "adapters/libretro/statusbar.h"
+      ],
+      "handling": "T31b: the statusbar modes (position and Full/Basic/Minimal), startup and message options, the LED order of the libretro LED interface (power, drives, HD/CD/MD, DF0-3, HD, CD/MD) and the idea of a bar with LED, ports and messages are PUAE5 behaviour; the code (adapters/libretro/overlay.h, statusbar.h) and the 5x7 bitmap font are written for PUAE6 and draw on a copy of the picture. The LED of the drive light follows MacHawk's LEDCallback / IDriveLight (read-only reference). No libretro-uae source file or font is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
+      "id": "puae-adapter-vkbd",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/vkbd.h"
+      ],
+      "handling": "T31a: the virtual keyboard's behaviour (RetroPad Select opens it, D-Pad moves a cursor, B presses, A toggles transparency, Y Caps Lock, X Space, latching modifiers, themes with shadow or outline, transparency and dimming options) is PUAE5's libretro-uae vkbd reimplemented for PUAE6: the layout, the navigation and the drawing in adapters/libretro/vkbd.h are written for the Amiga key table of input_map.h and draw on a copy of the picture with the project's own 5x7 font; no libretro-uae source file, key matrix table or font is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae source file is copied or linked"
+    },
+    {
+      "id": "puae-adapter-config-import",
+      "source_id": "puae_libretro_reference",
+      "scope": "adapter_ideas_reimplemented",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING (libretro-uae); PUAE6 is GPL as well",
+      "notice_files": [
+        {
+          "path": "references/puae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/config_import.h",
+        "adapters/libretro/config_import.cpp"
+      ],
+      "handling": "T31 closure: that a .uae can be the content of the core (PUAE5, core.c) is the idea; the importer is written for PUAE6 as an allowlist over the common option schema. The key names and the units of the memory sizes (chipmem_size in 512 KiB, bogomem_size in 256 KiB, fastmem_size in MiB, chipset_compatible spellings) are the file format of WinUAE's cfgfile.cpp (pinned upstream, GPL-2.0, the engine's own licence) used as a specification; no line of cfgfile.cpp, libretro-uae or PUAE is copied or linked.",
+      "build_eligibility": "adapter_reimplementation_ideas_only; no libretro-uae or WinUAE source file is copied by the importer"
+    },
+    {
+      "id": "puae-libchdr",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "BSD-style terms in dependency notice",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        }
+      ],
+      "handling": "Reference dependency; retain notice if any code is later reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-libmpeg2",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "GPL-2.0 per dependency COPYING",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/libmpeg2/COPYING",
+          "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+        }
+      ],
+      "handling": "Reference dependency; selection requires a separate compatibility/build decision.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-zstd",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "Header explicitly permits choice of BSD-style LICENSE or GPLv2 COPYING.",
+      "notice_files": [
+        {
+          "path": "references/puae/deps/zstd/LICENSE",
+          "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+        },
+        {
+          "path": "references/puae/deps/zstd/COPYING",
+          "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505"
+        },
+        {
+          "path": "references/puae/deps/zstd/lib/zstd.h",
+          "sha256": "41d0f43747d0dee56f60bd10aed262f193d725b7e11eb9e94aa4ad80183c7da8"
+        }
+      ],
+      "handling": "Preserve notices and the selected license text if reused; reference only in this snapshot.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "puae-slirp",
+      "source_id": "puae_libretro_reference",
+      "scope": "embedded_network_component_in_reference",
+      "declared_license": "Slirp notice terms; some source headers state BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "references/puae/sources/src/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        }
+      ],
+      "handling": "Retain notice if reused; network code is excluded initially.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-reference",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "reference_only",
+      "declared_license": "GPL-2.0 as indicated by repository COPYING",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/COPYING",
+          "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+        }
+      ],
+      "handling": "Pinned BizHawk UAE source reference; not a PUAE6 implementation input by itself.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-libchdr",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "BSD-style terms in dependency notice",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        }
+      ],
+      "handling": "Retain notice if reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-lzma-sdk",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "Public domain (LZMA SDK 19.00 by Igor Pavlov: the header of each retained file says \"Public domain\")",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/7zip/LzmaDec.c",
+          "sha256": "7433738640c26bc09b28bc14a90e47f97733267d358571729b3185c37c531c0d"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/Lzma2Dec.c",
+          "sha256": "26e3f4024a15ae086205938e8c8d9d8781c1569907536dbd6f3e69fc7583d92e"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/7zArcIn.c",
+          "sha256": "19d9cf2795b0817742dee73660e318f4edd9aa6e76425ddab79778288981d9b7"
+        }
+      ],
+      "adapter_files": [
+        "adapters/libretro/sevenzip.h",
+        "adapters/libretro/archive.h"
+      ],
+      "handling": "T59: PUAE5 reads .7z with this SDK (deps/7zip). PUAE6 does NOT import it: adapters/libretro/sevenzip.h is an independent, bounded reader of the 7z container (7zFormat.txt) with Copy, LZMA and LZMA2, written from the public description of the algorithm, about a fifth of the size of the SDK files it would need and without a C build step; no file of the SDK is copied or linked, so nothing is added under third_party/. The SDK stays the reference to read and, being public domain, the thing to import if a method the reader refuses (BCJ, PPMd...) ever has to be read. The RP9 manifest elements that archive.h reads were checked against the public Cloanto documentation (cloanto.com/kb/15-122 and 19-109) and Amiberry's rp9_manifest.cpp (read for the names of elements and attributes only; no code taken).",
+      "build_eligibility": "reference_only; the independent reader is part of the libretro adapter (GPL-2.0-or-later like the rest of PUAE6)"
+    },
+    {
+      "id": "machawk-uae-libmpeg2",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_dependency_in_reference",
+      "declared_license": "GPL-2.0 per dependency COPYING",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libmpeg2/COPYING",
+          "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+        }
+      ],
+      "handling": "Retain applicable source notices if reused.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "machawk-uae-slirp",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "embedded_network_component_in_reference",
+      "declared_license": "Slirp notice terms; some source headers state BSD-style conditions",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/sources/src/slirp/COPYRIGHT",
+          "sha256": "0ce5b269ece6d7b066bc89c77932c491b26e97e49836a737ff44e3855ab92dd7"
+        }
+      ],
+      "handling": "Retain notice if reused; network code is excluded initially.",
+      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+    },
+    {
+      "id": "libretro-api-header",
+      "source_id": "libretro_api",
+      "scope": "api_header",
+      "declared_license": "MIT as explicitly stated in header",
+      "notice_files": [
+        {
+          "path": "references/libretro-api/include/libretro.h",
+          "sha256": "c928d8f176b4e4bc45ee2a41ef236d25cc19e9bc2abc2e2e4c32cf08d6423801"
+        }
+      ],
+      "handling": "API header only; preserve its embedded notice when copied.",
+      "build_eligibility": "eligible_for_libretro_adapter_only"
+    },
+    {
+      "id": "waterbox-musl",
+      "source_id": "waterbox_musl",
+      "scope": "toolchain_dependency_snapshot",
+      "declared_license": "MIT stated for musl as a whole, with file-level exceptions/other notices possible",
+      "notice_files": [
+        {
+          "path": "references/musl/COPYRIGHT",
+          "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+        }
+      ],
+      "handling": "This snapshot is a reference input, not the final Waterbox sysroot. Audit selected files and toolchain recipe in T09.",
+      "build_eligibility": "toolchain_reference; final build eligibility pending T09"
+    },
+    {
+      "id": "capsimg-reference",
+      "source_id": "machawk_capsimg",
+      "scope": "reference_only_excluded",
+      "declared_license": "SPS Decoder Library custom non-commercial license; LICENCE.txt forbids sale/commercial products or activities and restricts changes to the stated formats/purpose.",
+      "notice_files": [
+        {
+          "path": "references/capsimg/CAPSImg/LICENSE",
+          "sha256": "3e5b0d79618838cef124ef8c1d9f91608188bda30b57050ce8104b8872f0b0cb"
+        },
+        {
+          "path": "references/capsimg/LICENCE.txt",
+          "sha256": "fff9bc3bdd543212d8cf859afa6e4ae6b4d95e7845f94c907e3ec066f0b67439"
+        }
+      ],
+      "handling": "Reference snapshot only; IPF/CAPSImg support is not included in the initial profile. Do not distribute/use as a selected dependency without a separate review. Excluding the library from a binary does not authorize redistribution of this source snapshot. T40 must omit this local reference from release source/artifact packages unless its own terms are separately reviewed.",
+      "build_eligibility": "excluded_initial_profile"
+    },
+    {
+      "id": "mame-ipf",
+      "source_id": "mame_ipf",
+      "scope": "selected_engine_dependency_ipf_reader",
+      "declared_license": "BSD-3-Clause: the first lines of ipf_dsk.cpp and ipf_dsk.h say '// license:BSD-3-Clause' and '// copyright-holders:Olivier Galibert' (MAME as a whole is GPL-2.0 and lets individual files carry a less restrictive license in their header)",
+      "notice_files": [
+        {
+          "path": "third_party/mame-ipf/LICENSE-BSD-3-Clause.txt",
+          "sha256": "a27554938d3dd6569931e5e18b93214a57f47bc1bb8b75fc32fdd18abe042a07"
+        },
+        {
+          "path": "third_party/mame-ipf/NOTICE.md",
+          "sha256": "91bc75c2edf4a976eedea92a4563951ae68c0ebf14e91e00fcc4c26f0cc8d121"
+        },
+        {
+          "path": "third_party/mame-ipf/original/ipf_dsk.cpp",
+          "sha256": "2bb985d07a077e5f93c1a7e7ad611d9ef77006f25ad6c037c1a9a3f47c3d80fa"
+        },
+        {
+          "path": "third_party/mame-ipf/original/ipf_dsk.h",
+          "sha256": "6af2d992a600ca1f0c6d882a76340691c09871b7dfdcca3ff7fded421656b1c8"
+        }
+      ],
+      "provenance": "third_party/mame-ipf/PROVENANCE.json: MAME commit 7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8 (2026-08-28), the two files as downloaded and the local changes as a diff; audited 2026-10-13 (T58a), not legal advice",
+      "handling": "T58a: ipf_dsk.cpp and ipf_dsk.h are compiled into p6_portable (and so into the Waterbox guest) with the local changes of local-changes.diff; keep the notice, the license text and the disclaimer in source and reproduce them in the documentation of a binary distribution (T40); do not use the names of the authors to promote the product. The two headers flopimg.h and multibyte.h next to them are written for PUAE6 and contain no MAME code. capsimg is not used.",
+      "build_eligibility": "selected_for_p6_portable"
+    },
+    {
+      "id": "waterbox-musl-darwin",
+      "source_id": "waterbox_musl_darwin",
+      "scope": "toolchain_dependency_snapshot",
+      "declared_license": "MIT stated for musl as a whole, with file-level exceptions/other notices possible",
+      "notice_files": [
+        {
+          "path": "references/musl-darwin/COPYRIGHT",
+          "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+        }
+      ],
+      "handling": "Source of the Waterbox musl sysroot; preserve per-file notices. The project rebuilt all 1270 sysroot path/mode/hash entries exactly from the captured musl/MacHawk sources and the pinned full LLVM 18.1.8 source closure. third_party/waterbox-sysroot/PROVENANCE.json identifies the binary dependency, recipe and source pins; its archive preserves the six original musl, BizHawk and LLVM component notices. Keep those notices with any redistribution of this sysroot. This source-rebuild check does not certify a complete release.",
+      "build_eligibility": "selected_waterbox_sysroot; exact_source_rebuild_verified"
+    },
+    {
+      "id": "compiler-rt-emutls",
+      "source_id": "compiler_rt_emutls",
+      "scope": "selected_guest_runtime_dependency",
+      "declared_license": "Apache-2.0 WITH LLVM-exception",
+      "notice_files": [
+        {
+          "path": "references/compiler-rt-emutls/compiler-rt/LICENSE.TXT",
+          "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+        }
+      ],
+      "handling": "The versioned snapshot contains six pristine files only: emutls C runtime, internal headers and full license. The separate sysroot recipe requires the full clean LLVM 18.1.8 closure at this same source pin, including compiler-rt, libcxx, libcxxabi and libunwind; it verifies the Git blobs before building. The source-built sysroot bundle preserves their original LICENSE.TXT files. Preserve notices for source and binary distribution.",
+      "build_eligibility": "selected_for_waterbox_C++_TLS"
+    },
+    {
+      "id": "machawk-whdload-commodore-os",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Proprietary: AmigaOS 2.x/3.x commands, libraries, monitor drivers and Preferences files of Commodore-Amiga, Inc. (copyright strings and $VER lines in the files); not a free-distribution license",
+      "notice_files": [],
+      "handling": "Reference capture only (the file is what the old core ships in WHDLoad.hdf). Never copied into a PUAE6 image, a fixture or CI: the generated startup sequence needs none of them; a user who wants them supplies his own AmigaOS files.",
+      "build_eligibility": "excluded_not_redistributable",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/C/Assign",
+          "whdload/WHDLoad_files/C/ClickNot",
+          "whdload/WHDLoad_files/C/Copy",
+          "whdload/WHDLoad_files/C/Delete",
+          "whdload/WHDLoad_files/C/Dir",
+          "whdload/WHDLoad_files/C/Execute",
+          "whdload/WHDLoad_files/C/IconX",
+          "whdload/WHDLoad_files/C/JoyMouse",
+          "whdload/WHDLoad_files/C/List",
+          "whdload/WHDLoad_files/C/MEmacs",
+          "whdload/WHDLoad_files/C/MakeDir",
+          "whdload/WHDLoad_files/C/MultiView",
+          "whdload/WHDLoad_files/C/Rename",
+          "whdload/WHDLoad_files/C/RequestChoice",
+          "whdload/WHDLoad_files/C/RequestFile",
+          "whdload/WHDLoad_files/C/Type",
+          "whdload/WHDLoad_files/Devs/Monitors/NTSC",
+          "whdload/WHDLoad_files/Devs/Monitors/PAL",
+          "whdload/WHDLoad_files/Devs/system-configuration",
+          "whdload/WHDLoad_files/Devs/system-configuration-default",
+          "whdload/WHDLoad_files/Devs/system-configuration-native",
+          "whdload/WHDLoad_files/Libs/asl.library",
+          "whdload/WHDLoad_files/Libs/commodities.library",
+          "whdload/WHDLoad_files/Libs/diskfont.library",
+          "whdload/WHDLoad_files/Libs/lowlevel.library",
+          "whdload/WHDLoad_files/Libs/mathieeedoubbas.library"
+        ],
+        "set_sha256": "39fa3a5cb2001f1828a40513505845bd548ab0a9deea5966f78c9feed014986b"
+      }
+    },
+    {
+      "id": "machawk-whdload-third-party-unaudited",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Third-party Amiga utilities and libraries (JoyPad by Daniel Balster, RequestString by Adam Dawes, xfdmaster/xfdDecrunch, powerpacker, reqtools, parm, xpkmaster and the xpk compressors, WBRun): each has its own terms, none is retained here and none was audited",
+      "notice_files": [],
+      "handling": "Unaudited. Not used by PUAE6 and never put in a generated image until its license is read and registered here; the WHDLoad flow of T30 does not need any of them.",
+      "build_eligibility": "excluded_unaudited",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/C/JoyPad",
+          "whdload/WHDLoad_files/C/MemClear",
+          "whdload/WHDLoad_files/C/RequestString",
+          "whdload/WHDLoad_files/C/WBRun",
+          "whdload/WHDLoad_files/C/xfdDecrunch",
+          "whdload/WHDLoad_files/Libs/compressors/xpkBLZW.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkCBR0.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkDLTA.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkDUKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkFAST.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkFRLE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkGZIP.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkHFMN.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkHUFF.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkIMPL.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkMASH.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkNONE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkNUKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkRAKE.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkRLEN.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSHRI.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSMPL.library",
+          "whdload/WHDLoad_files/Libs/compressors/xpkSQSH.library",
+          "whdload/WHDLoad_files/Libs/parm.library",
+          "whdload/WHDLoad_files/Libs/powerpacker.library",
+          "whdload/WHDLoad_files/Libs/reqtools.library",
+          "whdload/WHDLoad_files/Libs/xfdmaster.library",
+          "whdload/WHDLoad_files/Libs/xpkmaster.library"
+        ],
+        "set_sha256": "dd1938697b004aa3f9b9985b3ae507a1f06a29d78ea245f920b36b3cdbf395a7"
+      }
+    },
+    {
+      "id": "machawk-whdload-program",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "WHDLoad (C:WHDLoad 18.9 and its S:WHDLoad.prefs) is copyright Bert Jahn, all rights reserved; commercial use only with his written permission (Docs/en/copy.html of the 20.0 package); no redistribution grant is retained in the capture",
+      "notice_files": [],
+      "handling": "Reference capture of an older WHDLoad. The tool of T30 takes the user's own current WHDLoad package as an input (license entry `whdload` in user_supplied_inputs) and never stores it in the repository.",
+      "build_eligibility": "excluded_not_redistributed_by_this_project",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad.prefs",
+          "whdload/WHDLoad_files/C/WHDLoad",
+          "whdload/WHDLoad_files/S/WHDLoad.prefs",
+          "whdload/WHDLoad_files/S/WHDLoad.prefs.default"
+        ],
+        "set_sha256": "f10d0f78a2774f6f9f559aa085f51f5c176e44a9dd749588a688041712f090ac"
+      }
+    },
+    {
+      "id": "machawk-whdload-kickstart-rtb",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "ROM Tool Bundle files of the WHDLoad project (relocation data that WHDLoad needs next to a Kickstart image the user owns); they contain no Kickstart code but no license text is retained",
+      "notice_files": [],
+      "handling": "Reference capture only. A slave that asks for a Kickstart also needs the user's own image and its .RTB; both are user assets (never in the repository or in CI), see prepare_whdload.py --asset.",
+      "build_eligibility": "excluded_unaudited",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick33180.A500.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick34005.A500.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40063.A600.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40068.A1200.RTB",
+          "whdload/WHDLoad_files/Devs/Kickstarts/kick40068.A4000.RTB"
+        ],
+        "set_sha256": "30e0b9a4d50ffc1e83de23becdf68d1cb22e34345afc65fa349a5814a40a1004"
+      }
+    },
+    {
+      "id": "machawk-whdload-boot-scripts",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Scripts written for libretro-uae (GPL-2.0, repository COPYING; no per-file notice)",
+      "notice_files": [],
+      "handling": "Reference only, read for the flow (assigns, WHDLoad.prefs, KSCopy). PUAE6 generates its own boot script from config/whdload/*.json and does not copy these.",
+      "build_eligibility": "reference_only",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad_files/S/KSCopy",
+          "whdload/WHDLoad_files/S/MkCustom",
+          "whdload/WHDLoad_files/S/Startup-Sequence",
+          "whdload/WHDLoad_files/S/WBSelect",
+          "whdload/WHDLoad_files/S/WHDLoad-Cleanup",
+          "whdload/WHDLoad_files/S/WHDLoad-Startup"
+        ],
+        "set_sha256": "ffff2b49fa566df334f977c9db467c3a2946fdf2e0cc0021c6d8eeab6d0999f5"
+      }
+    },
+    {
+      "id": "machawk-whdload-boot-images",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "captured_files_of_the_libretro-uae_whdload_boot_image",
+      "declared_license": "Composite disk images (WHDLoad.hdf, WHDSaves.hdf) built from the components above; their terms are the strictest of them (they hold Commodore files)",
+      "notice_files": [],
+      "handling": "Reference only; never mounted or embedded by PUAE6.",
+      "build_eligibility": "excluded_not_redistributable",
+      "captured_files": {
+        "paths": [
+          "whdload/WHDLoad.hdf",
+          "whdload/WHDSaves.hdf"
+        ],
+        "set_sha256": "125afee40cd989567032bffe80ddfc62630275f8711ea93ace73b7b59d4092d0"
+      }
+    },
+    {
+      "id": "portable-drive-sound",
+      "source_id": "winuae",
+      "scope": "portable mechanical presentation using the WinUAE driveclick boundary and playback model; integer synthesized PCM authored in this project, no recordings",
+      "declared_license": "GPL-2.0-or-later; upstream model Copyright 2004 James Bagg, Toni Wilen",
+      "notice_files": [
+        {
+          "path": "upstream/winuae/driveclick.cpp",
+          "sha256": "c0fe8ddfe814a20049475f69285860104128cd789e1f5a57c5630199cf276c38"
+        }
+      ],
+      "handling": "Preserve the upstream notice and the SPDX/attribution in ports/portable/drive_sound.cpp. No external sample files are distributed.",
+      "build_eligibility": "portable native and Waterbox presentation"
+    },
+    {
+      "id": "portable-libchdr-standalone",
+      "source_id": "bizhawk_uae_reference",
+      "scope": "selected_standalone_chd_decoder_dependency_not_linked_to_product",
+      "declared_license": "libchdr BSD-3-Clause; LZMA SDK19.00 public domain; zlib snapshot API header1.2.7 with some implementation notices1.2.8 under zlib license; dr_flac0.12.28 MIT-0 option of its dual public-domain/MIT-0 notice.",
+      "notice_files": [
+        {
+          "path": "references/machawk-uae/deps/libchdr/LICENSE.txt",
+          "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+        },
+        {
+          "path": "references/machawk-uae/deps/7zip/LzmaDec.c",
+          "sha256": "7433738640c26bc09b28bc14a90e47f97733267d358571729b3185c37c531c0d"
+        },
+        {
+          "path": "references/machawk-uae/deps/libz/zlib.h",
+          "sha256": "31b7ed2b5bceea407626bdbcf16a1efa9770e91b646012906ac8303aa3f1f242"
+        },
+        {
+          "path": "references/machawk-uae/deps/libchdr/include/dr_libs/dr_flac.h",
+          "sha256": "2ee1488449762812fe309967dcdb71a1565fc611e67511f6fed6099163e557e6"
+        }
+      ],
+      "provenance": "T66t1: source commit ccecb1ead642c1bbe391308b88a7ffa9478b918d, selected byte-exact copies in third_party/libchdr/selection.json; standalone portability patches apply only to a verified build copy.",
+      "handling": "Preserve all embedded notices and standalone NOTICE.md/selection.json. Reproduce libchdr BSD notices in binary distribution materials before linking the product. No PUAE engine is imported. ReadFn bounds/hardening, normalized CD provider and public loading/restore remain required before exposing CHD content.",
+      "build_eligibility": "standalone_component_only_pending_readfn_hardening_and_cd_provider"
+    },
+    {
+      "id": "ruby-macho-host-tool",
+      "source_id": "ruby_macho",
+      "scope": "host_tool_source_not_emulated_guest",
+      "declared_license": "MIT",
+      "notice_files": [
+        {
+          "path": "references/ruby-macho/LICENSE",
+          "sha256": "20059afd55157d55f148b9af4198d25bd45a017cad783ffdcc309233187b07be"
+        }
+      ],
+      "handling": "Pristine Ruby library and original MIT notice captured from the pinned commit. Used only to reproduce Homebrew Mach-O relocation and deterministic ad-hoc signatures in project-owned staging. Keep the copyright and permission notice with all copies; no Ruby gem is installed globally. Not linked into PUAE6 or the Waterbox guest.",
+      "build_eligibility": "selected_host_bootstrap_tool_only"
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "ipf-capsimg",
+      "source_id": "machawk_capsimg",
+      "reason": "CAPSImg is reference-only and is not used: its license is non-commercial. IPF is read by the free decoder of MAME (component mame-ipf, T58a)."
+    },
+    {
+      "id": "win32-ui-and-plugins",
+      "source_id": "winuae",
+      "reason": "Win32 UI/resources and plugin surfaces are excluded from the initial deterministic profile pending per-input audit."
+    },
+    {
+      "id": "network",
+      "source_id": "winuae",
+      "reason": "Slirp/network code is excluded from the initial deterministic profile."
+    }
+  ],
+  "unresolved": [
+    {
+      "id": "co8048-alternate-license",
+      "source_id": "winuae",
+      "status": "alternate_exception_unverified",
+      "detail": "GPL-2.0-or-later notice exists in co8048 source. COPYING.RMT is absent, so the separate alternate-license exception is not relied upon; this absence alone does not block selection under GPL terms."
+    },
+    {
+      "id": "zlib-link-dependency",
+      "source_id": "winuae",
+      "status": "pending_build_graph",
+      "detail": "WinUAE calls zlib APIs, but the selected implementation/link input and its exact provenance/license are not established by this source snapshot; resolve in T02/T09."
+    },
+    {
+      "id": "softfloat-file-level-scope",
+      "source_id": "winuae",
+      "status": "selection_reviewed_release_notices_pending",
+      "detail": "Nine retained files inventoried with pristine hashes (the audio tangent and, since T54, the FPU: softfloat_decimal.cpp, fpp.cpp and fpp_softfloat.cpp). Preserve mixed SoftFloat2a/BSD/GPL notices and FPSP attribution in release packaging; the decimal extension carries only the SoftFloat-2a extension header and needs the SoftFloat-2a text in the package. fpp_native.cpp stays excluded."
+    },
+    {
+      "id": "final-waterbox-sysroot",
+      "source_id": "waterbox_musl",
+      "status": "pending_T09",
+      "detail": "The final sysroot/toolchain components and exact versions/licensing are not established here; T09 owns them."
+    },
+    {
+      "id": "notice_completeness",
+      "source_id": "winuae",
+      "status": "profile_allowlist_pending",
+      "detail": "The manifest records known notice evidence and explicit exclusions. Compare against the final selected source allowlist before distribution; this inventory does not claim a complete legal review."
+    }
+  ],
+  "user_supplied_inputs": [
+    {
+      "id": "whdload",
+      "name": "WHDLoad user package (WHDLoad_usr.lha)",
+      "author": "Bert Jahn",
+      "origin": "https://whdload.de/whdload/WHDLoad_usr.lha",
+      "pinned_member": "WHDLoad/C/WHDLoad = WHDLoad 20.0 build 7051 (27.03.2026)",
+      "license_evidence": "Docs/en/copy.html of the package: 'WHDLoad is copyright 1995-2026 by Bert Jahn. All rights reserved. Commercial use is only allowed with an explicit, written permission by the author', no-warranty text, and the BSD 2-Clause notice of WHDLoadArchiveFS (WHDLoad.VFS, Teemu Suutari, 2020). The package is offered for download by its author; it grants no explicit right to redistribute it.",
+      "evidence_sha256": {
+        "WHDLoad/Docs/en/copy.html": "608b490a7e7c394baf685babd5b38d4eb0dc123dd475ed51ca596cf32a901c1e"
+      },
+      "redistribution": "unverified",
+      "handling": "The user downloads it; prepare_whdload.py reads it from the path given (--input whdload=PATH or P6_WHDLOAD_LHA) and the image that holds C:WHDLoad is for that user only (manifest `redistributable: false`). It is never committed, shipped or used by public CI."
+    },
+    {
+      "id": "fatal-mission",
+      "name": "Fatal Mission 1 (WHDLoad install by Kyzer, FatalMission.lha)",
+      "author": "Robin Burrows (game), Steven Huckle (graphics), Kyzer/CSG (install, upload)",
+      "origin": "https://whdload.de/games/FatalMission.lha ; https://aminet.net/game/shoot/FatalMission.readme",
+      "pinned_member": "FatalMission/FM1, FatalMission/FatalMission.slave (sha256 in config/whdload/fatal-mission.json)",
+      "license_evidence": "Aminet readme of the package (game/shoot/FatalMission.readme): 'Short: Classic PD shoot-em-up Fatal Mission', author Robin Burrows, uploader Kyzer/CSG; the original game data is included in the package and the whdload.de page lists no Image to supply. The public-domain claim is the uploader's; it was not independently verified with the author.",
+      "evidence_sha256": {
+        "aminet FatalMission.readme (2026-10-12)": "2b17408040a4b21f03abfce268a0e1c2440114d6efbefc40248594ad73ffce9e",
+        "whdload.de FatalMission.html (2026-10-12)": "dc20bd785efff1d8409f47f1edf0d364a47fb47d31791fa19bc375e508517e5a"
+      },
+      "redistribution": "unverified",
+      "handling": "Opt-in input of the real-game tests (P6_FATALMISSION_LHA, a download kept outside the repository). Not committed and not used by public CI until the public-domain claim is confirmed; nothing commercial."
+    },
+    {
+      "id": "user-kickstart",
+      "name": "Kickstart ROM image and its .RTB owned by the user",
+      "author": "Commodore / Cloanto / Hyperion (the user's own licence)",
+      "origin": "the user's machine",
+      "pinned_member": null,
+      "license_evidence": "Not applicable: never obtained, copied or hashed by this project.",
+      "evidence_sha256": {},
+      "redistribution": "no",
+      "handling": "Declared in a config as a user asset: the file is read from the path the user gives (--asset or the environment variable the config names), checked by size only, written into the image the user builds for himself and never recorded or hashed in any manifest. The manifest of such an image says `redistributable: false`."
+    },
+    {
+      "id": "generated",
+      "name": "Text generated from the config (startup sequence, WHDLoad.prefs)",
+      "author": "PUAE6",
+      "origin": "config/whdload/*.json",
+      "pinned_member": null,
+      "license_evidence": "Written for this project; plain commands and option names, no third-party text.",
+      "evidence_sha256": {},
+      "redistribution": "yes",
+      "handling": "Free to include in any image."
+    }
+  ],
+  "test_fixture_components": [
+    {
+      "id": "cdi2nero-fixture-producer",
+      "source_id": "cdi2nero_fixture_producer",
+      "scope": "offline regression fixture producer only; not linked into any emulator or distributed binary",
+      "declared_license": "GPL-2.0; retain the original LICENSE and attribution to DeXT and SiZ!",
+      "notice_files": [
+        {
+          "path": "tests/fixtures/cdi2nero/LICENSE",
+          "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        {
+          "path": "tests/fixtures/cdi2nero/source.json",
+          "sha256": "1bb751750edcd4cd5845caa406c52082e8d505d3373a54a4e41228927912bd25"
+        }
+      ],
+      "handling": "Keep original source and license with source distributions. Test-only host adaptations are made in temporary copies by tests/fixtures/nrg_etnf_cdi.py and do not change image writers. No third-party disc image imported.",
+      "build_eligibility": "test_fixture_only"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+diff --git a/ar.cpp b/ar.cpp
+--- a/ar.cpp
++++ b/ar.cpp
+@@ -1296,7 +1296,13 @@
+ 	/* Search for first non-zero Long starting from the end of the rom. */
+ 	/* Assume long alignment, (will always be true for AR2 and AR3 and the AR1 rom i've got). */
+ 	/* If anyone finds an AR1 rom with a word-aligned checksum, then this code will have to be modified. */
++#ifdef P6_PORTABLE
++	while (checksum_end > (uae_u32*)armemory_rom && !checksum_end[-1]) --checksum_end;
++	if (checksum_end <= checksum_start) return 1; // Missing checksum, never a successful comparison.
++	--checksum_end;
++#else
+ 	while (! *(--checksum_end));
++#endif
+ 
+ 	if (armodel == 1)
+ 	{
+@@ -1325,7 +1331,11 @@
+ 
+ 	stored_checksum = do_get_mem_long (checksum_end);
+ 
++#ifdef P6_PORTABLE
++	return checksum == stored_checksum ? 0 : checksum ? checksum : 1;
++#else
+ 	return checksum == stored_checksum ? 0 : checksum;
++#endif
+ }
+ 
+ /* Returns 0 on error. */
+@@ -1341,8 +1351,13 @@
+ 	checksum_end = (uae_u32*)&armemory_rom[ar_rom_file_size];
+ 
+ 	/* Search for first non-zero Long starting from the end of the rom. */
++#ifdef P6_PORTABLE
++	while (checksum_end > (uae_u32*)armemory_rom && !checksum_end[-1]) --checksum_end;
++	if (checksum_end == (uae_u32*)armemory_rom) return NULL;
++	--checksum_end;
++#else
+ 	while (! *(--checksum_end));
+-
++#endif
+ 	return (uae_u8*)checksum_end;
+ }
+ 
+@@ -1408,6 +1423,9 @@
+ 
+ 	uae_u8* start_addr = armemory_rom;
+ 	uae_u8* end_addr = get_checksum_location();
++#ifdef P6_PORTABLE
++	if (!end_addr) return;
++#endif
+ 
+ 	/*
+ 	* To see what the routine below is doing. Here is some code from the Action replay rom where it does the
+@@ -1424,6 +1442,9 @@
+ 	if (armodel == 1) {
+ 		uae_u16 search_value_rel = addrdiff(end_addr, start_addr);
+ 		addr = find_relative_word(start_addr, end_addr, search_value_rel);
++#ifdef P6_PORTABLE
++		if (addr && addr < start_addr + 6) addr = NULL;
++#endif
+ 
+ 		if (addr) {
+ 			if (do_get_mem_word((uae_u16*)(addr-6)) == 0x6100 && /* bsr.w */
+@@ -1436,6 +1457,9 @@
+ 	} else {
+ 		uae_u32 search_value_abs = arrom_start + addrdiff(end_addr, start_addr);
+ 		addr = find_absolute_long (start_addr, end_addr, search_value_abs);
++#ifdef P6_PORTABLE
++		if (addr && addr < start_addr + 6) addr = NULL;
++#endif
+ 
+ 		if (addr) {
+ 			if (do_get_mem_word((uae_u16*)(addr-6)) == 0x6100 && /* bsr.w */
+@@ -1683,7 +1707,13 @@
+ 	zfile_fseek(f, 0, SEEK_END);
+ 	ar_rom_file_size = zfile_ftell32(f);
+ 	zfile_fseek(f, 0, SEEK_SET);
++#ifdef P6_PORTABLE
++	if (zfile_fread(header, 1, sizeof header, f) != sizeof header) {
++		zfile_fclose(f); action_replay_cleanup(); return 0;
++	}
++#else
+ 	zfile_fread (header, 1, sizeof header, f);
++#endif
+ 	zfile_fseek (f, 0, SEEK_SET);
+ 	if (!memcmp (header, "ATZ!HRT!", 8)) {
+ 		zfile_fclose (f);
+@@ -1696,7 +1726,13 @@
+ 	}
+ 	action_replay_flag = ACTION_REPLAY_INACTIVE;
+ 	armemory_rom = xmalloc (uae_u8, ar_rom_file_size);
++#ifdef P6_PORTABLE
++	if (!armemory_rom || zfile_fread(armemory_rom, 1, ar_rom_file_size, f) != size_t(ar_rom_file_size)) {
++		zfile_fclose(f); action_replay_cleanup(); return 0;
++	}
++#else
+ 	zfile_fread (armemory_rom, 1, ar_rom_file_size, f);
++#endif
+ 	zfile_fclose (f);
+ 	if (ar_rom_file_size == 65536) {
+ 		// AR1 and Pro Access
+@@ -1715,7 +1751,16 @@
+ 	}
+ 	arram_mask = arram_size - 1;
+ 	arrom_mask = arrom_size - 1;
++
++#ifdef P6_PORTABLE
++	const uae_u8 *checksum = get_checksum_location();
++	const unsigned start = armodel == 3 ? 0x7c : armodel == 2 ? 4 : 0;
++	if (!checksum || checksum < armemory_rom + start) { action_replay_cleanup(); return 0; }
++#endif
+ 	armemory_ram = xcalloc (uae_u8, arram_size);
++#ifdef P6_PORTABLE
++	if (!armemory_ram) { action_replay_cleanup(); return 0; }
++#endif
+ 	write_log (_T("Action Replay %d installed at %08X, size %08X\n"), armodel, arrom_start, arrom_size);
+ 	action_replay_version();
+ 	return armodel;
+@@ -1765,6 +1810,12 @@
+ 	hrtmon_flag = action_replay_flag = ACTION_REPLAY_INACTIVE;
+ 	unset_special(SPCFLAG_ACTION_REPLAY);
+ 	triggered_once = armodel = ar_mapped = ar_hidden = 0;
++	// AR's register latches and geometry belong to this cartridge owner too.
++	ar_state1 = ar_state2 = -1;
++	ar_hide = ar_rom_file_size = ar_rom_location = ar_wait_pop = 0;
++	armode_read = armode_write = 0;
++	arrom_start = arrom_size = arrom_mask = arram_start = arram_size = arram_mask = 0;
++	memset(artemp, 0, sizeof artemp);
+ 	action_replay_hardreset = false;
+ 	wait_for_pc = 0;
+ 	hrtmem_start = hrtmem2_start = hrtmem3_start = 0;
+@@ -1975,6 +2026,10 @@
+ 
+ void action_replay_version(void)
+ {
++#ifdef P6_PORTABLE
++	// Optional desktop diagnostic only. Raw labels are not trusted strings and do not affect the device.
++	return;
++#endif
+ 	char* tmp;
+ 	int iArVersionMajor = -1 ;
+ 	int iArVersionMinor = -1;

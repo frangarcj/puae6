@@ -1,0 +1,32 @@
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -8414,6 +8414,12 @@
+ 
+ static void copy_inputdevice_settings(struct uae_input_device *src, struct uae_input_device *dst)
+ {
++#ifdef P6_PORTABLE
++	// name and configname belong to each preference set: the memcpy of the caller made dst point at src's strings, and the ones
++	// dst owned before were dropped by it.
++	dst->name = src->name ? my_strdup(src->name) : NULL;
++	dst->configname = src->configname ? my_strdup(src->configname) : NULL;
++#endif
+ 	for (int l = 0; l < MAX_INPUT_DEVICE_EVENTS; l++) {
+ 		for (int i = 0; i < MAX_INPUT_SUB_EVENT_ALL; i++) {
+ 			if (src->custom[l][i]) {
+@@ -8427,6 +8433,15 @@
+ 
+ static void copy_inputdevice_settings_free(struct uae_input_device *src, struct uae_input_device *dst)
+ {
++#ifdef P6_PORTABLE
++	// Release what dst owns before the caller overwrites it; a string shared with src is only separated.
++	if (dst->name != src->name)
++		xfree(dst->name);
++	dst->name = NULL;
++	if (dst->configname != src->configname)
++		xfree(dst->configname);
++	dst->configname = NULL;
++#endif
+ 	for (int l = 0; l < MAX_INPUT_DEVICE_EVENTS; l++) {
+ 		for (int i = 0; i < MAX_INPUT_SUB_EVENT_ALL; i++) {
+ 			if (dst->custom[l][i] == NULL && src->custom[l][i] == NULL)

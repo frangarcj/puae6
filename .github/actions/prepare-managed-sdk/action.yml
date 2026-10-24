@@ -1,0 +1,55 @@
+name: Prepare the pinned project-local managed SDK
+description: Verify the official SDK archive and expose only its project-local path
+runs:
+  using: composite
+  steps:
+    - name: Prepare the authenticated SDK under project build
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import hashlib, json, pathlib, subprocess, tarfile, tempfile, urllib.request
+        root = pathlib.Path.cwd()
+        build = root / 'build'
+        build.mkdir(exist_ok=True)
+        sdk = build / 'hosted-dotnet'
+        assert not sdk.exists() and not sdk.is_symlink()
+        url = 'https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.402/dotnet-sdk-10.0.402-osx-arm64.tar.gz'
+        expected = 'ee0d379c144ebddef6efe851e1514883d1b695430d13b3fb13e8153f8476e1e5ac7abc42c08668471aaf4d738ff367cf53009845f94d224ba126febe74d00b75'
+        with tempfile.TemporaryDirectory(prefix='.managed-sdk-', dir=build) as temporary:
+            archive = pathlib.Path(temporary) / 'sdk.tar.gz'
+            checksum, size = hashlib.sha512(), 0
+            with urllib.request.urlopen(url, timeout=60) as source, archive.open('xb') as output:
+                assert source.status == 200 and source.geturl() == url
+                while chunk := source.read(1 << 20):
+                    size += len(chunk)
+                    assert size <= 230833757
+                    checksum.update(chunk)
+                    output.write(chunk)
+            assert size == 230833757 and checksum.hexdigest() == expected
+            stage = pathlib.Path(temporary) / 'sdk'
+            stage.mkdir()
+            with tarfile.open(archive, 'r:gz') as source:
+                entries, expanded = 0, 0
+                for entry in source:
+                    entries += 1
+                    expanded += entry.size
+                    assert entries <= 100000 and expanded <= 2 << 30 and 0 <= entry.size <= 512 << 20
+                    assert entry.isfile() or entry.isdir() or entry.issym() or entry.islnk()
+                    assert not entry.mode & 0o7000
+                    source.extract(entry, stage, filter='data')
+            stage.rename(sdk)
+        print(json.dumps(dict(status='PASS', scope='official SDK archive preparation only', bytes=size)))
+        PY
+    - name: Select the exact SDK for following steps
+      shell: bash
+      run: |
+        sdk="$PWD/build/hosted-dotnet"
+        export DOTNET_ROOT="$sdk"
+        export DOTNET_MULTILEVEL_LOOKUP=0
+        export DOTNET_CLI_HOME="$PWD/build/hosted-dotnet-home"
+        export DOTNET_CLI_TELEMETRY_OPTOUT=1
+        export DOTNET_NOLOGO=1
+        printf '%s\n' "$sdk" >> "$GITHUB_PATH"
+        printf '%s\n' "DOTNET_ROOT=$sdk" "DOTNET_MULTILEVEL_LOOKUP=0" "DOTNET_CLI_HOME=$DOTNET_CLI_HOME" "DOTNET_CLI_TELEMETRY_OPTOUT=1" "DOTNET_NOLOGO=1" >> "$GITHUB_ENV"
+        cd integration/bizhawk/core
+        test "$("$sdk/dotnet" --version)" = 10.0.402

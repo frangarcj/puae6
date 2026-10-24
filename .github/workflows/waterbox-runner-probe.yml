@@ -1,0 +1,38 @@
+name: Waterbox runner capability probe
+on:
+  push:
+    branches: [codex/waterbox-runner-probe]
+    paths: [.github/workflows/waterbox-runner-probe.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capabilities:
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Observe host and verify the pinned system make
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, platform, subprocess
+          lock = pathlib.Path('plan/toolchains.json').read_bytes()
+          spec = json.loads(lock)['tools']['make']
+          tool = pathlib.Path(spec['path'])
+          version = subprocess.check_output([str(tool), '--version'], text=True).splitlines()[0].strip()
+          digest = hashlib.sha256(tool.read_bytes()).hexdigest()
+          host = dict(os=platform.system(), isa=platform.machine(), page_bytes=os.sysconf('SC_PAGE_SIZE'))
+          compatible = host == dict(os='Darwin', isa='arm64', page_bytes=16384)
+          matches = digest == spec['sha256'] and version == spec['version']
+          result = dict(status='PASS' if compatible and matches else 'BLOCKED', scope='runner capability only; no emulator build or execution',
+                        host=host, macos=platform.mac_ver()[0], sdk=subprocess.check_output(['xcrun', '--show-sdk-version'], text=True).strip(),
+                        developer_directory=subprocess.check_output(['xcode-select', '-p'], text=True).strip(),
+                        clang_version=subprocess.check_output(['xcrun', 'clang', '--version'], text=True).splitlines()[0],
+                        source_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), toolchain_lock_sha256=hashlib.sha256(lock).hexdigest(),
+                        make=dict(sha256=digest, version=version, matches_pin=matches, expected_sha256=spec['sha256']))
+          print(json.dumps(result, sort_keys=True))
+          raise SystemExit(0 if compatible and matches else 2)
+          PY

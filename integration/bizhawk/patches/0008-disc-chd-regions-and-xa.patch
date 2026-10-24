@@ -1,0 +1,197 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/Disc.cs b/src/BizHawk.Emulation.DiscSystem/Disc.cs
+--- a/src/BizHawk.Emulation.DiscSystem/Disc.cs
++++ b/src/BizHawk.Emulation.DiscSystem/Disc.cs
+@@ -15,6 +15,22 @@
+ 
+ namespace BizHawk.Emulation.DiscSystem
+ {
++	// Typed mount metadata for visible LBAs. Q (including SBI) may disagree.
++	public readonly struct DiscRegionInfo
++	{
++		public readonly int Start, End, Track, Index, Mode, Control;
++		public readonly LibChd.chd_track_type Type;
++		public readonly LibChd.chd_sub_type SubType;
++		public readonly bool Synthetic;
++		public DiscRegionInfo(int start, int end, int track, int index,
++			LibChd.chd_track_type type, LibChd.chd_sub_type subType, bool synthetic)
++		{
++			Start=start; End=end; Track=track; Index=index; Type=type; SubType=subType; Synthetic=synthetic;
++			Mode=type==LibChd.chd_track_type.CD_TRACK_AUDIO?0:
++				type is LibChd.chd_track_type.CD_TRACK_MODE1 or LibChd.chd_track_type.CD_TRACK_MODE1_RAW?1:2;
++			Control=Mode==0?0:4;
++		}
++	}
+ 	public sealed class Disc : IDisposable
+ 	{
+ 		/// <summary>
+@@ -53,6 +69,9 @@
+ 		/// Free-form optional memos about the disc
+ 		/// </summary>
+ 		public readonly IDictionary<string, object> Memos = new Dictionary<string, object>();
++
++		// Empty means this loader has not supplied typed regions. Not reconstructed from Q.
++		public IReadOnlyList<DiscRegionInfo> Regions { get; internal set; } = Array.Empty<DiscRegionInfo>();
+ 
+ 		public void Dispose()
+ 		{
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/CHD_format.cs
+@@ -718,18 +718,33 @@
+ 				throw loadResults.FailureException;
+ 			}
+ 
++			var chdf = loadResults.ParsedCHDFile;
++			return LoadCHDToDisc(chdf, new Blob_CHD(chdf.ChdFile, chdf.Header.hunkbytes), IN_DiscMountPolicy);
++		}
++
++		// Adopt a real decompressed-unit source. This seam does not decode a CHD.
++		internal static Disc LoadCHDToDisc(CHDFile chdf, IBlob chdBlob, DiscMountPolicy IN_DiscMountPolicy)
++		{
++			if (chdf == null) throw new ArgumentNullException(nameof(chdf));
++			if (chdBlob == null) throw new ArgumentNullException(nameof(chdBlob));
++			if (IN_DiscMountPolicy == null) throw new ArgumentNullException(nameof(IN_DiscMountPolicy));
+ 			var disc = new Disc();
+ 			try
+ 			{
+-				var chdf = loadResults.ParsedCHDFile;
+-				IBlob chdBlob = new Blob_CHD(chdf.ChdFile, chdf.Header.hunkbytes);
+ 				disc.DisposableResources.Add(chdBlob);
+ 
+ 				// chds only support 1 session
+ 				var session = new DiscSession { Number = 1 };
+ 				var chdOffset = 0L;
++				var regions = new List<DiscRegionInfo>();
+ 				foreach (var cdMetadata in chdf.CdMetadatas)
+ 				{
++					void Region(int start, int end, int index, LibChd.chd_track_type type, LibChd.chd_sub_type sub, bool synthetic)
++					{
++						// Disc's internal list starts at LBA-150. Expose its visible LBA>=0 slice.
++						start = Math.Max(0, start);
++						if (start < end) regions.Add(new(start,end,(int)cdMetadata.Track,index,type,sub,synthetic));
++					}
+ 					RawTOCEntry EmitRawTOCEntry()
+ 					{
+ 						var q = default(SubchannelQ);
+@@ -788,35 +803,36 @@
+ 					}
+ 
+ 					var pregapLength = cdMetadata.Pregap;
++					var pregapType = cdMetadata.PregapTrackType;
+ 					// force 150 sector pregap for the first track if not present in the chd
+ 					if (!cdMetadata.PregapInChd && cdMetadata.Track == 1)
+ 					{
+-						cdMetadata.PregapTrackType = cdMetadata.TrackType;
+-						cdMetadata.PregapSubType = cdMetadata.SubType;
++						pregapType = cdMetadata.TrackType;
+ 						pregapLength = 150;
+ 					}
+ 
+ 					var prevTrackPadding = cdMetadata.Track == 1 ? 0 : chdf.CdMetadatas[(int)cdMetadata.Track - 2].Padding;
+ 					pregapLength += prevTrackPadding;
+ 
++					var pregapStart = disc._Sectors.Count - 150;
+ 					var relMSF = -pregapLength;
+ 					for (var i = 0; i < pregapLength; i++)
+ 					{
+ 						SS_Base synth;
+ 						if (cdMetadata.PregapInChd && i >= prevTrackPadding)
+ 						{
+-							synth = CreateSynth(cdMetadata.PregapTrackType, cdMetadata.ByteSwapAudio);
++							synth = CreateSynth(pregapType, cdMetadata.ByteSwapAudio);
+ 							synth.Blob = chdBlob;
+ 							synth.BlobOffset = chdOffset;
+ 						}
+ 						else
+ 						{
+-							synth = new SS_Gap { TrackType = ToCueTrackType(cdMetadata.PregapTrackType, cdMetadata.IsCDI) };
++							synth = new SS_Gap { TrackType = ToCueTrackType(pregapType, cdMetadata.IsCDI) };
+ 						}
+ 
+ 						synth.Policy = IN_DiscMountPolicy;
+ 						const byte kADR = 1;
+-						var control = cdMetadata.PregapTrackType != LibChd.chd_track_type.CD_TRACK_AUDIO
++						var control = pregapType != LibChd.chd_track_type.CD_TRACK_AUDIO
+ 							? EControlQ.DATA
+ 							: EControlQ.None;
+ 						synth.sq.SetStatus(kADR, control);
+@@ -835,8 +851,8 @@
+ 							// wrap the base synth with our special synth if we have subcode in the chd
+ 							ISectorSynthJob2448 chdSynth = cdMetadata.PregapSubType switch
+ 							{
+-								LibChd.chd_sub_type.CD_SUB_NORMAL => new SS_CHD_Sub(synth, GetSectorSize(cdMetadata.PregapTrackType), isInterleaved: false),
+-								LibChd.chd_sub_type.CD_SUB_RAW => new SS_CHD_Sub(synth, GetSectorSize(cdMetadata.PregapTrackType), isInterleaved: true),
++								LibChd.chd_sub_type.CD_SUB_NORMAL => new SS_CHD_Sub(synth, GetSectorSize(pregapType), isInterleaved: false),
++								LibChd.chd_sub_type.CD_SUB_RAW => new SS_CHD_Sub(synth, GetSectorSize(pregapType), isInterleaved: true),
+ 								LibChd.chd_sub_type.CD_SUB_NONE => synth,
+ 								_ => throw new InvalidOperationException(),
+ 							};
+@@ -852,6 +868,10 @@
+ 						relMSF++;
+ 					}
+ 
++					var pregapEnd = disc._Sectors.Count - 150;
++					var split = cdMetadata.PregapInChd ? pregapStart + (int)prevTrackPadding : pregapEnd;
++					Region(pregapStart, split, 0, pregapType, LibChd.chd_sub_type.CD_SUB_NONE, true);
++					Region(split, pregapEnd, 0, pregapType, cdMetadata.PregapSubType, false);
+ 					session.RawTOCEntries.Add(EmitRawTOCEntry());
+ 
+ 					var trackLength = cdMetadata.Frames;
+@@ -860,6 +880,7 @@
+ 						trackLength -= pregapLength - prevTrackPadding;
+ 					}
+ 
++					var programStart = disc._Sectors.Count - 150;
+ 					for (var i = 0; i < trackLength; i++)
+ 					{
+ 						var synth = CreateSynth(cdMetadata.TrackType, cdMetadata.ByteSwapAudio);
+@@ -890,7 +911,9 @@
+ 						relMSF++;
+ 					}
+ 
++					Region(programStart, disc._Sectors.Count - 150, 1, cdMetadata.TrackType, cdMetadata.SubType, false);
+ 					chdOffset += cdMetadata.ExtraFrames * chdf.Header.unitbytes;
++					var postStart = disc._Sectors.Count - 150;
+ 
+ 					for (var i = 0; i < cdMetadata.PostGap; i++)
+ 					{
+@@ -914,6 +937,7 @@
+ 						disc._Sectors.Add(synth);
+ 						relMSF++;
+ 					}
++					Region(postStart, disc._Sectors.Count - 150, 2, cdMetadata.TrackType, LibChd.chd_sub_type.CD_SUB_NONE, true);
+ 				}
+ 
+ 				SessionFormat GuessSessionFormat()
+@@ -946,6 +970,7 @@
+ 				TOCMiscInfo.Run(session.RawTOCEntries);
+ 
+ 				disc.Sessions.Add(session);
++				disc.Regions = Array.AsReadOnly(regions.ToArray());
+ 				return disc;
+ 			}
+ 			catch
+diff --git a/src/BizHawk.Emulation.DiscSystem/Internal/SynthUtils.cs b/src/BizHawk.Emulation.DiscSystem/Internal/SynthUtils.cs
+--- a/src/BizHawk.Emulation.DiscSystem/Internal/SynthUtils.cs
++++ b/src/BizHawk.Emulation.DiscSystem/Internal/SynthUtils.cs
+@@ -82,7 +82,7 @@
+ 			{
+ 				// these are just 0 in form 1
+ 				buffer8[offset + 2] = 0x20;
+-				buffer8[offset + 5] = 0x20;
++				buffer8[offset + 6] = 0x20; // XA repeats four bytes: submode at2 and6.
+ 			}
+ 		}
+ 
+@@ -143,7 +143,10 @@
+ 			EDC_Mode2_Form1(buf2352, offset);
+ 
+ 			//ECC
+-			ECM.ECC_Populate(buf2352, offset, buf2352, offset, false);
++			var mode = buf2352[offset + 15];
++			buf2352[offset + 15] = 0; // ECM zeroSectorAddress clears only MSF, not mode.
++			ECM.ECC_Populate(buf2352, offset, buf2352, offset, true);
++			buf2352[offset + 15] = mode;
+ 		}
+ 
+ 		/// <summary>

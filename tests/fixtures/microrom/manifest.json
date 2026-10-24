@@ -1,0 +1,133 @@
+{
+  "logical_id": "microrom-boot-v1",
+  "kind": "kickstart_shaped_rom",
+  "rom_base": "0xF80000",
+  "entry_offset": "0xD2",
+  "firmware_required": false,
+  "program_source": "boot.s",
+  "source_license": "MIT",
+  "source_sha256": "f0887a9c72a16e3ab0ee6dedd1e3d385b6bbe8bcd6c01d4d6aad10411e53d78f",
+  "builder": "build_rom.py",
+  "builder_sha256": "015ded63fc64a95d59ab122b86bf1c6f8f8023bd823130f8eeced0fd99dbba40",
+  "python": "3.8+; standard library only; no package dependencies",
+  "output": {
+    "format": "256 KiB Kickstart-shaped image, big-endian, valid ones-complement checksum",
+    "size_bytes": 262144,
+    "sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597"
+  },
+  "purpose": "Firmware for the bridge lifecycle and, later, unit-advance tests; not a real Kickstart and not an emulation result",
+  "scenarios": {
+    "vsync": {
+      "scenario": "S2",
+      "logical_id": "microrom-vsync-v1",
+      "program_source": "vsync.s",
+      "source_sha256": "8da1cdd519b6f22116b42337eb3fd4fd9eeff4f7aea27e106eea484e3f5d22e3",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "f34041a12e4e804bf6f6e7f095cf36266d0a1b1d3c9ef57473ef203aa1eb99a6"
+      },
+      "purpose": "Vertical-blank interrupt: the level-3 handler counts VERTB in D1 and logs the main-loop counter D0"
+    },
+    "copper_irq": {
+      "scenario": "S3",
+      "logical_id": "microrom-copper-irq-v1",
+      "program_source": "copper_irq.s",
+      "source_sha256": "63044fc3cddeedaaa8f401aaa8f6f04f30b50e5f5c69c1ea896c8d8e9209ccfa",
+      "defines": {
+        "HP": "2"
+      },
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "911d19f368f44faf1d91628d07c927d781296a9253010b246eaa93af86b8562d"
+      },
+      "purpose": "Copper WAIT at line 4 / horizontal position HP that requests the COPER interrupt; HP is the template parameter"
+    },
+    "long_ops": {
+      "scenario": "S4",
+      "logical_id": "microrom-long-ops-v1",
+      "program_source": "long_ops.s",
+      "source_sha256": "815c3da9cc9d41b4e820e183543d94c6da3b23c573c3dcf0d818587d4252276e",
+      "defines": {
+        "PAD": "3"
+      },
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "e18beb285feafc74aa123cb0aa1e5cd6962b92dad7323376ac63d063373e9593"
+      },
+      "purpose": "Vertical-blank interrupt while the loop runs MOVEM.L of 15 registers and DIVU.W; PAD NOPs shift the phase"
+    },
+    "halt": {
+      "scenario": "S5",
+      "logical_id": "microrom-halt-v1",
+      "program_source": "halt.s",
+      "source_sha256": "b66cb884ec3420dc9c8383939174fd75d265e5b5c1e8a40cab7ee4e2c1e319a8",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "c5ca69f73ccf4484a4df99e06198f7814cd1b1117cb262452fc2e4cf9e3a2dc8"
+      },
+      "purpose": "TRAP with an odd supervisor stack pointer: the 68000 double-faults and halts"
+    },
+    "stop": {
+      "scenario": "S7",
+      "logical_id": "microrom-stop-v1",
+      "program_source": "stop.s",
+      "source_sha256": "245381c8367cdf138623137c17002399f9b210e6a4cef41a9938c9b9227e7fcb",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "68451c480170bee75f0b93c7cd53e69d246d0e672b1ec6fbaa6987379940c900"
+      },
+      "purpose": "STOP #$2000 in the main loop: the CPU sleeps until the VERTB interrupt"
+    },
+    "lof_stuck": {
+      "scenario": "V1",
+      "logical_id": "microrom-lof-stuck-v1",
+      "program_source": "lof_stuck.s",
+      "source_sha256": "892e3d4711229acfc0b25279c8f7e13d7f5e6b0d2732838fb298977f7b57d196",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "5aff72587af05a7ab146c9a4e95eb3cc675ca4bd66693e170fe2823a08f33ae0"
+      },
+      "purpose": "Long-field bit stuck without interlace: the raster becomes the long frame (576 rows PAL, 486 NTSC)"
+    },
+    "long_frame": {
+      "scenario": "V2",
+      "logical_id": "microrom-long-frame-v1",
+      "program_source": "long_frame.s",
+      "source_sha256": "7a850d7dc25f0dcdb1c0fb62d2d865162efbe6601f86a1bc5b4ac33451da7589",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "7ed565cf057ca92e695d15781e0368faf0c6efc8a1b90c965a2e0d385450f49a"
+      },
+      "purpose": "Frames longer than the raster buffer: the presentation refuses them while the machine keeps running"
+    },
+    "input_all": {
+      "scenario": "I1",
+      "logical_id": "microrom-input-all-v1",
+      "program_source": "input_all.s",
+      "source_sha256": "325b2e0f813f9f38d773b86c9324cc342145ba87d315818a42489c718b706747",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "ab6fb5bb1d3d8b502214a8545125db27cfe39c97344d41ff281b5f383ceedb65"
+      },
+      "purpose": "Logs JOYxDAT, POTxDAT, POTGOR and CIA-A PRA every VERTB and every keyboard byte with its handshake"
+    },
+    "input_rotate": {
+      "scenario": "I2",
+      "logical_id": "microrom-input-rotate-v1",
+      "program_source": "input_rotate.s",
+      "source_sha256": "cb6ccdde25894e3c3129e808aed484f8437466cd74fb42ab4fe1ba1534cfd83e",
+      "defines": {},
+      "output": {
+        "size_bytes": 262144,
+        "sha256": "b3e4b8aba3d04d1acb9f04f37940db03e5ed831a49f7225e8b3e52973cd1cb3d"
+      },
+      "purpose": "One input resource (or none) read per VERTB, tagged in the log: the lag of each unit is known from the program"
+    }
+  }
+}

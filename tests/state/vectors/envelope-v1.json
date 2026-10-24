@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "purpose": "Golden vector of the native state envelope (docs/adr/0009-state-format.md). The C++ serializer of T15 must produce these exact bytes from these inputs; inputs are derived from labels by SHA-256 so nothing here is secret or random.",
+  "labels": {
+    "series": "series",
+    "codegen": "codegen",
+    "sources": "sources",
+    "firmware": "firmware",
+    "media": [
+      "adf-a",
+      "adf-b"
+    ]
+  },
+  "inputs": {
+    "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "config": {
+      "machine": 1,
+      "video_standard": 1,
+      "audio_rate_hz": 48000,
+      "flags": 0,
+      "random_seed": 1,
+      "rtc_epoch_seconds": 946684800
+    },
+    "media_types": [
+      1,
+      1
+    ],
+    "unit_index": 1234,
+    "master_ticks": 43690000,
+    "chunks": {
+      "P6CP": {
+        "version": 1,
+        "body": "000102"
+      },
+      "P6SC": {
+        "version": 1,
+        "body": "0708090a"
+      },
+      "P6RM": {
+        "version": 1,
+        "body": "0e0f101112"
+      },
+      "P6RT": {
+        "version": 1,
+        "body": "15161718191a"
+      },
+      "P6CH": {
+        "version": 1,
+        "body": "1c1d1e1f202122"
+      },
+      "P6VD": {
+        "version": 1,
+        "body": "232425262728292a"
+      },
+      "P6AU": {
+        "version": 1,
+        "body": "2a2b2c2d2e2f303132"
+      },
+      "P6CI": {
+        "version": 1,
+        "body": "3132333435363738393a"
+      },
+      "P6DK": {
+        "version": 1,
+        "body": "38393a3b3c3d3e3f404142"
+      },
+      "P6IN": {
+        "version": 1,
+        "body": "3f404142434445464748494a"
+      },
+      "P6BR": {
+        "version": 1,
+        "body": "464748494a4b4c4d4e4f505152"
+      }
+    }
+  },
+  "derived": {
+    "core_build_id": "aa2e6e2f4d4b80b8c8c67f1c7d2b781d7aa70c2414af402beb74cc23f3ebfcad",
+    "config_hash": "b4a3ced30673b99e5fcff81887715e245ceb9cb9647cb498c5a1871958fc680e",
+    "media_manifest_hash": "cf59fe65e310dc25212a3e9fc9453cd3cf2ca63fe1ce20b90c406577d87662a3"
+  },
+  "state_hex": "50364e415449564501000000500100000100000000000000d20400000000000010a89a020000000008010000000000000b00000000000000aa2e6e2f4d4b80b8c8c67f1c7d2b781d7aa70c2414af402beb74cc23f3ebfcad857f48fcb09399d4d95527e29a2fdeaedb41f827000000009cda38ea3a2bd78cbaecd4b8bbd646abc14cee8d99c59860ac2a301f722b8be07a036718836fcb8f473f601a966b88b8ac46196d3a56cae235bf7d5d5d607758b4a3ced30673b99e5fcff81887715e245ceb9cb9647cb498c5a1871958fc680ecf59fe65e310dc25212a3e9fc9453cd3cf2ca63fe1ce20b90c406577d87662a3c3bf47ea1f4a4a605470313cacb3a44f4a461f68c6faeab07e737610cb5ac835fa39dd7c4dcba1e9efb51e76232caa880a654bb33e7c402df851b63a32cabdf171f08677c081b6f146be196eb249f7bce88ac9a10720023efaad4659cc7dffe050364350010000000300000000000000000102503653430100000004000000000000000708090a5036524d0100000005000000000000000e0f1011125036525401000000060000000000000015161718191a503643480100000007000000000000001c1d1e1f20212250365644010000000800000000000000232425262728292a503641550100000009000000000000002a2b2c2d2e2f30313250364349010000000a000000000000003132333435363738393a5036444b010000000b0000000000000038393a3b3c3d3e3f4041425036494e010000000c000000000000003f404142434445464748494a50364252010000000d00000000000000464748494a4b4c4d4e4f505152",
+  "state_sha256": "6974ec1fbff303ff3cb5e937f7f26a5e87cbcb15f98b6e8971061ea130fb1f02",
+  "state_bytes": 600
+}

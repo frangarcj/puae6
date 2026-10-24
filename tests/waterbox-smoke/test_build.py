@@ -1,0 +1,1111 @@
+"""Offline tests for the Waterbox ELF build gate."""
+
+import struct
+import importlib
+import json
+import os
+import platform
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest import mock
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+TOOL = ROOT / "tools" / "build_waterbox.py"
+sys.path.insert(0, str(TOOL.parent))
+import build_waterbox  # noqa: E402
+import import_sources  # noqa: E402
+from ci import hosted_environment as hosted_loader  # noqa: E402
+
+
+def elf64(loads, machine=183, elf_class=2, elf_type=2):
+    """Make a minimal ELF64 little-endian executable with PT_LOAD headers."""
+    ident = b"\x7fELF" + bytes((elf_class, 1, 1, 0)) + bytes(8)
+    header = struct.pack("<16sHHIQQQIHHHHHH", ident, elf_type, machine, 1,
+                          0, 64, 0, 0, 64, 56, len(loads), 0, 0, 0)
+    phdrs = b"".join(struct.pack("<IIQQQQQQ", 1, flags, off, va, va,
+                                    filesz, memsz, 0x4000)
+                      for off, va, filesz, memsz, flags in loads)
+    size = max([64 + len(phdrs)] + [off + filesz for off, _, filesz, _, _ in loads])
+    data = bytearray(size)
+    data[:64] = header
+    data[64:64 + len(phdrs)] = phdrs
+    return data
+
+
+class HostedGateConsumersTests(unittest.TestCase):
+    """Own data fixtures; subprocesses and tool/feed selectors are explicitly mocked."""
+
+    def setUp(self):
+        (ROOT / 'build').mkdir(exist_ok=True)
+
+    def test_import_audit_uses_the_selected_loader_environment_for_both_nm_calls(self):
+        with tempfile.TemporaryDirectory(prefix='imports-loader-', dir=ROOT / 'build') as temp:
+            clang = Path(temp) / 'clang'
+            clang.with_name('llvm-nm').write_bytes(b'own tool fixture, never executed')
+            for env in ({'PATH': 'local'}, {'DYLD_LIBRARY_PATH': '/owned/libs', 'PATH': 'hosted'}):
+                tc = {'paths': {'clang': clang}, 'env': env}
+                with (mock.patch.object(build_waterbox, 'allowed_imports', return_value={'allowed'}),
+                      mock.patch.object(build_waterbox.subprocess, 'run', side_effect=[
+                          subprocess.CompletedProcess([], 0, 'U allowed\nU internal\n'),
+                          subprocess.CompletedProcess([], 0, '0 T internal\n')]) as process):
+                    result = build_waterbox.audit_imports(tc, [Path('own.o')])
+                self.assertEqual(result['imports'], ['allowed'])
+                self.assertEqual(result['unexpected'], [])
+                for call, flag in zip(process.call_args_list, ('--undefined-only', '--defined-only')):
+                    self.assertEqual(call.args[0], [str(clang.with_name('llvm-nm')), flag, '--no-weak', 'own.o'])
+                    self.assertIs(call.kwargs['env'], env)
+
+    def test_poison_setup_uses_selected_feed_pinned_tool_path_and_direct_loader(self):
+        poison = importlib.import_module('tests.waterbox-poison.test_poison')
+        with tempfile.TemporaryDirectory(prefix='poison-plumbing-', dir=ROOT / 'build') as temp:
+            root = Path(temp)
+            guest, runtime = root / 'own.wbx', root / 'own.dylib'
+            for path in (guest, runtime): path.write_bytes(b'own data fixture, never executed')
+            build = root / 'wb'; (build / 'puae6').mkdir(parents=True)
+            (build / 'puae6/puae6-receipt.json').write_text(json.dumps({'guest': {
+                'path': str(guest), 'sha256': build_waterbox.sha256(guest)}}))
+            receipt = build / 'receipt.json'
+            receipt.write_text(json.dumps({'runtime_dylib': {'path': str(runtime), 'sha256': build_waterbox.sha256(runtime)}}))
+            video = root / 'ports/portable/video_present.h'; video.parent.mkdir(parents=True)
+            video.write_text('P6_VIDEO_MAX_WIDTH = 2048')
+            paths = {'clang': Path('/owned/pinned/clang')}
+            direct, managed = {'DYLD_LIBRARY_PATH': '/owned/libs'}, {'NUGET_PACKAGES': '/owned/packages'}
+            symbols = ''.join(f'00000010 00000004 b {name}\n' for name in poison.SYMBOLS.values())
+            scratch = mock.Mock(); scratch.name = str(root / 'scratch')
+            with (mock.patch.object(poison, 'ROOT', root), mock.patch.object(build_waterbox, 'BUILD', build),
+                  mock.patch.object(build_waterbox, 'check_guest_matches_trees'),
+                  mock.patch.object(build_waterbox, 'runtime_receipt_path', return_value=receipt),
+                  mock.patch.object(build_waterbox, 'managed_env', return_value=managed),
+                  mock.patch.object(build_waterbox, 'managed_restore_sources', return_value=['-p:RestoreSources=/owned/feed']) as feed,
+                  mock.patch.object(build_waterbox, 'selected_toolchain', return_value={'profile': 'own'}) as selected,
+                  mock.patch.object(build_waterbox, 'locked_tools', return_value=(paths, {})) as locked,
+                  mock.patch.object(build_waterbox, 'hosted_environment', return_value={'direct_env': direct}) as loader,
+                  mock.patch.object(poison.shutil, 'which', return_value='/mock/dotnet'),
+                  mock.patch.object(poison.tempfile, 'TemporaryDirectory', return_value=scratch),
+                  mock.patch.object(poison.subprocess, 'run', side_effect=[
+                      subprocess.CompletedProcess([], 0, '', ''), subprocess.CompletedProcess([], 0, symbols, '')]) as process):
+                try:
+                    poison.SnapshotPoisonTests.setUpClass()
+                finally:
+                    poison.SnapshotPoisonTests.doClassCleanups()
+            feed.assert_called_once_with(Path.home() / '.nuget/packages')
+            selected.assert_called_once_with(); locked.assert_called_once_with({'profile': 'own'})
+            loader.assert_called_once_with(paths)
+            dotnet, nm = process.call_args_list
+            self.assertEqual(dotnet.args[0][-1], '-p:RestoreSources=/owned/feed')
+            self.assertIs(dotnet.kwargs['env'], managed)
+            self.assertEqual(nm.args[0], ['/owned/pinned/llvm-nm', '--print-size', str(guest)])
+            self.assertIs(nm.kwargs['env'], direct)
+
+
+class ManagedFeedSelectionTests(unittest.TestCase):
+    """Real feed verification with own archives; dotnet and runtime receipts mocked."""
+
+    def setUp(self):
+        from tests.ci import test_managed_inputs as feed_fixture
+        from ci import prepare_managed_inputs
+        self.preparer = prepare_managed_inputs
+        self.fixture = feed_fixture.ManagedInputTests(methodName='runTest')
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.doCleanups)
+        self.root, self.feed = self.fixture.root, self.fixture.feed
+        self.out = self.root / 'build/waterbox'
+        self.env = self.enterContext(mock.patch.dict(build_waterbox.os.environ))
+        self.env.pop(build_waterbox.MANAGED_FEED_ENV, None)
+        for name, value in (('ROOT', self.root), ('BUILD', self.out),
+                ('MANAGED', self.root / 'integration/bizhawk/smoke'),
+                ('FFI_PROJECT', self.root / 'tests/ffi/Ffi.csproj'), ('FFI_OUTPUT', self.root / 'build/ffi')):
+            self.enterContext(mock.patch.object(build_waterbox, name, value))
+        self.dotnet = self.enterContext(mock.patch.object(build_waterbox.shutil, 'which', return_value='/mock/dotnet'))
+        self.run = self.enterContext(mock.patch.object(build_waterbox, 'run_logged'))
+        self.verify = self.enterContext(mock.patch.object(self.preparer, 'prepare', wraps=self.preparer.prepare))
+        self.enterContext(mock.patch('urllib.request.build_opener', side_effect=AssertionError('network forbidden')))
+        receipt = self.out / 'puae6/puae6-receipt.json'
+        receipt.parent.mkdir(parents=True); receipt.write_text(json.dumps({'guest': {'sha256': 'a' * 64}}))
+        runtime_receipt = self.out / 'receipt.json'; runtime_receipt.write_text('{}')
+        dylib = self.out / 'mock.dylib'; dylib.write_bytes(b'own runtime fixture')
+        self.enterContext(mock.patch.object(build_waterbox, 'read_runtime_receipt', return_value={
+            'runtime_dylib': {'path': str(dylib), 'sha256': build_waterbox.sha256(dylib)}}))
+        self.enterContext(mock.patch.object(build_waterbox, 'runtime_receipt_path', return_value=runtime_receipt))
+        self.enterContext(mock.patch.object(build_waterbox, 'runtime_profile', return_value='release'))
+        self.enterContext(mock.patch.object(build_waterbox, 'default_runtime_profile', return_value='release'))
+        build_waterbox.FFI_OUTPUT.mkdir(parents=True)
+        self.clear()
+        self.addCleanup(self.clear)
+
+    @staticmethod
+    def clear():
+        build_waterbox.build_managed.cache_clear()
+        build_waterbox.build_core.cache_clear()
+
+    def install_feed(self):
+        self.feed.mkdir(parents=True)
+        for name, body in self.fixture.body.items():
+            (self.feed / f'{name}.1.0.0.nupkg').write_bytes(body)
+
+    def test_absent_selector_preserves_both_commands_and_existing_environments(self):
+        dotnet, env = build_waterbox.build_managed()
+        self.assertEqual('/mock/dotnet', dotnet)
+        self.run.assert_called_once_with([dotnet, 'build', 'Smoke.csproj', '--nologo'], env, build_waterbox.MANAGED)
+        self.assertEqual(str(self.out / 'nuget'), env['NUGET_PACKAGES'])
+        self.run.reset_mock()
+        dotnet, env, output = build_waterbox.build_core()
+        self.run.assert_called_once_with([dotnet, 'build', str(build_waterbox.FFI_PROJECT), '--nologo',
+            '-p:Puae6GuestSha256=' + 'a' * 64, f'-p:RestoreSources={Path.home() / ".nuget/packages"}'], env, self.root)
+        self.assertEqual(str(self.root / 'build/bizhawk-core/nuget'), env['NUGET_PACKAGES'])
+        self.assertEqual(build_waterbox.FFI_OUTPUT, output)
+        self.verify.assert_not_called()
+
+    def test_explicit_relative_and_absolute_feed_is_verified_offline_for_both_builders(self):
+        self.install_feed()
+        before = {p.name: p.read_bytes() for p in self.feed.iterdir()}
+        for value in ('build/hosted-managed-feed', str(self.feed)):
+            self.env[build_waterbox.MANAGED_FEED_ENV] = value
+            for builder in (build_waterbox.build_managed, build_waterbox.build_core):
+                self.clear(); self.run.reset_mock(); self.verify.reset_mock()
+                builder()
+                self.verify.assert_called_once_with(root=self.root, fetch=False)
+                command, env, _ = self.run.call_args.args
+                self.assertEqual([f'-p:RestoreSources={self.feed}'], [a for a in command if a.startswith('-p:RestoreSources=')])
+                self.assertEqual(value, env[build_waterbox.MANAGED_FEED_ENV])
+                self.assertEqual('/mock/dotnet', command[0])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.feed.iterdir()})
+
+    def assert_blocked_before_dotnet(self):
+        for builder in (build_waterbox.build_managed, build_waterbox.build_core):
+            self.clear(); self.dotnet.reset_mock(); self.run.reset_mock()
+            with self.assertRaises(build_waterbox.BuildError): builder()
+            self.dotnet.assert_not_called(); self.run.assert_not_called()
+
+    def test_empty_alias_escapes_and_other_locations_never_fall_back(self):
+        self.install_feed()
+        alias = self.root / 'build/alias'; alias.symlink_to(self.feed, target_is_directory=True)
+        for value in ('', 'build/alias', str(alias), 'build/../build/hosted-managed-feed',
+                      './build/hosted-managed-feed', str(self.root / 'foreign'), str(self.feed) + '/'):
+            self.env[build_waterbox.MANAGED_FEED_ENV] = value
+            self.assert_blocked_before_dotnet()
+        self.verify.assert_not_called()
+
+    def test_missing_corrupt_or_linked_fixed_feed_blocks_both_builders(self):
+        self.env[build_waterbox.MANAGED_FEED_ENV] = 'build/hosted-managed-feed'
+        self.assert_blocked_before_dotnet()
+        self.assertFalse(self.feed.exists())
+        self.install_feed()
+        archive = next(self.feed.iterdir()); body = archive.read_bytes()
+        archive.write_bytes(b'x' * len(body))
+        self.assert_blocked_before_dotnet()
+        self.assertEqual(b'x' * len(body), archive.read_bytes())
+        archive.write_bytes(body)
+        saved = self.feed.with_name('saved-feed'); self.feed.rename(saved)
+        self.feed.symlink_to(saved, target_is_directory=True)
+        self.assert_blocked_before_dotnet()
+        self.assertTrue(self.feed.is_symlink())
+        self.feed.unlink(); saved.rename(self.feed)
+        project = self.root / 'integration/bizhawk/smoke/Smoke.csproj'
+        project.write_text('changed project')
+        self.assert_blocked_before_dotnet()
+
+
+class ToolPathsTests(unittest.TestCase):
+    """Real manifest/filesystem/hash checks; version/linker processes are mocked."""
+
+    def setUp(self):
+        (ROOT / 'build').mkdir(exist_ok=True)
+        temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-tool-paths-')
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.defaults, self.relocated = {}, {}
+        self.lock = {'tools': {}}
+        for name in build_waterbox.TOOL_NAMES:
+            default, relocated = self.root / 'base' / name, self.root / 'build/tools' / name
+            for path in (default, relocated):
+                path.parent.mkdir(parents=True, exist_ok=True); path.write_text('own fixture ' + name)
+            self.defaults[name], self.relocated[name] = default, relocated
+            self.lock['tools'][name] = {'path': str(default), 'sha256': build_waterbox.sha256(default), 'version': 'fixture ' + name}
+        self.manifest = self.root / 'build/tools.json'
+        self.mapping = {n: str(self.defaults[n] if n == 'make' else self.relocated[n]) for n in build_waterbox.TOOL_NAMES}
+        self.linker = self.defaults['lld']; self.bad_version = None
+        self.enterContext(mock.patch.object(build_waterbox, 'ROOT', self.root))
+        self.enterContext(mock.patch.dict(build_waterbox.os.environ))
+        build_waterbox.os.environ.pop(build_waterbox.TOOLS_FILE_ENV, None)
+        build_waterbox.os.environ.pop(build_waterbox.TOOLCHAIN_PROFILE_ENV, None)
+        build_waterbox.os.environ.pop(hosted_loader.SELECTOR, None)
+        def execute(args, **kwargs):
+            if args[1] == '-print-prog-name=ld.lld': output = str(self.linker) + '\n'
+            else:
+                name = Path(args[0]).name
+                output = ('wrong version' if name == self.bad_version else self.lock['tools'][name]['version']) + '\n'
+            return subprocess.CompletedProcess(args, 0, output, '')
+        self.run = self.enterContext(mock.patch.object(build_waterbox.subprocess, 'run', side_effect=execute))
+
+    def select(self, payload=None):
+        self.manifest.write_text(json.dumps(payload if payload is not None else {'schema_version': 1, 'paths': self.mapping}))
+        build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = str(self.manifest)
+        self.linker = self.relocated['lld']
+
+    def test_absent_selector_preserves_all_lock_paths_and_checks(self):
+        paths, versions = build_waterbox.locked_tools(self.lock)
+        self.assertEqual(self.defaults, paths)
+        self.assertEqual({n: self.lock['tools'][n]['version'] for n in paths}, versions)
+        self.assertEqual(6, self.run.call_count)
+
+    def test_valid_manifest_relocates_only_paths_and_preserves_make_and_pins(self):
+        before = json.dumps(self.lock, sort_keys=True)
+        for relative in (False, True):
+            self.select()
+            if relative: build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = 'build/tools.json'
+            paths, versions = build_waterbox.locked_tools(self.lock)
+            self.assertEqual(self.mapping, {n: str(p) for n, p in paths.items()})
+            self.assertEqual(self.defaults['make'], paths['make'])
+            self.assertEqual('fixture clang', versions['clang'])
+            self.assertIn(str(self.relocated['lld'].parent), self.run.call_args.kwargs['env']['PATH'].split(build_waterbox.os.pathsep))
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+
+    def test_invalid_schema_keys_values_and_duplicates_never_execute_tools(self):
+        good = {'schema_version': 1, 'paths': self.mapping}
+        for data in ([], None, {}, {**good, 'schema_version': True}, {**good, 'schema_version': 2},
+                     {**good, 'extra': 1}, {**good, 'paths': []},
+                     {**good, 'paths': {n: p for n, p in self.mapping.items() if n != 'make'}},
+                     {**good, 'paths': {**self.mapping, 'other': 'x'}},
+                     {**good, 'paths': {**self.mapping, 'rustc': None}},
+                     {**good, 'paths': {**self.mapping, 'rustc': 1}},
+                     {**good, 'paths': {**self.mapping, 'rustc': ''}}):
+            self.manifest.write_text(json.dumps(data))
+            build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = str(self.manifest)
+            with self.subTest(data=data), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+        for raw in ('not JSON', '{"schema_version":1,"schema_version":1,"paths":{}}',
+                    '{"schema_version":1,"paths":{"clang":"x","clang":"y"}}'):
+            self.manifest.write_text(raw)
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_tool_paths_links_escapes_and_make_override_are_rejected_before_any_exec(self):
+        link = self.root / 'build/link'; link.symlink_to(self.relocated['rustc'])
+        parent = self.root / 'build/alias'; parent.symlink_to(self.relocated['rustc'].parent, target_is_directory=True)
+        cases = (('rustc', 'build/tools/rustc'), ('rustc', str(self.root / 'build/missing')),
+                 ('rustc', str(self.root / 'build')), ('rustc', str(self.defaults['rustc'])),
+                 ('rustc', str(self.root / 'build/tools/../tools/rustc')), ('rustc', str(link)),
+                 ('rustc', str(parent / 'rustc')), ('make', str(self.relocated['make'])))
+        for name, path in cases:
+            self.select({'schema_version': 1, 'paths': {**self.mapping, name: path}})
+            with self.subTest(path=path), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_manifest_links_missing_directory_escape_and_empty_selector_never_fall_back(self):
+        self.select()
+        link = self.root / 'build/link.json'; link.symlink_to(self.manifest)
+        parent = self.root / 'build/alias'; parent.symlink_to(self.manifest.parent, target_is_directory=True)
+        for value in ('', str(self.root / 'build/missing.json'), str(self.root / 'build'),
+                      str(self.root / 'outside.json'), str(link), str(parent / 'tools.json'),
+                      'build/../build/tools.json'):
+            build_waterbox.os.environ[build_waterbox.TOOLS_FILE_ENV] = value
+            with self.subTest(value=value), self.assertRaises(build_waterbox.BuildError): build_waterbox.locked_tools(self.lock)
+            self.run.assert_not_called()
+
+    def test_hash_version_and_clang_linker_guards_apply_to_selected_paths(self):
+        self.select()
+        original = self.relocated['clang'].read_bytes(); self.relocated['clang'].write_text('different bytes')
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de clang'): build_waterbox.locked_tools(self.lock)
+        self.run.assert_not_called(); self.relocated['clang'].write_bytes(original)
+        self.bad_version = 'rustc'
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'versión de rustc'): build_waterbox.locked_tools(self.lock)
+        self.bad_version = None; self.linker = self.defaults['lld']
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
+
+
+class HostedLoaderIntegrationTests(unittest.TestCase):
+    """Real SHA/path plumbing; hosted loader and all tool processes mocked."""
+    setUp = ToolPathsTests.setUp
+
+    def test_default_version_calls_and_raw_linker_environment_remain_identical(self):
+        paths, _ = build_waterbox.locked_tools(self.lock)
+        self.assertEqual(self.defaults, paths)
+        for name, call in zip(build_waterbox.TOOL_NAMES, self.run.call_args_list[:5]):
+            self.assertEqual([str(self.defaults[name]), '--version'], call.args[0])
+            self.assertEqual({'check': True, 'text': True, 'stdout': subprocess.PIPE,
+                              'stderr': subprocess.STDOUT}, call.kwargs)
+        expected = {**build_waterbox.os.environ, 'PATH': build_waterbox.os.pathsep.join(
+            [str(self.defaults[n].parent) for n in build_waterbox.TOOL_NAMES] + [build_waterbox.os.environ.get('PATH', '')])}
+        self.assertEqual(expected, self.run.call_args.kwargs['env'])
+
+    def test_hosted_versions_use_direct_env_but_linker_checks_raw_identity(self):
+        launch = self.root / 'build/launchers'; launch.mkdir(parents=True)
+        direct = {**build_waterbox.os.environ, 'DYLD_LIBRARY_PATH': '/verified/lib'}
+        selection = {'direct_env': direct, 'tool_env': {**direct, 'PATH': str(launch)},
+                     'launchers': {'clang': launch / 'clang'}, 'shell_exports': 'export DYLD_LIBRARY_PATH=/verified/lib\n'}
+        before = json.dumps(self.lock, sort_keys=True)
+        with mock.patch.object(hosted_loader, 'select', return_value=selection) as select:
+            paths, _ = build_waterbox.locked_tools(self.lock)
+            select.assert_called_once_with(self.defaults)
+            self.assertEqual(self.defaults, paths)
+            for name, call in zip(build_waterbox.TOOL_NAMES, self.run.call_args_list[:5]):
+                self.assertEqual([str(self.defaults[name]), '--version'], call.args[0])
+                self.assertEqual(direct, call.kwargs['env'])
+            linker = self.run.call_args
+            self.assertEqual([str(self.defaults['clang']), '-print-prog-name=ld.lld'], linker.args[0])
+            self.assertEqual('/verified/lib', linker.kwargs['env']['DYLD_LIBRARY_PATH'])
+            self.assertNotEqual(str(launch), linker.kwargs['env']['PATH'].split(build_waterbox.os.pathsep)[0])
+            foreign = launch / 'ld.lld'; foreign.write_text('own launcher fixture')
+            self.linker = foreign
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'otro linker'): build_waterbox.locked_tools(self.lock)
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+
+    def test_hosted_verification_failure_is_builder_error_before_any_tool_process(self):
+        for error in (ValueError('invalid cache'), OSError('missing cache')):
+            with mock.patch.object(hosted_loader, 'select', side_effect=error):
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'entorno de herramientas hosted'):
+                    build_waterbox.locked_tools(self.lock)
+                self.run.assert_not_called()
+
+
+class ToolchainProfileTests(unittest.TestCase):
+    """Real file/hash/receipt selection; compiler/linker execution is mocked."""
+    setUp = ToolPathsTests.setUp
+    select = ToolPathsTests.select
+
+    def fixture(self):
+        self.lock.update(schema_version=1, profile='fixture-local', runtime={'profile': 'release', 'patches': []})
+        self.lock['toolchain_profiles'] = {'hosted-macos26': {
+            'profile': 'fixture-hosted', 'tools': {'make': {**self.lock['tools']['make'],
+            'sha256': build_waterbox.hashlib.sha256(b'hosted make').hexdigest()}}}}
+        lock = self.root / 'lock.json'; lock.write_text(json.dumps(self.lock))
+        self.enterContext(mock.patch.object(build_waterbox, 'LOCK', lock))
+        self.enterContext(mock.patch.object(build_waterbox, 'BUILD', self.root / 'build/waterbox'))
+        source = build_waterbox.BUILD / 'runtime-src'; source.mkdir(parents=True)
+        (source / 'fixture').write_text('runtime source')
+        return self.root / 'build/receipt.json'
+
+    def receipt(self, path, *, legacy=False):
+        lock = build_waterbox.selected_toolchain()
+        data = {'runtime_patchset_sha256': build_waterbox.canonical_hash([]),
+                'runtime_source_inventory_sha256': build_waterbox.canonical_hash(build_waterbox.inventory(build_waterbox.BUILD / 'runtime-src')),
+                'tool_hashes': {n: e['sha256'] for n, e in lock['tools'].items()},
+                'tool_versions': {n: e['version'] for n, e in lock['tools'].items()}}
+        if not legacy: data.update(build_waterbox.toolchain_receipt({'lock': lock}))
+        path.write_text(json.dumps(data))
+        return data
+
+    def test_default_is_a_copy_preserving_all_local_pins_and_profile(self):
+        self.fixture(); before = json.dumps(self.lock, sort_keys=True)
+        selected = build_waterbox.selected_toolchain(self.lock)
+        self.assertEqual('local', selected['toolchain_profile'])
+        self.assertEqual(self.lock['tools'], selected['tools'])
+        self.assertEqual(self.lock['profile'], selected['profile'])
+        selected['tools']['make']['sha256'] = 'changed'
+        self.assertEqual(before, json.dumps(self.lock, sort_keys=True))
+        real = json.loads((ROOT / 'plan/toolchains.json').read_text())
+        self.assertEqual('5b1ddb7e9c11b87a034fc88b212e8ac243cfe2b4db696d767aa44c79595fc09a',
+                         build_waterbox.selected_toolchain(real)['tools']['make']['sha256'])
+
+    def test_effective_lock_is_idempotent_and_cannot_be_relabelled_under_another_selector(self):
+        self.fixture()
+        for name in ('local', 'hosted-macos26'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: name}):
+                selected = build_waterbox.selected_toolchain(self.lock)
+                before = json.dumps(selected, sort_keys=True)
+                again = build_waterbox.selected_toolchain(selected)
+                self.assertEqual(selected, again)
+                self.assertIsNot(selected['tools'], again['tools'])
+                other = 'hosted-macos26' if name == 'local' else 'local'
+                build_waterbox.os.environ[build_waterbox.TOOLCHAIN_PROFILE_ENV] = other
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'lock efectivo'): build_waterbox.selected_toolchain(selected)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'lock efectivo'): build_waterbox.locked_tools(selected)
+                self.assertEqual(before, json.dumps(selected, sort_keys=True))
+                self.run.assert_not_called()
+
+    def test_unknown_profile_never_executes_or_reads_receipts_or_falls_back(self):
+        self.fixture()
+        for value in ('', 'hosted', ' local', 'LOCAL'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: value}):
+                for call in (lambda: build_waterbox.locked_tools(self.lock), build_waterbox.toolchain,
+                             lambda: build_waterbox.read_runtime_receipt(self.root / 'missing'),
+                             lambda: build_waterbox.ensure_runtime_lane('release')):
+                    with self.subTest(value=value), self.assertRaisesRegex(build_waterbox.BuildError, 'P6_WATERBOX_TOOLCHAIN_PROFILE'): call()
+                self.run.assert_not_called()
+
+    def test_hosted_pin_is_distinct_and_manifest_uses_the_effective_make(self):
+        self.fixture(); original = json.dumps(self.lock, sort_keys=True)
+        self.select()
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            selected = build_waterbox.selected_toolchain(self.lock)
+            self.assertEqual('fixture-hosted', selected['profile'])
+            for n in ('clang', 'lld', 'cargo', 'rustc'): self.assertEqual(self.lock['tools'][n], selected['tools'][n])
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de make'): build_waterbox.locked_tools(self.lock)
+            self.defaults['make'].write_bytes(b'hosted make')
+            paths, _ = build_waterbox.locked_tools(self.lock)
+            self.assertEqual(self.defaults['make'], paths['make'])
+        with self.assertRaisesRegex(build_waterbox.BuildError, 'hash de make'): build_waterbox.locked_tools(self.lock)
+        self.assertEqual(original, json.dumps(self.lock, sort_keys=True))
+
+    def test_current_legacy_and_cross_profile_receipts_are_strict_without_rewriting(self):
+        path = self.fixture()
+        for name in ('local', 'hosted-macos26'):
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: name}):
+                data = self.receipt(path)
+                self.assertEqual(data, build_waterbox.read_runtime_receipt(path))
+                before = path.read_bytes()
+                data['profile'] = 'wrong profile'; path.write_text(json.dumps(data))
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+                path.write_bytes(before)
+            other = 'hosted-macos26' if name == 'local' else 'local'
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: other}):
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+            self.assertEqual(before, path.read_bytes())
+        data = self.receipt(path, legacy=True)
+        self.assertEqual(data, build_waterbox.read_runtime_receipt(path))
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+            # Even hosted hashes cannot retroactively certify a legacy profile.
+            self.receipt(path, legacy=True)
+            with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.read_runtime_receipt(path)
+
+    def test_lanes_reject_foreign_base_before_build_and_record_new_runtime_only(self):
+        path = self.fixture()
+        base = build_waterbox.runtime_receipt_path('release')
+        base.parent.mkdir(parents=True, exist_ok=True)
+        self.receipt(base, legacy=True)
+        dylib = path.parent / 'mock.dylib'; dylib.write_text('mock compiler output')
+        with (mock.patch.object(build_waterbox, 'toolchain', return_value={
+                'lock': build_waterbox.selected_toolchain(), 'source_audit': {'mode': 'snapshot'}}),
+              mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib) as cargo):
+            derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
+            self.assertEqual('local', derived['toolchain_profile'])
+            self.assertNotIn('guest_toolchain_profile', derived)
+            self.assertNotIn('toolchain_profile', json.loads(base.read_text()))
+            with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+                for lane in ('release', 'debug'):
+                    with self.assertRaisesRegex(build_waterbox.BuildError, 'perfil de toolchain'): build_waterbox.ensure_runtime_lane(lane)
+            self.assertEqual(1, cargo.call_count)
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            current = self.receipt(base)
+            current['guest_toolchain_profile'] = 'hosted-macos26'; base.write_text(json.dumps(current))
+            with (mock.patch.object(build_waterbox, 'toolchain', return_value={
+                    'lock': build_waterbox.selected_toolchain(), 'source_audit': {'mode': 'snapshot'}}),
+                  mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib)):
+                derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
+            self.assertEqual('hosted-macos26', derived['toolchain_profile'])
+            self.assertEqual(current['guest_toolchain_profile'], derived['guest_toolchain_profile'])
+            self.assertEqual(current['tool_hashes'], derived['tool_hashes'])
+            self.assertEqual(derived, build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path('debug')))
+
+
+class GuestToolchainCacheTests(unittest.TestCase):
+    def test_changed_inputs_or_partial_failure_force_a_complete_rebuild(self):
+        import prepare_hrtmon
+        with tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-toolchain-') as directory:
+            base = Path(directory)
+            cc, ld = base / 'cc', base / 'ld'
+            cc.write_text('compiler wrapper'); ld.write_text('linker wrapper')
+            tc = {'lock': {'toolchain_profile': 'local', 'profile': 'fixture', 'tools': {'clang': {'sha256': 'a' * 64}}}, 'versions': {'clang': 'test compiler'},
+                  'paths': {'make': Path('/usr/bin/make')}, 'sysroot_copy': base,
+                  'sysroot_inventory': [{'sha256': 'b' * 64}], 'cc_wrapper': cc, 'ld_wrapper': ld, 'env': {},
+                  'source_audit': {'mode': 'checkout', 'sources': {}}}
+            receipt = base / 'puae6/puae6-receipt.json'
+            commands = []
+            def make(command, **kwargs):
+                self.assertFalse(receipt.exists(), 'invalidate before any object is overwritten')
+                commands.append(command)
+                return subprocess.CompletedProcess(command, 0)
+            with (mock.patch.object(build_waterbox, 'BUILD', base),
+                  mock.patch.object(build_waterbox, 'ensure_current_trees'),
+                  mock.patch.object(prepare_hrtmon, 'prepare'),
+                  mock.patch.object(build_waterbox, 'puae6_sources', return_value=['adapters/waterbox/cd_source.cpp']),
+                  mock.patch.object(build_waterbox, 'puae6_manual_inputs', return_value={'fixture.h': 'f' * 64}),
+                  mock.patch.object(build_waterbox, 'validate_elf', return_value={'sha256': 'c' * 64, 'size': 1}),
+                  mock.patch.object(build_waterbox, 'check_no_compiler_tls', return_value={'wb16': 'PASS'}),
+                  mock.patch.object(build_waterbox, 'audit_imports', return_value={'unexpected': []}),
+                  mock.patch('builtins.print'),
+                  mock.patch.object(build_waterbox.subprocess, 'run', side_effect=make) as run):
+                def build(forced):
+                    result = build_waterbox.build_puae6(tc, 2)
+                    self.assertEqual(forced, '-B' in commands[-1])
+                    self.assertEqual(tc['lock']['tools']['clang']['sha256'], result['tool_hashes']['clang'])
+                    self.assertEqual(tc['source_audit'], result['source_audit'])
+                    self.assertEqual(tc['lock']['toolchain_profile'], result['toolchain_profile'])
+                build(True)   # No receipt, including existing objects from an older build.
+                build(False)  # Identical inputs keep the normal incremental build.
+                command = commands[-1]
+                tc['source_audit'] = {'mode': 'snapshot', 'sources': {}}
+                build(False)  # Audit bookkeeping changes neither inputs nor make.
+                self.assertEqual(command, commands[-1])
+                for change in ('compiler', 'version', 'sysroot', 'wrapper', 'flags', 'recipe', 'sources', 'toolchain-profile'):
+                    if change == 'compiler': tc['lock']['tools']['clang']['sha256'] = 'd' * 64
+                    elif change == 'version': tc['versions']['clang'] = 'another compiler'
+                    elif change == 'sysroot': tc['sysroot_inventory'][0]['sha256'] = 'e' * 64
+                    elif change == 'wrapper': cc.write_text('new wrapper')
+                    elif change == 'toolchain-profile': tc['lock']['toolchain_profile'] = 'hosted-macos26'
+                    else:
+                        previous = json.loads(receipt.read_text())
+                        previous['build_inputs'][change] = {'obsolete': True}
+                        receipt.write_text(json.dumps(previous))
+                    build(True)
+                run.side_effect = lambda command, **kwargs: subprocess.CompletedProcess(command, 1)
+                with self.assertRaises(build_waterbox.BuildError): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists())
+                run.side_effect = make
+                build(True)   # A failed partial build must not reuse the prior identity.
+
+    def test_manual_headers_force_rebuild_with_preserved_mtime_and_drift_or_links_lose_receipt(self):
+        import prepare_hrtmon
+        with tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-manual-') as directory:
+            root = Path(directory)
+            for name in build_waterbox.PUAE6_MANUAL_DIRS:
+                path = root / name; path.mkdir(parents=True); (path / 'own.h').write_text('own header')
+            for name in (*build_waterbox.PUAE6_MANUAL_FILES, 'ports/waterbox/Makefile',
+                         'references/machawk/waterbox/common.mak', 'references/machawk/waterbox/linkscript_aarch64.T', 'bridge/own.cpp'):
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('own fixture')
+            cc, ld = root / 'cc', root / 'ld'; cc.write_text('mock cc'); ld.write_text('mock ld')
+            tc = dict(lock={'toolchain_profile': 'local', 'profile': 'fixture', 'tools': {}}, versions={}, paths={'make': 'mock-make'},
+                      sysroot_copy=root, sysroot_inventory=[], cc_wrapper=cc, ld_wrapper=ld, env={}, source_audit={'mode': 'snapshot'})
+            receipt = root / 'out/puae6/puae6-receipt.json'; commands = []; drift = False
+            header = root / 'bridge/own.h'
+            def make(command, **kwargs):  # Compiler calls are infrastructure mocks, never executed.
+                self.assertFalse(receipt.exists()); commands.append(command)
+                if drift: header.write_text('changed during mocked make')
+                return subprocess.CompletedProcess(command, 0)
+            with (mock.patch.object(build_waterbox, 'ROOT', root), mock.patch.object(build_waterbox, 'BUILD', root / 'out'),
+                  mock.patch.object(build_waterbox, 'ensure_current_trees'), mock.patch.object(build_waterbox, '_TREES_CHECKED', False),
+                  mock.patch.object(prepare_hrtmon, 'prepare'), mock.patch.object(build_waterbox, 'puae6_sources', return_value=['bridge/own.cpp']),
+                  mock.patch.object(build_waterbox, 'validate_elf', return_value={'sha256': 'c' * 64, 'size': 1}),
+                  mock.patch.object(build_waterbox, 'check_no_compiler_tls', return_value={}),
+                  mock.patch.object(build_waterbox, 'audit_imports', return_value={}), mock.patch('builtins.print'),
+                  mock.patch.object(build_waterbox.subprocess, 'run', side_effect=make)):
+                first = build_waterbox.build_puae6(tc, 2)
+                self.assertIn('-B', commands[-1])
+                self.assertIn('bridge/own.h', first['manual_inputs'])
+                self.assertEqual(first['manual_inputs'], first['build_inputs']['manual_inputs'])
+                build_waterbox.check_guest_matches_trees(receipt, root)
+                build_waterbox.build_puae6(tc, 2); self.assertNotIn('-B', commands[-1])
+                stamp = header.stat(); header.write_text('new header bytes'); os.utime(header, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+                self.assertEqual(stamp.st_mtime_ns, header.stat().st_mtime_ns)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'inputs manuales'): build_waterbox.check_guest_matches_trees(receipt, root)
+                build_waterbox.build_puae6(tc, 2); self.assertIn('-B', commands[-1])
+                link = root / 'bridge/linked.h'; link.symlink_to(cc)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'enlace'): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists()); link.unlink()
+                build_waterbox.build_puae6(tc, 2)
+                drift = True
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'durante make'): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists())
+                missing = root / 'third_party'; missing.rename(root / 'saved-third-party')
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'ausente'): build_waterbox.puae6_manual_inputs(root)
+
+
+class SourceAuditTests(unittest.TestCase):
+    """Real Git/capture/wrapper checks; all compiler execution is mocked."""
+
+    def setUp(self):
+        self.enterContext(mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'checkout', build_waterbox.TOOLCHAIN_PROFILE_ENV: 'local'}))
+        build_waterbox.os.environ.pop(hosted_loader.SELECTOR, None)
+        (ROOT / 'build').mkdir(exist_ok=True)
+        temp = tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-audit-')
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.out = self.root / 'build/waterbox'
+        (self.root / 'plan').mkdir()
+        self.items = []
+        for sid, content in (
+                ('machawk', {'waterbox/waterboxhost/src/core.rs': 'original\n',
+                             'waterbox/waterboxhost/Cargo.lock': 'lock',
+                             'waterbox/common.mak': 'make', 'waterbox/linkscript_aarch64.T': 'link',
+                             'waterbox/emulibc/emulibc.c': 'emulibc'}),
+                ('waterbox_musl_darwin', {f'tools/{n}': (ROOT / 'references/musl-darwin/tools' / n).read_text()
+                                        for n in ('musl-clang.in', 'ld.musl-clang.in')})):
+            checkout = self.root / ('origin-' + sid)
+            checkout.mkdir()
+            for name, text in content.items():
+                p = checkout / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(text)
+            self.git(checkout, 'init', '-q')
+            self.git(checkout, 'add', '.')
+            self.git(checkout, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                     'commit', '-qm', 'fixture')
+            item = {'id': sid, 'repository': None, 'local_path': checkout.name,
+                    'commit': self.git(checkout, 'rev-parse', 'HEAD').strip(),
+                    'snapshot': {'destination': 'references/' + sid, 'manifest': 'references/' + sid + '.json'}}
+            if sid == 'machawk':
+                rel = 'waterbox/waterboxhost/src/core.rs'
+                (checkout / rel).write_text('overlay\n')
+                item['snapshot']['overlay_sha256'] = {rel: build_waterbox.sha256(checkout / rel)}
+            self.items.append(item)
+            dest = self.root / item['snapshot']['destination']; dest.mkdir(parents=True)
+            for name, mode, data in import_sources.blobs(checkout, item):
+                p = dest / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
+                p.chmod(0o755 if mode == '100755' else 0o644)
+            manifest = {**import_sources.metadata(item), 'files': import_sources.inventory(dest)}
+            (self.root / item['snapshot']['manifest']).write_text(json.dumps(manifest))
+        self.upstream = self.root / 'plan/upstream.lock.json'
+        self.upstream.write_text(json.dumps({'sources': self.items}))
+        sysroot = self.root / 'sysroot'; sysroot.mkdir(); (sysroot / 'header.h').write_text('header')
+        self.paths = {n: Path('/usr/bin/true') for n in ('clang', 'lld', 'cargo', 'rustc', 'make')}
+        self.versions = {n: 'mock compiler' for n in self.paths}
+        patch = self.root / 'integration/waterbox-runtime/fixture.patch'
+        patch.parent.mkdir(parents=True)
+        patch.write_text('diff --git a/src/core.rs b/src/core.rs\n--- a/src/core.rs\n+++ b/src/core.rs\n'
+                         '@@ -1 +1 @@\n-overlay\n+patched\n')
+        lock = {'schema_version': 1, 'profile': 'fixture',
+                'tools': {n: {'sha256': 'a' * 64, 'version': self.versions[n]} for n in self.paths},
+                'sysroot': {'source_path': 'sysroot', 'file_count': 1,
+                            'inventory_sha256': build_waterbox.canonical_hash(import_sources.inventory(sysroot)),
+                            'associated_source': 'waterbox_musl_darwin'},
+                'runtime': {'target': 'aarch64-apple-darwin', 'profile': 'release', 'rustc_bootstrap': '1',
+                            'patches': [{'file': str(patch.relative_to(self.root)), 'sha256': build_waterbox.sha256(patch),
+                                         'files': [{'path': 'src/core.rs',
+                                                    'before_sha256': self.items[0]['snapshot']['overlay_sha256']['waterbox/waterboxhost/src/core.rs'],
+                                                    'after_sha256': build_waterbox.hashlib.sha256(b'patched\n').hexdigest()}]}]}}
+        self.lock = self.root / 'plan/toolchains.json'; self.lock.write_text(json.dumps(lock))
+        for name, value in (('ROOT', self.root), ('BUILD', self.out), ('LOCK', self.lock)):
+            self.enterContext(mock.patch.object(build_waterbox, name, value))
+        self.enterContext(mock.patch.object(build_waterbox.platform, 'system', return_value='Darwin'))
+        self.enterContext(mock.patch.object(build_waterbox.platform, 'machine', return_value='arm64'))
+        self.enterContext(mock.patch.object(build_waterbox, 'locked_tools', return_value=(self.paths, self.versions)))
+
+    @staticmethod
+    def git(checkout, *args):
+        return subprocess.run(['git', '-C', str(checkout), *args], check=True, capture_output=True, text=True).stdout
+
+    def test_snapshot_needs_no_origin_checkout_and_preserves_all_materialized_bytes(self):
+        checkout = build_waterbox.toolchain()
+        before = import_sources.inventory(checkout['runtime_copy'])
+        checkout['runtime_copy'].rename(self.out / 'checkout-runtime')
+        for item in self.items:  # Valid captures, with deliberately missing origins.
+            (self.root / item['local_path']).rename(self.root / ('unused-' + item['id']))
+        with mock.patch.object(import_sources, 'git', side_effect=AssertionError('no origin Git inspection')):
+            snapshot = build_waterbox.toolchain('snapshot')
+        self.assertEqual(before, import_sources.inventory(snapshot['runtime_copy']))
+        self.assertEqual('patched\n', (snapshot['runtime_copy'] / 'src/core.rs').read_text())
+        self.assertEqual({k: v for k, v in checkout.items() if k != 'source_audit'},
+                         {k: v for k, v in snapshot.items() if k != 'source_audit'})
+        for sid, record in snapshot['source_audit']['sources'].items():
+            original = checkout['source_audit']['sources'][sid]
+            self.assertTrue(original['checkout_head_blobs_overlays_verified'])
+            self.assertFalse(record['checkout_head_blobs_overlays_verified'])
+            self.assertEqual({k: v for k, v in original.items() if k != 'checkout_head_blobs_overlays_verified'},
+                             {k: v for k, v in record.items() if k != 'checkout_head_blobs_overlays_verified'})
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain()
+
+    def test_checkout_rejects_changed_head_blobs_and_overlays_without_fallback(self):
+        origin = self.root / self.items[0]['local_path']
+        for rel in ('waterbox/common.mak', 'waterbox/waterboxhost/src/core.rs'):
+            p = origin / rel; before = p.read_bytes(); p.write_bytes(b'changed')
+            with self.subTest(rel=rel), self.assertRaises(build_waterbox.BuildError):
+                build_waterbox.source_spec('machawk')
+            p.write_bytes(before)
+        self.git(origin, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                 'commit', '--allow-empty', '-qm', 'wrong HEAD')
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk')
+        build_waterbox.source_spec('machawk', 'snapshot')
+
+    def test_snapshot_rejects_complete_capture_and_provenance_drift(self):
+        target = self.root / 'references/machawk/waterbox/common.mak'
+        manifest = self.root / self.items[0]['snapshot']['manifest']
+        original_manifest, original_lock = manifest.read_bytes(), self.upstream.read_bytes()
+        for change in ('content', 'mode', 'missing', 'extra', 'symlink', 'manifest', 'pin', 'overlay', 'overlay-bytes'):
+            before = target.read_bytes()
+            extra = target.parent / 'extra'
+            try:
+                if change == 'content': target.write_text('changed')
+                elif change == 'mode': target.chmod(0o755)
+                elif change == 'missing': target.unlink()
+                elif change == 'extra': extra.write_text('extra')
+                elif change == 'symlink': target.unlink(); target.symlink_to('/etc/passwd')
+                elif change == 'manifest': manifest.write_text('{}')
+                else:
+                    d = json.loads(original_lock)
+                    if change == 'pin': d['sources'][0]['commit'] = 'b' * 40
+                    elif change == 'overlay': d['sources'][0]['snapshot']['overlay_sha256'] = {}
+                    else:
+                        rel = 'waterbox/waterboxhost/src/core.rs'
+                        d['sources'][0]['snapshot']['overlay_sha256'][rel] = 'b' * 64
+                        captured = json.loads(original_manifest); captured['source'] = d['sources'][0]
+                        manifest.write_text(json.dumps(captured))
+                    self.upstream.write_text(json.dumps(d))
+                with self.subTest(change=change), self.assertRaises(build_waterbox.BuildError):
+                    build_waterbox.source_spec('machawk', 'snapshot')
+            finally:
+                target.unlink(missing_ok=True); target.write_bytes(before); target.chmod(0o644)
+                extra.unlink(missing_ok=True); manifest.write_bytes(original_manifest); self.upstream.write_bytes(original_lock)
+        with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk', 'auto')
+
+    def mock_runtime_build(self, mode):
+        """Exercise receipt construction only: no compiler/runtime tests execute."""
+        for name in ('Makefile', 'guest.cpp', 'tls-negative/Makefile', 'tls-negative/guest.cpp'):
+            p = self.root / 'tests/waterbox-smoke' / name
+            p.parent.mkdir(parents=True, exist_ok=True); p.write_text('fixture')
+        dylib = self.root / 'mock.dylib'
+        raw = bytearray(32); struct.pack_into('<II', raw, 0, 0xfeedfacf, 0x100000c); struct.pack_into('<I', raw, 12, 6)
+        dylib.write_bytes(raw)
+        for name in ('guest/release/p6-smoke.wbx', 'tls-negative/release/p6-tls-negative.wbx'):
+            p = self.out / name; p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(elf64([(0x4000, 0x4000, 0x100, 0x4000, 5)]))
+        def tls(path):
+            if 'negative' in str(path): raise build_waterbox.BuildError('mock compiler TLS rejected')
+            return {'wb16': 'mocked'}
+        with (mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib),
+              mock.patch.object(build_waterbox, 'run_logged', return_value='mocked compiler/test output') as run,
+              mock.patch.object(build_waterbox, 'check_no_compiler_tls', side_effect=tls), mock.patch('builtins.print')):
+            result = build_waterbox.build(build_waterbox.argparse.Namespace(fetch=False, source_audit=mode))
+        return result, run.call_args_list, dylib
+
+    def test_runtime_commands_and_inputs_are_identical_and_receipts_record_the_audit(self):
+        checkout, commands, _ = self.mock_runtime_build('checkout')
+        snapshot, next_commands, _ = self.mock_runtime_build('snapshot')
+        self.assertEqual(commands, next_commands)
+        for name in ('input_sha256', 'guest', 'runtime_dylib', 'runtime_source_inventory_sha256'):
+            self.assertEqual(checkout[name], snapshot[name])
+        self.assertEqual('snapshot', snapshot['source_audit']['mode'])
+        self.assertEqual(snapshot['source_audit'], snapshot['guest_source_audit'])
+
+    def test_hosted_toolchain_keeps_raw_pins_cleans_vars_and_exports_both_musl_wrappers(self):
+        baseline = build_waterbox.toolchain()
+        original = {n: (baseline['musl_root'] / 'tools' / n).read_bytes() for n in ('musl-clang.in', 'ld.musl-clang.in')}
+        wrappers = {n: baseline[n].read_text() for n in ('cc_wrapper', 'ld_wrapper')}
+        launch = self.root / 'build/launchers'
+        exports = "export DYLD_LIBRARY_PATH='/verified library'\n"
+        dirty = ('RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER',
+                 'MAKEFLAGS', 'CPATH', 'CPLUS_INCLUDE_PATH', 'C_INCLUDE_PATH', 'LIBRARY_PATH')
+        env = {**build_waterbox.os.environ, **{n: 'foreign' for n in dirty},
+               'DYLD_LIBRARY_PATH': '/verified library', 'RUSTC': str(launch / 'rustc'), 'PATH': str(launch)}
+        selected = {'tool_env': env, 'direct_env': env, 'shell_exports': exports,
+                    'launchers': {'clang': launch / 'clang', 'rustc': launch / 'rustc'}}
+        with mock.patch.object(hosted_loader, 'select', return_value=selected) as helper:
+            tc = build_waterbox.toolchain()
+        helper.assert_called_once_with(self.paths)  # locked_tools itself is mocked by this source fixture.
+        self.assertEqual(baseline['paths'], tc['paths'])
+        self.assertEqual(baseline['lock'], tc['lock'])
+        self.assertEqual(str(launch), tc['env']['PATH'].split(build_waterbox.os.pathsep)[0])
+        self.assertEqual(str(launch / 'rustc'), tc['env']['RUSTC'])
+        self.assertEqual('/verified library', tc['env']['DYLD_LIBRARY_PATH'])
+        self.assertEqual(build_waterbox.runtime_rustflags(self.root, self.out), tc['env']['RUSTFLAGS'])
+        for key in dirty[1:]: self.assertNotIn(key, tc['env'])
+        self.assertEqual('1', tc['env']['RUSTC_BOOTSTRAP'])
+        self.assertEqual(str(self.out / 'cargo-home'), tc['env']['CARGO_HOME'])
+        for name, text in wrappers.items():
+            shebang, newline, body = text.partition('\n')
+            self.assertEqual(shebang + newline + exports + body, tc[name].read_text())
+        for name, data in original.items(): self.assertEqual(data, (tc['musl_root'] / 'tools' / name).read_bytes())
+        # No default-source materialization or wrapper output begins after failed hosted validation.
+        with (mock.patch.object(hosted_loader, 'select', side_effect=ValueError('foreign paths')),
+              mock.patch.object(build_waterbox, 'source_spec') as sources):
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain()
+            sources.assert_not_called()
+
+    def test_hosted_build_receipt_records_selected_tools_and_guest_profile(self):
+        raw = json.loads(self.lock.read_text())
+        raw['toolchain_profiles'] = {'hosted-macos26': {'profile': 'fixture-hosted',
+            'tools': {'make': {**raw['tools']['make'], 'sha256': 'b' * 64}}}}
+        self.lock.write_text(json.dumps(raw))
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+            result, _, _ = self.mock_runtime_build('snapshot')
+            self.assertEqual('hosted-macos26', result['toolchain_profile'])
+            self.assertEqual('hosted-macos26', result['guest_toolchain_profile'])
+            self.assertEqual('fixture-hosted', result['profile'])
+            self.assertEqual('b' * 64, result['tool_hashes']['make'])
+            self.assertEqual(result, build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path()))
+
+    def test_derived_lane_keeps_guest_audit_and_never_backfills_legacy_audit(self):
+        base, _, dylib = self.mock_runtime_build('checkout')
+        path = build_waterbox.runtime_receipt_path('release')
+        for legacy in (False, True):
+            receipt = dict(base)
+            if legacy:
+                for key in ('source_audit', 'guest_source_audit'): receipt.pop(key)
+            path.write_text(json.dumps(receipt))
+            self.assertEqual(receipt, build_waterbox.read_runtime_receipt(path))
+            with (mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'snapshot'}),
+                  mock.patch.object(build_waterbox, 'cargo_build_runtime', return_value=dylib)):
+                derived = json.loads(build_waterbox.ensure_runtime_lane('debug').read_text())
+            self.assertEqual('snapshot', derived['source_audit']['mode'])
+            if legacy: self.assertNotIn('guest_source_audit', derived)
+            else: self.assertEqual(base['source_audit'], derived['guest_source_audit'])
+
+    def test_cli_requires_explicit_known_mode_and_defaults_to_checkout(self):
+        for inherited, options, expected in ((None, [], 'checkout'), ('snapshot', [], 'snapshot'),
+                ('invalid', ['--source-audit', 'checkout'], 'checkout'), ('checkout', ['--source-audit', 'snapshot'], 'snapshot')):
+            with (mock.patch.dict(build_waterbox.os.environ),
+                  mock.patch.object(sys, 'argv', [str(TOOL), '--puae6', *options]),
+                  mock.patch.object(build_waterbox, 'toolchain', return_value={}) as tc,
+                  mock.patch.object(build_waterbox, 'build_puae6')):
+                if inherited is None: build_waterbox.os.environ.pop(build_waterbox.SOURCE_AUDIT_ENV, None)
+                else: build_waterbox.os.environ[build_waterbox.SOURCE_AUDIT_ENV] = inherited
+                self.assertEqual(0, build_waterbox.main())
+                tc.assert_called_once_with(expected)
+        with mock.patch.object(sys, 'argv', [str(TOOL), '--source-audit', 'auto']), mock.patch('sys.stderr'), self.assertRaises(SystemExit):
+            build_waterbox.main()
+
+    def test_inherited_snapshot_never_changes_the_explicit_checkout_or_source_spec_default(self):
+        with mock.patch.dict(build_waterbox.os.environ, {build_waterbox.SOURCE_AUDIT_ENV: 'snapshot'}):
+            self.assertEqual('snapshot', build_waterbox.toolchain()['source_audit']['mode'])
+            self.assertEqual('checkout', build_waterbox.toolchain('checkout')['source_audit']['mode'])
+            for item in self.items:
+                (self.root / item['local_path']).rename(self.root / ('unused-' + item['id']))
+            self.assertEqual('snapshot', build_waterbox.toolchain()['source_audit']['mode'])
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.toolchain('checkout')
+            with self.assertRaises(build_waterbox.BuildError): build_waterbox.source_spec('machawk')
+
+
+@unittest.skipUnless(sys.platform == 'darwin' and platform.machine() == 'arm64', 'BLOCKED: Darwin ARM64 runtime required')
+class RuntimeSmokeTests(unittest.TestCase):
+    def test_current_toolchain_builds_and_executes_the_complete_runtime_smoke(self):
+        result = subprocess.run([sys.executable, str(TOOL), '--smoke'], cwd=ROOT, capture_output=True, text=True, timeout=600)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('SMOKE_RUNTIME PASS: WB01 WB13 WB14 WB15 (WB16 en el build)', result.stdout)
+        build_waterbox.read_runtime_receipt(build_waterbox.runtime_receipt_path())
+        (build_waterbox.BUILD / 'smoke-result.json').unlink(missing_ok=True)
+
+
+class BuildElfTests(unittest.TestCase):
+    def check_bad(self, data):
+        with tempfile.NamedTemporaryFile() as artifact:
+            artifact.write(data)
+            artifact.flush()
+            with self.assertRaises(build_waterbox.BuildError):
+                build_waterbox.validate_elf(artifact.name)
+
+    def test_accepts_arm64_load_segments(self):
+        with tempfile.NamedTemporaryFile() as artifact:
+            artifact.write(elf64([(0x4000, 0x4000, 0x3000, 0x4000, 5),
+                                  (0x8000, 0x8000, 0x2000, 0x4000, 6)]))
+            artifact.flush()
+            result = build_waterbox.validate_elf(artifact.name)
+            self.assertIsInstance(result, dict)
+
+    def test_rejects_non_arm64_and_non_elf64(self):
+        self.check_bad(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)], machine=62))
+        self.check_bad(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)], elf_class=1))
+
+    def test_rejects_missing_load_and_misaligned_load(self):
+        self.check_bad(elf64([]))
+        self.check_bad(elf64([(0x4001, 0x4000, 0x4000, 0x4000, 5)]))
+        self.check_bad(elf64([(0x4000, 0x4001, 0x4000, 0x4000, 5)]))
+
+    def test_rejects_invalid_or_truncated_load_range(self):
+        bad_size = elf64([(0x4000, 0x4000, 0x4001, 0x4000, 5)])
+        self.check_bad(bad_size)
+        complete = elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)])
+        self.check_bad(complete[:24])
+        truncated = complete[:-1]
+        self.check_bad(truncated)
+
+    def test_rejects_rwx_and_mixed_permissions_in_host_page(self):
+        self.check_bad(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 7)]))
+        self.check_bad(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5),
+                              (0x8000, 0x4000, 0x4000, 0x4000, 6)]))
+
+    def test_cli_missing_artifact_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "missing.wbx"
+            result = subprocess.run([sys.executable, str(TOOL), "--check-artifact",
+                                     str(missing)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing", (result.stdout + result.stderr).lower())
+
+
+class SmokeCoverageTests(unittest.TestCase):
+    """--smoke must require the whole T09 coverage, never accept a partial harness."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.damaged = Path(self.directory.name)
+        good = elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)])
+        for kind, data in {
+            "wrong-machine": elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)], machine=62),
+            "bad-magic": b"\0" + bytes(good[1:]),
+            "truncated": bytes(good[:100]),
+            "mixed-rw-rx-group": elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5),
+                                        (0x8000, 0x4000, 0x4000, 0x4000, 6)]),
+        }.items():
+            (self.damaged / f"{kind}.wbx").write_bytes(bytes(data))
+        self.receipt = {"guest": {"sha256": "a" * 64}, "runtime_dylib": {"sha256": "b" * 64}}
+        self.result = {
+            "status": "PASS", "evidence": "SMOKE_RUNTIME", "amiga_emulation": False,
+            "guest_sha256": "a" * 64, "runtime_sha256": "b" * 64,
+            "runner": {"os": "Darwin 25.6.0", "architecture": "Arm64"},
+            "checks": {check: list(names) for check, names in build_waterbox.REQUIRED_ASSERTIONS.items()},
+            "load_probes": [{"kind": kind, "outcome": "rejected"} for kind in build_waterbox.LAYOUT_PROBES],
+        }
+
+    def verify(self):
+        return build_waterbox.verify_smoke(self.result, self.receipt, self.damaged)
+
+    def test_accepts_complete_coverage_and_reports_build_gate_reasons(self):
+        self.result["runner"] = {"os": "macOS 26.7.0", "architecture": "Arm64"}
+        summary = self.verify()
+        self.assertEqual(["WB01", "WB13", "WB14", "WB15"], summary["checks"])
+        self.assertEqual(set(build_waterbox.DAMAGED_IMAGES), set(summary["build_gate_rejections"]))
+
+    def test_rejects_missing_assertions_and_wrong_artifacts(self):
+        self.result["checks"]["WB13"].remove("abi_callback_reentrant")
+        with self.assertRaisesRegex(build_waterbox.BuildError, "WB13.*abi_callback_reentrant"):
+            self.verify()
+        self.setUp()
+        del self.result["checks"]["WB14"]
+        with self.assertRaisesRegex(build_waterbox.BuildError, "WB14"):
+            self.verify()
+        self.setUp()
+        self.result["guest_sha256"] = "c" * 64
+        with self.assertRaisesRegex(build_waterbox.BuildError, "distinto del recibo"):
+            self.verify()
+        self.setUp()
+        self.result["runner"] = {"os": "Linux 6.1", "architecture": "X64"}
+        with self.assertRaisesRegex(build_waterbox.BuildError, "runner Darwin ARM64"):
+            self.verify()
+        self.setUp()
+        self.result["status"] = "FAIL"
+        with self.assertRaises(build_waterbox.BuildError):
+            self.verify()
+
+    def test_never_accepts_a_mixed_group_and_needs_the_build_gate_to_reject_damage(self):
+        for probe in self.result["load_probes"]:
+            if probe["kind"] == "mixed-rw-rx-group":
+                probe["outcome"] = "accepted"
+        with self.assertRaisesRegex(build_waterbox.BuildError, "RW dentro de RX"):
+            self.verify()
+        self.setUp()
+        (self.damaged / "wrong-machine.wbx").write_bytes(bytes(elf64([(0x4000, 0x4000, 0x4000, 0x4000, 5)])))
+        with self.assertRaisesRegex(build_waterbox.BuildError, "acepta la imagen dañada wrong-machine"):
+            self.verify()
+
+    def test_runtime_aborting_on_a_mixed_group_is_fail_closed_and_recorded(self):
+        for probe in self.result["load_probes"]:
+            if probe["kind"] == "mixed-rw-rx-group":
+                probe["outcome"] = "aborted"
+        self.assertEqual("aborted", self.verify()["runtime_outcomes"]["mixed-rw-rx-group"])
+
+
+class Puae6RecipeTests(unittest.TestCase):
+    """T19a: what goes into puae6.wbx and how it is built."""
+
+    def test_the_source_list_is_the_one_of_the_native_build(self):
+        sources = build_waterbox.puae6_sources()
+        import json
+        selection = json.loads((ROOT / "manifests/source-manifest.json").read_text())["selection"]
+        self.assertTrue(set(f"build/upstream/{u}" for u in selection["upstream_units"]) <= set(sources))
+        self.assertTrue(set(f"build/generated/{u}" for u in selection["generated_units"]) <= set(sources))
+        self.assertTrue(set(build_waterbox.cmake_sources("p6_portable")) <= set(sources))
+        self.assertTrue(set(build_waterbox.cmake_sources("p6_bridge")) <= set(sources))
+        self.assertEqual(["adapters/waterbox/abi_probe.cpp", "adapters/waterbox/puae6_guest.cpp", "adapters/waterbox/cd_source.cpp"], sources[-3:])
+        self.assertFalse([source for source in sources if "libretro" in source], "the libretro adapter is never linked into the guest")
+        self.assertEqual(len(sources), len(set(sources)))
+
+    def test_the_makefile_uses_the_pinned_macHawk_recipe_and_adds_no_linker_script_or_target_flags_of_its_own(self):
+        text = "\n".join(line for line in (ROOT / "ports/waterbox/Makefile").read_text().splitlines() if not line.lstrip().startswith("#"))
+        self.assertIn("include $(REPO)/references/machawk/waterbox/common.mak", text)
+        self.assertRegex(text, r"(?m)^WBX_TARGET_ARCH := aarch64$")
+        self.assertRegex(text, r"(?m)^WBX_HOST_PAGE_SIZE := 16384$")
+        for forbidden in ("LINKSCRIPT", "TARGET_FLAGS", "-ffixed", "-T "):
+            self.assertNotIn(forbidden, text, "the register reservation, the page size and the linker script come from common.mak")
+        self.assertIn("-ffp-contract=off", text)       # as the native build: no fused multiply-add reaches Paula's filter
+
+    def test_the_import_inventory_authorizes_no_host_facing_name(self):
+        allowed = build_waterbox.allowed_imports()
+        self.assertTrue({"malloc", "memcpy", "snprintf", "sinf", "abort", "_Znwm", "__cxa_throw"} <= allowed)
+        for name in ("clock_gettime", "time", "fopen", "open", "pthread_create", "socket", "dlopen", "usleep", "getenv", "rand"):
+            self.assertNotIn(name, allowed)
+
+    def test_classify_imports_reports_what_is_not_authorized(self):
+        allowed = {"malloc", "memcpy"}
+        report = build_waterbox.classify_imports({"malloc", "clock_gettime", "p6_load"}, {"p6_load"}, allowed)
+        self.assertEqual(["clock_gettime", "malloc"], report["imports"])       # p6_load is defined by our own objects
+        self.assertEqual(["clock_gettime"], report["unexpected"])
+        self.assertEqual(["memcpy"], report["unused_allowances"])
+
+    @unittest.skipUnless((ROOT / "build/waterbox/puae6/puae6-receipt.json").is_file(), "puae6.wbx has not been built (tools/build_waterbox.py --puae6)")
+    def test_the_built_guest_passes_the_contract_checks_and_imports_only_what_is_authorized(self):
+        import json
+        receipt = json.loads((ROOT / "build/waterbox/puae6/puae6-receipt.json").read_text())
+        guest = ROOT / "build/waterbox/puae6/release/puae6.wbx"
+        self.assertEqual(receipt["guest"]["sha256"], build_waterbox.sha256(guest))
+        self.assertEqual("PASS", build_waterbox.check_no_compiler_tls(guest)["wb16"])
+        self.assertEqual("EM_AARCH64", build_waterbox.validate_elf(guest)["machine"])
+        self.assertEqual([], receipt["imports"]["unexpected"])
+        self.assertEqual(set(build_waterbox.puae6_sources()), set(receipt["sources"]))
+
+
+def lint_elf(code=(0xD503201F,), phdr_types=(), tls_section=False, tls_symbol=False):
+    """ELF64 with one R+X PT_LOAD holding `code`, optional extra program headers and sections."""
+    text = b"".join(struct.pack("<I", word) for word in code)
+    phdrs = [(1, 5, 0x4000, 0x4000, len(text), len(text), 0x4000)]
+    phdrs += [(kind, 4, 0, 0, 0, 0, 8) for kind in phdr_types]
+    strtab = b"\0.shstrtab\0.tbss\0.symtab\0"
+    symbol_type = 6 if tls_symbol else 1  # STT_TLS or STT_OBJECT
+    symtab = bytes(24) + struct.pack("<IBBHQQ", 0, (1 << 4) | symbol_type, 0, 0, 0, 0)
+    str_off = 0x4000 + len(text)
+    sym_off = (str_off + len(strtab) + 7) // 8 * 8
+    sh_off = (sym_off + len(symtab) + 7) // 8 * 8
+
+    def section(name, kind, flags, offset, size, entsize=0):
+        return struct.pack("<IIQQQQIIQQ", name, kind, flags, 0, offset, size, 0, 0, 1, entsize)
+
+    sections = [bytes(64), section(1, 3, 0, str_off, len(strtab))]
+    if tls_section:
+        sections.append(section(11, 8, 0x403, sym_off, 0))  # .tbss, SHF_TLS
+    sections.append(section(17, 2, 0, sym_off, len(symtab), 24))
+    ident = b"\x7fELF" + bytes((2, 1, 1, 0)) + bytes(8)
+    data = bytearray(sh_off + 64 * len(sections))
+    data[:64] = struct.pack("<16sHHIQQQIHHHHHH", ident, 2, 183, 1, 0, 64, sh_off, 0,
+                             64, 56, len(phdrs), 64, len(sections), 1)
+    for index, (kind, flags, off, va, filesz, memsz, align) in enumerate(phdrs):
+        struct.pack_into("<IIQQQQQQ", data, 64 + 56 * index, kind, flags, off, va, va, filesz, memsz, align)
+    data[0x4000:0x4000 + len(text)] = text
+    data[str_off:str_off + len(strtab)] = strtab
+    data[sym_off:sym_off + len(symtab)] = symtab
+    data[sh_off:] = b"".join(sections)
+    return bytes(data)
+
+
+class NoCompilerTlsTests(unittest.TestCase):
+    """WB16: the final guest ELF must not contain compiler-generated TLS."""
+
+    def check(self, data):
+        with tempfile.NamedTemporaryFile() as artifact:
+            artifact.write(data)
+            artifact.flush()
+            return build_waterbox.check_no_compiler_tls(artifact.name)
+
+    def check_rejected(self, data, reason):
+        with self.assertRaisesRegex(build_waterbox.BuildError, reason):
+            self.check(data)
+
+    def test_accepts_code_that_only_uses_x28_and_other_system_registers(self):
+        # mov x28,x0; mrs x0,nzcv; msr nzcv,x0; nop: x28 is the sandbox context.
+        result = self.check(lint_elf(code=(0xAA0003FC, 0xD53B4200, 0xD51B4200, 0xD503201F)))
+        self.assertEqual("PASS", result["wb16"])
+        self.assertEqual(4, result["executable_words_scanned"])
+
+    def test_rejects_thread_register_access_in_executable_code(self):
+        self.check_rejected(lint_elf(code=(0xD503201F, 0xD53BD04A)), "mrs TPIDR_EL0 en 0x4004")
+        self.check_rejected(lint_elf(code=(0xD51BD049,)), "msr TPIDR_EL0")
+        self.check_rejected(lint_elf(code=(0xD53BD060,)), "mrs TPIDRRO_EL0")
+
+    def test_rejects_tls_program_header_section_and_symbol(self):
+        self.check_rejected(lint_elf(phdr_types=(7,)), "PT_TLS")
+        self.check_rejected(lint_elf(tls_section=True), "seccion TLS .tbss")
+        self.check_rejected(lint_elf(tls_symbol=True), "simbolo STT_TLS")
+
+    def test_data_segments_are_not_scanned_as_code(self):
+        data = bytearray(lint_elf())
+        struct.pack_into("<I", data, 64 + 4, 4)  # make the PT_LOAD read-only data
+        struct.pack_into("<I", data, 0x4000, 0xD53BD04A)
+        self.assertEqual("PASS", self.check(bytes(data))["wb16"])
+
+    def test_rejects_truncated_segments_and_reports_extra_findings(self):
+        self.check_rejected(lint_elf()[:0x4000 + 1], "excede el archivo|inválida")
+        self.check_rejected(lint_elf(code=(0xD53BD04A,) * 8, phdr_types=(7,)), "y \\d+ mas")
+
+    def test_cli_check_artifact_applies_wb16(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "tls.wbx"
+            artifact.write_bytes(lint_elf(code=(0xD53BD04A,)))
+            result = subprocess.run([sys.executable, str(TOOL), "--check-artifact",
+                                     str(artifact)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("WB16", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

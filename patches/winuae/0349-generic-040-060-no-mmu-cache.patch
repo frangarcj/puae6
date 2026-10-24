@@ -1,0 +1,81 @@
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -5470,7 +5470,10 @@
+ 
+ 	// do not unnecessarily create useless mmuop030
+ 	// functions when CPU is not 68030
+-	if (curi->mnemo == i_MMUOP030 && (portable_no_mmu || (cpu_level != 3 && !cpu_generic))) {
++	const bool portable_mmu = portable_no_mmu && (curi->mnemo == i_MMUOP030 ||
++		curi->mnemo == i_PFLUSHN || curi->mnemo == i_PFLUSH || curi->mnemo == i_PFLUSHAN || curi->mnemo == i_PFLUSHA ||
++		curi->mnemo == i_PLPAR || curi->mnemo == i_PLPAW || curi->mnemo == i_PTESTR || curi->mnemo == i_PTESTW);
++	if (portable_mmu || (curi->mnemo == i_MMUOP030 && cpu_level != 3 && !cpu_generic)) {
+ 		illg();
+ 		if (portable_no_mmu) clear_m68k_offset(); // The exception keeps the opcode PC.
+ 		did_prefetch = -1;
+diff --git a/newcpu_common.cpp b/newcpu_common.cpp
+--- a/newcpu_common.cpp
++++ b/newcpu_common.cpp
+@@ -70,6 +70,11 @@
+ 
+ int movec_illg (int regno)
+ {
++#if defined(P6_PORTABLE) && !defined(MMUEMU)
++	// No translation backend: do not emulate writable MMU controls as successful storage.
++	if ((regno >= 3 && regno <= 7) || (regno >= 0x805 && regno <= 0x807))
++		return 1;
++#endif
+ 	int regno2 = regno & 0x7ff;
+ 
+ 	if (currprefs.cpu_model == 68060) {
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -1725,7 +1725,6 @@
+ 	}
+ }
+ 
+-#ifndef P6_PORTABLE
+ #if VALIDATE_68040_DATACACHE > 1
+ static void validate_dcache040(void)
+ {
+@@ -1816,7 +1815,11 @@
+ 				uae_u32 pagesize;
+ 				if (scope == 2) {
+ 					// page
++#ifdef MMUEMU
+ 					pagesize = mmu_pagesize_8k ? 8192 : 4096;
++#else
++					pagesize = 4096; // TC cannot be enabled in the fixed no-MMU profile.
++#endif
+ 				} else {
+ 					// line
+ 					pagesize = 16;
+@@ -1866,10 +1869,11 @@
+ 	bool pushinv = (regs.cacr & 0x01000000) == 0; // 68060 DPI
+ 
+ 	flush_cpu_caches_040_2(cache, scope, addr, push, pushinv);
++#ifdef MMUEMU
+ 	mmu_flush_cache();
+-}
+-
+-#endif
++#endif
++}
++
+ void cpu_invalidate_cache(uaecptr addr, int size)
+ {
+ 	if (!currprefs.cpu_data_cache)
+@@ -1972,8 +1976,10 @@
+ 	{ op_smalltbl_4, NULL, NULL, op_smalltbl_11, op_smalltbl_13, NULL, NULL, NULL },
+ 	// 68020
+ 	{ op_smalltbl_3, NULL, NULL, op_smalltbl_20, op_smalltbl_21, NULL, NULL, NULL },
+-	// 68030: normal only; cache/prefetch levels remain unsupported.
+-	{ op_smalltbl_2, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
++	// 68030/040/060: normal tables only. Public configuration still permits only 030.
++	{ op_smalltbl_2, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
++	{ op_smalltbl_1, NULL, NULL, NULL, NULL, NULL, NULL, NULL },
++	{ op_smalltbl_0, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+ };
+ #else
+ static const struct cputbl *cputbls[6][8] =

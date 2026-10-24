@@ -1,0 +1,14 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -212,6 +212,10 @@
+ {
+ 	return currprefs.cs_cd32nvram && currprefs.cs_cd32nvram_size == 1024 &&
+ 		cd32_nvram && cd32_nvram_size == 1024 && cd32_eeprom;
++}
++uint8_t *p6_akiko_nvram_data(void)
++{
++	return akiko_nvram_ready() ? cd32_nvram : nullptr;
+ }
+ bool p6_akiko_nvram_get(p6_cd32_nvram_state *out)
+ {

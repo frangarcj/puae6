@@ -1,0 +1,519 @@
+// Platform abstraction layer over mmap/etc.  Doesn't do much checking, not meant for general consumption
+use super::Protection;
+use crate::*;
+
+#[derive(Debug)]
+pub struct Handle(usize);
+
+#[cfg(windows)]
+pub use win::*;
+#[cfg(windows)]
+mod win {
+	use std::mem::{size_of, zeroed};
+	use winapi::um::memoryapi::*;
+	use winapi::um::winnt::*;
+	use winapi::um::handleapi::*;
+	use super::*;
+	use std::ptr::{null, null_mut};
+	use winapi::ctypes::c_void;
+
+	fn error() -> anyhow::Error {
+		anyhow!("WinApi failure code: {}", unsafe { winapi::um::errhandlingapi::GetLastError() })
+	}
+	fn ret(code: i32) -> anyhow::Result<()> {
+		match code {
+			0 => Err(error()),
+			_ => Ok(())
+		}
+	}
+
+	/// Open a file (not backed by the fs) for memory mapping
+	/// Caller must close_handle() later or else leak
+	pub fn open_handle(size: usize) -> anyhow::Result<Handle> {
+		unsafe {
+			let res = CreateFileMappingW(
+				INVALID_HANDLE_VALUE,
+				null_mut(),
+				PAGE_EXECUTE_READWRITE,
+				(size >> 32) as u32,
+				size as u32,
+				null()
+			);
+			if res == null_mut() {
+				Err(error())
+			} else {
+				Ok(Handle(res as usize))
+			}
+		}
+	}
+
+	/// close a handle returned by open_handle()
+	/// Unsafe:  Only call with handle returned by open_handle().  Do not call when that handle is mapped
+	pub unsafe fn close_handle(handle: Handle) -> anyhow::Result<()> {
+		ret(CloseHandle(handle.0 as *mut c_void))
+	}
+
+	/// Return a trapping handle.  Calling just about anything with this is bad
+	pub fn bad() -> Handle {
+		return Handle(INVALID_HANDLE_VALUE as usize);
+	}
+
+	/// Map a handle into an address range
+	/// Probably shouldn't call with addr.size > handle's alloced size
+	/// Leaks if not later unmapped
+	/// addr.start can be 0, which means the OS chooses a location, or non-zero, which gives fixed address behavior
+	/// Returned address range will be identical in the case of non-zero, or give the actual address in the case of zero.
+	/// Returned address range will have no access permissions initially; use protect() to change that.
+	pub fn map_handle(handle: &Handle, addr: AddressRange) -> anyhow::Result<AddressRange> {
+		unsafe {
+			let res = MapViewOfFileEx(
+				handle.0 as *mut c_void,
+				FILE_MAP_ALL_ACCESS | FILE_MAP_EXECUTE,
+				0,
+				0,
+				addr.size,
+				addr.start as *mut c_void
+			);
+			if res == null_mut() {
+				Err(error())
+			} else {
+				let ret = AddressRange { start: res as usize, size: addr.size };
+				protect(ret, Protection::None).unwrap();
+				Ok(ret)
+			}
+		}
+	}
+
+	/// Unmaps an address range previously mapped by map_handle
+	/// Unsafe:  Do not call with any `addr` that does not exactly match a previous successful map_handle
+	pub unsafe fn unmap_handle(addr: AddressRange) -> anyhow::Result<()> {
+		ret(UnmapViewOfFile(addr.start as *mut c_void))
+	}
+
+	fn prottoprot(prot: Protection) -> u32 {
+		match prot {
+			Protection::None => PAGE_NOACCESS,
+			Protection::R => PAGE_READONLY,
+			Protection::RW => PAGE_READWRITE,
+			Protection::RX => PAGE_EXECUTE_READ,
+			Protection::RWX => PAGE_EXECUTE_READWRITE,
+			Protection::RWStack => PAGE_READWRITE | PAGE_GUARD,
+		}
+	}
+
+	/// Map some anonymous bytes with no fd backing
+	/// addr.start can be 0, which means the OS chooses a location, or non-zero, which gives fixed address behavior
+	/// Returned address range will be identical in the case of non-zero, or give the actual address in the case of zero.
+	pub fn map_anon(addr: AddressRange, initial_prot: Protection) -> anyhow::Result<AddressRange> {
+		unsafe {
+			let res = VirtualAlloc(addr.start as *mut c_void, 
+				addr.size, MEM_RESERVE | MEM_COMMIT, 
+				prottoprot(initial_prot)) as usize;
+			match res {
+				0 => Err(error()),
+				p => Ok(AddressRange { start: p, size: addr.size })
+			}
+		}
+	}
+
+	/// Change memory protection on allocated bytes
+	/// This should work safely on any aligned subset of map_anon or map_handle
+	pub unsafe fn protect(addr: AddressRange, prot: Protection) -> anyhow::Result<()> {
+		let p = prottoprot(prot);
+		let mut old_protect: u32 = 0;
+		let res = VirtualProtect(addr.start as *mut c_void, addr.size, p, &mut old_protect);
+		ret(res)
+	}
+
+	/// Unmap bytes previously mapped by map_anon
+	/// addr should exactly match the return value from map_anon (so if you mapped with start 0, you need to pass the actual start back)
+	pub unsafe fn unmap_anon(addr: AddressRange) -> anyhow::Result<()> {
+		ret(VirtualFree(addr.start as *mut c_void, 0, MEM_RELEASE))
+	}
+
+	pub struct StackTripResult {
+		pub size: usize,
+		pub dirty: bool,
+	}
+	/// Return true if the memory was dirtied.  Return size is effectively arbitrary; it may be larger
+	/// or smaller than you expected.  DANGER:  If called on memory that is not currently in RWStack mode,
+	/// it will generally return true even though that's not what you want.
+	pub unsafe fn get_stack_dirty(start: usize) -> Option<StackTripResult> {
+		let mut mbi = Box::new(zeroed::<MEMORY_BASIC_INFORMATION>());
+		let mbi_size = size_of::<MEMORY_BASIC_INFORMATION>();
+		if VirtualQuery(start as *const c_void, &mut *mbi, mbi_size) != mbi_size {
+			error();
+			None
+		} else {
+			Some(StackTripResult {
+				size: mbi.RegionSize,
+				dirty: mbi.Protect & PAGE_GUARD == 0,
+			})
+		}
+	}
+}
+
+#[cfg(target_os = "linux")]
+pub use linux::*;
+#[cfg(target_os = "linux")]
+mod linux {
+	use super::*;
+	use libc::*;
+
+	fn error() -> anyhow::Error {
+		unsafe {
+			let err = *__errno_location();
+			anyhow!("Libc failure code: {}", err)
+		}
+	}
+	fn ret(code: i32) -> anyhow::Result<()> {
+		match code {
+			0 => Ok(()),
+			_ => Err(error()),
+		}
+	}
+
+	/// Open a file (not backed by the fs) for memory mapping
+	/// Caller must close_handle() later or else leak
+	pub fn open_handle(size: usize) -> anyhow::Result<Handle> {
+		unsafe {
+			let s = std::ffi::CString::new("MemoryBlockUnix").unwrap();
+			let fd = syscall(SYS_memfd_create, s.as_ptr(), MFD_CLOEXEC) as i32;
+			if fd == -1 {
+				return Err(error())
+			}
+			if ftruncate(fd, size as i64) != 0 {
+				Err(error())
+			} else {
+				Ok(Handle(fd as usize))
+			}
+		}
+	}
+
+	/// close a handle returned by open_handle()
+	/// Unsafe:  Only call with handle returned by open_handle().  Do not call when that handle is mapped
+	pub unsafe fn close_handle(handle: Handle) -> anyhow::Result<()> {
+		ret(libc::close(handle.0 as i32))
+	}
+
+	/// Return a trapping handle.  Calling just about anything with this is bad
+	pub fn bad() -> Handle {
+		return Handle(-1i32 as usize);
+	}
+
+	/// Map a handle into an address range
+	/// Probably shouldn't call with addr.size > handle's alloced size
+	/// Leaks if not later unmapped
+	/// addr.start can be 0, which means the OS chooses a location, or non-zero, which gives fixed address behavior
+	/// Returned address range will be identical in the case of non-zero, or give the actual address in the case of zero.
+	/// Returned address range will have no access permissions initially; use protect() to change that.
+	pub fn map_handle(handle: &Handle, addr: AddressRange) -> anyhow::Result<AddressRange> {
+		unsafe {
+			let mut flags = MAP_SHARED;
+			if addr.start != 0 {
+				flags |= MAP_FIXED | MAP_FIXED_NOREPLACE;
+			}
+			let ptr = mmap(addr.start as *mut c_void,
+				addr.size,
+				PROT_NONE,
+				flags,
+				handle.0 as i32,
+				0
+			);
+			match ptr {
+				MAP_FAILED => Err(error()),
+				p => Ok(AddressRange { start: p as usize, size: addr.size })
+			}
+		}
+	}
+
+	/// Unmaps an address range previously mapped by map_handle
+	/// Unsafe:  Do not call with any `addr` that does not exactly match a previous successful map_handle
+	pub unsafe fn unmap_handle(addr: AddressRange) -> anyhow::Result<()> {
+		ret(munmap(addr.start as *mut c_void, addr.size))
+	}
+
+	fn prottoprot(prot: Protection) -> i32 {
+		match prot {
+			Protection::None => PROT_NONE,
+			Protection::R => PROT_READ,
+			Protection::RW => PROT_READ | PROT_WRITE,
+			Protection::RX => PROT_READ | PROT_EXEC,
+			Protection::RWX => PROT_READ | PROT_WRITE | PROT_EXEC,
+			Protection::RWStack => panic!("RWStack should not be passed to nix pal layer"),
+		}
+	}
+
+	/// Map some anonymous bytes with no fd backing
+	/// addr.start can be 0, which means the OS chooses a location, or non-zero, which gives fixed address behavior
+	/// Returned address range will be identical in the case of non-zero, or give the actual address in the case of zero.
+	pub fn map_anon(addr: AddressRange, initial_prot: Protection) -> anyhow::Result<AddressRange> {
+		unsafe {
+			let mut flags = MAP_PRIVATE | MAP_ANONYMOUS;
+			if addr.start != 0 {
+				flags |= MAP_FIXED | MAP_FIXED_NOREPLACE;
+			}
+			let ptr = mmap(addr.start as *mut c_void, addr.size, prottoprot(initial_prot), flags, -1, 0);
+			match ptr {
+				MAP_FAILED => Err(error()),
+				p => Ok(AddressRange { start: p as usize, size: addr.size })
+			}
+		}
+	}
+
+	/// Change memory protection on allocated bytes
+	/// This should work safely on any aligned subset of map_anon or map_handle
+	pub unsafe fn protect(addr: AddressRange, prot: Protection) -> anyhow::Result<()> {
+		let p = prottoprot(prot);
+		ret(mprotect(addr.start as *mut c_void, addr.size, p))
+	}
+
+	/// Unmap bytes previously mapped by map_anon
+	/// addr should exactly match the return value from map_anon (so if you mapped with start 0, you need to pass the actual start back)
+	pub unsafe fn unmap_anon(addr: AddressRange) -> anyhow::Result<()> {
+		ret(munmap(addr.start as *mut c_void, addr.size))
+	}
+}
+
+#[cfg(target_os = "macos")]
+pub use macos::*;
+#[cfg(target_os = "macos")]
+mod macos {
+	use super::*;
+	use libc::*;
+
+	extern "C" {
+		fn pthread_jit_write_protect_np(enabled: i32);
+		fn sys_icache_invalidate(start: *mut c_void, len: usize);
+	}
+
+	fn error() -> anyhow::Error {
+		unsafe { anyhow!("Libc failure code: {}", *__error()) }
+	}
+
+	fn ret(code: i32) -> anyhow::Result<()> {
+		if code == 0 { Ok(()) } else { Err(error()) }
+	}
+
+	fn host_aligned(addr: AddressRange) -> bool {
+		let mask = host_page_size() - 1;
+		addr.start & mask == 0 && addr.size & mask == 0
+	}
+
+	fn host_align_expand(addr: AddressRange) -> AddressRange {
+		let mask = host_page_size() - 1;
+		let start = addr.start & !mask;
+		let end = (addr.end() + mask) & !mask;
+		AddressRange { start, size: end - start }
+	}
+
+	unsafe fn mmap_exact(addr: AddressRange, prot: i32, flags: i32, fd: i32) -> anyhow::Result<AddressRange> {
+		let ptr = mmap(addr.start as *mut c_void, addr.size, prot, flags, fd, 0);
+		if ptr == MAP_FAILED {
+			return Err(error())
+		}
+		if addr.start != 0 && ptr as usize != addr.start {
+			munmap(ptr, addr.size);
+			return Err(anyhow!("Darwin could not map {:x}:{:x} at its required address", addr.start, addr.end()))
+		}
+		Ok(AddressRange { start: ptr as usize, size: addr.size })
+	}
+
+	pub fn open_handle(size: usize) -> anyhow::Result<Handle> {
+		unsafe {
+			let mut template = b"/tmp/waterboxhost.XXXXXX\0".to_vec();
+			let fd = mkstemp(template.as_mut_ptr() as *mut i8);
+			if fd == -1 {
+				return Err(error())
+			}
+			unlink(template.as_ptr() as *const i8);
+			if ftruncate(fd, size as i64) != 0 {
+				let err = error();
+				close(fd);
+				return Err(err)
+			}
+			Ok(Handle(fd as usize))
+		}
+	}
+
+	pub unsafe fn close_handle(handle: Handle) -> anyhow::Result<()> {
+		ret(close(handle.0 as i32))
+	}
+
+	pub fn bad() -> Handle {
+		Handle(-1i32 as usize)
+	}
+
+	pub fn map_handle(handle: &Handle, addr: AddressRange) -> anyhow::Result<AddressRange> {
+		if !host_aligned(addr) {
+			return Err(anyhow!("Darwin shared mappings must be 16 KiB aligned"))
+		}
+		unsafe { mmap_exact(addr, PROT_NONE, MAP_SHARED, handle.0 as i32) }
+	}
+
+	pub unsafe fn unmap_handle(addr: AddressRange) -> anyhow::Result<()> {
+		ret(munmap(addr.start as *mut c_void, addr.size))
+	}
+
+	fn prottoprot(prot: Protection) -> i32 {
+		match prot {
+			Protection::None => PROT_NONE,
+			Protection::R => PROT_READ,
+			Protection::RW | Protection::RWStack => PROT_READ | PROT_WRITE,
+			Protection::RX => PROT_READ | PROT_EXEC,
+			Protection::RWX => PROT_READ | PROT_WRITE | PROT_EXEC,
+		}
+	}
+
+	pub fn map_anon(addr: AddressRange, initial_prot: Protection) -> anyhow::Result<AddressRange> {
+		if !host_aligned(addr) {
+			return Err(anyhow!("Darwin anonymous mappings must be 16 KiB aligned"))
+		}
+		unsafe { mmap_exact(addr, prottoprot(initial_prot), MAP_PRIVATE | MAP_ANON, -1) }
+	}
+
+	pub unsafe fn protect(addr: AddressRange, prot: Protection) -> anyhow::Result<()> {
+		if !host_aligned(addr) {
+			return Err(anyhow!("Darwin protection changes must be 16 KiB aligned"))
+		}
+		ret(mprotect(addr.start as *mut c_void, addr.size, prottoprot(prot)))
+	}
+
+	pub unsafe fn unmap_anon(addr: AddressRange) -> anyhow::Result<()> {
+		ret(munmap(addr.start as *mut c_void, addr.size))
+	}
+
+	pub fn map_jit(addr: AddressRange) -> anyhow::Result<AddressRange> {
+		let addr = host_align_expand(addr);
+		unsafe {
+			mmap_exact(
+				addr,
+				PROT_READ | PROT_WRITE | PROT_EXEC,
+				MAP_PRIVATE | MAP_ANON | MAP_JIT,
+				-1)
+		}
+	}
+
+	pub unsafe fn write_jit<T>(addr: AddressRange, write: impl FnOnce(&mut [u8]) -> T) -> T {
+		struct WriteWindow;
+		impl Drop for WriteWindow {
+			fn drop(&mut self) {
+				unsafe { pthread_jit_write_protect_np(1) }
+			}
+		}
+
+		pthread_jit_write_protect_np(0);
+		let guard = WriteWindow;
+		let result = write(addr.slice_mut());
+		sys_icache_invalidate(addr.start as *mut c_void, addr.size);
+		drop(guard);
+		result
+	}
+}
+
+#[cfg(all(target_arch = "aarch64", not(target_os = "macos")))]
+pub fn map_jit(addr: AddressRange) -> anyhow::Result<AddressRange> {
+	map_anon(addr, Protection::RWX)
+}
+
+#[cfg(all(target_arch = "aarch64", not(target_os = "macos")))]
+pub unsafe fn write_jit<T>(addr: AddressRange, write: impl FnOnce(&mut [u8]) -> T) -> T {
+	let result = write(addr.slice_mut());
+	sync_instruction_cache(addr);
+	result
+}
+
+#[cfg(all(target_arch = "aarch64", not(target_os = "macos")))]
+unsafe fn sync_instruction_cache(addr: AddressRange) {
+	use core::arch::asm;
+
+	let ctr: usize;
+	asm!("mrs {ctr}, ctr_el0", ctr = out(reg) ctr, options(nostack, preserves_flags));
+	let data_line_size = 4usize << ((ctr >> 16) & 0xf);
+	let instruction_line_size = 4usize << (ctr & 0xf);
+	let end = addr.end();
+
+	// CTR_EL0.IDC says data-cache cleaning to PoU is unnecessary.
+	if ctr & (1 << 28) == 0 {
+		let mut cursor = addr.start & !(data_line_size - 1);
+		while cursor < end {
+			asm!("dc cvau, {cursor}", cursor = in(reg) cursor, options(nostack, preserves_flags));
+			cursor += data_line_size;
+		}
+	}
+	asm!("dsb ish", options(nostack, preserves_flags));
+
+	// CTR_EL0.DIC says instruction-cache invalidation to PoU is unnecessary.
+	if ctr & (1 << 29) == 0 {
+		let mut cursor = addr.start & !(instruction_line_size - 1);
+		while cursor < end {
+			asm!("ic ivau, {cursor}", cursor = in(reg) cursor, options(nostack, preserves_flags));
+			cursor += instruction_line_size;
+		}
+	}
+	asm!("dsb ish", "isb", options(nostack, preserves_flags));
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	#[cfg(target_arch = "x86_64")]
+	use std::mem::transmute;
+	
+	#[test]
+	#[cfg(target_arch = "x86_64")]
+	fn basic_test() -> anyhow::Result<()> {
+		assert!(crate::GUEST_PAGE_SIZE == 0x1000);
+		// can't test the fault states (RWStack, R prohibits write, etc.) without cooperation of tripguard, so do that elsewhere
+		unsafe {
+			let size = 0x20000usize;
+			let start = 0x36a00000000usize;
+			let addr = AddressRange { start, size };
+			let handle = open_handle(size).unwrap();
+
+			map_handle(&handle, addr)?;
+			protect(addr, Protection::RW)?;
+			*((start + 0x14795) as *mut u8) = 42;
+			unmap_handle(addr)?;
+
+			map_handle(&handle, addr)?;
+			protect(addr, Protection::R)?;
+			assert_eq!(*((start + 0x14795) as *const u8), 42);
+			unmap_handle(addr)?;
+
+			map_handle(&handle, addr)?;
+			protect(addr, Protection::RW)?;
+			*(start as *mut u8) = 0xc3; // RET
+			protect(addr, Protection::RX)?;
+			transmute::<usize, extern fn() -> ()>(start)();
+			protect(addr, Protection::RWX)?;
+			*(start as *mut u8) = 0x90; // NOP
+			*((start + 1) as *mut u8) = 0xb0; // MOV AL
+			*((start + 2) as *mut u8) = 0x7b; // 123
+			*((start + 3) as *mut u8) = 0xc3; // RET
+			let i = transmute::<usize, extern fn() -> u8>(start)();
+			assert_eq!(i, 123);
+			unmap_handle(addr)?;
+
+			close_handle(handle)?;
+		}
+		Ok(())
+	}
+
+	#[test]
+	fn test_map_anon() -> anyhow::Result<()> {
+		unsafe {
+			let addr_in = AddressRange { start: 0x34100000000, size: 0x20000 };
+			let addr = map_anon(addr_in, Protection::RW)?;
+			assert_eq!(addr.start, addr_in.start);
+			unmap_anon(addr)?;
+		}
+		unsafe {
+			let addr_in = AddressRange { start: 0, size: 0x20000 };
+			let addr = map_anon(addr_in, Protection::RW)?;
+			addr.slice_mut()[0] = 13;
+			unmap_anon(addr)?;
+		}
+		Ok(())
+	}
+}

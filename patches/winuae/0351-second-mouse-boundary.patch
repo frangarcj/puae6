@@ -1,0 +1,50 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -4686,6 +4686,7 @@
+ // getvelocity() divides by, and the host edge detector. The in-session reset keeps them, as the hardware and upstream do.
+ void p6_input_session_begin(void)
+ {
++	mouse_port[1] = 0;
+ 	memset(cd32_oldstate, 0, sizeof cd32_oldstate);
+ 	memset(mouse_axis, 0, sizeof mouse_axis);
+ 	memset(oldm_axis, 0, sizeof oldm_axis);
+@@ -10857,6 +10858,7 @@
+ {
+ 	memset(out, 0, sizeof *out);
+ 	out->potgo_value = potgo_value;
++	out->second_mouse_enabled = mouse_port[1];
+ 	for (int p = 0; p < 2; p++) {
+ 		out->cd32_enabled[p] = cd32_pad_enabled[p];
+ 		out->cd32_shifter[p] = cd32_shifter[p];
+@@ -10904,6 +10906,7 @@
+ void p6_input_set(const p6_input_raw *in)
+ {
+ 	potgo_value = in->potgo_value;
++	mouse_port[1] = in->second_mouse_enabled;
+ 	for (int p = 0; p < 2; p++) {
+ 		cd32_pad_enabled[p] = in->cd32_enabled[p];
+ 		cd32_shifter[p] = in->cd32_shifter[p];
+@@ -11015,3 +11018,22 @@
+ 	joymousecounter(port);
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++// A second pointer uses the existing Amiga-port counters, not a remapping of
++// host widgets (which would clear held keys). Only the bridge boundary calls it.
++void p6_input_mouse2(bool enabled, unsigned buttons, int dx, int dy)
++{
++	mouse_port[1] = enabled ? 1 : 0;
++	joybutton[1] = buttons;
++	joydir[1] = 0;
++	if (enabled) {
++		mouse_delta[1][0] += dx;
++		mouse_delta[1][1] += dy;
++		mouse_deltanoreset[1][0] = mouse_deltanoreset[1][1] = 0;
++	} else {
++		memset(mouse_delta[1], 0, sizeof mouse_delta[1]);
++		memset(mouse_deltanoreset[1], 0, sizeof mouse_deltanoreset[1]);
++	}
++}
++#endif

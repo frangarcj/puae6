@@ -1,0 +1,432 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -11,7 +11,7 @@
+ * Copyright 2010-2013 Toni Wilen
+ *
+ */
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ 
+@@ -1206,6 +1206,11 @@
+ }
+ 
+ #else
++#ifdef P6_NRG_METADATA
++#include "cd_nrg_metadata.h"
++#include <string.h>
++namespace p6_cd {
++#else
+ #ifdef P6_CCD_METADATA
+ #include "cd_ccd_metadata.h"
+ #else
+@@ -1280,6 +1285,8 @@
+ #endif
+ #endif
+ 
++#endif
++#ifndef P6_NRG_METADATA
+ static void skipspace (TCHAR **s)
+ {
+ 	while (_istspace (**s))
+@@ -1322,7 +1329,7 @@
+ }
+ 
+ #endif
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
+ static int readval (const TCHAR *s)
+ {
+ 	int base = 10;
+@@ -1610,7 +1617,7 @@
+ #endif
+ 
+ #endif
+-#ifndef P6_CUE_METADATA
++#if !defined(P6_CUE_METADATA) && !defined(P6_NRG_METADATA)
+ #ifdef P6_CCD_METADATA
+ Result ccd_metadata(void *context, CcdReadLine read_line, CcdMetadata *out)
+ #else
+@@ -1907,7 +1914,7 @@
+ #elif !defined(P6_CCD_METADATA)
+ static int parsecue (struct cdunit *cdu, struct zfile *zcue, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+ #endif
+-#ifndef P6_CCD_METADATA
++#if !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
+ {
+ #ifdef P6_CUE_METADATA
+     if (!out || !io.read_line || !io.resolve) return Result::Invalid;
+@@ -2328,181 +2335,198 @@
+ }
+ 
+ #endif
++#endif
+ #if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
++#ifdef P6_NRG_METADATA
++Result nrg_metadata(const void *context, ReadFn read_at, uint64_t bytes, NrgMetadata *out)
++#else
+ static int parsenrg(struct cdunit *cdu, struct zfile *znrg, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+-{
+-	uae_s64 size;
+-	uae_s64 offset;
+-	bool ner5 = false;
+-	uae_u8 buf[256] = { 0 };
+-	int tracknum = 0;
+-	uae_u32 lastlba = 0;
+-	bool gotsession = false;
+-
+-	if (curdir)
+-		my_setcurrentdir(ocurdir, NULL);
+-
+-	size = zfile_size(znrg);
+-	zfile_fseek(znrg, size - 12, SEEK_SET);
+-	zfile_fread(buf, 12, 1, znrg);
+-	if (!memcmp(buf, "NER5", 4)) {
+-		offset = get_quad_host(buf + 4);
+-		ner5 = true;
+-	} else if (!memcmp(buf + 4, "NERO", 4)) {
+-		offset = get_long_host(buf + 8);
+-	} else {
+-		return 0;
+-	}
+-	if (offset < 0 || offset >= size - 12)
+-		return 0;
+-	zfile_fseek(znrg, offset, SEEK_SET);
+-	for (;;) {
+-		memset(buf, 0, 8);
+-		if (zfile_fread(buf, 8, 1, znrg) != 1)
+-			return 0;
+-		offset = zfile_ftell(znrg);
+-		uae_s32 size = get_long_host(buf + 4);
+-		buf[4] = 0;
+-		offset += size;
+-		if (!gotsession && !memcmp(buf, "ETN2", 4)) {
+-			tracknum = 1;
+-			int blocksize = 32;
+-			while (size >= blocksize) {
+-				uae_s64 toffset;
+-				uae_u32 lba;
+-				uae_u32 type;
+-				cdtoc *t = &cdu->toc[tracknum - 1];
+-				if (zfile_fread(buf, blocksize, 1, znrg) != 1)
+-					return 0;
+-				toffset = get_quad_host(buf);
+-				lba = get_long_host(buf + 20);
+-				type = get_long_host(buf + 16);
+-				t->offset = toffset;
+-				t->address = lba;
+-				if (type == 7) {
+-					t->size = 2352;
+-					t->enctype = AUDENC_PCM;
+-				} else if (type == 0 || type == 3) {
+-					t->size = 2048;
+-					t->ctrl |= 4;
+-				}
+-				t->track = tracknum;
+-				t->handle = zfile_dup(znrg);
+-				t->fname = my_strdup(zfile_getname(znrg));
+-				lastlba = lba + get_long_host(buf + 28);
+-				tracknum++;
+-				size -= blocksize;
+-			}
+-			gotsession = true;
+-		} else if (!memcmp(buf, "SINF", 4)) {
+-			if (zfile_fread(buf, 4, 1, znrg) != 1)
+-				return 0;
+-			if (!cdu->tracks) {
+-				cdu->tracks = get_long_host(buf);
+-				cdtoc *t = &cdu->toc[cdu->tracks];
+-				t->address = lastlba;
+-			}
+-		} else if (!memcmp(buf, "CUEX", 4) || !memcmp(buf, "CUES", 4)) {
+-			while (size >= 8) {
+-				if (zfile_fread(buf, 8, 1, znrg) != 1)
+-					return 0;
+-				uae_u8 trk = buf[1];
+-				if (trk >= 0xa0) {
+-					if (trk == 0xaa) {
+-						lastlba = get_long_host(buf + 4);
+-					}
+-				} else {
+-					tracknum = frombcd(trk);
+-					int index = frombcd(buf[2]);
+-					uae_u32 address = get_long_host(buf + 4);
+-					if (tracknum >= 1 && tracknum <= 99) {
+-						struct cdtoc *t = &cdu->toc[tracknum - 1];
+-						if (index == 0) {
+-							t->address = address;
+-							t->ctrl = buf[0] >> 4;
+-							t->adr = buf[0] & 15;
+-							t->track = tracknum;
+-						}
+-					}
+-				}
+-				size -= 8;
+-			}
+-		} else if (!memcmp(buf, "DAOX", 4) || !memcmp(buf, "DAOI", 4)) {
+-			bool newformat = memcmp(buf, "DAOX", 4) == 0;
+-			int first_track, last_track;
+-			int blocksize;
+-			if (newformat) {
+-				zfile_fread(buf, 22, 1, znrg);
+-				first_track = frombcd(buf[4 + 14 + 2]);
+-				last_track = frombcd(buf[4 + 14 + 2 + 1]);
+-				size -= 22;
+-				blocksize = 42;
+-			} else {
+-				zfile_fread(buf, 24, 1, znrg);
+-				first_track = frombcd(buf[4 + 14 + 4]);
+-				last_track = frombcd(buf[4 + 14 + 4 + 1]);
+-				size -= 24;
+-				blocksize = 32;
+-			}
+-			struct cdtoc *t = &cdu->toc[last_track];
+-			t->address = lastlba;
+-			cdu->tracks = last_track - first_track + 1;
+-			tracknum = first_track;
+-			while (size >= blocksize) {
+-				if (tracknum >= 1 && tracknum <= 99) {
+-					uae_s64 index0;
+-					uae_s64 index1;
+-					uae_s64 end;
+-					int sectorsize, type;
+-					cdtoc *t = &cdu->toc[tracknum - 1];
+-					if (zfile_fread(buf, blocksize, 1, znrg) != 1)
+-						return 0;
+-					if (newformat) {
+-						sectorsize = get_word_host(buf + 12);
+-						type = get_word_host(buf + 14);
+-						index0 = get_quad_host(buf + 18);
+-						index1 = get_quad_host(buf + 26);
+-						end = get_quad_host(buf + 34);
+-					} else {
+-						sectorsize = get_long_host(buf + 12);
+-						type = get_long_host(buf + 16);
+-						index0 = get_long_host(buf + 20);
+-						index1 = get_long_host(buf + 24);
+-						end = get_long_host(buf + 28);
+-					}
+-					if (t->address < 0) {
+-						index0 += -t->address * sectorsize;
+-						index1 = index0;
+-						t->address = 0;
+-					}
+-					t->offset = index0;
+-					t->index1 = (int)((index1 - index0) / sectorsize);
+-					t->size = sectorsize;
+-					t->handle = zfile_dup(znrg);
+-					t->fname = my_strdup(zfile_getname(znrg));
+-					if (type == 0x0700 || type == 0x1000) {
+-						t->enctype = AUDENC_PCM;
+-						if (type == 0x1000) {
+-							// audio with sub.
+-							t->suboffset = (int)t->offset;
+-							t->size -= SUB_CHANNEL_SIZE;
+-							t->subcode = 1;
+-							t->subhandle = zfile_dup(t->handle);
+-							t->skipsize = SUB_CHANNEL_SIZE;
+-						}
+-					}
+-				}
+-				tracknum++;
+-				size -= blocksize;
+-			}
+-		} else if (!memcmp(buf, "END!", 4)) {
+-			break;
+-		}
+-		zfile_fseek(znrg, offset, SEEK_SET);
+-	}
+-	return cdu->tracks;
+-}
+-
++#endif
++{
++#ifdef P6_NRG_METADATA
++    if (!read_at || !out) return Result::Invalid;
++    NrgMetadata candidate{};
++    const auto invalid = Result::Invalid, io_error = Result::ReadError;
++    uint8_t cue_mask[99]{}; bool cue_seen = false, dao_seen = false, leadin_seen = false, leadout_seen = false;
++    uint32_t session_tracks = 0;
++#else
++    if (curdir) my_setcurrentdir(ocurdir, NULL);
++    const uint64_t bytes = zfile_size(znrg);
++    const int invalid = 0, io_error = 0;
++#endif
++    uint64_t position = 0;
++    auto read = [&](void *p, size_t length) {
++        if (position > bytes || length > bytes - position) return false;
++#ifdef P6_NRG_METADATA
++        size_t got = 0;
++        if (!read_at(context, position, p, length, &got) || got != length) return false;
++#else
++        zfile_fseek(znrg, position, SEEK_SET);
++        if (zfile_fread(p, 1, length, znrg) != length) return false;
++#endif
++        position += length; return true;
++    };
++    auto be = [](const uint8_t *p, unsigned count) { uint64_t v = 0; while (count--) v = v * 256 + *p++; return v; };
++    uint8_t buf[256]{};
++    if (bytes < 12) return invalid;
++    position = bytes - 12;
++    if (!read(buf, 12)) return io_error;
++    const bool ner5 = !memcmp(buf, "NER5", 4);
++    if (!ner5 && memcmp(buf + 4, "NERO", 4)) return invalid;
++    const uint64_t directory = ner5 ? be(buf + 4, 8) : be(buf + 8, 4), footer = bytes - (ner5 ? 12 : 8);
++    if (directory > INT64_MAX || directory >= footer || footer - directory > 65536) return invalid;
++#ifdef P6_NRG_METADATA
++    candidate.directory = directory; candidate.version = ner5 ? 2 : 1;
++#else
++    int tracknum = 0; uint32_t lastlba = 0; bool gotsession = false;
++#endif
++    position = directory;
++    for (unsigned chunks = 0; chunks < 256; ++chunks) {
++        if (position > footer || footer - position < 8) return invalid;
++        if (!read(buf, 8)) return io_error;
++        uint32_t size = uint32_t(be(buf + 4, 4));
++        if (size > footer - position) return invalid;
++        const uint64_t next = position + size;
++        if (!memcmp(buf, "ETN2", 4) || !memcmp(buf, "ETNF", 4) || !memcmp(buf, "TINF", 4)) {
++#ifdef P6_NRG_METADATA
++            return Result::Unsupported;
++#else
++            if (memcmp(buf, "ETN2", 4) || gotsession || size % 32 || size / 32 > 99) return invalid;
++            tracknum = 1;
++            while (size >= 32) {
++                if (!read(buf, 32)) return io_error;
++                cdtoc *t = &cdu->toc[tracknum - 1];
++                t->offset = be(buf, 8); t->address = be(buf + 20, 4);
++                const auto type = be(buf + 16, 4);
++                if (type == 7) { t->size = 2352; t->enctype = AUDENC_PCM; }
++                else if (type == 0 || type == 3) { t->size = 2048; t->ctrl |= 4; }
++                t->track = tracknum++; t->handle = zfile_dup(znrg); t->fname = my_strdup(zfile_getname(znrg));
++                lastlba = t->address + be(buf + 28, 4); size -= 32;
++            }
++            gotsession = true;
++#endif
++        } else if (!memcmp(buf, "SINF", 4)) {
++            if (size != 4) return invalid;
++            if (!read(buf, 4)) return io_error;
++#ifdef P6_NRG_METADATA
++            if (session_tracks) return Result::Unsupported;
++            session_tracks = uint32_t(be(buf, 4));
++            if (!session_tracks || session_tracks > 99) return invalid;
++#else
++            if (!cdu->tracks) { cdu->tracks = be(buf, 4); if (cdu->tracks > 99) return invalid; cdu->toc[cdu->tracks].address = lastlba; }
++#endif
++        } else if (!memcmp(buf, "CUEX", 4) || !memcmp(buf, "CUES", 4)) {
++            const bool newformat = !memcmp(buf, "CUEX", 4);
++            if (newformat != ner5 || !size || size % 8 || size / 8 > 200) return invalid;
++#ifdef P6_NRG_METADATA
++            if (cue_seen) return Result::Unsupported;
++            cue_seen = true;
++#endif
++            while (size >= 8) {
++                if (!read(buf, 8)) return io_error;
++                const unsigned trk = buf[1], index = buf[2];
++                const int64_t address = newformat ? int64_t(be(buf + 4, 4)) - ((buf[4] & 128) ? INT64_C(0x100000000) : 0) :
++                    int64_t(buf[5]) * 4500 + buf[6] * 75 + buf[7] - 150;
++                if (!newformat && (buf[6] >= 60 || buf[7] >= 75)) return invalid;
++#ifdef P6_NRG_METADATA
++                if ((buf[0] & 15) != 1 || (index & 15) > 9 || (index >> 4) > 9) return invalid;
++                if (trk == 0 || trk == 0xaa) {
++                    if (index != (trk ? 1 : 0)) return invalid;
++                    auto &seen = trk ? leadout_seen : leadin_seen;
++                    if (seen) return invalid;
++                    seen = true;
++                    (trk ? candidate.leadout : candidate.leadin) = int32_t(address);
++                } else {
++                    if ((trk & 15) > 9 || (trk >> 4) > 9 || trk > 0x99) return invalid;
++                    if (index > 1) return Result::Unsupported;
++                    const unsigned number = (trk >> 4) * 10 + (trk & 15) - 1, bit = 1u << index;
++                    if (cue_mask[number] & bit) return invalid;
++                    auto &t = candidate.track[number];
++                    if (cue_mask[number] && (t.control != buf[0] >> 4 || t.adr != (buf[0] & 15))) return invalid;
++                    t.control = buf[0] >> 4; t.adr = buf[0] & 15;
++                    if (index) t.index1 = int32_t(address); else { t.index0 = int32_t(address); t.has_index0 = true; }
++                    cue_mask[number] |= bit;
++                }
++#else
++                if (trk == 0xaa) lastlba = address;
++                else if (trk >= 1 && trk <= 0x99) {
++                    tracknum = frombcd(trk); auto *t = &cdu->toc[tracknum - 1];
++                    if (!index) { t->address = address; t->ctrl = buf[0] >> 4; t->adr = buf[0] & 15; t->track = tracknum; }
++                }
++#endif
++                size -= 8;
++            }
++        } else if (!memcmp(buf, "DAOX", 4) || !memcmp(buf, "DAOI", 4)) {
++            const bool newformat = !memcmp(buf, "DAOX", 4);
++            const unsigned blocksize = newformat ? 42 : 30;
++            if (newformat != ner5 || size < 22 || (size - 22) % blocksize) return invalid;
++            if (!read(buf, 22)) return io_error;
++            const unsigned first_track = buf[20], last_track = buf[21]; // Binary, NOT BCD.
++            if (!first_track || first_track > last_track || last_track > 99 || (size - 22) / blocksize != last_track - first_track + 1) return invalid;
++#ifdef P6_NRG_METADATA
++            if (dao_seen || first_track != 1) return Result::Unsupported;
++            dao_seen = true; candidate.tracks = last_track; candidate.disk_type = buf[18]; candidate.session_hint = buf[19];
++            if (buf[19] > 1 || (buf[18] != 0 && buf[18] != 0x10 && buf[18] != 0x20)) return Result::Unsupported;
++            memcpy(candidate.catalog, buf + 4, 13);
++#else
++            cdu->tracks = last_track - first_track + 1; cdu->toc[last_track].address = lastlba;
++#endif
++            for (unsigned tracknum = first_track; tracknum <= last_track; ++tracknum) {
++                if (!read(buf, blocksize)) return io_error;
++                const unsigned sectorsize = unsigned(be(buf + 12, 2)), type = buf[14], width = newformat ? 8 : 4;
++                const uint64_t index0 = be(buf + 18, width), index1 = be(buf + 18 + width, width), end = be(buf + 18 + width * 2, width);
++                if (end > INT64_MAX || !sectorsize || index0 > index1 || index1 >= end || end > directory || (index1 - index0) % sectorsize || (end - index1) % sectorsize) return invalid;
++#ifdef P6_NRG_METADATA
++                if (type == 2 || type == 3) return Result::Unsupported;
++                const unsigned minimum = type == 0 ? 2048 : type == 5 || type == 6 || type == 7 ? 2352 : type == 15 || type == 16 || type == 17 ? 2448 : 0;
++                if (!minimum || sectorsize < minimum || (sectorsize != 2048 && sectorsize != 2352 && sectorsize != 2448)) return Result::Unsupported;
++                auto &t = candidate.track[tracknum - 1];
++                t.offset0 = index0; t.offset1 = index1; t.end = end; t.stride = sectorsize; t.mode = type;
++                memcpy(t.isrc, buf, 12);
++#else
++                auto *t = &cdu->toc[tracknum - 1];
++                t->offset = index0; t->index1 = (index1 - index0) / sectorsize; t->size = sectorsize;
++                if (t->address < 0) { // Keep the device backend's legacy LBA0 clipping; metadata stays signed/unclipped.
++                    t->offset += -int64_t(t->address) * sectorsize; t->index1 = 0; t->address = 0;
++                }
++                t->handle = zfile_dup(znrg); t->fname = my_strdup(zfile_getname(znrg));
++                if (type == 7 || type == 16) {
++                    t->enctype = AUDENC_PCM;
++                    if (type == 16) { t->suboffset = t->offset; t->size -= SUB_CHANNEL_SIZE; t->subcode = 1; t->subhandle = zfile_dup(t->handle); t->skipsize = SUB_CHANNEL_SIZE; }
++                }
++#endif
++            }
++        } else if (!memcmp(buf, "END!", 4)) {
++            if (size || next != footer) return invalid;
++#ifdef P6_NRG_METADATA
++            if (!dao_seen || !cue_seen || !leadout_seen || candidate.leadout <= 0 || (session_tracks && session_tracks != candidate.tracks)) return invalid;
++            for (unsigned n = 0; n < 99; ++n) {
++                const auto &t = candidate.track[n];
++                if (n >= candidate.tracks) { if (cue_mask[n]) return invalid; continue; }
++                const auto &next = candidate.track[n + 1 < candidate.tracks ? n + 1 : n];
++                const int64_t end_lba = n + 1 < candidate.tracks ? (next.has_index0 ? int64_t(next.index0) :
++                    int64_t(next.index1) - int64_t((next.offset1 - next.offset0) / next.stride)) : candidate.leadout;
++                if (!(cue_mask[n] & 2) || (t.has_index0 && t.index0 > t.index1) || t.index1 < 0 || end_lba <= t.index1 ||
++                    (t.has_index0 && uint64_t(int64_t(t.index1) - t.index0) != (t.offset1 - t.offset0) / t.stride) ||
++                    uint64_t(end_lba - t.index1) != (t.end - t.offset1) / t.stride || (n && t.offset0 < candidate.track[n - 1].end) ||
++                    ((t.mode == 7 || t.mode == 16) ? (t.control & 4) : !(t.control & 4))) return invalid;
++            }
++            *out = candidate; return Result::Ok;
++#else
++            return cdu->tracks;
++#endif
++        } else {
++#ifdef P6_NRG_METADATA
++            return Result::Unsupported; // No silent TAO, multisession, CD-TEXT or unknown semantic chunks.
++#endif
++        }
++        position = next;
++    }
++    return invalid;
++}
++
++#endif
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
+ 
+ static int parse_image (struct cdunit *cdu, const TCHAR *img)
+ {

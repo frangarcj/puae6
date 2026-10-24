@@ -1,0 +1,162 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+@@ -772,7 +772,7 @@
+ 						throw new NRGParseException("Malformed NRG format: Chunk size was negative!");
+ 					}
+ 
+-					if (canonical && (++chunks > (daoMetadata ? 298 : 256) || chunkSize > 65536 || chunkSize > stream.Length - stream.Position))
++					if (canonical && (++chunks > (daoMetadata || nrgf.DAOTrackInfos.Count > 1 ? 298 : 256) || chunkSize > 65536 || chunkSize > stream.Length - stream.Position))
+ 						throw new NRGParseException("NRG metadata extent exceeds input");
+ 					if (daoMetadata && (chunkSize > footer - stream.Position)) throw new NRGParseException("DAO chunk crosses footer");
+ 					if (daoMetadata && chunkID is not ("CUES" or "CUEX" or "DAOI" or "DAOX" or "SINF" or "END!"))
+@@ -1018,10 +1018,103 @@
+ 		}
+ 
+ 
++		// Frozen mount metadata. No callback captures the parser's mutable lists or byte arrays.
++		public readonly struct Puae6DaoSession
++		{
++			public readonly int FirstTrack, LastTrack, Format, Cue0, A2, SessionHint;
++			public readonly string CatalogHex;
++			internal Puae6DaoSession(NRGDAOTrackInfo d, int cue0, int a2)
++			{ FirstTrack=d.FirstTrack; LastTrack=d.LastTrack; Format=d.DiskType; Cue0=cue0; A2=a2; SessionHint=d.SessionHint; CatalogHex=BitConverter.ToString(d.CatalogRaw).Replace("-", "").ToLowerInvariant(); }
++		}
++		public readonly struct Puae6DaoTrack
++		{
++			public readonly int Number, Index0, Index1, End, Mode, Adr, Control, Stride;
++			public readonly long Offset0, Offset1, EndOffset;
++			public readonly string IsrcHex;
++			internal Puae6DaoTrack(int number, NRGDAOTrack t, NRGTrackIndex q)
++			{
++				Number=number; Index1=q.LBA; Index0=checked((int)(Index1-(t.TrackStartFileOffset-t.PregapFileOffset)/t.SectorSize));
++				End=checked((int)(Index1+(t.TrackEndFileOffset-t.TrackStartFileOffset)/t.SectorSize));
++				Mode=t.Mode; Adr=q.ADRControl&15; Control=q.ADRControl>>4; Stride=t.SectorSize;
++				Offset0=t.PregapFileOffset; Offset1=t.TrackStartFileOffset; EndOffset=t.TrackEndFileOffset;
++				IsrcHex=BitConverter.ToString(t.IsrcRaw).Replace("-", "").ToLowerInvariant();
++			}
++		}
++		public sealed class Puae6DaoLayout
++		{
++			public IReadOnlyList<Puae6DaoSession> Sessions { get; }
++			public IReadOnlyList<Puae6DaoTrack> Tracks { get; }
++			internal Puae6DaoLayout(NRGFile parsed)
++			{
++				var sessions=new List<Puae6DaoSession>(); var tracks=new List<Puae6DaoTrack>();
++				for(int group=0;group<parsed.DAOTrackInfos.Count;++group)
++				{
++					var d=parsed.DAOTrackInfos[group]; var cues=parsed.Cues[group].TrackIndices;
++					sessions.Add(new(d,cues.Single(c=>c.Track.BCDValue==0).LBA,cues.Single(c=>c.Track.BCDValue==0xaa).LBA));
++					for(int number=d.FirstTrack;number<=d.LastTrack;++number)
++						tracks.Add(new(number,d.Tracks[number-d.FirstTrack],cues.Single(c=>c.Track.DecimalValue==number&&c.Index.BCDValue==1)));
++				}
++				Sessions=Array.AsReadOnly(sessions.ToArray()); Tracks=Array.AsReadOnly(tracks.ToArray());
++			}
++		}
++		private sealed class Puae6DaoProvider : ISectorSynthProvider
++		{
++			private readonly Disc owner; private readonly IBlob blob; private readonly DiscMountPolicy policy;
++			public Puae6DaoProvider(Disc owner, IBlob blob, DiscMountPolicy policy)
++			{ this.owner=owner; this.blob=blob; this.policy=policy; }
++			public ISectorSynthJob2448 Get(int lba)
++			{
++				if(owner.IsDisposed) return null;
++				Puae6DaoTrack t=default;
++				foreach(var candidate in owner.Puae6NrgDao.Tracks)
++					if(lba>=candidate.Index0&&lba<candidate.End) { t=candidate; break; }
++				if(t.Number==0) return null; // Includes every inter-session hole and the final A2.
++				if(t.Mode<15 && (lba < -150 || (long)lba+150>449999 || Math.Abs((long)lba-t.Index1)>449999))
++					throw new NotSupportedException("Canonical NRG subchannel exceeds MSF range");
++				SS_Base synth=t.Mode switch { 0=>new SS_Mode1_2048(), 2=>new SS_Mode2_Form1_2048(), 3=>new SS_Mode2_2336(),
++					5 or 6 or 7=>new SS_2352(), 15 or 16 or 17=>new SS_2448_Interleaved(), _=>throw new NotSupportedException("NRG DAO mode") };
++				synth.Blob=blob; synth.BlobOffset=t.Offset0+((long)lba-t.Index0)*t.Stride; synth.Policy=policy;
++				if(t.Mode<15) {
++				 synth.sq.SetStatus((byte)t.Adr,(EControlQ)t.Control); synth.sq.q_tno=BCD2.FromDecimal(t.Number);
++				synth.sq.q_index=BCD2.FromDecimal(lba<t.Index1?0:1); synth.sq.Timestamp=Math.Abs(lba-t.Index1);
++				synth.sq.AP_Timestamp=lba+150; synth.Pause=lba<t.Index1; }
++				return synth;
++			}
++		}
++		private static Disc LoadPuae6Dao(string path, NRGFile parsed, DiscMountPolicy policy)
++		{
++			var disc=new Disc();
++			try
++			{
++				disc.Puae6NrgDao=new Puae6DaoLayout(parsed);
++				var blob=new Blob_RawFile { PhysicalPath=path }; disc.DisposableResources.Add(blob);
++				disc.SynthProvider=new Puae6DaoProvider(disc,blob,policy);
++				foreach(var s in disc.Puae6NrgDao.Sessions)
++				{
++					if(s.A2>int.MaxValue-150) throw new NotSupportedException("NRG TOC address overflows timestamp");
++					var session=new DiscSession { Number=disc.Sessions.Count };
++					new Synthesize_A0A1A2_Job(s.FirstTrack,s.LastTrack,(SessionFormat)s.Format,s.A2+150).Run(session.RawTOCEntries);
++					foreach(var t in disc.Puae6NrgDao.Tracks.Where(t=>t.Number>=s.FirstTrack&&t.Number<=s.LastTrack))
++					{
++						var q=default(SubchannelQ); q.SetStatus((byte)t.Adr,(EControlQ)t.Control); q.q_index=BCD2.FromDecimal(t.Number); q.AP_Timestamp=t.Index1+150;
++						session.RawTOCEntries.Add(new() { QData=q, AbsoluteTimestamp=t.Index1+150 });
++					}
++					disc.Sessions.Add(session);
++				}
++				return disc;
++			}
++			catch { disc.Dispose(); throw; }
++		}
++
+ 		internal static Disc LoadPuae6Nrg(string path, DiscMountPolicy policy)
+ 		{
+ 			NRGFile parsed;
+ 			using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) parsed = ParseFrom(file, true);
++			if (parsed.DAOTrackInfos.Count>1)
++			{
++				using var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
++				return LoadPuae6Dao(path,ParsePuae6Nrg(file),policy);
++			}
+ 			if (parsed.DAOTrackInfos.Count != 0) return LoadNRGToDisc(path, policy);
+ 			var tracks = parsed.TAOTrackInfos[0].Tracks;
+ 			if (tracks.Count is < 1 or > 99) throw new NRGParseException("Invalid TAO track count");
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+@@ -121,7 +121,7 @@
+ 				//currently, we let mednafen take care of its own leadout track (we'll make that controllable later)
+ 				//TODO: This currently doesn't work well with multisessions (only the last session can have a leadout read with the current model)
+ 				//(although note only VirtualJaguar currently deals with multisession discs and it doesn't care about the leadout so far)
+-				if (IN_DiscInterface != DiscInterface.MednaDisc)
++				if (IN_DiscInterface != DiscInterface.MednaDisc && OUT_Disc.Puae6NrgDao == null)
+ 				{
+ 					var ss_leadout = new SS_Leadout
+ 					{
+@@ -136,6 +136,7 @@
+ 				var sbiPath = Path.ChangeExtension(IN_FromPath, ".sbi");
+ 				if (File.Exists(sbiPath) && SBI.SBIFormat.QuickCheckISSBI(sbiPath))
+ 				{
++					if (OUT_Disc.Puae6NrgDao != null) throw new NotSupportedException("SBI on sparse NRG DAO is not supported");
+ 					var loadSbiJob = new SBI.LoadSBIJob(sbiPath);
+ 					loadSbiJob.Run();
+ 					var applySbiJob = new ApplySBIJob();
+@@ -245,7 +246,7 @@
+ 			}
+ 
+ 			// set up the lowest level synth provider
+-			if (OUT_Disc != null) OUT_Disc.SynthProvider = new ArraySectorSynthProvider { Sectors = OUT_Disc._Sectors, FirstLBA = -150 };
++			if (OUT_Disc != null && (!_puae6Nrg || OUT_Disc.Puae6NrgDao == null)) OUT_Disc.SynthProvider = new ArraySectorSynthProvider { Sectors = OUT_Disc._Sectors, FirstLBA = -150 };
+ 		}
+ 
+ 		public static string GenerateCue(string binFilePath, bool isMode2)
+diff --git a/src/BizHawk.Emulation.DiscSystem/Disc.cs b/src/BizHawk.Emulation.DiscSystem/Disc.cs
+--- a/src/BizHawk.Emulation.DiscSystem/Disc.cs
++++ b/src/BizHawk.Emulation.DiscSystem/Disc.cs
+@@ -73,8 +73,13 @@
+ 		// Empty means this loader has not supplied typed regions. Not reconstructed from Q.
+ 		public IReadOnlyList<DiscRegionInfo> Regions { get; internal set; } = Array.Empty<DiscRegionInfo>();
+ 
++		public NRG_Format.Puae6DaoLayout Puae6NrgDao { get; internal set; }
++		public bool IsDisposed { get; private set; }
++
+ 		public void Dispose()
+ 		{
++			if (IsDisposed) return;
++			IsDisposed = true;
+ 			foreach (var res in DisposableResources)
+ 			{
+ 				res.Dispose();

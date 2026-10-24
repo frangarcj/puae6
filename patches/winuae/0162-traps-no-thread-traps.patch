@@ -1,0 +1,94 @@
+diff --git a/traps.cpp b/traps.cpp
+--- a/traps.cpp
++++ b/traps.cpp
+@@ -314,6 +314,12 @@
+ */
+ static void trap_HandleExtendedTrap(TrapHandler handler_func, int has_retval)
+ {
++#ifdef P6_PORTABLE
++	// An extended trap runs its handler on a thread of its own, which can call back into the 68k. The profile has one thread and registers no extended
++	// trap (filesys_init_storeinfo does not need one); reaching this is a bug of the build, so it stops with a reason instead of hanging.
++	p6_diag_write(P6_DIAG_ERROR, 0, 0, "an extended trap needs a thread, which this build does not have");
++	abort();
++#else
+ 	struct TrapContext *context = xcalloc(TrapContext, 1);
+ 
+ 	if (context) {
+@@ -344,6 +350,7 @@
+ 			write_log(_T("Exit extended trap PC=%08x\n"), m68k_getpc());
+ 		}
+ 	}
++#endif
+ }
+ 
+ /*
+@@ -486,7 +493,9 @@
+ 	}
+ 
+ 	/* Wait for trap context thread to exit. */
++#ifndef P6_PORTABLE
+ 	uae_wait_thread(context->thread);
++#endif
+ 
+ 	/* Restore 68k state saved at trap entry. */
+ 	//regs = context->saved_regs;
+@@ -683,6 +692,9 @@
+ 
+ TrapContext *alloc_host_main_trap_context(void)
+ {
++#ifdef P6_PORTABLE // the context of a hardware trap (uaeboard > 2) waits for a free slot by sleeping: the profile never selects it
++	return NULL;
++#else
+ 	if (trap_is_indirect()) {
+ 		int trap_slot = RTAREA_TRAP_DATA_NUM;
+ 		if (atomic_inc(&outtrap_alloc[trap_slot - RTAREA_TRAP_DATA_NUM])) {
+@@ -695,6 +707,7 @@
+ 	} else {
+ 		return NULL;
+ 	}
++#endif
+ }
+ 
+ void free_host_trap_context(TrapContext *ctx)
+@@ -837,6 +850,7 @@
+ void init_traps(void)
+ {
+ 	trap_count = 0;
++#ifndef P6_PORTABLE // the hardware-trap threads belong to uaeboard > 2, which the profile never selects
+ 	if (!trap_thread_id[0] && trap_is_indirect()) {
+ 		for (size_t i = 0; i < TRAP_THREADS; i++) {
+ 			init_comm_pipe(&trap_thread_pipe[i], 100, 1);
+@@ -844,10 +858,12 @@
+ 			uae_start_thread_fast(hardware_trap_thread, (void *)i, &trap_thread_id[i]);
+ 		}
+ 	}
++#endif
+ }
+ 
+ void reset_traps(void)
+ {
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < TRAP_THREADS; i++) {
+ 		if (trap_thread_id[i]) {
+ 			int htk = hardware_trap_kill[i];
+@@ -868,10 +884,12 @@
+ 		uae_sem_unpost(&hardware_trap_event[j]);
+ 		uae_sem_unpost(&hardware_trap_event2[j]);
+ 	}
++#endif
+ }
+ 
+ void free_traps(void)
+ {
++#ifndef P6_PORTABLE
+ 	for (int i = 0; i < TRAP_THREADS; i++) {
+ 		hardware_trap_state[i] = 0;
+ 		if (trap_thread_id[i]) {
+@@ -887,6 +905,7 @@
+ 			trap_thread_id[i] = NULL;
+ 		}
+ 	}
++#endif
+ }
+ 
+ /*

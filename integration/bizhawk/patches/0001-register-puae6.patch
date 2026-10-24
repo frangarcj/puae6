@@ -1,0 +1,57 @@
+diff --git a/src/BizHawk.Client.Common/config/Config.cs b/src/BizHawk.Client.Common/config/Config.cs
+index 532edc7..e073a66 100644
+--- a/src/BizHawk.Client.Common/config/Config.cs
++++ b/src/BizHawk.Client.Common/config/Config.cs
+@@ -28,6 +28,8 @@ namespace BizHawk.Client.Common
+ 		{
+ 			([ VSystemID.Raw.A26 ],
+ 				[ CoreNames.Atari2600Hawk, CoreNames.Stella ]),
++			([ VSystemID.Raw.Amiga ],
++				[ CoreNames.UAE, CoreNames.PUAE6 ]),
+ 			([ VSystemID.Raw.Satellaview ],
+ 				[ CoreNames.Bsnes115, CoreNames.SubBsnes115 ]),
+ 			([ VSystemID.Raw.GB, VSystemID.Raw.GBC ],
+diff --git a/src/BizHawk.Client.EmuHawk/MainForm.cs b/src/BizHawk.Client.EmuHawk/MainForm.cs
+index c9003de..12de286 100644
+--- a/src/BizHawk.Client.EmuHawk/MainForm.cs
++++ b/src/BizHawk.Client.EmuHawk/MainForm.cs
+@@ -1918,7 +1918,8 @@ namespace BizHawk.Client.EmuHawk
+ 					byte[] sram;
+ 
+ 					// some cores might not know how big the saveram ought to be, so just send it the whole file
+-					if (Emulator is AppleII or C64 or DOSBox or MGBAHawk or NeoGeoPort or NES { BoardName: "FDS" })
++					// (PUAE6: its SaveRAM is a variable-length list of changed floppy sectors; a new core's CloneSaveRam() is null, so there is nothing to size a buffer with)
++					if (Emulator is AppleII or C64 or DOSBox or MGBAHawk or NeoGeoPort or NES { BoardName: "FDS" } or Puae6.Puae6Core)
+ 					{
+ 						sram = File.ReadAllBytes(saveramToLoad.FullName);
+ 					}
+diff --git a/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj b/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
+index ab4be8c..73415bc 100644
+--- a/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
++++ b/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
+@@ -17,6 +17,13 @@
+ 		<ProjectReference Include="$(ProjectDir)../BizHawk.Emulation.DiscSystem/BizHawk.Emulation.DiscSystem.csproj" />
+ 		<EmbeddedResource Include="Resources/**/*" />
+ 	</ItemGroup>
++	<ItemGroup>
++		<!-- the puae6.wbx that Computers/Amiga/PUAE6 may open: the receipt of its recipe has the hash, integration/bizhawk/patches/build_tree.py passes it -->
++		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
++			<_Parameter1>Puae6GuestSha256</_Parameter1>
++			<_Parameter2>$(Puae6GuestSha256)</_Parameter2>
++		</AssemblyAttribute>
++	</ItemGroup>
+ 	<ItemGroup>
+ 		<Compile Update="Arcades/MAME/MAME.*.cs" DependentUpon="MAME.cs" />
+ 		<Compile Update="Calculators/Emu83/Emu83.*.cs" DependentUpon="Emu83.cs" />
+diff --git a/src/BizHawk.Emulation.Cores/CoreNames.cs b/src/BizHawk.Emulation.Cores/CoreNames.cs
+index 56178c8..e2a12e9 100644
+--- a/src/BizHawk.Emulation.Cores/CoreNames.cs
++++ b/src/BizHawk.Emulation.Cores/CoreNames.cs
+@@ -53,6 +53,7 @@ namespace BizHawk.Emulation.Cores
+ 		public const string PceHawk = "PCEHawk";
+ 		public const string PicoDrive = "PicoDrive";
+ 		public const string PPSSPP = "PPSSPP";
++		public const string PUAE6 = "PUAE6";
+ 		public const string QuickNes = "quickerNES";
+ 		public const string Sameboy = "SameBoy";
+ 		public const string Saturnus = "Saturnus";

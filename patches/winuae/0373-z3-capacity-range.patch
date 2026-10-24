@@ -1,0 +1,16 @@
+diff --git a/main.cpp b/main.cpp
+--- a/main.cpp
++++ b/main.cpp
+@@ -796,8 +796,10 @@
+ #ifndef AUTOCONFIG
+ #ifdef P6_PORTABLE
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+-		// T55c2: one bounded physical Z3 board; no other Z3 configuration enters the portable profile.
+-		if (i > 0 || p->cpu_model != 68030 || p->address_space_24 || p->z3fastmem[i].size != 0x1000000)
++		// One physical Z3 board, populated with a power-of-two capacity from1 to512MiB.
++		const uae_u32 z3size = p->z3fastmem[i].size;
++		if (i > 0 || p->cpu_model != 68030 || p->address_space_24 || z3size > 0x20000000u ||
++			(z3size && (z3size < 0x100000u || (z3size & (z3size - 1)))))
+ 			p->z3fastmem[i].size = 0;
+ 		// T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the others stay absent
+ 		if (i > 0)

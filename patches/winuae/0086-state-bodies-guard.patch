@@ -1,0 +1,147 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -5919,7 +5919,7 @@
+ 
+ /* Disk save/restore code */
+ 
+-#if defined SAVESTATE || defined DEBUGGER
++#if defined SAVESTATE || defined DEBUGGER || defined P6_STATE_BODIES
+ 
+ void DISK_save_custom (uae_u32 *pdskpt, uae_u16 *pdsklength, uae_u16 *pdsksync, uae_u16 *pdskbytr)
+ {
+@@ -5933,7 +5933,7 @@
+ 		*pdskbytr = dskbytr_val;
+ }
+ 
+-#endif /* SAVESTATE || DEBUGGER */
++#endif /* SAVESTATE || DEBUGGER || P6_STATE_BODIES */
+ 
+ static uae_u32 getadfcrc (drive *drv)
+ {
+@@ -5955,7 +5955,7 @@
+ 	return crc32;
+ }
+ 
+-#ifdef SAVESTATE
++#if defined SAVESTATE || defined P6_STATE_BODIES
+ 
+ void DISK_restore_custom (uae_u32 pdskpt, uae_u16 pdsklength, uae_u16 pdskbytr)
+ {
+@@ -6207,7 +6207,7 @@
+ 	return dstbak;
+ }
+ 
+-#endif /* SAVESTATE */
++#endif /* SAVESTATE || P6_STATE_BODIES */
+ 
+ #ifndef P6_PORTABLE
+ #define MAX_DISKENTRIES 4
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7900,8 +7900,9 @@
+ 	custom_wput((addr + 2) & 0xfffe, (uae_u16)value);
+ }
+ 
+-#ifdef SAVESTATE
++#if defined SAVESTATE || defined P6_STATE_BODIES
+ 
++#ifdef SAVESTATE
+ void custom_prepare_savestate(void)
+ {
+ 	if (!currprefs.cpu_cycle_exact) {
+@@ -7913,6 +7914,7 @@
+ 		}
+ 	}
+ }
++#endif /* SAVESTATE */
+ 
+ void restore_custom_finish(void)
+ {
+@@ -8146,9 +8148,9 @@
+ 	return src;
+ }
+ 
+-#endif /* SAVESTATE */
++#endif /* SAVESTATE || P6_STATE_BODIES */
+ 
+-#if defined SAVESTATE || defined DEBUGGER
++#if defined SAVESTATE || defined DEBUGGER || defined P6_STATE_BODIES
+ 
+ #define SB save_u8
+ #define SW save_u16
+@@ -8336,7 +8338,9 @@
+ 	return dstbak;
+ }
+ 
+-#endif /* SAVESTATE || DEBUGGER */
++#endif /* SAVESTATE || DEBUGGER || P6_STATE_BODIES */
++
++#if defined SAVESTATE || defined P6_STATE_BODIES
+ 
+ #ifdef SAVESTATE
+ 
+@@ -8395,6 +8399,8 @@
+ 	return dstbak;
+ }
+ 
++#endif /* SAVESTATE */
++
+ uae_u8 *restore_custom_sprite(int num, uae_u8 *src)
+ {
+ 	struct sprite *s = &spr[num];
+@@ -8422,6 +8428,8 @@
+ 	return dstbak;
+ }
+ 
++#ifdef SAVESTATE
++
+ uae_u8 *restore_custom_extra(uae_u8 *src)
+ {
+ 	uae_u32 v = restore_u32();
+@@ -8555,6 +8563,8 @@
+ 	*len = dst - dstbak;
+ 	return dstbak;
+ }
++
++#endif /* SAVESTATE */
+ 
+ static int getregfrompt(uaecptr *pt)
+ {
+@@ -8765,6 +8775,8 @@
+ 
+ 	return src;
+ }
++
++#ifdef SAVESTATE
+ 
+ uae_u8 *restore_custom_event_delay(uae_u8 *src)
+ {
+@@ -8922,6 +8934,8 @@
+ }
+ 
+ #endif /* SAVESTATE */
++
++#endif /* SAVESTATE || P6_STATE_BODIES */
+ 
+ void check_prefs_changed_custom(void)
+ {
+diff --git a/blitter.cpp b/blitter.cpp
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -2319,7 +2319,7 @@
+ #endif
+ }
+ 
+-#ifdef SAVESTATE
++#if defined SAVESTATE || defined P6_STATE_BODIES
+ 
+ void restore_blitter_start(void)
+ {
+@@ -2739,4 +2739,4 @@
+ 	return dstbak;
+ }
+ 
+-#endif /* SAVESTATE */
++#endif /* SAVESTATE || P6_STATE_BODIES */

@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "source": "bizhawk_uae_reference",
+  "commit": "ccecb1ead642c1bbe391308b88a7ffa9478b918d",
+  "repository": "https://github.com/TASEmulators/libretro-uae.git",
+  "patches": [
+    {
+      "path": "patches/0001-zlib-standalone.patch",
+      "sha256": "858343d173089b336b282537579082eb560dd30dabc4032dfd94ce67701ac161",
+      "after": {
+        "deps/zlib/adler32.c": "cc4cdf1611c5bb7c4d93f94113e49a49948c09c3b1c879588e026838c683e0e0",
+        "deps/zlib/zutil.h": "8efb77720b79c73845015dd9a710b42922cf47e924b24911bbbef8bded9e1459",
+        "deps/zlib/zutil.c": "b854a4b5fc643af109ed62dd14c597f8fd22563f5635ea806571070477676bee"
+      }
+    },
+    {
+      "path": "patches/0002-readfn-header.patch",
+      "sha256": "b98f643a3b87b356cc95ae7df2c48919302ab21d5d16de6057ee42e2f3cab0fd",
+      "after": {
+        "include/libchdr/coretypes.h": "ce189f4057f4e1fdaef674887624a8b977952cd496df14b207fa22e2f7ab21e4",
+        "src/libchdr_chd.c": "ff7a30bedbe97c9e7c9068a42ea378111e6ff2206c40e26306d91d462cb10d9e",
+        "src/libchdr_bitstream.c": "3610c14a487a103ea61b45630e08953e93d3ef4df8a8c5efdd7717fb201c8eef",
+        "src/libchdr_huffman.c": "5e75d3527ef8fcb8a8cf1d8f9d2bf8347607f5759c88b6c57ec2548703d56783"
+      }
+    },
+    {
+      "path": "patches/0003-v5-map-metadata.patch",
+      "sha256": "b6307ec26286d902e590f583e0602390455df4c89e3f9247eae9b57a1b4d97bf",
+      "after": {
+        "src/libchdr_bitstream.c": "cc58fe03235a8948e14cc94ba8209f28407fc732bc905beed33f82c6aecbd3b3",
+        "include/libchdr/bitstream.h": "36382f8797459cc696424c09f285de56b414e7aeacb9fcb064e6869f3aa71927",
+        "src/libchdr_huffman.c": "bd42f4334a9258879507b9623b338dbc522f981400252e4666152374cc93c432",
+        "src/libchdr_chd.c": "920720563f0689bc348543aed88ce45f96e0f39f5edf724cfab37f8706d97c42"
+      }
+    },
+    {
+      "path": "patches/0004-cd-codec-bounds.patch",
+      "sha256": "e0cb0e29d234a268b809d6f45add0ac1c8f4805804a7cb341107a471fb3810bf",
+      "after": {
+        "src/libchdr_chd.c": "f5b638d0564f585b6c91aa132609b5afe4c3a2f8d38d81495c6d68add1d54407",
+        "src/libchdr_flac.c": "c054ba04984969467d7f889a1d0deac6d39599ef5c0cb8dfd86910f81c9fabc5",
+        "include/libchdr/flac.h": "b9383a25672818652a82b119b1859df6ca5db447c27ff7050cd5ab3bcf88b0b1"
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "LICENSE.txt",
+      "source": "deps/libchdr/LICENSE.txt",
+      "sha256": "e3989a7aee74a91b8cdbdfe204a6b8d03288863ec7533a21c51f1a987ba73539"
+    },
+    {
+      "path": "deps/lzma/7zTypes.h",
+      "source": "deps/7zip/7zTypes.h",
+      "sha256": "f624da37b9d8e70cc829b6c650009b74dd335f792e63c41fb2cd8e4dd288f09f"
+    },
+    {
+      "path": "deps/lzma/7zVersion.h",
+      "source": "deps/7zip/7zVersion.h",
+      "sha256": "93a08d32277fb672e833aedbbf19aadbfd09a9a67b0167ac0c8f49443e682534"
+    },
+    {
+      "path": "deps/lzma/Compiler.h",
+      "source": "deps/7zip/Compiler.h",
+      "sha256": "a32461399483bbad6d04a4b2d9671e9706cd8d1052caf6311d79c6b8819d0906"
+    },
+    {
+      "path": "deps/lzma/LzFind.c",
+      "source": "deps/7zip/LzFind.c",
+      "sha256": "59a4227ef52d3363da7859ee37818400a69d9ca93f3b05eb6c22832d27ca6a37"
+    },
+    {
+      "path": "deps/lzma/LzFind.h",
+      "source": "deps/7zip/LzFind.h",
+      "sha256": "006b2bafa06367f727a4056c9c71f7a4f18559768f0ecdfb39694f3c8a1531cb"
+    },
+    {
+      "path": "deps/lzma/LzHash.h",
+      "source": "deps/7zip/LzHash.h",
+      "sha256": "f36891e9a8576f6faea99ad97bf12b12e3d19cf6811810bac2ba52569ab02a14"
+    },
+    {
+      "path": "deps/lzma/LzmaDec.c",
+      "source": "deps/7zip/LzmaDec.c",
+      "sha256": "7433738640c26bc09b28bc14a90e47f97733267d358571729b3185c37c531c0d"
+    },
+    {
+      "path": "deps/lzma/LzmaDec.h",
+      "source": "deps/7zip/LzmaDec.h",
+      "sha256": "4d92fb5278e566199f9ee6b92938557ec2172e2e366ec620bf175158f08369f0"
+    },
+    {
+      "path": "deps/lzma/LzmaEnc.c",
+      "source": "deps/7zip/LzmaEnc.c",
+      "sha256": "adb0ec7118ff2a70456a410e6667e01bbeb3a364c571234287a8bb252bd9cb11"
+    },
+    {
+      "path": "deps/lzma/LzmaEnc.h",
+      "source": "deps/7zip/LzmaEnc.h",
+      "sha256": "2828aa86e5375b12d9da05d3cacda25ab10b8c75c7f8cea4991636112cf7e907"
+    },
+    {
+      "path": "deps/lzma/Precomp.h",
+      "source": "deps/7zip/Precomp.h",
+      "sha256": "4dd8992c003639ab4373ff9dd410776754d9eecac0b863c5d72851b110d81d8d"
+    },
+    {
+      "path": "deps/zlib/adler32.c",
+      "source": "deps/libz/adler32.c",
+      "sha256": "69ddb0fc975b01a1f1758a70a2546c7598f939394660b1d775caced299ad9bfd"
+    },
+    {
+      "path": "deps/zlib/crc32.c",
+      "source": "deps/libz/crc32.c",
+      "sha256": "cdeefad680f0767cb8008756d8835a31af8279a065b5e46808366f4c3ed8372c"
+    },
+    {
+      "path": "deps/zlib/inffast.c",
+      "source": "deps/libz/inffast.c",
+      "sha256": "6f5bf159e91ead912e93426c1de8123fdcd43f378a462f6bd4a2863e1fa3c704"
+    },
+    {
+      "path": "deps/zlib/inffast.h",
+      "source": "deps/libz/inffast.h",
+      "sha256": "9e98ca986405cc6039fbd0461e7df3124bd47485e2d7e647af16592fc7976a88"
+    },
+    {
+      "path": "deps/zlib/inffixed.h",
+      "source": "deps/libz/inffixed.h",
+      "sha256": "274ed84a95036338b134d732611de38b7c2414f7ea62d0e98fd768b5430628b6"
+    },
+    {
+      "path": "deps/zlib/inflate.c",
+      "source": "deps/libz/inflate.c",
+      "sha256": "f73741270e2886645e65196494bd5e6ab22ec560bbc3536335bdeac827877313"
+    },
+    {
+      "path": "deps/zlib/inflate.h",
+      "source": "deps/libz/inflate.h",
+      "sha256": "5c9994eca652267775b3f471546b6d93a3b3f032336101ad993e757ac2119c33"
+    },
+    {
+      "path": "deps/zlib/inftrees.c",
+      "source": "deps/libz/inftrees.c",
+      "sha256": "0f70ccd1129269a43807b897d8baf55989b3c9bc172ff8894ae3a70015c64963"
+    },
+    {
+      "path": "deps/zlib/inftrees.h",
+      "source": "deps/libz/inftrees.h",
+      "sha256": "17747a4d0a247a6fca6e15f752c8c3ef9da5aa1b34138d46af3dc990d8f28641"
+    },
+    {
+      "path": "deps/zlib/zconf.h",
+      "source": "deps/libz/zconf.h",
+      "sha256": "ed886c15c846d31d2f6e6f5a33d3f6547812d85ec2aff4c3d70e8781e45d0959"
+    },
+    {
+      "path": "deps/zlib/zlib.h",
+      "source": "deps/libz/zlib.h",
+      "sha256": "31b7ed2b5bceea407626bdbcf16a1efa9770e91b646012906ac8303aa3f1f242"
+    },
+    {
+      "path": "deps/zlib/zutil.c",
+      "source": "deps/libz/zutil.c",
+      "sha256": "7016b93c10b49c147de658cee6b18328edb33c049030601ff9b49a88f0e99c46"
+    },
+    {
+      "path": "deps/zlib/zutil.h",
+      "source": "deps/libz/zutil.h",
+      "sha256": "0845450c93272d8b88bb4ba11b83441eda8df57651a538834a2c2aea97559226"
+    },
+    {
+      "path": "include/dr_libs/dr_flac.h",
+      "source": "deps/libchdr/include/dr_libs/dr_flac.h",
+      "sha256": "2ee1488449762812fe309967dcdb71a1565fc611e67511f6fed6099163e557e6"
+    },
+    {
+      "path": "include/libchdr/bitstream.h",
+      "source": "deps/libchdr/include/libchdr/bitstream.h",
+      "sha256": "160d5c8f2753eabc21b26959c91ff0c0fc6d7ea64c6c9eb30b34839f3652fc12"
+    },
+    {
+      "path": "include/libchdr/cdrom.h",
+      "source": "deps/libchdr/include/libchdr/cdrom.h",
+      "sha256": "ff31637ed3c6b411d92529db6e631a85fff4cbc48404cdf47032016d7c6c0e56"
+    },
+    {
+      "path": "include/libchdr/chd.h",
+      "source": "deps/libchdr/include/libchdr/chd.h",
+      "sha256": "8bb7559830e4dfa56bf8ed6dc2c42396b4c0a2ad5d5ccf823d0f6f49585f569f"
+    },
+    {
+      "path": "include/libchdr/chdconfig.h",
+      "source": "deps/libchdr/include/libchdr/chdconfig.h",
+      "sha256": "019ef53c3a3acddbfa20e20dd2264e5d4fe3f56656691f180c673684e533abe1"
+    },
+    {
+      "path": "include/libchdr/coretypes.h",
+      "source": "deps/libchdr/include/libchdr/coretypes.h",
+      "sha256": "b7d54a649dab691ab1ba189427205d6c684cc1a24d8ebd10fc092309c906ce67"
+    },
+    {
+      "path": "include/libchdr/flac.h",
+      "source": "deps/libchdr/include/libchdr/flac.h",
+      "sha256": "c7cd8068692160065141e981adfac6b3223e4ccedf0e43dd73e2381cdf583b7f"
+    },
+    {
+      "path": "include/libchdr/huffman.h",
+      "source": "deps/libchdr/include/libchdr/huffman.h",
+      "sha256": "722dee6b3886d75b4d7f174b24022b4b051d044c61861bdc7724e4ecb87ff339"
+    },
+    {
+      "path": "src/libchdr_bitstream.c",
+      "source": "deps/libchdr/src/libchdr_bitstream.c",
+      "sha256": "f915540b06a487edb3a717de0409c84ca0ae4eb8ee41aa659f67e94500487d0b"
+    },
+    {
+      "path": "src/libchdr_cdrom.c",
+      "source": "deps/libchdr/src/libchdr_cdrom.c",
+      "sha256": "d9d5f4f68bffc4439ea0e946b7a63d42befc60f55d2b621f0f50650fc6d4c99b"
+    },
+    {
+      "path": "src/libchdr_chd.c",
+      "source": "deps/libchdr/src/libchdr_chd.c",
+      "sha256": "0cf6df4c2ec505087d320cabfd2b6203fc4f876f7d2daf870eb980d51fe74036"
+    },
+    {
+      "path": "src/libchdr_flac.c",
+      "source": "deps/libchdr/src/libchdr_flac.c",
+      "sha256": "0fcd77de7b64fd4e40374682c2d2243a8908ac3b79d03d30d874c43fb32e6148"
+    },
+    {
+      "path": "src/libchdr_huffman.c",
+      "source": "deps/libchdr/src/libchdr_huffman.c",
+      "sha256": "a8921f40138237a7cc6821c6e6d7ffbe7cba6616067a6c4ebc0d18727311033d"
+    }
+  ]
+}

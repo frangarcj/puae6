@@ -1,0 +1,203 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -25,6 +25,42 @@
+ 			public DiscType DiscType { get; set; }
+ 			public string DiscName { get; set; }
+ 		}
++		private sealed class OwnedDiscAsset : DiscAsset, IOwnedDiscAsset
++		{
++			private bool _disposed;
++			public void Dispose() { if (!_disposed) { _disposed = true; DiscData.Dispose(); } }
++		}
++		private bool UsePuae6Chd(string path, string system, string forcedCoreName)
++		{
++			if (!".chd".EqualsIgnoreCase(Path.GetExtension(path)) || system != null && system != VSystemID.Raw.Amiga) return false;
++			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
++			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && preferred == CoreNames.PUAE6;
++		}
++		private IDiscAsset MountDiscAsset(string path, string system, string forcedCoreName)
++		{
++			bool own = UsePuae6Chd(path, system, forcedCoreName);
++			var disc = own ? DiscMountJob.MountPuae6Chd(path)
++				: DiscExtensions.CreateAnyType(path, str => DoLoadErrorCallback(str, system ?? "???", LoadErrorType.DiscError));
++			if (disc == null) return null;
++			try
++			{
++				DiscAsset asset = own ? new OwnedDiscAsset() : new DiscAsset();
++				asset.DiscData = disc; asset.DiscType = new DiscIdentifier(disc).DetectDiscType();
++				asset.DiscName = Path.GetFileNameWithoutExtension(path); return asset;
++			}
++			catch { if (own) disc.Dispose(); throw; }
++		}
++		private List<IDiscAsset> LoadXmlDiscAssets(XmlGame xml, string forcedCoreName)
++		{
++			var result = new List<IDiscAsset>();
++			try
++			{
++				foreach (var item in xml.Assets.Where(p => IsDiscForXML(xml.GI.System, p.Path)))
++					if (MountDiscAsset(item.Path, xml.GI.System, forcedCoreName) is { } disc) result.Add(disc);
++				return result;
++			}
++			catch { foreach (var asset in result.OfType<IOwnedDiscAsset>()) asset.Dispose(); throw; }
++		}
+ 		private class RomAsset : IRomAsset
+ 		{
+ 			public byte[] RomData { get; set; }
+@@ -331,7 +367,8 @@
+ 
+ 		private bool LoadDisc(string path, CoreComm nextComm, HawkFile file, string ext, string forcedCoreName, out IEmulator nextEmulator, out GameInfo game)
+ 		{
+-			var disc = InstantiateDiscFor(path);
++			var asset = MountDiscAsset(path, null, forcedCoreName);
++			var disc = asset?.DiscData;
+ 			if (disc == null)
+ 			{
+ 				game = null;
+@@ -339,24 +376,23 @@
+ 				return false;
+ 			}
+ 
+-			game = MakeGameFromDisc(disc, ext, Path.GetFileNameWithoutExtension(file.Name));
+-
+-			var cip = new CoreInventoryParameters(this)
+-			{
+-				Comm = nextComm,
+-				Game = game,
+-				Discs =
+-					{
+-						new DiscAsset
++			try
++			{
++				game = MakeGameFromDisc(disc, ext, Path.GetFileNameWithoutExtension(file.Name));
++
++				var cip = new CoreInventoryParameters(this)
++				{
++					Comm = nextComm,
++					Game = game,
++					Discs =
+ 						{
+-							DiscData = disc,
+-							DiscType = new DiscIdentifier(disc).DetectDiscType(),
+-							DiscName = Path.GetFileNameWithoutExtension(path),
++							asset,
+ 						},
+-					},
+-			};
+-			nextEmulator = MakeCoreFromCoreInventory(cip, forcedCoreName);
+-			return true;
++				};
++				nextEmulator = MakeCoreFromCoreInventory(cip, forcedCoreName);
++				return true;
++			}
++			catch { (asset as IOwnedDiscAsset)?.Dispose(); throw; }
+ 		}
+ 
+ 		private static readonly HashSet<string> C64M3UMediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+@@ -830,17 +866,16 @@
+ 			nextEmulator = null;
+ 			rom = null;
+ 			game = null;
++			bool puae6 = false;
++			List<IDiscAsset> discs = null;
+ 			try
+ 			{
+ 				xmlGame = XmlGame.Create(file); // if load fails, are we supposed to retry as a bsnes XML????????
+ 				game = xmlGame.GI;
+ 
+ 				var system = game.System;
+-				var cip = new CoreInventoryParameters(this)
+-				{
+-					Comm = nextComm,
+-					Game = game,
+-					Roms = xmlGame.Assets
++				puae6 = xmlGame.Assets.Any(p => UsePuae6Chd(p.Path, system, forcedCoreName));
++				var roms = xmlGame.Assets
+ 						.Where(pfd => !IsDiscForXML(system, pfd.Filename))
+ 						.Select(IRomAsset (pfd) => new RomAsset
+ 						{
+@@ -850,24 +885,25 @@
+ 							RomPath = pfd.Path,
+ 							Game = Database.GetGameInfo(pfd.FileData, Path.GetFileName(pfd.Filename)),
+ 						})
+-						.ToList(),
+-					Discs = xmlGame.Assets
+-						.Where(pfd => IsDiscForXML(system, pfd.Path))
+-						.Select(pfd => (p: pfd.Path, d: DiscExtensions.CreateAnyType(pfd.Path, str => DoLoadErrorCallback(str, system, LoadErrorType.DiscError))))
+-						.Where(a => a.d != null)
+-						.Select(IDiscAsset (a) => new DiscAsset
+-						{
+-							DiscData = a.d,
+-							DiscType = new DiscIdentifier(a.d).DetectDiscType(),
+-							DiscName = Path.GetFileNameWithoutExtension(a.p),
+-						})
+-						.ToList(),
++						.ToList();
++				discs = LoadXmlDiscAssets(xmlGame, forcedCoreName);
++				var cip = new CoreInventoryParameters(this)
++				{
++					Comm = nextComm,
++					Game = game,
++					Roms = roms,
++					Discs = discs,
+ 				};
+-				nextEmulator = MakeCoreFromCoreInventory(cip, forcedCoreName);
++				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? CoreNames.PUAE6 : forcedCoreName);
+ 				return true;
+ 			}
+ 			catch (Exception ex)
+ 			{
++				if (puae6)
++				{
++					if (discs != null) foreach (var asset in discs.OfType<IOwnedDiscAsset>()) asset.Dispose();
++					xmlGame = null; DispatchErrorMessage(ex, VSystemID.Raw.Amiga, path); return false;
++				}
+ 				var sysIDWas = game?.System ?? VSystemID.Raw.SNES;
+ 				xmlGame = null;
+ 				try
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscMountJob.cs
+@@ -12,6 +12,19 @@
+ 	public partial class DiscMountJob : DiscJob
+ 	{
+ 		private readonly string IN_FromPath;
++		private bool _puae6Chd;
++
++		public static Disc MountPuae6Chd(string path)
++		{
++			var job = new DiscMountJob(path, new DiscMountPolicy { CUE_PregapMode2_As_XA_Form2 = false }) { _puae6Chd = true };
++			try
++			{
++				job.Run();
++				if (job.OUT_ErrorLevel || job.OUT_SlowLoadAborted || job.OUT_Disc == null) throw new InvalidDataException(job.OUT_Log);
++				return job.OUT_Disc;
++			}
++			catch { job.OUT_Disc?.Dispose(); throw; }
++		}
+ 
+ 		private readonly DiscMountPolicy IN_DiscMountPolicy;
+ 
+@@ -195,7 +208,8 @@
+ 					OUT_Disc = CDI_Format.LoadCDIToDisc(IN_FromPath, IN_DiscMountPolicy);
+ 					break;
+ 				case ".chd":
+-					OUT_Disc = CHD_Format.LoadCHDToDisc(IN_FromPath, IN_DiscMountPolicy);
++					OUT_Disc = _puae6Chd ? CHD_Format.LoadPuae6Chd(IN_FromPath, IN_DiscMountPolicy)
++						: CHD_Format.LoadCHDToDisc(IN_FromPath, IN_DiscMountPolicy);
+ 					break;
+ 				case ".cue":
+ 					LoadCue(dir, File.ReadAllText(IN_FromPath));
+diff --git a/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs b/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
+--- a/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
++++ b/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
+@@ -31,6 +31,9 @@
+ 		string DiscName { get; set; }
+ 	}
+ 
++	/// <summary>Caller owns this lease until core construction succeeds; the core then disposes it.</summary>
++	public interface IOwnedDiscAsset : IDiscAsset, IDisposable { }
++
+ 	public class CoreLoadParameters<TSettings, TSyncS>
+ 	{
+ 		public CoreComm Comm { get; set; }

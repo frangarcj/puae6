@@ -1,0 +1,66 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -1705,7 +1705,7 @@
+ 
+ static const uae_char *kickstring = "exec.library";
+ 
+-static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum, int noalias)
++static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum, int noalias, bool cdtv_padding = false)
+ {
+ 	uae_char buffer[11];
+ 	int i, j, oldpos;
+@@ -1758,8 +1758,14 @@
+ 	}
+ #endif
+ #ifdef P6_PORTABLE
+-	// Complete A500 payloads (or exact version prefixes), never repair truncation.
+-	if (size <= 256 ? i != size :
++	// Only the verified ID22 view requests the original CDTV bank padding.
++	// Its 256 KiB dump is complete; the 512 KiB bank is not a second ROM.
++	if (cdtv_padding) {
++		if (!currprefs.cs_cdtvcd || currprefs.cs_cdtvcr || dochecksum || !noalias ||
++			size != ROM_SIZE_512 || i != ROM_SIZE_256 || zfile_size(f) != ROM_SIZE_256)
++			return 0;
++		kickstart_fix_checksum(mem, size);
++	} else if (size <= 256 ? i != size :
+ 		((i != ROM_SIZE_256 && i != ROM_SIZE_512) ||
+ 		(i != size && (noalias || i != size / 2))))
+ 		return 0;
+@@ -2117,7 +2123,35 @@
+ 	if (f != NULL) {
+ #ifdef P6_PORTABLE
+ 		const uae_s64 length = zfile_size(f);
+-		if (currprefs.cs_cd32cd) {
++		if (currprefs.cs_cdtvcd && !currprefs.cs_cdtvcr) {
++			// Canonical EXT256+MAIN256, checked independently by the bridge.
++			// Bounded views prevent the main ROM becoming extension padding.
++			if (length != ROM_SIZE_512) { rom_load_status = P6_ROM_UNSUPPORTED; goto err; }
++			struct zfile *ext = zfile_fopen_parent(f, _T("cdtv-ext"), 0, ROM_SIZE_256);
++			struct zfile *main = zfile_fopen_parent(f, _T("cdtv-main"), ROM_SIZE_256, ROM_SIZE_256);
++			bool loaded = false;
++			if (ext && main) {
++				struct romdata *erd = getromdatabyzfile(ext), *mrd = getromdatabyzfile(main);
++				if (erd && erd->id == 22 && mrd && mrd->id == 6) {
++					extendedkickmem_type = EXTENDED_ROM_CDTV;
++					extendedkickmem_bank.reserved_size = ROM_SIZE_512;
++					extendedkickmem_bank.label = _T("rom_f0");
++					extendedkickmem_bank.start = 0xf00000;
++					mapped_malloc(&extendedkickmem_bank);
++					if (extendedkickmem_bank.baseaddr) {
++						loaded = !zfile_fseek(ext, 0, SEEK_SET) &&
++							read_kickstart(ext, extendedkickmem_bank.baseaddr, ROM_SIZE_512, 0, 1, true) == ROM_SIZE_256 &&
++							!zfile_fseek(main, 0, SEEK_SET) && read_kickstart(main, kickmem_bank.baseaddr, ROM_SIZE_512, 1, 0) == ROM_SIZE_256;
++					} else rom_load_status = P6_ROM_NO_MEMORY;
++				}
++			}
++			if (ext) zfile_fclose(ext);
++			if (main) zfile_fclose(main);
++			if (!loaded) goto err;
++			extendedkickmem_bank.mask = ROM_SIZE_512 - 1;
++			kickmem_bank.mask = ROM_SIZE_256 - 1;
++			kickmem_bank.reserved_size = ROM_SIZE_256;
++		} else if (currprefs.cs_cd32cd) {
+ 			// Only the canonical stock CD32 pair, already verified by the bridge.
+ 			struct romdata *rd = length == 2 * ROM_SIZE_512 ? getromdatabyzfile(f) : NULL;
+ 			if (!rd || rd->id != 64) { rom_load_status = P6_ROM_UNSUPPORTED; goto err; }

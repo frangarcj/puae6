@@ -1,0 +1,47 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2493,20 +2493,27 @@
+         const uint64_t next = position + size;
+         if (!memcmp(buf, "ETN2", 4) || !memcmp(buf, "ETNF", 4) || !memcmp(buf, "TINF", 4)) {
+ #ifdef P6_NRG_METADATA
+-            if (memcmp(buf, "ETNF", 4) || dao_seen || cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+-            if (!size || size % 20 || size / 20 > 99) return invalid;
+-            candidate.layout = NrgLayout::EtnfCanonical150; candidate.tracks = size / 20;
++            const bool etn2 = !memcmp(buf, "ETN2", 4);
++            if ((!etn2 && memcmp(buf, "ETNF", 4)) || (etn2 && !ner5) || dao_seen || cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            // DiscSystem9b627578 NRG_format.cs:490..496 and libMirage
++            // a9d6a204 parser.c:373..383: ETN2 has64-bit byte extents,
++            // a32-bit packed sector and8 reserved bytes; no truncation.
++            const unsigned record_bytes = etn2 ? 32 : 20, extent_bytes = etn2 ? 8 : 4;
++            if (!size || size % record_bytes || size / record_bytes > 99) return invalid;
++            candidate.layout = etn2 ? NrgLayout::Etn2Canonical150 : NrgLayout::EtnfCanonical150;
++            candidate.tracks = size / record_bytes;
+             candidate.leadin = -150;
+             uint64_t packed = 0, physical = 0;
+             // VCDImager23f07386 image_nrg.c:_map/_write_tail drops pregaps.
+             // GNUlibcdio68ea374f nrg.c:ETNF restores150 per preceding track.
+             // Original nonstandard pregap lengths are absent, not recoverable.
+             for (unsigned n = 0; n < candidate.tracks; ++n) {
+-                if (!read(buf, 20)) return io_error;
++                if (!read(buf, record_bytes)) return io_error;
+                 auto &t = candidate.track[n];
+-                t.offset0 = t.offset1 = be(buf, 4); const auto length = be(buf + 4, 4), mode = be(buf + 8, 4);
+-                t.start_sector = uint32_t(be(buf + 12, 4));
+-                if (be(buf + 16, 4)) return Result::Unsupported;
++                t.offset0 = t.offset1 = be(buf, extent_bytes);
++                const auto length = be(buf + extent_bytes, extent_bytes), mode = be(buf + 2 * extent_bytes, 4);
++                t.start_sector = uint32_t(be(buf + 2 * extent_bytes + 4, 4));
++                if (be(buf + 2 * extent_bytes + 8, etn2 ? 8 : 4)) return Result::Unsupported;
+                 t.stride = mode == 0 || mode == 2 ? 2048 : mode == 3 ? 2336 : mode == 7 ? 2352 : 0;
+                 if (!t.stride) return Result::Unsupported;
+                 t.mode = uint8_t(mode); t.adr = 1; t.control = mode == 7 ? 0 : 4;
+@@ -2631,7 +2638,7 @@
+         } else if (!memcmp(buf, "END!", 4)) {
+             if (size || next != footer) return invalid;
+ #ifdef P6_NRG_METADATA
+-            if (candidate.layout == NrgLayout::EtnfCanonical150) {
++            if (candidate.layout != NrgLayout::Dao) {
+                 if (session_tracks != candidate.tracks) return invalid;
+                 *out = candidate; return Result::Ok;
+             }

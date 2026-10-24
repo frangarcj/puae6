@@ -1,0 +1,36 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7030,6 +7030,17 @@
+ 			refptr = 0x1ffffe;
+ 		}
+ 		refptr_p = refptr;
++		/* FMODE can call set_chipset_mode, which reapplies every saved register.
++		 * Publish the reset values first, or a nonzero previous FMODE restores the
++		 * old BPLCON0/3/4 and DIWHIGH over the values just reset above. */
++		bplcon0_saved = bplcon0;
++		bplcon1_saved = bplcon1;
++		bplcon2_saved = bplcon2;
++		bplcon3_saved = bplcon3;
++		bplcon4_saved = bplcon4;
++		ddfstrt_saved = ddfstrt;
++		ddfstop_saved = ddfstop;
++		diwhigh_saved = diwhigh;
+ 		FMODE(0);
+ 		CLXCON(0);
+ 		CLXCON2(0);
+@@ -7047,14 +7058,6 @@
+ 		maxhpos_lol = lol;
+ 		updateextblk();
+ 
+-		bplcon0_saved = bplcon0;
+-		bplcon1_saved = bplcon1;
+-		bplcon2_saved = bplcon2;
+-		bplcon3_saved = bplcon3;
+-		bplcon4_saved = bplcon4;
+-		ddfstrt_saved = ddfstrt;
+-		ddfstop_saved = ddfstop;
+-		diwhigh_saved = diwhigh;
+ 		fmode_saved = fmode;
+ 		beamcon0_saved = new_beamcon0;
+ 

@@ -1,0 +1,120 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -48,6 +48,9 @@
+ #ifdef CAPS
+ #include "caps/caps_win32.h"
+ #endif
++#ifdef P6_IPF
++#include "media/ipf_track.h"
++#endif
+ #ifdef SCP
+ #include "scp.h"
+ #endif
+@@ -197,7 +200,7 @@
+ 	uae_u16 tracktiming[MAXMFMBUF];
+ 	int multi_revolution;
+ 	int revolution_check;
+-	int fdirev, fditrack; /* FDI: which revolution of the buffered track the next decode is, and the track it counts for (-1: none): see drive_fill_bigbuf */
++	int fdirev, fditrack; /* FDI and IPF: which revolution of the buffered track the next decode is, and the track it counts for (-1: none): see drive_fill_bigbuf */
+ 	int skipoffset;
+ 	int mfmpos;
+ 	int indexoffset;
+@@ -228,6 +231,9 @@
+ #ifdef FDI2RAW
+ 	FDI *fdi;
+ #endif
++#ifdef P6_IPF
++	p6_ipf::Image *ipf; /* ADF_IPF: the index of the tracks of the image, made at insert and closed at eject (derived from the medium: a state loads the medium again) */
++#endif
+ 	int useturbo;
+ 	int floppybitcounter; /* number of bits left */
+ #ifdef CATWEASEL
+@@ -768,7 +774,25 @@
+ #ifdef DEBUG_DRIVE_ID
+ 	write_log (_T("drive_settype_id: DF%d: set to %s\n"), drv-floppy, drive_id_name(drv));
+ #endif
++}
++
++#ifdef P6_IPF
++/* One revolution of a track of the IPF in the drive into the track buffer (T58): its cells as the words of the MFM stream, the time of each group of eight, the length and, the
++ * first time, whether the track has cells that read differently at each revolution (multi_revolution: DISK_update asks for the next one at every index) and where the write splice
++ * is (skipoffset). False, and the buffer as it was, when the image has no such track or the decoder cannot read it. The weak cells are a function of the track and the revolution. */
++static bool ipf_decode_track(drive *drv, int track, int revolution, bool first)
++{
++	p6_ipf::Track info;
++	if (!drv->ipf || p6_ipf::decode(drv->ipf, track, revolution, drv->bigmfmbuf, MAXMFMBUF, drv->tracktiming, MAXMFMBUF, &info) != p6_ipf::kDecoded)
++		return false;
++	drv->tracklen = info.cells;
++	if (first) {
++		drv->multi_revolution = info.weak ? 1 : 0;
++		drv->skipoffset = info.splice;
++	}
++	return true;
+ }
++#endif
+ 
+ static void drive_image_free (drive *drv)
+ {
+@@ -777,6 +801,10 @@
+ 	case ADF_IPF:
+ #ifdef CAPS
+ 		caps_unloadimage(drv->drvnum);
++#endif
++#ifdef P6_IPF
++		p6_ipf::close(drv->ipf);
++		drv->ipf = NULL;
+ #endif
+ 		break;
+ 	case ADF_SCP:
+@@ -1554,6 +1582,22 @@
+ 		drive_fill_bigbuf(drv, side, fake ? -1 : 1);
+ 
+ 		return 1;
++#endif
++#ifdef P6_IPF
++	} else if (strncmp ((char*)buffer, "CAPS", 4) == 0) {
++
++		// IPF (T58): the file is indexed now (the checksum of every tag is checked, the bridge has already decoded every track once) and a track is decoded when the head comes to it.
++		drv->wrprot = true;
++		drv->ipf = p6_ipf::open_blob(zfile_getname(drv->diskfile), NULL);
++		if (!drv->ipf) {
++			zfile_fclose(drv->diskfile);
++			drv->diskfile = NULL;
++			return 0;
++		}
++		drv->fditrack = -1;
++		drv->fdirev = 0;
++		drv->num_tracks = p6_ipf::track_count(drv->ipf);
++		drv->filetype = ADF_IPF;
+ #endif
+ #ifdef CAPS
+ 	} else if (strncmp ((char*)buffer, "CAPS", 4) == 0) {
+@@ -2540,6 +2584,16 @@
+ 
+ #ifdef CAPS
+ 		caps_loadtrack(drv->bigmfmbuf, drv->tracktiming, drv->drvnum, tr, &drv->tracklen, &drv->multi_revolution, &drv->skipoffset, &drv->lastrev, retrytrack);
++#endif
++#ifdef P6_IPF
++		// As the FDI: the weak cells of a track read differently at each revolution, so a decode is a function of the track and of the revolution it is, which counts from 0 whenever
++		// another track is read and is carried by the state. A track the image does not have or the decoder cannot read leaves the length at 0: an unformatted one.
++		if (drv->fditrack != tr) {
++			drv->fditrack = tr;
++			drv->fdirev = 0;
++		}
++		drv->tracklen = 0;
++		ipf_decode_track(drv, tr, drv->fdirev, true);
+ #endif
+ 
+ 	} else if (drv->filetype == ADF_SCP) {
+@@ -4028,6 +4082,10 @@
+ 	case ADF_IPF:
+ #ifdef CAPS
+ 		caps_loadrevolution(drv->bigmfmbuf, drv->tracktiming, drv->drvnum, drv->cyl * 2 + side, &drv->tracklen, &drv->lastrev, drv->track_access_done);
++#endif
++#ifdef P6_IPF
++		drv->fdirev++;
++		ipf_decode_track(drv, drv->cyl * 2 + side, drv->fdirev, false);		// the revolution of the same track: same length, other weak cells
+ #endif
+ 		break;
+ 	case ADF_SCP:

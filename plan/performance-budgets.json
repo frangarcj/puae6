@@ -1,0 +1,424 @@
+{
+  "schema_version": 1,
+  "status": "ADVISORY",
+  "task": "T33",
+  "rule": "The goals below are the ones docs/04-validation.md proposed before any measurement. Ratifying a budget here means fixing the formula and the machine/profile it is compared on; it does NOT mean the numbers under `observed` are limits. They were taken on a Mac that someone was using (no dedicated runner, plan/runners.json), so no hard threshold derives from them: every entry is advisory until a quiet runner repeats the baseline with a small between-run dispersion.",
+  "goals": {
+    "p95_unit_fraction_max": 0.7,
+    "time_regression_investigate_above": 0.05,
+    "state_size_or_cost_regression_investigate_above": 0.1,
+    "steady_state_allocation_per_unit": "none in the bridge and the adapters (measured: see `allocation`)",
+    "note": "A regression sustained above these is investigated and approved by a person, with the run repeated to discard noise; a budget is never lowered in the change that breaks it."
+  },
+  "noise_policy": {
+    "noisy_wait_ratio_above": 1.05,
+    "load_average": "Consultar durante la medida; no decide por si sola.",
+    "minimum_repetitions": 5,
+    "stable_means": "between_run_cv <= 0.02, no noisy run and at least five repetitions IN THIS BASELINE. It describes these repetitions only and does not promote an entry: enforcement stays advisory until a dedicated runner (plan/runners.json has none) repeats the baseline and a person approves the thresholds"
+  },
+  "entries": {
+    "libretro/a1200-aga-planes8-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a1200-aga-planes8-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-release/a1200-aga-planes8-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-debug-runtime/a1200-aga-planes8-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime/a1200-aga-planes8-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-aga-planes8-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a1200-ks31-demo-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a1200-ks31-demo-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-release/a1200-ks31-demo-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-debug-runtime/a1200-ks31-demo-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime/a1200-ks31-demo-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a1200",
+      "standard": "pal",
+      "scenario": "a1200-ks31-demo-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a500-ks13-game-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a500-ks13-game-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-release/a500-ks13-game-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-debug-runtime/a500-ks13-game-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime/a500-ks13-game-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ks13-game-pal",
+      "kind": "kickstart",
+      "unit_ms": 20.0319,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a500-ocs-busy-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a500-ocs-busy-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-debug/a500-ocs-busy-pal": {
+      "runner": "waterbox-core-debug",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-release/a500-ocs-busy-pal": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-debug-runtime/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime-evict/a500-ocs-busy-pal": {
+      "runner": "waterbox-guest-release-runtime-evict",
+      "layer": "waterbox-guest",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-busy-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a500-ocs-copper-ntsc": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "ntsc",
+      "scenario": "a500-ocs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a500-ocs-copper-ntsc": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "ntsc",
+      "scenario": "a500-ocs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a500-ocs-tone4-pal": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-tone4-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a500-ocs-tone4-pal": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a500",
+      "standard": "pal",
+      "scenario": "a500-ocs-tone4-pal",
+      "kind": "microrom",
+      "unit_ms": 19.9679,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "libretro/a600-ecs-copper-ntsc": {
+      "runner": "libretro",
+      "layer": "libretro",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "native/a600-ecs-copper-ntsc": {
+      "runner": "native",
+      "layer": "native",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-core-release/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-core-release",
+      "layer": "waterbox-core",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-debug-runtime/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-guest-debug-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    },
+    "waterbox-guest-release-runtime/a600-ecs-copper-ntsc": {
+      "runner": "waterbox-guest-release-runtime",
+      "layer": "waterbox-guest",
+      "machine": "a600",
+      "standard": "ntsc",
+      "scenario": "a600-ecs-copper-ntsc",
+      "kind": "microrom",
+      "unit_ms": 16.6516,
+      "goal": {
+        "p95_unit_fraction_max": 0.7
+      },
+      "enforcement": "advisory"
+    }
+  }
+}

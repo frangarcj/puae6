@@ -1,0 +1,34 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -2413,6 +2413,30 @@
+ 
+ #ifdef P6_PORTABLE
+ #include "akiko_state.h"
++bool p6_akiko_media_set(bool inserted)
++{
++    // Explicit action at a quiescent boundary, not a restore or a new scheduler.
++    if (!akiko_transport_ready() || unitnum != 0 || !p6_cd::device_bound_disc()) return false;
++    if (p6_cd::device_inserted() == inserted) return true;
++    if (p6_cd::device_set_inserted(inserted) != p6_cd::Result::Ok) return false;
++    // No old request, sector or subchannel may become a delivery on the new medium.
++    requests.rdp = requests.wrp = 0;
++    sector_buffer_sector_1 = sector_buffer_sector_2 = -1;
++    memset(sector_buffer_info_1, 0, SECTOR_BUFFER_SIZE);
++    memset(sector_buffer_info_2, 0, SECTOR_BUFFER_SIZE);
++    memset(subcodebufferinuse, 0, sizeof subcodebufferinuse);
++    subcodebufferoffset = subcodebufferoffsetw = 0;
++    cdrom_current_sector = cdrom_data_offset = -1; cdrom_sector_counter = 0;
++    cdrom_pbx = 0; cdrom_playing = cdrom_paused = 0;
++    cdrom_audiostatus = cdrom_audiotimeout = 0;
++    last_play_pos = last_play_end = 0; qcode_valid = 0;
++    cdrom_toc_counter = -1; cdrom_toc_crc = 0;
++    memset(&cdrom_toc_cd_buffer, 0, sizeof cdrom_toc_cd_buffer);
++    memset(cdrom_toc_buffer, 0, sizeof cdrom_toc_buffer);
++    lastmediastate = cdrom_disk = inserted ? 1 : 0;
++    mediachanged = 1; // Normal handler owns response/IRQ timing; keep pending replies.
++    return true;
++}
+ bool p6_akiko_state_get(p6_akiko_state *s)
+ {
+     return s && p6_akiko_controller_get(&s->controller) && p6_akiko_transport_get(&s->transport) &&

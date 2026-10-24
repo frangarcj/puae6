@@ -1,0 +1,51 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -2162,6 +2162,10 @@
+ 		}
+ 		if (ch) {
+ 			set_audio ();
++#ifdef P6_PORTABLE
++			if (p6_sound_status() != P6_PCM_OK)
++				return;
++#endif
+ 			audio_activate ();
+ 		}
+ 	}
+@@ -2181,6 +2185,10 @@
+ 
+ void set_audio (void)
+ {
++#ifdef P6_PORTABLE
++	if (!p6_sound_validate_config(changed_prefs))
++		return;
++#endif
+ 	int old_mixed_size = mixed_stereo_size;
+ 	int sep, delay;
+ 	int ch;
+@@ -2221,6 +2229,10 @@
+ 	if (1) { // always reset if (1 || ch >= 0) {
+ 		if (currprefs.produce_sound >= 2) {
+ 			if (!init_audio ()) {
++#ifdef P6_PORTABLE
++				// The bridge reports the backend error; never negotiate prefs here.
++				return;
++#else
+ 				if (! sound_available) {
+ 					write_log (_T("Sound is not supported.\n"));
+ 				} else {
+@@ -2229,11 +2241,14 @@
+ 					/* So we don't do this every frame */
+ 					changed_prefs.produce_sound = 1;
+ 				}
++#endif
+ 			}
+ 		}
+ 		next_sample_evtime = scaled_sample_evtime;
+ 		last_cycles = get_cycles ();
++#ifndef P6_PORTABLE
+ 		compute_vsynctime ();
++#endif // P6 init_sound already sets the physical clock; no host pacing here.
+ 	} else {
+ 		sound_volume (0);
+ 	}

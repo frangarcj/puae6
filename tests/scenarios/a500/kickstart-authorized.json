@@ -1,0 +1,37 @@
+{
+  "scenario_id": "kickstart-authorized",
+  "status": "BLOCKED",
+  "reason": "No authorized Kickstart image is available: none is committed (commercial ROMs are never downloaded or stored here) and P6_KICKSTART_ROM is not set in this environment.",
+  "run": "P6_KICKSTART_ROM=/path/to/kickstart-1.3.rom python3 -m unittest tests.step.test_kickstart",
+  "profile": "deterministic-a500",
+  "firmware": {
+    "identity": "by CRC32/SHA-1 of the decoded image (manifests/config-invariants.json); the digest is recorded here when the owner of a legal copy supplies one",
+    "expected_size_bytes": [
+      262144,
+      524288
+    ]
+  },
+  "what_it_will_check": [
+    "p6_load accepts the image (checksum, size, header)",
+    "300 video units run without the CPU halting or the instance faulting",
+    "video is delivered every unit and the picture is not a single colour",
+    "two runs with the same seed produce identical unit reports"
+  ],
+  "unproven_until_it_runs": [
+    "Kickstart 1.2/1.3 boot to the insert-disk screen: shown once locally with a 1.3 image (local_run), not reproducible from the repository",
+    "the initial LOF state and whether the ROM leaves the long-field bit set (576-row episodes): measured once with a 1.3 image (local_run)",
+    "the display window and overscan the ROM uses inside the 756x574 raster: not measured",
+    "PAL/NTSC detection by the ROM, and the CIA/keyboard/floppy paths it exercises before the boot screen: not exercised",
+    "any compatibility of the micro-ROM results with a real ROM, including timings of DMA-heavy code: not extrapolated"
+  ],
+  "local_run": {
+    "date": "2026-10-01",
+    "image": "Kickstart v1.3 r34.5, 262144 bytes, supplied by the owner outside the repository; neither the image nor its hash is recorded here",
+    "result": "300 units ran without halting or faulting; every unit delivered a picture; the picture reaches the insert-disk screen (hand holding a disk labelled Workbench V1.3) and shows 6 distinct colours at unit 300; two runs with the same seed gave identical reports",
+    "measured": [
+      "active raster 756x574 in the first units and 756x576 from some unit before 298: this ROM leaves the long-field bit set",
+      "the PAL cadence reported at unit 1 is 3546895/70824 and at unit 298 is 3546895/71051 (the boot changes the frame length)"
+    ],
+    "not_covered": "one image, one seed, PAL, no disk inserted: nothing here claims Kickstart compatibility or a deterministic reload with a real ROM"
+  }
+}

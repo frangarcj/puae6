@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "scenario_id": "input-types-pal",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A500",
+    "video_standard": "PAL",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 524288,
+    "slow_ram_bytes": 524288
+  },
+  "firmware": [
+    "ab6fb5bb1d3d8b502214a8545125db27cfe39c97344d41ff281b5f383ceedb65"
+  ],
+  "media": [],
+  "program": null,
+  "units": 9,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 1,
+          "dx": 5,
+          "dy": 3
+        },
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 1,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 1,
+          "dx": 5,
+          "dy": 3
+        },
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 2,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "joystick",
+          "buttons": 5,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 4,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "joystick",
+          "buttons": 5,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 5,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 6,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 7,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    {
+      "unit": 8,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "mouse",
+          "buttons": 2,
+          "dx": -4,
+          "dy": 9
+        },
+        {
+          "type": "joystick",
+          "buttons": 6,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "probes": [],
+  "render": true,
+  "audio": true
+}

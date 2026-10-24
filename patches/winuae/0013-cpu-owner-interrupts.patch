@@ -1,0 +1,48 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -42,12 +42,16 @@
+ #include "inputdevice.h"
+ #include "audio.h"
+ #include "fpp.h"
++#ifndef P6_PORTABLE
+ #include "statusline.h"
++#endif
+ #ifdef WITH_PPC
+ #include "uae/ppc.h"
+ #endif
+ #include "cpuboard.h"
++#ifdef WITH_THREADED_CPU
+ #include "threaddep/thread.h"
++#endif
+ #ifdef WITH_X86
+ #include "x86.h"
+ #endif
+@@ -4326,6 +4330,7 @@
+ 
+ void safe_interrupt_set(int num, int id, bool i6)
+ {
++#ifndef P6_PORTABLE
+ 	if (!is_mainthread()) {
+ 		set_special_exter(SPCFLAG_UAEINT);
+ 		volatile uae_atomic *p;
+@@ -4336,6 +4341,9 @@
+ 		atomic_or(p, 1 << id);
+ 		atomic_or(&uae_interrupt, 1);
+ 	} else {
++#else
++	{ // P6 callers execute on the sole emulation thread.
++#endif
+ 		if (currprefs.cs_compatible == CP_DRACO || currprefs.cs_compatible == CP_CASABLANCA) {
+ #ifdef WITH_DRACO
+ 			draco_ext_interrupt(i6);
+@@ -6681,7 +6689,9 @@
+ 				savestate_check ();
+ 			if (input_record == INPREC_RECORD_START)
+ 				input_record = INPREC_RECORD_NORMAL;
++#ifndef P6_PORTABLE
+ 			statusline_clear();
++#endif
+ 		} else {
+ 			if (input_record == INPREC_RECORD_START) {
+ 				input_record = INPREC_RECORD_NORMAL;

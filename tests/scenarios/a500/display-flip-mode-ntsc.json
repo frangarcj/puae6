@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "scenario_id": "display-flip-mode-ntsc",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A500",
+    "video_standard": "NTSC",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 524288,
+    "slow_ram_bytes": 524288
+  },
+  "firmware": [
+    "8507e5da22252ce26ccfd350ac7e553e0d2e4bb7a89b1a6021c1301fd03c6be3"
+  ],
+  "media": [],
+  "program": null,
+  "units": 10,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "probes": [],
+  "render": true,
+  "audio": true
+}

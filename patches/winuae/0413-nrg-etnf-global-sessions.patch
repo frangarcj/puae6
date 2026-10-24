@@ -1,0 +1,112 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2453,7 +2453,8 @@
+     const auto invalid = Result::Invalid, io_error = Result::ReadError;
+     uint8_t cue_mask[99]{}, cue_group[99]{}, boundaries[99]{};
+     uint32_t cue_count = 0, dao_count = 0, sinf_count = 0, sinf[99]{};
+-    uint32_t session_tracks = 0;
++    uint32_t etn_count = 0, etn_first[99]{}, etn_tracks[99]{};
++    bool etn2_seen = false;
+ #else
+     if (curdir) my_setcurrentdir(ocurdir, NULL);
+     const uint64_t bytes = zfile_size(znrg);
+@@ -2500,20 +2501,20 @@
+         if (!memcmp(buf, "ETN2", 4) || !memcmp(buf, "ETNF", 4) || !memcmp(buf, "TINF", 4)) {
+ #ifdef P6_NRG_METADATA
+             const bool etn2 = !memcmp(buf, "ETN2", 4);
+-            if ((!etn2 && memcmp(buf, "ETNF", 4)) || (etn2 && !ner5) || dao_count || cue_count || sinf_count > 1 || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            if ((!etn2 && memcmp(buf, "ETNF", 4)) || (etn2 && !ner5) || dao_count || cue_count ||
++                (etn_count && (etn2 || etn2_seen)) || (!etn_count && sinf_count > 1)) return Result::Unsupported;
++            if (etn_count == 99 || (etn_count && sinf_count != etn_count)) return invalid;
++            etn2_seen = etn2;
+             // DiscSystem9b627578 NRG_format.cs:490..496 and libMirage
+             // a9d6a204 parser.c:373..383: ETN2 has64-bit byte extents,
+             // a32-bit packed sector and8 reserved bytes; no truncation.
+             const unsigned record_bytes = etn2 ? 32 : 20, extent_bytes = etn2 ? 8 : 4;
+-            if (!size || size % record_bytes || size / record_bytes > 99) return invalid;
++            if (!size || size % record_bytes || size / record_bytes > 99 - candidate.tracks) return invalid;
+             candidate.layout = etn2 ? NrgLayout::Etn2Canonical150 : NrgLayout::EtnfCanonical150;
+-            candidate.tracks = size / record_bytes;
+-            candidate.leadin = -150;
+-            uint64_t packed = 0, physical = 0;
+-            // VCDImager23f07386 image_nrg.c:_map/_write_tail drops pregaps.
+-            // GNUlibcdio68ea374f nrg.c:ETNF restores150 per preceding track.
+-            // Original nonstandard pregap lengths are absent, not recoverable.
+-            for (unsigned n = 0; n < candidate.tracks; ++n) {
++            const auto first = candidate.tracks, count = size / record_bytes;
++            etn_first[etn_count] = first; etn_tracks[etn_count++] = count;
++            candidate.tracks += count; candidate.leadin = -150;
++            for (unsigned n = first; n < candidate.tracks; ++n) {
+                 if (!read(buf, record_bytes)) return io_error;
+                 auto &t = candidate.track[n];
+                 t.offset0 = t.offset1 = be(buf, extent_bytes);
+@@ -2523,18 +2524,8 @@
+                 t.stride = mode == 0 || mode == 2 ? 2048 : mode == 3 ? 2336 : mode == 7 ? 2352 : 0;
+                 if (!t.stride) return Result::Unsupported;
+                 t.mode = uint8_t(mode); t.adr = 1; t.control = mode == 7 ? 0 : 4;
+-                // libMirage a9d6a2044b3c7bdf63ca44517ddd5738fd68c69e:
+-                // image-nrg/parser.c:835,853..883 uses each track's byte offset,
+-                // size/stride and a synthetic150 gap, independently of other strides.
+-                // libcdio68ea374f:745 enforces start_sector*stride == offset;
+-                // that homogeneous-only restriction is not the libMirage mapping.
+-                // Admit its compact subset: sectors and bytes accumulate separately.
+-                if (!length || length % t.stride || t.start_sector != packed || t.offset1 != physical ||
+-                    t.offset1 > directory || length > directory - t.offset1) return invalid;
+-                packed += length / t.stride; physical += length; t.end = physical;
+-                if (packed + uint64_t(n) * 150 > INT32_MAX - 150) return invalid;
+-                t.index1 = int32_t(t.start_sector + uint64_t(n) * 150); t.index0 = t.index1 - 150;
+-                candidate.leadout = int32_t(packed + uint64_t(n) * 150);
++                if (!length || length % t.stride || t.offset1 > directory || length > directory - t.offset1) return invalid;
++                t.end = t.offset1 + length;
+             }
+ #else
+             if (memcmp(buf, "ETN2", 4) || gotsession || size % 32 || size / 32 > 99) return invalid;
+@@ -2555,11 +2546,10 @@
+             if (size != 4) return invalid;
+             if (!read(buf, 4)) return io_error;
+ #ifdef P6_NRG_METADATA
+-            if (candidate.layout != NrgLayout::Dao && sinf_count) return Result::Unsupported;
++            if (candidate.layout != NrgLayout::Dao && sinf_count >= etn_count) return Result::Unsupported;
+             const auto count = uint32_t(be(buf, 4));
+             if (!count || count > 99 || sinf_count == 99) return invalid;
+             sinf[sinf_count++] = count;
+-            if (sinf_count == 1) session_tracks = count;
+ #else
+             if (!cdu->tracks) { cdu->tracks = be(buf, 4); if (cdu->tracks > 99) return invalid; cdu->toc[cdu->tracks].address = lastlba; }
+ #endif
+@@ -2660,7 +2650,33 @@
+             if (size || next != footer) return invalid;
+ #ifdef P6_NRG_METADATA
+             if (candidate.layout != NrgLayout::Dao) {
+-                if (session_tracks != candidate.tracks) return invalid;
++                if (sinf_count != etn_count) return etn_count > 1 ? Result::Unsupported : invalid;
++                const bool global = etn_count > 1;
++                if (global) { candidate.layout = NrgLayout::EtnfGlobalCanonical150; candidate.sessions = etn_count; }
++                uint64_t packed = 0, physical = 0, previous_end = 0;
++                for (unsigned group = 0; group < etn_count; ++group) {
++                    const auto first = etn_first[group], count = etn_tracks[group];
++                    if (sinf[group] != count) return invalid;
++                    auto &session = candidate.session[group].info;
++                    for (unsigned n = first; n < first + count; ++n) {
++                        auto &t = candidate.track[n];
++                        const auto sectors = (t.end - t.offset1) / t.stride;
++                        if (t.offset1 != physical || (!global && t.start_sector != packed)) return invalid;
++                        const uint64_t index1 = global ? t.start_sector : packed + uint64_t(n) * 150;
++                        if ((!n && index1) || index1 + sectors > INT32_MAX - 150 ||
++                            (n && (n == first ? index1 < previous_end + 150 : index1 != previous_end + 150))) return invalid;
++                        t.index1 = int32_t(index1); t.index0 = t.index1 - 150;
++                        packed += sectors; physical = t.end; previous_end = index1 + sectors;
++                        if (global && (t.mode == 2 || t.mode == 3)) session.format = 0x20;
++                    }
++                    if (global) {
++                        // CDI2Nero f43561d: ETNF copies global CDI start_lba and omits stored pregaps.
++                        // Canonical150: this is a virtual boundary, not recovered physical CUE0.
++                        session.first_track = uint8_t(first + 1); session.last_track = uint8_t(first + count);
++                        session.cue0 = candidate.track[first].index0; session.a2 = uint32_t(previous_end);
++                    }
++                }
++                candidate.leadout = int32_t(previous_end);
+                 *out = candidate; return Result::Ok;
+             }
+             if (!dao_count || !cue_count || cue_count != dao_count) return invalid;

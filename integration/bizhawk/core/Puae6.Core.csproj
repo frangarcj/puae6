@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!-- T20b: the PUAE6 core for BizHawk, compiled against the MacHawk sources captured in references/machawk (pinned by
+	     references/machawk.manifest.json), the way MacHawk's own harnesses compile theirs: no BizHawk or MacHawk checkout is touched.
+	     tools/build_waterbox.py (option core) builds it and passes the guest's SHA-256 from the receipt of the recipe. -->
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>annotations</Nullable>
+		<LangVersion>12.0</LangVersion>
+		<RootNamespace>Puae6</RootNamespace>
+		<AssemblyName>Puae6.Core</AssemblyName>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<NoWarn>$(NoWarn);CS1591;CS8981;CA1416;CS9191;SYSLIB0050;SYSLIB0051</NoWarn>
+		<MacHawk>$(MSBuildThisFileDirectory)../../../references/machawk/src/</MacHawk>
+		<!-- SHA-256 of the puae6.wbx that this build of the wrapper belongs with: the receipt of the recipe has it, tools/build_waterbox.py passes it. -->
+		<Puae6GuestSha256 Condition="'$(Puae6GuestSha256)' == ''"></Puae6GuestSha256>
+	</PropertyGroup>
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>Puae6GuestSha256</_Parameter1>
+			<_Parameter2>$(Puae6GuestSha256)</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+		<PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Include="Puae6/**/*.cs" />
+		<Compile Include="Support/**/*.cs" />
+
+		<!-- BizHawk.Common: everything but the version info, whose generated half comes from an analyzer that the capture does not hold -->
+		<Compile Include="$(MacHawk)BizHawk.Common/**/*.cs" Exclude="$(MacHawk)BizHawk.Common/VersionInfo.cs" LinkBase="BizHawk.Common" />
+		<Compile Include="$(MacHawk)BizHawk.BizInvoke/*.cs" LinkBase="BizHawk.BizInvoke" />
+		<Compile Include="$(MacHawk)BizHawk.Emulation.Common/**/*.cs" LinkBase="BizHawk.Emulation.Common" />
+		<Compile Include="$(MacHawk)BizHawk.Emulation.Cores/CoreNames.cs" LinkBase="BizHawk.Emulation.Cores" />
+		<Compile Include="$(MacHawk)BizHawk.Emulation.Cores/Waterbox/WaterboxHost.cs;$(MacHawk)BizHawk.Emulation.Cores/Waterbox/WaterboxHostNative.cs;$(MacHawk)BizHawk.Emulation.Cores/Waterbox/WaterboxHostPlatform.cs;$(MacHawk)BizHawk.Emulation.Cores/Waterbox/LibWaterboxCore.cs;$(MacHawk)BizHawk.Emulation.Cores/Waterbox/WaterboxMemoryDomain.cs" LinkBase="BizHawk.Emulation.Cores/Waterbox" />
+		<Using Include="System.Object" Alias="Lock" />
+	</ItemGroup>
+</Project>

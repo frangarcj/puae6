@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "tag": "puae6-libretro-test",
+  "id": "sha256:f3f20d9cd27d55d82524115ec602c0fbdd0a529235744bf9c887212418dd0ddf",
+  "platform": "linux/arm64",
+  "provenance": "Rebuilt on 2026-10-23 because the prior local image ID was absent. Unchanged Dockerfile SHA256 d236bf92d9b4fdfc4f0823cc0a80b424243582db2efc2d5aadee7dfaec7ae93d and explicit ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac base. Verified offline by ID: Linux ARM64, Ubuntu24.04.5, RetroArch1.18.0 Gitb2ceb50, Clang18.1.3, CMake3.28.3, Ninja1.11.1, Python3.12.3; UDP loopback succeeds. Provisioning is not an emulator test result. Tests never build, download or replace the image."
+}

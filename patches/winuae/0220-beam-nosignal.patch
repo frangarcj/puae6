@@ -1,0 +1,48 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13192,7 +13192,19 @@
+ //  (and had written none of them) ran check_hsyncs_programmed in every line from then on, with its extra update_agnus_vb calls: the call at line 0 still found the vertical blank start
+ //  line set and copied linear_vpos_visible into current_linear_vpos_visible one line late (288 where the machine that never loaded had 287). On an OCS Agnus the writes are ignored and
+ //  the flags stay as they were.
+-#define P6_BEAM_WORDS 67
++//  67 nosignal_cnt  68 nosignal_status  69 nosignal_trigger  70 lines_after_beamcon_change: the monitor's "no signal" countdown and the request for it. A change of the programmed beam
++//  (the Kickstart 2.05 switches the display on by writing BEAMCON0 and its companions) makes handle_nosignal blank the display for two vertical blanks (getlinetype answers
++//  LINETYPE_BLANK while the status is not zero) and nothing in a body or a register says so: a machine that loaded a state taken inside the two frames drew the picture of the
++//  display switched on one or two units before the original, which was still blank. The trigger is pending between a write that sets it and the next vertical blank. The fourth is
++//  the number of vertical blanks in which check_exthblank still runs init_beamcon0 again after a change of BEAMCON0: restore_custom runs init_beamcon0 and starts it at 5.
++//  71 syncs_stopped: the beam counters are stopped (BPLCON0 bit 1, ERSY, seen at the end of a line) and the line is paced by fakehsync_handler, whose event the scheduler body carries; the
++//  Kickstart 2.05 does it for a few frames while it sets the display up. It is set at the end of a line, never by a register restore, so a machine that loaded a state taken in it ran on
++//  with real hsyncs (a line more or less per unit), and one that already stood in the state (the same image, units on) kept its own.
++//  72-75 rga_pipe[0..3].bltadd and 76-79 rga_pipe[0..3].conflictaddr: what the slots of the DMA pipeline hold besides what save_custom_slots writes. A blit D write in flight sits in a
++//  slot, and the pointer is advanced by the slot's bltadd (+2, or -2 in descending mode) when the write is done: a state loaded with the field at zero wrote the whole blit over one
++//  word (Kickstart 2.05, unit 194: a 35 x 145 blit of the screen, whose destination pointer never advanced). conflictaddr is the address the Copper leaves in the blitter's pointer
++//  after their conflict. The fields are in the four slots, live or not, as the pipeline has them: save_custom_slots does not write them, so CHSL has to come before BEAM.
++#define P6_BEAM_WORDS 80
+ bool p6_custom_beam_get(int32_t *out, unsigned n)
+ {
+ 	if (!out || n != P6_BEAM_WORDS) return false;
+@@ -13208,7 +13220,10 @@
+ 		agnus_vb_active_start_line, agnus_vb_end_line, agnus_pvb_end_line, agnus_vb_active_end_line, agnus_equzone, agnus_hsync, agnus_vsync, agnus_ve,
+ 		agnus_p_ve, agnus_bsvb, agnus_bsvb_prev, agnus_equdis,
+ 		plffirstline, plflastline, need_vdiw_check, interlace_seen,
+-		programmed_register_accessed_h, programmed_register_accessed_v
++		programmed_register_accessed_h, programmed_register_accessed_v,
++		nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped,
++		rga_pipe[0].bltadd, rga_pipe[1].bltadd, rga_pipe[2].bltadd, rga_pipe[3].bltadd,
++		int32_t(rga_pipe[0].conflictaddr), int32_t(rga_pipe[1].conflictaddr), int32_t(rga_pipe[2].conflictaddr), int32_t(rga_pipe[3].conflictaddr)
+ 	};
+ 	static_assert(sizeof head / sizeof head[0] == P6_BEAM_WORDS, "review the beam word list");
+ 	memcpy(out, head, sizeof head);
+@@ -13240,6 +13255,11 @@
+ 	for (unsigned i = 0; i < sizeof latches / sizeof latches[0]; ++i) *latches[i] = in[41 + i] != 0;
+ 	plffirstline = in[61]; plflastline = in[62]; need_vdiw_check = in[63] != 0; interlace_seen = in[64];
+ 	programmed_register_accessed_h = in[65] != 0; programmed_register_accessed_v = in[66] != 0;
++	nosignal_cnt = in[67]; nosignal_status = in[68]; nosignal_trigger = in[69] != 0; lines_after_beamcon_change = in[70]; syncs_stopped = in[71] != 0;
++	for (int i = 0; i < RGA_SLOT_TOTAL + 1; ++i) {
++		rga_pipe[i].bltadd = uae_s16(in[72 + i]);
++		rga_pipe[i].conflictaddr = uae_u32(in[76 + i]);
++	}
+ 	setmaxhpos();
+ 	return true;
+ }

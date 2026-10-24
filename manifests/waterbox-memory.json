@@ -1,0 +1,2401 @@
+{
+  "schema_version": 1,
+  "guest": "puae6.wbx",
+  "purpose": "Heap budgets of puae6.wbx and the classification of its memory (T19b), with the measurements they come from (`measured` for the A500, `measured_a600` for the A600, `measured_a1200` for the A1200: the three fit the same budgets, T23e, T24f; `measured_<machine>_<memory>` for a configuration with other memory, T49, whose mmap budget follows `memory_budget`). The layout is what the harness and the BizHawk wrapper give Waterbox when they create the sandbox. The classification follows the table of docs/03-waterbox.md: nothing is excluded from the snapshot, every mutable byte is captured by default.",
+  "layout": {
+    "sbrk": 4194304,
+    "sealed": 16777216,
+    "invisible": 16384,
+    "plain": 16384,
+    "mmap": 16777216
+  },
+  "budget_basis": {
+    "rule": "A budget is at least twice the largest committed size measured (sbrk, mmap) or the structural worst case (sealed), in whole MiB; heaps the guest does not use stay at one 16 KiB host page, the smallest the runtime accepts. tests/waterbox-smoke/test_puae6.py fails when a measurement exceeds half of its budget, so a change that grows the machine has to revisit this file.",
+    "sbrk": "musl's brk heap: only small allocations land here (measured 16 KiB). 4 MiB leaves room for the bridge and a growing option set.",
+    "sealed": "The firmware and every medium are copied here during p6w_init and frozen by the seal: a 512 KiB Kickstart plus P6_MAX_MEDIA (16) ADF images of 901120 bytes is 14 942 208 bytes; 16 MiB holds it. The micro-ROM fixture uses 256 KiB.",
+    "invisible": "Nothing calls alloc_invisible: no state is excluded from the snapshot. The smallest heap the runtime accepts.",
+    "plain": "Nothing calls alloc_plain: everything mutable is ordinary malloc or static data, which Waterbox captures. The smallest heap the runtime accepts.",
+    "mmap": "Large malloc blocks, Chip and Slow RAM among them (measured 5.3 MiB on the A500, 4.8 MiB on the A600, whose 1 MiB of Chip RAM replaces 512 KiB of Chip and 512 KiB of Slow RAM and which has no Slow RAM block to allocate, and 5.8 MiB on the A1200, whose 2 MiB of Chip RAM and AGA tables are the largest). 16 MiB is 2.7 times the largest (A1200, T24f: twice 5.8 MiB is 11.6 MiB, so the half rule holds with 4.4 MiB of room): one budget serves the three machines. The AGA code (+9.8 MB, T24b) lives in the elf region, which is not a budgeted heap."
+  },
+  "memory_budget": {
+    "rule": "mmap heap of a configuration = layout.mmap + mmap_extra_factor * extra memory, where the extra memory is the Fast RAM in full plus the Chip and Slow RAM above what the machine comes with (A500 512 KiB Chip + 512 KiB Slow, A600 1 MiB Chip, A1200 2 MiB Chip). The other heaps do not change. A configuration with no extra memory keeps the base layout, so the snapshot, the identity and every measurement of the stock machines are what they were.",
+    "mmap_extra_factor": 2,
+    "z3": "A4030 Z3Memory=MB1/2/4/8/16/32/64/128/256/512 adds the requested MiB in full as extra memory and twice that capacity to the mmap budget; None adds zero. T55c5 measures and asserts live committed memory for every capacity with the same guest as WB03; historical measured* rows are re-recorded together for the accumulated candidate.",
+    "why": "The base rule of budget_basis is a budget of at least twice what was measured. Fast RAM is allocated at load from the mmap heap (an 8 MiB board added 8 396 800 bytes to the committed size of the A1200, board and bookkeeping), so the budget grows by twice the memory asked for and the half rule keeps holding: A1200 + 8 MiB Fast committed 14 499 840 of a 33 554 432 budget, the A1200 with 1.5 MiB Slow and 8 MiB Fast 16 613 376 of 36 700 160. The wrapper computes the same budget (Puae6Core.Heaps(settings)) and tests/waterbox-state compares the two.",
+    "dirty_pages": "A board is cleared at power-on without writing the zeros it already holds (patch 0114): its pages stay clean until the guest writes them, so the snapshot after 60 units of an A1200 with 8 MiB of Fast RAM is 10 309 076 bytes against 10 186 196 without the board (before the patch it was 18 714 068, every page of the board dirty).",
+    "floppy_writes_overlay_kib": 4096,
+    "floppy_writes": "A core created with the sync setting FloppyWrites (P6_CONFIG_FLOPPY_WRITES, T28) reserves the write overlay at load: a pool of 3520 sectors and 16 raw tracks, about 2 MiB, allocated from the mmap heap. The wrapper counts it as 4096 KiB of extra memory (Puae6Core.FloppyOverlayKiB), so the mmap heap of such a core is layout.mmap + mmap_extra_factor * 4096 KiB more than the base, plus whatever extra memory the machine asks for. measured_a500_floppy_writes_full is the worst case: a guest that rewrites every track of both disks (tests/waterbox-media/wb12.py, 3520 sectors) committed 3.9 MiB more in the mmap heap than the stock machine (9 502 720 against 5 586 944 bytes) and its snapshot is 1.9 MiB bigger; the budget is more than twice the committed size.",
+    "hard_file_copies": 2,
+    "hard_file_allocator_kib": 64,
+    "hard_file": "A hard file (P6_MEDIA_HDF, T29d) is extra memory of the mmap heap like Fast RAM: the blob store keeps the base (the size of the image) and reserves beside it, at p6_load, the room for the overlay of the guest's writes (the size of the image again, 4 KiB chunks made on first write) and its dirty bitmap, so the heap asks for hard_file_copies x the image + the bitmap (1 bit per 4 KiB chunk) + hard_file_allocator_kib KiB, which is HardFileHeapKiB in the smoke (the counterpart of MacHawk's HardDiskHeapKB, which has one copy: its writes go in place) and counts twice in the budget like all extra memory. The image is NOT copied into the sealed heap (p6w_init gives p6_load the host's buffer), so the sealed heap stays at the firmware. Measured with the micro-ROM that writes a chunk a unit (tests/hdf/hdf_rom.py, loop_program): measured_a500_hdf2048 (2 MiB image) commits 9 814 016 bytes of mmap against 5 586 944 of the A500 without a hard file (+4 227 072 = twice the image + 32 768) and measured_a500_hdf32768 (32 MiB) 72 728 576 (twice the image + 5 619 712): the half rule holds by construction (2 x (2 I + C) <= 16 MiB + 4 I + 0.12 MiB as long as C, the machine, is under 8 MiB). What a snapshot carries does not follow the image: 9 797 876 bytes at unit 60 with 2 MiB and 9 859 324 with 32 MiB (the base is allocated before the seal, so it is the baseline of the snapshot, and only the dirty pages of the overlay and of the machine travel); the plain A500 (the boot micro-ROM, no hard file) is 9 203 892."
+  },
+  "classification": [
+    {
+      "region": "image code and read-only data (RX and R segments of the ELF)",
+      "category": "Inmutable",
+      "treatment": "Never written: the runtime maps them read-only, the snapshot does not carry them."
+    },
+    {
+      "region": "image writable data and bss (RW segments of the ELF: the engine's globals, its tables, the picture and audio buffers)",
+      "category": "Estado emulado",
+      "treatment": "Captured by default as dirty pages. It mixes emulated state, algorithm state (Paula's filter, the blitter and drawing history) and derived caches; none of it is split out or excluded until a poison test exists (see candidates_for_exclusion)."
+    },
+    {
+      "region": "sbrk heap (malloc of small blocks)",
+      "category": "Estado emulado",
+      "treatment": "Captured."
+    },
+    {
+      "region": "mmap heap (malloc of large blocks: Chip RAM, Slow RAM, engine tables)",
+      "category": "Estado emulado",
+      "treatment": "Captured."
+    },
+    {
+      "region": "sealed heap (copies of the firmware and of the media)",
+      "category": "Inmutable",
+      "treatment": "Filled by p6w_init before the seal, read-only after it; the firmware and the ADF images are never patched. The bridge keeps pointers into it, never into host memory."
+    },
+    {
+      "region": "invisible heap",
+      "category": "Estado emulado",
+      "treatment": "Empty: nothing is allocated from it, so nothing is excluded from the snapshot."
+    },
+    {
+      "region": "plain heap",
+      "category": "Estado emulado",
+      "treatment": "Empty: nothing is allocated from it."
+    },
+    {
+      "region": "main and alternate thread stacks (runtime-owned, 1 MiB each)",
+      "category": "Output de una llamada",
+      "treatment": "Empty at a unit boundary: p6_run_frame returns through the stack, there is no coroutine or continuation. The runtime does not put them in the snapshot."
+    },
+    {
+      "region": "host buffers of a call (p6w_init, firmware and media as given, p6_input, p6w_frame)",
+      "category": "Output de una llamada",
+      "treatment": "Host memory valid only during the call; the guest copies what it keeps. The harness overwrites them with 0xA5 after every call and the machine must not notice."
+    },
+    {
+      "region": "video and audio returned by p6w_frame_advance",
+      "category": "Output de una llamada",
+      "treatment": "Guest memory (the engine's picture and the bridge's audio queue), valid until the next call; the host reads it right after the call and keeps no pointer. Captured like the rest of the image."
+    },
+    {
+      "region": "host (C#) state",
+      "category": "Estado C#",
+      "treatment": "None in this harness. The BizHawk wrapper (T20) inventories its own: buttons, selected disk, latched input."
+    }
+  ],
+  "candidates_for_exclusion": [
+    {
+      "symbol": "pixels",
+      "dirty_pages_first_unit_pal": 1028,
+      "dirty_pages_first_unit_ntsc": 868,
+      "why": "Causal weave history: the renderer overwrites only the current field. T36 poisons every byte after restore with 0xA5 and 0x5A: the just-drawn foreground RGB is correct but the previous field still contains the poison, immediately after both even and odd restore points. This is visible inside the picture, not just in unused X bytes or margins.",
+      "decision": "retain captured",
+      "needed": "T36 rejects exclusion. tests/waterbox-poison/test_poison.py checks both fields, resolution/LACE changes, OCS/ECS/AGA, PAL/NTSC and same/new sandbox/process continuation. A future exclusion needs an exact replacement for the retained field, not two warmup fields after a load."
+    },
+    {
+      "symbol": "cpufunctbl, cpufunctbl_noret, mem_banks, loop_mode_table, cpudatatbl",
+      "dirty_pages_first_unit_pal_per_symbol": [
+        129,
+        129,
+        129,
+        93,
+        93
+      ],
+      "why": "Clean at seal, dirty in the first unit. Opcode dispatch/metadata are derived, but build_cpufunctbl is not a pure rebuild: it changes CPU flags and calls set_cpu_caches(true), invalidating live prefetch/cache addresses. mem_banks is live mapping state (ROM overlay/expansion), not solely a function of the initial preset.",
+      "decision": "retain captured",
+      "needed": "T36 retains these tables. Moving the whole reset head before seal also advances hardware cycles, applies/clears queued boot media and sets session.started, changing reset/poke semantics before the first unit (bridge/frame_step.cpp, media.cpp, lifecycle.cpp). Exclusion needs a separately proved pure table rebuild; neither existing path is safe to call after an arbitrary snapshot."
+    }
+  ],
+  "snapshot_policy": {
+    "decision": "T36 accepts the measured captured baseline; no guest memory is newly excluded and no size or latency improvement is claimed.",
+    "baseline": "The sixteen measured* profiles below remain the budget authority for this unchanged guest/runtime. tests/waterbox-poison additionally measures the public display fixtures at units 12/13 (eight future units, five save/load timings per point); tests.bench.test_wb12 measures frame/snapshot p50/p95 and heaps through both the guest ABI and the real BizHawk core. Timings are advisory on this shared Mac.",
+    "physical_pages": "Counts are intersections of dirty 4 KiB logical pages with symbol ranges, not bytes written by the symbol. A dirty 16 KiB group may overlap two symbols: do not add their page counts. The PAL pixel range intersects 257 dirty physical groups (NTSC 217); the entire candidate's groups are checked uniformly captured RW before poison. No static subrange is reclassified in place.",
+    "other_principal_regions": {
+      "currprefs_and_changed_prefs": "Each occupies 11 457 712 bytes but only 32/11 intersecting pages are dirty after the first public PAL unit. Size in the ELF is not snapshot cost; preferences and pending changes stay captured.",
+      "audio_channel_and_audio_stream": "20/37 intersecting dirty pages in the first PAL unit; phase, filters and queued samples stay captured. WB05 repeats Paula option/restore tests.",
+      "floppy_and_dfxhistory": "55/4 intersecting dirty pages in the first PAL unit; DMA/track and drive history stay captured. WB05 repeats motor/DMA/pending swap and a hundred restores; WB09 repeats movie seeks/branches.",
+      "xcolors_and_rgb_tables": "Derived from preferences but share two 16 KiB groups with other globals, both dirty after the first unit. Excluding whole groups would discard neighbours; relocating and adding a rebuild path for about 19 KiB of tables is not adopted without its own poison proof. No inferred safe exclusion."
+    },
+    "proof": "python3 tools/check.py --check WB03 --task T36 (poison and full future snapshot digests), plus WB04, WB05, WB08, WB09, WB12 and WB14. Invisible/plain heaps remain empty; existing runtime bookkeeping and empty boundary stacks retain their runtime treatment.",
+    "runtime_limit": "The local macOS 26.7.1 allocator failure can also occur while loading a snapshot: SIGBUS in libsystem_malloc's _xzm_xzone_malloc_freelist_outlined, called by waterboxhost::bin::verify_magic (a host allocation before checking the snapshot tag). The isolated case and complete gate pass on repetition; this does not fix the runtime/host failure. Tests fail on a crash without automatic retry; T41 must account for the runtime limitation in docs/07-machawk.md."
+  },
+  "measured": {
+    "fixture": {
+      "machine": "A500",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9566604
+    }
+  },
+  "measured_a600": {
+    "fixture": {
+      "machine": "A600",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9550220
+    }
+  },
+  "measured_a1200": {
+    "fixture": {
+      "machine": "A1200",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8441856,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8441856,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 10615180
+    }
+  },
+  "measured_a1200_fast8192": {
+    "fixture": {
+      "machine": "A1200",
+      "fast_kib": 8192,
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8540160,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8540160,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 55692,
+      "after_last_unit": 10721676
+    }
+  },
+  "measured_a600_chip2048_fast8192": {
+    "fixture": {
+      "machine": "A600",
+      "chip_kib": 2048,
+      "fast_kib": 8192,
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8523776,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8523776,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 14499840,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 56716,
+      "after_last_unit": 10706316
+    }
+  },
+  "measured_a1200_slow1536_fast8192": {
+    "fixture": {
+      "machine": "A1200",
+      "slow_kib": 1536,
+      "fast_kib": 8192,
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 16613376,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8540160,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 16613376,
+        "dirty_bytes": 4227072,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8540160,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 16613376,
+        "dirty_bytes": 4227072,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 57228,
+      "after_last_unit": 12836748
+    }
+  },
+  "measured_a500_fast2048": {
+    "fixture": {
+      "machine": "A500",
+      "fast_kib": 2048,
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 7700480,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8523776,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 7700480,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8523776,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 7700480,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 49548,
+      "after_last_unit": 9666956
+    }
+  },
+  "measured_a500_floppy_writes_full": {
+    "fixture": {
+      "machine": "A500",
+      "floppy_writes": true,
+      "drives": 2,
+      "media": [
+        "A",
+        "B"
+      ],
+      "firmware": "tests/waterbox-media/wb12.py",
+      "firmware_sha256": "b345d6af6486a714fdd513052a8d439e300f23f85f03c0ac812927f855420093",
+      "firmware_bytes": 262144,
+      "units": 5600,
+      "note": "the adversarial writer: every track of both disks is rewritten, 3520 sectors, the whole pool of the overlay (WB12)"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8458240,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 32768,
+        "dirty_bytes": 32768,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8458240,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 32768,
+        "dirty_bytes": 32768,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 2064384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9502720,
+        "dirty_bytes": 2932736,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 51596,
+      "after_last_unit": 11471244
+    }
+  },
+  "measured_a1200_fpu68882": {
+    "fixture": {
+      "machine": "A1200",
+      "fpu_model": 68882,
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8441856,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8441856,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 6094848,
+        "dirty_bytes": 2113536,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 10615180
+    }
+  },
+  "measured_a500_hdf2048": {
+    "fixture": {
+      "machine": "A500",
+      "hard_file_bytes": [
+        2097152
+      ],
+      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 81920,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9814016,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8654848,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9814016,
+        "dirty_bytes": 1097728,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8654848,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 9814016,
+        "dirty_bytes": 1343488,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 51660,
+      "after_last_unit": 10176972
+    }
+  },
+  "measured_a500_hdf32768": {
+    "fixture": {
+      "machine": "A500",
+      "hard_file_bytes": [
+        33554432
+      ],
+      "firmware_sha256": "74ed176f3f70af7ff8535709f3b8c7b21be73a188b764278769125f61101a5ad",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 81920,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 72728576,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8654848,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 72728576,
+        "dirty_bytes": 1097728,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8654848,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 163840,
+        "dirty_bytes": 131072,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 72728576,
+        "dirty_bytes": 1343488,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 113108,
+      "after_last_unit": 10238420
+    }
+  },
+  "measured_a500og": {
+    "fixture": {
+      "machine": "A500OG",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 540672,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 540672,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9025932
+    }
+  },
+  "measured_a500plus": {
+    "fixture": {
+      "machine": "A500PLUS",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9550220
+    }
+  },
+  "measured_a1000": {
+    "fixture": {
+      "machine": "A1000",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 540672,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 540672,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9025932
+    }
+  },
+  "measured_a2000og": {
+    "fixture": {
+      "machine": "A2000OG",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5586944,
+        "dirty_bytes": 1081344,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9566604
+    }
+  },
+  "measured_a2000": {
+    "fixture": {
+      "machine": "A2000",
+      "firmware_sha256": "e2578b2e83069537c8da1820de8971b131278d653e474f42f09b9fce55793597",
+      "firmware_bytes": 262144,
+      "units": 60,
+      "note": "micro-ROM, no Kickstart: the numbers of a real workload are T19c's and T34's"
+    },
+    "guest_sha256": "a28cb6de899a071776da8d0f369ce909f60426eb4810230c276b3d38ad158a5a",
+    "runtime_sha256": "9def19fec8044a6356d3651cc94e13d74b77a7393bde81a51d9a8e55ff7c38a5",
+    "after_seal": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 4096,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      }
+    },
+    "after_first_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "after_last_unit": {
+      "elf": {
+        "committed_bytes": 56426496,
+        "dirty_bytes": 8425472,
+        "invisible_bytes": 4096
+      },
+      "main_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "alt_thread": {
+        "committed_bytes": 1048576,
+        "dirty_bytes": 1048576,
+        "invisible_bytes": 1048576
+      },
+      "sbrk": {
+        "committed_bytes": 16384,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 0
+      },
+      "sealed": {
+        "committed_bytes": 262144,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "invisible": {
+        "committed_bytes": 0,
+        "dirty_bytes": 16384,
+        "invisible_bytes": 16384
+      },
+      "plain": {
+        "committed_bytes": 0,
+        "dirty_bytes": 0,
+        "invisible_bytes": 0
+      },
+      "mmap": {
+        "committed_bytes": 5046272,
+        "dirty_bytes": 1064960,
+        "invisible_bytes": 0
+      }
+    },
+    "snapshot_bytes": {
+      "after_seal": 47500,
+      "after_last_unit": 9550220
+    }
+  }
+}

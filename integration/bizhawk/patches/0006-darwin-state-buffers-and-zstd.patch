@@ -1,0 +1,101 @@
+diff --git a/src/BizHawk.Common/MemoryBlock/MemoryBlock.cs b/src/BizHawk.Common/MemoryBlock/MemoryBlock.cs
+--- a/src/BizHawk.Common/MemoryBlock/MemoryBlock.cs
++++ b/src/BizHawk.Common/MemoryBlock/MemoryBlock.cs
+@@ -8,7 +8,7 @@
+ 		/// <exception cref="ArgumentOutOfRangeException"><paramref name="size"/> is not aligned or is <c>0</c></exception>
+ 		public MemoryBlock(ulong size)
+ 		{
+-			if (!MemoryBlockUtils.Aligned(size))
++			if ((size & 4095) != 0)
+ 			{
+ 				throw new ArgumentOutOfRangeException(nameof(size), size, "size must be aligned");
+ 			}
+@@ -18,13 +18,19 @@
+ 				throw new ArgumentOutOfRangeException(nameof(size), size, "cannot create 0-length block");
+ 			}
+ 
+-			Size = MemoryBlockUtils.AlignUp(size);
++			Size = size;
+ 			_pal = OSTailoredCode.IsUnixHost
+-				? new MemoryBlockLinuxPal(Size)
+-				: new MemoryBlockWindowsPal(Size);
++				? new MemoryBlockLinuxPal(HostAlignUp(Size))
++				: new MemoryBlockWindowsPal(HostAlignUp(Size));
+ 			Start = _pal.Start;
+ 			EndExclusive = Start + Size;
+ 		}
++
++		// Paged/Zwinder keep their logical 4KiB blocks. Only the PAL reservation
++		// and protection use host pages (16KiB on Darwin ARM64). Do not initialize
++		// MemoryBlockUtils here: its fixed-page guard belongs to other consumers.
++		private static readonly ulong HostPageMask = (ulong)Environment.SystemPageSize - 1;
++		private static ulong HostAlignUp(ulong value) => checked(value + HostPageMask) & ~HostPageMask;
+ 
+ 		private IMemoryBlockPal? _pal;
+ 
+@@ -93,8 +99,8 @@
+ 
+ 			// Note: asking for prot.none on memory that was not previously committed, commits it
+ 
+-			var computedStart = MemoryBlockUtils.AlignDown(start);
+-			var computedEnd = MemoryBlockUtils.AlignUp(start + length);
++			var computedStart = start & ~HostPageMask;
++			var computedEnd = HostAlignUp(start + length);
+ 			var computedLength = computedEnd - computedStart;
+ 
+ 			_pal.Protect(computedStart, computedLength, prot);
+diff --git a/src/BizHawk.Common/MemoryBlock/MemoryBlockLinuxPal.cs b/src/BizHawk.Common/MemoryBlock/MemoryBlockLinuxPal.cs
+--- a/src/BizHawk.Common/MemoryBlock/MemoryBlockLinuxPal.cs
++++ b/src/BizHawk.Common/MemoryBlock/MemoryBlockLinuxPal.cs
+@@ -19,7 +19,9 @@
+ 		/// </exception>
+ 		public MemoryBlockLinuxPal(ulong size)
+ 		{
+-			var ptr = mmap(IntPtr.Zero, Z.UU(size), MemoryProtection.None, 0x22 /* MAP_PRIVATE | MAP_ANON */, -1, IntPtr.Zero);
++			// MAP_PRIVATE=2 on both platforms; MAP_ANON is platform-specific.
++			var flags = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? 0x1002 : 0x22;
++			var ptr = mmap(IntPtr.Zero, Z.UU(size), MemoryProtection.None, flags, -1, IntPtr.Zero);
+ 			if (ptr == new IntPtr(-1))
+ 			{
+ 				throw new InvalidOperationException($"{nameof(mmap)}() failed with error {Marshal.GetLastWin32Error()}");
+diff --git a/src/BizHawk.Common/zstd/LibZstd.cs b/src/BizHawk.Common/zstd/LibZstd.cs
+--- a/src/BizHawk.Common/zstd/LibZstd.cs
++++ b/src/BizHawk.Common/zstd/LibZstd.cs
+@@ -7,8 +7,7 @@
+ 	{
+ 		static LibZstd()
+ 		{
+-			var resolver = new DynamicLibraryImportResolver(
+-				OSTailoredCode.IsUnixHost ? "libzstd.so.1" : "libzstd.dll", hasLimitedLifetime: false);
++			var resolver = CreateResolver();
+ 			ZSTD_isError = (delegate* unmanaged[Cdecl]<nuint, uint>)resolver.GetProcAddrOrThrow(nameof(ZSTD_isError));
+ 			ZSTD_getErrorName = (delegate* unmanaged[Cdecl]<nuint, IntPtr>)resolver.GetProcAddrOrThrow(nameof(ZSTD_getErrorName));
+ 			ZSTD_minCLevel = (delegate* unmanaged[Cdecl]<int>)resolver.GetProcAddrOrThrow(nameof(ZSTD_minCLevel));
+@@ -23,6 +22,27 @@
+ 			ZSTD_freeDStream = (delegate* unmanaged[Cdecl]<IntPtr, nuint>)resolver.GetProcAddrOrThrow(nameof(ZSTD_freeDStream));
+ 			ZSTD_initDStream = (delegate* unmanaged[Cdecl]<IntPtr, nuint>)resolver.GetProcAddrOrThrow(nameof(ZSTD_initDStream));
+ 			ZSTD_decompressStream = (delegate* unmanaged[Cdecl]<IntPtr, StreamBuffer*, StreamBuffer*, nuint>)resolver.GetProcAddrOrThrow(nameof(ZSTD_decompressStream));
++		}
++
++		private static DynamicLibraryImportResolver CreateResolver()
++		{
++			if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
++				return new DynamicLibraryImportResolver(OSTailoredCode.IsUnixHost ? "libzstd.so.1" : "libzstd.dll", hasLimitedLifetime: false);
++
++			const string name = "libzstd.dylib";
++			var manager = OSTailoredCode.LinkedLibManager;
++			var probe = manager.LoadOrZero(name);
++			if (probe != IntPtr.Zero)
++			{
++				try { return new DynamicLibraryImportResolver(name, hasLimitedLifetime: false); }
++				finally { manager.FreeByPtr(probe); }
++			}
++			// .NET's Darwin executable need not have Homebrew on its loader path.
++			// An existing fallback must load and export the required ABI: errors
++			// propagate, rather than being mistaken for another missing library.
++			foreach (var path in new[] { "/opt/homebrew/lib/libzstd.dylib", "/usr/local/lib/libzstd.dylib" })
++				if (System.IO.File.Exists(path)) return new DynamicLibraryImportResolver(path, hasLimitedLifetime: false);
++			throw new DllNotFoundException("Darwin Zstd requires libzstd.dylib on the loader path, /opt/homebrew/lib or /usr/local/lib");
+ 		}
+ 
+ 		private static readonly delegate* unmanaged[Cdecl]<nuint, uint> ZSTD_isError;

@@ -1,0 +1,363 @@
+Validate CDv5 maps, bitstream/Huffman input, iterative SELF resolution and
+complete bounded metadata chains. Preserve flags, sparse blocks and fixture bytes.
+Codec payload hardening remains T66t4; no public CHD loader is enabled.
+--- a/src/libchdr_bitstream.c
++++ b/src/libchdr_bitstream.c
+@@ -16,7 +16,7 @@
+  ***************************************************************************
+  */
+ 
+-int bitstream_overflow(struct bitstream* bitstream) { return ((bitstream->doffset - bitstream->bits / 8) > bitstream->dlength); }
++int bitstream_overflow(struct bitstream* bitstream) { return bitstream->error || bitstream->consumed > (uint64_t)bitstream->dlength * 8; }
+ 
+ /*-------------------------------------------------
+  *  create_bitstream - constructor
+@@ -32,6 +32,7 @@
+ 	bitstream->read = (const uint8_t*)src;
+ 	bitstream->doffset = 0;
+ 	bitstream->dlength = srclength;
++    bitstream->consumed = 0; bitstream->error = 0;
+ 	return bitstream;
+ }
+ 
+@@ -44,7 +45,13 @@
+ 
+ uint32_t bitstream_peek(struct bitstream* bitstream, int numbits)
+ {
+-	if (numbits == 0)
++	if (numbits < 0 || numbits > 32) { bitstream->error = 1; return 0; }
++	if (numbits > 24) {
++        struct bitstream copy = *bitstream;
++        uint32_t value = bitstream_read(&copy, numbits);
++        bitstream->error |= copy.error; return value;
++    }
++    if (numbits == 0)
+ 		return 0;
+ 
+ 	/* fetch data if we need more */
+@@ -72,7 +79,10 @@
+ 
+ void bitstream_remove(struct bitstream* bitstream, int numbits)
+ {
+-	bitstream->buffer <<= numbits;
++	if (numbits > 24 && numbits <= 32) { bitstream_read(bitstream, numbits); return; }
++	if (numbits < 0 || numbits > 32 || numbits > bitstream->bits) { bitstream->error = 1; return; }
++    bitstream->consumed += numbits;
++    bitstream->buffer = numbits == 32 ? 0 : bitstream->buffer << numbits;
+ 	bitstream->bits -= numbits;
+ }
+ 
+@@ -84,7 +94,12 @@
+ 
+ uint32_t bitstream_read(struct bitstream* bitstream, int numbits)
+ {
+-	uint32_t result = bitstream_peek(bitstream, numbits);
++	if (numbits > 24 && numbits <= 32) {
++        uint32_t high = bitstream_read(bitstream, numbits - 16);
++        uint32_t low = bitstream_read(bitstream, 16);
++        return (high << 16) | low;
++    }
++    uint32_t result = bitstream_peek(bitstream, numbits);
+ 	bitstream_remove(bitstream, numbits);
+ 	return result;
+ }
+@@ -97,14 +112,7 @@
+ 
+ uint32_t bitstream_read_offset(struct bitstream* bitstream)
+ {
+-	uint32_t result = bitstream->doffset;
+-	int bits = bitstream->bits;
+-	while (bits >= 8)
+-	{
+-		result--;
+-		bits -= 8;
+-	}
+-	return result;
++    return (uint32_t)((bitstream->consumed + 7) / 8);
+ }
+ 
+ 
+@@ -115,12 +123,8 @@
+ 
+ uint32_t bitstream_flush(struct bitstream* bitstream)
+ {
+-	while (bitstream->bits >= 8)
+-	{
+-		bitstream->doffset--;
+-		bitstream->bits -= 8;
+-	}
+-	bitstream->bits = bitstream->buffer = 0;
+-	return bitstream->doffset;
++    uint32_t at = bitstream_read_offset(bitstream);
++    bitstream->doffset = at; bitstream->consumed = (uint64_t)at * 8;
++    bitstream->bits = bitstream->buffer = 0; return at;
+ }
+ 
+--- a/include/libchdr/bitstream.h
++++ b/include/libchdr/bitstream.h
+@@ -23,6 +23,8 @@
+ /* helper class for reading from a bit buffer */
+ struct bitstream
+ {
++	uint64_t          consumed;
++    int               error;
+ 	uint32_t          buffer;       /* current bit accumulator */
+ 	int               bits;         /* number of bits in the accumulator */
+ 	const uint8_t *   read;         /* read pointer */
+--- a/src/libchdr_huffman.c
++++ b/src/libchdr_huffman.c
+@@ -135,7 +135,7 @@
+     if (!decoder) return NULL;
+ 	decoder->numcodes = numcodes;
+ 	decoder->maxbits = maxbits;
+-	decoder->lookup = (lookup_value*)malloc(sizeof(lookup_value) * (1 << maxbits));
++	decoder->lookup = (lookup_value*)calloc(1 << maxbits, sizeof(lookup_value));
+ 	decoder->huffnode = (struct node_t*)malloc(sizeof(struct node_t) * numcodes);
+ 	if (!decoder->lookup || !decoder->huffnode) { delete_huffman_decoder(decoder); return NULL; }
+ 	decoder->datahisto = NULL;
+@@ -169,6 +169,7 @@
+ 
+ 	/* look it up, then remove the actual number of bits for this code */
+ 	lookup_value lookup = decoder->lookup[bits];
++    if (!(lookup & 0x1f)) { bitbuf->error = 1; return 0; }
+ 	bitstream_remove(bitbuf, lookup & 0x1f);
+ 
+ 	/* return the value */
+@@ -214,6 +215,7 @@
+ 			else
+ 			{
+ 				int repcount = bitstream_read(bitbuf, numbits) + 3;
++                if (repcount > decoder->numcodes - curnode) return HUFFERR_INVALID_DATA;
+ 				while (repcount--)
+ 					decoder->huffnode[curnode++].numbits = nodebits;
+ 			}
+@@ -508,7 +510,8 @@
+ 	{
+ 		struct node_t* node = &decoder->huffnode[curcode];
+ 		if (node->numbits > 0)
+-			node->bits = bithisto[node->numbits]++;
++			{ node->bits = bithisto[node->numbits]++;
++              if (node->bits >= (1u << node->numbits)) return HUFFERR_INVALID_DATA; }
+ 	}
+ 	return HUFFERR_NONE;
+ }
+@@ -522,6 +525,7 @@
+ void huffman_build_lookup_table(struct huffman_decoder* decoder)
+ {
+ 	int curcode;
++	memset(decoder->lookup, 0, sizeof(lookup_value) * (1 << decoder->maxbits));
+ 	/* iterate over all codes */
+ 	for (curcode = 0; curcode < decoder->numcodes; curcode++)
+ 	{
+--- a/src/libchdr_chd.c
++++ b/src/libchdr_chd.c
+@@ -265,6 +265,7 @@
+ 
+ 	core_file *				file;			/* handle to the open core file */
+ 	UINT8					owns_file;		/* flag indicating if this file should be closed on chd_close() */
++	uint32_t compressedbytes;
+ 	chd_header				header;			/* header, extracted from file */
+ 
+ 	chd_file *				parent;			/* pointer to parent file, or NULL */
+@@ -308,6 +309,8 @@
+ 
+ /* internal header operations */
+ static chd_error header_validate(const chd_header *header);
++static chd_error validate_v5_map(chd_file *chd);
++static chd_error validate_metadata(chd_file *chd);
+ static chd_error header_read(chd_file *chd, chd_header *header);
+ 
+ /* internal hunk read/write */
+@@ -1200,6 +1203,7 @@
+ 	lengthbits = rawbuf[12];
+ 	selfbits = rawbuf[13];
+ 	parentbits = rawbuf[14];
++    if (!mapbytes || lengthbits > 24 || selfbits > 32 || parentbits > 32 || rawbuf[15]) return CHDERR_INVALID_DATA;
+ 
+ 	/* now read the map */
+ 	compressed_ptr = (uint8_t*)malloc(sizeof(uint8_t) * mapbytes);
+@@ -1244,6 +1248,7 @@
+ 			else
+ 				rawmap[0] = lastcomp = val;
+ 		}
++		if (repcount > header->hunkcount - hunknum - 1 || bitstream_overflow(bitbuf)) goto invalid_map;
+ 	}
+ 
+ 	/* then iterate through the hunks and extract the needed data */
+@@ -1254,6 +1259,7 @@
+ 		uint64_t offset = curoffset;
+ 		uint32_t length = 0;
+ 		uint16_t crc = 0;
++		if (rawmap[0] == COMPRESSION_PARENT || rawmap[0] >= COMPRESSION_PARENT_SELF) goto invalid_map;
+ 		switch (rawmap[0])
+ 		{
+ 			/* base types */
+@@ -1298,7 +1304,9 @@
+ 				rawmap[0] = COMPRESSION_PARENT;
+ 				offset = last_parent;
+ 				break;
++			default: goto invalid_map;
+ 		}
++        if (bitstream_overflow(bitbuf) || curoffset > UINT64_C(0xffffffffffff)) goto invalid_map;
+ 		/* UINT24 length */
+ 		put_bigendian_uint24(&rawmap[1], length);
+ 
+@@ -1319,6 +1327,68 @@
+ 		return CHDERR_DECOMPRESSION_ERROR;
+ 
+ 	return CHDERR_NONE;
++invalid_map:
++    free(compressed_ptr); free(bitbuf); delete_huffman_decoder(decoder);
++    return CHDERR_INVALID_DATA;
++}
++
++static chd_error validate_v5_map(chd_file *chd)
++{
++    chd_header *h = &chd->header;
++    chd->compressedbytes = h->hunkbytes;
++    for (uint32_t n = 0; n < h->hunkcount; ++n) {
++        uint8_t *r = h->rawmap + n * h->mapentrybytes;
++        uint64_t at; uint32_t length;
++        if (!chd_compressed(h)) { at = (uint64_t)get_bigendian_uint32(r) * h->hunkbytes; length = at ? h->hunkbytes : 0; }
++        else {
++            at = get_bigendian_uint48(r + 4); length = get_bigendian_uint24(r + 1);
++            if (r[0] == COMPRESSION_SELF) { if (at >= h->hunkcount) return CHDERR_INVALID_DATA; continue; }
++            if (r[0] > COMPRESSION_NONE || (r[0] < 4 && !h->compression[r[0]]) || !length ||
++                (r[0] == COMPRESSION_NONE && length != h->hunkbytes)) return CHDERR_INVALID_DATA;
++            if (at > chd->file->bytes || length > chd->file->bytes - at) return CHDERR_INVALID_DATA;
++            if (length > 1024 * 1024) return CHDERR_NOT_SUPPORTED;
++            if (length > chd->compressedbytes) chd->compressedbytes = length;
++        }
++        if (at > chd->file->bytes || length > chd->file->bytes - at) return CHDERR_INVALID_DATA;
++    }
++    if (!chd_compressed(h)) return CHDERR_NONE;
++    uint8_t *color = (uint8_t *)calloc(h->hunkcount, 1);
++    if (!color) return CHDERR_OUT_OF_MEMORY;
++    chd_error result = CHDERR_NONE;
++    for (uint32_t start = 0; start < h->hunkcount; ++start) {
++        if (color[start]) continue;
++        uint32_t n = start;
++        while (!color[n] && h->rawmap[n * 12] == COMPRESSION_SELF) {
++            color[n] = 1; n = (uint32_t)get_bigendian_uint48(h->rawmap + n * 12 + 4);
++        }
++        if (color[n] == 1) { result = CHDERR_INVALID_DATA; break; }
++        uint32_t terminal = h->rawmap[n * 12] == COMPRESSION_SELF ? (uint32_t)get_bigendian_uint48(h->rawmap + n * 12 + 4) : n;
++        color[n] = 2; n = start;
++        while (color[n] == 1) {
++            uint32_t next = (uint32_t)get_bigendian_uint48(h->rawmap + n * 12 + 4);
++            put_bigendian_uint48(h->rawmap + n * 12 + 4, terminal); color[n] = 2; n = next;
++        }
++    }
++    free(color); return result;
++}
++static chd_error validate_metadata(chd_file *chd)
++{
++    uint64_t at = chd->header.metaoffset, checkpoint = at, total = 0;
++    unsigned count = 0, power = 1, span = 0;
++    while (at) {
++        uint8_t raw[16];
++        if (++count > 4096) return CHDERR_NOT_SUPPORTED;
++        if (at > chd->file->bytes || 16 > chd->file->bytes - at) return CHDERR_INVALID_METADATA;
++        if (core_read_at(chd->file, at, raw, 16) != 16) return CHDERR_READ_ERROR;
++        uint32_t length = get_bigendian_uint32(raw + 4) & 0xffffff;
++        if (length > chd->file->bytes - at - 16) return CHDERR_INVALID_METADATA;
++        total += length;
++        if (length > 65536 || total > 1024 * 1024) return CHDERR_NOT_SUPPORTED;
++        at = get_bigendian_uint64(raw + 8);
++        if (at && at == checkpoint) return CHDERR_INVALID_METADATA;
++        if (++span == power) { checkpoint = at; power *= 2; span = 0; }
++    }
++    return CHDERR_NONE;
+ }
+ 
+ /*-------------------------------------------------
+@@ -1383,6 +1453,9 @@
+ 	if (err != CHDERR_NONE)
+ 		EARLY_EXIT(err);
+ 
++	err = validate_metadata(newchd);
++    if (err != CHDERR_NONE) EARLY_EXIT(err);
++
+ 	/* make sure we don't open a read-only file writeable */
+ 	if (mode == CHD_OPEN_READWRITE && !(newchd->header.flags & CHDFLAGS_IS_WRITEABLE))
+ 		EARLY_EXIT(err = CHDERR_FILE_NOT_WRITEABLE);
+@@ -1424,6 +1497,9 @@
+ 	}
+ 	if (err != CHDERR_NONE)
+ 		EARLY_EXIT(err);
++
++err = validate_v5_map(newchd);
++    if (err != CHDERR_NONE) EARLY_EXIT(err);
+ 
+ #ifdef NEED_CACHE_HUNK
+ 	/* allocate and init the hunk cache */
+@@ -1436,7 +1512,7 @@
+ #endif
+ 
+ 	/* allocate the temporary compressed buffer */
+-	newchd->compressed = (UINT8 *)malloc(newchd->header.hunkbytes);
++	newchd->compressed = (UINT8 *)malloc(newchd->compressedbytes);
+ 	if (newchd->compressed == NULL)
+ 		EARLY_EXIT(err = CHDERR_OUT_OF_MEMORY);
+ 
+@@ -1748,6 +1824,7 @@
+ 	chd_error err;
+ 	UINT32 count;
+ 
++	if (!chd || chd->cookie != COOKIE_VALUE || (outputlen && !output)) return CHDERR_INVALID_PARAMETER;
+ 	/* if we didn't find it, just return */
+ 	err = metadata_find_entry(chd, searchtag, searchindex, &metaentry);
+ 	if (err != CHDERR_NONE)
+@@ -1777,9 +1854,12 @@
+ 
+ 	/* read the metadata */
+ 	outputlen = MIN(outputlen, metaentry.length);
+-	count = core_read_at(chd->file, metaentry.offset + METADATA_HEADER_SIZE, output, outputlen);
+-	if (count != outputlen)
+-		return CHDERR_READ_ERROR;
++	UINT8 *staging = (UINT8 *)malloc(outputlen ? outputlen : 1);
++    if (!staging) return CHDERR_OUT_OF_MEMORY;
++    count = core_read_at(chd->file, metaentry.offset + METADATA_HEADER_SIZE, staging, outputlen);
++    if (count == outputlen && outputlen) memcpy(output, staging, outputlen);
++    free(staging);
++    if (count != outputlen) return CHDERR_READ_ERROR;
+ 
+ 	/* return the length of the data and the tag */
+ 	if (resultlen != NULL)
+@@ -2076,6 +2156,7 @@
+ #else
+ 	ssize_t bytes;
+ #endif
++	if (size > chd->compressedbytes) return NULL;
+ 	if (chd->file_cache != NULL)
+ 	{
+ 		return chd->file_cache + offset;
+@@ -2164,6 +2245,10 @@
+ 	if (dest == NULL)
+ 		return CHDERR_INVALID_PARAMETER;
+ 
++    if (chd->header.version == 5 && chd_compressed(&chd->header)) {
++        uint8_t *entry = chd->header.rawmap + hunknum * 12;
++        if (entry[0] == COMPRESSION_SELF) hunknum = (uint32_t)get_bigendian_uint48(entry + 4);
++    }
+ 	if (chd->header.version < 5)
+ 	{
+ 		map_entry *entry = &chd->map[hunknum];
+@@ -2313,7 +2398,7 @@
+ 				return CHDERR_NONE;
+ 
+ 			case COMPRESSION_SELF:
+-				return hunk_read_into_memory(chd, blockoffs, dest);
++				return CHDERR_INVALID_DATA; /* SELF was resolved iteratively at open. */
+ 
+ 			case COMPRESSION_PARENT:
+ #if 0
+@@ -2437,7 +2522,7 @@
+ 		/* read the raw header */
+ 		count = core_read_at(chd->file, metaentry->offset, raw_meta_header, sizeof(raw_meta_header));
+ 		if (count != sizeof(raw_meta_header))
+-			break;
++			return CHDERR_READ_ERROR;
+ 
+ 		/* extract the data */
+ 		metaentry->metatag = get_bigendian_uint32(&raw_meta_header[0]);

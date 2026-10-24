@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+		<RunWorkingDirectory>$(OutDir)</RunWorkingDirectory>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="../../../src/BizHawk.Common/BizHawk.Common.csproj" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvokeUtilities.cs" Link="BizInvoke/BizInvokeUtilities.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvoker.cs" Link="BizInvoke/BizInvoker.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/BizInvokerUtilities.cs" Link="BizInvoke/BizInvokerUtilities.cs" />
+		<Compile Include="../../../src/BizHawk.BizInvoke/CallingConventionAdapter.cs" Link="BizInvoke/CallingConventionAdapter.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostNative.cs"
+			Link="WaterboxHostNative.cs" />
+		<Compile Include="../../../src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostPlatform.cs"
+			Link="WaterboxHostPlatform.cs" />
+		<Using Include="System.Object" Alias="Lock" />
+	</ItemGroup>
+	<Target Name="RemoveTransitivePolySharpAnalyzer" BeforeTargets="CoreCompile">
+		<ItemGroup>
+			<_TransitivePolySharpAnalyzer Include="@(Analyzer)"
+				Condition="'%(Analyzer.NuGetPackageId)' == 'PolySharp'" />
+			<Analyzer Remove="@(_TransitivePolySharpAnalyzer)" />
+		</ItemGroup>
+	</Target>
+	<Target Name="BuildWaterboxSmokeAssets" BeforeTargets="Build">
+		<Exec Command="make all" WorkingDirectory="../smoke" />
+	</Target>
+	<Target Name="CopyWaterboxSmokeAssets" AfterTargets="Build">
+		<Copy SourceFiles="../target/debug/libwaterboxhost.dylib;../target/debug/smoke.wbx"
+			DestinationFolder="$(OutDir)" />
+	</Target>
+</Project>

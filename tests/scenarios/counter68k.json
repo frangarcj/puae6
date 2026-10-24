@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scenario_id": "counter68k",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A500",
+    "video_standard": "PAL",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 524288,
+    "slow_ram_bytes": 524288
+  },
+  "firmware": [],
+  "media": [],
+  "program": {
+    "sha256": "f3804fbf95198daeda8ad2d1ca3eb72a8bfeca342d22685f1b80fbc88d6a6a62",
+    "load_address": 4096,
+    "entry_address": 4096,
+    "size_bytes": 6
+  },
+  "units": 2,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "none",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2
+  ],
+  "probes": [
+    {
+      "region": "chip",
+      "offset": 4096,
+      "length": 6
+    }
+  ],
+  "render": true,
+  "audio": true
+}

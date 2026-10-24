@@ -1,0 +1,46 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -6195,11 +6195,22 @@
+ 		drv->indexoffset = restore_u32 ();
+ 		drv->buffered_cyl = drv->cyl;
+ 		drv->buffered_side = side;
++#ifdef P6_PORTABLE
++		// The timing of a track (an FDI or an IPF: tracktiming[0] != 0) has a value for each BYTE of the track, which is how DISK_update reads it (tracktiming[mfmpos / 8]); upstream
++		// saves one for each 16-bit word, so half of the timing of the track was left to whatever the buffer held, and a machine that loaded the state read the second half of the
++		// track at the speed of another revolution. The words come first, then the timing.
++		for (int j = 0; j < (drv->tracklen + 15) / 16; j++)
++			drv->bigmfmbuf[j] = restore_u16 ();
++		if (m & 2)
++			for (int j = 0; j < (drv->tracklen + 7) / 8; j++)
++				drv->tracktiming[j] = restore_u16 ();
++#else
+ 		for (int j = 0; j < (drv->tracklen + 15) / 16; j++) {
+ 			drv->bigmfmbuf[j] = restore_u16 ();
+ 			if (m & 2)
+ 				drv->tracktiming[j] = restore_u16 ();
+ 		}
++#endif
+ 		drv->revolutions = restore_u16 ();
+ 	}
+ 	return src;
+@@ -6292,11 +6303,19 @@
+ 	save_u16 (drv->trackspeed);
+ 	save_u32 (drv->skipoffset);
+ 	save_u32 (drv->indexoffset);
++#ifdef P6_PORTABLE
++	for (int j = 0; j < (drv->tracklen + 15) / 16; j++)
++		save_u16(drv->bigmfmbuf[j]);
++	if (drv->tracktiming[0])
++		for (int j = 0; j < (drv->tracklen + 7) / 8; j++)
++			save_u16(drv->tracktiming[j]);
++#else
+ 	for (int j = 0; j < (drv->tracklen + 15) / 16; j++) {
+ 		save_u16(drv->bigmfmbuf[j]);
+ 		if (drv->tracktiming[0])
+ 			save_u16(drv->tracktiming[j]);
+ 	}
++#endif
+ 	save_u16 (drv->revolutions);
+ 
+ 	*len = dst - dstbak;

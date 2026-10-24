@@ -1,0 +1,147 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -13,6 +13,11 @@
+ 
+ #include "sysconfig.h"
+ #include "sysdeps.h"
++#ifdef P6_PORTABLE
++#include "rom_status.h"
++static int rom_load_status = P6_ROM_UNLOADED;
++int p6_memory_rom_status(void) { return rom_load_status; }
++#endif
+ 
+ #include "options.h"
+ #include "uae.h"
+@@ -1864,6 +1869,7 @@
+ }
+ 
+ 
++#ifndef P6_PORTABLE
+ extern unsigned char arosrom[];
+ extern unsigned int arosrom_len;
+ extern int seriallog;
+@@ -1914,6 +1920,8 @@
+ 
+ 	return true;
+ }
++
++#endif
+ 
+ static int patch_shapeshifter (uae_u8 *kickmemory)
+ {
+@@ -2038,16 +2046,34 @@
+ 
+ static int load_kickstart (void)
+ {
++#ifdef P6_PORTABLE
++	rom_load_status = P6_ROM_READ_ERROR;
++#endif
+ 	TCHAR tmprom[MAX_DPATH];
+ 	cloanto_rom = 0;
+ 	if (!_tcscmp(currprefs.romfile, _T(":AROS"))) {
++#ifdef P6_PORTABLE
++		rom_load_status = P6_ROM_UNSUPPORTED;
++		return 0;
++#else
+ 		return load_kickstart_replacement();
+-	}
++#endif
++	}
++#ifdef P6_PORTABLE
++	if (!kickmem_bank.baseaddr) {
++		rom_load_status = P6_ROM_NO_MEMORY;
++		return 0;
++	}
++#endif
+ 	_tcscpy(tmprom, currprefs.romfile);
+ 	struct zfile *f = get_kickstart_filehandle(&currprefs);
+ 	addkeydir (currprefs.romfile);
+-	if (f == NULL) /* still no luck */
++	if (f == NULL) { /* still no luck */
++#ifdef P6_PORTABLE
++		rom_load_status = P6_ROM_OPEN_ERROR;
++#endif
+ 		goto err;
++	}
+ 
+ 	if (f != NULL) {
+ 		int filesize, size, maxsize;
+@@ -2168,6 +2194,9 @@
+ 			kickstart_version = 0;
+ 	}
+ 	zfile_fclose (f);
++#ifdef P6_PORTABLE
++	rom_load_status = P6_ROM_LOAD_OK;
++#endif
+ 	return 1;
+ err:
+ 	_tcscpy (currprefs.romfile, tmprom);
+@@ -3014,7 +3043,12 @@
+ 			error_log (_T("Failed to open '%s'\n"), currprefs.romfile);
+ 			notify_user (NUMSG_NOROM);
+ 		}
++#ifdef P6_PORTABLE
++		protect_roms(true);
++		return;
++#else
+ 		load_kickstart_replacement ();
++#endif
+ 	} else {
+ 		struct romdata *rd = getromdatabydata (kickmem_bank.baseaddr, kickmem_bank.reserved_size);
+ 		if (rd) {
+@@ -3385,6 +3419,9 @@
+ 
+ void memory_init (void)
+ {
++#ifdef P6_PORTABLE
++	rom_load_status = P6_ROM_UNLOADED;
++#endif
+ 	init_mem_banks ();
+ 	virtualdevice_init ();
+ 
+@@ -3425,6 +3462,9 @@
+ 
+ void memory_cleanup (void)
+ {
++#ifdef P6_PORTABLE
++	rom_load_status = P6_ROM_UNLOADED;
++#endif
+ 	mapped_free(&mem25bit_bank);
+ 	mapped_free(&a3000lmem_bank);
+ 	mapped_free(&a3000hmem_bank);
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -19,6 +19,9 @@
+ 
+ #include "sysconfig.h"
+ #include "sysdeps.h"
++#ifdef P6_PORTABLE
++#include "rom_status.h"
++#endif
+ 
+ #include "options.h"
+ #include "events.h"
+@@ -6675,6 +6678,10 @@
+ 		abort ();
+ 	}
+ 
++#ifdef P6_PORTABLE
++	if (p6_memory_rom_status() != P6_ROM_LOAD_OK)
++		return;
++#endif
+ 	reset_frame_rate_hack ();
+ 	update_68k_cycles ();
+ 	start_cycles = 0;
+@@ -6732,6 +6739,10 @@
+ 			set_x_funcs();
+ 			set_cycles (start_cycles);
+ 			custom_reset (cpu_hardreset != 0, cpu_keyboardreset);
++#ifdef P6_PORTABLE
++			if (p6_memory_rom_status() != P6_ROM_LOAD_OK)
++				break; // Leave before reading reset vectors; retain normal cleanup.
++#endif
+ 			m68k_reset2 (cpu_hardreset != 0);
+ 			if (cpu_hardreset) {
+ 				memory_clear ();

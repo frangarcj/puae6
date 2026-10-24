@@ -1,0 +1,55 @@
+{
+  "cases": {
+    "fpu-arith-68882": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "0ac3f950a2201ba9871afd201c7b4986b6e3f4170bd13c2f2393e014ebebb15c",
+      "units": 9
+    },
+    "fpu-arith-no-fpu": {
+      "av": "67566e428bb5665c3bbdcf6ff3463375338c69129cde59f94c7590d8bc0aa18f",
+      "hardware": "8de848ba2af9bec43542ed883596c87130c004c96f74bdbcbd319bd86e9acb41",
+      "units": 5
+    },
+    "fpu-corpus-68881": {
+      "av": "7312c59d73f5c2c1ab54aedd4fb12b22df87cc7bca0ef4eec00cbe3c40d4794e",
+      "hardware": "2a527f607707e1137abbdd2db7e300313a4193c2e0726c0d39e623f10f6a6b48",
+      "units": 7
+    },
+    "fpu-corpus-68882": {
+      "av": "7312c59d73f5c2c1ab54aedd4fb12b22df87cc7bca0ef4eec00cbe3c40d4794e",
+      "hardware": "6472fedad1240c31c3873521a4dc526a1d747df3492cbc17fe9f04636e95689e",
+      "units": 7
+    },
+    "fpu-frames-68882": {
+      "av": "cff34e57f0da03baf8b7bd7f4541d9a476adc15dd7ee5dd9a4c98fefa9e0a3f2",
+      "hardware": "9eb993e7c91b349a8da4290250bf4913878c60ba97bdae6a8a0b84186dbb26de",
+      "units": 9
+    },
+    "fpu-modes-68882": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "afe62633bc34ab4517ca235ef8ca2ec778648b148c8976f9114ceea50821233f",
+      "units": 9
+    },
+    "fpu-rounding-68882": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "1b734bec65f10a80a4215f018bf8deac21442200ee6fdeed8a84367b868999a3",
+      "units": 9
+    },
+    "fpu-trap-68881": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "4447cdd81f952a0ad63882c952b777bb9d6aa6014659d7133a4b31bc0a3df47b",
+      "units": 9
+    },
+    "fpu-trap-68882": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "cf12e8ac93563bc53d9ca2ec5d0c60d4b07245167c53a60885ec05df786e057d",
+      "units": 9
+    }
+  },
+  "corpus": {
+    "cases": 9,
+    "sha256": "00d859491c5f1d05ae0e13ddaf4774cc716d95737f4d564e6bb7540f6e764cf2"
+  },
+  "probe_schema": 2,
+  "schema_version": 2
+}

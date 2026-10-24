@@ -1,0 +1,87 @@
+diff --git a/ar.cpp b/ar.cpp
+--- a/ar.cpp
++++ b/ar.cpp
+@@ -1782,6 +1782,13 @@
+ /* This only deallocates memory, it is not suitable for unloading roms and continuing */
+ void action_replay_cleanup()
+ {
++#ifdef P6_PORTABLE
++	// Shutdown calls cleanup directly. AR1 hide/unmap deliberately keeps these banks.
++	if (armodel == 1 && armemory_rom) {
++		map_banks(&dummy_bank, arrom_start >> 16, arrom_size >> 16, 0);
++		map_banks(&dummy_bank, arram_start >> 16, arram_size >> 16, 0);
++	}
++#endif
+ 	if (armemory_rom)
+ 		free (armemory_rom);
+ 	if (armemory_ram)
+@@ -2107,16 +2114,29 @@
+ }
+ 
+ #ifdef P6_PORTABLE
+-// AR1 wait_for_pc/ar_wait_pop and legacy .uss ar_state1/2 never execute in AR2/3.
++// AR1 also keeps a deferred return PC. Legacy .uss ar_state1/2 do not execute here.
+ // triggered_once is only consulted by HRTMon/legacy .uss, not this device.
+ uint8_t *p6_ar_memory()
+ {
+-	return cart_type == CART_AR && (armodel == 2 || armodel == 3) && armemory_rom && armemory_ram && !hrtmemory && hrtmon_flag == ACTION_REPLAY_INACTIVE &&
+-		ar_rom_file_size == (armodel == 2 ? 0x20000 : 0x40000) && arrom_start == 0x400000 && arrom_size == unsigned(ar_rom_file_size) &&
+-		arrom_mask == arrom_size - 1 && arram_start == 0x440000 && arram_size == 0x10000 && arram_mask == 0xffff ? armemory_ram : NULL;
++	const bool ar1 = armodel == 1;
++	return cart_type == CART_AR && armodel >= 1 && armodel <= 3 && armemory_rom && armemory_ram && !hrtmemory && hrtmon_flag == ACTION_REPLAY_INACTIVE &&
++		ar_rom_file_size == (ar1 ? 0x10000 : armodel == 2 ? 0x20000 : 0x40000) && arrom_start == (ar1 ? 0xf00000u : 0x400000u) && arrom_size == unsigned(ar_rom_file_size) &&
++		arrom_mask == arrom_size - 1 && arram_start == (ar1 ? 0x9f0000u : 0x440000u) && arram_size == 0x10000 && arram_mask == 0xffff ? armemory_ram : NULL;
+ }
+ bool p6_ar_validate(const p6_ar_raw *s, uint32_t spc)
+ {
++	if (s && armodel == 1) {
++		// Enter clears SPC while ACTIVE. Byte strobe arms WAIT_PC; word strobe
++		// calls ar3a twice and can leave IDLE with SPC still set. Never infer from PC.
++		const bool pending = (spc & SPCFLAG_ACTION_REPLAY) != 0;
++		const bool waiting = s->flag == ACTION_REPLAY_WAIT_PC;
++		const bool idle = s->flag == ACTION_REPLAY_IDLE;
++		const bool active = s->flag == ACTION_REPLAY_ACTIVE;
++		const bool activate = s->flag == ACTION_REPLAY_ACTIVATE;
++		return (waiting || idle || active || activate) && s->mapped == 1 && s->banks == 1 && !s->hidden && s->hide <= 1 &&
++			!s->mode_read && !s->mode_write && !s->hardreset && s->wait_pop <= 1 &&
++			(!(waiting || idle) || !s->wait_pop) && (!(waiting || activate) || pending) && (!active || !pending);
++	}
+ 	if (!s || (s->flag != ACTION_REPLAY_WAITRESET && (s->flag < ACTION_REPLAY_IDLE || s->flag > ACTION_REPLAY_HIDE)) ||
+ 		s->mapped < 0 || s->mapped > 1 || s->banks > 1 || s->mapped != int(s->banks) || s->mode_read > 3 || s->mode_write > 255 ||
+ 		s->hardreset > 1 || s->hide > 1 || s->hidden > 1) return false;
+@@ -2135,6 +2155,7 @@
+ 		if (&get_mem_bank(arrom_start + n * 65536) != (banks ? &arrom_bank : &dummy_bank)) return false;
+ 	if (&get_mem_bank(arram_start) != (banks ? &arram_bank : &dummy_bank)) return false;
+ 	out->flag = action_replay_flag; out->mapped = ar_mapped; out->banks = banks;
++	out->wait_pop = armodel == 1 ? ar_wait_pop : 0; out->wait_pc = armodel == 1 ? wait_for_pc : 0;
+ 	out->mode_read = armode_read; out->mode_write = armode_write; out->hardreset = action_replay_hardreset;
+ 	out->hide = ar_hide; out->hidden = ar_hidden;
+ 	memcpy(out->vector, artemp, 4); memcpy(out->custom, ar_custom, 512);
+@@ -2147,11 +2168,12 @@
+ 	ar_mapped = -1;
+ 	if (in->banks) action_replay_map_banks(); else action_replay_unmap_banks();
+ 	action_replay_flag = in->flag; ar_mapped = in->mapped; ar_hide = in->hide; ar_hidden = in->hidden;
++	if (armodel == 1) { ar_wait_pop = in->wait_pop; wait_for_pc = in->wait_pc; }
+ 	armode_read = in->mode_read; armode_write = in->mode_write; action_replay_hardreset = in->hardreset != 0;
+ 	memcpy(artemp, in->vector, 4); memcpy(ar_custom, in->custom, 512);
+ 	memcpy(ar_ciaa, in->ciaa, 16); memcpy(ar_ciab, in->ciab, 16);
+ }
+-void (*p6_ar_cia_handler())(uint32_t) { return action_replay_cia_access_delay; }
++void (*p6_ar_cia_handler())(uint32_t) { return armodel == 2 || armodel == 3 ? action_replay_cia_access_delay : NULL; }
+ 
+ // Private fixed HRTMon owner. No host pointer or reload path enters its state.
+ uint8_t *p6_hrtmon_memory()
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -10757,7 +10757,9 @@
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+ 	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
+ 		(((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ||
+-		 ((armodel == 2 || armodel == 3) && action_replay_flag >= ACTION_REPLAY_ACTIVATE && action_replay_flag <= ACTION_REPLAY_HIDE)) ? SPCFLAG_ACTION_REPLAY : 0)))
++		 ((armodel == 2 || armodel == 3) && action_replay_flag >= ACTION_REPLAY_ACTIVATE && action_replay_flag <= ACTION_REPLAY_HIDE) ||
++		 (armodel == 1 && (action_replay_flag == ACTION_REPLAY_WAIT_PC || action_replay_flag == ACTION_REPLAY_IDLE ||
++		  action_replay_flag == ACTION_REPLAY_ACTIVATE))) ? SPCFLAG_ACTION_REPLAY : 0)))
+ 		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
+ 	else if (cpu_tracer || cpu_prefs_changed_flag || m68k_reset_delay || pissoff)
+ 		w = "a file-local CPU counter is not at its boundary value";

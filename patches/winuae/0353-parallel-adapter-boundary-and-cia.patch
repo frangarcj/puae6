@@ -1,0 +1,94 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -10859,6 +10859,8 @@
+ 	memset(out, 0, sizeof *out);
+ 	out->potgo_value = potgo_value;
+ 	out->second_mouse_enabled = mouse_port[1];
++	out->parallel_enabled = parport_joystick_enabled;
++	for (int p = 0; p < 2; p++) { out->parallel_buttons[p] = joybutton[p + 2]; out->parallel_dirs[p] = joydir[p + 2]; }
+ 	out->pointer_enabled = lightpen_enabled;
+ 	out->pointer_port = lightpen_port[1] ? 1 : 0;
+ 	out->pointer_cx = lightpen_cx[0];
+@@ -10911,6 +10913,8 @@
+ {
+ 	potgo_value = in->potgo_value;
+ 	mouse_port[1] = in->second_mouse_enabled;
++	parport_joystick_enabled = in->parallel_enabled;
++	for (int p = 0; p < 2; p++) { joybutton[p + 2] = in->parallel_buttons[p]; joydir[p + 2] = in->parallel_dirs[p]; }
+ 	lightpen_enabled = in->pointer_enabled;
+ 	lightpen_enabled2 = lightpen_active = 0;
+ 	for (int p = 0; p < 2; p++) lightpen_port[p] = in->pointer_enabled && in->pointer_port == unsigned(p);
+@@ -10985,7 +10989,7 @@
+ 	if (!w && keyboard_reset_seq_mode > 4)
+ 		w = "the keyboard reset chord is in a state the profile does not have";
+ 	for (int p = 2; p < MAX_JPORTS && !w; p++) {
+-		if (joybutton[p] || joydir[p] || oleft[p] || oright[p] || otop[p] || obot[p] || mouse_x[p] || mouse_y[p] || mouse_frame_x[p] || mouse_frame_y[p])
++		if (((p >= 4 || !parport_joystick_enabled) && (joybutton[p] || joydir[p])) || oleft[p] || oright[p] || otop[p] || obot[p] || mouse_x[p] || mouse_y[p] || mouse_frame_x[p] || mouse_frame_y[p])
+ 			w = "a gameport that the profile does not have has input";
+ 		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++)
+ 			if (mouse_delta[p][k] || mouse_deltanoreset[p][k])
+@@ -11069,3 +11073,14 @@
+ 	if (!lightpen_enabled) lightpen_cx[0] = lightpen_cy[0] = -1;
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++// Real parallel-adapter levels, consumed by the CIA handlers inside the engine.
++// No host enumeration, event replay, quadrature counters or callbacks per read.
++bool p6_input_parallel_active() { return parport_joystick_enabled != 0; }
++void p6_input_parallel(bool enabled, const uint32_t buttons[2], const uint32_t directions[2])
++{
++	parport_joystick_enabled = enabled;
++	for (int p = 0; p < 2; p++) { joybutton[p + 2] = buttons[p]; joydir[p + 2] = directions[p]; }
++}
++#endif
+diff --git a/include/inputdevice.h b/include/inputdevice.h
+--- a/include/inputdevice.h
++++ b/include/inputdevice.h
+@@ -270,7 +270,8 @@
+ // Reads of the input registers by the emulated CPU, one bit each. Write-only for the engine: the bridge clears the
+ // mask at the start of a unit and reads it at the end, and the unit is a lag frame when nothing was read.
+ enum { P6_POLL_JOY0DAT = 1, P6_POLL_JOY1DAT = 2, P6_POLL_POT0DAT = 4, P6_POLL_POT1DAT = 8, P6_POLL_POTGOR = 16,
+-       P6_POLL_CIAA_PRA = 32, P6_POLL_CIAA_SDR = 64 };
++       P6_POLL_CIAA_PRA = 32, P6_POLL_CIAA_SDR = 64, P6_POLL_CIAA_PRB = 128, P6_POLL_CIAB_PRA = 256 };
++extern bool p6_input_parallel_active();
+ extern unsigned p6_input_poll_mask;
+ #define P6_INPUT_POLL(bit) (p6_input_poll_mask |= (bit))
+ #else
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -1917,6 +1917,9 @@
+ 		return v;
+ 	}
+ 	case 1:
++#ifdef P6_PORTABLE
++		if (flags && p6_input_parallel_active()) P6_INPUT_POLL(P6_POLL_CIAA_PRB);
++#endif
+ 		tmp = (c->prb & c->drb) | (c->drb ^ 0xff);
+ #ifdef PARALLEL_PORT
+ 		if (isprinter() > 0) {
+@@ -2037,6 +2040,22 @@
+ 			}
+ 			tmp = handle_parport_joystick(1, tmp);
+ 		}
++#endif
++#if defined(P6_PORTABLE) && !defined(PARALLEL_PORT)
++		// Keep the existing portable profile unchanged without the adapter.
++		// With it, these real CIA serial-output pins share the fire lines;
++		// host parallel/printer services remain excluded.
++		if (p6_input_parallel_active()) {
++			if (c->t[0].cr & 0x40) {
++				tmp &= ~3;
++				tmp |= (c->sdr_cnt & 1) ? 2 : 0;
++				tmp |= (c->sdr_buf & 0x80) ? 1 : 0;
++			}
++			tmp = handle_parport_joystick(1, tmp);
++		}
++#endif
++#ifdef P6_PORTABLE
++		if (flags && p6_input_parallel_active()) P6_INPUT_POLL(P6_POLL_CIAB_PRA);
+ #endif
+ #ifdef SERIAL_PORT
+ 		tmp = serial_readstatus(tmp, c->dra);

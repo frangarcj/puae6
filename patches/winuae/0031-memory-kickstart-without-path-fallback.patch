@@ -1,0 +1,22 @@
+diff --git a/memory.cpp b/memory.cpp
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -1991,6 +1991,10 @@
+ 
+ static struct zfile *get_kickstart_filehandle(struct uae_prefs *p)
+ {
++#ifdef P6_PORTABLE
++	// ROM selection belongs to the supplied asset; never search host defaults.
++	return read_rom_name(p->romfile, false);
++#else
+ 	struct zfile *f;
+ 	TCHAR tmprom[MAX_DPATH], tmprom2[MAX_DPATH];
+ 
+@@ -2024,6 +2028,7 @@
+ 		_tcscpy(p->romfile, tmprom2);
+ 	}
+ 	return f;
++#endif
+ }
+ 
+ static const uae_u8 romend[20] = {

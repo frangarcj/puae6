@@ -1,0 +1,248 @@
+{
+  "purpose": "Seeds replayed by tests/fuzz/test_fuzz.py. Every bug a fuzz run finds and fixes adds its target, seed and iteration count here with the fix it belongs to; the runs are deterministic, so a seed is a reproducer.",
+  "runs": [
+    {
+      "target": "config",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "config",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "blob",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "blob",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "firmware",
+      "seed": 1,
+      "iterations": 120,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "media",
+      "seed": 1,
+      "iterations": 80,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "media",
+      "seed": 2,
+      "iterations": 80,
+      "note": "baseline; no defect found"
+    }
+  ],
+  "state_runs": [
+    {
+      "seed": 1,
+      "iterations": 300,
+      "note": "baseline; 300 mutated states per session, with and without a disk. The only finding: DISK_update shifted the -1 of DSKSYNC(-1, v) left in every state load (UBSan), patch 0102"
+    },
+    {
+      "seed": 2,
+      "iterations": 300,
+      "note": "baseline; no defect found"
+    },
+    {
+      "seed": 1,
+      "iterations": 150,
+      "machine": "a600",
+      "note": "T23b: the A600 profile (1 MiB Chip, empty clock chunk). The first run found that a state loaded into an ECS Agnus left programmed_register_accessed_h set (patch 0104)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a1200",
+      "note": "T24c: the A1200 profile (68EC020, AGA, 2 MiB Chip, the 68020 block of P6CP, CAGA and the Denise ring in the video chunk): mutated states of 2.2 MB each"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a500og",
+      "note": "T50: the A500 OG: no Slow RAM, no clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a500plus",
+      "note": "T50: the A500+: ECS Agnus, 1 MiB Chip, the clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 100,
+      "machine": "a1000",
+      "note": "T50: the A1000: the 8361 chips and the CTOD body of P6CH (patch 0240), no clock chunk (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 60,
+      "machine": "a2000og",
+      "note": "T50: the A2000 OG: Slow RAM, the clock chunk and the CTOD body (baseline; no defect found)"
+    },
+    {
+      "seed": 1,
+      "iterations": 100,
+      "machine": "a2000",
+      "note": "T50: the A2000: ECS Agnus with the OCS Denise, the clock chunk and the CTOD body (baseline; no defect found)"
+    }
+  ],
+  "state_writable_runs": [
+    {
+      "seed": 1,
+      "iterations": 200,
+      "note": "T27: states of a session with floppy writes (the overlay body of P6DK carries three runs of guest sectors) and p6_media_export / p6_media_write_status with hostile arguments"
+    },
+    {
+      "seed": 2,
+      "iterations": 200,
+      "note": "T27: a second seed"
+    }
+  ],
+  "content_runs": [
+    {
+      "target": "m3u",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "m3u",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "vfs",
+      "seed": 1,
+      "iterations": 3000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "options",
+      "seed": 1,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "options",
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline; no defect found"
+    },
+    {
+      "target": "hdz",
+      "seed": 1,
+      "iterations": 6000,
+      "note": "baseline of T63a (decode_hard_file: .hdf and .hdz with cut, flipped, bad-trailer and oversized gzip members, a bomb at the cap, wrong sizes); no defect found"
+    },
+    {
+      "target": "hdz",
+      "seed": 2,
+      "iterations": 6000,
+      "note": "baseline of T63a; no defect found"
+    },
+    {
+      "target": "volume",
+      "seed": 1,
+      "iterations": 3000,
+      "note": "baseline of T64a (the volume builder: trees with hostile names, LHA archives and ZIP files flipped, cut, claiming more than the caps, with names that leave the volume; an accepted source is an image that is exactly its tree); no defect found"
+    },
+    {
+      "target": "volume",
+      "seed": 2,
+      "iterations": 3000,
+      "note": "baseline of T64a; no defect found"
+    },
+    {
+      "target": "archive",
+      "seed": 1,
+      "iterations": 4000,
+      "note": "baseline of T59 (the 7z reader and the archives of disks: a ZIP, a 7z and an RP9 package of three ADFs flipped, cut, with the 7z checksums put right again, random LZMA and LZMA2 streams, claims beyond the caps, members by name, RP9 manifests of random XML, and the order of a set; an accepted disk is a disk of the seeds, byte for byte)"
+    },
+    {
+      "target": "archive",
+      "seed": 2,
+      "iterations": 4000,
+      "note": "baseline of T59"
+    },
+    {
+      "target": "model",
+      "seed": 1,
+      "iterations": 6000,
+      "note": "baseline of T76 (the automatic model and the tags in the names: random, near-miss, glued and hostile names against an independent oracle written from the table of docs/options.md; pure, never automatic, a choice made by hand is never changed, what is said is bounded)"
+    },
+    {
+      "target": "model",
+      "seed": 2,
+      "iterations": 6000,
+      "note": "baseline of T76"
+    },
+    {
+      "target": "firmware",
+      "seed": 1,
+      "iterations": 1500,
+      "note": "baseline of T51 (the ROMs encrypted by Amiga Forever: AMIROMTYPE1 images and keys of every length, wrong keys, cut and flipped tags, payloads of 0 to 600 KB, against an independent oracle; the input is never touched, nothing comes out unless Decrypted, a round trip gives the ROM back; the table of versions has exactly its seven choices)"
+    },
+    {
+      "target": "firmware",
+      "seed": 2,
+      "iterations": 1500,
+      "note": "baseline of T51"
+    }
+  ],
+  "config_runs": [
+    {
+      "seed": 1,
+      "iterations": 20000,
+      "note": "found before the fix: a digit string of more than 4300 characters escaped normalize_config as a bare ValueError that named no option, and a request that was not a dict escaped as TypeError (an empty list was accepted as nothing requested); fixed in tools/generate_options.py"
+    },
+    {
+      "seed": 2,
+      "iterations": 20000,
+      "note": "baseline after the fix; no defect found"
+    }
+  ],
+  "scenario_runs": [
+    {
+      "seed": 1,
+      "iterations": 4000,
+      "note": "baseline; no defect found"
+    }
+  ],
+  "hardfile_runs": [
+    {
+      "seed": 1,
+      "iterations": 60,
+      "note": "baseline of T29d; 60 mutated hard files (RDSK, PART, FSHD and LSEG blocks), loaded, mounted by the micro-ROM, saved and loaded back. Findings: rdb_checksum summed the longs a block declared out of a one-block buffer (heap overflow read and an int overflow), and the log dumps of the RDB (dump_partinfo, dump_rdb) overflowed ints and divided by a block size of zero: patch 0190"
+    },
+    {
+      "seed": 2,
+      "iterations": 60,
+      "note": "baseline; second seed"
+    }
+  ],
+  "trackdisk_runs": [
+    {
+      "seed": 1,
+      "iterations": 40,
+      "note": "baseline of T57a; 40 extended ADF images with a mutated header or table (and 1 in 8 unmutated), against an independent oracle of the format; the accepted ones are read by the sweep micro-ROM over the first cylinders at turbo speed, saved and loaded back"
+    },
+    {
+      "seed": 2,
+      "iterations": 40,
+      "note": "baseline; second seed"
+    }
+  ]
+}

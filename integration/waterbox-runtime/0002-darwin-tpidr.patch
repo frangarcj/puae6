@@ -1,0 +1,212 @@
+diff --git a/src/context/interop_aarch64.bin b/src/context/interop_aarch64.bin
+index 1ab3e29c31c4be92606b6db79b9e413536b2dc06..53f236bdddd2cd0ae918808e2b565d015cc43edd 100755
+GIT binary patch
+delta 127
+zcmZn=Xb_mNmc8C#<sW{BpA&b;OuV5nxrd!&6Qc{G#NYb;D_=4*O!Q=B`02^%@Y9}=
+zVd5WVu2qv$m>ikw53ZQJhACvC0M907Qx+Yd3BQXSSN_a)TKPTMdF9t=mzAG`U01#W
+b8j-+gf9(}eIY=wmn2C3lfp(Nk6yN{=G$A&v
+
+delta 162
+zcmZn=Xb_mNR$JR)<sW{BpI#TFufD9`zw#L~$0~J6ho4%a4nG|j?XSJ8Ke*x#Gv_K#
+zp!~!O8k-nh7!^D(SYQ3CzJKLQW`>ELtPDRrIURo5Gcrv4!_2h`WX|LmCP#MlgDXIK
+zCNE$L*~DzhqOb0-@^`W0%AeUzE59c@ulySAvhs7V>q?NCS3r9cfOfqC+XXX&eGUNG
+CrAe~@
+
+diff --git a/src/context/interop_aarch64.s b/src/context/interop_aarch64.s
+index be6842dcb5613960e3159cdd83824eacde6adc8a..79a464af53f10e743a418b3cc078bcf45eca96ce 100644
+--- a/src/context/interop_aarch64.s
++++ b/src/context/interop_aarch64.s
+@@ -1,5 +1,9 @@
+ .section .text
+ 
++// Darwin owns TPIDR_EL0, including CPU0/cluster0 == zero. Guest Context/TLS
++// uses x28 only: no mirror and no stale CPU/cluster restoration on return.
++// Keep the reserved second word of the host frame to preserve stack offsets.
++
+ // Constant definitions (replaces %define)
+ .equ BASE_ADDR, 0x35f00000000
+ .macro RVA addr
+@@ -45,9 +49,8 @@ guest_syscall:
+ 
+     ldr     x10, [x9, #8]          // Context.host_rsp
+     mov     sp, x10
+-    ldp     x29, x10, [sp]
++    ldp     x29, xzr, [sp]
+     ldr     x28, [sp, #24]
+-    msr     tpidr_el0, x10         // restore host frame chain, x28 and TLS
+ 
+     // Keep Context* on the host stack across the Rust syscall dispatcher.
+     stp     x9, xzr, [sp, #-16]!
+@@ -60,7 +63,6 @@ guest_syscall:
+ 
+     ldp     x9, xzr, [sp], #16     // x9 = Context*
+     mov     x28, x9
+-    msr     tpidr_el0, x9          // legacy Waterbox AArch64 guest TLS
+ 
+     ldr     x10, [x9, #16]         // Context.guest_rsp
+     mov     sp, x10
+@@ -116,8 +118,7 @@ do_swap:
+     str     x9,  [x10, #32]
+ 
+ do_switch:
+-    mrs     x9, tpidr_el0
+-    stp     x29, x9, [sp, #-16]!
++    stp     x29, xzr, [sp, #-16]!
+ 
+     mov     x9, sp
+     str     x9, [x10, #8]          // host_rsp = sp
+@@ -126,7 +127,6 @@ do_switch:
+     mov     sp, x9
+ 
+     mov     x28, x10
+-    msr     tpidr_el0, x10         // legacy Waterbox AArch64 guest TLS
+ 
+     blr     x11                    // return address goes on guest stack
+     mov     x10, x28               // x28 is reserved throughout the guest
+@@ -157,8 +157,7 @@ do_switch:
+     str     x9,  [x10, #32]
+ 
+ done:
+-    ldp     x29, x9, [sp], #16
+-    msr tpidr_el0, x9
++    ldp     x29, xzr, [sp], #16
+ 
+     ldp x27, x28, [sp], #16
+     ldp x25, x26, [sp], #16
+@@ -213,19 +212,17 @@ guest_extcall_impl:
+     add     x11, x10, #56          // &extcall_slots[0]
+     ldr     x11, [x11, x8, lsl #3]
+ 
+-    ldp     x29, x9, [sp]
++    ldp     x29, xzr, [sp]
+     ldp     x27, x28, [sp, #16]
+     ldp     x25, x26, [sp, #32]
+     ldp     x23, x24, [sp, #48]
+     ldp     x21, x22, [sp, #64]
+     ldp     x19, x20, [sp, #80]
+-    msr     tpidr_el0, x9          // restore complete host nonvolatile state
+ 
+     stp     x10, xzr, [sp, #-16]!
+     blr     x11
+     ldp     x10, xzr, [sp], #16
+     mov     x28, x10
+-    msr     tpidr_el0, x10         // legacy Waterbox AArch64 guest TLS
+ 
+     // Restore guest stack
+     ldr     x9, [x10, #16]
+diff --git a/src/context/mod.rs b/src/context/mod.rs
+index 2d30e75cad0117354c2f5285d9836b1e6b95dc7f..e1b2edb41e2d6da1be5c2a6d89a9e8cfd051dba4 100644
+--- a/src/context/mod.rs
++++ b/src/context/mod.rs
+@@ -160,11 +160,11 @@ pub fn prepare_thread() {
+ 		}
+ 	}
+ 
+-	#[cfg(all(unix, target_arch = "aarch64"))]
++	// Darwin owns TPIDR_EL0 (CPU/cluster, including a valid zero). Its musl
++	// gets Context/TLS from x28; neither initialize nor restore host TPIDR.
++	#[cfg(all(unix, target_arch = "aarch64", not(target_os = "macos")))]
+ 	unsafe {
+-		// Waterbox musl uses TPIDR_EL0 to find Context and then its guest TLS.
+-		// Darwin keeps its platform thread pointer elsewhere; interop saves and
+-		// restores this value around every guest transition.
++		// Legacy non-Darwin AArch64 runtime TLS.
+ 		use core::arch::asm;
+ 		let mut tpidr: usize;
+ 		asm!(
+@@ -184,3 +184,95 @@ pub fn prepare_thread() {
+ 		}
+ 	}
+ }
++
++
++#[cfg(all(test, target_os = "macos", target_arch = "aarch64"))]
++mod darwin_tpidr_tests {
++	use super::*;
++	use core::arch::asm;
++
++	extern "C" fn prepare_once() {
++		prepare_thread();
++	}
++
++	#[test]
++	fn darwin_prepare_thread_preserves_cpu_zero() {
++		// Resolve lazy data and allocate the TIB while the host register is valid.
++		assert_eq!(INTEROP_AREA.start, ORG);
++		let tib = TIB.with(|b| b.as_ref() as *const usize as usize);
++		let mut samples = [0usize; 8];
++		for observed in &mut samples {
++			unsafe {
++				// No assertion/allocation between forcing CPU0 and restoring the
++				// original value. x22 survives the real prepare_thread call.
++				asm!(
++					"mrs x22, tpidr_el0",
++					"msr tpidr_el0, xzr",
++					"blr x21",
++					"mrs x20, tpidr_el0",
++					"msr tpidr_el0, x22",
++					in("x21") prepare_once as *const () as usize,
++					out("x22") _, out("x20") *observed,
++					clobber_abi("C"),
++				);
++			}
++		}
++		assert!(!samples.contains(&tib), "prepare_thread published TIBptr: {:x?}", samples);
++		// XNU can replace zero on preemption. Require one uninterrupted sample
++		// rather than mistaking eight preemptions for proof of preservation.
++		assert!(samples.contains(&0), "CPU0 observation preempted: {:x?}", samples);
++	}
++
++	// This leaf runs on the guest stack through the actual interop entry. It
++	// deliberately observes TPIDR instead of using the supported guest TLS x28.
++	extern "C" fn read_tpidr_leaf() -> usize {
++		let value;
++		unsafe { asm!("mrs {0}, tpidr_el0", out(reg) value, options(nomem, nostack, preserves_flags)); }
++		value
++	}
++
++	extern "C" fn enter_leaf(entry: usize, context: &mut Context) -> usize {
++		call_guest_simple(entry, context)
++	}
++
++	extern "C" fn unexpected_syscall(
++		_: usize, _: usize, _: usize, _: usize, _: usize, _: usize,
++		_: SyscallNumber, _: &mut WaterboxHost,
++	) -> SyscallReturn {
++		// A native leaf has no syscalls; entering this dispatcher is a failure.
++		std::process::abort()
++	}
++
++	#[test]
++	fn darwin_interop_does_not_mirror_context_in_tpidr() {
++		assert_eq!(INTEROP_AREA.start, ORG);
++		#[repr(align(16))]
++		struct GuestStack([u8; 4096]);
++		let mut stack = GuestStack([0; 4096]);
++		let top = stack.0.as_mut_ptr() as usize + stack.0.len();
++		let mut context = Context::new(top, 0, unexpected_syscall);
++		let context_ptr = &mut context as *mut Context as usize;
++		let guest_tpidr: usize;
++		let returned_tpidr: usize;
++		unsafe {
++			// The old interop writes Context* even if XNU supplied a valid zero.
++			// Restore host TPIDR immediately after returning, before Rust assertions.
++			asm!(
++				"mrs x22, tpidr_el0",
++				"msr tpidr_el0, xzr",
++				"blr x21",
++				"mrs x20, tpidr_el0",
++				"msr tpidr_el0, x22",
++				in("x21") enter_leaf as *const () as usize,
++				inout("x0") read_tpidr_leaf as *const () as usize => guest_tpidr,
++				in("x1") context_ptr,
++				out("x22") _, out("x20") returned_tpidr,
++				clobber_abi("C"),
++			);
++		}
++		assert_ne!(guest_tpidr, context_ptr, "interop exposed Context* as Darwin TPIDR");
++		assert_ne!(returned_tpidr, context_ptr, "interop leaked Context* after return");
++		assert_eq!(context.host_rsp, 0);
++		assert_eq!(context.guest_rsp, top);
++	}
++}

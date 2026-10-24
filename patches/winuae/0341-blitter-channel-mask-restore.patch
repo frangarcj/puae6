@@ -1,0 +1,19 @@
+diff --git a/blitter.cpp b/blitter.cpp
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -2541,7 +2541,15 @@
+ //				blt_info.blit_main = 0;
+ //			}
+ 			if (blt_statefile_type == 2) {
++#ifdef P6_PORTABLE
++				// BLTX already restored this pipeline mask. A BLTCON0 write can
++				// still be pending, so deriving it now would consume that write.
++				const uae_u8 saved_channels = blit_ch;
++#endif
+ 				blit_bltset(0);
++#ifdef P6_PORTABLE
++				blit_ch = saved_channels;
++#endif
+ 			}
+ 		}
+ #ifdef P6_PORTABLE

@@ -1,0 +1,786 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "machine": "A1000",
+  "upstream_preset": "cfgfile.cpp default_prefs(reset, 0) + built_in_prefs(model 3, config 0, compa 0, romcheck 0) + fixup_prefs(userconfig), after the video standard is chosen (comparator: the A1000)",
+  "sources": {
+    "upstream": "inherited from the upstream preset; the test proves it equals the reference",
+    "pin": "set by the bridge to the value upstream happens to have; a change upstream must be noticed and decided",
+    "override": "set by the bridge to a value that differs from upstream",
+    "config": "derived from p6_config"
+  },
+  "test_config": {
+    "audio_rate_hz": 48000,
+    "random_seed": "0x0123456789abcdef"
+  },
+  "fields": [
+    {
+      "name": "cpu_model",
+      "source": "upstream",
+      "value": 68000,
+      "why": "68000 at the A500 clock; the generated CPU tables cover the 68000 and the 68020"
+    },
+    {
+      "name": "fpu_model",
+      "source": "upstream",
+      "value": 0,
+      "why": "no FPU on a 68000 machine"
+    },
+    {
+      "name": "address_space_24",
+      "source": "upstream",
+      "value": 1,
+      "why": "24-bit address bus of the 68000"
+    },
+    {
+      "name": "cpu_compatible",
+      "source": "upstream",
+      "value": 1,
+      "why": "the cycle-exact 68000 core is selected with compatible mode on"
+    },
+    {
+      "name": "cpu_cycle_exact",
+      "source": "upstream",
+      "value": 1,
+      "why": "bus timing decides DMA slot stealing; the only CPU engine compiled"
+    },
+    {
+      "name": "cpu_memory_cycle_exact",
+      "source": "upstream",
+      "value": 1,
+      "why": "memory access timing follows the same exact model"
+    },
+    {
+      "name": "blitter_cycle_exact",
+      "source": "upstream",
+      "value": 1,
+      "why": "blitter DMA slots interleave with the CPU exactly"
+    },
+    {
+      "name": "m68k_speed",
+      "source": "upstream",
+      "value": 0,
+      "why": "0 = original speed, not a host-throttled 'maximum'"
+    },
+    {
+      "name": "cpu_frequency",
+      "source": "upstream",
+      "value": 0,
+      "why": "0 = derive from the video standard"
+    },
+    {
+      "name": "cpu_clock_multiplier",
+      "source": "upstream",
+      "value": 512,
+      "why": "512 (CYCLE_UNIT): scheduler ticks per CPU clock at 1x"
+    },
+    {
+      "name": "cpu_idle",
+      "source": "upstream",
+      "value": 0,
+      "why": "no host sleeping while the CPU is stopped"
+    },
+    {
+      "name": "mmu_model",
+      "source": "upstream",
+      "value": 0,
+      "why": "no MMU on a 68000"
+    },
+    {
+      "name": "chipset_mask",
+      "source": "upstream",
+      "value": 32,
+      "why": "the A1000 chipset (Agnus 8361, Denise 8362): 32 is CSMASK_A1000"
+    },
+    {
+      "name": "cs_compatible",
+      "source": "override",
+      "value": 0,
+      "why": "CP_A1000 is applied once by built_in_prefs and then cleared: with it every fixup_prefs would impose upstream's reset warning handshake again (the profile has it off and the input boundary of the state refuses it); with 0 it leaves the table values as they are"
+    },
+    {
+      "name": "cs_rtc",
+      "source": "upstream",
+      "value": 0,
+      "why": "the A1000 has no clock without an expansion that carries one"
+    },
+    {
+      "name": "cs_ide",
+      "source": "pin",
+      "value": 0,
+      "why": "no Gayle IDE on this machine"
+    },
+    {
+      "name": "cs_pcmcia",
+      "source": "pin",
+      "value": 0,
+      "why": "no PCMCIA slot on this machine"
+    },
+    {
+      "name": "cs_ksmirror_a8",
+      "source": "upstream",
+      "value": 0,
+      "why": "no Kickstart mirror at $A80000 (the A600 and A1200 have one)"
+    },
+    {
+      "name": "cs_ciaoverlay",
+      "source": "pin",
+      "value": 1,
+      "why": "the CIA drives the ROM overlay (OVL), as the state bridge expects"
+    },
+    {
+      "name": "cs_ciatype[0]",
+      "source": "upstream",
+      "value": 0,
+      "why": "CIA 8520 (type 0), as upstream's table sets it"
+    },
+    {
+      "name": "cs_ciatype[1]",
+      "source": "upstream",
+      "value": 0,
+      "why": "CIA 8520 (type 0), as upstream's table sets it"
+    },
+    {
+      "name": "cs_eclocksync",
+      "source": "upstream",
+      "value": 0,
+      "why": "E clock not synchronised to the machine cycle (0): that is the A600/A1200 table"
+    },
+    {
+      "name": "cs_df0idhw",
+      "source": "upstream",
+      "value": 1,
+      "why": "upstream's reset value, which CP_A1000 keeps"
+    },
+    {
+      "name": "cs_ciatodbug",
+      "source": "upstream",
+      "value": 1,
+      "why": "CIA TOD bug, as upstream's table sets it"
+    },
+    {
+      "name": "cs_1mchipjumper",
+      "source": "pin",
+      "value": 0,
+      "why": "fixup_prefs sets it for 1 MiB Chip; the OCS 512 KiB machines keep it off"
+    },
+    {
+      "name": "cs_cdtvcd",
+      "source": "upstream",
+      "value": 0,
+      "why": "no CDTV drive"
+    },
+    {
+      "name": "cs_cd32cd",
+      "source": "upstream",
+      "value": 0,
+      "why": "no CD32 drive"
+    },
+    {
+      "name": "chipmem.size",
+      "source": "upstream",
+      "value": 524288,
+      "why": "512 KiB Chip RAM (upstream's configuration 0: the 256 KiB of the first A1000 is its configuration 2), fixed by the machine"
+    },
+    {
+      "name": "bogomem.size",
+      "source": "upstream",
+      "value": 0,
+      "why": "the A1000 has no Slow RAM"
+    },
+    {
+      "name": "fastmem[0].size",
+      "source": "upstream",
+      "value": 0,
+      "why": "no Zorro II Fast RAM"
+    },
+    {
+      "name": "z3fastmem[0].size",
+      "source": "upstream",
+      "value": 0,
+      "why": "no Zorro III RAM"
+    },
+    {
+      "name": "mbresmem_low.size",
+      "source": "upstream",
+      "value": 0,
+      "why": "no motherboard RAM"
+    },
+    {
+      "name": "mbresmem_high.size",
+      "source": "upstream",
+      "value": 0,
+      "why": "no motherboard RAM"
+    },
+    {
+      "name": "nr_floppies",
+      "source": "upstream",
+      "value": 2,
+      "why": "two internal drives; disks arrive by content id (T12)"
+    },
+    {
+      "name": "floppyslots[0].dfxtype",
+      "source": "upstream",
+      "value": 0,
+      "why": "DF0 is a 3.5 inch DD drive (0)"
+    },
+    {
+      "name": "floppyslots[1].dfxtype",
+      "source": "override",
+      "value": 0,
+      "why": "DF1 is a 3.5 inch DD drive (0): the ABI gives every machine DF0 and DF1 (the external drive port); upstream's preset has one drive (DRV_NONE)"
+    },
+    {
+      "name": "floppyslots[2].dfxtype",
+      "source": "upstream",
+      "value": -1,
+      "why": "DF2 absent (-1)"
+    },
+    {
+      "name": "floppyslots[3].dfxtype",
+      "source": "upstream",
+      "value": -1,
+      "why": "DF3 absent (-1)"
+    },
+    {
+      "name": "floppyslots[0].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df0.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[1].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df1.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[2].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df2.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppyslots[3].df",
+      "source": "override",
+      "value": "",
+      "why": "no host path: upstream's default df3.adf is never looked up, media arrive by content id"
+    },
+    {
+      "name": "floppy_read_only",
+      "source": "override",
+      "value": 1,
+      "why": "every disk is write protected: the master switch of the drive code, which the reset head cannot clear"
+    },
+    {
+      "name": "floppy_speed",
+      "source": "upstream",
+      "value": 100,
+      "why": "100 = original speed, no turbo drive"
+    },
+    {
+      "name": "immediate_blits",
+      "source": "upstream",
+      "value": 0,
+      "why": "blits take their real time"
+    },
+    {
+      "name": "waiting_blits",
+      "source": "upstream",
+      "value": 0,
+      "why": "the CPU does not wait for blits"
+    },
+    {
+      "name": "collision_level",
+      "source": "upstream",
+      "value": 3,
+      "why": "3 = full sprite/playfield collision detection"
+    },
+    {
+      "name": "ntscmode",
+      "source": "config",
+      "value": {
+        "pal": 0,
+        "ntsc": 1
+      },
+      "why": "video standard from p6_config"
+    },
+    {
+      "name": "seed",
+      "source": "config",
+      "value": 2290649224,
+      "why": "random_seed folded to 32 bits (high half xor low half)"
+    },
+    {
+      "name": "sound_freq",
+      "source": "config",
+      "value": 48000,
+      "why": "audio_rate_hz from p6_config"
+    },
+    {
+      "name": "sound_stereo",
+      "source": "pin",
+      "value": 1,
+      "why": "stereo output (SND_STEREO)"
+    },
+    {
+      "name": "produce_sound",
+      "source": "pin",
+      "value": 3,
+      "why": "3 = full emulation; the delivery transport is the port's PCM queue"
+    },
+    {
+      "name": "sound_auto",
+      "source": "pin",
+      "value": 0,
+      "why": "no host-driven audio switching"
+    },
+    {
+      "name": "sound_interpol",
+      "source": "upstream",
+      "value": 1,
+      "why": "anti-aliasing interpolation as upstream"
+    },
+    {
+      "name": "sound_filter",
+      "source": "override",
+      "value": 1,
+      "why": "the filter model of the profile (emulated: it follows the power LED); upstream's A1000 has it always on"
+    },
+    {
+      "name": "sound_filter_type",
+      "source": "upstream",
+      "value": 0,
+      "why": "A500 filter model"
+    },
+    {
+      "name": "start_gui",
+      "source": "override",
+      "value": 0,
+      "why": "no GUI exists"
+    },
+    {
+      "name": "reset_delay",
+      "source": "pin",
+      "value": 0,
+      "why": "config-invariants.json: the delayed-reset wait does not poll the unit request"
+    },
+    {
+      "name": "crash_auto_reset",
+      "source": "pin",
+      "value": 0,
+      "why": "config-invariants.json: a halted CPU stays in the polling wait"
+    },
+    {
+      "name": "gfx_autoresolution",
+      "source": "pin",
+      "value": 0,
+      "why": "the presentation provider serves one fixed raster"
+    },
+    {
+      "name": "gfx_autoresolution_vga",
+      "source": "override",
+      "value": 0,
+      "why": "same; upstream default is on"
+    },
+    {
+      "name": "gfx_framerate",
+      "source": "pin",
+      "value": 1,
+      "why": "1 = every video unit is drawn; frame skipping would hide units"
+    },
+    {
+      "name": "gfx_resolution",
+      "source": "pin",
+      "value": 1,
+      "why": "hires drawing: 756 columns for the PAL/NTSC beam area (docs/adr/0006-video-output.md)"
+    },
+    {
+      "name": "gfx_vresolution",
+      "source": "pin",
+      "value": 1,
+      "why": "rows are line-doubled TV lines: 574 PAL / 484 NTSC rows"
+    },
+    {
+      "name": "gfx_iscanlines",
+      "source": "pin",
+      "value": 1,
+      "why": "interlaced fields are woven into one buffer; the other field's rows keep their history"
+    },
+    {
+      "name": "gfx_pscanlines",
+      "source": "pin",
+      "value": 0,
+      "why": "no scanline blanking in progressive modes"
+    },
+    {
+      "name": "gfx_scandoubler",
+      "source": "pin",
+      "value": 0,
+      "why": "no VGA scandoubler"
+    },
+    {
+      "name": "leds_on_screen",
+      "source": "pin",
+      "value": 0,
+      "why": "no status line drawn into the picture"
+    },
+    {
+      "name": "refresh_indicator",
+      "source": "pin",
+      "value": 0,
+      "why": "no overlay on the picture"
+    },
+    {
+      "name": "input_mouse_speed",
+      "source": "pin",
+      "value": 100,
+      "why": "mouse gain 100 keeps deltas exact: no fractional carry between units"
+    },
+    {
+      "name": "input_joymouse_speed",
+      "source": "upstream",
+      "value": 10,
+      "why": "joystick-as-mouse speed as upstream"
+    },
+    {
+      "name": "input_autofire_linecnt",
+      "source": "upstream",
+      "value": 600,
+      "why": "autofire period as upstream"
+    },
+    {
+      "name": "input_autoswitch",
+      "source": "upstream",
+      "value": 1,
+      "why": "port auto-switch as upstream (config-invariants.json covers its wall-clock variant)"
+    },
+    {
+      "name": "illegal_mem",
+      "source": "upstream",
+      "value": 0,
+      "why": "no illegal-access logging"
+    },
+    {
+      "name": "turbo_emulation",
+      "source": "upstream",
+      "value": 0,
+      "why": "no turbo mode"
+    },
+    {
+      "name": "turbo_boot",
+      "source": "upstream",
+      "value": 0,
+      "why": "no boot speed-up"
+    },
+    {
+      "name": "cachesize",
+      "source": "upstream",
+      "value": 0,
+      "why": "no JIT"
+    },
+    {
+      "name": "cpu_thread",
+      "source": "upstream",
+      "value": 0,
+      "why": "no CPU thread"
+    },
+    {
+      "name": "uaeboard",
+      "source": "upstream",
+      "value": 0,
+      "why": "no UAE expansion board"
+    },
+    {
+      "name": "socket_emu",
+      "source": "upstream",
+      "value": 0,
+      "why": "no host sockets"
+    },
+    {
+      "name": "win32_automount_drives",
+      "source": "upstream",
+      "value": 0,
+      "why": "no host drives"
+    },
+    {
+      "name": "filesys_no_uaefsdb",
+      "source": "upstream",
+      "value": 0,
+      "why": "no host filesystem"
+    },
+    {
+      "name": "parallel_demand",
+      "source": "upstream",
+      "value": 0,
+      "why": "no parallel port"
+    },
+    {
+      "name": "use_serial",
+      "source": "upstream",
+      "value": 0,
+      "why": "no serial port"
+    },
+    {
+      "name": "serial_demand",
+      "source": "upstream",
+      "value": 0,
+      "why": "no serial port"
+    },
+    {
+      "name": "picasso96_nocustom",
+      "source": "upstream",
+      "value": 1,
+      "why": "no RTG board"
+    },
+    {
+      "name": "romfile",
+      "source": "override",
+      "value": "p6-firmware.rom",
+      "why": "the firmware is the buffer of p6_load, registered under this blob id"
+    },
+    {
+      "name": "gfx_lores_mode",
+      "source": "pin",
+      "value": 0,
+      "why": "no filtered lores line conversion"
+    },
+    {
+      "name": "gfx_overscanmode",
+      "source": "pin",
+      "value": 3,
+      "why": "overscan mode 3: modes 0..3 give the same raster, 4..6 change its size"
+    },
+    {
+      "name": "gfx_xcenter",
+      "source": "pin",
+      "value": 0,
+      "why": "0: the window does not follow DIWSTRT/DIWSTOP, so the raster is guest independent"
+    },
+    {
+      "name": "gfx_ycenter",
+      "source": "pin",
+      "value": 0,
+      "why": "0: same for the vertical position"
+    },
+    {
+      "name": "gfx_extrawidth",
+      "source": "pin",
+      "value": 0,
+      "why": "no extra width around the raster"
+    },
+    {
+      "name": "gfx_extraheight",
+      "source": "pin",
+      "value": 0,
+      "why": "no extra height around the raster"
+    },
+    {
+      "name": "gfx_threebitcolors",
+      "source": "pin",
+      "value": 0,
+      "why": "no 3-bit colour scaling (float math)"
+    },
+    {
+      "name": "gfx_blackerthanblack",
+      "source": "pin",
+      "value": 0,
+      "why": "no blacker-than-black level"
+    },
+    {
+      "name": "display_calibration",
+      "source": "pin",
+      "value": 0,
+      "why": "no black level calibration pass"
+    },
+    {
+      "name": "gfx_monitorblankdelay",
+      "source": "pin",
+      "value": 0,
+      "why": "no monitor blank delay (float division)"
+    },
+    {
+      "name": "lightpen_crosshair",
+      "source": "override",
+      "value": 0,
+      "why": "no lightpen cursor drawn into the picture; upstream default is on and would force the auxiliary buffer"
+    },
+    {
+      "name": "cs_optimizations",
+      "source": "pin",
+      "value": 0,
+      "why": "no chipset speed shortcuts"
+    },
+    {
+      "name": "cs_hvcsync",
+      "source": "pin",
+      "value": 0,
+      "why": "no HV sync output emulation"
+    },
+    {
+      "name": "jports[0].jd[0].id",
+      "source": "pin",
+      "value": 200,
+      "why": "port 0 takes the logical mouse (JSEM_MICE + 0); p6_input decides per unit whether it is used"
+    },
+    {
+      "name": "jports[0].jd[0].mode",
+      "source": "pin",
+      "value": 0,
+      "why": "mouse in default mode"
+    },
+    {
+      "name": "jports[0].jd[1].id",
+      "source": "override",
+      "value": 100,
+      "why": "port 0 also takes joystick 0 (JSEM_JOYS + 0): mouse and joystick share the connector"
+    },
+    {
+      "name": "jports[0].jd[1].mode",
+      "source": "override",
+      "value": 4,
+      "why": "gamepad: its second and third buttons show on POTGOR (in default mode they are silent no-ops)"
+    },
+    {
+      "name": "jports[1].jd[0].id",
+      "source": "override",
+      "value": 101,
+      "why": "port 1 takes joystick 1; a mouse on port 1 is refused by the bridge"
+    },
+    {
+      "name": "jports[1].jd[0].mode",
+      "source": "override",
+      "value": 4,
+      "why": "gamepad mode, as joystick 0"
+    },
+    {
+      "name": "jports[1].jd[1].id",
+      "source": "pin",
+      "value": -1,
+      "why": "no second device on port 1"
+    },
+    {
+      "name": "jports[2].jd[0].id",
+      "source": "pin",
+      "value": -1,
+      "why": "ports 2 and 3 (parallel port joysticks) are not used"
+    },
+    {
+      "name": "jports[3].jd[0].id",
+      "source": "pin",
+      "value": -1,
+      "why": "ports 2 and 3 (parallel port joysticks) are not used"
+    },
+    {
+      "name": "input_contact_bounce",
+      "source": "pin",
+      "value": 0,
+      "why": "no random contact bounce"
+    },
+    {
+      "name": "input_tablet",
+      "source": "pin",
+      "value": 0,
+      "why": "no tablet"
+    },
+    {
+      "name": "input_autoswitchleftright",
+      "source": "pin",
+      "value": 0,
+      "why": "no wall-clock port auto-switch (config-invariants.json)"
+    },
+    {
+      "name": "input_keyboard_type",
+      "source": "pin",
+      "value": 0,
+      "why": "Amiga keyboard layout of raw codes"
+    },
+    {
+      "name": "input_advancedmultiinput",
+      "source": "pin",
+      "value": 0,
+      "why": "one event slot per input"
+    },
+    {
+      "name": "keyboard_mode",
+      "source": "pin",
+      "value": 0,
+      "why": "CIA serial keyboard with the guest's handshake"
+    },
+    {
+      "name": "cs_resetwarning",
+      "source": "override",
+      "value": 0,
+      "why": "Ctrl-Amiga-Amiga resets at once, without the reset warning handshake; upstream's table has the warning on"
+    },
+    {
+      "name": "dongle",
+      "source": "pin",
+      "value": 0,
+      "why": "no dongle"
+    },
+    {
+      "name": "sound_stereo_separation",
+      "source": "pin",
+      "value": 7,
+      "why": "each output keeps 26/32 of its own channels and takes 6/32 of the other pair (upstream default)"
+    },
+    {
+      "name": "sound_mixed_stereo_delay",
+      "source": "pin",
+      "value": 0,
+      "why": "no delayed crossfeed between the outputs"
+    },
+    {
+      "name": "sound_volume_paula",
+      "source": "pin",
+      "value": 0,
+      "why": "Paula volume at full scale"
+    },
+    {
+      "name": "sound_volume_master",
+      "source": "pin",
+      "value": 0,
+      "why": "master volume at full scale"
+    },
+    {
+      "name": "cs_ciaatod",
+      "source": "config",
+      "value": {
+        "pal": 1,
+        "ntsc": 2
+      },
+      "why": "the CIA TOD counts the mains (50 Hz PAL, 60 Hz NTSC) through upstream's table: the video standard decides it, the comparator is built with the same standard"
+    },
+    {
+      "name": "cs_unmapped_space",
+      "source": "upstream",
+      "value": 0,
+      "why": "unmapped space answers as upstream's table sets it (the A2000 table: 1; the others 0)"
+    },
+    {
+      "name": "cs_a1000ram",
+      "source": "upstream",
+      "value": 1,
+      "why": "the A1000 board with the write-once memory for the Kickstart; with a 256 KiB ROM given to p6_load it is only a flag (the loader maps no boot ROM)"
+    },
+    {
+      "name": "cs_agnusmodel",
+      "source": "upstream",
+      "value": 2,
+      "why": "the 8361 Agnus of the A1000 (AGNUSMODEL_A1000)"
+    },
+    {
+      "name": "cs_denisemodel",
+      "source": "upstream",
+      "value": 3,
+      "why": "the 8362 Denise of the A1000 (DENISEMODEL_A1000)"
+    },
+    {
+      "name": "cs_ksmirror_e0",
+      "source": "upstream",
+      "value": 0,
+      "why": "no Kickstart mirror at $E00000 (the A1000 table)"
+    }
+  ]
+}

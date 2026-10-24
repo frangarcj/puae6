@@ -1,0 +1,34 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -129,7 +129,7 @@
+ 
+ cpuop_func *cpufunctbl[65536];
+ cpuop_func_noret *cpufunctbl_noret[65536];
+-cpuop_func *loop_mode_table[65536];
++cpuop_func_noret *loop_mode_table[65536];
+ 
+ struct cputbl_data
+ {
+@@ -2086,7 +2086,8 @@
+ 		}
+ 
+ 		if (opcode_loop_mode(opcode)) {
+-			loop_mode_table[opcode] = cpufunctbl[opcode];
++			// The cycle-exact tables (cpuemu_13) have no returning handler: handler_ff is NULL and only the noret one exists, which is what the loop mode of the generated DBcc calls
++			loop_mode_table[opcode] = cpufunctbl_noret[opcode];
+ 		}
+ 
+ 	}
+diff --git a/include/newcpu.h b/include/newcpu.h
+--- a/include/newcpu.h
++++ b/include/newcpu.h
+@@ -97,7 +97,7 @@
+ };
+ #endif
+ 
+-extern cpuop_func *loop_mode_table[];
++extern cpuop_func_noret *loop_mode_table[];
+ 
+ extern uae_u32 REGPARAM3 op_illg(uae_u32) REGPARAM;
+ extern void REGPARAM3 op_illg_noret(uae_u32) REGPARAM;

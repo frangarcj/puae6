@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "purpose": "Options the public configuration layer (T13) must reject or normalize for the exclusion patches to be safe. Each entry names the patch that stops honouring the option, so an ignored option can never be silently accepted.",
+  "status": "specification for the public configuration layer (T13). Entries with a 'profile' key already hold in the fixed A500 preset of ABI v1 (config/profiles/a500-ocs.json, checked against the engine by tests/host/test_a500_profile.py); the rest describe options p6_config cannot express yet and must be enforced when it can.",
+  "invariants": [
+    {
+      "option": "rtcfile",
+      "require": "empty",
+      "patches": [
+        "0049"
+      ],
+      "why": "Clock RAM is not persisted to a host file in M1; a non-empty value would be ignored silently."
+    },
+    {
+      "option": "input_autoswitchleftright",
+      "require": "0",
+      "patches": [
+        "0048"
+      ],
+      "why": "The auto-switch compared wall-clock time."
+    },
+    {
+      "option": "jports[].jd[].id in the JSEM_CUSTOM range, jports_custom[].custom",
+      "require": "unused",
+      "patches": [
+        "0048"
+      ],
+      "why": "Custom port scripts were configuration text."
+    },
+    {
+      "option": "input_tablet, MOUSEUNTRAP_MAGIC (magic mouse)",
+      "require": "off",
+      "patches": [
+        "0052"
+      ],
+      "why": "Trap-driven mousehack reads RTG/trap context."
+    },
+    {
+      "option": "inprecfile and input record/play; statecapture*",
+      "require": "empty / 0",
+      "patches": [
+        "0048",
+        "0049",
+        "0050",
+        "0052"
+      ],
+      "why": "Input recording and its state capture are excluded; the bridge must also not expose AKS_STATECAPTURE."
+    },
+    {
+      "option": "cpuboard_type, cpuboard_subtype, cpuboardmem*",
+      "require": "0",
+      "patches": [
+        "0050",
+        "0051",
+        "0053"
+      ],
+      "why": "Accelerator boards are excluded."
+    },
+    {
+      "option": "cpu_model",
+      "require": "68000 or 68010 in M1",
+      "patches": [
+        "0050"
+      ],
+      "why": "The 68020+ address decoding and the 68040 cache helpers are compiled out; M2 revisits this.",
+      "profile": {
+        "cpu_model": 68000
+      }
+    },
+    {
+      "option": "cachesize (JIT), debugger, memwatch",
+      "require": "0 / off",
+      "patches": [
+        "0050",
+        "0051",
+        "0053"
+      ],
+      "why": "Host memory protection and the debugger's real-bank lookup only serve the JIT and the debugger.",
+      "profile": {
+        "cachesize": 0
+      }
+    },
+    {
+      "option": "uaeboard, boot_rom (uae_boot_rom_type), traps area",
+      "require": "0",
+      "patches": [
+        "0050",
+        "0051",
+        "0053"
+      ],
+      "why": "The UAE boot ROM and RTAREA need the trap area; need_uae_boot_rom now reports none.",
+      "profile": {
+        "uaeboard": 0
+      }
+    },
+    {
+      "option": "cs_ide",
+      "require": "normalize to 0",
+      "patches": [
+        "0051"
+      ],
+      "why": "Upstream sets -1 for generic configurations, which maps the Gayle bank; without it reads fall to dummy_bank and change bus behaviour.",
+      "profile": {
+        "cs_ide": 0
+      }
+    },
+    {
+      "option": "cs_pcmcia",
+      "require": "0",
+      "patches": [
+        "0051"
+      ],
+      "why": "Gayle PCMCIA is excluded.",
+      "profile": {
+        "cs_pcmcia": 0
+      }
+    },
+    {
+      "option": "cs_fatgaryrev, cs_ramseyrev",
+      "require": "< 0",
+      "patches": [
+        "0051"
+      ],
+      "why": "Gary timeout flags are constant zero without the A3000 motherboard registers."
+    },
+    {
+      "option": "rtgboards[].rtgmem_size, rtgmem_type, initial_active, monitor_id",
+      "require": "0 / below hardware",
+      "patches": [
+        "0053"
+      ],
+      "why": "Graphics boards are excluded."
+    },
+    {
+      "option": "z3chipmem.size, z3fastmem[].size, fastmem on non-M2 profiles",
+      "require": "0",
+      "patches": [
+        "0051",
+        "0053"
+      ],
+      "why": "Zorro III memory is excluded."
+    },
+    {
+      "option": "scsi, mountitems (directory units), cdslots",
+      "require": "0 / empty / default",
+      "patches": [
+        "0053"
+      ],
+      "why": "Host filesystem, SCSI and CD units are excluded; blkdev defaults are no longer initialised."
+    },
+    {
+      "option": "ROM types ROMTYPE_ALL_CART (Nordic Power, X-Power)",
+      "require": "reject",
+      "patches": [
+        "0052"
+      ],
+      "why": "Cartridge descrambling is excluded; a scrambled image would fail its CRC."
+    },
+    {
+      "option": "floppy media",
+      "require": "explicit read-only ADF assets",
+      "patches": [
+        "0046",
+        "0047"
+      ],
+      "why": "Creation, overlays and host paths are excluded."
+    },
+    {
+      "option": "preprocessor: AUTOCONFIG, FILESYS, SAVESTATE, DEBUGGER, PARALLEL_PORT, FLOPPYBRIDGE",
+      "require": "undefined",
+      "patches": [
+        "0047",
+        "0049",
+        "0050"
+      ],
+      "why": "Several guards rely on these staying undefined (op_illg stops compiling if AUTOCONFIG is defined)."
+    },
+    {
+      "option": "tod_hack",
+      "require": "0",
+      "patches": [
+        "0056"
+      ],
+      "why": "setsystime, which syncs the host clock to the emulated time-of-day, is excluded; it was a no-op only with tod_hack off."
+    },
+    {
+      "option": "savestate_state requests (STATE_DORESTORE, STATE_DOREWIND, STATE_SAVE) and AKS_STATE*",
+      "require": "never raised",
+      "patches": [
+        "0055",
+        "0056"
+      ],
+      "why": "The legacy .uss handlers are excluded until the native serializer (T15); raising a request would leave the state machine stuck, so savestate_check ignores them."
+    },
+    {
+      "option": "firmware identity",
+      "require": "by CRC/SHA-1 only",
+      "patches": [
+        "0056"
+      ],
+      "why": "ROM identification by file name, which accepted unhashed content, is excluded; an image the hash tables do not know is refused."
+    },
+    {
+      "option": "host-only AKS actions (GUI, screenshot, fullscreen, volume, RTG, video grab, quick save, on-screen keyboard, paste)",
+      "require": "not exposed by the bridge",
+      "patches": [
+        "0056",
+        "0057"
+      ],
+      "why": "They are guarded at the AKS switch; the bridge feeds only keys and ports."
+    },
+    {
+      "option": "jports[0..1].jd[0].id",
+      "require": "JSEM_MICE (one mouse) or JSEM_JOYS + port; never JSEM_KBDLAYOUT",
+      "patches": [
+        "0056"
+      ],
+      "why": "The logical devices are 1 mouse and 2 joysticks (joystick n serves port n). Upstream defaults put kbd1 on port 1 and a second mouse would let both ports be mice, which the single logical mouse cannot serve."
+    },
+    {
+      "option": "jports[2..3], joystick mode CD32/CDTV/lightpen/analog",
+      "require": "unused / default mode",
+      "patches": [
+        "0056"
+      ],
+      "why": "input_get_default_* refuse those modes and ports with return 0; the engine ignores the return value, so the public config must reject them."
+    },
+    {
+      "option": "gfx_autoresolution_vga (upstream default true), gfx_autoresolution",
+      "require": "false / 0",
+      "patches": [
+        "0058"
+      ],
+      "why": "The engine would rewrite gfx_resolution and call graphics_reset; p6_video_init refuses the configuration (P6_VIDEO_CFG_AUTORESOLUTION).",
+      "profile": {
+        "gfx_autoresolution": 0,
+        "gfx_autoresolution_vga": 0
+      }
+    },
+    {
+      "option": "gfx_framerate",
+      "require": "1",
+      "patches": [
+        "0058"
+      ],
+      "why": "Frame skip omits the drawing of whole video units.",
+      "profile": {
+        "gfx_framerate": 1
+      }
+    },
+    {
+      "option": "gfx_resolution/gfx_vresolution beyond superhires x double, cs_color_burst, gfx_grayscale, genlock*, monitoremu*, cs_cd32fmv, gfx_luminance/contrast/gamma*, refresh_indicator",
+      "require": "default / off",
+      "patches": [
+        "0058"
+      ],
+      "why": "The presentation provider owns one 1824x626 XRGB8888 buffer and rejects modes and auxiliary buffers it cannot serve; colour math reaches libm pow()."
+    },
+    {
+      "option": "reset_delay",
+      "require": "0",
+      "patches": [
+        "0060"
+      ],
+      "why": "The wait for a delayed reset keeps a vsync counter on the stack of do_specialties and does not poll the unit request; a run call could never return.",
+      "profile": {
+        "reset_delay": 0
+      }
+    },
+    {
+      "option": "crash_auto_reset",
+      "require": "0",
+      "patches": [
+        "0060"
+      ],
+      "why": "A halted CPU must stay in the halt wait loop, which polls the unit request; an automatic reset would replace the crash with a silent restart the guest cannot observe.",
+      "profile": {
+        "crash_auto_reset": 0
+      }
+    }
+  ]
+}

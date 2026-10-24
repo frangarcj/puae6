@@ -1,0 +1,9 @@
+<Project>
+  <!-- Preserve the net8 reference assemblies already pinned in our offline
+       NuGet cache when a newer SDK changes its default targeting-pack patch. -->
+  <ItemGroup>
+    <KnownFrameworkReference Update="Microsoft.NETCore.App;Microsoft.AspNetCore.App">
+      <TargetingPackVersion Condition="'%(KnownFrameworkReference.TargetFramework)' == 'net8.0'">8.0.30</TargetingPackVersion>
+    </KnownFrameworkReference>
+  </ItemGroup>
+</Project>

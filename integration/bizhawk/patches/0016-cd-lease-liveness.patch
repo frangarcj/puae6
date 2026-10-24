@@ -1,0 +1,23 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -28,6 +28,7 @@
+ 		private sealed class OwnedDiscAsset : DiscAsset, IOwnedDiscAsset
+ 		{
+ 			private bool _disposed;
++			public bool IsDisposed => _disposed;
+ 			public void Dispose() { if (!_disposed) { _disposed = true; DiscData.Dispose(); } }
+ 		}
+ 		private bool UsePuae6Cd(string path, string system, string forcedCoreName)
+diff --git a/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs b/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
+--- a/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
++++ b/src/BizHawk.Emulation.Cores/CoreLoadParameters.cs
+@@ -32,7 +32,7 @@
+ 	}
+ 
+ 	/// <summary>Caller owns this lease until core construction succeeds; the core then disposes it.</summary>
+-	public interface IOwnedDiscAsset : IDiscAsset, IDisposable { }
++	public interface IOwnedDiscAsset : IDiscAsset, IDisposable { bool IsDisposed { get; } }
+ 
+ 	public class CoreLoadParameters<TSettings, TSyncS>
+ 	{

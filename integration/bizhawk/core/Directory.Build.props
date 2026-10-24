@@ -1,0 +1,7 @@
+<Project>
+	<!-- Outputs go to build/, never next to the sources; set here because MSBuild reads it before the SDK props. -->
+	<PropertyGroup>
+		<BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../../build/bizhawk-core$(P6ManagedTestSuffix)/obj/</BaseIntermediateOutputPath>
+		<BaseOutputPath>$(MSBuildThisFileDirectory)../../../build/bizhawk-core$(P6ManagedTestSuffix)/bin/</BaseOutputPath>
+	</PropertyGroup>
+</Project>

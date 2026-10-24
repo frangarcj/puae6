@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "purpose": "HOST01 for puae6.wbx: what the objects of the engine, the portable host port, the bridge and the guest adapter import from libc and from the C++ runtime. The deterministic profile has no clock, file, process, thread, network or dynamic loading, so none of those may appear; tools/build_waterbox.py audit_imports fails the build on any name outside this list. Measured with llvm-nm on the objects of the link: 37 libc and C++ runtime names plus the emulibc heap service.",
+  "libc": {
+    "memory": [
+      "malloc",
+      "calloc",
+      "realloc",
+      "free",
+      "memcpy",
+      "memmove",
+      "memset",
+      "bcmp"
+    ],
+    "string": [
+      "strlen",
+      "strcmp",
+      "strncmp",
+      "strcpy",
+      "strncpy",
+      "strcat",
+      "strchr",
+      "strrchr",
+      "strstr",
+      "strcspn",
+      "wcslen",
+      "atoi"
+    ],
+    "format": [
+      "snprintf",
+      "vsnprintf"
+    ],
+    "math": [
+      "sinf",
+      "cosf",
+      "powf"
+    ],
+    "process": [
+      "abort",
+      "__assert_fail"
+    ],
+    "errno": [
+      "__errno_location"
+    ],
+    "thread_specific": [
+      "pthread_key_create",
+      "pthread_setspecific",
+      "pthread_getspecific"
+    ]
+  },
+  "cxx_runtime": {
+    "allocation": [
+      "_Znwm",
+      "_ZdlPvm"
+    ],
+    "exceptions": [
+      "__cxa_allocate_exception",
+      "__cxa_throw",
+      "__cxa_begin_catch",
+      "__cxa_end_catch",
+      "__gxx_personality_v0",
+      "_Unwind_Resume",
+      "_ZSt9terminatev"
+    ],
+    "rtti": [
+      "_ZTVN10__cxxabiv117__class_type_infoE"
+    ],
+    "finalization": [
+      "atexit"
+    ]
+  },
+  "notes": {
+    "exceptions": "Only build/upstream/newcpu.cpp throws and catches (the 68000 core models its exceptions with C++ exceptions). Unwinding inside Waterbox is shown by p6w_probe_exception (T19b, tests/waterbox-smoke/test_puae6.py): an exception thrown 40 frames down is caught and every destructor on the way runs. The A500 profile never reaches the core's own throw (hardware_exception2 sets hardware_bus_error for a compatible 68000), so the probe is the evidence, not a run of the machine.",
+    "math": "sinf, cosf and powf are Paula's filter math (audio_math.cpp). Their results come from the musl and compiler-rt of the pinned sysroot, not from the host libm; T19c compares the PCM with headless.",
+    "emulibc": "alloc_sealed is the Waterbox runtime's own service (references/machawk/waterbox/emulibc): the firmware and the media are copied into the sealed heap during p6w_init. alloc_plain and alloc_invisible are not used: everything else is malloc, which Waterbox captures. __wbxsysinfo is the layout the runtime writes into the guest (the ranges of its heaps); p6w_memory_info hands it to the host.",
+    "thread_specific": "Only adapters/waterbox/abi_probe.cpp (WB13) uses them: musl's thread-specific data must survive a host callback. The machine creates no thread and keeps nothing in a key.",
+    "finalization": "The compiler registers the global AudioPlayer destructor in ports/portable/media/cd_device.cpp through atexit because the pinned recipe uses -fno-use-cxa-atexit. The symbol resolves to the pinned sandbox musl libc.a, not a host process service. Device shutdown closes its stream explicitly; the sandbox is disposed by Waterbox. No exit, process creation, clock or filesystem import is authorized.",
+    "atoi": "ar.cpp action_replay_version parses decimal AR2/AR3 version components in its AR_VER_STR_LEN-bounded copy. The object-level audit includes this function with the HRTMon unit even though public commercial AR owners remain unsupported. atoi resolves to the pinned sandbox musl libc.a; it adds no host locale, filesystem, clock or process service."
+  },
+  "forbidden": [
+    "time",
+    "clock",
+    "clock_gettime",
+    "gettimeofday",
+    "localtime",
+    "mktime",
+    "sleep",
+    "usleep",
+    "nanosleep",
+    "sched_yield",
+    "fopen",
+    "freopen",
+    "open",
+    "openat",
+    "read",
+    "write",
+    "fread",
+    "fwrite",
+    "popen",
+    "system",
+    "fork",
+    "execve",
+    "getenv",
+    "setenv",
+    "pthread_create",
+    "pthread_mutex_lock",
+    "socket",
+    "connect",
+    "bind",
+    "dlopen",
+    "dlsym",
+    "getpid",
+    "rand",
+    "srand",
+    "random"
+  ],
+  "emulibc": {
+    "heaps": [
+      "alloc_sealed"
+    ],
+    "layout": [
+      "__wbxsysinfo"
+    ]
+  }
+}

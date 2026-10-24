@@ -1,0 +1,131 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -5982,6 +5982,66 @@
+ #endif
+ }
+ 
++#ifdef P6_PORTABLE
++/* The native state (bridge/state_upstream.cpp) has no path in it: the medium of a drive is the one the envelope's media manifest names, so the body
++ * carries no image name, and restoring never inserts or ejects (drive_insert, zfile_exists, the delayed-change fake). save_disk writes the flag that
++ * the upstream reader takes at the end of the body whatever it asks for, and the CRC of the image as drive_insert measured it. */
++uae_u8 *restore_disk (int num,uae_u8 *src)
++{
++	drive *drv = &floppy[num];
++	int state, dfxtype;
++
++	disabled &= ~(1 << num);
++	drv->drive_id = restore_u32 ();
++	drv->motoroff = 1;
++	drv->idbit = 0;
++	state = restore_u8 ();
++	if (state & 2) {
++		disabled |= 1 << num;
++		if (changed_prefs.nr_floppies > num)
++			changed_prefs.nr_floppies = num;
++		changed_prefs.floppyslots[num].dfxtype = -1;
++	} else {
++		drv->motoroff = (state & 1) ? 0 : 1;
++		drv->idbit = (state & 4) ? 1 : 0;
++		switch (drv->drive_id)
++		{
++		case DRIVE_ID_35HD:
++			dfxtype = DRV_35_HD;
++			break;
++		case DRIVE_ID_525SD:
++			dfxtype = DRV_525_SD;
++			break;
++		default:
++			dfxtype = DRV_35_DD;
++			break;
++		}
++		currprefs.floppyslots[num].dfxtype = changed_prefs.floppyslots[num].dfxtype = dfxtype;
++	}
++	drv->dskchange = (state & 8) != 0;
++	side = (state & 16) ? 1 : 0;
++	drv->indexhackmode = 0;
++	if (num == 0 && currprefs.floppyslots[num].dfxtype == 0)
++		drv->indexhackmode = 1;
++	drv->buffered_cyl = -1;
++	drv->buffered_side = -1;
++	drv->cyl = restore_u8 ();
++	drv->dskready = restore_u8 () != 0;
++	drv->drive_id_scnt = restore_u8 ();
++	int mfmpos = restore_u32 ();
++	drv->dskchange_time = 0;
++	restore_u32 ();	/* CRC of the image: the identity of the state says which disk it is */
++	int dskready_up_time = restore_u16 ();
++	int dskready_down_time = restore_u16 ();
++	restore_u32 ();	/* the path flag */
++	drv->mfmpos = mfmpos;
++	drv->prevtracklen = drv->tracklen;
++	drv->dskready_up_time = dskready_up_time;
++	drv->dskready_down_time = dskready_down_time;
++	reset_drive_gui (num);
++	return src;
++}
++#else
+ uae_u8 *restore_disk (int num,uae_u8 *src)
+ {
+ 	drive *drv;
+@@ -6074,6 +6134,8 @@
+ 	return src;
+ }
+ 
++#endif /* P6_PORTABLE */
++
+ uae_u8 *restore_disk2 (int num,uae_u8 *src)
+ {
+ 	drive *drv = &floppy[num];
+@@ -6096,14 +6158,42 @@
+ 	return src;
+ }
+ 
++#ifdef P6_PORTABLE
++/* 24 bytes whatever the drive holds: no image name and no full path (see restore_disk), the CRC is the one drive_insert measured (getadfcrc would read the
++ * whole image through the zfile on every save) and the flag the reader takes is always written, as zero. `usepath` has no meaning here. */
+ uae_u8 *save_disk (int num, size_t*len, uae_u8 *dstptr, bool usepath)
+ {
+ 	uae_u8 *dstbak,*dst;
+ 	drive *drv = &floppy[num];
+ 
++	(void)usepath;
+ 	if (dstptr)
+ 		dstbak = dst = dstptr;
+ 	else
++		dstbak = dst = xmalloc (uae_u8, 24);
++	save_u32 (drv->drive_id);	    /* drive type ID */
++	save_u8 ((drv->motoroff ? 0 : 1) | ((disabled & (1 << num)) ? 2 : 0) | (drv->idbit ? 4 : 0) | (drive_diskchange(drv) ? 8 : 0) | (side ? 16 : 0) | (drv->wrprot ? 32 : 0));
++	save_u8 (drv->cyl);				/* cylinder */
++	save_u8 (drive_diskready(drv));	/* dskready */
++	save_u8 (drv->drive_id_scnt);   /* id mode position */
++	save_u32 (drv->mfmpos);			/* disk position */
++	save_u32 (drv->diskfile ? drv->crc32 : 0);	/* CRC of disk image */
++	save_u16 (drv->dskready_up_time);
++	save_u16 (drv->dskready_down_time);
++	save_u32 (0);
++
++	*len = dst - dstbak;
++	return dstbak;
++}
++#else
++uae_u8 *save_disk (int num, size_t*len, uae_u8 *dstptr, bool usepath)
++{
++	uae_u8 *dstbak,*dst;
++	drive *drv = &floppy[num];
++
++	if (dstptr)
++		dstbak = dst = dstptr;
++	else
+ 		dstbak = dst = xmalloc (uae_u8, 2 + 1 + 1 + 1 + 1 + 4 + 4 + MAX_DPATH + 2 + 2 + 4 + 2 * MAX_DPATH);
+ 	save_u32 (drv->drive_id);	    /* drive type ID */
+ 	save_u8 ((drv->motoroff ? 0 : 1) | ((disabled & (1 << num)) ? 2 : 0) | (drv->idbit ? 4 : 0) | (drive_diskchange(drv) ? 8 : 0) | (side ? 16 : 0) | (drv->wrprot ? 32 : 0));
+@@ -6123,6 +6213,8 @@
+ 	*len = dst - dstbak;
+ 	return dstbak;
+ }
++
++#endif /* P6_PORTABLE */
+ 
+ uae_u8 *save_disk2 (int num, size_t *len, uae_u8 *dstptr)
+ {

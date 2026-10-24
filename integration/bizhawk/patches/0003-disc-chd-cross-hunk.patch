@@ -1,0 +1,9 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_CHD.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_CHD.cs
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_CHD.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/Blobs/Blob_CHD.cs
+@@ -50,4 +50,5 @@
+ 				Buffer.BlockCopy(_hunkCache, (int)hunkOffset, buffer, offset, bytesToCopy);
+ 				offset += bytesToCopy;
++				byte_pos += bytesToCopy;
+ 				count -= bytesToCopy;
+ 			}

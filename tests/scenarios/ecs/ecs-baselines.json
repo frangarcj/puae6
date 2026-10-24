@@ -1,0 +1,22 @@
+{
+  "purpose": "SHA-256 of the active pixels (rows of width*4 bytes, XRGB8888 little endian, no padding) of unit 6 of each ECS display on the A600 preset. Recorded only after the picture matched the analytic prediction of tests/scenarios/ecs/ecs.py on every described cell; the cells the model does not describe (margins, and everything outside the display window for SuperHires) are covered by this hash as a regression baseline, not as truth.",
+  "seed": 1,
+  "units": 6,
+  "machine": "A600",
+  "pictures": {
+    "lores-bars-pal": "f2bf8b7dd0c8a79a0d4e653914a6f94a8c0a2de3e75ab1f58c131bb5bf925147",
+    "lores-bars-ntsc": "52e78f23641902723989402b7795da3d869e618232daeba359b8603f1a0fa0f4",
+    "hires-bars-pal": "c21c872fea81360d27f74b8d01974e2b2e8a321deac4aeb0faecca9e78a6736c",
+    "hires-bars-ntsc": "ef353875f2c2dacefe91ee59d4aa6698140f308341bc364308fa8ebd325a8bc0",
+    "chip1m-pal": "f2bf8b7dd0c8a79a0d4e653914a6f94a8c0a2de3e75ab1f58c131bb5bf925147",
+    "chip1m-ntsc": "52e78f23641902723989402b7795da3d869e618232daeba359b8603f1a0fa0f4",
+    "shres-pal": "ce92969cac4cd858cda8e809b8f39ef14e65453bf8ec76c4726152905026e249",
+    "shres-ntsc": "a099359bfd19a6d31ded9fc065c24f859b19404279ba660e0dcd41ca829f7218",
+    "diwhigh-v-pal": "61d37ce5c638f8ca9b72660a3309e13df8a1de55b365b3a2f6da56ab2eaa87c6",
+    "diwhigh-v-ntsc": "52e78f23641902723989402b7795da3d869e618232daeba359b8603f1a0fa0f4",
+    "diwhigh-stop-pal": "8f2ee9dafaa6902e40e9383abd4ad5b68e928af4427324574c5d7674b2b4c9c3",
+    "diwhigh-stop-ntsc": "c137e57cbb656a779f6bfdba22a627638fc0e89be5e782811ec8cdcb4589b247",
+    "diwhigh-start-pal": "555216924f8749950947f2c73ec9164abc9d04989b08378844f36bcd20fc4bbb",
+    "diwhigh-start-ntsc": "ba927ba0dc8143af5cd1401638d3924e777348366671fa2c850669fe0962c075"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "profile": "deterministic-a500",
+  "triage": "first pass",
+  "description": "Symbols still unresolved when every engine object and the portable library are linked into a probe dylib. tests.codegen.test_engine_imports fails on any unclassified symbol and on any listed name that no longer appears, so the list can only shrink deliberately.",
+  "families": []
+}

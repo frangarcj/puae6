@@ -1,0 +1,39 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -4067,18 +4067,19 @@
+ 			} else {
+ 				if (!agnus_lol && (!denise_lol_shift_prev || denise_lol_shift_enable)) {
+ 					int add = 1 << hresolution;
+-					buf1 += add;
+-					buf2 += add;
+-					buf_d += add;
++					// No line buffer is locked before the first line: NULL plus an offset is undefined.
++					if (buf1) buf1 += add;
++					if (buf2) buf2 += add;
++					if (buf_d) buf_d += add;
+ 					if (gbuf) {
+ 						gbuf += add;
+ 					}
+ 					denise_lol_shift_prev = add;
+ 					denise_lol_shift_enable = true;
+ 				} else if (agnus_lol && denise_lol_shift_prev > 0) {
+-					buf1 -= denise_lol_shift_prev;
+-					buf2 -= denise_lol_shift_prev;
+-					buf_d -= denise_lol_shift_prev;
++					if (buf1) buf1 -= denise_lol_shift_prev;
++					if (buf2) buf2 -= denise_lol_shift_prev;
++					if (buf_d) buf_d -= denise_lol_shift_prev;
+ 					if (gbuf) {
+ 						gbuf -= denise_lol_shift_prev;
+ 					}
+@@ -5747,7 +5748,8 @@
+ 
+ 	if (buf1) {
+ 		int maxw = (uae_u32*)xlinebuffer_end - buf1;
+-		if ((denise_pixtotal_max << hresolution) > maxw) {
++		// Unsigned shift: same value as before, but defined for the negative "no pixels" sentinel.
++		if ((int)((unsigned)denise_pixtotal_max << hresolution) > maxw) {
+ 			denise_pixtotal_max = maxw >> hresolution;
+ 		}
+ 	}

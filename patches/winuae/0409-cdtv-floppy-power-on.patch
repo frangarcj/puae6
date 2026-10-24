@@ -1,0 +1,20 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -5669,6 +5669,16 @@
+ 
+ #endif //FLOPPYBRIDGE
+ 
++#ifdef P6_PORTABLE
++// A new CDTV owner starts at the BSS phase of the disk read shifter. DISK_reset
++// deliberately preserves it across RESET, and even an unselected/no-drive read
++// advances it. doreaddma consumes this phase to fill the FIFO and steal bus slots.
++void p6_disk_power_on(void)
++{
++	bitoffset = 0;
++}
++#endif
++
+ void DISK_init (void)
+ {
+ 	for (int dr = MAX_FLOPPY_DRIVES - 1; dr >= 0; dr--) {

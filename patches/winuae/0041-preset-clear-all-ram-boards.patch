@@ -1,0 +1,14 @@
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -8909,8 +8909,8 @@
+ 	p->mbresmem_high.size = 0;
+ 	p->z3chipmem.size = 0;
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+-		memset(p->fastmem, 0, sizeof(struct ramboard));
+-		memset(p->z3fastmem, 0, sizeof(struct ramboard));
++		memset(&p->fastmem[i], 0, sizeof(struct ramboard));
++		memset(&p->z3fastmem[i], 0, sizeof(struct ramboard));
+ 	}
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		p->rtgboards[i].rtgmem_size = 0x00000000;

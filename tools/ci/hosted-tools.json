@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "scope": "Pinned source bottles and exact normalized Mach-O data for the hosted Darwin ARM64 tools; no installation, loader or emulator claim",
+  "minimum_macos": "26.0",
+  "bottle_arch": "arm64_tahoe",
+  "normalizer": {
+    "path": "tools/ci/normalize_homebrew.rb",
+    "sha256": "e656a7d877170cec082869cc7729ac7be7a75e8d28a1a29a5c65316facc1c5f3",
+    "ruby_source_manifest_sha256": "5b31fc89cdbc960f7207649a4acd1b998d8c6786434a6504363ce373e69e4a86"
+  },
+  "archives": [
+    {
+      "owner": "llvm",
+      "slug": "llvm",
+      "version": "23.1.4",
+      "prefix": "llvm/23.1.4",
+      "sha256": "a5c46d2e124d1df2edae4a0f304a0af28f2bad257b6077c18cf93987048fb45f",
+      "bytes": 457103866,
+      "url": "https://ghcr.io/v2/homebrew/core/llvm/blobs/sha256:a5c46d2e124d1df2edae4a0f304a0af28f2bad257b6077c18cf93987048fb45f",
+      "notices": [
+        "llvm/23.1.4/LICENSE.TXT"
+      ]
+    },
+    {
+      "owner": "lld",
+      "slug": "lld",
+      "version": "23.1.4",
+      "prefix": "lld/23.1.4",
+      "sha256": "f2da69e86f04075ab83199af9d00a15297116f9649f63960bc36e179ba79a38c",
+      "bytes": 1884079,
+      "url": "https://ghcr.io/v2/homebrew/core/lld/blobs/sha256:f2da69e86f04075ab83199af9d00a15297116f9649f63960bc36e179ba79a38c",
+      "notices": [
+        "lld/23.1.4/LICENSE.TXT"
+      ]
+    },
+    {
+      "owner": "rust",
+      "slug": "rust",
+      "version": "1.99.1",
+      "prefix": "rust/1.99.1",
+      "sha256": "3e8f3b4af11744d0120a5759ea9e4b2ebd387549e59c77e70cc75d132aa04dad",
+      "bytes": 108703315,
+      "url": "https://ghcr.io/v2/homebrew/core/rust/blobs/sha256:3e8f3b4af11744d0120a5759ea9e4b2ebd387549e59c77e70cc75d132aa04dad",
+      "notices": [
+        "rust/1.99.1/COPYRIGHT",
+        "rust/1.99.1/LICENSE-APACHE",
+        "rust/1.99.1/LICENSE-MIT",
+        "rust/1.99.1/license-metadata.json",
+        "rust/1.99.1/share/doc/cargo/LICENSE-APACHE",
+        "rust/1.99.1/share/doc/cargo/LICENSE-MIT",
+        "rust/1.99.1/share/doc/cargo/LICENSE-THIRD-PARTY",
+        "rust/1.99.1/share/doc/rustc/COPYRIGHT.html",
+        "rust/1.99.1/share/doc/rustc/COPYRIGHT-library.html"
+      ]
+    },
+    {
+      "owner": "z3",
+      "slug": "z3",
+      "version": "5.3.1",
+      "prefix": "z3/5.3.1",
+      "sha256": "71608b10f9abefecfe5f2f023442f0820a253e62b3e1980c0adef9f749948709",
+      "bytes": 15765821,
+      "url": "https://ghcr.io/v2/homebrew/core/z3/blobs/sha256:71608b10f9abefecfe5f2f023442f0820a253e62b3e1980c0adef9f749948709",
+      "notices": [
+        "z3/5.3.1/LICENSE.txt"
+      ]
+    },
+    {
+      "owner": "zstd",
+      "slug": "zstd",
+      "version": "1.5.7_1",
+      "prefix": "zstd/1.5.7_1",
+      "sha256": "628a4ef53428d0078e3d76d297171ce8d0294f5ec1de3f20305e08c4dd333565",
+      "bytes": 793560,
+      "url": "https://ghcr.io/v2/homebrew/core/zstd/blobs/sha256:628a4ef53428d0078e3d76d297171ce8d0294f5ec1de3f20305e08c4dd333565",
+      "notices": [
+        "zstd/1.5.7_1/COPYING",
+        "zstd/1.5.7_1/LICENSE"
+      ]
+    },
+    {
+      "owner": "libgit2",
+      "slug": "libgit2",
+      "version": "1.9.7_2",
+      "prefix": "libgit2/1.9.7_2",
+      "sha256": "61cc4d0d03f5a400cede72fb57609df07909725a3f8cb6a1f75b2edaec3ddf85",
+      "bytes": 1955011,
+      "url": "https://ghcr.io/v2/homebrew/core/libgit2/blobs/sha256:61cc4d0d03f5a400cede72fb57609df07909725a3f8cb6a1f75b2edaec3ddf85",
+      "notices": [
+        "libgit2/1.9.7_2/COPYING"
+      ]
+    },
+    {
+      "owner": "libssh2",
+      "slug": "libssh2",
+      "version": "1.11.1_7",
+      "prefix": "libssh2/1.11.1_7",
+      "sha256": "d51f26fef662c9f562f8d6bee348c9e9fdd2a917cc96bb1b26aa53116b9e7481",
+      "bytes": 420778,
+      "url": "https://ghcr.io/v2/homebrew/core/libssh2/blobs/sha256:d51f26fef662c9f562f8d6bee348c9e9fdd2a917cc96bb1b26aa53116b9e7481",
+      "notices": [
+        "libssh2/1.11.1_7/COPYING"
+      ]
+    },
+    {
+      "owner": "openssl@4",
+      "slug": "openssl/4",
+      "version": "4.0.3",
+      "prefix": "openssl@4/4.0.3",
+      "sha256": "39fb74d25429fbb9794cf4327530ba458b97d0000406715270d3b0715bd6ba35",
+      "bytes": 11216046,
+      "url": "https://ghcr.io/v2/homebrew/core/openssl/4/blobs/sha256:39fb74d25429fbb9794cf4327530ba458b97d0000406715270d3b0715bd6ba35",
+      "notices": [
+        "openssl@4/4.0.3/LICENSE.txt"
+      ]
+    },
+    {
+      "owner": "llhttp",
+      "slug": "llhttp",
+      "version": "9.4.3",
+      "prefix": "llhttp/9.4.3",
+      "sha256": "0a3866a86832c768383c04809baccccfa1293a520d3d13654d7c051f12c02c80",
+      "bytes": 38263,
+      "url": "https://ghcr.io/v2/homebrew/core/llhttp/blobs/sha256:0a3866a86832c768383c04809baccccfa1293a520d3d13654d7c051f12c02c80",
+      "notices": [
+        "llhttp/9.4.3/LICENSE",
+        "llhttp/9.4.3/LICENSE-MIT"
+      ]
+    },
+    {
+      "owner": "sqlite",
+      "slug": "sqlite",
+      "version": "3.54.1",
+      "prefix": "sqlite/3.54.1",
+      "sha256": "813f7e1a708d256259a07a0aa113d1d62bad4909d04e7ad24296900b60d18d6a",
+      "bytes": 2483921,
+      "url": "https://ghcr.io/v2/homebrew/core/sqlite/blobs/sha256:813f7e1a708d256259a07a0aa113d1d62bad4909d04e7ad24296900b60d18d6a",
+      "notices": [
+        "sqlite/3.54.1/include/sqlite3.h"
+      ]
+    }
+  ],
+  "normalized_macho": [
+    {
+      "path": "llvm/23.1.4/bin/clang-23",
+      "sha256": "5c51770b83a5407e507ad19fcfe1ec141deeb15f0d86312568915f3637f31f5a",
+      "bytes": 138440
+    },
+    {
+      "path": "llvm/23.1.4/lib/libclang-cpp.23.1.dylib",
+      "sha256": "99fd45ee5e6f7dd59056f00ead838f4f5c833eaa24b7105d316427faef902ded",
+      "bytes": 72293200,
+      "dylib_id": "/opt/homebrew/opt/llvm/lib/libclang-cpp.23.1.dylib"
+    },
+    {
+      "path": "llvm/23.1.4/lib/libLLVM.23.1.dylib",
+      "sha256": "330350c483df28104ac600fa2d1514b81f8a3aab7fc9850ca33ad7f08ac2efe0",
+      "bytes": 169318368,
+      "dylib_id": "/opt/homebrew/opt/llvm/lib/libLLVM.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/bin/lld",
+      "sha256": "4c6afc01e2cda45bd78412d6fadf140d94a84031647cdb05d75ad479145150b7",
+      "bytes": 41216
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldELF.23.1.dylib",
+      "sha256": "1e15031d079fc045d739607a73123992920075df2ec09a17e5e78cc8ba78fc9a",
+      "bytes": 2838064,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldELF.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldMachO.23.1.dylib",
+      "sha256": "cbe8b4ff00eebf447d19a508c1de6ca56f0b347e6f22e3f84171e415646d60bc",
+      "bytes": 1060752,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldMachO.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldMinGW.23.1.dylib",
+      "sha256": "022e996712366855b31a955254f2fd0c67e3c2f365106defbea21834f38a84ca",
+      "bytes": 92736,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldMinGW.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldWasm.23.1.dylib",
+      "sha256": "9dc014564573e6de282d475688e048173f6e14e8d86c03835ce424bf70a674a6",
+      "bytes": 497632,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldWasm.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldCOFF.23.1.dylib",
+      "sha256": "2325643f80c14da69bb91247de19797a8dd6f49bfd984b5ce29c62b09c77dd05",
+      "bytes": 1185488,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldCOFF.23.1.dylib"
+    },
+    {
+      "path": "lld/23.1.4/lib/liblldCommon.23.1.dylib",
+      "sha256": "c505616ef8ae2bc276e6a198481de05231b16984f5869312c3113f9ed3ec3f73",
+      "bytes": 154544,
+      "dylib_id": "/opt/homebrew/opt/lld/lib/liblldCommon.23.1.dylib"
+    },
+    {
+      "path": "rust/1.99.1/bin/cargo",
+      "sha256": "1f8b06d63e8f79a53a6c7810baa27e5f8d4cf6788691671c8f7607ee0d15dd60",
+      "bytes": 25039168
+    },
+    {
+      "path": "rust/1.99.1/bin/rustc",
+      "sha256": "15c8512af3c0c302f0dbdc8d1037697914749f1250fa878060af06ee11b1792d",
+      "bytes": 323008
+    },
+    {
+      "path": "rust/1.99.1/lib/librustc_driver-e4ae23791dbdbd23.dylib",
+      "sha256": "cb7a5f89c1b5e54c0df1a20bce23300e13c65caf1b70ce5c14915eedc3bbc4df",
+      "bytes": 82193568,
+      "dylib_id": "/opt/homebrew/opt/rust/lib/librustc_driver-e4ae23791dbdbd23.dylib"
+    },
+    {
+      "path": "z3/5.3.1/lib/libz3.5.3.1.0.dylib",
+      "sha256": "181f649aff7768bc9821cecd3d49769d1ca395d2a89a545779441dfc2ab488c2",
+      "bytes": 19445968,
+      "dylib_id": "/opt/homebrew/opt/z3/lib/libz3.5.3.dylib"
+    },
+    {
+      "path": "zstd/1.5.7_1/lib/libzstd.1.5.7.dylib",
+      "sha256": "e2847c4613b386683c234913ae3b7b04299254096caf7616e3b3cd9bb97a39ab",
+      "bytes": 649648,
+      "dylib_id": "/opt/homebrew/opt/zstd/lib/libzstd.1.dylib",
+      "signature_policy": "preserve-adhoc-layout"
+    },
+    {
+      "path": "libgit2/1.9.7_2/lib/libgit2.1.9.7.dylib",
+      "sha256": "36ae171f054c7f95fcf70e0c2b38a093f3133f8c4f9ef8deb0ad05e5c6c73fdb",
+      "bytes": 1039040,
+      "dylib_id": "/opt/homebrew/opt/libgit2/lib/libgit2.1.9.dylib"
+    },
+    {
+      "path": "libssh2/1.11.1_7/lib/libssh2.1.dylib",
+      "sha256": "d99bb07df45438ee981b99f33878cdcf2da85dd31b9501de07d3770e2c3b9705",
+      "bytes": 265840,
+      "dylib_id": "/opt/homebrew/opt/libssh2/lib/libssh2.1.dylib"
+    },
+    {
+      "path": "openssl@4/4.0.3/lib/libssl.4.dylib",
+      "sha256": "30e9143e497a5c94cf7d46ac2985da20f3a0e15097e0711e71b5dd95a537d8e0",
+      "bytes": 929408,
+      "dylib_id": "/opt/homebrew/opt/openssl@4/lib/libssl.4.dylib"
+    },
+    {
+      "path": "openssl@4/4.0.3/lib/libcrypto.4.dylib",
+      "sha256": "5258d66dd91140ab48fdf294c4cfd752e2d99e7f93fc620d91a2226492518d4d",
+      "bytes": 4813232,
+      "dylib_id": "/opt/homebrew/opt/openssl@4/lib/libcrypto.4.dylib"
+    },
+    {
+      "path": "llhttp/9.4.3/lib/libllhttp.9.4.3.dylib",
+      "sha256": "78cd1d7e5016246878a00dbaf76300628e5f48aa2174bf2e83fe1b31dc3e5691",
+      "bytes": 77664,
+      "dylib_id": "/opt/homebrew/opt/llhttp/lib/libllhttp.9.4.dylib"
+    },
+    {
+      "path": "sqlite/3.54.1/lib/libsqlite3.3.54.1.dylib",
+      "sha256": "996baaf61d06ff542bf73a2455027af5ed1af6b2065581bd4deba96a9a018a92",
+      "bytes": 1277184,
+      "dylib_id": "/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib"
+    }
+  ],
+  "entrypoints": {
+    "clang": "llvm/23.1.4/bin/clang-23",
+    "lld": "lld/23.1.4/bin/ld.lld",
+    "cargo": "rust/1.99.1/bin/cargo",
+    "rustc": "rust/1.99.1/bin/rustc"
+  },
+  "aliases": {
+    "lld/23.1.4/bin/ld.lld": "lld/23.1.4/bin/lld"
+  },
+  "library_directories": [
+    "llvm/23.1.4/lib",
+    "lld/23.1.4/lib",
+    "rust/1.99.1/lib",
+    "z3/5.3.1/lib",
+    "zstd/1.5.7_1/lib",
+    "libgit2/1.9.7_2/lib",
+    "libssh2/1.11.1_7/lib",
+    "openssl@4/4.0.3/lib",
+    "llhttp/9.4.3/lib",
+    "sqlite/3.54.1/lib"
+  ],
+  "excluded_symlinks": {
+    "llvm/23.1.4/etc/clang": "../../../../etc/clang"
+  },
+  "materialized_symlinks": {
+    "rust/1.99.1/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy": {
+      "target": "../../../../../../../opt/llvm/bin/llvm-objcopy",
+      "source": "llvm/23.1.4/bin/llvm-objcopy"
+    }
+  }
+}

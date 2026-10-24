@@ -1,0 +1,16 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -1634,6 +1634,12 @@
+ 		return ab;
+ 	uae_u32 size = ab->allocated_size;
+ 	ab->start = start;
++#ifdef P6_PORTABLE
++	// T49: the accessors of a bank subtract startaccessmask, which the allocation sets from the start the bank had THEN (zero: the board is allocated at load, before the guest
++	// chooses its base). A board as large as the Zorro II space (8 MiB at $200000) would be read and written a rotation away from its address.
++	ab->startmask = start;
++	ab->startaccessmask = start & ab->mask;
++#endif
+ 	if (ab->start && size) {
+ 		map_banks_z2(ab, ab->start >> 16, size >> 16);
+ 		initramboard(ab, &currprefs.fastmem[devnum]);

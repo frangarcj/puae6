@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-26",
+  "status": "source_snapshots_verified_build_toolchain_lock_pending",
+  "sources": [
+    {
+      "id": "winuae",
+      "role": "engine",
+      "repository": "https://github.com/tonioni/WinUAE.git",
+      "version": "6.0.3",
+      "tag": "6030",
+      "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59",
+      "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+      "required": true,
+      "verified": "T01a: fetched exact commit and annotated tag/peeled commit checked with Git; 1134 pristine blobs/modes imported and SHA-256 verified offline; no build/emulation tested",
+      "snapshot_manifest": "manifests/upstream-files.json"
+    },
+    {
+      "id": "machawk",
+      "role": "primary_user_selected_runtime_and_integration_reference",
+      "repository": null,
+      "local_path": "../MacHawk",
+      "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+      "required": true,
+      "reference_manifest": "plan/machawk.reference.json",
+      "verified": "Selected tracked source inputs at local HEAD, checked against worktree; no untracked/private assets selected",
+      "snapshot": {
+        "destination": "references/machawk",
+        "manifest": "references/machawk.manifest.json",
+        "include": [
+          ".global.editorconfig.ini",
+          ".stylecop.json",
+          "Common.props",
+          "Directory.Packages.props",
+          "ExternalProjects/Analyzers.editorconfig",
+          "ExternalProjects/AnalyzersCommon",
+          "ExternalProjects/AnalyzersCommon.props",
+          "ExternalProjects/BizHawk.Analyzer",
+          "ExternalProjects/BizHawk.SrcGen.ReflectionCache",
+          "ExternalProjects/BizHawk.SrcGen.SettingsUtil",
+          "ExternalProjects/BizHawk.SrcGen.VersionInfo",
+          "ExternalProjects/LibCommon.props",
+          "ExternalProjects/iso-parser",
+          "LICENSE",
+          "global.json",
+          "src/BannedSymbols.BannedApiAnalyzers.txt",
+          "src/BizHawk.BizInvoke/BizInvokeUtilities.cs",
+          "src/BizHawk.BizInvoke/BizInvoker.cs",
+          "src/BizHawk.BizInvoke/BizInvokerUtilities.cs",
+          "src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+          "src/BizHawk.Client.Common/movie/bk2/Bk2Controller.cs",
+          "src/BizHawk.Client.Common/movie/bk2/Bk2LogEntryGenerator.cs",
+          "src/BizHawk.Client.Common/movie/interfaces/IMovieController.cs",
+          "src/BizHawk.Common",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisConstraint.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisDict.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisPairOrientation.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/AxisSpec.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/CircularAxisConstraint.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Axes/NoOpAxisConstraint.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/BasicServiceProvider.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/Bk2MnemonicLookup.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/ControllerDefinition.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/InputCallbackSystem.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomain.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/MemoryDomainStream.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/NullController.cs",
+          "src/BizHawk.Emulation.Common/Base Implementations/SnowyNullVideo.cs",
+          "src/BizHawk.Emulation.Common/ControllerDefinitionMerger.cs",
+          "src/BizHawk.Emulation.Common/CoreAttribute.cs",
+          "src/BizHawk.Emulation.Common/CoreComms.cs",
+          "src/BizHawk.Emulation.Common/Database/FirmwareID.cs",
+          "src/BizHawk.Emulation.Common/EmulationExceptions.cs",
+          "src/BizHawk.Emulation.Common/Enums.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IController.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/ICoreFileProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IEmulator.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IEmulatorService.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IEmulatorServiceProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IInputCallbackSystem.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/IOpenGLProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/ICycleTiming.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IDriveLight.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IGLTextureProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IInputPollable.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IMemoryDomains.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IRegionable.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/ISaveRam.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/ISettable.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/ISoundProvider.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IStatable.cs",
+          "src/BizHawk.Emulation.Common/Interfaces/Services/IVideoProvider.cs",
+          "src/BizHawk.Emulation.Common/ServiceAttributes.cs",
+          "src/BizHawk.Emulation.Common/VSystemID.cs",
+          "src/BizHawk.Emulation.Cores/Computers/Amiga",
+          "src/BizHawk.Emulation.Cores/CoreLoadParameters.cs",
+          "src/BizHawk.Emulation.Cores/CoreNames.cs",
+          "src/BizHawk.Emulation.Cores/Waterbox",
+          "src/BizHawk.Emulation.DiscSystem",
+          "src/MainSlnCommon.props",
+          "src/Menees.Analyzers.Settings.xml",
+          "waterbox/common.mak",
+          "waterbox/emulibc",
+          "waterbox/libcxx",
+          "waterbox/linkscript.T",
+          "waterbox/linkscript_aarch64.T",
+          "waterbox/musl-darwin-aarch64.patch",
+          "waterbox/musl-waterbox-aarch64-auxv.patch",
+          "waterbox/musl-waterbox-getcwd.patch",
+          "waterbox/musl-waterbox-x86_64-atomics.patch",
+          "waterbox/readme.txt",
+          "waterbox/uae",
+          "waterbox/waterboxhost/Cargo.lock",
+          "waterbox/waterboxhost/Cargo.toml",
+          "waterbox/waterboxhost/DARWIN_ARM64.md",
+          "waterbox/waterboxhost/README.md",
+          "waterbox/waterboxhost/build-debug-no-dirty-detection.sh",
+          "waterbox/waterboxhost/build-debug.sh",
+          "waterbox/waterboxhost/build-release.sh",
+          "waterbox/waterboxhost/csharp-smoke",
+          "waterbox/waterboxhost/docker",
+          "waterbox/waterboxhost/rust-toolchain.toml",
+          "waterbox/waterboxhost/smoke",
+          "waterbox/waterboxhost/src",
+          "waterbox/waterboxhost/uae-cd32-headless"
+        ],
+        "exclude": [
+          "waterbox/uae/libretro-uae",
+          "waterbox/uae/capsimg",
+          "waterbox/uae/.vscode"
+        ],
+        "scope": "Selected source closure: WaterboxHost, emulibc, guest recipes, UAE shim, managed source/project closure and generator/ISOParser sources. Excludes assets, prebuilt References DLLs, outputs, other cores; registry packages and final toolchain provision remain T09."
+      },
+      "capture_notes": [
+        "Managed files and upstream csproj are reference inputs: isolated integration must regenerate or replace excluded References DLL dependencies and provision pinned NuGet packages. They are not a ready-to-build closure.",
+        "The two tracked interop .bin files are retained as exact runtime inputs along with assembly/generator; other outputs and private assets are excluded.",
+        "T22a: four small files that the movie tests need, added to the capture after the first one: the BK2 input log generator, its controller and the interface (src/BizHawk.Client.Common/movie), and ICycleTiming, whose CycleCount a movie records and checks at its end; the existing files are byte-identical."
+      ]
+    },
+    {
+      "id": "bizhawk",
+      "role": "secondary_public_comparison_reference",
+      "repository": "https://github.com/TASEmulators/BizHawk.git",
+      "commit": "1a140d98b8cc4a705db89d4738d76196c84044ea",
+      "required": false,
+      "verified": "Pinned source files read; not a claim of latest release or executed runtime"
+    },
+    {
+      "id": "bizhawk_uae_reference",
+      "role": "reference_only_not_engine",
+      "repository": "https://github.com/TASEmulators/libretro-uae.git",
+      "commit": "ccecb1ead642c1bbe391308b88a7ffa9478b918d",
+      "required": true,
+      "verified": "T01b: local pinned commit plus 8 explicit SHA-256 worktree overlays captured; not used as PUAE6 engine",
+      "snapshot": {
+        "destination": "references/machawk-uae",
+        "manifest": "references/machawk-uae.manifest.json",
+        "overlay_sha256": {
+          "sources/src/akiko.c": "d7c0527558347b148ffdff4512bfd4acd79e8d9f9dd0b19d178e14347fc4e5cf",
+          "sources/src/blkdev_cdimage.c": "21080a4d764d699d5442db13021ee579baa7c8bf8dd509d1247ac9c7b49876d5",
+          "sources/src/cd32_fmv.c": "b6981e1765a11688e45efbf0ea0d587098bb325ff1418b0a7412abc115b2fe3f",
+          "sources/src/expansion.c": "fc397ac51e75af94845aa3c64b0fb4a95e6791da7d912e45f50a95e0dd2c122b",
+          "sources/src/filesys.c": "657bd459f94ea61457f386359ab0e28ad3e2e4ca4f2ac929166d2607b605ff13",
+          "sources/src/hardfile.c": "2455abce16305d0d1968cc5b75e72ba5fc912de86f0b1169e08ee15749c29af0",
+          "sources/src/include/cd32_fmv.h": "c1eb39727eb3c3048f166b3cbb90926a6b5f58b511592f53f7ca42049cbb972b",
+          "sources/src/zfile_archive.c": "27e96ae227f8a88d58ad7ab6d6fddac7114e332e4eed8e190fa9d4c145c0b542"
+        }
+      },
+      "local_path": "../MacHawk/waterbox/uae/libretro-uae"
+    },
+    {
+      "id": "puae_libretro_reference",
+      "role": "reference_only_not_engine",
+      "repository": "https://github.com/libretro/libretro-uae.git",
+      "commit": "6536174a80d74e6c325aaa5390ff091fac8761d0",
+      "required": true,
+      "verified": "T01b: fixed repository commit fetched; full reference blobs/modes captured and independently reimported offline",
+      "snapshot": {
+        "destination": "references/puae",
+        "manifest": "references/puae.manifest.json"
+      }
+    },
+    {
+      "id": "libretro_api",
+      "role": "api_headers",
+      "repository": "https://github.com/libretro/libretro-common.git",
+      "commit": "e5644bdd2761e3ae91f4c86da5ffc9f2fdc6c34a",
+      "required": true,
+      "verified": "T01b: fixed libretro-common commit fetched; only MIT-licensed include/libretro.h selected and verified",
+      "snapshot": {
+        "destination": "references/libretro-api",
+        "manifest": "references/libretro-api.manifest.json",
+        "include": [
+          "include/libretro.h"
+        ]
+      }
+    },
+    {
+      "id": "waterbox_musl",
+      "role": "toolchain_dependency",
+      "repository": null,
+      "commit": "2063abc4e16c84218757b1db10d3cdf9f36ef3f8",
+      "required": true,
+      "verified": "T01b: pinned clean local source captured; actual final ARM64 sysroot recipe/provision remains T09",
+      "local_path": "../MacHawk/waterbox/musl",
+      "snapshot": {
+        "destination": "references/musl",
+        "manifest": "references/musl.manifest.json"
+      }
+    },
+    {
+      "id": "machawk_capsimg",
+      "role": "reference_only_excluded_from_initial_PUAE6_build",
+      "repository": "https://github.com/FrodeSolheim/capsimg.git",
+      "local_path": "../MacHawk/waterbox/uae/capsimg",
+      "commit": "ed4cb0912fb1a2a0d5203111c6f6abd50d411b56",
+      "required": true,
+      "verified": "Pinned gitlink and clean local checkout; selected only to reproduce the old reference inputs; non-commercial conditions, not enabled in PUAE6",
+      "snapshot": {
+        "destination": "references/capsimg",
+        "manifest": "references/capsimg.manifest.json"
+      },
+      "required_for": "Reference audit of old UAE inputs, not the PUAE6 runtime or release payload"
+    },
+    {
+      "id": "waterbox_musl_darwin",
+      "role": "darwin_arm64_sysroot_source_reference",
+      "repository": "https://github.com/Masterjun3/musl.git",
+      "commit": "22440a465d6f7d3241e73bdf990c2b8026022625",
+      "required": true,
+      "local_path": "../MacHawk/waterbox/waterboxhost/target/musl-waterbox-aarch64-darwin",
+      "verified": "T09a: source associated with local prebuilt Darwin sysroot; binary cache pinned separately, not a claim of rebuilding libc/libc++",
+      "snapshot": {
+        "destination": "references/musl-darwin",
+        "manifest": "references/musl-darwin.manifest.json",
+        "overlay_sha256": {
+          "arch/waterbox_aarch64/pthread_arch.h": "9df6da5632dc8c61e14f0145ce6f6526cdb60cf6a56efa6ce2417359581f2104",
+          "src/env/waterbox_aarch64/__libc_start_main.c": "3dd524d4109af46e74b165f479d1e70ad134353ae73824a38b2bc2ce9fee97d1",
+          "src/internal/pthread_impl.h": "6a0eaf4bb1e1e6ea1816a9b14983bf552748450506a787babadea662933030c2",
+          "src/thread/pthread_create.c": "5d88b9c02378a60bf1987798686b9ad6ef2d5b9e64e99bab51f9a275faef4506",
+          "src/thread/waterbox_aarch64/__set_thread_area.c": "d77eb47047445e447b8f73ce3e401d6a7907a598a67eb2a77c547553658093b5",
+          "src/unistd/getcwd.c": "2b02cf9e9d27787ac06c9f131e75b6894e46b16d0e246e9f051e5a15785cafd4",
+          "wbox_configure_aarch64.sh": "cd5f66c54b05d928a98228d80fe9cb0ee5814dc59bf1a6daf5895ae67853451f"
+        }
+      }
+    },
+    {
+      "id": "compiler_rt_emutls",
+      "role": "guest_cpp_tls_runtime",
+      "repository": "https://github.com/llvm/llvm-project.git",
+      "local_path": "build/source-cache/llvm-emutls",
+      "commit": "3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff",
+      "tag": "llvmorg-18.1.8",
+      "tag_object": "76caf4176cd7877ad5952737d56da6f515ee4602",
+      "required": true,
+      "verified": "Exact annotated LLVM 18.1.8 tag and selected Git blobs; emutls supports guest C++ TLS through pinned musl pthread TLS.",
+      "snapshot": {
+        "destination": "references/compiler-rt-emutls",
+        "manifest": "references/compiler-rt-emutls.manifest.json",
+        "include": [
+          "compiler-rt/LICENSE.TXT",
+          "compiler-rt/lib/builtins/emutls.c",
+          "compiler-rt/lib/builtins/int_lib.h",
+          "compiler-rt/lib/builtins/int_types.h",
+          "compiler-rt/lib/builtins/int_util.h",
+          "compiler-rt/lib/builtins/int_endianness.h"
+        ]
+      }
+    },
+    {
+      "id": "cdi2nero_fixture_producer",
+      "role": "offline_test_fixture_producer_not_product_dependency",
+      "repository": "https://github.com/sizious/cdi2nero",
+      "commit": "f43561d27e9a75061171f0e69a872c9439ccf898",
+      "required": true,
+      "verified": "Original eight source files and GPL-2.0 LICENSE retained byte exact with per-file hashes; own CDI fixture converted offline, ETNF payload and global coordinates checked by T66w1. Host adaptations apply only to temporary test copies.",
+      "fixture_directory": "tests/fixtures/cdi2nero",
+      "fixture_manifest": "tests/fixtures/cdi2nero/source.json"
+    },
+    {
+      "id": "mame_ipf",
+      "role": "vendored_free_ipf_decoder",
+      "repository": "https://github.com/mamedev/mame",
+      "commit": "7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8",
+      "required": true,
+      "verified": "T58a retained original decoder and BSD-3-Clause notice; SRC01 verifies pinned PROVENANCE, originals, compiled derivation, local changes, host shims and notice hashes offline.",
+      "vendored": {
+        "destination": "third_party/mame-ipf",
+        "provenance": "PROVENANCE.json",
+        "sha256": "e2599c8149fe6cd5dec89fe0148520f713dbb9d9e94c38a2dd2a79de36a6ff50"
+      }
+    },
+    {
+      "id": "ruby_macho",
+      "role": "host_tool_source_for_exact_Homebrew_bottle_relocation_not_guest_dependency",
+      "repository": "https://github.com/Homebrew/ruby-macho.git",
+      "version": "7.0.0",
+      "commit": "2c3fdf705e0a77cd83a68363a83ec3d855e2a0d1",
+      "required": true,
+      "verified": "Upstream lightweight tag v7.0.0 resolves directly to this commit; capture verified by the source importer. Host tool source only; no Ruby gem installation.",
+      "snapshot": {
+        "destination": "references/ruby-macho",
+        "manifest": "references/ruby-macho.manifest.json",
+        "include": [
+          "lib",
+          "LICENSE"
+        ]
+      }
+    }
+  ],
+  "unresolved": [
+    "T02: decide selected dependencies from actual WinUAE 6.0.3 source graph",
+    "T03/T09: pin native generators and Waterbox sysroot/toolchain build recipes",
+    "T09: pin and validate final Waterbox sysroot/LLVM/container inputs and provision registry packages from captured descriptors; selected local source closure is captured"
+  ]
+}

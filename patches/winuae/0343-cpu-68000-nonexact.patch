@@ -1,0 +1,138 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -130,6 +130,7 @@
+ cpuop_func *cpufunctbl[65536];
+ cpuop_func_noret *cpufunctbl_noret[65536];
+ cpuop_func_noret *loop_mode_table[65536];
++cpuop_func *loop_mode_table_compatible[65536];
+ 
+ struct cputbl_data
+ {
+@@ -1346,6 +1347,38 @@
+ 		x_do_cycles_post = do_cycles_ce020_post;
+ 	}
+ #else
++		} else if (currprefs.cpu_compatible) {
++			x_prefetch = get_word_000_prefetch;
++			x_get_ilong = NULL;
++			x_get_iword = get_iiword;
++			x_get_ibyte = get_iibyte;
++			x_next_iword = NULL;
++			x_next_ilong = NULL;
++			x_put_long = put_long_compatible;
++			x_put_word = put_word_compatible;
++			x_put_byte = put_byte_compatible;
++			x_get_long = get_long_compatible;
++			x_get_word = get_word_compatible;
++			x_get_byte = get_byte_compatible;
++			x_do_cycles = do_cycles;
++			x_do_cycles_pre = do_cycles;
++			x_do_cycles_post = do_cycles_post;
++		} else {
++			x_prefetch = NULL;
++			x_get_ilong = get_dilong;
++			x_get_iword = get_diword;
++			x_get_ibyte = get_dibyte;
++			x_next_iword = next_diword;
++			x_next_ilong = next_dilong;
++			x_put_long = put_long;
++			x_put_word = put_word;
++			x_put_byte = put_byte;
++			x_get_long = get_long;
++			x_get_word = get_word;
++			x_get_byte = get_byte;
++			x_do_cycles = do_cycles;
++			x_do_cycles_pre = do_cycles;
++			x_do_cycles_post = do_cycles_post;
+ 		}
+ 	} else if (currprefs.cpu_model == 68020) {
+ 		// 68020 cycle exact (cpuemu_21): the only 68020 core of the profile (T24a, ADR 0010)
+@@ -1916,8 +1949,8 @@
+ // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
+ #ifdef P6_PORTABLE
+ static const struct cputbl *cputbls[6][8] = {
+-	// 68000 cycle exact
+-	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL },
++	// 68000: generic, prefetch-compatible and cycle-exact.
++	{ op_smalltbl_5, NULL, NULL, op_smalltbl_12, op_smalltbl_14, NULL, NULL, NULL },
+ 	// 68010 cycle exact (T52, generated with the 68000 rows in cpuemu_13)
+ 	{ NULL, NULL, NULL, NULL, op_smalltbl_13, NULL, NULL, NULL },
+ 	// 68020 cycle exact
+@@ -2088,6 +2121,7 @@
+ 		if (opcode_loop_mode(opcode)) {
+ 			// The cycle-exact tables (cpuemu_13) have no returning handler: handler_ff is NULL and only the noret one exists, which is what the loop mode of the generated DBcc calls
+ 			loop_mode_table[opcode] = cpufunctbl_noret[opcode];
++			loop_mode_table_compatible[opcode] = cpufunctbl[opcode];
+ 		}
+ 
+ 	}
+@@ -5849,6 +5883,7 @@
+ 
+ #else
+ 
++#ifndef P6_PORTABLE
+ static void opcodedebug (uae_u32 pc, uae_u16 opcode, bool full)
+ {
+ 	struct mnemolookup *lookup;
+@@ -5879,6 +5914,8 @@
+ #endif
+ 	}
+ }
++
++#endif
+ 
+ static void check_halt(void)
+ {
+@@ -6775,7 +6812,9 @@
+ 
+ 		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
+ #else
+-	run_func = currprefs.cpu_model >= 68020 ? m68k_run_2ce : m68k_run_1_ce;
++	run_func = currprefs.cpu_model >= 68020 ? m68k_run_2ce :
++		currprefs.cpu_cycle_exact ? m68k_run_1_ce :
++		currprefs.cpu_compatible ? m68k_run_1 : m68k_run_2_000;
+ #endif
+ 
+ 	run_func();
+@@ -10675,7 +10714,7 @@
+ 		w = "the CPU loop is not started";
+ 	else if (regs.exception || exception_in_exception)
+ 		w = "an exception is in flight";
+-	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || regs.lastipl ||
++	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || (regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7 ||
+ 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+ 	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
+diff --git a/include/newcpu.h b/include/newcpu.h
+--- a/include/newcpu.h
++++ b/include/newcpu.h
+@@ -98,6 +98,7 @@
+ #endif
+ 
+ extern cpuop_func_noret *loop_mode_table[];
++extern cpuop_func *loop_mode_table_compatible[];
+ 
+ extern uae_u32 REGPARAM3 op_illg(uae_u32) REGPARAM;
+ extern void REGPARAM3 op_illg_noret(uae_u32) REGPARAM;
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -8004,7 +8004,7 @@
+ 		// 68010 loop mode handling
+ 		if (cpu_level == 1 && using_prefetch) {
+ 			push_ins_cnt();
+-			out("if(offs == -4 && !regs.t1 && loop_mode_table[regs.ird]) {\n");
++			out("if(offs == -4 && !regs.t1 && %s[regs.ird]) {\n", using_ce ? "loop_mode_table" : "loop_mode_table_compatible");
+ 			// first loop takes as many cycles as normal DBcc branch
+ 			// because it does 2xprefetch
+ 			out("if(!was_loop_mode) {\n");
+@@ -8029,7 +8029,7 @@
+ 			if (using_ce) {
+ 				out("loop_mode_table[regs.ird](regs.ird);\n");
+ 			} else if (!using_nocycles) {
+-				out("count_cycles += loop_mode_table[regs.ird](regs.ird);\n");
++				out("count_cycles += loop_mode_table_compatible[regs.ird](regs.ird);\n");
+ 			}
+ 
+ 			out(" // quick exit if condition false and count expired\n");

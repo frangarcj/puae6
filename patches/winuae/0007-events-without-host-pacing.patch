@@ -1,0 +1,47 @@
+diff --git a/events.cpp b/events.cpp
+--- a/events.cpp
++++ b/events.cpp
+@@ -28,7 +28,9 @@
+ evt_t event_cycles, nextevent, currcycle;
+ uae_u32 currcycle_cck;
+ int is_syncline;
++#ifndef P6_PORTABLE
+ static int syncline_cnt;
++#endif
+ frame_time_t is_syncline_end;
+ int cycles_to_next_event;
+ int max_cycles_to_next_event;
+@@ -68,6 +70,7 @@
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
+ extern int vsync_activeheight;
+ 
+ static bool event_check_vsync(void)
+@@ -258,6 +261,8 @@
+ 	return false;
+ }
+ 
++#endif /* !P6_PORTABLE: display/clock pacing belongs to the frontend */
++
+ void do_cycles_normal(int cycles_to_add)
+ {
+ 	while ((nextevent - currcycle) <= cycles_to_add) {
+@@ -293,6 +298,7 @@
+ #endif
+ #endif
+ 
++#ifndef P6_PORTABLE
+ 	if (is_syncline) {
+ 		if (syncline_cnt > 0) {
+ 			syncline_cnt--;
+@@ -305,6 +311,8 @@
+ 			return;
+ 		}
+ 	}
++
++#endif
+ 
+ 	cycles_to_add += cycles_to_add_remain;
+ 	cycles_to_add_remain = 0;

@@ -1,0 +1,186 @@
+diff --git a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+index d89e1393..0f2ecead 100644
+--- a/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
++++ b/src/BizHawk.Emulation.DiscSystem/DiscFormats/NRG_format.cs
+@@ -151,6 +151,7 @@ namespace BizHawk.Emulation.DiscSystem
+ 			/// 12-letter/digit string (may be empty)
+ 			/// </summary>
+ 			public string Isrc;
++			public byte[] IsrcRaw;
+ 
+ 			/// <summary>
+ 			/// Sector size (depends on Mode)
+@@ -199,6 +200,8 @@ namespace BizHawk.Emulation.DiscSystem
+ 			/// 13-digit ASCII string (may be empty)
+ 			/// </summary>
+ 			public string Ean13CatalogNumber;
++			public byte[] CatalogRaw;
++			public byte SessionHint;
+ 
+ 			/// <summary>
+ 			/// Disk type (0x00 = Mode1 or Audio, 0x10 = CD-I (?), 0x20 = XA/Mode2)
+@@ -346,7 +349,7 @@ namespace BizHawk.Emulation.DiscSystem
+ 			public NRGParseException(string message) : base(message) { }
+ 		}
+ 
+-		private static NRGCue ParseCueChunk(string chunkID, int chunkSize, ReadOnlySpan<byte> chunkData)
++		private static NRGCue ParseCueChunk(string chunkID, int chunkSize, ReadOnlySpan<byte> chunkData, bool strict = false)
+ 		{
+ 			// CUES/CUEX is always a multiple of 8
+ 			if (chunkSize % 8 != 0)
+@@ -364,6 +367,8 @@ namespace BizHawk.Emulation.DiscSystem
+ 			var ret = new NRGCue { ChunkID = chunkID, ChunkSize = chunkSize };
+ 			for (var i = 0; i < chunkSize; i += 8)
+ 			{
++				if (strict && (chunkSize / 8 > 200 || (!v2 && (chunkData[i + 6] >= 60 || chunkData[i + 7] >= 75))))
++					throw new NRGParseException("Invalid bounded DAO CUE entry");
+ 				var trackIndex = new NRGTrackIndex
+ 				{
+ 					ADRControl = chunkData[i + 0],
+@@ -402,6 +407,8 @@ namespace BizHawk.Emulation.DiscSystem
+ 				ChunkSize = chunkSize,
+ 				// chunkData[0..3] is usually a duplicate of chunkSize
+ 				Ean13CatalogNumber = Encoding.ASCII.GetString(chunkData.Slice(4, 13)).TrimEnd('\0'),
++				CatalogRaw = chunkData.Slice(4, 13).ToArray(),
++				SessionHint = chunkData[19],
+ 				// chunkData[17] is probably padding
+ 				DiskType = chunkData[18],
+ 				// chunkData[19] is said to be "_num_sessions" by libmirage with a question mark as a comment
+@@ -430,6 +437,7 @@ namespace BizHawk.Emulation.DiscSystem
+ 				var track = new NRGDAOTrack
+ 				{
+ 					Isrc = Encoding.ASCII.GetString(chunkData.Slice(i, 12)).TrimEnd('\0'),
++					IsrcRaw = chunkData.Slice(i, 12).ToArray(),
+ 					SectorSize = BinaryPrimitives.ReadUInt16BigEndian(chunkData.Slice(i + 12, sizeof(ushort))),
+ 					Mode = chunkData[i + 14],
+ 				};
+@@ -684,7 +692,10 @@ namespace BizHawk.Emulation.DiscSystem
+ 		/// <exception cref="NRGParseException">malformed nrg format</exception>
+ 		public static NRGFile ParseFrom(Stream stream) => ParseFrom(stream, false);
+ 
+-		private static NRGFile ParseFrom(Stream stream, bool canonical)
++		// Metadata-only seam: same parser/model, no mounting or payload reads. Owns stream as ParseFrom does.
++		internal static NRGFile ParsePuae6Nrg(Stream stream) => ParseFrom(stream, true, true);
++
++		private static NRGFile ParseFrom(Stream stream, bool canonical, bool daoMetadata = false)
+ 		{
+ 			var nrgf = new NRGFile();
+ 			using var br = new BinaryReader(stream);
+@@ -745,6 +756,8 @@ namespace BizHawk.Emulation.DiscSystem
+ 
+ 				while (nrgf.End is null)
+ 				{
++					var footer = daoMetadata ? stream.Length - (nrgf.FileID == "NER5" ? 12 : 8) : 0;
++					if (daoMetadata && (stream.Position > footer - 8)) throw new NRGParseException("Missing bounded DAO END");
+ 					var chunkID = br.ReadStringFixedUtf8(4);
+ 					var chunkSize = br.ReadInt32();
+ 					if (BitConverter.IsLittleEndian)
+@@ -759,8 +772,11 @@ namespace BizHawk.Emulation.DiscSystem
+ 						throw new NRGParseException("Malformed NRG format: Chunk size was negative!");
+ 					}
+ 
+-					if (canonical && (++chunks > 256 || chunkSize > 65536 || chunkSize > stream.Length - stream.Position))
++					if (canonical && (++chunks > (daoMetadata ? 298 : 256) || chunkSize > 65536 || chunkSize > stream.Length - stream.Position))
+ 						throw new NRGParseException("NRG metadata extent exceeds input");
++					if (daoMetadata && (chunkSize > footer - stream.Position)) throw new NRGParseException("DAO chunk crosses footer");
++					if (daoMetadata && chunkID is not ("CUES" or "CUEX" or "DAOI" or "DAOX" or "SINF" or "END!"))
++						throw new NotSupportedException("Unsupported bounded DAO chunk");
+ 					taoOnly &= chunkID is "ETNF" or "ETN2" or "SINF" or "END!";
+ 					var chunkData = br.ReadBytes(chunkSize);
+ 
+@@ -773,11 +789,11 @@ namespace BizHawk.Emulation.DiscSystem
+ 					{
+ 						case "CUES":
+ 							AssertIsV1();
+-							nrgf.Cues.Add(ParseCueChunk(chunkID, chunkSize, chunkData));
++							nrgf.Cues.Add(ParseCueChunk(chunkID, chunkSize, chunkData, daoMetadata));
+ 							break;
+ 						case "CUEX":
+ 							AssertIsV2();
+-							nrgf.Cues.Add(ParseCueChunk(chunkID, chunkSize, chunkData));
++							nrgf.Cues.Add(ParseCueChunk(chunkID, chunkSize, chunkData, daoMetadata));
+ 							break;
+ 						case "DAOI":
+ 							AssertIsV1();
+@@ -845,6 +861,13 @@ namespace BizHawk.Emulation.DiscSystem
+ 					}
+ 				}
+ 
++				if (daoMetadata)
++				{
++					if (stream.Position != stream.Length - (nrgf.FileID == "NER5" ? 12 : 8)) throw new NRGParseException("Trailing DAO metadata");
++					ValidatePuae6Dao(nrgf);
++					return nrgf;
++				}
++
+ 				// Only the opt-in path accepts canonical TAO without CUE/TOCT. Default DAO/TAO is unchanged.
+ 				if (canonical && nrgf.DAOTrackInfos.Count == 0)
+ 				{
+@@ -900,6 +923,67 @@ namespace BizHawk.Emulation.DiscSystem
+ 			}
+ 		}
+ 
++		private static void ValidatePuae6Dao(NRGFile file)
++		{
++			void Check(bool ok) { if (!ok) throw new NRGParseException("Invalid bounded DAO session geometry"); }
++			var count = file.DAOTrackInfos.Count;
++			Check(count is >= 1 and <= 99 && file.Cues.Count == count &&
++				(file.SessionInfos.Count == count || count == 1 && file.SessionInfos.Count == 0));
++			int first = 1, previousA2 = 0;
++			long previousEnd = 0;
++			for (var group = 0; group < count; group++)
++			{
++				var dao = file.DAOTrackInfos[group]; var cues = file.Cues[group].TrackIndices;
++				Check(dao.FirstTrack == first && dao.LastTrack >= first && dao.LastTrack <= 99 &&
++					dao.Tracks.Count == dao.LastTrack - first + 1 && dao.DiskType is 0 or 0x10 or 0x20);
++				Check(file.SessionInfos.Count == 0 || file.SessionInfos[group].TrackCount == dao.Tracks.Count);
++				var seen = new HashSet<int>();
++				foreach (var cue in cues)
++				{
++					int track = cue.Track.BCDValue, index = cue.Index.BCDValue;
++					Check((cue.ADRControl & 15) == 1 && seen.Add(track * 256 + index));
++					if (track == 0 || track == 0xaa) Check(index == (track == 0 ? 0 : 1));
++					else Check((track & 15) <= 9 && (track >> 4) <= 9 &&
++						cue.Track.DecimalValue >= first && cue.Track.DecimalValue <= dao.LastTrack && index <= 1);
++				}
++				var leadin = cues.FirstOrDefault(c => c.Track.BCDValue == 0);
++				var leadout = cues.FirstOrDefault(c => c.Track.BCDValue == 0xaa);
++				Check(leadin != null && leadout != null);
++				Check(leadout.LBA > 0 && (group == 0 ? leadin.LBA <= 0 : leadin.LBA >= previousA2));
++				long Zero(int number)
++				{
++					var t = dao.Tracks[number - first];
++					var one = cues.FirstOrDefault(c => c.Track.DecimalValue == number && c.Index.BCDValue == 1);
++					Check(one != null);
++					return (long)one.LBA - (t.TrackStartFileOffset - t.PregapFileOffset) / t.SectorSize;
++				}
++				// Validate physical extents before division, including the next track used by Zero.
++				foreach (var t in dao.Tracks)
++				{
++					var minimum = t.Mode switch { 0 or 2 => 2048, 3 => 2336, 5 or 6 or 7 => 2352, 15 or 16 or 17 => 2448, _ => 0 };
++					Check(minimum != 0 && t.SectorSize >= minimum && (t.Mode == 2 ? t.SectorSize == 2048 :
++						t.Mode == 3 ? t.SectorSize == 2336 : t.SectorSize is 2048 or 2352 or 2448));
++					Check(t.PregapFileOffset >= previousEnd && t.TrackStartFileOffset >= t.PregapFileOffset &&
++						t.TrackEndFileOffset > t.TrackStartFileOffset && t.TrackEndFileOffset <= file.FileOffset &&
++						(t.TrackStartFileOffset - t.PregapFileOffset) % t.SectorSize == 0 &&
++						(t.TrackEndFileOffset - t.TrackStartFileOffset) % t.SectorSize == 0);
++					previousEnd = t.TrackEndFileOffset;
++				}
++				for (var number = first; number <= dao.LastTrack; number++)
++				{
++					var t = dao.Tracks[number - first];
++					var one = cues.FirstOrDefault(c => c.Track.DecimalValue == number && c.Index.BCDValue == 1);
++					var zero = cues.FirstOrDefault(c => c.Track.DecimalValue == number && c.Index.BCDValue == 0);
++					var start = Zero(number); var end = number == dao.LastTrack ? leadout.LBA : Zero(number + 1);
++					Check(one.LBA >= 0 && end > one.LBA && (zero == null || zero.LBA == start && zero.ADRControl == one.ADRControl) &&
++						end - one.LBA == (t.TrackEndFileOffset - t.TrackStartFileOffset) / t.SectorSize &&
++						(number != first || leadin.LBA <= start) &&
++						(((one.ADRControl >> 4) & 4) == 0) == (t.Mode is 7 or 16));
++				}
++				first = dao.LastTrack + 1; previousA2 = leadout.LBA;
++			}
++		}
++
+ 		public class LoadResults
+ 		{
+ 			public NRGFile ParsedNRGFile;

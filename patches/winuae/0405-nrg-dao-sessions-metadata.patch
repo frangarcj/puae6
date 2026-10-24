@@ -1,0 +1,171 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -2451,7 +2451,8 @@
+     if (!read_at || !out) return Result::Invalid;
+     NrgMetadata candidate{};
+     const auto invalid = Result::Invalid, io_error = Result::ReadError;
+-    uint8_t cue_mask[99]{}; bool cue_seen = false, dao_seen = false, leadin_seen = false, leadout_seen = false;
++    uint8_t cue_mask[99]{}, cue_group[99]{}, boundaries[99]{};
++    uint32_t cue_count = 0, dao_count = 0, sinf_count = 0, sinf[99]{};
+     uint32_t session_tracks = 0;
+ #else
+     if (curdir) my_setcurrentdir(ocurdir, NULL);
+@@ -2485,7 +2486,12 @@
+     int tracknum = 0; uint32_t lastlba = 0; bool gotsession = false;
+ #endif
+     position = directory;
+-    for (unsigned chunks = 0; chunks < 256; ++chunks) {
++#ifdef P6_NRG_METADATA
++    const unsigned max_chunks = 3 * 99 + 1; // CUE/DAO/SINF per session plus END, still at most 64 KiB.
++#else
++    const unsigned max_chunks = 256;
++#endif
++    for (unsigned chunks = 0; chunks < max_chunks; ++chunks) {
+         if (position > footer || footer - position < 8) return invalid;
+         if (!read(buf, 8)) return io_error;
+         uint32_t size = uint32_t(be(buf + 4, 4));
+@@ -2494,7 +2500,7 @@
+         if (!memcmp(buf, "ETN2", 4) || !memcmp(buf, "ETNF", 4) || !memcmp(buf, "TINF", 4)) {
+ #ifdef P6_NRG_METADATA
+             const bool etn2 = !memcmp(buf, "ETN2", 4);
+-            if ((!etn2 && memcmp(buf, "ETNF", 4)) || (etn2 && !ner5) || dao_seen || cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            if ((!etn2 && memcmp(buf, "ETNF", 4)) || (etn2 && !ner5) || dao_count || cue_count || sinf_count > 1 || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+             // DiscSystem9b627578 NRG_format.cs:490..496 and libMirage
+             // a9d6a204 parser.c:373..383: ETN2 has64-bit byte extents,
+             // a32-bit packed sector and8 reserved bytes; no truncation.
+@@ -2549,9 +2555,11 @@
+             if (size != 4) return invalid;
+             if (!read(buf, 4)) return io_error;
+ #ifdef P6_NRG_METADATA
+-            if (session_tracks) return Result::Unsupported;
+-            session_tracks = uint32_t(be(buf, 4));
+-            if (!session_tracks || session_tracks > 99) return invalid;
++            if (candidate.layout != NrgLayout::Dao && sinf_count) return Result::Unsupported;
++            const auto count = uint32_t(be(buf, 4));
++            if (!count || count > 99 || sinf_count == 99) return invalid;
++            sinf[sinf_count++] = count;
++            if (sinf_count == 1) session_tracks = count;
+ #else
+             if (!cdu->tracks) { cdu->tracks = be(buf, 4); if (cdu->tracks > 99) return invalid; cdu->toc[cdu->tracks].address = lastlba; }
+ #endif
+@@ -2559,8 +2567,9 @@
+             const bool newformat = !memcmp(buf, "CUEX", 4);
+             if (newformat != ner5 || !size || size % 8 || size / 8 > 200) return invalid;
+ #ifdef P6_NRG_METADATA
+-            if (cue_seen || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+-            cue_seen = true;
++            if (candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            if (cue_count == 99) return invalid;
++            const auto group = cue_count++;
+ #endif
+             while (size >= 8) {
+                 if (!read(buf, 8)) return io_error;
+@@ -2572,15 +2581,18 @@
+                 if ((buf[0] & 15) != 1 || (index & 15) > 9 || (index >> 4) > 9) return invalid;
+                 if (trk == 0 || trk == 0xaa) {
+                     if (index != (trk ? 1 : 0)) return invalid;
+-                    auto &seen = trk ? leadout_seen : leadin_seen;
+-                    if (seen) return invalid;
+-                    seen = true;
+-                    (trk ? candidate.leadout : candidate.leadin) = int32_t(address);
++                    const unsigned bit = trk ? 2 : 1;
++                    if ((boundaries[group] & bit) || (trk && address <= 0)) return invalid;
++                    boundaries[group] |= bit;
++                    auto &session = candidate.session[group].info;
++                    if (trk) session.a2 = uint32_t(address); else session.cue0 = int32_t(address);
+                 } else {
+                     if ((trk & 15) > 9 || (trk >> 4) > 9 || trk > 0x99) return invalid;
+                     if (index > 1) return Result::Unsupported;
+                     const unsigned number = (trk >> 4) * 10 + (trk & 15) - 1, bit = 1u << index;
++                    if (cue_group[number] && cue_group[number] != group + 1) return Result::Unsupported;
+                     if (cue_mask[number] & bit) return invalid;
++                    cue_group[number] = uint8_t(group + 1);
+                     auto &t = candidate.track[number];
+                     if (cue_mask[number] && (t.control != buf[0] >> 4 || t.adr != (buf[0] & 15))) return invalid;
+                     t.control = buf[0] >> 4; t.adr = buf[0] & 15;
+@@ -2604,10 +2616,18 @@
+             const unsigned first_track = buf[20], last_track = buf[21]; // Binary, NOT BCD.
+             if (!first_track || first_track > last_track || last_track > 99 || (size - 22) / blocksize != last_track - first_track + 1) return invalid;
+ #ifdef P6_NRG_METADATA
+-            if (dao_seen || first_track != 1 || candidate.layout != NrgLayout::Dao) return Result::Unsupported;
+-            dao_seen = true; candidate.tracks = last_track; candidate.disk_type = buf[18]; candidate.session_hint = buf[19];
+-            if (buf[19] > 1 || (buf[18] != 0 && buf[18] != 0x10 && buf[18] != 0x20)) return Result::Unsupported;
+-            memcpy(candidate.catalog, buf + 4, 13);
++            if (candidate.layout != NrgLayout::Dao) return Result::Unsupported;
++            if (dao_count == 99) return invalid;
++            auto &session = candidate.session[dao_count++];
++            session.info.first_track = uint8_t(first_track); session.info.last_track = uint8_t(last_track);
++            session.info.format = buf[18]; session.session_hint = buf[19];
++            if (buf[18] != 0 && buf[18] != 0x10 && buf[18] != 0x20) return Result::Unsupported;
++            memcpy(session.catalog, buf + 4, 13);
++            if (dao_count == 1) {
++                candidate.disk_type = buf[18]; candidate.session_hint = buf[19];
++                memcpy(candidate.catalog, buf + 4, 13);
++            }
++            if (last_track > candidate.tracks) candidate.tracks = last_track;
+ #else
+             cdu->tracks = last_track - first_track + 1; cdu->toc[last_track].address = lastlba;
+ #endif
+@@ -2620,6 +2640,7 @@
+                 const unsigned minimum = type == 0 || type == 2 ? 2048 : type == 3 ? 2336 : type == 5 || type == 6 || type == 7 ? 2352 : type == 15 || type == 16 || type == 17 ? 2448 : 0;
+                 if (!minimum || sectorsize < minimum || (type == 2 ? sectorsize != 2048 : type == 3 ? sectorsize != 2336 : (sectorsize != 2048 && sectorsize != 2352 && sectorsize != 2448))) return Result::Unsupported;
+                 auto &t = candidate.track[tracknum - 1];
++                if (t.stride) return Result::Unsupported;
+                 t.offset0 = index0; t.offset1 = index1; t.end = end; t.stride = sectorsize; t.mode = type;
+                 memcpy(t.isrc, buf, 12);
+ #else
+@@ -2642,18 +2663,42 @@
+                 if (session_tracks != candidate.tracks) return invalid;
+                 *out = candidate; return Result::Ok;
+             }
+-            if (!dao_seen || !cue_seen || !leadout_seen || candidate.leadout <= 0 || (session_tracks && session_tracks != candidate.tracks)) return invalid;
+-            for (unsigned n = 0; n < 99; ++n) {
+-                const auto &t = candidate.track[n];
+-                if (n >= candidate.tracks) { if (cue_mask[n]) return invalid; continue; }
+-                const auto &next = candidate.track[n + 1 < candidate.tracks ? n + 1 : n];
+-                const int64_t end_lba = n + 1 < candidate.tracks ? (next.has_index0 ? int64_t(next.index0) :
+-                    int64_t(next.index1) - int64_t((next.offset1 - next.offset0) / next.stride)) : candidate.leadout;
+-                if (!(cue_mask[n] & 2) || (t.has_index0 && t.index0 > t.index1) || t.index1 < 0 || end_lba <= t.index1 ||
+-                    (t.has_index0 && uint64_t(int64_t(t.index1) - t.index0) != (t.offset1 - t.offset0) / t.stride) ||
+-                    uint64_t(end_lba - t.index1) != (t.end - t.offset1) / t.stride || (n && t.offset0 < candidate.track[n - 1].end) ||
+-                    ((t.mode == 7 || t.mode == 16) ? (t.control & 4) : !(t.control & 4))) return invalid;
++            if (!dao_count || !cue_count || cue_count != dao_count) return invalid;
++            if (sinf_count > dao_count) return Result::Unsupported;
++            const bool multi = dao_count > 1;
++            if ((multi && sinf_count != dao_count) || (!multi && sinf_count && sinf[0] != candidate.tracks)) return invalid;
++            if (!multi && candidate.session_hint > 1) return Result::Unsupported;
++            // libMirage a9d6a204 image-nrg/parser.c:697..722 preserves each
++            // CUE0/A2. Pair the nth chunk of each type, as find_block_entry does;
++            // neither physical chunk order nor fixed session padding is inferred.
++            uint32_t first = 1;
++            for (uint32_t group = 0; group < dao_count; ++group) {
++                const auto &session = candidate.session[group].info;
++                if (session.first_track != first || session.last_track < first || session.last_track > candidate.tracks ||
++                    !(boundaries[group] & 2) || (multi && boundaries[group] != 3) ||
++                    (sinf_count && sinf[group] != session.last_track - first + 1) ||
++                    (multi && (group ? int64_t(session.cue0) < candidate.session[group - 1].info.a2 : session.cue0 > 0))) return invalid;
++                for (uint32_t n = first - 1; n < session.last_track; ++n) {
++                    const auto &t = candidate.track[n];
++                    if (!t.stride || cue_group[n] != group + 1) return invalid;
++                    const auto &next_track = candidate.track[n + 1 < session.last_track ? n + 1 : n];
++                    const int64_t end_lba = n + 1 < session.last_track ? (next_track.has_index0 ? int64_t(next_track.index0) :
++                        int64_t(next_track.index1) - int64_t((next_track.offset1 - next_track.offset0) / next_track.stride)) : session.a2;
++                    const int64_t index0 = t.has_index0 ? int64_t(t.index0) : int64_t(t.index1) - int64_t((t.offset1 - t.offset0) / t.stride);
++                    if (!(cue_mask[n] & 2) || (t.has_index0 && t.index0 > t.index1) || t.index1 < 0 || end_lba <= t.index1 ||
++                        (multi && n == first - 1 && session.cue0 > index0) ||
++                        (t.has_index0 && uint64_t(int64_t(t.index1) - t.index0) != (t.offset1 - t.offset0) / t.stride) ||
++                        uint64_t(end_lba - t.index1) != (t.end - t.offset1) / t.stride || (n && t.offset0 < candidate.track[n - 1].end) ||
++                        ((t.mode == 7 || t.mode == 16) ? (t.control & 4) : !(t.control & 4))) return invalid;
++                }
++                first = uint32_t(session.last_track) + 1;
+             }
++            if (first != candidate.tracks + 1) return invalid;
++            for (uint32_t n = candidate.tracks; n < 99; ++n) if (cue_mask[n]) return invalid;
++            candidate.leadin = candidate.session[0].info.cue0;
++            candidate.leadout = int32_t(candidate.session[dao_count - 1].info.a2);
++            if (multi) candidate.sessions = dao_count;
++            else for (auto &session : candidate.session) session = {}; // All added legacy fields stay inactive.
+             *out = candidate; return Result::Ok;
+ #else
+             return cdu->tracks;

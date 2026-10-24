@@ -1,0 +1,69 @@
+diff --git a/ar.cpp b/ar.cpp
+--- a/ar.cpp
++++ b/ar.cpp
+@@ -2107,6 +2107,52 @@
+ }
+ 
+ #ifdef P6_PORTABLE
++// AR1 wait_for_pc/ar_wait_pop and legacy .uss ar_state1/2 never execute in AR2/3.
++// triggered_once is only consulted by HRTMon/legacy .uss, not this device.
++uint8_t *p6_ar_memory()
++{
++	return cart_type == CART_AR && (armodel == 2 || armodel == 3) && armemory_rom && armemory_ram && !hrtmemory && hrtmon_flag == ACTION_REPLAY_INACTIVE &&
++		ar_rom_file_size == (armodel == 2 ? 0x20000 : 0x40000) && arrom_start == 0x400000 && arrom_size == unsigned(ar_rom_file_size) &&
++		arrom_mask == arrom_size - 1 && arram_start == 0x440000 && arram_size == 0x10000 && arram_mask == 0xffff ? armemory_ram : NULL;
++}
++bool p6_ar_validate(const p6_ar_raw *s, uint32_t spc)
++{
++	if (!s || (s->flag != ACTION_REPLAY_WAITRESET && (s->flag < ACTION_REPLAY_IDLE || s->flag > ACTION_REPLAY_HIDE)) ||
++		s->mapped < 0 || s->mapped > 1 || s->banks > 1 || s->mapped != int(s->banks) || s->mode_read > 3 || s->mode_write > 255 ||
++		s->hardreset > 1 || s->hide > 1 || s->hidden > 1) return false;
++	// -1 is a map-cache invalidation inside reset/enter; both finish by mapping.
++	if (bool(spc & SPCFLAG_ACTION_REPLAY) != (s->flag >= ACTION_REPLAY_ACTIVATE)) return false;
++	if ((!s->banks && (!s->hidden || !s->hide)) || (s->banks && s->hide) || (!s->hidden && !s->banks)) return false;
++	if ((s->flag == ACTION_REPLAY_ACTIVE || s->flag == ACTION_REPLAY_HIDE || s->flag == ACTION_REPLAY_DORESET || s->flag == ACTION_REPLAY_WAITRESET) &&
++		(s->hidden || !s->banks)) return false;
++	return s->flag != ACTION_REPLAY_IDLE || s->hidden;
++}
++bool p6_ar_get(p6_ar_raw *out)
++{
++	if (!out || !p6_ar_memory()) return false;
++	const unsigned banks = &get_mem_bank(arrom_start) == &arrom_bank ? 1 : 0;
++	for (unsigned n = 0; n < arrom_size / 65536; ++n)
++		if (&get_mem_bank(arrom_start + n * 65536) != (banks ? &arrom_bank : &dummy_bank)) return false;
++	if (&get_mem_bank(arram_start) != (banks ? &arram_bank : &dummy_bank)) return false;
++	out->flag = action_replay_flag; out->mapped = ar_mapped; out->banks = banks;
++	out->mode_read = armode_read; out->mode_write = armode_write; out->hardreset = action_replay_hardreset;
++	out->hide = ar_hide; out->hidden = ar_hidden;
++	memcpy(out->vector, artemp, 4); memcpy(out->custom, ar_custom, 512);
++	memcpy(out->ciaa, ar_ciaa, 16); memcpy(out->ciab, ar_ciab, 16);
++	return p6_ar_validate(out, regs.spcflags);
++}
++void p6_ar_set(const p6_ar_raw *in)
++{
++	// Already validated. No enter/hide, NMI, memory access or scheduler callback.
++	ar_mapped = -1;
++	if (in->banks) action_replay_map_banks(); else action_replay_unmap_banks();
++	action_replay_flag = in->flag; ar_mapped = in->mapped; ar_hide = in->hide; ar_hidden = in->hidden;
++	armode_read = in->mode_read; armode_write = in->mode_write; action_replay_hardreset = in->hardreset != 0;
++	memcpy(artemp, in->vector, 4); memcpy(ar_custom, in->custom, 512);
++	memcpy(ar_ciaa, in->ciaa, 16); memcpy(ar_ciab, in->ciab, 16);
++}
++void (*p6_ar_cia_handler())(uint32_t) { return action_replay_cia_access_delay; }
++
+ // Private fixed HRTMon owner. No host pointer or reload path enters its state.
+ uint8_t *p6_hrtmon_memory()
+ {
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -10756,7 +10756,8 @@
+ 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+ 	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
+-		((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ? SPCFLAG_ACTION_REPLAY : 0)))
++		(((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ||
++		 ((armodel == 2 || armodel == 3) && action_replay_flag >= ACTION_REPLAY_ACTIVATE && action_replay_flag <= ACTION_REPLAY_HIDE)) ? SPCFLAG_ACTION_REPLAY : 0)))
+ 		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
+ 	else if (cpu_tracer || cpu_prefs_changed_flag || m68k_reset_delay || pissoff)
+ 		w = "a file-local CPU counter is not at its boundary value";

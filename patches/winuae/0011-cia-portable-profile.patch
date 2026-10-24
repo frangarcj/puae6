@@ -1,0 +1,94 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -12,6 +12,7 @@
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ #include <assert.h>
++#include <limits.h>
+ 
+ #include "options.h"
+ #include "events.h"
+@@ -68,7 +69,9 @@
+ #define CLOCK_DEBUG 0
+ #define CIA_EVERY_CYCLE_DEBUG 0
+ 
++#ifndef P6_PORTABLE
+ #define TOD_HACK
++#endif
+ 
+ #define CIA_IRQ_PROCESS_DELAY 0
+ 
+@@ -392,8 +395,8 @@
+ static void compute_passed_time(void)
+ {
+ 	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
+-	if (ccount > MAXINT) {
+-		ccount = MAXINT;
++	if (ccount > INT_MAX) {
++		ccount = INT_MAX;
+ 	}
+ 	uae_u32 ciaclocks = (uae_u32)ccount / DIV10;
+ 
+@@ -493,8 +496,8 @@
+ static void CIA_update_check(void)
+ {
+ 	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
+-	if (ccount > MAXINT) {
+-		ccount = MAXINT;
++	if (ccount > INT_MAX) {
++		ccount = INT_MAX;
+ 	}
+ 	int ciaclocks = (uae_u32)(ccount / DIV10);
+ 	if (!ciaclocks) {
+@@ -897,6 +900,7 @@
+ 	heartbeat_cnt = 10;
+ }
+ 
++#ifdef TOD_HACK
+ static void do_tod_hack(bool dotod)
+ {
+ 	struct timeval tv;
+@@ -971,6 +975,8 @@
+ 		cia_checkalarm(false, true, 0);
+ 	}
+ }
++
++#endif
+ 
+ static int resetwarning_phase, resetwarning_timer;
+ 
+@@ -1278,9 +1284,11 @@
+ 		// CIA-B HSync pulse
+ 		// Delayed previous line TOD increase.
+ 		cia_delayed_tod(1);
++#ifdef TOD_HACK
+ 		if (currprefs.tod_hack && cia[0].todon) {
+ 			do_tod_hack(dotod);
+ 		}
++#endif
+ 	} else {
+ 		if (currprefs.keyboard_mode > 0) {
+ 			keymcu_do();
+@@ -1909,9 +1917,9 @@
+ 			if (flags) {
+ 				tmp = sampler_getsample((c->pra & 4) ? 1 : 0);
+ 			}
+-#endif
+-
+-		} else if (parallel_port_scsi) {
++		} else
++#endif
++		if (parallel_port_scsi) {
+ 
+ 			if (flags) {
+ 				tmp = parallel_port_scsi_read(0, c->prb, c->drb);
+@@ -2181,7 +2189,7 @@
+ 					if (kblostsynccnt > 0 && currprefs.cs_kbhandshake) {
+ 						evt_t len = get_cycles() - kbhandshakestart;
+ 						if (len < currprefs.cs_kbhandshake * CYCLE_UNIT) {
+-							write_log(_T("Keyboard handshake pulse length %d < %d (CCKs)\n"), len / CYCLE_UNIT, currprefs.cs_kbhandshake);
++							write_log(_T("Keyboard handshake pulse length %lld < %d (CCKs)\n"), (long long)(len / CYCLE_UNIT), currprefs.cs_kbhandshake);
+ 						}
+ 					}
+ 					kblostsynccnt = 0;

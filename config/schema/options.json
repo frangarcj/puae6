@@ -1,0 +1,2235 @@
+{
+  "schema_version": 1,
+  "about": [
+    "The one schema of what ABI v1 lets a person choose (T17b). tools/generate_options.py validates it and generates adapters/libretro/options_generated.h",
+    "and config/schema/options_table.generated.json; tests/config compares what headless, the libretro core and the BizHawk wrapper use with it.",
+    "Never edit the generated files by hand: change this file and run python3 tools/generate_options.py.",
+    "class 'reboot': part of the machine. It maps to a p6_config field, so it enters config_hash and the state identity; a change needs a reload and",
+    "never moves the running machine or the state bound. class 'presentation': no effect on emulation; it is applied in place.",
+    "Only what the ABI honours is here (bridge/config.cpp validate_config). The CPU and the ROM are not choices: they are listed under",
+    "'unsupported' with the reason, which is the diagnostic a request for them gets. The machine is a choice between the presets the ABI has (T23d, T24e):",
+    "the A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3), the A600 (ECS, 1 MiB Chip, no Slow RAM, Kickstart 2.05, with Gayle's IDE port only when a hard disk is on the IDE controller: no PCMCIA),",
+    "T50: the A500 OG, A500+, A1000, A2000 OG and A2000 (same profile, same engine, built from upstream's built_in_prefs with declared overrides; docs/02-contracts.md),",
+    "and the A1200 (68EC020, AGA, 2 MiB Chip, no Slow or Fast RAM, Kickstart 3.1, with Gayle's IDE port only when a hard disk is on the IDE controller). T49 adds the memory as choices of their own: Chip RAM, Slow RAM and one Zorro II",
+    "Fast RAM board (autoconfig), each 'auto' (the machine's own) or a size; a size the machine cannot have is refused at load with the reason. 'presets' are the PUAE5-like bundles of a",
+    "model and its memory (PUAE5's A1200 has 8 MiB of Fast RAM and its A600 is a 2 MiB Chip + 8 MiB Fast machine): they are values of the options, not a new ABI field.",
+    "PUAE5 (libretro-uae) calls the machine puae_model: its A500 is this A500 and its A1200OG (2 MiB Chip) is this A1200 without Fast RAM. So the key is puae6_machine, with the values of the ABI, and no PUAE5 key is read.",
+    "A value may carry \"wrapper\": false: the libretro core and headless offer it but the BizHawk wrapper does not yet (its sync setting enum lacks it). None is marked since T24f: the wrapper's Machine setting offers the three machines.",
+    "T31 (the libretro user interface) adds presentation options: they only shape what the adapter shows or how it reads the frontend's input, never p6_config, config_hash or the state identity. A presentation option may carry",
+    "\"restart\": true when the adapter can only read it as the content loads (the pixel format): the menu says (Restart) and a change made while it runs is reported, not applied. An option whose values are numbers (a position, a gamma)",
+    "has them as value names ('-6', '0.3'); their \"abi\" is the value plus a bias that keeps it unsigned (adapters/libretro/present.h and input_map.h name the biases), 0 meaning 'Automatic' where there is one."
+  ],
+  "categories": [
+    {"id": "machine", "label": "Machine", "info": "What the emulated Amiga is. These options take effect when the content is loaded."},
+    {"id": "audio", "label": "Audio", "info": "How Paula's output is produced. These options take effect when the content is loaded: they change the samples and the state of the output stage, so they are part of the machine."},
+    {"id": "video", "label": "Video", "info": "How the picture is presented. These options apply at once."},
+    {"id": "media", "label": "Media", "info": "What the machine does with the disks it is given."},
+    {"id": "input", "label": "Input", "info": "How the frontend's controllers become Amiga input. These options apply at once; none of them changes the machine, only the packet of input it is given."},
+    {"id": "retropad", "label": "RetroPad Mapper", "info": "What each button and stick direction of player 1's RetroPad does. 'Default function' keeps the joystick (or the mouse, in D-Pad mouse mode)."},
+    {"id": "osd", "label": "OSD", "info": "What the core draws over the picture it hands to the frontend: the statusbar with the drive LED and the messages of the core's actions. Nothing of it is part of the machine."},
+    {"id": "hotkey", "label": "Hotkeys", "info": "Keys of the physical keyboard that run an action of the core. A key used here does not reach the Amiga."}
+  ],
+  "value_sets": {
+    "mapper_target": [
+      {"value": "---", "abi": 0, "label": "Default function of the button", "const": "Default"},
+      {"value": "none", "abi": 1, "label": "Disabled (does nothing)", "const": "None"},
+      {"value": "joy_up", "abi": 2, "label": "Joystick Up", "const": "JoyUp"},
+      {"value": "joy_down", "abi": 3, "label": "Joystick Down", "const": "JoyDown"},
+      {"value": "joy_left", "abi": 4, "label": "Joystick Left", "const": "JoyLeft"},
+      {"value": "joy_right", "abi": 5, "label": "Joystick Right", "const": "JoyRight"},
+      {"value": "joy_fire", "abi": 6, "label": "Joystick Fire (button 1)", "const": "JoyFire"},
+      {"value": "joy_fire2", "abi": 7, "label": "Joystick 2nd fire (button 2)", "const": "JoyFire2"},
+      {"value": "joy_fire3", "abi": 8, "label": "Joystick 3rd button (button 3)", "const": "JoyFire3"},
+      {"value": "mouse_left", "abi": 9, "label": "Mouse Left Button", "const": "MouseLeft"},
+      {"value": "mouse_right", "abi": 10, "label": "Mouse Right Button", "const": "MouseRight"},
+      {"value": "mouse_middle", "abi": 11, "label": "Mouse Middle Button", "const": "MouseMiddle"},
+      {"value": "mouse_move_up", "abi": 12, "label": "Mouse Move Up", "const": "MouseMoveUp"},
+      {"value": "mouse_move_down", "abi": 13, "label": "Mouse Move Down", "const": "MouseMoveDown"},
+      {"value": "mouse_move_left", "abi": 14, "label": "Mouse Move Left", "const": "MouseMoveLeft"},
+      {"value": "mouse_move_right", "abi": 15, "label": "Mouse Move Right", "const": "MouseMoveRight"},
+      {"value": "toggle_vkbd", "abi": 16, "label": "Toggle Virtual Keyboard", "const": "ToggleVkbd"},
+      {"value": "toggle_mouse", "abi": 18, "label": "Toggle Joystick/Mouse", "const": "ToggleMouse"},
+      {"value": "toggle_turbo", "abi": 19, "label": "Toggle Turbo Fire", "const": "ToggleTurbo"},
+      {"value": "toggle_aspect", "abi": 20, "label": "Toggle Aspect Ratio (PAL/NTSC pixels)", "const": "ToggleAspect"},
+      {"value": "toggle_statusbar", "abi": 17, "label": "Toggle Statusbar", "const": "ToggleStatusbar"},
+      {"value": "toggle_crop", "abi": 21, "label": "Toggle Crop", "const": "ToggleCrop"},
+      {"value": "reset", "abi": 22, "label": "Reset (Ctrl-Amiga-Amiga)", "const": "Reset"},
+      {"value": "freeze", "abi": 23, "label": "Cartridge Freeze", "const": "Freeze"},
+      {"value": "key_grave", "abi": 256, "label": "Key Grave"},
+      {"value": "key_1", "abi": 257, "label": "Key 1"},
+      {"value": "key_2", "abi": 258, "label": "Key 2"},
+      {"value": "key_3", "abi": 259, "label": "Key 3"},
+      {"value": "key_4", "abi": 260, "label": "Key 4"},
+      {"value": "key_5", "abi": 261, "label": "Key 5"},
+      {"value": "key_6", "abi": 262, "label": "Key 6"},
+      {"value": "key_7", "abi": 263, "label": "Key 7"},
+      {"value": "key_8", "abi": 264, "label": "Key 8"},
+      {"value": "key_9", "abi": 265, "label": "Key 9"},
+      {"value": "key_0", "abi": 266, "label": "Key 0"},
+      {"value": "key_minus", "abi": 267, "label": "Key Minus"},
+      {"value": "key_equals", "abi": 268, "label": "Key Equals"},
+      {"value": "key_backslash", "abi": 269, "label": "Key Backslash"},
+      {"value": "key_keypad_0", "abi": 271, "label": "Key Keypad 0"},
+      {"value": "key_q", "abi": 272, "label": "Key Q"},
+      {"value": "key_w", "abi": 273, "label": "Key W"},
+      {"value": "key_e", "abi": 274, "label": "Key E"},
+      {"value": "key_r", "abi": 275, "label": "Key R"},
+      {"value": "key_t", "abi": 276, "label": "Key T"},
+      {"value": "key_y", "abi": 277, "label": "Key Y"},
+      {"value": "key_u", "abi": 278, "label": "Key U"},
+      {"value": "key_i", "abi": 279, "label": "Key I"},
+      {"value": "key_o", "abi": 280, "label": "Key O"},
+      {"value": "key_p", "abi": 281, "label": "Key P"},
+      {"value": "key_left_bracket", "abi": 282, "label": "Key Left Bracket"},
+      {"value": "key_right_bracket", "abi": 283, "label": "Key Right Bracket"},
+      {"value": "key_keypad_1", "abi": 285, "label": "Key Keypad 1"},
+      {"value": "key_keypad_2", "abi": 286, "label": "Key Keypad 2"},
+      {"value": "key_keypad_3", "abi": 287, "label": "Key Keypad 3"},
+      {"value": "key_a", "abi": 288, "label": "Key A"},
+      {"value": "key_s", "abi": 289, "label": "Key S"},
+      {"value": "key_d", "abi": 290, "label": "Key D"},
+      {"value": "key_f", "abi": 291, "label": "Key F"},
+      {"value": "key_g", "abi": 292, "label": "Key G"},
+      {"value": "key_h", "abi": 293, "label": "Key H"},
+      {"value": "key_j", "abi": 294, "label": "Key J"},
+      {"value": "key_k", "abi": 295, "label": "Key K"},
+      {"value": "key_l", "abi": 296, "label": "Key L"},
+      {"value": "key_semicolon", "abi": 297, "label": "Key Semicolon"},
+      {"value": "key_quote", "abi": 298, "label": "Key Quote"},
+      {"value": "key_hash", "abi": 299, "label": "Key Hash"},
+      {"value": "key_keypad_4", "abi": 301, "label": "Key Keypad 4"},
+      {"value": "key_keypad_5", "abi": 302, "label": "Key Keypad 5"},
+      {"value": "key_keypad_6", "abi": 303, "label": "Key Keypad 6"},
+      {"value": "key_less_than", "abi": 304, "label": "Key Less Than"},
+      {"value": "key_z", "abi": 305, "label": "Key Z"},
+      {"value": "key_x", "abi": 306, "label": "Key X"},
+      {"value": "key_c", "abi": 307, "label": "Key C"},
+      {"value": "key_v", "abi": 308, "label": "Key V"},
+      {"value": "key_b", "abi": 309, "label": "Key B"},
+      {"value": "key_n", "abi": 310, "label": "Key N"},
+      {"value": "key_m", "abi": 311, "label": "Key M"},
+      {"value": "key_comma", "abi": 312, "label": "Key Comma"},
+      {"value": "key_period", "abi": 313, "label": "Key Period"},
+      {"value": "key_slash", "abi": 314, "label": "Key Slash"},
+      {"value": "key_keypad_period", "abi": 316, "label": "Key Keypad Period"},
+      {"value": "key_keypad_7", "abi": 317, "label": "Key Keypad 7"},
+      {"value": "key_keypad_8", "abi": 318, "label": "Key Keypad 8"},
+      {"value": "key_keypad_9", "abi": 319, "label": "Key Keypad 9"},
+      {"value": "key_space", "abi": 320, "label": "Key Space"},
+      {"value": "key_backspace", "abi": 321, "label": "Key Backspace"},
+      {"value": "key_tab", "abi": 322, "label": "Key Tab"},
+      {"value": "key_keypad_enter", "abi": 323, "label": "Key Keypad Enter"},
+      {"value": "key_return", "abi": 324, "label": "Key Return"},
+      {"value": "key_escape", "abi": 325, "label": "Key Escape"},
+      {"value": "key_delete", "abi": 326, "label": "Key Delete"},
+      {"value": "key_keypad_minus", "abi": 330, "label": "Key Keypad Minus"},
+      {"value": "key_up", "abi": 332, "label": "Key Up"},
+      {"value": "key_down", "abi": 333, "label": "Key Down"},
+      {"value": "key_right", "abi": 334, "label": "Key Right"},
+      {"value": "key_left", "abi": 335, "label": "Key Left"},
+      {"value": "key_f1", "abi": 336, "label": "Key F1"},
+      {"value": "key_f2", "abi": 337, "label": "Key F2"},
+      {"value": "key_f3", "abi": 338, "label": "Key F3"},
+      {"value": "key_f4", "abi": 339, "label": "Key F4"},
+      {"value": "key_f5", "abi": 340, "label": "Key F5"},
+      {"value": "key_f6", "abi": 341, "label": "Key F6"},
+      {"value": "key_f7", "abi": 342, "label": "Key F7"},
+      {"value": "key_f8", "abi": 343, "label": "Key F8"},
+      {"value": "key_f9", "abi": 344, "label": "Key F9"},
+      {"value": "key_f10", "abi": 345, "label": "Key F10"},
+      {"value": "key_keypad_left_paren", "abi": 346, "label": "Key Keypad Left Paren"},
+      {"value": "key_keypad_right_paren", "abi": 347, "label": "Key Keypad Right Paren"},
+      {"value": "key_keypad_slash", "abi": 348, "label": "Key Keypad Slash"},
+      {"value": "key_keypad_star", "abi": 349, "label": "Key Keypad Star"},
+      {"value": "key_keypad_plus", "abi": 350, "label": "Key Keypad Plus"},
+      {"value": "key_help", "abi": 351, "label": "Key Help"},
+      {"value": "key_left_shift", "abi": 352, "label": "Key Left Shift"},
+      {"value": "key_right_shift", "abi": 353, "label": "Key Right Shift"},
+      {"value": "key_control", "abi": 355, "label": "Key Control"},
+      {"value": "key_left_alt", "abi": 356, "label": "Key Left Alt"},
+      {"value": "key_right_alt", "abi": 357, "label": "Key Right Alt"},
+      {"value": "key_left_amiga", "abi": 358, "label": "Key Left Amiga"},
+      {"value": "key_right_amiga", "abi": 359, "label": "Key Right Amiga"}
+    ],
+    "hotkey_key": [
+      {"value": "---", "abi": 0, "label": "Unmapped"},
+      {"value": "f11", "abi": 292, "label": "F11"},
+      {"value": "f12", "abi": 293, "label": "F12"},
+      {"value": "pause", "abi": 19, "label": "Pause"},
+      {"value": "print", "abi": 316, "label": "Print Screen"},
+      {"value": "scrolllock", "abi": 302, "label": "Scroll Lock"},
+      {"value": "numlock", "abi": 300, "label": "Num Lock"},
+      {"value": "menu", "abi": 319, "label": "Menu"},
+      {"value": "rctrl", "abi": 305, "label": "Right Ctrl"},
+      {"value": "rshift", "abi": 303, "label": "Right Shift"}
+    ]
+  },
+  "options": [
+    {
+      "id": "machine",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.machine",
+      "default": "A500",
+      "values": [
+        {"value": "A500", "abi": 1, "abi_name": "P6_MACHINE_A500", "label": "A500 (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"},
+        {"value": "A600", "abi": 2, "abi_name": "P6_MACHINE_A600", "label": "A600 (ECS, 1 MiB Chip, Kickstart 2.05, no IDE or PCMCIA)"},
+        {"value": "A1200", "abi": 3, "abi_name": "P6_MACHINE_A1200", "label": "A1200 (68EC020, AGA, 2 MiB Chip, no Gayle)"},
+        {"value": "A500OG", "abi": 4, "abi_name": "P6_MACHINE_A500OG", "label": "A500 OG (OCS, 512 KiB Chip, no Slow RAM, Kickstart 1.3)"},
+        {"value": "A500PLUS", "abi": 5, "abi_name": "P6_MACHINE_A500PLUS", "label": "A500+ (ECS, 1 MiB Chip, Kickstart 2.04)"},
+        {"value": "A1000", "abi": 6, "abi_name": "P6_MACHINE_A1000", "label": "A1000 (OCS of the 8361/8362, 512 KiB Chip, Kickstart in ROM)"},
+        {"value": "A2000OG", "abi": 7, "abi_name": "P6_MACHINE_A2000OG", "label": "A2000 OG (OCS, 512 KiB Chip + 512 KiB Slow, Kickstart 1.3)"},
+        {"value": "A2000", "abi": 8, "abi_name": "P6_MACHINE_A2000", "label": "A2000 (ECS Agnus, 1 MiB Chip, Kickstart 3.1)"},
+        {"value": "A4030", "abi": 11, "abi_name": "P6_MACHINE_A4030", "label": "A4000/030 (AGA, 2 MiB Chip + 8 MiB Fast; Normal CPU, no MMU)"},
+        {"value": "CD32", "abi": 9, "abi_name": "P6_MACHINE_CD32", "label": "CD32 (68EC020, AGA, 2 MiB Chip, direct CD; main + extended ROM)"},
+        {"value": "A4040", "abi": 12, "abi_name": "P6_MACHINE_A4040", "label": "A4000/040 or 060 (AGA, 2 MiB Chip + 8 MiB Fast; Normal CPU, no MMU)"},
+        {"value": "CDTV", "abi": 10, "abi_name": "P6_MACHINE_CDTV", "label": "CDTV (68000, ECS, 1 MiB Chip; CD or no content)"}
+      ],
+      "libretro": {
+        "key": "puae6_machine",
+        "category": "machine",
+        "label": "Model",
+        "info": "The A500 is the OCS machine with Kickstart 1.3; the A500 OG is the same without the Slow RAM; the A500+ is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.04; the A600 is the ECS machine with 1 MiB of Chip RAM and Kickstart 2.05; the A1000 has the first chips (8361 Agnus, 8362 Denise) and 512 KiB of Chip RAM and runs a Kickstart 1.x image as a ROM (there is no boot ROM: the Kickstart of the disk of the original does not exist here); the A1200 is the AGA machine with a 68EC020 (cycle exact), 2 MiB of Chip RAM and Kickstart 3.1 (PUAE5's A1200OG); the A2000 OG is the A500 with the clock and the mains TOD of the A2000; the A2000 is the machine of PUAE5 with the ECS Agnus, 1 MiB of Chip RAM and the Kickstart 3.1 of the A600 (r40.063). The A4030 is the real A4000/030 motherboard with AGA, Gary/Ramsey, Ricoh RTC, 32-bit addressing and IDE even without a disk. It requires Normal CPU accuracy and has no MMU; its Kickstart is kick40068.A4000. The A4040 uses the same A4000 motherboard, memory and Kickstart, with a 68040 or 68060 (Normal only, no MMU or instruction/data caches). The memory options change what each comes with and the preset bundles PUAE5's A1200 and A600. The A600 and the A1200 have Gayle's IDE port only when the hard disk controller option says IDE and a hard disk is given (no PCMCIA slot). The Kickstart is looked for in the system directory under the names of the chosen model (A500, A500 OG, A2000 OG and A1000: kick34005.A500, A500+: kick37175.A500, A600: kick37350.A600, A1200: kick40068.A1200, A2000: kick40063.A600). Automatic (T76) chooses the model when the content loads, before the machine exists: a tag in the name of the file or of one of its disks (for instance (A1200), (A600), (A500OG), see docs/options.md) if File Name Tags is on, else Automatic Floppy Model for floppy disks and Automatic Hard Disk Model for hard disks. A model or a preset chosen here is never changed by a tag. The model it picks is part of the state identity like any other. CD32 loads a direct CD with kick40060.CD32 and kick40060.CD32.ext, using stock memory and no floppy drives. Automatic selects CD32 for a direct CD, or CDTV when its filename has the CDTV tag. CDTV uses fixed KS1.3 plus EXT2.7 and a fixed CD catalog or no content. Libretro Disk Control changes discs after the controller observes removal; BizHawk uses the same fixed CD catalog with deferred insertion and an explicitly selected CDTV model. The cd32_fast8 preset or Fast RAM 8 MiB selects CD32FR (the same CD32 with a Zorro II board); disc changes remain unavailable.",
+        "extra_values": [
+          {"value": "auto", "abi": 0, "label": "Automatic (file name tags, else by content)", "const": "Auto"}
+        ],
+        "default": "auto"
+      },
+      "headless": {"how": "choice", "flag": "--machine", "names": {"A500": "a500", "A500OG": "a500og", "A500PLUS": "a500plus", "A600": "a600", "A1000": "a1000", "A1200": "a1200", "A2000OG": "a2000og", "A2000": "a2000", "A4030": "a4030", "A4040": "a4040", "CD32": "cd32", "CDTV": "cdtv"}},
+      "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
+    },
+    {
+      "id": "video_standard",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_standard",
+      "default": "PAL",
+      "values": [
+        {"value": "PAL", "abi": 1, "abi_name": "P6_VIDEO_PAL", "label": "PAL (50 Hz)"},
+        {"value": "NTSC", "abi": 2, "abi_name": "P6_VIDEO_NTSC", "label": "NTSC (60 Hz)"}
+      ],
+      "libretro": {
+        "key": "puae6_video_standard",
+        "category": "machine",
+        "label": "Video Standard",
+        "info": "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag.",
+        "extra_values": [
+          {"value": "PAL auto", "abi": 0, "label": "Automatic PAL (file name tags, else PAL)", "const": "PalAuto"},
+          {"value": "NTSC auto", "abi": 3, "label": "Automatic NTSC (file name tags, else NTSC)", "const": "NtscAuto"}
+        ],
+        "default": "PAL auto"
+      },
+      "headless": {"how": "flag", "flag": "--ntsc", "sets": "NTSC"},
+      "wrapper": {"how": "setting", "setting": "Region", "type": "Puae6Region"}
+    },
+    {
+      "id": "chip_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.chip_kib",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"},
+        {"value": "KB512", "abi": 512, "label": "512 KiB"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB2", "abi": 2048, "label": "2 MiB"}
+      ],
+      "libretro": {
+        "key": "puae6_chip_size",
+        "category": "machine",
+        "label": "Chip RAM",
+        "info": "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach."
+      },
+      "headless": {"how": "kib", "flag": "--chip"},
+      "wrapper": {"how": "setting", "setting": "ChipMemory", "type": "Puae6Chip"}
+    },
+    {
+      "id": "slow_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.slow_kib",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Machine's own (A500 and A2000 OG 512 KiB, the others none)"},
+        {"value": "None", "abi": 4294967295, "label": "None"},
+        {"value": "KB512", "abi": 512, "label": "512 KiB"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB1_5", "abi": 1536, "label": "1.5 MiB"},
+        {"value": "MB1_75", "abi": 1792, "label": "1.75 MiB"}
+      ],
+      "libretro": {
+        "key": "puae6_slow_size",
+        "category": "machine",
+        "label": "Slow RAM",
+        "info": "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most."
+      },
+      "headless": {"how": "kib", "flag": "--slow"},
+      "wrapper": {"how": "setting", "setting": "SlowMemory", "type": "Puae6Slow"}
+    },
+    {
+      "id": "fast_size",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.fast_kib",
+      "default": "Auto",
+      "values": [
+        {"value": "None", "abi": 4294967295, "label": "None"},
+        {"value": "MB1", "abi": 1024, "label": "1 MiB"},
+        {"value": "MB2", "abi": 2048, "label": "2 MiB"},
+        {"value": "MB4", "abi": 4096, "label": "4 MiB"},
+        {"value": "MB8", "abi": 8192, "label": "8 MiB"},
+        {"value": "Auto", "abi": 0, "label": "Machine's own (A4030/A4040: 8 MiB; others: none)"}
+      ],
+      "libretro": {
+        "key": "puae6_fast_size",
+        "category": "machine",
+        "label": "Fast RAM (Zorro II)",
+        "info": "Auto uses the machine's own RAM (A4030/A4040: 8 MiB, others: none); None disables the board. One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board."
+      },
+      "headless": {"how": "kib", "flag": "--fast"},
+      "wrapper": {"how": "setting", "setting": "FastMemory", "type": "Puae6Fast"}
+    },
+    {
+      "id": "fpu_model",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.fpu_model",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "M68881", "abi": 68881, "label": "68881"},
+        {"value": "M68882", "abi": 68882, "label": "68882"},
+        {"value": "M68040", "abi": 68040, "label": "68040 internal (matching CPU only)"},
+        {"value": "M68060", "abi": 68060, "label": "68060 internal (matching CPU only)"}
+      ],
+      "libretro": {
+        "key": "puae6_fpu_model",
+        "category": "machine",
+        "label": "FPU",
+        "info": "The A1200 and A4030 accept a 68881 or 68882. A4040 accepts no FPU or the internal 68040/68060 FPU matching its CPU. Other combinations are refused at load. It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882."
+      },
+      "headless": {"how": "kib", "flag": "--fpu"},
+      "wrapper": {"how": "setting", "setting": "FpuModel", "type": "Puae6Fpu"}
+    },
+    {
+      "id": "z3_memory",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.z3_memory",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "MB16", "abi": 1, "label": "16 MiB"},
+        {"value": "MB1", "abi": 2, "label": "1 MiB"},
+        {"value": "MB2", "abi": 3, "label": "2 MiB"},
+        {"value": "MB4", "abi": 4, "label": "4 MiB"},
+        {"value": "MB8", "abi": 5, "label": "8 MiB"},
+        {"value": "MB32", "abi": 6, "label": "32 MiB"},
+        {"value": "MB64", "abi": 7, "label": "64 MiB"},
+        {"value": "MB128", "abi": 8, "label": "128 MiB"},
+        {"value": "MB256", "abi": 9, "label": "256 MiB"},
+        {"value": "MB512", "abi": 10, "label": "512 MiB"}
+      ],
+      "libretro": {"key": "puae6_z3_memory", "category": "machine", "label": "Zorro III Fast RAM",
+        "info": "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030/A4040 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory."},
+      "headless": {"how": "named", "flag": "--z3", "names": {"None": "none", "MB16": "16", "MB1": "1", "MB2": "2", "MB4": "4", "MB8": "8", "MB32": "32", "MB64": "64", "MB128": "128", "MB256": "256", "MB512": "512"}},
+      "wrapper": {"how": "setting", "setting": "Z3Memory", "type": "Puae6Z3Memory"}
+    },
+    {
+      "id": "collision_level",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.collision_level",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (Full)", "wrapper_name": "Auto"},
+        {"value": "none", "abi": 1, "label": "None", "wrapper_name": "None"},
+        {"value": "sprites", "abi": 2, "label": "Sprites only", "wrapper_name": "Sprites"},
+        {"value": "playfields", "abi": 3, "label": "Sprites and Playfields", "wrapper_name": "Playfields"},
+        {"value": "full", "abi": 4, "label": "Full", "wrapper_name": "Full"}
+      ],
+      "libretro": {"key": "puae6_collision_level", "category": "machine", "label": "Collision Level",
+        "info": "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity."},
+      "headless": {"how": "named", "flag": "--collisions", "names": {"auto": "auto", "none": "none", "sprites": "sprites", "playfields": "playfields", "full": "full"}},
+      "wrapper": {"how": "setting", "setting": "CollisionLevel", "type": "Puae6CollisionLevel"}
+    },
+    {
+      "id": "cpu_model",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cpu_model",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (68000; 68EC020 on the A1200)", "wrapper_name": "Auto"},
+        {"value": "68000", "abi": 1, "label": "68000", "wrapper_name": "M68000"},
+        {"value": "68010", "abi": 2, "label": "68010", "wrapper_name": "M68010"},
+        {"value": "68020", "abi": 3, "label": "68020", "wrapper_name": "M68020"},
+        {"value": "68030", "abi": 4, "label": "68030 (A4030, Normal only, no MMU)", "wrapper_name": "M68030"},
+        {"value": "68040", "abi": 5, "label": "68040 (A4040, Normal only, no MMU)", "wrapper_name": "M68040"},
+        {"value": "68060", "abi": 7, "label": "68060 (A4040, Normal only, no MMU)", "wrapper_name": "M68060"}
+      ],
+      "libretro": {
+        "key": "puae6_cpu_model",
+        "category": "machine",
+        "label": "CPU",
+        "info": "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The A4040 has a 68040 by default and also accepts a 68060, both Normal only, without MMU or instruction/data caches. Its internal FPU is an explicit matching choice. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another."
+      },
+      "headless": {"how": "named", "flag": "--cpu", "names": {"auto": "auto", "68000": "68000", "68010": "68010", "68020": "68020", "68030": "68030", "68040": "68040", "68060": "68060"}},
+      "wrapper": {"how": "setting", "setting": "CpuModel", "type": "Puae6Cpu"}
+    },
+    {
+      "id": "cpu_compatibility",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cpu_compatibility",
+      "default": "exact",
+      "values": [
+        {
+          "value": "exact",
+          "abi": 0,
+          "label": "Cycle exact",
+          "wrapper_name": "Exact"
+        },
+        {
+          "value": "compatible",
+          "abi": 1,
+          "label": "Compatible (prefetch)",
+          "wrapper_name": "Compatible"
+        },
+        {
+          "value": "normal",
+          "abi": 2,
+          "label": "Normal (instruction timing)",
+          "wrapper_name": "Normal"
+        }
+      ],
+      "libretro": {
+        "key": "puae6_cpu_compatibility",
+        "category": "machine",
+        "label": "CPU Accuracy",
+        "info": "CPU accuracy for the supported 68000, 68010 and 68EC020 machines; the A4030/68030 and A4040/68040/68060 require Normal and have no MMU. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level."
+      },
+      "headless": {
+        "how": "named",
+        "flag": "--cpu-compatibility",
+        "names": {
+          "exact": "exact",
+          "compatible": "compatible",
+          "normal": "normal"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CpuCompatibility",
+        "type": "Puae6CpuCompatibility"
+      }
+    },
+    {
+      "id": "cpu_multiplier",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cpu_multiplier",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Machine's own (7.09 MHz; 14.19 MHz on the A1200)", "wrapper_name": "Auto"},
+        {"value": "1", "abi": 1, "label": "3.546895 MHz", "wrapper_name": "X1"},
+        {"value": "2", "abi": 2, "label": "7.093790 MHz (A500)", "wrapper_name": "X2"},
+        {"value": "4", "abi": 4, "label": "14.187580 MHz (A1200)", "wrapper_name": "X4"},
+        {"value": "8", "abi": 8, "label": "28.375160 MHz", "wrapper_name": "X8"},
+        {"value": "10", "abi": 10, "label": "35.468950 MHz", "wrapper_name": "X10"},
+        {"value": "12", "abi": 12, "label": "42.562740 MHz", "wrapper_name": "X12"},
+        {"value": "16", "abi": 16, "label": "56.750320 MHz", "wrapper_name": "X16"}
+      ],
+      "libretro": {
+        "key": "puae6_cpu_multiplier",
+        "category": "machine",
+        "label": "CPU Cycle-exact Speed",
+        "info": "How fast the cycle-exact CPU runs: the clock of the CPU as a multiple of the 3.55 MHz colour clock (PUAE5's values). 'Machine's own' is 7.09 MHz on the machines with a 68000 and 14.19 MHz on the A1200. A faster CPU needs fewer colour clocks for every instruction and every bus access; the chipset, the DMA and the audio do not change. It is counted in emulated time, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one clock does not load in another. Programs that count on the speed of the CPU (timing loops, copy protections) may not work with another clock."
+      },
+      "headless": {"how": "named", "flag": "--cpu-multiplier", "names": {"auto": "auto", "1": "1", "2": "2", "4": "4", "8": "8", "10": "10", "12": "12", "16": "16"}},
+      "wrapper": {"how": "setting", "setting": "CpuMultiplier", "type": "Puae6CpuClock"}
+    },
+    {
+      "id": "hdf_controller",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.hdf_controller",
+      "default": "uae",
+      "values": [
+        {"value": "uae", "abi": 0, "label": "UAE (uaehf.device, like PUAE5)", "wrapper_name": "Uae"},
+        {"value": "ide", "abi": 1, "label": "IDE (Gayle, A600 and A1200)", "wrapper_name": "Ide"}
+      ],
+      "libretro": {
+        "key": "puae6_hdf_controller",
+        "category": "machine",
+        "label": "Hard Disk Controller",
+        "info": "The controller the hard disks (.hdf, .hdz) are on. 'UAE' is uaehf.device with the UAEFS board, as PUAE5 mounts them, on every machine. 'IDE' is the IDE port of Gayle, as the real A600 and A1200 have it, and only exists on those two machines (any other fails the load with the reason); the Kickstart sees the drive by its registers (Kickstart 2.05 or 3.1: the 1.3 has no IDE driver). Gayle is switched on only while a hard disk is behind it: with IDE chosen and no hard disk the machine is the one without it. The controller is part of the machine: a state, a rewind or a movie of one controller does not load in another."
+      },
+      "headless": {"how": "named", "flag": "--hdf-controller", "names": {"uae": "uae", "ide": "ide"}},
+      "wrapper": {"how": "setting", "setting": "HdfController", "type": "Puae6HdfController"}
+    },
+    {
+      "id": "audio_rate_hz",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.audio_rate_hz",
+      "default": "48000",
+      "values": [
+        {"value": "44100", "abi": 44100, "label": "44100 Hz"},
+        {"value": "48000", "abi": 48000, "label": "48000 Hz"}
+      ],
+      "libretro": {
+        "key": "puae6_audio_rate",
+        "category": "machine",
+        "label": "Audio Sample Rate",
+        "info": "The rate Paula's output is produced at. The count of audio frames of every unit follows the emulated clock at this rate."
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "audio"}
+    },
+    {
+      "id": "sound_separation",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_separation",
+      "default": "70",
+      "values": [
+        {"value": "0", "abi": 1, "label": "0%", "wrapper_name": "P0"},
+        {"value": "10", "abi": 2, "label": "10%", "wrapper_name": "P10"},
+        {"value": "20", "abi": 3, "label": "20%", "wrapper_name": "P20"},
+        {"value": "30", "abi": 4, "label": "30%", "wrapper_name": "P30"},
+        {"value": "40", "abi": 5, "label": "40%", "wrapper_name": "P40"},
+        {"value": "50", "abi": 6, "label": "50%", "wrapper_name": "P50"},
+        {"value": "60", "abi": 7, "label": "60%", "wrapper_name": "P60"},
+        {"value": "70", "abi": 0, "label": "70%", "wrapper_name": "P70"},
+        {"value": "80", "abi": 9, "label": "80%", "wrapper_name": "P80"},
+        {"value": "90", "abi": 10, "label": "90%", "wrapper_name": "P90"},
+        {"value": "100", "abi": 11, "label": "100%", "wrapper_name": "P100"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_stereo_separation",
+        "category": "audio",
+        "label": "Stereo Separation",
+        "info": "How much of each side's channels stays on that side: Paula wires channels 0 and 3 to the left and 1 and 2 to the right; 0% mixes them into mono and 100% keeps them apart. The default is the profile's (70%, as the upstream engine and PUAE5). It changes the samples, not the machine's other hardware."
+      },
+      "headless": {"how": "named", "flag": "--sound-sep", "names": {"0": "0", "10": "10", "20": "20", "30": "30", "40": "40", "50": "50", "60": "60", "70": "70", "80": "80", "90": "90", "100": "100"}},
+      "wrapper": {"how": "setting", "setting": "SoundSeparation", "type": "Puae6SoundSeparation"}
+    },
+    {
+      "id": "sound_interpolation",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_interpolation",
+      "default": "anti",
+      "values": [
+        {"value": "none", "abi": 1, "label": "None", "wrapper_name": "None"},
+        {"value": "anti", "abi": 0, "label": "Anti", "wrapper_name": "Anti"},
+        {"value": "rh", "abi": 4, "label": "RH", "wrapper_name": "RH"},
+        {"value": "crux", "abi": 5, "label": "Crux", "wrapper_name": "Crux"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_interpolation",
+        "category": "audio",
+        "label": "Interpolation",
+        "info": "How Paula's samples are resampled to the output rate: none (the nearest sample), anti (the upstream default), rh or crux. Sinc is not offered: its queue is not part of the native state, so a state could not be restored sample for sample."
+      },
+      "headless": {"how": "named", "flag": "--sound-interp", "names": {"none": "none", "anti": "anti", "rh": "rh", "crux": "crux"}},
+      "wrapper": {"how": "setting", "setting": "SoundInterpolation", "type": "Puae6SoundInterpolation"}
+    },
+    {
+      "id": "sound_filter",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_filter",
+      "default": "emulated",
+      "values": [
+        {"value": "emulated", "abi": 0, "label": "Emulated (follows the power LED)", "wrapper_name": "Emulated"},
+        {"value": "off", "abi": 1, "label": "Off", "wrapper_name": "Off"},
+        {"value": "on", "abi": 3, "label": "Always on", "wrapper_name": "On"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_filter",
+        "category": "audio",
+        "label": "Audio Filter",
+        "info": "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state."
+      },
+      "headless": {"how": "named", "flag": "--sound-filter", "names": {"emulated": "emulated", "off": "off", "on": "on"}},
+      "wrapper": {"how": "setting", "setting": "SoundFilter", "type": "Puae6SoundFilter"}
+    },
+    {
+      "id": "sound_filter_type",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.sound_filter_type",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Auto (by machine)", "wrapper_name": "Auto"},
+        {"value": "A500", "abi": 1, "label": "A500", "wrapper_name": "A500"},
+        {"value": "A1200", "abi": 2, "label": "A1200", "wrapper_name": "A1200"}
+      ],
+      "libretro": {
+        "key": "puae6_sound_filter_type",
+        "category": "audio",
+        "label": "Audio Filter Type",
+        "info": "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off."
+      },
+      "headless": {"how": "named", "flag": "--sound-type", "names": {"auto": "auto", "A500": "a500", "A1200": "a1200"}},
+      "wrapper": {"how": "setting", "setting": "SoundFilterType", "type": "Puae6SoundFilterType"}
+    },
+    {
+      "id": "random_seed",
+      "class": "reboot",
+      "type": "u64",
+      "maps_to": "p6_config.random_seed",
+      "default": 1,
+      "min": 0,
+      "max": 18446744073709551615,
+      "libretro": null,
+      "libretro_policy": "Fixed at the default. A seed picked from a menu is a way to make two sessions of the same content differ for no reason a person can see; the seed belongs to whoever records or replays (headless --seed, the wrapper's sync settings).",
+      "headless": {"how": "value", "flag": "--seed"},
+      "wrapper": {"how": "setting", "setting": "RandomSeed", "type": "ulong"}
+    },
+    {
+      "id": "rtc_epoch_seconds",
+      "class": "reboot",
+      "type": "i64",
+      "maps_to": "p6_config.rtc_epoch_seconds",
+      "default": 946684800,
+      "min": -62135596800,
+      "max": 253402300799,
+      "libretro": null,
+      "libretro_policy": "Fixed at the default (2000-01-01T00:00:00Z). The clock never follows the host, and a date typed into a menu is the same hazard as a seed; the wrapper keeps it in the movie's sync settings.",
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "setting", "setting": "RtcEpochSeconds", "type": "long"}
+    },
+    {
+      "id": "floppy_writes",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.flags",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled: every disk is write protected"},
+        {"value": "enabled", "abi": 1, "abi_name": "P6_CONFIG_FLOPPY_WRITES", "label": "Enabled: the guest can write to the disks"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_writes",
+        "category": "media",
+        "label": "Floppy Writes",
+        "info": "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state."
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "fixed", "where": "flags"}
+    },
+    {
+      "id": "cartridge",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.flags",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled", "wrapper_name": "Disabled"},
+        {"value": "hrtmon", "abi": 2, "abi_name": "P6_CONFIG_HRTMON", "label": "HRTMon builtin (A1200 only)", "wrapper_name": "HrtMon"}
+      ],
+      "libretro": {
+        "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
+        "info": "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load.",
+        "extra_values": [
+          {"value": "ar1", "abi": 3, "label": "Action Replay I (A500)", "const": "Ar1", "wrapper_name": "Ar1"},
+          {"value": "ar2", "abi": 4, "label": "Action Replay II (A500)", "const": "Ar2", "wrapper_name": "Ar2"},
+          {"value": "ar3", "abi": 5, "label": "Action Replay III (A500)", "const": "Ar3", "wrapper_name": "Ar3"},
+          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200", "wrapper_name": "Ar1200"}
+        ]
+      },
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "setting", "setting": "Cartridge", "type": "Puae6Cartridge"}
+    },
+    {
+      "id": "floppy_speed",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.floppy_speed",
+      "default": "100",
+      "values": [
+        {"value": "100", "abi": 0, "label": "Default (the real drive, 300 RPM)", "wrapper_name": "P100"},
+        {"value": "200", "abi": 2, "label": "2x", "wrapper_name": "P200"},
+        {"value": "400", "abi": 3, "label": "4x", "wrapper_name": "P400"},
+        {"value": "800", "abi": 4, "label": "8x", "wrapper_name": "P800"},
+        {"value": "turbo", "abi": 5, "label": "Turbo", "wrapper_name": "Turbo"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_speed",
+        "category": "media",
+        "label": "Floppy Speed",
+        "info": "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default."
+      },
+      "headless": {"how": "named", "flag": "--floppy-speed", "names": {"100": "100", "200": "200", "400": "400", "800": "800", "turbo": "turbo"}},
+      "wrapper": {"how": "setting", "setting": "FloppySpeed", "type": "Puae6FloppySpeed"}
+    },
+    {
+      "id": "floppy_drive_count",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.floppy_drives",
+      "default": "auto",
+      "values": [
+        {
+          "value": "auto",
+          "abi": 0,
+          "label": "Default (two drives; MultiDrive enables four)",
+          "wrapper_name": "Auto"
+        },
+        {
+          "value": "1",
+          "abi": 1,
+          "label": "DF0",
+          "wrapper_name": "One"
+        },
+        {
+          "value": "2",
+          "abi": 2,
+          "label": "DF0 and DF1",
+          "wrapper_name": "Two"
+        },
+        {
+          "value": "3",
+          "abi": 3,
+          "label": "DF0 to DF2",
+          "wrapper_name": "Three"
+        },
+        {
+          "value": "4",
+          "abi": 4,
+          "label": "DF0 to DF3",
+          "wrapper_name": "Four"
+        }
+      ],
+      "libretro": {
+        "key": "puae6_floppy_drives",
+        "category": "media",
+        "label": "Floppy Drives",
+        "info": "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity."
+      },
+      "headless": {
+        "how": "named",
+        "flag": "--floppy-drives",
+        "names": {
+          "auto": "auto",
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "PhysicalFloppyDrives",
+        "type": "Puae6FloppyDrives"
+      }
+    },
+    {
+      "id": "floppy_multidrive",
+      "class": "presentation",
+      "restart": true,
+      "type": "enum",
+      "maps_to": "presentation.floppy_multidrive",
+      "default": "disabled",
+      "values": [
+        {
+          "value": "disabled",
+          "abi": 0,
+          "label": "Disabled"
+        },
+        {
+          "value": "enabled",
+          "abi": 1,
+          "label": "Mount disks in separate drives"
+        }
+      ],
+      "libretro": {
+        "key": "puae6_floppy_multidrive",
+        "category": "media",
+        "label": "MultiDrive",
+        "info": "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives."
+      },
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "none"
+      }
+    },
+    {
+      "id": "video_resolution",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_resolution",
+      "default": "hires",
+      "values": [
+        {"value": "lores", "abi": 1, "label": "Low (378 columns)", "wrapper_name": "Lores"},
+        {"value": "hires", "abi": 0, "label": "High (756 columns, the default)", "wrapper_name": "Hires"},
+        {"value": "superhires", "abi": 3, "label": "Super-High (1512 columns)", "wrapper_name": "SuperHires"}
+      ],
+      "libretro": {
+        "key": "puae6_video_resolution",
+        "category": "video",
+        "label": "Resolution",
+        "info": "The width the renderer draws: low (378 columns of the picture), high (756, the default) or super-high (1512). It is the engine's own resolution, not a scaling of the high picture, so the pixels of a program in another mode are chosen by the renderer and the buffer the core announces changes with it (380, 760 or 1520 columns). It is part of the machine: a state, a rewind or a movie of one resolution does not load in another. PUAE5's Automatic value, which switches the resolution as the program changes mode, is not offered."
+      },
+      "headless": {"how": "named", "flag": "--resolution", "names": {"lores": "lores", "hires": "hires", "superhires": "superhires"}},
+      "wrapper": {"how": "setting", "setting": "VideoResolution", "type": "Puae6VideoResolution"}
+    },
+    {
+      "id": "video_line_mode",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.video_line_mode",
+      "default": "double",
+      "values": [
+        {"value": "single", "abi": 1, "label": "Single Line", "wrapper_name": "Single"},
+        {"value": "double", "abi": 0, "label": "Double Line (the default)", "wrapper_name": "Double"}
+      ],
+      "libretro": {
+        "key": "puae6_video_line_mode",
+        "category": "video",
+        "label": "Line Mode",
+        "info": "Rows per line of the picture: double (574 rows on PAL, 484 on NTSC, the default; an interlaced program has its two fields woven into one picture) or single (287 / 242 rows; an interlaced program shows each field as its own picture of half the height, with no weaving). It is the engine's own vertical resolution and is part of the machine: a state, a rewind or a movie of one line mode does not load in another. PUAE5's Automatic value, which switches to double lines on interlaced screens, is not offered."
+      },
+      "headless": {"how": "named", "flag": "--line-mode", "names": {"single": "single", "double": "double"}},
+      "wrapper": {"how": "setting", "setting": "VideoLineMode", "type": "Puae6VideoLineMode"}
+    },
+    {
+      "id": "video_aspect",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_aspect",
+      "default": "pixel",
+      "values": [
+        {"value": "pixel", "abi": 0, "label": "Pixel aspect of the machine"},
+        {"value": "4:3", "abi": 1, "label": "4:3"},
+        {"value": "PAL", "abi": 2, "label": "PAL pixel aspect (26:25)"},
+        {"value": "NTSC", "abi": 3, "label": "NTSC pixel aspect (43:50)"}
+      ],
+      "libretro": {
+        "key": "puae6_video_aspect",
+        "category": "video",
+        "label": "Aspect Ratio",
+        "info": "The aspect ratio announced to the frontend: the one the pixels of the chosen video standard have, a plain 4:3, or the pixel aspect of PAL (26:25) or NTSC (43:50) whatever the machine runs. The picture itself is not changed."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "floppy_save",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.floppy_save",
+      "default": "off",
+      "values": [
+        {"value": "off", "abi": 0, "label": "Off: the changes are lost when the content closes"},
+        {"value": "on_close", "abi": 1, "label": "When the content closes"}
+      ],
+      "libretro": {
+        "key": "puae6_floppy_save",
+        "category": "media",
+        "label": "Save Floppy Changes",
+        "info": "When the content closes, a disk the guest changed is written to the frontend's save directory as puae6-<id>.adf (a temporary file renamed over the old one), and the next time the content loads with Floppy Writes enabled that file is the disk. Never during rewind, run-ahead or loading a state. A disk with a track in a format that is not AmigaDOS cannot be saved as an ADF and is reported."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hdf_save",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hdf_save",
+      "default": "off",
+      "values": [
+        {"value": "off", "abi": 0, "label": "Off: the changes are lost when the content closes"},
+        {"value": "on_close", "abi": 1, "label": "When the content closes"}
+      ],
+      "libretro": {
+        "key": "puae6_hdf_save",
+        "category": "media",
+        "label": "Save Hard Disk Changes",
+        "info": "A hard disk (.hdf or .hdz) is always writable for the guest, but the file is never touched: what the guest writes lives in the machine (in save states, rewind and run-ahead). When the content closes, a hard disk the guest changed is written to the frontend's save directory as puae6-<id>.hdf (a temporary file renamed over the old one), and the next time the same file loads with this option on, that copy is the disk. Never during rewind, run-ahead or loading a state. A save state holds only the 4 KiB chunks the guest wrote, but the size the frontend reserves for one grows with the hard disk."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_crop",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_crop",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "minimum", "abi": 1, "label": "Minimum (720x540 PAL)"},
+        {"value": "smaller", "abi": 2, "label": "Smaller (696x528 PAL)"},
+        {"value": "small", "abi": 3, "label": "Small (672x512 PAL)"},
+        {"value": "medium", "abi": 4, "label": "Medium (640x480)"},
+        {"value": "large", "abi": 5, "label": "Large (640x448)"},
+        {"value": "larger", "abi": 6, "label": "Larger (640x432)"},
+        {"value": "maximum", "abi": 7, "label": "Maximum (640x400)"},
+        {"value": "auto", "abi": 8, "label": "Automatic (the drawn area)"}
+      ],
+      "libretro": {
+        "key": "puae6_video_crop",
+        "category": "video",
+        "label": "Crop",
+        "info": "Removes the borders: the picture the frontend gets is a window of the machine's own raster. The levels are the sizes of PUAE5's crop (in hires pixels and double-lines: Minimum 720x540 on PAL, Maximum 640x400); with another Resolution or Line Mode the sizes follow the raster (a level is the same area in lores pixels and lines); Automatic follows the area the guest drew (the pixels that differ from the border). Crop Mode says which dimensions are cut. Nothing of the machine changes: the native picture, its hash and the state are the same with or without it."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_crop_mode",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_crop_mode",
+      "default": "both",
+      "values": [
+        {"value": "both", "abi": 0, "label": "Horizontal + Vertical"},
+        {"value": "horizontal", "abi": 1, "label": "Horizontal"},
+        {"value": "vertical", "abi": 2, "label": "Vertical"},
+        {"value": "16:9", "abi": 3, "label": "16:9"},
+        {"value": "16:10", "abi": 4, "label": "16:10"},
+        {"value": "4:3", "abi": 5, "label": "4:3"},
+        {"value": "5:4", "abi": 6, "label": "5:4"}
+      ],
+      "libretro": {
+        "key": "puae6_video_crop_mode",
+        "category": "video",
+        "label": "Crop Mode",
+        "info": "Which dimensions Crop cuts: both, only the width, only the height, or the smallest window of a picture aspect ratio (16:9, 16:10, 4:3, 5:4) that holds the cropped size. 'Horizontal + Vertical' with Automatic removes the borders completely."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_crop_delay",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_crop_delay",
+      "default": "enabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled: instant geometry changes"},
+        {"value": "enabled", "abi": 1, "label": "Enabled: patient geometry changes"}
+      ],
+      "libretro": {
+        "key": "puae6_video_crop_delay",
+        "category": "video",
+        "label": "Automatic Crop Delay",
+        "info": "With Crop on Automatic: 'enabled' waits until the drawn area has been the same for about a second of emulated time before the picture changes size, 'disabled' follows it at once. Counted in emulated units, never in wall-clock time."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_vertical_pos",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_vertical_pos",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (centered)"},
+        {"value": "-20", "abi": 108, "label": "-20"},
+        {"value": "-18", "abi": 110, "label": "-18"},
+        {"value": "-16", "abi": 112, "label": "-16"},
+        {"value": "-14", "abi": 114, "label": "-14"},
+        {"value": "-12", "abi": 116, "label": "-12"},
+        {"value": "-10", "abi": 118, "label": "-10"},
+        {"value": "-8", "abi": 120, "label": "-8"},
+        {"value": "-6", "abi": 122, "label": "-6"},
+        {"value": "-4", "abi": 124, "label": "-4"},
+        {"value": "-2", "abi": 126, "label": "-2"},
+        {"value": "0", "abi": 128, "label": "Default (0)"},
+        {"value": "2", "abi": 130, "label": "+2"},
+        {"value": "4", "abi": 132, "label": "+4"},
+        {"value": "6", "abi": 134, "label": "+6"},
+        {"value": "8", "abi": 136, "label": "+8"},
+        {"value": "10", "abi": 138, "label": "+10"},
+        {"value": "12", "abi": 140, "label": "+12"},
+        {"value": "14", "abi": 142, "label": "+14"},
+        {"value": "16", "abi": 144, "label": "+16"},
+        {"value": "18", "abi": 146, "label": "+18"},
+        {"value": "20", "abi": 148, "label": "+20"},
+        {"value": "22", "abi": 150, "label": "+22"},
+        {"value": "24", "abi": 152, "label": "+24"},
+        {"value": "26", "abi": 154, "label": "+26"},
+        {"value": "28", "abi": 156, "label": "+28"},
+        {"value": "30", "abi": 158, "label": "+30"},
+        {"value": "32", "abi": 160, "label": "+32"},
+        {"value": "34", "abi": 162, "label": "+34"},
+        {"value": "36", "abi": 164, "label": "+36"},
+        {"value": "38", "abi": 166, "label": "+38"},
+        {"value": "40", "abi": 168, "label": "+40"},
+        {"value": "42", "abi": 170, "label": "+42"},
+        {"value": "44", "abi": 172, "label": "+44"},
+        {"value": "46", "abi": 174, "label": "+46"},
+        {"value": "48", "abi": 176, "label": "+48"},
+        {"value": "50", "abi": 178, "label": "+50"},
+        {"value": "52", "abi": 180, "label": "+52"},
+        {"value": "54", "abi": 182, "label": "+54"},
+        {"value": "56", "abi": 184, "label": "+56"},
+        {"value": "58", "abi": 186, "label": "+58"},
+        {"value": "60", "abi": 188, "label": "+60"},
+        {"value": "62", "abi": 190, "label": "+62"},
+        {"value": "64", "abi": 192, "label": "+64"},
+        {"value": "66", "abi": 194, "label": "+66"},
+        {"value": "68", "abi": 196, "label": "+68"},
+        {"value": "70", "abi": 198, "label": "+70"}
+      ],
+      "libretro": {
+        "key": "puae6_video_vertical_pos",
+        "category": "video",
+        "label": "Vertical Position",
+        "info": "Where the window of Crop starts, in lines of the PAL/NTSC picture (2 pixels of the double-line raster each): 'Automatic' centers the window, 0 puts the window at the top of the raster. Positive numbers move the picture up, negative ones down (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_horizontal_pos",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_horizontal_pos",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (centered)"},
+        {"value": "-40", "abi": 88, "label": "-40"},
+        {"value": "-38", "abi": 90, "label": "-38"},
+        {"value": "-36", "abi": 92, "label": "-36"},
+        {"value": "-34", "abi": 94, "label": "-34"},
+        {"value": "-32", "abi": 96, "label": "-32"},
+        {"value": "-30", "abi": 98, "label": "-30"},
+        {"value": "-28", "abi": 100, "label": "-28"},
+        {"value": "-26", "abi": 102, "label": "-26"},
+        {"value": "-24", "abi": 104, "label": "-24"},
+        {"value": "-22", "abi": 106, "label": "-22"},
+        {"value": "-20", "abi": 108, "label": "-20"},
+        {"value": "-18", "abi": 110, "label": "-18"},
+        {"value": "-16", "abi": 112, "label": "-16"},
+        {"value": "-14", "abi": 114, "label": "-14"},
+        {"value": "-12", "abi": 116, "label": "-12"},
+        {"value": "-10", "abi": 118, "label": "-10"},
+        {"value": "-8", "abi": 120, "label": "-8"},
+        {"value": "-6", "abi": 122, "label": "-6"},
+        {"value": "-4", "abi": 124, "label": "-4"},
+        {"value": "-2", "abi": 126, "label": "-2"},
+        {"value": "0", "abi": 128, "label": "Default (0)"},
+        {"value": "2", "abi": 130, "label": "+2"},
+        {"value": "4", "abi": 132, "label": "+4"},
+        {"value": "6", "abi": 134, "label": "+6"},
+        {"value": "8", "abi": 136, "label": "+8"},
+        {"value": "10", "abi": 138, "label": "+10"},
+        {"value": "12", "abi": 140, "label": "+12"},
+        {"value": "14", "abi": 142, "label": "+14"},
+        {"value": "16", "abi": 144, "label": "+16"},
+        {"value": "18", "abi": 146, "label": "+18"},
+        {"value": "20", "abi": 148, "label": "+20"},
+        {"value": "22", "abi": 150, "label": "+22"},
+        {"value": "24", "abi": 152, "label": "+24"},
+        {"value": "26", "abi": 154, "label": "+26"},
+        {"value": "28", "abi": 156, "label": "+28"},
+        {"value": "30", "abi": 158, "label": "+30"},
+        {"value": "32", "abi": 160, "label": "+32"},
+        {"value": "34", "abi": 162, "label": "+34"},
+        {"value": "36", "abi": 164, "label": "+36"},
+        {"value": "38", "abi": 166, "label": "+38"},
+        {"value": "40", "abi": 168, "label": "+40"}
+      ],
+      "libretro": {
+        "key": "puae6_video_horizontal_pos",
+        "category": "video",
+        "label": "Horizontal Position",
+        "info": "Where the window of Crop starts, in lores pixels (2 pixels of the hires raster each): 'Automatic' centers the window, 0 puts the window at the left of the raster. Positive numbers move the picture to the right, negative ones to the left (the part of the window outside the raster is black). Without Crop it moves the whole picture inside the same frame."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_gamma",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_gamma",
+      "default": "0",
+      "values": [
+        {"value": "-0.5", "abi": 0, "label": "-0.5"},
+        {"value": "-0.4", "abi": 1, "label": "-0.4"},
+        {"value": "-0.3", "abi": 2, "label": "-0.3"},
+        {"value": "-0.2", "abi": 3, "label": "-0.2"},
+        {"value": "-0.1", "abi": 4, "label": "-0.1"},
+        {"value": "0", "abi": 5, "label": "Disabled"},
+        {"value": "0.1", "abi": 6, "label": "+0.1"},
+        {"value": "0.2", "abi": 7, "label": "+0.2"},
+        {"value": "0.3", "abi": 8, "label": "+0.3"},
+        {"value": "0.4", "abi": 9, "label": "+0.4"},
+        {"value": "0.5", "abi": 10, "label": "+0.5"}
+      ],
+      "libretro": {
+        "key": "puae6_video_gamma",
+        "category": "video",
+        "label": "Color Gamma",
+        "info": "Adjusts the gamma of the picture shown: positive values brighten the mid tones, negative ones darken them (the exponent 1/(1+value) on every color channel). Only the picture handed to the frontend changes."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "video_color_depth",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.video_color_depth",
+      "default": "24bit",
+      "restart": true,
+      "values": [
+        {"value": "24bit", "abi": 0, "label": "24-bit (XRGB8888)"},
+        {"value": "16bit", "abi": 1, "label": "16-bit (RGB565)"}
+      ],
+      "libretro": {
+        "key": "puae6_video_color_depth",
+        "category": "video",
+        "label": "Color Depth",
+        "info": "The pixel format handed to the frontend: 24-bit (XRGB8888) or 16-bit (RGB565, half the video memory traffic on slow devices). The machine always draws 24-bit; 16-bit only converts the picture on the way out. The format is announced when the content is loaded."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "left", "abi": 1, "label": "Left Analog"},
+        {"value": "right", "abi": 2, "label": "Right Analog"},
+        {"value": "both", "abi": 3, "label": "Both Analogs"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse",
+        "category": "input",
+        "label": "Analog Stick Mouse",
+        "info": "Moves the mouse with a stick of player 1's RetroPad. The stick that moves the mouse no longer gives joystick directions (unless one of its directions is mapped in RetroPad Mapper, which wins). Needs the mouse port: Joystick + Mouse or Mouse only. PUAE5 defaults to both sticks; here it is off because the left stick is a joystick."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_deadzone",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_deadzone",
+      "default": "20",
+      "values": [
+        {"value": "0", "abi": 0, "label": "0%"},
+        {"value": "5", "abi": 5, "label": "5%"},
+        {"value": "10", "abi": 10, "label": "10%"},
+        {"value": "15", "abi": 15, "label": "15%"},
+        {"value": "20", "abi": 20, "label": "20%"},
+        {"value": "25", "abi": 25, "label": "25%"},
+        {"value": "30", "abi": 30, "label": "30%"},
+        {"value": "35", "abi": 35, "label": "35%"},
+        {"value": "40", "abi": 40, "label": "40%"},
+        {"value": "45", "abi": 45, "label": "45%"},
+        {"value": "50", "abi": 50, "label": "50%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_deadzone",
+        "category": "input",
+        "label": "Analog Stick Mouse Deadzone",
+        "info": "How far from the center a stick must be before it moves the mouse; beyond it the speed grows from zero to the full speed at the edge."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_speed_left",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_speed_left",
+      "default": "1.0",
+      "values": [
+        {"value": "0.1", "abi": 1, "label": "10%"},
+        {"value": "0.2", "abi": 2, "label": "20%"},
+        {"value": "0.3", "abi": 3, "label": "30%"},
+        {"value": "0.4", "abi": 4, "label": "40%"},
+        {"value": "0.5", "abi": 5, "label": "50%"},
+        {"value": "0.6", "abi": 6, "label": "60%"},
+        {"value": "0.7", "abi": 7, "label": "70%"},
+        {"value": "0.8", "abi": 8, "label": "80%"},
+        {"value": "0.9", "abi": 9, "label": "90%"},
+        {"value": "1.0", "abi": 10, "label": "100%"},
+        {"value": "1.1", "abi": 11, "label": "110%"},
+        {"value": "1.2", "abi": 12, "label": "120%"},
+        {"value": "1.3", "abi": 13, "label": "130%"},
+        {"value": "1.4", "abi": 14, "label": "140%"},
+        {"value": "1.5", "abi": 15, "label": "150%"},
+        {"value": "1.6", "abi": 16, "label": "160%"},
+        {"value": "1.7", "abi": 17, "label": "170%"},
+        {"value": "1.8", "abi": 18, "label": "180%"},
+        {"value": "1.9", "abi": 19, "label": "190%"},
+        {"value": "2.0", "abi": 20, "label": "200%"},
+        {"value": "2.1", "abi": 21, "label": "210%"},
+        {"value": "2.2", "abi": 22, "label": "220%"},
+        {"value": "2.3", "abi": 23, "label": "230%"},
+        {"value": "2.4", "abi": 24, "label": "240%"},
+        {"value": "2.5", "abi": 25, "label": "250%"},
+        {"value": "2.6", "abi": 26, "label": "260%"},
+        {"value": "2.7", "abi": 27, "label": "270%"},
+        {"value": "2.8", "abi": 28, "label": "280%"},
+        {"value": "2.9", "abi": 29, "label": "290%"},
+        {"value": "3.0", "abi": 30, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_speed_left",
+        "category": "input",
+        "label": "Left Analog Stick Mouse Speed",
+        "info": "Mouse speed of the left stick: at 100% a full push moves 10 counts a unit. Fractions of a count are kept for the next unit."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "analog_mouse_speed_right",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.analog_mouse_speed_right",
+      "default": "1.0",
+      "values": [
+        {"value": "0.1", "abi": 1, "label": "10%"},
+        {"value": "0.2", "abi": 2, "label": "20%"},
+        {"value": "0.3", "abi": 3, "label": "30%"},
+        {"value": "0.4", "abi": 4, "label": "40%"},
+        {"value": "0.5", "abi": 5, "label": "50%"},
+        {"value": "0.6", "abi": 6, "label": "60%"},
+        {"value": "0.7", "abi": 7, "label": "70%"},
+        {"value": "0.8", "abi": 8, "label": "80%"},
+        {"value": "0.9", "abi": 9, "label": "90%"},
+        {"value": "1.0", "abi": 10, "label": "100%"},
+        {"value": "1.1", "abi": 11, "label": "110%"},
+        {"value": "1.2", "abi": 12, "label": "120%"},
+        {"value": "1.3", "abi": 13, "label": "130%"},
+        {"value": "1.4", "abi": 14, "label": "140%"},
+        {"value": "1.5", "abi": 15, "label": "150%"},
+        {"value": "1.6", "abi": 16, "label": "160%"},
+        {"value": "1.7", "abi": 17, "label": "170%"},
+        {"value": "1.8", "abi": 18, "label": "180%"},
+        {"value": "1.9", "abi": 19, "label": "190%"},
+        {"value": "2.0", "abi": 20, "label": "200%"},
+        {"value": "2.1", "abi": 21, "label": "210%"},
+        {"value": "2.2", "abi": 22, "label": "220%"},
+        {"value": "2.3", "abi": 23, "label": "230%"},
+        {"value": "2.4", "abi": 24, "label": "240%"},
+        {"value": "2.5", "abi": 25, "label": "250%"},
+        {"value": "2.6", "abi": 26, "label": "260%"},
+        {"value": "2.7", "abi": 27, "label": "270%"},
+        {"value": "2.8", "abi": 28, "label": "280%"},
+        {"value": "2.9", "abi": 29, "label": "290%"},
+        {"value": "3.0", "abi": 30, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_analog_mouse_speed_right",
+        "category": "input",
+        "label": "Right Analog Stick Mouse Speed",
+        "info": "Mouse speed of the right stick (see the left one)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "dpad_mouse_speed",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.dpad_mouse_speed",
+      "default": "6",
+      "values": [
+        {"value": "1", "abi": 1, "label": "0%"},
+        {"value": "2", "abi": 2, "label": "33%"},
+        {"value": "3", "abi": 3, "label": "50%"},
+        {"value": "4", "abi": 4, "label": "66%"},
+        {"value": "5", "abi": 5, "label": "83%"},
+        {"value": "6", "abi": 6, "label": "100%"},
+        {"value": "7", "abi": 7, "label": "116%"},
+        {"value": "8", "abi": 8, "label": "133%"},
+        {"value": "9", "abi": 9, "label": "150%"},
+        {"value": "10", "abi": 10, "label": "166%"},
+        {"value": "11", "abi": 11, "label": "183%"},
+        {"value": "12", "abi": 12, "label": "200%"},
+        {"value": "13", "abi": 13, "label": "216%"},
+        {"value": "14", "abi": 14, "label": "233%"},
+        {"value": "15", "abi": 15, "label": "250%"},
+        {"value": "16", "abi": 16, "label": "266%"},
+        {"value": "17", "abi": 17, "label": "283%"},
+        {"value": "18", "abi": 18, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_dpad_mouse_speed",
+        "category": "input",
+        "label": "D-Pad Mouse Speed",
+        "info": "Counts a unit that the D-Pad (or any button mapped to a mouse movement) moves the mouse; 6 is 100%. Used in D-Pad mouse mode."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mouse_speed",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mouse_speed",
+      "default": "100",
+      "values": [
+        {"value": "10", "abi": 10, "label": "10%"},
+        {"value": "20", "abi": 20, "label": "20%"},
+        {"value": "30", "abi": 30, "label": "30%"},
+        {"value": "40", "abi": 40, "label": "40%"},
+        {"value": "50", "abi": 50, "label": "50%"},
+        {"value": "60", "abi": 60, "label": "60%"},
+        {"value": "70", "abi": 70, "label": "70%"},
+        {"value": "80", "abi": 80, "label": "80%"},
+        {"value": "90", "abi": 90, "label": "90%"},
+        {"value": "100", "abi": 100, "label": "100%"},
+        {"value": "110", "abi": 110, "label": "110%"},
+        {"value": "120", "abi": 120, "label": "120%"},
+        {"value": "130", "abi": 130, "label": "130%"},
+        {"value": "140", "abi": 140, "label": "140%"},
+        {"value": "150", "abi": 150, "label": "150%"},
+        {"value": "160", "abi": 160, "label": "160%"},
+        {"value": "170", "abi": 170, "label": "170%"},
+        {"value": "180", "abi": 180, "label": "180%"},
+        {"value": "190", "abi": 190, "label": "190%"},
+        {"value": "200", "abi": 200, "label": "200%"},
+        {"value": "210", "abi": 210, "label": "210%"},
+        {"value": "220", "abi": 220, "label": "220%"},
+        {"value": "230", "abi": 230, "label": "230%"},
+        {"value": "240", "abi": 240, "label": "240%"},
+        {"value": "250", "abi": 250, "label": "250%"},
+        {"value": "260", "abi": 260, "label": "260%"},
+        {"value": "270", "abi": 270, "label": "270%"},
+        {"value": "280", "abi": 280, "label": "280%"},
+        {"value": "290", "abi": 290, "label": "290%"},
+        {"value": "300", "abi": 300, "label": "300%"}
+      ],
+      "libretro": {
+        "key": "puae6_mouse_speed",
+        "category": "input",
+        "label": "Mouse Speed",
+        "info": "Scales the movement of the frontend's mouse (the physical one). 100% passes it as it is. Fractions of a count are kept for the next unit."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "joyport",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.joyport",
+      "default": "joystick",
+      "restart": true,
+      "values": [
+        {"value": "joystick", "abi": 0, "label": "Joystick"},
+        {"value": "mouse", "abi": 1, "label": "Mouse"}
+      ],
+      "libretro": {
+        "key": "puae6_joyport",
+        "category": "input",
+        "label": "RetroPad Joystick/Mouse",
+        "info": "What player 1's D-Pad and fire buttons drive when the content loads: the joystick, or the mouse (D-Pad moves it, B/A/X are its buttons). The hotkey or button mapped to Toggle Joystick/Mouse switches it while the content runs, and the switch travels with save states. Needs the mouse port; with Joystick only the pad stays a joystick."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "face_buttons",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.face_buttons",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "B = Fire, A = 2nd fire"},
+        {"value": "jump", "abi": 1, "label": "B = Fire, A = Up"},
+        {"value": "rotate", "abi": 2, "label": "Y = Fire, B = 2nd fire"},
+        {"value": "rotate_jump", "abi": 3, "label": "Y = Fire, B = Up"}
+      ],
+      "libretro": {
+        "key": "puae6_face_buttons",
+        "category": "input",
+        "label": "RetroPad Face Button Options",
+        "info": "Which RetroPad face buttons are the fire buttons when they are not mapped: B and A as usual, 'jump' makes A press up (platform games), 'rotate' makes Y the fire button and B the second one, 'rotate + jump' makes Y fire and B up. X stays the third button."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_fire",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_fire",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_fire",
+        "category": "input",
+        "label": "Turbo Fire",
+        "info": "While the Turbo Button is held its function is pressed and released over and over (Turbo Pulse says how often). The Toggle Turbo Fire hotkey inverts this setting while the content runs. The count is in emulated units, never in time."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_fire_button",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_fire_button",
+      "default": "B",
+      "values": [
+        {"value": "B", "abi": 0, "label": "RetroPad B"},
+        {"value": "A", "abi": 8, "label": "RetroPad A"},
+        {"value": "Y", "abi": 1, "label": "RetroPad Y"},
+        {"value": "X", "abi": 9, "label": "RetroPad X"},
+        {"value": "L", "abi": 10, "label": "RetroPad L"},
+        {"value": "R", "abi": 11, "label": "RetroPad R"},
+        {"value": "L2", "abi": 12, "label": "RetroPad L2"},
+        {"value": "R2", "abi": 13, "label": "RetroPad R2"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_fire_button",
+        "category": "input",
+        "label": "Turbo Button",
+        "info": "The RetroPad button that auto-fires (whatever it is mapped to)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "turbo_pulse",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.turbo_pulse",
+      "default": "6",
+      "values": [
+        {"value": "2", "abi": 2, "label": "2 frames"},
+        {"value": "4", "abi": 4, "label": "4 frames"},
+        {"value": "6", "abi": 6, "label": "6 frames"},
+        {"value": "8", "abi": 8, "label": "8 frames"},
+        {"value": "10", "abi": 10, "label": "10 frames"},
+        {"value": "12", "abi": 12, "label": "12 frames"}
+      ],
+      "libretro": {
+        "key": "puae6_turbo_pulse",
+        "category": "input",
+        "label": "Turbo Pulse",
+        "info": "Units in a turbo cycle: 2 is one unit pressed and one released, 4 is two and two, 6 three and three, and so on."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_mouse_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_mouse_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_mouse_toggle",
+        "category": "hotkey",
+        "label": "Switch Joystick/Mouse",
+        "info": "Toggles what the D-Pad and fire buttons of player 1 drive between the joystick and the mouse. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_turbo_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_turbo_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_turbo_toggle",
+        "category": "hotkey",
+        "label": "Toggle Turbo Fire",
+        "info": "Inverts the Turbo Fire setting while the content runs. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_aspect_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_aspect_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_aspect_toggle",
+        "category": "hotkey",
+        "label": "Toggle Aspect Ratio",
+        "info": "Swaps the pixel aspect announced between PAL and NTSC. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_crop_toggle",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_crop_toggle",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_crop_toggle",
+        "category": "hotkey",
+        "label": "Toggle Crop",
+        "info": "Turns the crop off if it is on, and on (Automatic) if it is off. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_reset",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_reset",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_reset",
+        "category": "hotkey",
+        "label": "Reset",
+        "info": "Presses Ctrl-Amiga-Amiga for a while (the Amiga's soft reset, as the keyboard does it). The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_statusbar",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_statusbar",
+      "default": "f12",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_statusbar",
+        "category": "hotkey",
+        "label": "Toggle Statusbar",
+        "info": "Shows or hides the statusbar. The key is not sent to the Amiga. F12 is the PUAE5 default; the Amiga has no F12."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_vkbd",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_vkbd",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_vkbd",
+        "category": "hotkey",
+        "label": "Toggle Virtual Keyboard",
+        "info": "Opens and closes the virtual keyboard. The key is not sent to the Amiga. Select does the same by default."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "hotkey_freeze",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.hotkey_freeze",
+      "default": "---",
+      "values_from": "hotkey_key",
+      "libretro": {
+        "key": "puae6_hotkey_freeze", "category": "hotkey", "label": "Cartridge Freeze",
+        "info": "Activate the selected HRTMon or Action Replay monitor. Holding the key activates it once; release before pressing again. The key is not sent to the Amiga."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_up",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_up",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_up",
+        "category": "retropad",
+        "label": "Up",
+        "info": "What Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_down",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_down",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_down",
+        "category": "retropad",
+        "label": "Down",
+        "info": "What Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_left",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_left",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_left",
+        "category": "retropad",
+        "label": "Left",
+        "info": "What Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_right",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_right",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_right",
+        "category": "retropad",
+        "label": "Right",
+        "info": "What Right of player 1's RetroPad does. Unmapped, it is joystick right (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_b",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_b",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_b",
+        "category": "retropad",
+        "label": "B",
+        "info": "What B of player 1's RetroPad does. Unmapped, it is the fire button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_a",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_a",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_a",
+        "category": "retropad",
+        "label": "A",
+        "info": "What A of player 1's RetroPad does. Unmapped, it is the 2nd fire button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_y",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_y",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_y",
+        "category": "retropad",
+        "label": "Y",
+        "info": "What Y of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_x",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_x",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_x",
+        "category": "retropad",
+        "label": "X",
+        "info": "What X of player 1's RetroPad does. Unmapped, it is the 3rd button (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_select",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_select",
+      "default": "toggle_vkbd",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_select",
+        "category": "retropad",
+        "label": "Select",
+        "info": "What Select of player 1's RetroPad does. Unmapped, it opens the virtual keyboard (PUAE5's default) (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_start",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_start",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_start",
+        "category": "retropad",
+        "label": "Start",
+        "info": "What Start of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l",
+        "category": "retropad",
+        "label": "L",
+        "info": "What L of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r",
+        "category": "retropad",
+        "label": "R",
+        "info": "What R of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l2",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l2",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l2",
+        "category": "retropad",
+        "label": "L2",
+        "info": "What L2 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r2",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r2",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r2",
+        "category": "retropad",
+        "label": "R2",
+        "info": "What R2 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_l3",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_l3",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_l3",
+        "category": "retropad",
+        "label": "L3",
+        "info": "What L3 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_r3",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_r3",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_r3",
+        "category": "retropad",
+        "label": "R3",
+        "info": "What R3 of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_lu",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_lu",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_lu",
+        "category": "retropad",
+        "label": "Left Stick Up",
+        "info": "What Left Stick Up of player 1's RetroPad does. Unmapped, it is joystick up (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ld",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ld",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ld",
+        "category": "retropad",
+        "label": "Left Stick Down",
+        "info": "What Left Stick Down of player 1's RetroPad does. Unmapped, it is joystick down (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ll",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ll",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ll",
+        "category": "retropad",
+        "label": "Left Stick Left",
+        "info": "What Left Stick Left of player 1's RetroPad does. Unmapped, it is joystick left (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_lr",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_lr",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_lr",
+        "category": "retropad",
+        "label": "Left Stick Right",
+        "info": "What Left Stick Right of player 1's RetroPad does. Unmapped, it is joystick right (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_ru",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_ru",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_ru",
+        "category": "retropad",
+        "label": "Right Stick Up",
+        "info": "What Right Stick Up of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rd",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rd",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rd",
+        "category": "retropad",
+        "label": "Right Stick Down",
+        "info": "What Right Stick Down of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rl",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rl",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rl",
+        "category": "retropad",
+        "label": "Right Stick Left",
+        "info": "What Right Stick Left of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "mapper_rr",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.mapper_rr",
+      "default": "---",
+      "values_from": "mapper_target",
+      "libretro": {
+        "key": "puae6_mapper_rr",
+        "category": "retropad",
+        "label": "Right Stick Right",
+        "info": "What Right Stick Right of player 1's RetroPad does. Unmapped, it is nothing (Face Button Options and the analog mouse can change that)."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar",
+      "default": "bottom",
+      "values": [
+        {"value": "bottom", "abi": 0, "label": "Bottom Full"},
+        {"value": "bottom_minimal", "abi": 1, "label": "Bottom Full Minimal"},
+        {"value": "bottom_basic", "abi": 2, "label": "Bottom Basic"},
+        {"value": "bottom_basic_minimal", "abi": 3, "label": "Bottom Basic Minimal"},
+        {"value": "top", "abi": 4, "label": "Top Full"},
+        {"value": "top_minimal", "abi": 5, "label": "Top Full Minimal"},
+        {"value": "top_basic", "abi": 6, "label": "Top Basic"},
+        {"value": "top_basic_minimal", "abi": 7, "label": "Top Basic Minimal"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar",
+        "category": "osd",
+        "label": "Statusbar Mode",
+        "info": "Where the statusbar is drawn (over the top or the bottom of the picture) and how much it shows. Full: the drive LED (DF0, from the drive light of the machine), what the two Amiga ports are being sent (the mouse's three buttons, the joystick's four directions and three buttons) and the pad's mode and turbo, plus the message of the last action. Basic: the LED and the message. Minimal: the LED alone. The power LED and the track are not part of the native ABI and are not shown."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar_startup",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar_startup",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar_startup",
+        "category": "osd",
+        "label": "Statusbar Startup",
+        "info": "Show the statusbar when the content loads. The Toggle Statusbar hotkey or button shows and hides it afterwards."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "statusbar_messages",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.statusbar_messages",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_statusbar_messages",
+        "category": "osd",
+        "label": "Statusbar Messages",
+        "info": "With the statusbar hidden, show the message of an action (joystick/mouse, turbo, crop, aspect, reset) alone for three seconds of emulated time."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_theme",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_theme",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (shadow)"},
+        {"value": "auto_outline", "abi": 1, "label": "Automatic (outline)"},
+        {"value": "beige", "abi": 2, "label": "Beige (shadow)"},
+        {"value": "beige_outline", "abi": 3, "label": "Beige (outline)"},
+        {"value": "cd32", "abi": 4, "label": "CD32 (shadow)"},
+        {"value": "cd32_outline", "abi": 5, "label": "CD32 (outline)"},
+        {"value": "light", "abi": 6, "label": "Light (shadow)"},
+        {"value": "light_outline", "abi": 7, "label": "Light (outline)"},
+        {"value": "dark", "abi": 8, "label": "Dark (shadow)"},
+        {"value": "dark_outline", "abi": 9, "label": "Dark (outline)"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_theme",
+        "category": "osd",
+        "label": "Virtual KBD Theme",
+        "info": "The colors of the virtual keyboard and how its labels are drawn (a shadow or an outline). Automatic is the beige of the A500 and A600 and the light grey of the A1200. Select opens the keyboard by default; see Virtual Keyboard in docs/options.md for the controls."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_transparency",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_transparency",
+      "default": "25%",
+      "values": [
+        {"value": "0%", "abi": 0, "label": "0%"},
+        {"value": "25%", "abi": 25, "label": "25%"},
+        {"value": "50%", "abi": 50, "label": "50%"},
+        {"value": "75%", "abi": 75, "label": "75%"},
+        {"value": "100%", "abi": 100, "label": "100%"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_transparency",
+        "category": "osd",
+        "label": "Virtual KBD Transparency",
+        "info": "How see-through the keys are (100% leaves only the labels). RetroPad A switches the transparency off and on while the keyboard is open."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "vkbd_dimming",
+      "class": "presentation",
+      "type": "enum",
+      "maps_to": "presentation.vkbd_dimming",
+      "default": "25%",
+      "values": [
+        {"value": "0%", "abi": 0, "label": "0%"},
+        {"value": "25%", "abi": 25, "label": "25%"},
+        {"value": "50%", "abi": 50, "label": "50%"},
+        {"value": "75%", "abi": 75, "label": "75%"},
+        {"value": "100%", "abi": 100, "label": "100%"}
+      ],
+      "libretro": {
+        "key": "puae6_vkbd_dimming",
+        "category": "osd",
+        "label": "Virtual KBD Dimming",
+        "info": "How much the picture around the virtual keyboard is darkened while it is open."
+      },
+      "headless": {"how": "none"},
+      "wrapper": {"how": "none"}
+    },
+    {
+      "id": "drive_sound_volume", "class": "presentation", "type": "enum",
+      "maps_to": "presentation.drive_sound_volume", "default": "0",
+      "values": [
+        {"value": "0", "abi": 0, "label": "0 %", "wrapper_name": "P0"},
+        {"value": "10", "abi": 10, "label": "10 %", "wrapper_name": "P10"},
+        {"value": "25", "abi": 25, "label": "25 %", "wrapper_name": "P25"},
+        {"value": "50", "abi": 50, "label": "50 %", "wrapper_name": "P50"},
+        {"value": "75", "abi": 75, "label": "75 %", "wrapper_name": "P75"},
+        {"value": "100", "abi": 100, "label": "100 %", "wrapper_name": "P100"}
+      ],
+      "libretro": {"key": "puae6_drive_sound_volume", "category": "audio", "label": "Floppy Drive Sound Volume",
+        "info": "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity."},
+      "headless": {"how": "named", "flag": "--drive-sound-volume", "names": {"0": "0", "10": "10", "25": "25", "50": "50", "75": "75", "100": "100"}},
+      "wrapper": {"how": "setting", "setting": "DriveSoundVolume", "type": "Puae6DriveSoundVolume"}
+    }
+  ],
+  "presets": [
+    {
+      "id": "a1200_fast8",
+      "label": "A1200 + 8 MiB Fast RAM (PUAE5's A1200)",
+      "values": {"machine": "A1200", "fast_size": "MB8"},
+      "note": "The Kickstart 3.1 of the A1200. The same machine as the A1200 with 8 MiB of Fast RAM chosen by hand."
+    },
+    {
+      "id": "a600_puae5",
+      "label": "A600, 2 MiB Chip + 8 MiB Fast RAM (PUAE5's A600)",
+      "values": {"machine": "A600", "chip_size": "MB2", "fast_size": "MB8"},
+      "note": "PUAE5's A600 has Gayle and the Kickstart 3.1 of the A600 (r40.063). This one has Gayle's IDE port only with the IDE hard disk controller (no PCMCIA) and no Kickstart of its own: it runs the Kickstart it is given (2.05 r37.350 is the one tested)."
+    },
+    {
+      "id": "a4030_normal",
+      "label": "A4000/030, Normal CPU (2 MiB Chip + 8 MiB Fast, no MMU)",
+      "values": {"machine": "A4030", "cpu_compatibility": "normal"},
+      "note": "Real Gary/Ramsey, Ricoh RTC and A4000 IDE. Compatible/exact 68030 caches and MMU are not implemented."
+    },
+    {
+      "id": "cd32_fast8",
+      "label": "CD32FR (2 MiB Chip + 8 MiB Fast RAM)",
+      "values": {"machine": "CD32", "fast_size": "MB8"},
+      "note": "Stock CD32 hardware and firmware plus one 8 MiB Zorro II Fast RAM board. Equivalent to Machine CD32 and Fast RAM 8 MiB; requires a direct CD."
+    },
+    {
+      "id": "a4040_normal",
+      "label": "A4000/040, Normal CPU + internal FPU",
+      "values": {"machine": "A4040", "cpu_model": "68040", "cpu_compatibility": "normal", "fpu_model": "M68040"},
+      "note": "A4000 motherboard, matching SoftFloat FPU, 2 MiB Chip + 8 MiB Fast; no MMU or instruction/data caches."
+    },
+    {
+      "id": "a4060_normal",
+      "label": "A4000/060, Normal CPU + internal FPU",
+      "values": {"machine": "A4040", "cpu_model": "68060", "cpu_compatibility": "normal", "fpu_model": "M68060"},
+      "note": "A4000 motherboard, matching SoftFloat FPU, 2 MiB Chip + 8 MiB Fast; no MMU or instruction/data caches."
+    }
+  ],
+  "selectors": [
+    {
+      "id": "model_fd",
+      "default": "A500",
+      "values_of": "machine",
+      "libretro": {
+        "key": "puae6_model_fd",
+        "category": "machine",
+        "label": "Automatic Floppy Model",
+        "info": "The model Automatic picks for content that has no hard disk (floppy disks, or nothing) when no tag of the file name names one. PUAE5's puae_model_fd."
+      }
+    },
+    {
+      "id": "model_hd",
+      "default": "A1200",
+      "values_of": "machine",
+      "libretro": {
+        "key": "puae6_model_hd",
+        "category": "machine",
+        "label": "Automatic Hard Disk Model",
+        "info": "The model Automatic picks for content with a hard disk (an .hdf, an .hdz, a directory or an .lha as a volume, alone or with floppies) when no tag of the file name names one. PUAE5's puae_model_hd. The hard disks need a Kickstart of 2.0 or later, so the A1200 is the default."
+      }
+    },
+    {
+      "id": "filename_tags",
+      "default": "enabled",
+      "values": [
+        {"value": "enabled", "abi": 1, "label": "Enabled"},
+        {"value": "disabled", "abi": 0, "label": "Disabled"}
+      ],
+      "libretro": {
+        "key": "puae6_filename_tags",
+        "category": "machine",
+        "label": "File Name Tags",
+        "info": "Read the tags of the name of the file, of its folders and of its disks, as PUAE5 does ((A1200), (A600), (A500OG), (A500+), (A500), (A2000), (A2000OG), (A1000), AGA, ECS, OCS for the model; (NTSC), (USA), (PAL), (Europe) and the other countries for the video standard) to resolve the Automatic model and video standard. Disabled uses only the options. Tags not implemented for automatic selection (A4030/030, 68040, CDTV, MultiDrive, Arcadia) are ignored with a warning. Choose the A4030 Normal preset explicitly for the 68030."
+      }
+    },
+    {
+      "id": "kickstart",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic (the Kickstart of the model)"},
+        {"value": "kick33180.A500", "abi": 1, "label": "1.2 r33.180 (A500, A2000)"},
+        {"value": "kick34005.A500", "abi": 2, "label": "1.3 r34.5 (A500, A1000, A2000, CDTV)"},
+        {"value": "kick37175.A500", "abi": 3, "label": "2.04 r37.175 (A500+)"},
+        {"value": "kick37350.A600", "abi": 4, "label": "2.05 r37.350 (A600)"},
+        {"value": "kick40063.A600", "abi": 5, "label": "3.1 r40.063 (A500, A600, A2000)"},
+        {"value": "kick39106.A1200", "abi": 6, "label": "3.0 r39.106 (A1200)"},
+        {"value": "kick40068.A1200", "abi": 7, "label": "3.1 r40.068 (A1200)"}
+      ],
+      "libretro": {
+        "key": "puae6_kickstart",
+        "category": "machine",
+        "label": "Kickstart ROM",
+        "info": "Automatic looks for the Kickstart of the model (see Model). A version chosen here is looked for in the system directory instead, under PUAE5's names (kick34005.A500, amiga-os-130.rom, the TOSEC names) and the machine runs it if the ROM, identified by its content, can run on that machine: the CPU the ROM needs is checked at load and a Kickstart of another CPU (the 3.1 of the A1200 on an A500) is refused with the reason. A file whose name does not say its version is not found: rename it. ROMs encrypted by Amiga Forever (AMIROMTYPE1) are decrypted with the rom.key that sits in the same system directory; the decrypted ROM is the firmware and its SHA-256 the identity of the states, so a state taken with another Kickstart is refused. PUAE5's AROS is not offered (it is not built in)."
+      }
+    },
+    {
+      "id": "whdload",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 1, "label": "Automatic: one slave uses the WHDLoad bundle"},
+        {"value": "disabled", "abi": 0, "label": "Disabled: load as a normal volume"}
+      ],
+      "libretro": {
+        "key": "puae6_whdload",
+        "category": "media",
+        "label": "WHDLoad Support",
+        "info": "A directory, LHA or ZIP with exactly one .slave boots on the A1200 with its Kickstart 3.1. Supply the pinned WHDLoad_usr.lha in the system directory. The core constructs three images in memory, uses its own startup and preferences, and never mounts a host directory. Save Hard Disk Changes keeps writes only when content closes. Multiple slaves or mixed media are refused; Disabled keeps the normal volume flow."
+      }
+    },
+    {
+      "id": "whdload_buttonwait",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 1, "label": "Enabled"}
+      ],
+      "libretro": {
+        "key": "puae6_whdload_buttonwait",
+        "category": "media",
+        "label": "WHDLoad ButtonWait",
+        "info": "Add ButtonWait to the core's WHDLoad preferences. Disabled preserves the tested T65a recipe (PUAE5 defaults to enabled). NoWriteCache stays enabled, SplashDelay and ConfigDelay stay zero; scripts and preferences from the game or provider are never used."
+      }
+    }
+  ],
+  "reserved": [
+    {"id": "whdload", "for": "content preparation", "wrapper_setting": "WhdLoad", "why": "Select the three WHDLoad media before firmware; the generated media bytes and resolved machine bind states, without a p6_config field."},
+    {"id": "whdload_buttonwait", "for": "content preparation", "wrapper_setting": "WhdLoadButtonWait", "why": "ButtonWait changes RASystem preferences before loading; the media identity binds that selection, without a p6_config field."},
+    {"id": "floppy_drives", "for": "boot media placement", "wrapper_setting": "FloppyDrives", "why": "How many given disks start mounted (1..4) is a media placement through events; PhysicalFloppyDrives selects the connected hardware. Libretro uses MultiDrive for placement and Disk Control for DF0."}
+  ],
+  "unsupported": [
+    {"key": "z3fastmem_size", "why": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet."},
+    {"key": "fastmem2_size", "why": "One Zorro II Fast RAM board is offered; a second board is not."},
+    {"key": "kickstart_rom_file", "why": "The Kickstart is given as bytes at load and identified by its content, never chosen by a path in the configuration."},
+    {"key": "cpu_speed", "why": "The machine runs at its real clock; the host speed never changes the emulation."},
+    {"key": "jit", "why": "The deterministic profile has no JIT."},
+    {"key": "uae_config_file", "why": "A whole .uae file is not a configuration key; only the keys of this schema are accepted here. The libretro core reads one as content through an allowlist that translates its keys to this schema (docs/options.md, Importador .uae)."},
+    {"key": "controller_port1", "why": "The device of a port is input, not configuration: the libretro core offers its types with SET_CONTROLLER_INFO and reads the one chosen with retro_set_controller_port_device at every run (T17c), and the wrapper's ControllerPort1 is a per-session choice; it is not a p6_config field and never enters config_hash."},
+    {"key": "controller_port2", "why": "As controller_port1 (the wrapper's ControllerPort2)."},
+    {"key": "controller_port3", "why": "Parallel player 3 is p6_input_v2 input, selected through SET_CONTROLLER_INFO or ControllerPort3; it is not a p6_config field."},
+    {"key": "controller_port4", "why": "As controller_port3, for parallel player 4 (ControllerPort4)."}
+  ]
+}

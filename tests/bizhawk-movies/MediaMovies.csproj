@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+  <ImplicitUsings>enable</ImplicitUsings><LangVersion>12</LangVersion>
+  <EnableDefaultItems>false</EnableDefaultItems><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  <UseAppHost>false</UseAppHost><RollForward>Major</RollForward>
+ </PropertyGroup>
+ <ItemGroup>
+  <Reference Include="$(AssemblyDir)/*.dll" Exclude="$(AssemblyDir)/Newtonsoft.Json.dll" />
+  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  <Compile Include="$(Puae6Root)/tests/bizhawk-movies/MediaMovies.cs;$(Puae6Root)/tests/bizhawk-movies/CartridgeMovies.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
+ </ItemGroup>
+</Project>

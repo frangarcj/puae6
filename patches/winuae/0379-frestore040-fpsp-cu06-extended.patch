@@ -1,0 +1,28 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -2714,12 +2714,20 @@
+ 
+ 				opclass = (cmdreg1b >> 13) & 0x7; // just to be sure
+ 				
+-				if (!regs.fp_exp_pend && cusavepc == 0xFE) {
++				// FPSP bugfix.S:op0_xi rebuilds rev40 CU06 with IEEE extended
++				// ETEMP and the live FPn destination. ETE15=!ETE14 encodes this
++				// earlier stage; FE instead supplies converted FPTEMP/ETEMP.
++				const bool restart_extended = frame_version == 0x40 && cusavepc == 0x06 && (cmdreg1b & 0xfc00) == 0x4800;
++				if (!regs.fp_exp_pend && (cusavepc == 0xFE || restart_extended)) {
+ 					if (opclass == 0 || opclass == 2) {
+-						fpp_to_exten_fmovem(&dst, fsave_data.fpt[0], fsave_data.fpt[1], fsave_data.fpt[2]);
+-						fpp_denormalize(&dst, fpte15);
+ 						fpp_to_exten_fmovem(&src, fsave_data.et[0], fsave_data.et[1], fsave_data.et[2]);
+-						fpp_denormalize(&src, et15);
++						if (restart_extended) {
++							dst = regs.fp[(cmdreg1b >> 7) & 7];
++						} else {
++							fpp_to_exten_fmovem(&dst, fsave_data.fpt[0], fsave_data.fpt[1], fsave_data.fpt[2]);
++							fpp_denormalize(&dst, fpte15);
++							fpp_denormalize(&src, et15);
++						}
+ #if EXCEPTION_FPP
+ 						uae_u32 tmpsrc[3], tmpdst[3];
+ 						fpp_from_exten_fmovem(&src, &tmpsrc[0], &tmpsrc[1], &tmpsrc[2]);

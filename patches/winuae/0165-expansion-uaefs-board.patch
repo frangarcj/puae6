@@ -1,0 +1,114 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -1219,7 +1219,7 @@
+ 
+ #endif
+ 
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 
+ /*
+ * Filesystem device ROM/RAM space
+@@ -1333,8 +1333,7 @@
+ static uae_u32 uaeboard_ram_start;
+ #define UAEBOARD_WRITEOFFSET 0x4000
+ 
+-#ifndef P6_PORTABLE
+-// Only used by the excluded trap and host filesystem code (filesys_bank is FILESYS-only).
++// Used by the trap area and the UAEFS board (T29a); the board's RAM is where uaeboard 0 keeps what the 68k side shares with the host.
+ uae_u8 *uaeboard_map_ram(uaecptr p)
+ {
+ 	if (currprefs.uaeboard > 1) {
+@@ -1361,7 +1360,6 @@
+ 	uaeboard_ram_start += size;
+ 	return p;
+ }
+-#endif
+ 
+ static bool uaeboard_write(uaecptr addr)
+ {
+@@ -1874,7 +1872,7 @@
+ 
+ /* ********************************************************** */
+ 
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 
+ static bool expamem_rtarea_init(struct autoconfig_info *aci)
+ {
+@@ -2436,13 +2434,11 @@
+ 		if (valid_address (RTAREA_DEFAULT, 65536))
+ 			b = RTAREA_BACKUP;
+ 	}
+-#ifndef P6_PORTABLE
+-	// Host directory units are not part of the A500 profile.
++	// Units of the UAE controller (hard files here; host directories are refused when the configuration is built) need the boot ROM.
+ 	if (nr_directory_units (NULL))
+ 		return b;
+ 	if (nr_directory_units (p))
+ 		return b;
+-#endif
+ #ifdef WIN32
+ 	if (p->win32_automount_drives || p->win32_automount_cddrives || p->win32_automount_netdrives || p->win32_automount_removable)
+ 		return b;
+@@ -2477,12 +2473,6 @@
+ 
+ uaecptr need_uae_boot_rom (struct uae_prefs *p)
+ {
+-#ifdef P6_PORTABLE
+-	// The UAE boot ROM lives in the traps area (rtarea), which the A500 profile does not build.
+-	(void)p;
+-	uae_boot_rom_type = 0;
+-	return 0;
+-#else
+ 	uaecptr v;
+ 
+ 	uae_boot_rom_type = 0;
+@@ -2492,7 +2482,6 @@
+ 		v = 0;
+ 	}
+ 	return v;
+-#endif
+ }
+ 
+ static void add_cpu_expansions(struct uae_prefs *p, int zorro, int *fastmem_nump)
+@@ -3730,7 +3719,7 @@
+ 		fastmem_num++;
+ 	}
+ 
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 	if (do_mount && p->uaeboard >= 0 && p->uaeboard < 2) {
+ 		cards_set[cardno].flags = CARD_FLAG_UAEROM;
+ 		cards_set[cardno].name = _T("UAEFS");
+@@ -3918,8 +3907,9 @@
+ 			}
+ 		}
+ 
+-#ifdef FILESYS
+-		set_ks12_boot_hack();
++#if defined(FILESYS) || defined(P6_FILESYS)
++		if (do_mount) // the boot hack writes into the trap area, which exists only while a hard file is mounted
++			set_ks12_boot_hack();
+ #endif
+ 		call_card_init(0);
+ 	}
+@@ -3993,7 +3983,7 @@
+ 	}
+ #endif
+ 
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 	mapped_free (&filesys_bank);
+ #endif
+ 	if (currprefs.uaeboard) {
+@@ -4039,7 +4029,7 @@
+ 	if (currprefs.z3chipmem.size) {
+ 		map_banks_z3(&z3chipmem_bank, z3chipmem_bank.start >> 16, currprefs.z3chipmem.size >> 16);
+ 	}
+-#ifdef FILESYS
++#if defined(FILESYS) || defined(P6_FILESYS)
+ 	if (do_mount < 0 && ks11orolder()) {
+ 		filesys_bank.start = 0xe90000;
+ 		mapped_free(&filesys_bank);

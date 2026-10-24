@@ -1,0 +1,8 @@
+{
+  "about": "The hash of all the records of tests/host/fpu_corpus.py (the results of the 68882 run, as FMOVE.X and the stores of the program leave them in Chip RAM, in order). Recorded on macos-arm64-appleclang -O0; the matrix of platforms (tests/host/fpu_matrix.py) shows that every row gives the same bytes. Change it only with the corpus or with a reviewed change of the FPU.",
+  "sha256": "980aa64c22fd1fbe37ac39b0362f36a11b0a9ba4151c17d940f2ffad14637eb2",
+  "cases": 2286,
+  "records": 2311,
+  "recorded_on": "macos-arm64-appleclang O0",
+  "date": "2026-10-10"
+}

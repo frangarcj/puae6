@@ -1,0 +1,57 @@
+diff --git a/events.cpp b/events.cpp
+--- a/events.cpp
++++ b/events.cpp
+@@ -347,6 +347,10 @@
+ static int event2idx;
+ static int event2cnt;
+ static int event2restart;
++#ifdef P6_PORTABLE
++// Where event2_newevent_xx starts looking for a free secondary slot (it was a function-local static): scheduler state.
++static int event2next = ev2_misc;
++#endif
+ 
+ void MISC_handler(void)
+ {
+@@ -402,7 +406,11 @@
+ void event2_newevent_xx(int no, evt_t t, uae_u32 data, evfunc2 func)
+ {
+ 	evt_t et;
++#ifdef P6_PORTABLE
++	int &next = event2next;
++#else
+ 	static int next = ev2_misc;
++#endif
+ 
+ 	et = t + get_cycles();
+ 	if (no < 0) {
+@@ -534,5 +542,30 @@
+ 	event2idx = 0;
+ 	event2cnt = 0;
+ 	event2restart = 0;
++	// Where event2_newevent_xx starts looking for a free slot is part of the same round: a reload that kept the cursor of the last session put the
++	// same events in other slots than a clean process does, and the slot decides which of two simultaneous events runs first.
++	event2next = ev2_misc;
+ #endif
+ }
++
++#ifdef P6_PORTABLE
++// Native state (bridge/state_cpu.cpp): the file-local state of the scheduler. p6_events_set is for a restore, after the tables are in
++// place; it also leaves the re-entry counters of MISC_handler at zero, where they are at every instruction boundary.
++void p6_events_get(int *idx, int *next, int *cnt, int *restart, int *remain)
++{
++	*idx = event2idx;
++	*next = event2next;
++	*cnt = event2cnt;
++	*restart = event2restart;
++	*remain = cycles_to_add_remain;
++}
++
++void p6_events_set(int idx, int next, int remain)
++{
++	event2idx = idx;
++	event2next = next;
++	event2cnt = 0;
++	event2restart = 0;
++	cycles_to_add_remain = remain;
++}
++#endif

@@ -1,0 +1,498 @@
+diff --git a/ide.cpp b/ide.cpp
+--- a/ide.cpp
++++ b/ide.cpp
+@@ -25,6 +25,15 @@
+ #include "ide.h"
+ #include "ini.h"
+ 
++#ifdef P6_PORTABLE
++/* T56: the IDE of the A600 and the A1200 (Gayle) with hard disks only. A drive is a hard file on the block backend of the session (hardfile.cpp): there is no ATAPI
++ * device (CD-ROM, tape: no scsi.cpp), no .ini file that overrides its identity (no ini.cpp) and no thread (a request is served at once, as the hard files of the UAE
++ * controller are), so the interrupt follows the command by the irq_delay of the drive, in lines of emulated time, and never by a scheduling decision of the host. */
++#define P6_NO_ATAPI 1
++#define P6_IDE_SECBUF_MAX (256 * 512 + 512)     /* the most a transfer of 256 sectors can have in hand, and the bound of the native state (p6_ide_state_get) */
++static void do_process_rw_command (struct ide_hdf *ide);
++#endif
++
+ /* STATUS bits */
+ #define IDE_STATUS_ERR 0x01		// 0
+ #define IDE_STATUS_IDX 0x02		// 1
+@@ -102,6 +111,9 @@
+ 
+ bool ata_get_identity(struct ini_data *ini, uae_u8 *out, bool overwrite)
+ {
++#ifdef P6_PORTABLE
++	return false;      // no .ini file configures a drive: nothing overrides its identity
++#else
+ 	if (!out)
+ 		return false;
+ 	if (overwrite) {
+@@ -126,6 +138,7 @@
+ 	}
+ 
+ 	return true;
++#endif
+ }
+ 
+ uae_u16 adide_decode_word(uae_u16 w)
+@@ -231,10 +244,26 @@
+ 	ide->secbuf_size = newsize + 16384;
+ 	if (oldsize)
+ 		write_log(_T("IDE%d buffer %d -> %d\n"), ide->num, oldsize, ide->secbuf_size);
++#ifdef P6_PORTABLE
++	ide->secbuf = xcalloc(uae_u8, ide->secbuf_size);      // what a guest can read of the buffer is a function of its commands, never of what the heap held
++#else
+ 	ide->secbuf = xmalloc(uae_u8, ide->secbuf_size);
++#endif
+ 	memcpy(ide->secbuf, oldbuf, oldsize);
+ 	xfree(oldbuf);
++}
++
++#ifdef P6_PORTABLE
++// A transfer starts with a buffer of zeros: a guest that reads the data port of a drive while it is being written, or past what a read loaded (a read cut short at the end of the disk
++// says more bytes than it loads), sees zeros and never what an earlier transfer left there, so that the bytes the native state saves are all there is to what the guest can read.
++static void ide_clear_transfer (struct ide_hdf *ide)
++{
++	if (ide->data_size > 0 && ide->data_size <= P6_IDE_SECBUF_MAX) {
++		ide_grow_buffer(ide, ide->data_size);
++		memset(ide->secbuf, 0, ide->data_size);
++	}
+ }
++#endif
+ 
+ static void sl(uae_u8 *d, int o)
+ {
+@@ -485,6 +514,7 @@
+ 	if (!device_type)
+ 		device_type = 5; // CD
+ 
++#ifndef P6_PORTABLE
+ 	if (ata_get_identity(ide->hdhfd.hfd.geometry, ide->secbuf, true)) {
+ 
+ 		if (ini_getval(ide->hdhfd.hfd.geometry, _T("IDENTITY"), _T("atapi"), &v)) {
+@@ -500,7 +530,9 @@
+ 			ata_byteswapidentity(ide->secbuf);
+ 		}
+ 
+-	} else if (ide->hdhfd.hfd.ci.loadidentity && (ide->hdhfd.hfd.identity[0] || ide->hdhfd.hfd.identity[1])) {
++	} else
++#endif
++	if (ide->hdhfd.hfd.ci.loadidentity && (ide->hdhfd.hfd.identity[0] || ide->hdhfd.hfd.identity[1])) {
+ 
+ 		memcpy(ide->secbuf, ide->hdhfd.hfd.identity, 512);
+ 		if (!ide->byteswap) {
+@@ -568,7 +600,9 @@
+ 				}
+ 			}
+ 		}
++#ifndef P6_PORTABLE
+ 		ata_get_identity(ide->hdhfd.hfd.geometry, ide->secbuf, false);
++#endif
+ 	}
+ 
+ 	if (!real) {
+@@ -825,11 +859,13 @@
+ 	}
+ }
+ 
++#ifndef P6_NO_ATAPI
+ static void setdrq (struct ide_hdf *ide)
+ {
+ 	ide->regs.ide_status |= IDE_STATUS_DRQ;
+ 	ide->regs.ide_status &= ~IDE_STATUS_BSY;
+ }
++#endif
+ static void setbsy (struct ide_hdf *ide)
+ {
+ 	ide->regs.ide_status |= IDE_STATUS_BSY;
+@@ -839,14 +875,21 @@
+ static void process_rw_command (struct ide_hdf *ide)
+ {
+ 	setbsy (ide);
++#ifdef P6_PORTABLE
++	do_process_rw_command (ide);
++#else
+ 	write_comm_pipe_u32 (&ide->its->requests, ide->num, 1);
++#endif
+ }
++#ifndef P6_NO_ATAPI
+ static void process_packet_command (struct ide_hdf *ide)
+ {
+ 	setbsy (ide);
+ 	write_comm_pipe_u32 (&ide->its->requests, ide->num | 0x8000, 1);
+ }
++#endif
+ 
++#ifndef P6_NO_ATAPI
+ static void atapi_data_done (struct ide_hdf *ide)
+ {
+ 	ide->regs.ide_nsector = ATAPI_IO | ATAPI_CD;
+@@ -967,6 +1010,8 @@
+ 	}
+ 	ide_fast_interrupt (ide);
+ }
++
++#endif /* !P6_NO_ATAPI */
+ 
+ static const TCHAR *getidemode(struct ide_hdf *ide)
+ {
+@@ -1099,6 +1144,9 @@
+ 	ide->data_size = nsec * ide->blocksize;
+ 	ide->direction = 0;
+ 	ide->buffer_offset = 0;
++#ifdef P6_PORTABLE
++	ide_clear_transfer (ide);
++#endif
+ 	// read start: preload sector(s), then trigger interrupt.
+ 	process_rw_command (ide);
+ }
+@@ -1137,6 +1185,9 @@
+ 	ide->data_size = nsec * ide->blocksize;
+ 	ide->direction = 1;
+ 	ide->buffer_offset = 0;
++#ifdef P6_PORTABLE
++	ide_clear_transfer (ide);
++#endif
+ 	// write start: set DRQ and clear BSY. No interrupt.
+ 	ide->regs.ide_status |= IDE_STATUS_DRQ;
+ 	ide->regs.ide_status &= ~IDE_STATUS_BSY;
+@@ -1164,6 +1215,9 @@
+ 	ide->data_size = ide->blocksize;
+ 	ide->direction = 2;
+ 	ide->buffer_offset = 0;
++#ifdef P6_PORTABLE
++	ide_clear_transfer (ide);
++#endif
+ 
+ 	// write start: set DRQ and clear BSY. No interrupt.
+ 	ide->regs.ide_status |= IDE_STATUS_DRQ;
+@@ -1182,6 +1236,7 @@
+ 	ide->lba48cmd = false;
+ 	ide->irq_delay = 0;
+ 
++#ifndef P6_NO_ATAPI
+ 	if (ide->atapi) {
+ 
+ 		ide->atapi_drdy = true;
+@@ -1202,7 +1257,9 @@
+ 			write_log (_T("IDE%d: unknown ATAPI command 0x%02x\n"), ide->num, cmd);
+ 		}
+ 
+-	} else {
++	} else
++#endif
++	{
+ 
+ 		if (cmd == 0x10) { /* recalibrate */
+ 			ide_recalibrate (ide);
+@@ -1269,6 +1326,7 @@
+ 			return 0xffff;
+ 		return 0;
+ 	}
++#ifndef P6_NO_ATAPI
+ 	if (ide->packet_state) {
+ 		if (bussize) {
+ 			v = ide->secbuf[ide->packet_data_offset + ide->data_offset + 1] | (ide->secbuf[ide->packet_data_offset + ide->data_offset + 0] << 8);
+@@ -1295,7 +1353,9 @@
+ 				process_packet_command (ide);
+ 			}
+ 		}
+-	} else {
++	} else
++#endif
++	{
+ 		if (bussize) {
+ 			v = ide->secbuf[ide->buffer_offset + ide->data_offset + 1] | (ide->secbuf[ide->buffer_offset + ide->data_offset + 0] << 8);
+ 		} else {
+@@ -1308,7 +1368,7 @@
+ 			ide->data_size += inc;
+ 		} else {
+ 			ide->data_size -= inc;
+-			if (((ide->data_offset % ide->blocksize) == 0) && ((ide->data_offset / ide->blocksize) % ide->data_multi) == 0) {
++			if (((ide->data_offset % ide->blocksize) == 0) && (ide->data_multi > 0 && ((ide->data_offset / ide->blocksize) % ide->data_multi) == 0)) {
+ 				if (ide->data_size) {
+ 					ide->buffer_offset += ide->data_offset;
+ 					do_process_rw_command(ide);
+@@ -1349,6 +1409,7 @@
+ 		return;
+ 	}
+ 	ide_grow_buffer(ide, ide->packet_data_offset + ide->data_offset + 2);
++#ifndef P6_NO_ATAPI
+ 	if (ide->packet_state) {
+ 		if (bussize) {
+ 			ide->secbuf[ide->packet_data_offset + ide->data_offset + 1] = v & 0xff;
+@@ -1356,7 +1417,9 @@
+ 		} else {
+ 			ide->secbuf[(ide->packet_data_offset + ide->data_offset) ^ 1] = (uae_u8)v;
+ 		}
+-	} else {
++	} else
++#endif
++	{
+ 		if (bussize) {
+ 			ide->secbuf[ide->buffer_offset + ide->data_offset + 1] = v & 0xff;
+ 			ide->secbuf[ide->buffer_offset + ide->data_offset + 0] = v >> 8;
+@@ -1366,6 +1429,7 @@
+ 	}
+ 	ide->data_offset += inc;
+ 	ide->data_size -= inc;
++#ifndef P6_NO_ATAPI
+ 	if (ide->packet_state) {
+ 		if (ide->data_offset == ide->packet_transfer_size) {
+ 			if (IDE_LOG > 0) {
+@@ -1374,10 +1438,12 @@
+ 			}
+ 			process_packet_command (ide);
+ 		}
+-	} else {
++	} else
++#endif
++	{
+ 		if (ide->data_size == 0) {
+ 			process_rw_command (ide);
+-		} else if (((ide->data_offset % ide->blocksize) == 0) && ((ide->data_offset / ide->blocksize) % ide->data_multi) == 0) {
++		} else if (((ide->data_offset % ide->blocksize) == 0) && (ide->data_multi > 0 && ((ide->data_offset / ide->blocksize) % ide->data_multi) == 0)) {
+ 			int off = ide->data_offset;
+ 			do_process_rw_command(ide);
+ 			ide->buffer_offset += off;
+@@ -1571,6 +1637,7 @@
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
+ static void ide_thread (void *idedata)
+ {
+ 	struct ide_thread_state *its = (struct ide_thread_state*)idedata;
+@@ -1607,6 +1674,7 @@
+ 		its->state = 0;
+ 	}
+ }
++#endif /* !P6_PORTABLE: a request is served at once, see process_rw_command */
+ 
+ void ide_initialize(struct ide_hdf **idetable, int chpair)
+ {
+@@ -1654,7 +1722,9 @@
+ 	if (ide) {
+ 		struct ide_thread_state *its;
+ 		hdf_hd_close(&ide->hdhfd);
++#ifndef P6_NO_ATAPI
+ 		scsi_free(ide->scsi);
++#endif
+ 		xfree(ide->secbuf);
+ 		its = ide->its;
+ 		memset(ide, 0, sizeof(struct ide_hdf));
+@@ -1665,7 +1735,9 @@
+ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct uaedev_config_info *ci, struct romconfig *rc)
+ {
+ 	struct ide_hdf *ide;
++#ifndef P6_PORTABLE
+ 	bool vb;
++#endif
+ 
+ 	alloc_ide_mem(idetable, max, NULL);
+ 	if (ch < 0)
+@@ -1673,6 +1745,12 @@
+ 	ide = idetable[ch];
+ 	if (ci)
+ 		memcpy (&ide->hdhfd.hfd.ci, ci, sizeof (struct uaedev_config_info));
++#ifdef P6_NO_ATAPI
++	if (ci->type != UAEDEV_HDF) {
++		write_log(_T("IDE%d: only hard files can be attached\n"), ch);
++		return NULL;
++	}
++#else
+ 	if (ci->type == UAEDEV_CD && ci->device_emu_unit >= 0) {
+ 
+ 		device_func_init(0);
+@@ -1710,7 +1788,9 @@
+ 		write_log(_T("IDE%d TAPE %d\n"), ch, ide->cd_unit_num);
+ 
+ 
+-	} else if (ci->type == UAEDEV_HDF) {
++	} else
++#endif
++	if (ci->type == UAEDEV_HDF) {
+ 
+ 		if (!hdf_hd_open (&ide->hdhfd))
+ 			return NULL;
+@@ -1727,6 +1807,22 @@
+ 		ide->ata_level = ci->unit_feature_level;
+ 		if (!ide->ata_level && (ide->hdhfd.size >= 4 * (uae_u64)0x40000000 || ide->media_type))
+ 			ide->ata_level = 1;
++#ifdef P6_PORTABLE
++		{
++			// A CHS driver (the Kickstart 2.05 scsi.device) reaches no block beyond cylinders * heads * sectors, and IDENTIFY says that product. hdf_hd_open sizes the cylinders by
++			// the partition alone, when it makes an RDB for a bare partition (the RDB is more blocks than that): the geometry has to cover the whole disk, up to the 8 GiB a CHS address can name.
++			if (ide->hdhfd.heads_def <= 0 || ide->hdhfd.secspertrack_def <= 0) {
++				// a Rigid Disk Block that declares no heads or no sectors per track (a mutated one) leaves nothing to divide by: the drive has a geometry of its own
++				ide->hdhfd.heads_def = ide->hdhfd.heads = 16;
++				ide->hdhfd.secspertrack_def = ide->hdhfd.secspertrack = 63;
++			}
++			const uae_u64 per_cylinder = (uae_u64)ide->hdhfd.heads_def * ide->hdhfd.secspertrack_def;
++			if (ide->max_lba <= 16515072 && (ide->hdhfd.cyls_def <= 0 || (uae_u64)ide->hdhfd.cyls_def * per_cylinder < ide->max_lba)) {
++				ide->hdhfd.cyls_def = (int)((ide->max_lba + per_cylinder - 1) / per_cylinder);
++				ide->hdhfd.cyls = ide->hdhfd.cyls_def;
++			}
++		}
++#endif
+ 		ide_identity_buffer(ide);
+ 
+ 		if (!ide->byteswap)
+@@ -1740,6 +1836,7 @@
+ 			ide->max_lba = ci.max_lba;
+ 		if (ide->lba48 && !ide->ata_level)
+ 			ide->ata_level = 1;
++#ifndef P6_PORTABLE
+ 		if (ini_getbool(ide->hdhfd.hfd.geometry, _T("IDENTITY"), _T("disabled"), &vb)) {
+ 			if (vb) {
+ 				ide->ata_level = -1;
+@@ -1748,6 +1845,7 @@
+ 				ide->max_multiple_mode = 0;
+ 			}
+ 		}
++#endif
+ 
+ 		write_log (_T("IDE%d HD '%s', LCHS=%d/%d/%d. PCHS=%d/%d/%d %uM. MM=%d LBA48=%d\n"),
+ 			ch, ide->hdhfd.hfd.ci.rootdir,
+@@ -1762,6 +1860,7 @@
+ 	return ide;
+ }
+ 
++#ifndef P6_PORTABLE
+ uae_u8 *ide_save_state(uae_u8 *dst, struct ide_hdf *ide)
+ {
+ 	save_u64 (ide->hdhfd.size);
+@@ -1819,3 +1918,133 @@
+ 	ide->hdhfd.hfd.ci.bootpri = restore_u32 ();
+ 	return src;
+ }
++#endif /* !P6_PORTABLE */
++
++#ifdef P6_PORTABLE
++/* Native state of one IDE slot (bridge/state_hdf.cpp, patch 0320): values and the bytes of the sector buffer the drive has in hand; no pointer, no path. The words, in this order:
++ * 0 to 13 the registers (select, nsector, sector, lcyl, hcyl, devcon, error, feat, nsector2, sector2, lcyl2, hcyl2, feat2, status), 14 buffer_offset, 15 data_offset, 16 data_size,
++ * 17 data_multi, 18 direction, 19 intdrq, 20 lba48cmd, 21 and 22 start_lba (low, high), 23 start_nsec, 24 multiple_mode, 25 irq_delay, 26 irq, 27 irq_inhibit, 28 irq_new,
++ * 29 maxtransferstate, 30 ide_drv, 31 mode_8bit, 32 cyls, 33 heads, 34 secspertrack (the INITIALIZE DRIVE PARAMETERS of the guest changes them). What the drive is (its size, its
++ * identity) is the hard file's, named by its content id in the envelope, and is not repeated here.
++ * The buffer: the bytes from its start to the end of what the drive can still hand over or has taken (p6_ide_live_bytes), none for a slot without a drive.
++ * p6_ide_words_valid and p6_ide_live_bytes are pure: the bridge asks them while it validates a state, before the machine has run its reset head, so that applying one cannot fail. */
++#define P6_IDE_WORDS 35
++
++bool p6_ide_words_valid (const uint32_t *w, unsigned n, bool drive)
++{
++	if (!w || n != P6_IDE_WORDS)
++		return false;
++	for (int i = 0; i < 14; i++) {
++		if (w[i] > 0xff)
++			return false;
++	}
++	if (w[14] > P6_IDE_SECBUF_MAX || w[15] > P6_IDE_SECBUF_MAX || w[16] > P6_IDE_SECBUF_MAX || (uint64_t)w[14] + w[15] + w[16] > P6_IDE_SECBUF_MAX || w[17] > 128 || w[18] > 2 ||
++		w[19] > 1 || w[20] > 1 || w[23] > 256 || w[24] > 128 || w[25] > 2 || w[26] > 1 || w[27] > 1 || w[28] > 1 || w[29] > 2 || w[30] > 1 || w[31] > 1 || w[32] > 0x7fffffff || w[33] > 0xffff || w[34] > 0xffff)
++		return false;
++	// a slot without a drive keeps the registers (the two drives of a channel share them) and nothing of a transfer
++	if (!drive && (w[14] || w[15] || w[16] || w[17] || w[18] || w[19] || w[20] || w[21] || w[22] || w[23] || w[24] || w[25] || w[26] || w[27] || w[28] || w[29] || w[31] || w[32] ||
++		w[33] || w[34]))
++		return false;
++	return true;
++}
++
++uint32_t p6_ide_live_bytes (const uint32_t *w, bool drive)
++{
++	if (!drive)
++		return 0;
++	uint64_t live = 512;
++	const uint64_t position = (uint64_t)w[14] + w[15] + w[16];
++	if (position > live)
++		live = position;
++	if (!w[18] && w[16] > 0) {
++		const uint64_t loaded = (uint64_t)w[23] * 512;      // a read keeps handing over what its first request loaded
++		if (loaded > live)
++			live = loaded;
++	}
++	return live > P6_IDE_SECBUF_MAX ? P6_IDE_SECBUF_MAX : (uint32_t)live;
++}
++
++bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *secbuf, uint32_t *secbuf_size)
++{
++	if (!ide || !w || n != P6_IDE_WORDS || !secbuf || !secbuf_size || ide->atapi || ide->scsi || ide->packet_state || ide->adide || ide->byteswap || ide->board)
++		return false;
++	const struct ide_registers &r = ide->regs;
++	const uint8_t regs[14] = { r.ide_select, r.ide_nsector, r.ide_sector, r.ide_lcyl, r.ide_hcyl, r.ide_devcon, r.ide_error, r.ide_feat, r.ide_nsector2, r.ide_sector2, r.ide_lcyl2,
++		r.ide_hcyl2, r.ide_feat2, r.ide_status };
++	for (int i = 0; i < 14; i++)
++		w[i] = regs[i];
++	w[14] = (uint32_t)ide->buffer_offset;
++	w[15] = (uint32_t)ide->data_offset;
++	w[16] = (uint32_t)ide->data_size;
++	w[17] = (uint32_t)ide->data_multi;
++	w[18] = (uint32_t)ide->direction;
++	w[19] = ide->intdrq ? 1 : 0;
++	w[20] = ide->lba48cmd ? 1 : 0;
++	w[21] = (uint32_t)ide->start_lba;
++	w[22] = (uint32_t)(ide->start_lba >> 32);
++	w[23] = (uint32_t)ide->start_nsec;
++	w[24] = ide->multiple_mode;
++	w[25] = (uint32_t)ide->irq_delay;
++	w[26] = (uint32_t)ide->irq;
++	w[27] = ide->irq_inhibit ? 1 : 0;
++	w[28] = ide->irq_new ? 1 : 0;
++	w[29] = (uint32_t)ide->maxtransferstate;
++	w[30] = (uint32_t)ide->ide_drv;
++	w[31] = ide->mode_8bit ? 1 : 0;
++	w[32] = (uint32_t)ide->hdhfd.cyls;
++	w[33] = (uint32_t)ide->hdhfd.heads;
++	w[34] = (uint32_t)ide->hdhfd.secspertrack;
++	const bool drive = ide->hdhfd.size != 0;
++	if (!p6_ide_words_valid (w, n, drive))
++		return false;
++	const uint32_t live = p6_ide_live_bytes (w, drive);
++	if (live > (uint32_t)ide->secbuf_size || (live && !ide->secbuf))
++		return false;
++	if (live)
++		memcpy (secbuf, ide->secbuf, live);
++	*secbuf_size = live;
++	return true;
++}
++
++/* The inverse, for a slot of a machine of the same configuration that has run its reset head: false (and nothing touched) when the values cannot belong to such a slot, which a state the
++ * bridge has validated with the two functions above never does. The sector buffer is made large enough for any position the values can name. */
++bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const uint8_t *secbuf, uint32_t secbuf_size)
++{
++	if (!ide || !w || n != P6_IDE_WORDS || (!secbuf && secbuf_size) || ide->atapi || ide->scsi || ide->packet_state || ide->adide || ide->byteswap || ide->board)
++		return false;
++	const bool drive = ide->hdhfd.size != 0;
++	if (!p6_ide_words_valid (w, n, drive) || secbuf_size != p6_ide_live_bytes (w, drive))
++		return false;
++	if (drive)
++		ide_grow_buffer (ide, P6_IDE_SECBUF_MAX + 2);
++	if (ide->secbuf_size)
++		memset (ide->secbuf, 0, (size_t)ide->secbuf_size);
++	if (secbuf_size)
++		memcpy (ide->secbuf, secbuf, secbuf_size);
++	struct ide_registers &r = ide->regs;
++	r.ide_select = (uae_u8)w[0]; r.ide_nsector = (uae_u8)w[1]; r.ide_sector = (uae_u8)w[2]; r.ide_lcyl = (uae_u8)w[3]; r.ide_hcyl = (uae_u8)w[4]; r.ide_devcon = (uae_u8)w[5];
++	r.ide_error = (uae_u8)w[6]; r.ide_feat = (uae_u8)w[7]; r.ide_nsector2 = (uae_u8)w[8]; r.ide_sector2 = (uae_u8)w[9]; r.ide_lcyl2 = (uae_u8)w[10]; r.ide_hcyl2 = (uae_u8)w[11];
++	r.ide_feat2 = (uae_u8)w[12]; r.ide_status = (uae_u8)w[13];
++	ide->buffer_offset = (int)w[14];
++	ide->data_offset = (int)w[15];
++	ide->data_size = (int)w[16];
++	ide->data_multi = (int)w[17];
++	ide->direction = (int)w[18];
++	ide->intdrq = w[19] != 0;
++	ide->lba48cmd = w[20] != 0;
++	ide->start_lba = ((uae_u64)w[22] << 32) | w[21];
++	ide->start_nsec = (int)w[23];
++	ide->multiple_mode = (uae_u8)w[24];
++	ide->irq_delay = (int)w[25];
++	ide->irq = (int)w[26];
++	ide->irq_inhibit = w[27] != 0;
++	ide->irq_new = w[28] != 0;
++	ide->maxtransferstate = (int)w[29];
++	ide->ide_drv = (int)w[30];
++	ide->mode_8bit = w[31] != 0;
++	ide->hdhfd.cyls = (int)w[32];
++	ide->hdhfd.heads = (int)w[33];
++	ide->hdhfd.secspertrack = (int)w[34];
++	return true;
++}
++#endif /* P6_PORTABLE */

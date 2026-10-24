@@ -1,0 +1,177 @@
+diff --git a/blkdev_cdimage.cpp b/blkdev_cdimage.cpp
+--- a/blkdev_cdimage.cpp
++++ b/blkdev_cdimage.cpp
+@@ -11,7 +11,7 @@
+ * Copyright 2010-2013 Toni Wilen
+ *
+ */
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ 
+@@ -1206,6 +1206,11 @@
+ }
+ 
+ #else
++#ifdef P6_MDS_METADATA
++#include "cd_mds_metadata.h"
++#include <string.h>
++namespace p6_cd {
++#else
+ #ifdef P6_NRG_METADATA
+ #include "cd_nrg_metadata.h"
+ #include <string.h>
+@@ -1286,7 +1291,106 @@
+ #endif
+ 
+ #endif
+-#ifndef P6_NRG_METADATA
++#endif
++#ifdef P6_MDS_METADATA
++Result mds_metadata(const void *context, ReadFn read_at, uint64_t bytes, MdsMetadata *out)
++{
++    if (!out || !read_at) return Result::Invalid;
++    // WinUAE6030 parsemds traversal; offsets also described by pinned DiscSystem
++    // MDS_Format.Parse. Decode LE fields instead of dereferencing packed structs.
++    MdsMetadata candidate{}; uint8_t buf[88]; size_t budget = 65536;
++    Result error = Result::Invalid;
++    auto read = [&](uint64_t at, void *p, size_t length) {
++        if (length > 256 || at > bytes || length > bytes - at) return false;
++        if (length > budget) { error = Result::Range; return false; }
++        budget -= length; size_t got = 0;
++        if (!read_at(context, at, p, length, &got) || got != length) { error = Result::ReadError; return false; }
++        return true;
++    };
++    auto le = [](const uint8_t *p, unsigned size) { uint64_t v = 0; while (size--) v = (v << 8) | p[size]; return v; };
++    auto signed32 = [&](const uint8_t *p) { return int32_t(int64_t(le(p, 4)) - ((p[3] & 128) ? INT64_C(0x100000000) : 0)); };
++    if (!read(0, buf, 88)) return error;
++    if (memcmp(buf, "MEDIA DESCRIPTOR", 16)) return Result::Invalid; // 16 bytes, no literal NUL/version byte.
++    candidate.version[0] = buf[16]; candidate.version[1] = buf[17]; candidate.medium = uint16_t(le(buf + 18, 2));
++    if (buf[16] != 1 || candidate.medium > 2 || le(buf + 20, 2) != 1) return Result::Unsupported;
++    const uint64_t session = le(buf + 80, 4), dpm = le(buf + 84, 4), name_limit = dpm ? dpm : bytes;
++    if (session < 88 || name_limit > bytes) return Result::Invalid;
++    if (!read(session, buf, 24)) return error;
++    candidate.session_start = signed32(buf); candidate.session_end = signed32(buf + 4);
++    candidate.session_number = uint16_t(le(buf + 8, 2)); candidate.first_track = uint16_t(le(buf + 12, 2));
++    candidate.last_track = uint16_t(le(buf + 14, 2));
++    if (candidate.session_number != 1 || candidate.first_track != 1) return Result::Unsupported;
++    if (!candidate.last_track || candidate.last_track > 99 || candidate.session_start >= candidate.session_end) return Result::Invalid;
++    candidate.tracks = candidate.last_track;
++    const unsigned blocks = buf[10]; const uint64_t table = le(buf + 20, 4);
++    if (buf[11] != 3 || blocks != candidate.tracks + 3) return Result::Unsupported;
++    bool seen[99]{}; unsigned lead_seen = 0;
++    for (unsigned n = 0; n < blocks; ++n) {
++        if (!read(table + uint64_t(n) * 80, buf, 80)) return error;
++        const MdsToc toc{buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11]};
++        if ((toc.adr_control >> 4) != 1) return Result::Unsupported;
++        if (toc.asec >= 60 || toc.aframe >= 75 || toc.psec >= 60 || toc.pframe >= 75) return Result::Invalid;
++        if (toc.point >= 0xa0 && toc.point <= 0xa2) {
++            const unsigned i = toc.point - 0xa0, bit = 1u << i;
++            if (lead_seen & bit) return Result::Invalid;
++            candidate.lead[i] = toc; lead_seen |= bit; continue;
++        }
++        if (!toc.point || toc.point > candidate.tracks) return Result::Invalid;
++        auto &t = candidate.track[toc.point - 1];
++        if (seen[toc.point - 1]) return Result::Invalid;
++        seen[toc.point - 1] = true; t.toc = toc;
++        t.mode = buf[0]; t.subchannel = buf[1]; t.sector_size = uint16_t(le(buf + 16, 2));
++        const bool audio = t.mode == 0xa9, data = t.mode == 0xaa || t.mode == 0xab;
++        if ((!audio && !data) || bool(toc.adr_control & 4) == audio ||
++            (t.subchannel == 8 ? t.sector_size != 2448 : t.subchannel != 0 ||
++             (t.sector_size != 2352 && !(t.mode == 0xaa && t.sector_size == 2048)))) return Result::Unsupported;
++        const uint64_t extra = le(buf + 12, 4), footer = le(buf + 52, 4);
++        t.start_sector = signed32(buf + 36); t.start_offset = le(buf + 40, 8);
++        if (le(buf + 48, 4) != 1) return Result::Unsupported;
++        if (!extra || !footer) return Result::Invalid;
++        if (!read(extra, buf, 8)) return error;
++        t.pregap = uint32_t(le(buf, 4)); t.sectors = uint32_t(le(buf + 4, 4));
++        if (!t.sectors || t.sectors > (UINT64_MAX - t.start_offset) / t.sector_size) return Result::Invalid;
++        if (!read(footer, buf, 16)) return error;
++        uint64_t at = le(buf, 4); const auto wide = le(buf + 4, 4);
++        if (wide > 1) return Result::Unsupported;
++        t.wide_name = uint8_t(wide); char name[1024]{}; size_t used = 0;
++        if (!at) { memcpy(name, "*.mdf", 6); used = 5; } // DiscSystem's absent-name fallback.
++        else for (;;) {
++            uint8_t c[2]; const unsigned width = wide ? 2 : 1;
++            if (at > name_limit || width > name_limit - at) return Result::Invalid;
++            if (!read(at, c, width)) return error;
++            at += width; uint32_t cp = uint32_t(le(c, width));
++            if (!cp) break;
++            if (!wide && cp >= 128) return Result::Unsupported; // No inferred legacy code page.
++            if (wide && cp >= 0xd800 && cp <= 0xdbff) {
++                if (at > name_limit || 2 > name_limit - at) return Result::Invalid;
++                if (!read(at, c, 2)) return error;
++                at += 2; const auto low = le(c, 2);
++                if (low < 0xdc00 || low > 0xdfff) return Result::Invalid;
++                cp = 0x10000 + ((cp - 0xd800) << 10) + uint32_t(low - 0xdc00);
++            } else if (cp >= 0xdc00 && cp <= 0xdfff) return Result::Invalid;
++            const unsigned count = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
++            if (count >= sizeof name - used) return Result::Range;
++            if (count == 1) name[used++] = char(cp);
++            else {
++                name[used++] = char((count == 2 ? 0xc0 : count == 3 ? 0xe0 : 0xf0) | (cp >> (6 * (count - 1))));
++                for (unsigned i = count - 1; i; --i) name[used++] = char(0x80 | ((cp >> (6 * (i - 1))) & 63));
++            }
++        }
++        if (!used) return Result::Invalid;
++        const bool wildcard = name[0] == '*' && name[1] == '.' && used == 5 &&
++            (name[2] | 32) == 'm' && (name[3] | 32) == 'd' && (name[4] | 32) == 'f';
++        if (!wildcard && (strchr(name, '*') || strchr(name, '?'))) return Result::Unsupported;
++        if (!candidate.filename[0]) { memcpy(candidate.filename, name, used + 1); candidate.wildcard = wildcard; }
++        else if (strcmp(candidate.filename, name)) return Result::Unsupported;
++    }
++    if (lead_seen != 7 || candidate.lead[0].pmin != candidate.first_track || candidate.lead[1].pmin != candidate.last_track) return Result::Invalid;
++    for (unsigned n = 0; n < candidate.tracks; ++n) if (!seen[n]) return Result::Invalid;
++    *out = candidate; return Result::Ok;
++}
++#endif
++#if !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ static void skipspace (TCHAR **s)
+ {
+ 	while (_istspace (**s))
+@@ -1329,7 +1433,7 @@
+ }
+ 
+ #endif
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ static int readval (const TCHAR *s)
+ {
+ 	int base = 10;
+@@ -1617,7 +1721,7 @@
+ #endif
+ 
+ #endif
+-#if !defined(P6_CUE_METADATA) && !defined(P6_NRG_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ #ifdef P6_CCD_METADATA
+ Result ccd_metadata(void *context, CcdReadLine read_line, CcdMetadata *out)
+ #else
+@@ -1914,7 +2018,7 @@
+ #elif !defined(P6_CCD_METADATA)
+ static int parsecue (struct cdunit *cdu, struct zfile *zcue, const TCHAR *img, const TCHAR *curdir, const TCHAR *ocurdir)
+ #endif
+-#if !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
++#if !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ {
+ #ifdef P6_CUE_METADATA
+     if (!out || !io.read_line || !io.resolve) return Result::Invalid;
+@@ -2336,7 +2440,7 @@
+ 
+ #endif
+ #endif
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_MDS_METADATA)
+ #ifdef P6_NRG_METADATA
+ Result nrg_metadata(const void *context, ReadFn read_at, uint64_t bytes, NrgMetadata *out)
+ #else
+@@ -2526,7 +2630,7 @@
+ }
+ 
+ #endif
+-#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA)
++#if !defined(P6_CUE_METADATA) && !defined(P6_CCD_METADATA) && !defined(P6_NRG_METADATA) && !defined(P6_MDS_METADATA)
+ 
+ static int parse_image (struct cdunit *cdu, const TCHAR *img)
+ {

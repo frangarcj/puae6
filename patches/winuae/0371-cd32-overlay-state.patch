@@ -1,0 +1,46 @@
+diff --git a/cia.cpp b/cia.cpp
+--- a/cia.cpp
++++ b/cia.cpp
+@@ -3511,14 +3511,22 @@
+ 	oldovl = in->oldovl != 0;
+ }
+ 
+-// The overlay is derived: the ROM is at address 0 while OVL (PRA bit 0, high when CIA-A's pin is an input) is set. bfe001_change maps it only when the
+-// bit changes; after a restore the map is whatever memory_reset left, so it is made again from PRA and DDRA, after every chunk is applied.
++// CIA profiles derive OVL from PRA/DDRA. CD32 has a one-shot latch instead:
++// every first CIA-A write clears oldovl, independently of those pins.
++bool p6_cia_autooverlay_supported(void)
++{
++    return currprefs.cs_compatible == CP_CD32 && currprefs.cs_cd32cd &&
++        currprefs.cs_cd32c2p && currprefs.cs_cd32nvram && currprefs.cs_cd32nvram_size == 1024;
++}
+ void p6_cia_overlay_rebuild(void)
+ {
+-	const uae_u8 v = cia[0].pra | ~cia[0].dra;
+-	oldovl = (v & 1) != 0;
+-	if (currprefs.cs_ciaoverlay)
+-		map_overlay(oldovl ? 0 : 1);
++    if (currprefs.cs_ciaoverlay) {
++        const uae_u8 v = cia[0].pra | ~cia[0].dra;
++        oldovl = (v & 1) != 0;
++    } else if (!p6_cia_autooverlay_supported()) {
++        return; // Unsupported modes are still refused by the boundary check.
++    }
++    map_overlay(oldovl ? 0 : 1);
+ }
+ 
+ // True when the CIAs are in a state a save can describe by their fields alone: nothing the profile does not have, and the events the CIA relies on
+@@ -3528,11 +3536,11 @@
+ 	const char *w = NULL;
+ 	if (resetwarning_phase || resetwarning_timer)
+ 		w = "a reset warning is in progress";
+-	else if (!currprefs.cs_ciaoverlay)
++	else if (!currprefs.cs_ciaoverlay && !p6_cia_autooverlay_supported())
+ 		w = "the profile has the CIA overlay";
+ 	else if (currprefs.keyboard_mode)
+ 		w = "a keyboard mode other than the A500's own";
+-	else if (oldovl != (((cia[0].pra | ~cia[0].dra) & 1) != 0))
++	else if (currprefs.cs_ciaoverlay && oldovl != (((cia[0].pra | ~cia[0].dra) & 1) != 0))
+ 		w = "the overlay latch disagrees with CIA-A";
+ 	else {
+ 		for (int n = 0; n < 2 && !w; n++) {

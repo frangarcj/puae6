@@ -1,0 +1,544 @@
+{
+  "cases": {
+    "a1200-boot-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "126362501ea0173750533a913267cc7478360e3bf583440dec1c3017f2b5256e",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a1200-copper_irq-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "f96167ca4cb7062c2b7cd3ffdb65a41b83a4c99d0a4b271945d3217f326f4ead",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a1200-long_ops-pal": {
+      "av": "cff34e57f0da03baf8b7bd7f4541d9a476adc15dd7ee5dd9a4c98fefa9e0a3f2",
+      "hardware": "82bc7ef977b109818a51b5136b9b6fa7a598244cdbebdcf9270fb80c3b0aa065",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a1200-vsync-fast8m": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "159f4f18c50a0969f01a85bccf1d1f6ad845623b48df7665dc1c07d6e9d1a3c5",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-boot-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "47cec223ce1fdd2509dd01e0aa538373a8c3ae8426378caf097297d75426a2af",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-copper_irq-ntsc": {
+      "av": "733410d6cee7a0f3631b11ce1745d4859773bee0a44497ee890544e92b03080e",
+      "hardware": "6608f2fa352f7c39ba2fb996525c54cb1bbfea24cf72920c4017cf91513f4301",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-copper_irq-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "3f77772c88b3023bdcba77186d29e6e361b823d52e80857d68167390cde4a1c8",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-flip-lace-ntsc": {
+      "av": "82e927e9517b1f96682cbddb8273110adf6c6c4acde07519fef86108bcf6468c",
+      "hardware": "7c1431b69e30e73714d8262717ed481f786cc295b062e25a2360b5a712b55b48",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-flip-lace-pal": {
+      "av": "880c2bdfd94011ca7fccb11f6659e82be8c5158d9fbe2d480ef81285278068bf",
+      "hardware": "b8e758e80ba398a77862311b8e61020a5764857b303f8d33638b33461e917f9b",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-halt-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "cc5468216cf65a85dab2a3165bb956012377163e37e224046267429214f745f0",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-hires-bars-ntsc": {
+      "av": "24f9a1d94608111cff6433b02d90ae57f32061279126f3abeff9bea171e04d5c",
+      "hardware": "88bd3323b99c70e0e725c5e327fe28d3b9a6e2b29c581e2a77ff8a276d68abf9",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-hires-bars-pal": {
+      "av": "670cea08580921a3940698718651bc9ba41f9d6da3e39a19f70dfc45397a2424",
+      "hardware": "0f9f58fb653429331ffb19aad291a2f7efb0d1234550103ada57e1f88b54cfc6",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-hires-lace-fields-ntsc": {
+      "av": "0390ff9d5d729fae598635141d9568d89669d966ce96e7cd23074dea0ca24ee8",
+      "hardware": "cc20983734df7fdd0df2e1774a62c3162c02b0e1b09725b5ce3a314a8d8b803c",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-hires-lace-fields-pal": {
+      "av": "4ea1c37435136d4455a8722867c039aa45432820bc8749e5cf9a32fa725c2659",
+      "hardware": "b7f48f17f2f08f73d22d8c26cdaa20b4b09d0954e014617dd330cecada2b11b2",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-input_all-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "d9138716556f131246af7f931a8bd9e3fb472f80084e08b8941e4353dcf3d7a2",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-input_rotate-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "a1425fd807d07bd8fadb646e624f3e9b517a0747bff2dad60faf25a8793238c6",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-lof_stuck-ntsc": {
+      "av": "5695032fc39ea6a091be292ae6132c8e16b89af5dba237e239db99385f01eded",
+      "hardware": "eed1d612842df6e08ff36563374ae2a766b4ced23d86af8d204879c7208dfd06",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-lof_stuck-pal": {
+      "av": "ed6b0dcf1636d3d882416607d9e086a708b9afd88a932802fba2e118ed9a3b14",
+      "hardware": "440cda9c92333479b2601ab18a492d2aefd134f328a9c383eab48741394f83d8",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-long_frame-ntsc": {
+      "av": "7aaa4cb34a83c9b22c92bb9d66702f41ef86cb052cd548c5e7324598ce6ce868",
+      "hardware": "8cf86bf75d4f310f41abfac0c38f3454a76559067493a3679e1e36f076ca2540",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-long_frame-pal": {
+      "av": "dda588f7ea2044854c36ea7e3672b98a82e25f352e2037c1a7c0fcf383bc41b4",
+      "hardware": "a6b5b7229d7b1656447ef9f5e3e96f3f802af44c7d63e18bf30c0c456872bb19",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-long_ops-pal": {
+      "av": "a8d4036590009d2ce376e6eb8559347109d0e7671b57fd93893513b9cc4bf0f8",
+      "hardware": "8477dfa7d76d4a4c62fb575971b8117612a5ab4180f927f02ad5d8d3ee72edd0",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-lores-bars-ntsc": {
+      "av": "a898cb87c9718ec2cf09d99df142c201e0b21c203a92f25f3a9e844b6d6edb22",
+      "hardware": "a034caff6f26a06acc0906d3836fb519a4a6247decbee7f97a42e9911bfa0d65",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-lores-bars-pal": {
+      "av": "7ca4d352c552afe4f21a55adf95fdc91113b6983e1408c52cf0b500e22b6a0c8",
+      "hardware": "2e9bf1212cfcc512e24ee8fff4f3cbd0d7da28f6f84234384db847e8d26ae0f1",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "a500-stop-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "d604212c50692a1d809c45d377dbf711657d81fa8cc937e061513422f6ef778f",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-trace-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "9321c70a3b148e112a2f3a0f77e7aabc1798d4a7fa7365bc152192f5800607f1",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-user-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "b9f02f2f4bc4370ef26214cd9d1d46fb5ff08d5105a04ca541e6768064decb6c",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-vsync-chip1m": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "441eff78caea0757fd1bb764f47c4f80f6c0f3f4a8e9672a330909dfe5044d89",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-vsync-ntsc": {
+      "av": "733410d6cee7a0f3631b11ce1745d4859773bee0a44497ee890544e92b03080e",
+      "hardware": "d506497394ac5dcd7e8821ff16f117b56e46788745cd0e97d8ed7c2e2fa20dc8",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-vsync-pal": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "3745e62451fb2f3f279ee685e64838bb045560b704c9f49c2dd2818553e5265a",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-vsync-seed7": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "078588f8a91679189952e52416022e001ded998bf1e8dfbe711e179ab1d08ea1",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a500-vsync-slow-none": {
+      "av": "e6e90c48c3ff921de348903b3f1d40e5cd583458e199080102912ab9b502fd1a",
+      "hardware": "d9aa337600fb29d24658021e967a0d1802ef788b108e813e64564c335f362c68",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a600-boot-pal": {
+      "av": "51e9972a23d1d238cb1a36826dd5ecb4764e0d84df69a73285849f1c6330ea59",
+      "hardware": "dcd332095a8d83289f7b0fd9aa029b97eb46547fd7a84376b63ca47c29b3f02a",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a600-copper_irq-pal": {
+      "av": "51e9972a23d1d238cb1a36826dd5ecb4764e0d84df69a73285849f1c6330ea59",
+      "hardware": "a6ba0a984b3a672eced4cf81b47620b39f66a3670b40774f1f00da43fc42c278",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a600-long_ops-pal": {
+      "av": "a6627206fd656963ea1fce711f98284a1bff96098e07a875c24a46987c530da6",
+      "hardware": "a5215fa25b4e801a9918a756bc9fefb6e525526addb96512d41e24c4a2bb4c3b",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "a600-vsync-chip1m": {
+      "av": "51e9972a23d1d238cb1a36826dd5ecb4764e0d84df69a73285849f1c6330ea59",
+      "hardware": "0f56397894e59cb825678c658e92281b35505df95d12a7f8f1a4295dbdb8ffcb",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "aga-bars24-ntsc": {
+      "av": "f209c7c480090d4d9f1d3872c1f4f76b1fa7b2657ad678fda14a8df4287eb87e",
+      "hardware": "171837c49c259badd4ba416e0903aaab872dfd085987594c38a53815c0d4d4de",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-bars24-pal": {
+      "av": "04782b9f6a303fa00b3c0d72c5af176b9457a105195ce6b00b4bf2cc7dd11f3e",
+      "hardware": "46be90106fec79633ab7b098d18a085bad7b1b4ac06bc9d9cd531c7fceb8cc84",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-ham8-fmode3-ntsc": {
+      "av": "b5e4d65abf2fbbd66f237b7548e5e4c2bc3600187808ca32586a6b26c53ea4fc",
+      "hardware": "deda10936fc6c180476a615fe6bced608e4c9127cf5d8f66da24b8620f23ed07",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-ham8-fmode3-pal": {
+      "av": "84d24c121409942a418bfece0a4f3cb6f2bcade29b9603d8ff04f86c91cad60b",
+      "hardware": "f55a264062a10b3f9c8bc44d3aedccfc2adb349e8ef72f42a6a59142e84d4363",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-ham8-ntsc": {
+      "av": "b5e4d65abf2fbbd66f237b7548e5e4c2bc3600187808ca32586a6b26c53ea4fc",
+      "hardware": "ae4ad03edc6aa5c945e5ea7661c7976a3fab15ecbe937e85e10ea361e74ffcd6",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-ham8-pal": {
+      "av": "84d24c121409942a418bfece0a4f3cb6f2bcade29b9603d8ff04f86c91cad60b",
+      "hardware": "1f17328f57c8aaba7f6f070a3e2df416672c195d4a1bf117217791ff3479b338",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-hires4-fmode1-pal": {
+      "av": "3c902521a0283f4566db57a9e4fe2744cc4699c92fe5fd863c0ce54d42ba66a5",
+      "hardware": "ea2bd7ffe32425fc945c3c420d34128f84c423703174bf324ec84177ef1521ab",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-hires4-fmode3-pal": {
+      "av": "3c902521a0283f4566db57a9e4fe2744cc4699c92fe5fd863c0ce54d42ba66a5",
+      "hardware": "68f3ab8611a950c21901bfee4cacd40d3a9948a4eaab664755e517b8f5ca44d2",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-hires4-pal": {
+      "av": "3c902521a0283f4566db57a9e4fe2744cc4699c92fe5fd863c0ce54d42ba66a5",
+      "hardware": "2b3ce2fa077a902bf596d6194a8bb4e7f9050064efd1fdc3b638edeef1875c6e",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-palette12-pal": {
+      "av": "5a82fbbb5cae65198609ccf547cd95041a3df59c280299c9ada15e3d30914ba4",
+      "hardware": "484a30e2e5bc5eec9e1ac8b906f015a5cd56d4c6fc8182fa25fa90d5148a9727",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-fmode1-pal": {
+      "av": "17281ada8179351c955342a56beae1bfe80a0f3839f2f05c5ec703f5764e8aae",
+      "hardware": "af33caee61fe0d7ac280279898a40ee6f791fe4184810b3bad8abebdc3e92f64",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-fmode3-ntsc": {
+      "av": "881843d67a039980d2fd12d2e4df39836b1a69e07b582dc910495d78b5afe5b8",
+      "hardware": "fbc3258c81dd7ea5e9820d67d85e8c53050b532b3e47ebf1fe109dab81daa6b7",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-fmode3-pal": {
+      "av": "17281ada8179351c955342a56beae1bfe80a0f3839f2f05c5ec703f5764e8aae",
+      "hardware": "e5f204b602918793a2d53e6b69b3bc28c2cc80a10bac04d3cb90ef54ea83dfef",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-pal": {
+      "av": "17281ada8179351c955342a56beae1bfe80a0f3839f2f05c5ec703f5764e8aae",
+      "hardware": "85025ec95289af6fbcd6e26a66eed690a28a12d44748eaa7a153041c35201757",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-short-pal": {
+      "av": "6d2a453a67cfc396bd547565d1e9aa9c004dbceaaee4dc30ee9aee879eed9dc0",
+      "hardware": "3d29f92a5617d416c43293fe2b17b2b389ad166c57847ecf1ee2728dce2e551c",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-planes8-xor-pal": {
+      "av": "508ccbe790273892cfd2c68d916af36f777ab193dfae550f19a1eb411590ae0c",
+      "hardware": "a6eeeafe1c3e98e52480dea33e2ed0e1edc092c1b8395eae2cb0c5b15a9c24fe",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-sprite16-pal": {
+      "av": "fd9c253b4a55aefc1a4d179cfcac43d32f3bec28e3d47e96e64b99b141f6e303",
+      "hardware": "0b1753665e3069bb35e1b8cafb8bcaa14a26874969995ea7bb45abf23a3b0f8e",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-sprite32-pal": {
+      "av": "3c849e40abc374bf1236086427595ff8518b5d74b7ece5f213da23326ef3d0bd",
+      "hardware": "c0c1ac25b718baea72e859e26e0a516cc491df5323b455579a3b98d0186ab582",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "aga-sprite64-pal": {
+      "av": "61886bec586e99364e8d607ce86e5f82627465372a8d4779fbbc0ea1b0050819",
+      "hardware": "ff8df873c517d1739558319869d11e6a3dffecd2c15392c49044b0d3b0726c31",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "audio-tone0-44100": {
+      "av": "977da02d57647197316d6026e520b2de28433f2f09d3e16933b5edc5b0c682c2",
+      "hardware": "2e47e379612ef77e6746bd23eed425c1f5d68f4eae609708a54f973707229369",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone0-44100-ntsc": {
+      "av": "e6fcb609f9e8bc50cf0dc5b9ee113a738d802df7be1a8b4f40eb41c405d4c327",
+      "hardware": "9a6c663890fb3cc998c8d847e9ee2ed33d84afc7ef4aae4ecde4bfaf43e3a4f0",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone0-48000": {
+      "av": "e8b7ba28cc83094db0022431b3c7c591a30c3c385f66056ce40cbbc9c842aef6",
+      "hardware": "24228bc6406c178ad2f795774475ed93b5411bde867501edf3890cc173416c72",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone2-44100": {
+      "av": "596efb93c6e969cae170351c57cb3812d83d3c81a496ae2f6c66928f1c91b8e8",
+      "hardware": "e8e1a74b86d9a85a99bc586d04103da497ce37ca8726287da2714f08168fed67",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone2-44100-ntsc": {
+      "av": "4ae37b34772a07f0f841cb9158f47517e49201d40f2d33259e500cbb3204b66c",
+      "hardware": "98cdad7cf3abedbc9a62c230a79a368e143c37dec7106b862793a5ad23f69c59",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone2-48000": {
+      "av": "b06db36e41af9fa7b9db60573876362d6fa8769c9e9b1c7381ee0c856c02929e",
+      "hardware": "9d3d2b97286d127f082052e3108e66e9b3d0b70a960198939d917577b71541d6",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone_all-44100": {
+      "av": "df9511502c4f34841cd74d18568384dfc865d78a377040d53304d01cb140bd28",
+      "hardware": "442c9389d61f271c1dfd67ca9e43a39ee3ba544bd7711326e869e9f590bb966f",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone_all-44100-ntsc": {
+      "av": "4045df2a1c392c77d6af018813ed74e840ab2641ac15a7662d95589d67857130",
+      "hardware": "19548f75a8e19d6a034c0c01727278c8e40d514fb8c956929f004f0782a0c99f",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone_all-48000": {
+      "av": "db9b79697e42ad1f33aac0887c4b5667aa1a9c1fb78ed9de77ebea7fee263beb",
+      "hardware": "1ca1105e85c31d413b956dab8352d964b6fe9e932118c4ef4c102ff055e63dc3",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "audio-tone_all-a1200": {
+      "av": "8c6103dddd96edeb78e672c01cf7e80b74dd23580caae5b3e0b6d112d45895a6",
+      "hardware": "1d6008a8c5afc0e13f9b9874cbb50f5501c46b09f82dcbdadd799fdef0d30e2b",
+      "probe_schema": 2,
+      "units": 9
+    },
+    "ecs-beam-productivity-pal": {
+      "av": "d825325d6f4f5a2aaa261d020a67378adc390b47f9eb4d5925779e4a2e512105",
+      "hardware": "66980e25512aaf47cd4717b5bfa3f8b72d9c4759b77de0956f763adf30f23dcd",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-productivity-shres-pal": {
+      "av": "a9f9c1393278b3f1e68f8cc17ff8c5ccb373c6e18e03bb40e9e99ce4b4d715fb",
+      "hardware": "dac6bf33b26360f77a3ce5314648b8380bf8abdd30dd1e1e734a0768050edf4c",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-same-pal": {
+      "av": "6ab22ae9def2ad21700cc87b5f1fa31306b2f22c32e0c3fb574a251492b1f530",
+      "hardware": "709049dc34979d7d5d0f17999ec3856641c6ffb68d5fe617218499d643a6974a",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-to-ntsc-pal": {
+      "av": "64130c9557d83eec0b84527971e88bcab275bcbdb24c43504543106d905e24ff",
+      "hardware": "f8979c98fc88e6edfb3ed10c059113ff2bbde793980765f7655d27c50df2b660",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-to-pal-pal": {
+      "av": "6ab22ae9def2ad21700cc87b5f1fa31306b2f22c32e0c3fb574a251492b1f530",
+      "hardware": "709049dc34979d7d5d0f17999ec3856641c6ffb68d5fe617218499d643a6974a",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-toggle-pal": {
+      "av": "94abcafe89277204997e7d086ea9ac2dd62c8fffc0e68b7414116e1ac78cbeb8",
+      "hardware": "35a423f535822f4f3ad2c7055a527bf6f059df8bea56ebf1a75c971f39462cd9",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-var-less-pal": {
+      "av": "bccd0060577909e970ba3400d9aa0473e51424109fcc2be9d7b6b514ea8d06cb",
+      "hardware": "d9464ea68cd59b8405e24081deef3fb39988931f441c99eaefabac36291302d5",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-var-more-pal": {
+      "av": "f255e588a5734fa0303d29453a774e016be5884274019acd8ab0af6edfb86f27",
+      "hardware": "8762966ac8194ab6ef1556768a338f488ad63a6c14b8e1d2b255f2a5f5fcfdfa",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-var-tall-pal": {
+      "av": "92bab4528df58eed45c053d35c2f975f2c3a73d33dac737962e32dfec0896053",
+      "hardware": "034798df85ab814f0cde27ee99f15c8e19aaf7875af2210fa5e68e251321f214",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-var-tallest-pal": {
+      "av": "c70a5485b901ba5137735b8c839310b6feb6a358be4db7f9744f66494f23875d",
+      "hardware": "7e51c52bce5c089e297859ea9a1cd90b81792fa7716709d6a7bb40ff01f2a828",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-beam-var-wide-pal": {
+      "av": "4eb7371bffb8036ce3d5965cffc5c6d305a98f7b9a2680781b3746de9b125460",
+      "hardware": "e89182220c625269e50981df157adc300f5d47c84419cf68880d8276bd35df1d",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-chip1m-pal": {
+      "av": "c65bb686c698cac552dacacdf247991f2ba589ff1552b55c4334bfc30cd7718d",
+      "hardware": "7e49e433e505978c057713528054cff9b1065de768596e92df3fba621042b0c4",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-diwhigh-start-pal": {
+      "av": "80d3e78d7127511e9a369eaa92f56852a7d6d91ef5c94d1c35b9021e3588c529",
+      "hardware": "45c1270830659509da56ebb84a58729f95a60528da1650fac0913813938a164b",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-diwhigh-stop-pal": {
+      "av": "282015430108bb353282e7801594087c0d9d666ce49b9b0ff5647abf6790bfb8",
+      "hardware": "9e4fa515760dcbf6ba62476736a524b9414d7bba698703f11c7988cf524584ea",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-diwhigh-v-pal": {
+      "av": "cbfcd2510813f501f57eeecfe6067fb39e6d3672aac33a5a4f0f3956be7f14d0",
+      "hardware": "0701df9e3655ffb5883f36ac5779aadb4ba55008cc9924c4e6ecd2e7c8174c59",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-hires-bars-pal": {
+      "av": "0034590a2a39b3cdad84ac61444b166077357c5f1c02f587ab0c1c82e0ed09c2",
+      "hardware": "bf650fb604123e90c2f95b0e49a6ce80f4d583ca5fa37fa89e184ea81ca21946",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-ident-ntsc": {
+      "av": "5e1657a66a795fc3809688eeadc1db0b43e9794233d4344de8c451addda4fd04",
+      "hardware": "f1add54e038bcac8c357dc4a0d0ddd371239a43fbb13710d9a1d2186d7cadafc",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-ident-pal": {
+      "av": "292a7da3c55c940aadd3ce1ab60bacc8e616eab112a4eaf9ee8cfbad16376bfc",
+      "hardware": "154ec54fc86702fc6cf0c4f234bffef151c30bcd204607d842d7b85a9debcdda",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-lores-bars-ntsc": {
+      "av": "afb297a1555a06c0dc86bf644150cf1a326b182427921d23dc59b70b32dca76f",
+      "hardware": "dbb10892ecd48c35ac5511f5ddf73ace337e7a3e1f4a2635688133d25d7230bd",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-lores-bars-pal": {
+      "av": "6ab22ae9def2ad21700cc87b5f1fa31306b2f22c32e0c3fb574a251492b1f530",
+      "hardware": "e822b0852a3bfbf54a98d8592e9e311feb0df846d48e49e799a0abf844c35ffc",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-shres-ntsc": {
+      "av": "b216ee420c495daeed30bef2dc3f2b8f05ff7282194efc24e31637d3fb719901",
+      "hardware": "08f2aabbf7f5d4e69389ae3b08ee6bf430345576a1e2cb5e72c575c0b5021936",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "ecs-shres-pal": {
+      "av": "1ae6138a5e134e91ef6946d87ddab3bf4781785b7f2f9745062faa195122284d",
+      "hardware": "f586292ef64e1ac76956a7f2d2275ea01ff925e9bbe2926680b9af2b642e8482",
+      "probe_schema": 2,
+      "units": 7
+    },
+    "input-keys": {
+      "av": "327fc1d7249a2224bc07a8733341bbcbdcf5ea2711f4b4bc2563326de6cd812d",
+      "hardware": "2aa811c4980b36211659d5f88213521add179ab17145715de0bb3f5c35692874",
+      "probe_schema": 2,
+      "units": 10
+    },
+    "input-mouse": {
+      "av": "e22a651dc1817a5089066a1fd5308459d0dcaa30f24c40f280ee1a6de89165dc",
+      "hardware": "e4049e269b9c6c961e4847bbb0f33f7818f96473f761e2613df1a867a0a50f28",
+      "probe_schema": 2,
+      "units": 6
+    },
+    "input-types": {
+      "av": "cb4a6f5bb96447917619257d63ad2e6326625a4e47ce924f4da103ee87cbda31",
+      "hardware": "3b811b395ca0795592b18fdcd0f870080e174aff5b18a803f2d18bd060dcc711",
+      "probe_schema": 2,
+      "units": 8
+    }
+  },
+  "corpus": {
+    "cases": 89,
+    "sha256": "8de6c7f33b50a88939d099f8b1021ffad502ea4911d64c1b14f149f21c5757b9"
+  },
+  "probe_schema": 2,
+  "schema_version": 1
+}

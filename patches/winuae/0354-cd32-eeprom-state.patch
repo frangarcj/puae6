@@ -1,0 +1,59 @@
+diff --git a/flashrom.cpp b/flashrom.cpp
+--- a/flashrom.cpp
++++ b/flashrom.cpp
+@@ -592,6 +592,55 @@
+ 	struct bitbang_i2c_interface *i2c = (bitbang_i2c_interface*)fdv;
+ 	eeprom_reset(i2c);
+ }
++
++#ifdef P6_PORTABLE
++#include "cd32_eeprom.h"
++
++/* Geometry is derived; the snapshot never contains bindings or host callbacks. */
++static bool p6_cd32_eeprom_shape(const bitbang_i2c_interface *s)
++{
++ return s && s->memory && s->size == 1024 && s->addressbitmask == 3
++  && s->device_address == 0xa0 && s->device_address_mask == 0xf0
++  && !s->zf && !s->read_func && !s->write_func;
++}
++
++void *p6_cd32_eeprom_new(uint8_t *memory)
++{
++ return memory ? eeprom_new(memory, 1024, nullptr) : nullptr;
++}
++
++bool p6_cd32_eeprom_get(void *chip, p6_cd32_eeprom_state *out)
++{
++ const auto *s = static_cast<const bitbang_i2c_interface *>(chip);
++ if (!out || !p6_cd32_eeprom_shape(s)) return false;
++ out->state = s->state;
++ out->last_data = s->last_data; out->last_clock = s->last_clock;
++ out->device_out = s->device_out; out->buffer = s->buffer;
++ out->estate = s->estate; out->current_addr = s->current_addr;
++ out->eeprom_addr = s->eeprom_addr; out->write_offset = s->write_offset;
++ memcpy(out->memory, s->memory, sizeof out->memory);
++ return true;
++}
++
++bool p6_cd32_eeprom_set(void *chip, const p6_cd32_eeprom_state *in)
++{
++ auto *s = static_cast<bitbang_i2c_interface *>(chip);
++ if (!in || !p6_cd32_eeprom_shape(s) || in->state > SENT_NACK
++  || in->estate > I2C_DATA || in->last_data > 1 || in->last_clock > 1
++  || in->device_out > 1 || in->buffer > 255
++  || in->current_addr < -1 || in->current_addr > 255
++  || in->eeprom_addr < 0 || in->eeprom_addr >= 1024
++  || in->write_offset < -1 || in->write_offset >= 1024) return false;
++ s->state = static_cast<bitbang_i2c_state>(in->state);
++ s->last_data = in->last_data; s->last_clock = in->last_clock;
++ s->device_out = in->device_out; s->buffer = in->buffer;
++ s->estate = static_cast<eeprom_state>(in->estate);
++ s->current_addr = in->current_addr; s->eeprom_addr = in->eeprom_addr;
++ s->write_offset = in->write_offset;
++ memcpy(s->memory, in->memory, sizeof in->memory);
++ return true;
++}
++#endif
+ 
+ /* FLASH */
+ 

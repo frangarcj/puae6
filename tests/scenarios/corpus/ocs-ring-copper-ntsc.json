@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scenario_id": "ocs-ring-copper-ntsc",
+  "profile": "deterministic-a500",
+  "config": {
+    "machine": "A500",
+    "video_standard": "NTSC",
+    "audio_rate_hz": 48000,
+    "random_seed": 1,
+    "rtc_epoch_seconds": 946684800,
+    "chip_ram_bytes": 524288,
+    "slow_ram_bytes": 524288
+  },
+  "firmware": [
+    "349d8b24847ee158987bff42992b7d3c516e1a77491b5e072a853b7fa7565326"
+  ],
+  "media": [],
+  "program": null,
+  "units": 8,
+  "inputs": [
+    {
+      "unit": 0,
+      "keys": "00000000000000000000000000000000",
+      "ports": [
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "joystick",
+          "buttons": 0,
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "checkpoints": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "probes": [],
+  "render": true,
+  "audio": true
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/sizious/cdi2nero",
+  "commit": "f43561d27e9a75061171f0e69a872c9439ccf898",
+  "license": "GPL-2.0",
+  "files": {
+    "cdi2nero.c": {
+      "sha256": "ee1aca824898ef62a4ef3e58206abdf4c8c3e35bbaf540811407bdadf3a5e07f",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/cdi2nero.c"
+    },
+    "cdi2nero.h": {
+      "sha256": "c9fda1ac16b2c3cf0c428bdd6fcd3deda226b545724decb0a9ba17d1d7a13218",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/cdi2nero.h"
+    },
+    "cdi.c": {
+      "sha256": "a8249cc4f75956180b87581e6db024ffb6c03b0eedeb9c36080eb119cda4ea00",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/cdi.c"
+    },
+    "cdi.h": {
+      "sha256": "da8212aa47522440be7a6755fc2288572ac71c8bb5f3bca001d313c1c5042288",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/cdi.h"
+    },
+    "buffer.c": {
+      "sha256": "022ff0d510e7c293114bb1fba7460aec203a0082784722ef2566d5f1cc738c72",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/buffer.c"
+    },
+    "buffer.h": {
+      "sha256": "8b53fb5d3f9c16db419641cf965d0d530edde29fc9f928cf493c8225d82a22ce",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/buffer.h"
+    },
+    "common.c": {
+      "sha256": "de6456ad3a4549c7b702f93b87066797874a1683c2838bea54c0ca5a01d5f8af",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/common.c"
+    },
+    "common.h": {
+      "sha256": "520e815dd65a477215c8951d6229354a27f06218503a7d580c535094f3b9cde2",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/src/common.h"
+    },
+    "LICENSE": {
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "url": "https://raw.githubusercontent.com/sizious/cdi2nero/f43561d27e9a75061171f0e69a872c9439ccf898/LICENSE"
+    }
+  }
+}

@@ -1,0 +1,324 @@
+diff --git a/gayle.cpp b/gayle.cpp
+--- a/gayle.cpp
++++ b/gayle.cpp
+@@ -35,6 +35,15 @@
+ #include "devices.h"
+ #ifdef WITH_DSP
+ #include "dsp3210/dsp_glue.h"
++#endif
++
++#ifdef P6_PORTABLE
++/* T56: Gayle of the A600 and the A1200 with its IDE port (hard files on the block backend of the session) and nothing else of the chip: the registers of the IDE
++ * interrupt and the Gayle ID. No PCMCIA card slot (cs_pcmcia is 0, the bridge checks it: no card memory, no card insertion, no NE2000, SRAM or Archos card, no
++ * IDE card), no A3000/A4000 resources (Fat Gary, Ramsey, the NCR SCSI) and no Dataflyer. The drives are given by the bridge before the machine starts
++ * (p6_gayle_unit) and every reset opens them again; the native state is read and put back by p6_gayle_state_* and p6_gayle_drive_state_*, at the end of the file. */
++bool p6_ide_state_get(struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *secbuf, uint32_t *secbuf_size);     // ide.cpp
++bool p6_ide_state_set(struct ide_hdf *ide, const uint32_t *w, unsigned n, const uint8_t *secbuf, uint32_t secbuf_size);
+ #endif
+ 
+ #define PCMCIA_SRAM 1
+@@ -149,22 +158,28 @@
+ #define PCMCIA_IDE_ID 2
+ 
+ static struct ide_hdf *idedrive[TOTAL_IDE * 2];
++#ifndef P6_PORTABLE
+ static struct ide_hdf *archoshd[2];
+ struct hd_hardfiledata *pcmcia_disk;
++#endif
+ 
+ static int pcmcia_card;
+ static int pcmcia_readonly;
+ static int pcmcia_type;
+ static uae_u8 pcmcia_configuration[20];
+ static int pcmcia_configured;
++#ifndef P6_PORTABLE
+ static int pcmcia_delayed_insert, pcmcia_delayed_insert_count;
++#endif
+ static int external_card_int;
+ 
+ static int gayle_id_cnt;
+ static uae_u8 gayle_irq, gayle_int, gayle_cs, gayle_cs_mask, gayle_cfg;
+ static int ide_splitter;
+ 
++#ifndef P6_PORTABLE
+ static struct ide_thread_state gayle_its, pcmcia_its;
++#endif
+ 
+ static bool ne2000_pcmcia_irq;
+ 
+@@ -587,6 +602,9 @@
+ {
+ 	if (!dataflyer_state)
+ 		return false;
++#ifdef P6_PORTABLE
++	return false;      // dataflyer_state is set by the Dataflyer board, which is not built
++#else
+ 	uaecptr addrmask = addr & 0xffff;
+ 	if (addrmask >= GAYLE_IRQ_4000 && addrmask <= GAYLE_IRQ_4000 + 1 && currprefs.cs_ide == IDE_A4000)
+ 		return false;
+@@ -642,6 +660,7 @@
+ 	else
+ 		*v = soft_scsi_get(addrbase | reg, size);
+ 	return true;
++#endif
+ }
+ 
+ static bool isa4000t (uaecptr *paddr)
+@@ -890,6 +909,7 @@
+ 	gayle2_write (addr, value);
+ }
+ 
++#ifndef P6_PORTABLE
+ static uae_u8 ramsey_config;
+ static int gary_coldboot;
+ int gary_timeout;
+@@ -1894,9 +1914,17 @@
+ {
+ 	gayle_common_write_byte (addr, value);
+ }
++
++#endif /* !P6_PORTABLE: Fat Gary/Ramsey and the PCMCIA card slot */
+ 
++#ifdef P6_PORTABLE
+ static void gayle_map_pcmcia (void)
+ {
++	// no PCMCIA slot is built (cs_pcmcia is 0): there is no card memory to map, as the first test of the function below says
++}
++#else
++static void gayle_map_pcmcia (void)
++{
+ 	if (currprefs.cs_pcmcia == 0)
+ 		return;
+ 	int idx = 0;
+@@ -1927,13 +1955,16 @@
+ 			map_banks_cond (&gayle_common_bank, PCMCIA_COMMON_START >> 16, PCMCIA_COMMON_SIZE >> 16, 0);
+ 	}
+ }
++#endif
+ 
+ void gayle_free_units (void)
+ {
+ 	for (int i = 0; i < TOTAL_IDE * 2; i++) {
+ 		remove_ide_unit(idedrive, i);
+ 	}
++#ifndef P6_PORTABLE
+ 	freepcmcia (1);
++#endif
+ }
+ 
+ #if 0
+@@ -1963,8 +1994,31 @@
+ 	if (ch >= 2 * 2)
+ 		return;
+ 	ide = add_ide_unit (idedrive, TOTAL_IDE * 2, ch, ci, NULL);
++#ifdef P6_PORTABLE
++	(void)ide;      // the drive is idedrive[ch]
++#endif
++}
++
++#ifdef P6_PORTABLE
++/* The hard files of the session, given by the bridge once, before the reset head (the way bridge/media.cpp adds a mount configuration for the UAE controller): unit 0 and 1
++ * are the master and the slave of the Gayle channel, 2 and 3 those of the second channel behind the IDE splitter. initide opens them on every reset, as filesys_reset
++ * does with the units of its mount list. */
++static struct uaedev_config_info p6_ide_unit[TOTAL_IDE * 2];
++
++void p6_gayle_units_clear(void)
++{
++	memset(p6_ide_unit, 0, sizeof p6_ide_unit);
+ }
+ 
++bool p6_gayle_unit(int ch, const struct uaedev_config_info *ci)
++{
++	if (ch < 0 || ch >= 2 * 2 || !ci || p6_ide_unit[ch].type)
++		return false;
++	memcpy(&p6_ide_unit[ch], ci, sizeof p6_ide_unit[ch]);
++	return true;
++}
++#endif
++
+ static void gayle_init(void);
+ 
+ bool gayle_ide_init(struct autoconfig_info *aci)
+@@ -1983,6 +2037,7 @@
+ 	return true;
+ }
+ 
++#ifndef P6_PORTABLE
+ bool gayle_init_board_io_pcmcia(struct autoconfig_info *aci)
+ {
+ 	aci->start = PCMCIA_ATTRIBUTE_START;
+@@ -2156,6 +2211,8 @@
+ 	}
+ }
+ 
++#endif /* !P6_PORTABLE: PCMCIA cards */
++
+ static void gayle_hsync(void)
+ {
+ #ifdef WITH_PCI
+@@ -2164,6 +2221,7 @@
+ #endif
+ 	if (ide_interrupt_hsync(idedrive[0]) || ide_interrupt_hsync(idedrive[2]) || ide_interrupt_hsync(idedrive[4]) || checkpcmciane2000irq())
+ 		devices_rethink_all(rethink_gayle);
++#ifndef P6_PORTABLE
+ 	if (archoshd[0])
+ 		ide_interrupt_hsync(archoshd[0]);
+ 	if (pcmcia_delayed_insert_count > 0) {
+@@ -2173,14 +2231,26 @@
+ 			pcmcia_delayed_insert = 0;
+ 		}
+ 	}
++#endif
+ }
+ 
+ static void initide (void)
+ {
++#ifdef P6_PORTABLE
++	// every reset opens the hard files again (their content is the same: a write overlay lives in the block backend, not in the drive)
++	for (int i = 0; i < TOTAL_IDE * 2; i++)
++		remove_ide_unit(idedrive, i);
++	alloc_ide_mem (idedrive, TOTAL_IDE * 2, NULL);
++	for (int i = 0; i < 2 * 2; i++) {
++		if (p6_ide_unit[i].type)
++			gayle_add_ide_unit (i, &p6_ide_unit[i], NULL);
++	}
++#else
+ 	gayle_its.idetable = idedrive;
+ 	gayle_its.idetotal = TOTAL_IDE * 2;
+ 	start_ide_thread(&gayle_its);
+ 	alloc_ide_mem (idedrive, TOTAL_IDE * 2, &gayle_its);
++#endif
+ 	ide_initialize(idedrive, GAYLE_IDE_ID);
+ 	ide_initialize(idedrive, GAYLE_IDE_ID + 1);
+ 
+@@ -2196,28 +2266,42 @@
+ 
+ static void gayle_free (void)
+ {
++#ifdef P6_PORTABLE
++	gayle_free_units ();
++	for (int i = 0; i < TOTAL_IDE * 2; i++) {
++		xfree (idedrive[i]);       // alloc_ide_mem allocated them: the next load allocates them again
++		idedrive[i] = NULL;
++	}
++#else
+ 	stop_ide_thread(&gayle_its);
+ 	stop_ide_thread(&pcmcia_its);
++#endif
+ }
+ 
++#ifndef P6_PORTABLE
+ static void check_prefs_changed_gayle(void)
+ {
+ 	if (!currprefs.cs_pcmcia)
+ 		return;
+ 	pcmcia_card_check(1, -1);
+ }
++#endif
+ 
+ static void gayle_reset (int hardreset)
+ {
+ 	static TCHAR bankname[100];
+ 
+ 	initide ();
++#ifdef P6_PORTABLE
++	gayle_id_cnt = 0;       // the ID register starts its sequence again with the chip
++#else
+ 	if (hardreset) {
+ 		ramsey_config = 0;
+ 		gary_coldboot = 1;
+ 		gary_timeout = 0;
+ 		gary_toenb = 0;
+ 	}
++#endif
+ 	_tcscpy (bankname, _T("Gayle (low)"));
+ 	if (currprefs.cs_ide == IDE_A4000)
+ 		_tcscpy (bankname, _T("A4000 IDE"));
+@@ -2230,10 +2314,13 @@
+ 	gayle_bank.name = bankname;
+ 	gayle_dataflyer_enable(false);
+ 
++#ifndef P6_PORTABLE
+ 	pcmcia_card_check(0, -1);
++#endif
+ 	gayle_map_pcmcia();
+ }
+ 
++#ifndef P6_PORTABLE
+ uae_u8 *restore_gayle (uae_u8 *src)
+ {
+ 	changed_prefs.cs_ide = restore_u8 ();
+@@ -2244,15 +2331,19 @@
+ 	gayle_cfg = restore_u8 ();
+ 	return src;
+ }
++#endif
+ 
+ static void gayle_init(void)
+ {
++#ifndef P6_PORTABLE
+ 	device_add_check_config(check_prefs_changed_gayle);
++#endif
+ 	device_add_rethink(rethink_gayle);
+ 	device_add_hsync(gayle_hsync);
+ 	device_add_exit(gayle_free, NULL);
+ }
+ 
++#ifndef P6_PORTABLE
+ uae_u8 *save_gayle(size_t *len, uae_u8 *dstptr)
+ {
+ 	uae_u8 *dstbak, *dst;
+@@ -2318,3 +2409,53 @@
+ 	xfree (path);
+ 	return src;
+ }
++#endif /* !P6_PORTABLE */
++
++#ifdef P6_PORTABLE
++/* Native state (bridge/state_hdf.cpp, patch 0321): values only. The registers Gayle keeps for its IDE port, in this order: 0 gayle_irq, 1 gayle_int, 2 gayle_id_cnt,
++ * 3 ide_splitter. The PCMCIA registers (cs, cs mask, cfg) and the Dataflyer are never written without a card slot or the board; false when one is not zero. */
++#define P6_GAYLE_WORDS 4
++bool p6_gayle_words_valid(const uint32_t *w, unsigned n, bool splitter);
++
++bool p6_gayle_state_get(uint32_t *w, unsigned n)
++{
++	if (!w || n != P6_GAYLE_WORDS || gayle_cs || gayle_cs_mask || gayle_cfg || external_card_int || dataflyer_state || dataflyer_disable_irq || dataflyer_byte)
++		return false;
++	w[0] = gayle_irq;
++	w[1] = gayle_int;
++	w[2] = uint32_t(gayle_id_cnt);
++	w[3] = uint32_t(ide_splitter);
++	return p6_gayle_words_valid (w, n, ide_splitter != 0);
++}
++
++/* Pure: whether the words can be the registers of Gayle on a machine whose drives are (splitter) or are not on the second channel. The bridge asks while it validates a state, before the
++ * machine has run its reset head, so that applying one cannot fail. The ID counter counts the reads of the ID register since the last write, without a bound. */
++bool p6_gayle_words_valid(const uint32_t *w, unsigned n, bool splitter)
++{
++	return w && n == P6_GAYLE_WORDS && w[0] <= 0xff && w[1] <= 0xff && w[2] <= 0x7fffffff && w[3] == (splitter ? 1u : 0u);
++}
++
++/* The inverse of p6_gayle_state_get, for a machine of the same configuration that has run its reset head (the drives are open). */
++bool p6_gayle_state_set(const uint32_t *w, unsigned n)
++{
++	if (!p6_gayle_words_valid (w, n, ide_isdrive (idedrive[2]) || ide_isdrive (idedrive[3])))
++		return false;      // the splitter follows from the drives that are there
++	gayle_irq = uae_u8(w[0]);
++	gayle_int = uae_u8(w[1]);
++	gayle_id_cnt = int(w[2]);
++	ide_splitter = int(w[3]);
++	return true;
++}
++
++/* One of the four IDE slots (0 and 1 the channel of Gayle, 2 and 3 the second one): see p6_ide_state_get in ide.cpp. A slot without a drive has registers all the same, as the two
++ * drives of a channel share them. */
++bool p6_gayle_drive_state_get(unsigned unit, uint32_t *w, unsigned n, uint8_t *secbuf, uint32_t *secbuf_size)
++{
++	return unit < 2 * 2 && idedrive[unit] && p6_ide_state_get (idedrive[unit], w, n, secbuf, secbuf_size);
++}
++
++bool p6_gayle_drive_state_set(unsigned unit, const uint32_t *w, unsigned n, const uint8_t *secbuf, uint32_t secbuf_size)
++{
++	return unit < 2 * 2 && idedrive[unit] && p6_ide_state_set (idedrive[unit], w, n, secbuf, secbuf_size);
++}
++#endif

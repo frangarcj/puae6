@@ -1,0 +1,14 @@
+diff --git a/disk.cpp b/disk.cpp
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -5555,6 +5555,10 @@
+ 	for (int dr = MAX_FLOPPY_DRIVES - 1; dr >= 0; dr--) {
+ 		drive *drv = &floppy[dr];
+ 		drv->drvnum = dr;
++#ifdef P6_PORTABLE
++		// A load is a new power-on: the head starts on track 0 whatever a previous session left. A reset does not move it.
++		drv->cyl = 0;
++#endif
+ 		/* reset all drive types to 3.5 DD */
+ 		drive_settype_id (drv);
+ 		if (!drive_insert (drv, &currprefs, dr, currprefs.floppyslots[dr].df, false, currprefs.floppyslots[dr].forcedwriteprotect))

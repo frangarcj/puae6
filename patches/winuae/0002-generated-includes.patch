@@ -1,0 +1,72 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -6126,26 +6126,26 @@
+ }
+ 
+ // optimized drawing routines
+-#include "linetoscr_common.cpp"
+-#include "linetoscr_ocs_ecs.cpp"
+-#include "linetoscr_ocs_ecs_genlock.cpp"
+-#include "linetoscr_ocs_ecs_ntsc.cpp"
+-#include "linetoscr_ocs_ecs_ntsc_genlock.cpp"
+-#include "linetoscr_aga_fm0.cpp"
+-#include "linetoscr_aga_fm1.cpp"
+-#include "linetoscr_aga_fm2.cpp"
++#include <linetoscr_common.cpp>
++#include <linetoscr_ocs_ecs.cpp>
++#include <linetoscr_ocs_ecs_genlock.cpp>
++#include <linetoscr_ocs_ecs_ntsc.cpp>
++#include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
++#include <linetoscr_aga_fm0.cpp>
++#include <linetoscr_aga_fm1.cpp>
++#include <linetoscr_aga_fm2.cpp>
+ #if FMODE64_HACK
+-#include "linetoscr_aga_fm0_64.cpp"
+-#include "linetoscr_aga_fm1_64.cpp"
++#include <linetoscr_aga_fm0_64.cpp>
++#include <linetoscr_aga_fm1_64.cpp>
+ #endif
+-#include "linetoscr_aga_fm0_genlock.cpp"
+-#include "linetoscr_aga_fm1_genlock.cpp"
+-#include "linetoscr_aga_fm2_genlock.cpp"
+-#include "linetoscr_ecs_shres.cpp"
+-#include "linetoscr_ecs_fast.cpp"
+-#include "linetoscr_aga_fast.cpp"
+-#include "linetoscr_ecs_genlock_fast.cpp"
+-#include "linetoscr_aga_genlock_fast.cpp"
++#include <linetoscr_aga_fm0_genlock.cpp>
++#include <linetoscr_aga_fm1_genlock.cpp>
++#include <linetoscr_aga_fm2_genlock.cpp>
++#include <linetoscr_ecs_shres.cpp>
++#include <linetoscr_ecs_fast.cpp>
++#include <linetoscr_aga_fast.cpp>
++#include <linetoscr_ecs_genlock_fast.cpp>
++#include <linetoscr_aga_genlock_fast.cpp>
+ 
+ // select linetoscr routine
+ static void select_lts(void)
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -28,7 +28,7 @@
+ #include "newcpu.h"
+ #include "cpummu.h"
+ #include "cpummu030.h"
+-#include "cputbl.h"
++#include <cputbl.h>
+ #include "cpu_prefetch.h"
+ #include "autoconf.h"
+ #include "traps.h"
+diff --git a/blitter.cpp b/blitter.cpp
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -19,7 +19,7 @@
+ #include "events.h"
+ #include "newcpu.h"
+ #include "blitter.h"
+-#include "blit.h"
++#include <blit.h>
+ #include "savestate.h"
+ #include "debug.h"
+ 

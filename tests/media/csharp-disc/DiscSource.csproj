@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseAppHost>false</UseAppHost>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="System.Object" Alias="Lock" />
+    <Compile Include="$(DiscTree)/src/BizHawk.Emulation.DiscSystem/**/*.cs" />
+    <Compile Include="$(DiscTree)/ExternalProjects/iso-parser/*.cs" />
+    <Compile Include="$(Puae6Root)/integration/bizhawk/core/EmuHawk/Puae6DiscSource.cs;$(Puae6Root)/tests/media/csharp-disc/Program.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Waterbox.cs;$(Puae6Root)/tests/ffi/Runtime.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cd32.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc/Cdtv.cs" />
+    <ProjectReference Include="$(Puae6Root)/integration/bizhawk/core/Puae6.Core.csproj" />
+  </ItemGroup>
+</Project>

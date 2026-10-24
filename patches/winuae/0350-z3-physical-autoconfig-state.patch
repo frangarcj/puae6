@@ -1,0 +1,99 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -2170,6 +2170,11 @@
+ 	addrbank *ab = &z3fastmem_bank[devnum];
+ 	uaecptr z3fs = expamem_board_pointer;
+ 	uae_u32 size = currprefs.z3fastmem[devnum].size;
++#ifdef P6_PORTABLE
++	ab->start = z3fs;
++	ab->startmask = z3fs;
++	ab->startaccessmask = z3fs & ab->mask;
++#endif
+ 
+ 	if (ab->allocated_size) {
+ 		map_banks_z3(ab, z3fs >> 16, size >> 16);
+@@ -4181,9 +4186,15 @@
+ 	return start != 0 && start != 0xffffffff && start < 0x1000000 && fastmem_bank[0].allocated_size && &get_mem_bank(start) == &fastmem_bank[0];
+ }
+ 
++static bool p6_z3_mapped(void)
++{
++	const addrbank &b = z3fastmem_bank[0];
++	return b.allocated_size && b.start >= 0x10000000 && b.start < 0xf0000000 && &get_mem_bank(b.start) == &b;
++}
++
+ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+ {
+-	if (!w || n != P6_EXPANSION_WORDS || !autoconfig)
++	if (!w || n != P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u) || !autoconfig)
+ 		return false;
+ 	if (expamem_bank_current && expamem_bank_current != &expamem_bank)
+ 		return false;
+@@ -4200,6 +4211,11 @@
+ 	w[10] = fastmem_bank[0].start;
+ 	w[11] = fastmem_bank[0].allocated_size;
+ 	w[12] = p6_fast_mapped() ? 1 : 0;
++	if (n > P6_EXPANSION_WORDS) {
++		w[13] = z3fastmem_bank[0].start;
++		w[14] = z3fastmem_bank[0].allocated_size;
++		w[15] = p6_z3_mapped() ? 1 : 0;
++	}
+ 	memcpy(autoconfig, expamem, 256);
+ 	return true;
+ }
+@@ -4208,7 +4224,7 @@
+  * at $E80000 and the board's mapping are rebuilt as expamem_next and expamem_map_fastcard leave them. */
+ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig)
+ {
+-	if (!w || n != P6_EXPANSION_WORDS || !autoconfig)
++	if (!w || n != P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u) || !autoconfig)
+ 		return false;
+ 	const uint32_t size = fastmem_bank[0].allocated_size;
+ 	const uint32_t start = w[10];
+@@ -4223,6 +4239,13 @@
+ 	if (start != 0 && start != 0xffffffff && (start & 0xffff))
+ 		return false;
+ 
++	const uint32_t z3size = currprefs.z3fastmem[0].size;
++	if (z3size) {
++		if (w[14] != z3size || w[15] > 1 || (w[13] != 0xffffffff && (w[13] & 0xffff)))
++			return false;
++		if (w[15] && (w[13] < 0x10000000 || uint64_t(w[13]) + z3size > 0xf0000000))
++			return false;
++	}
+ 	if (size) {
+ 		if (p6_fast_mapped())
+ 			map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
+@@ -4235,6 +4258,16 @@
+ 			map_banks_z2(&fastmem_bank[0], start >> 16, size >> 16);
+ 	}
+ 
++	if (z3size) {
++		addrbank &b = z3fastmem_bank[0];
++		if (p6_z3_mapped())
++			map_banks(&dummy_bank, b.start >> 16, z3size >> 16, 0);
++		b.start = w[13];
++		b.startmask = b.start;
++		b.startaccessmask = b.start & b.mask;
++		if (w[15])
++			map_banks_z3(&b, b.start >> 16, z3size >> 16);
++	}
+ 	ecard = int(w[0]);
+ 	chipdone = w[2] != 0;
+ 	expamem_autoconfig_mode = int(w[5]);
+@@ -4247,8 +4280,12 @@
+ 	expamem_map = w[3] ? cards[ecard]->map : NULL;
+ 	if (ecard >= cardno)
+ 		expamem_init_clear_zero();
+-	else
+-		map_banks(&expamem_bank, 0xE8, 1, 0);
++	else {
++		const bool z3 = cards[ecard]->zorro == 3 && currprefs.cs_z3autoconfig;
++		map_banks(z3 ? &dummy_bank : &expamem_bank, 0xE8, 1, 0);
++		if (!currprefs.address_space_24)
++			map_banks(z3 ? &expamemz3_bank : &dummy_bank, AUTOCONFIG_Z3 >> 16, 1, 0);
++	}
+ 	expamem_bank_current = w[4] ? &expamem_bank : NULL;
+ 	return true;
+ }

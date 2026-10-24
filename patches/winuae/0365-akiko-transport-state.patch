@@ -1,0 +1,96 @@
+diff --git a/akiko.cpp b/akiko.cpp
+--- a/akiko.cpp
++++ b/akiko.cpp
+@@ -629,6 +629,92 @@
+ }
+ static void akiko_service(void);
+ static uae_sem_t akiko_sem, sub_sem;
++
++#ifdef P6_PORTABLE
++#include "akiko_transport_state.h"
++static bool akiko_transport_ready(void)
++{
++    return currprefs.cs_cd32cd && akiko_inited && akiko_service_running &&
++        sector_buffer_1 && sector_buffer_2 && sector_buffer_info_1 && sector_buffer_info_2 &&
++        requests.data && requests.size == 100 && requests.chunks == 1 &&
++        requests.rdp >= 0 && requests.rdp < 100 && requests.wrp >= 0 && requests.wrp < 100 &&
++        !requests.reader_waiting && !requests.writer_waiting &&
++        requests.lock.p6_count == 1 && !requests.reader_wait.p6_count && !requests.writer_wait.p6_count &&
++        akiko_sem.p6_count == 1 && sub_sem.p6_count == 1;
++}
++static bool akiko_transport_zero(const uae_u8 *p, size_t count)
++{
++    for (size_t n = 0; n < count; ++n) if (p[n]) return false;
++    return true;
++}
++bool p6_akiko_transport_preflight(const p6_akiko_transport_state *s)
++{
++    if (!s || !akiko_transport_ready() || s->service != 1 || s->mute_pending > 1 ||
++        s->read >= 100 || s->write >= 100 || s->sub_read >= 36 || s->sub_write >= 36)
++        return false;
++    const unsigned count = (s->write + 100 - s->read) % 100;
++    for (unsigned i = 0; i < 100; ++i)
++        if ((i + 100 - s->read) % 100 >= count && s->words[i]) return false;
++    for (unsigned b = 0; b < 2; ++b) {
++        if (s->head[b] < -1 || s->head[b] > INT_MAX - 128) return false;
++        for (unsigned n = 0; n < 128; ++n) {
++            const auto info = s->info[b][n];
++            if (info > 3 && info != 0xff) return false;
++            if ((s->head[b] < 0 || !info || info == 0xff) &&
++                !akiko_transport_zero(s->sector[b][n], 2352)) return false;
++        }
++    }
++    for (unsigned n = 0; n < 36; ++n)
++        if (s->sub_used[n] > 1 || (!s->sub_used[n] && !akiko_transport_zero(s->sub[n], 96)))
++            return false;
++    return true;
++}
++bool p6_akiko_transport_get(p6_akiko_transport_state *s)
++{
++    if (!s || !akiko_transport_ready()) return false;
++    const int head[2] = {sector_buffer_sector_1, sector_buffer_sector_2};
++    const uae_u8 *info[2] = {sector_buffer_info_1, sector_buffer_info_2};
++    const uae_u8 *bytes[2] = {sector_buffer_1, sector_buffer_2};
++    // Validate live metadata before touching caller output or reading any payload.
++    if (subcodebufferoffset < 0 || subcodebufferoffset >= 36 ||
++        subcodebufferoffsetw < 0 || subcodebufferoffsetw >= 36) return false;
++    for (unsigned b = 0; b < 2; ++b) {
++        if (head[b] < -1 || head[b] > INT_MAX - 128) return false;
++        for (unsigned n = 0; n < 128; ++n)
++            if (info[b][n] > 3 && info[b][n] != 0xff) return false;
++    }
++    for (auto used : subcodebufferinuse) if (used > 1) return false;
++    memset(s, 0, sizeof *s);
++    s->service = 1; s->mute_pending = mute_pending; s->muted = cdrom_muted;
++    s->read = requests.rdp; s->write = requests.wrp;
++    for (int i = requests.rdp; i != requests.wrp; i = (i + 1) % 100)
++        s->words[i] = requests.data[i].u32;
++    for (unsigned b = 0; b < 2; ++b) {
++        s->head[b] = head[b]; memcpy(s->info[b], info[b], 128);
++        for (unsigned n = 0; n < 128; ++n)
++            if (head[b] >= 0 && info[b][n] && info[b][n] != 0xff)
++                memcpy(s->sector[b][n], bytes[b] + n * 2352, 2352);
++    }
++    s->sub_read = subcodebufferoffset; s->sub_write = subcodebufferoffsetw;
++    memcpy(s->sub_used, subcodebufferinuse, 36);
++    for (unsigned n = 0; n < 36; ++n)
++        if (s->sub_used[n]) memcpy(s->sub[n], subcodebuffer + n * 96, 96);
++    return true;
++}
++bool p6_akiko_transport_apply(const p6_akiko_transport_state *s)
++{
++    if (!p6_akiko_transport_preflight(s)) return false;
++    for (unsigned i = 0; i < 100; ++i) requests.data[i].u32 = s->words[i];
++    requests.rdp = s->read; requests.wrp = s->write;
++    mute_pending = s->mute_pending; cdrom_muted = s->muted;
++    sector_buffer_sector_1 = s->head[0]; sector_buffer_sector_2 = s->head[1];
++    memcpy(sector_buffer_info_1, s->info[0], 128); memcpy(sector_buffer_info_2, s->info[1], 128);
++    memcpy(sector_buffer_1, s->sector[0], 128 * 2352); memcpy(sector_buffer_2, s->sector[1], 128 * 2352);
++    subcodebufferoffset = s->sub_read; subcodebufferoffsetw = s->sub_write;
++    memcpy(subcodebufferinuse, s->sub_used, 36); memcpy(subcodebuffer, s->sub, sizeof s->sub);
++    return true;
++}
++#endif
+ 
+ static void akiko_checkint (void)
+ {

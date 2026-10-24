@@ -1,0 +1,109 @@
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -10859,6 +10859,10 @@
+ 	memset(out, 0, sizeof *out);
+ 	out->potgo_value = potgo_value;
+ 	out->second_mouse_enabled = mouse_port[1];
++	out->pointer_enabled = lightpen_enabled;
++	out->pointer_port = lightpen_port[1] ? 1 : 0;
++	out->pointer_cx = lightpen_cx[0];
++	out->pointer_cy = lightpen_cy[0];
+ 	for (int p = 0; p < 2; p++) {
+ 		out->cd32_enabled[p] = cd32_pad_enabled[p];
+ 		out->cd32_shifter[p] = cd32_shifter[p];
+@@ -10907,6 +10911,12 @@
+ {
+ 	potgo_value = in->potgo_value;
+ 	mouse_port[1] = in->second_mouse_enabled;
++	lightpen_enabled = in->pointer_enabled;
++	lightpen_enabled2 = lightpen_active = 0;
++	for (int p = 0; p < 2; p++) lightpen_port[p] = in->pointer_enabled && in->pointer_port == unsigned(p);
++	lightpen_cx[0] = in->pointer_cx;
++	lightpen_cy[0] = in->pointer_cy;
++	lightpen_x[0] = lightpen_y[0] = -1; // coordinates already converted; rendering must not transform them again
+ 	for (int p = 0; p < 2; p++) {
+ 		cd32_pad_enabled[p] = in->cd32_enabled[p];
+ 		cd32_shifter[p] = in->cd32_shifter[p];
+@@ -11037,3 +11047,25 @@
+ 	}
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++extern void p6_pointer_beam(int x, int y, int *cx, int *cy);
++// Exactly one photodiode, with its button on either gameport. No host callbacks.
++void p6_input_pointer(int port, bool enabled, unsigned buttons, int x, int y)
++{
++	joybutton[port] = (buttons & 1) ? (1u << JOYBUTTON_3) : 0;
++	joydir[port] = 0;
++	if (enabled) {
++		lightpen_port[0] = port == 0;
++		lightpen_port[1] = port == 1;
++		lightpen_cx[0] = lightpen_cy[0] = -1;
++		if (!(buttons & 2)) p6_pointer_beam(x, y, &lightpen_cx[0], &lightpen_cy[0]);
++	} else {
++		lightpen_port[port] = 0;
++	}
++	lightpen_enabled = lightpen_port[0] || lightpen_port[1];
++	lightpen_enabled2 = lightpen_active = 0;
++	lightpen_x[0] = lightpen_y[0] = -1;
++	if (!lightpen_enabled) lightpen_cx[0] = lightpen_cy[0] = -1;
++}
++#endif
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13165,6 +13165,8 @@
+ 		return event_doint_delay_do_intena;
+ 	case 3:
+ 		return setup_fmodes_delayed;
++	case 4:
++		return lightpen_trigger_func;
+ 	default:
+ 		return fakehsync_handler;
+ 	}
+@@ -13438,3 +13440,19 @@
+ 	return true;
+ }
+ #endif
++
++#ifdef P6_PORTABLE
++// Optical beam latch: independent of the host device (LPEN also freezes in
++// vertical blank), so P6CH owns it whenever BPLCON0.LPEN is set.
++bool p6_lightpen_latch_get(int32_t out[4])
++{
++	out[0] = vpos_lpen; out[1] = hpos_lpen;
++	out[2] = hhpos_lpen; out[3] = lightpen_triggered;
++	return (bplcon0 & 8) != 0;
++}
++void p6_lightpen_latch_set(const int32_t in[4])
++{
++	vpos_lpen = in[0]; hpos_lpen = in[1];
++	hhpos_lpen = in[2]; lightpen_triggered = in[3];
++}
++#endif
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -8068,3 +8068,20 @@
+ 	thread_debug_lock = locked != 0;
+ 	adisplays[0].gfxvidinfo.drawbuffer.locked = locked != 0;
+ }
++
++#ifdef P6_PORTABLE
++// Same raster-to-beam transform as lightpen_update, evaluated at the input
++// boundary. No float, draw pass, crosshair or host desktop geometry is involved.
++void p6_pointer_beam(int x, int y, int *cx, int *cy)
++{
++	const auto *vb = adisplays[0].gfxvidinfo.inbuffer;
++	*cx = *cy = -1;
++	if (!vb || vb->inwidth < 1 || vb->inheight < 1) return;
++	const int px = int((int64_t(x) + 32767) * (vb->inwidth - 1) / 65534);
++	const int py = int((int64_t(y) + 32767) * (vb->inheight - 1) / 65534);
++	const int hx = ((px + visible_left_border) >> (1 + currprefs.gfx_resolution)) + 29;
++	const int vy = (py >> linedbl) + minfirstline;
++	if (hx <= 0x17 || hx >= maxhpos || vy < minfirstline_linear || vy >= current_linear_vpos) return;
++	*cx = hx; *cy = vy;
++}
++#endif

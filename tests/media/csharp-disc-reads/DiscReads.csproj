@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseAppHost>false</UseAppHost>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(DiscBlobTree)/*.cs" />
+    <Compile Include="$(Puae6Root)/tests/media/csharp-disc-reads/Program.cs" />
+    <ProjectReference Include="$(Puae6Root)/integration/bizhawk/core/Puae6.Core.csproj" />
+  </ItemGroup>
+</Project>
