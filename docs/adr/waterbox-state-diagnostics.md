@@ -44,12 +44,27 @@ Antes de intervenir sobre registros, pilas o threading hay que localizar la
 diferencia de UAE en su sección y página reales. El resultado negativo no cubre
 pilas de hilos virtuales ni el recorrido de ejecución del guest antiguo.
 
-T40m prepara una localización de UAE dentro del EXE original: sólo BK2, ambos
+T40m ejecuta una localización de UAE dentro del EXE original: sólo BK2, ambos
 cores vivos y doce frames alternos por pase, con RomLoader/MovieSession y las
 comparaciones A/V originales. Un Stream compositivo conserva cada Write y
 WriteByte de SaveStateBinary; el mapa procede del mismo WaterboxHost por el
 campo protegido `_exe` verificado. El decoder T40l valida el prefijo runtime;
 las diecinueve escrituras finales son los 69 bytes originales de WaterboxCore y
 UAE, también comparados y nombrados. SHA/tamaño siguen cubriendo el estado entero.
-Esta observación no acredita padding, punteros ni una corrección y no sustituye
-los cuatro casos ni el comparador intacto de T40k. Datos ambiguos bloquean.
+Esta observación no sustituye los cuatro casos ni el comparador intacto de T40k.
+Datos ambiguos bloquean.
+
+La diferencia real está en dos bytes de páginas RW ordinarias: el byte 73 de
+`__exbuf` y el byte 73 del primer `jmp_buf` de `s_try_stack`. Los símbolos del ELF
+real y `cpummu.c` identifican ambos buffers; el segundo se copia del primero por
+`__pushtry`. Iniciales y guardados consecutivos son idénticos; la cola managed y
+threading también coinciden. No procede corregir padding Rust ni limpiar pilas.
+
+El ensamblador del ELF real confirma `stp x27,x28,[x0,#64]` en `setjmp` y el
+`ldp` correspondiente en `longjmp`. El slot de x28 ocupa los bytes 72..79. El
+interop Waterbox pone `Context*` del host en ese registro reservado; `-ffixed-x28`
+no cambia el ensamblador de musl. Por ello debe revisarse el ABI de setjmp/longjmp
+del guest, manteniendo el contexto vigente al saltar y evitando persistir aquel
+puntero host. La corrección requiere un test de salto real y restauración en otro
+sandbox, además del escenario original. No basta con ocultar el slot al comparar
+ni parchear datos de estado. MacHawk y su binario original permanecen intactos.
