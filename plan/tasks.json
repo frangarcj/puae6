@@ -12241,6 +12241,47 @@
       "stop": "No editar main/metadata por agente ni compilar pesado, descargar binarios/paquetes, instalar, publicar o modificar hermanos. Una distribucion sin closure/avisos completos o sin restore real no esta done; conservar reproducer si falla."
     },
     {
+      "id": "T40h",
+      "title": "Comprobar reproducibilidad binaria de los tres productos nativos",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40a",
+        "T40c"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/native-preview.md",
+        "tools/package.py",
+        "tests/packages/test_linux_preview.py"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_reproducible.py",
+        "tools/check.py",
+        "docs/user/native-preview.md"
+      ],
+      "steps": [
+        "Vertical independiente de T40 con dependencias DONE; toolchain_review implementa en worktree native-binary-repro aislado, root integra y serializa las compilaciones reales despues del bloque actual. Main6939 no cambia durante optimization35971. Agente no edita metadata ni ejecuta compilacion pesada, emulador o paquetes instalados de nuevo.",
+        "Añadir operacion reproducible al empaquetador existente que use dos directorios CMake realmente nuevos y temporales bajo build, misma fuente limpia/revision, compiler/environment identificados y configure_command vigente para native_platform. Compilar puae6_libretro, p6_headless y p6_libretro_host en cada arbol con paralelo2; ambos son builds de objetos limpios, sin reusar CMakeCache/objetos ni usar package.build/smoke. Reusar generados/materializado actuales ya verificados; no repetir GEN01 ni escenarios del motor. Entorno/toolchain/fuente estables antes/despues; salida por stdout con hashes por producto, sin informes historicos ni falsos PASS por metadata/caches.",
+        "Comparar bytes exactos por producto entre dos builds de cada plataforma macOSARM64/LinuxARM64/Linuxx86_64. Ninguna normalizacion de UUID/buildID/rutas/timestamps, hashesgolden ni flags distintos de la receta de paquete. Diferencia concreta falla y conserva un reproducer dirigido en test/codigo, no proclama reproducible; no cambiar global binary_reproducibility_verified de los paquetes porque Waterbox/managed/conjunto completo conserva puertas de T40.",
+        "Helper pequeño y fixtures propios de infraestructura mockean un compilador para probar dos carpetas vacias distintas, targets/flags exactos y ejecucion unica, mismatch/sourcedrift/cleanup ante errores. Tests de mocks no acreditan BUILD01. Registrar PKG01/BUILD01 mediante prueba real opt-in y permitir a root ejecutar una vez el mismo helper en cada runner declarado. No duplicar unittest instalado si helper directo ya cubre exactamente la aceptacion, ni smokes existentes; falta herramienta/input bloquea honestamente. Root usa imagenes Docker fijadas, sin red/pulls/instalacion y mismo policyELF/ISA relevante, sin modificar MacHawk.",
+        "Objetivo cuatro rutas y menos250lineas logicas manuales. root compara tambien los hashes de los binarios de las previews efectivas si se pretende acreditar esos ZIP, sin renovar paquetes ni emularlos otra vez por mera fuente/helper. Dos builds iguales solo acreditan los tres binarios de esa plataforma; no cierra EmuHawk, Waterbox/managed, CI acumulada ni T40/T41."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Los tres productos nativos resultan byteidenticos entre dos compilaciones de objetos limpias en cada una de las tres plataformas declaradas; fuentes/toolchain/entorno se mantienen y las salidas corresponden a los targets reales sin omisiones.",
+        "Los tests propios pasan, temporales se limpian y la comprobacion no repite motor/estado/paquetes ya aprobados ni atribuye reproducibilidad a productos o plataformas no ejecutados."
+      ],
+      "stop": "No heavybuild por agente/mainmutation mientras lane actual; no normalizar diferencias ni tocar flags/pins/goldens para aprobar. No afirmar reproducibilidad de todo el paquete ni Waterbox por este subconjunto. No publicar ni instalar/modificar hermanos."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12258,7 +12299,8 @@
         "T40d",
         "T40g",
         "T40e",
-        "T40f"
+        "T40f",
+        "T40h"
       ],
       "read": [
         "docs/05-maintenance.md",
