@@ -122,11 +122,16 @@ class BootstrapTests(unittest.TestCase):
             provider.assert_called_once_with(self.output)
 
     def test_normal_core_export_contains_every_existing_target_of_the_patch_queue(self):
+        introduced = set()
         for patch in s.builder.PATCHES:
-            for line in patch.read_text().splitlines():
+            lines = patch.read_text().splitlines()
+            for line in lines:
                 if line.startswith("--- a/"):
                     target = line[6:]
-                    self.assertTrue(any(target == p or target.startswith(p + "/") for p in s.builder.EXPORT), target)
+                    self.assertTrue(target in introduced or any(target == p or target.startswith(p + "/") for p in s.builder.EXPORT), target)
+            for old, new in zip(lines, lines[1:]):
+                if old == "--- /dev/null" and new.startswith("+++ b/"):
+                    introduced.add(new[6:])
 
 
 @unittest.skipUnless(os.environ.get("P6_TEST_EMUHAWK_SELFCHECK") == "1", "requires the actual current complete EmuHawk EXE")

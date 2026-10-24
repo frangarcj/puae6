@@ -256,7 +256,8 @@ class NightlyRecipeTests(unittest.TestCase):
                              ("P6_TEST_WATERBOX_REPRODUCIBLE", "tests.packages.test_waterbox_reproducible"),
                              ("P6_TEST_EMUHAWK_SELFCHECK", "tests.packages.test_emuhawk_selfcheck"),
                              ("P6_TEST_EMUHAWK_COEXISTENCE", "tests.packages.test_emuhawk_coexistence"),
-                             ("P6_TEST_WATERBOX_STATE_PROBE", "tests.waterbox-smoke.test_state_probe")):
+                             ("P6_TEST_WATERBOX_STATE_PROBE", "tests.waterbox-smoke.test_state_probe"),
+                             ("P6_TEST_EMUHAWK_STATE_PROBE", "tests.packages.test_emuhawk_state_probe")):
             self.assertEqual(ci.ENV[flag], "1")
             self.assertIn(module, ci.suites("functional"))
 
