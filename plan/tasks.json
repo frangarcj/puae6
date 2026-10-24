@@ -23580,7 +23580,7 @@
       "title": "Comparar dos builds limpios del payload Waterbox standalone",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T38",
         "T40d",
