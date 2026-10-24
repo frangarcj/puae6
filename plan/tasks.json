@@ -12602,7 +12602,7 @@
       "title": "Construir UAE legacy derivado desde capturas verificadas en outputs propios",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40n"
       ],
@@ -12630,7 +12630,8 @@
         "Copiar cierres de referencia y montar layout waterbox/uae/libretro-uae + capsimg, common/linkscript/emulibc propios. Wrappers musl propios apuntan al sysrootderivado y herramientas fijadas; flags ARM64/16KiB/x18/x28 ytarget DEBUG -O0 -g comooriginal390cc. Compilar make debug -j2 nunca install/clean delproyectohermano. No cambiosmanualesCPUgenerated ni ajustesdecomportamiento.",
         "Recibo nuevo BUILD01_GUEST_NOT_EXECUTED con fuente/inventarios/overlays/flags/tools/sysroot/receta/hashguest verificados antes/despues yELF/tls/imports adecuados. Temporales/compilerlogs borrados trasresultado; artefactosnecesarios yrecibo de identidad se conservan. Compilacionreal soloroot serializada trasT40o1 disponible; agente toolchain_review implementa2rutas yfixtures sin metadata/buildmotor.",
         "Fixtures exigeninputs completos/targetdebug/outputs propios/noinstall y rechazan mismatch/ISA/derivacionausente. Gatebuildreal no acredita runtime, coexistencia ni peliculas; T40o mantiene4casosT40k/T40m/WB13/WB15 yproducto corregido antesdecierre.",
-        "Primer buildsource real fallaen fp_mod/fp_rem: uae_u64* unsignedlonglong frente uint64_t* unsignedlong; Clang23 rechaza tipo incompatible. No suprimir warningerror ni cast dealiasing. Overlayfuente acotado en copia: temporal uint64_tquotient=0, llamada con&temporal ycopianumerica de salida *q=quotient. Softfloat original inicializa*q=0 antesretornos (2901/3009), caller tambienq0. Patch nuevo estricto/reverse/inputs yclosure efectiva conunico archivo permitido; fuenteoriginal intacta. Harness C dirigido con funcionesoriginales extraidas/stubs verifica cociente64bits/sign/zero y tiposconWerror antessegundobuildfull. Mantener perfil/debug y operacionesFPU; no heredargateFPU ni tocarCU06."
+        "Primer buildsource real fallaen fp_mod/fp_rem: uae_u64* unsignedlonglong frente uint64_t* unsignedlong; Clang23 rechaza tipo incompatible. No suprimir warningerror ni cast dealiasing. Overlayfuente acotado en copia: temporal uint64_tquotient=0, llamada con&temporal ycopianumerica de salida *q=quotient. Softfloat original inicializa*q=0 antesretornos (2901/3009), caller tambienq0. Patch nuevo estricto/reverse/inputs yclosure efectiva conunico archivo permitido; fuenteoriginal intacta. Harness C dirigido con funcionesoriginales extraidas/stubs verifica cociente64bits/sign/zero y tiposconWerror antessegundobuildfull. Mantener perfil/debug y operacionesFPU; no heredargateFPU ni tocarCU06.",
+        "Trasadaptador dirigido revisado independientemente, segundo buildfuente completo pasa. Guest propio136132856B SHA2a579615... DEBUGO0-g ARM64/16KiB/x18/x28, ELF/TLS yexports Init/FrameAdvance/GetMemoryAreas, sinimportsfuertes niweakpendientes. Recibo nuevo BUILD01_GUEST_NOT_EXECUTED; capturas/8overlays/sysrootderivado/herramientas/patch verificadosantes/despues. Sietefixtures y harnessClangreal originalrechazado/parche40casosPASS; lectorartifactactualPASS. Publicado solo uae.wbx+receipt, staging/objetos/logseliminados. Noejecucionruntime niT40o/T40k porcompilacion."
       ],
       "checks": [
         "BUILD01",
