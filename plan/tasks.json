@@ -12594,6 +12594,47 @@
       "stop": "Trasdosintentos razonados bloquear con reproducer/hipotesis; no instalar herramientas, recuperar imagenes ni modificarcapturas. No reemplazar rebuildfuente por binpatch."
     },
     {
+      "id": "T40o2",
+      "title": "Construir UAE legacy derivado desde capturas verificadas en outputs propios",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40n"
+      ],
+      "read": [
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "references/machawk/waterbox/uae/Makefile",
+        "references/machawk/waterbox/common.mak",
+        "tools/build_waterbox.py",
+        "tools/emuhawk_coexistence.py"
+      ],
+      "touch": [
+        "tools/build_legacy_guest.py",
+        "tests/waterbox-smoke/test_legacy_guest.py",
+        "tools/check.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Construir receta fuente propia de legacy para T40o, independiente de implementar sysroot T40o1. Preflight valida capturas machawk/bizhawk_uae_reference/machawk_capsimg y8overlays, herramientas actuales fijadas, sysrootderivado/reciboT40o1 y baseinmutable. No copiar guest390cc como producto ni afirmar bitidentidadhistorica. Solo lectura MacHawk/capturas; outputs exclusivos bajo build.",
+        "Copiar cierres de referencia y montar layout waterbox/uae/libretro-uae + capsimg, common/linkscript/emulibc propios. Wrappers musl propios apuntan al sysrootderivado y herramientas fijadas; flags ARM64/16KiB/x18/x28 ytarget DEBUG -O0 -g comooriginal390cc. Compilar make debug -j2 nunca install/clean delproyectohermano. No cambiosmanualesCPUgenerated ni ajustesdecomportamiento.",
+        "Recibo nuevo BUILD01_GUEST_NOT_EXECUTED con fuente/inventarios/overlays/flags/tools/sysroot/receta/hashguest verificados antes/despues yELF/tls/imports adecuados. Temporales/compilerlogs borrados trasresultado; artefactosnecesarios yrecibo de identidad se conservan. Compilacionreal soloroot serializada trasT40o1 disponible; agente toolchain_review implementa2rutas yfixtures sin metadata/buildmotor.",
+        "Fixtures exigeninputs completos/targetdebug/outputs propios/noinstall y rechazan mismatch/ISA/derivacionausente. Gatebuildreal no acredita runtime, coexistencia ni peliculas; T40o mantiene4casosT40k/T40m/WB13/WB15 yproducto corregido antesdecierre."
+      ],
+      "checks": [
+        "BUILD01",
+        "ABI01",
+        "SRC01"
+      ],
+      "acceptance": [
+        "Receta fuente completa y negativa fixtures pasan; artifactlegacy nuevo ELF ARM64/16KiB sinTLSprohibido, fuente/8overlays ysysrootderivado verificables e intactos antes/despues.",
+        "Guest construido desdefuentes enoutputpropio con DEBUG original y recibo NOT_EXECUTED honesto. Referenciaguest390cc/MacHawk/capturas intactos; no se declara T40o/T40k ni compatibilidadestadosdesdecompilacion."
+      ],
+      "stop": "Trasdosfallos razonados preservar reproducer ehipotesis; no recurrir parcheELF, instalacionpaquetes ni modificarreferencias. Esperar sysrootderivadoautenticado paraejecucionreal."
+    },
+    {
       "id": "T40o",
       "title": "Integrar el ABI setjmp corregido en sysroot y guests derivados sin modificar MacHawk",
       "milestone": "M4",
@@ -12601,7 +12642,8 @@
       "status": "pending",
       "depends": [
         "T40n",
-        "T40o1"
+        "T40o1",
+        "T40o2"
       ],
       "read": [
         "docs/03-waterbox.md",
@@ -12622,7 +12664,8 @@
         "plan/toolchains.json",
         "manifests/waterbox-memory.json",
         "docs/adr/waterbox-state-diagnostics.md",
-        "tests/test_plan.py"
+        "tests/test_plan.py",
+        "tests/waterbox-smoke/test_legacy_guest.py"
       ],
       "steps": [
         "DespuesdeloraculoT40n revisar receta minima de overlayfuente/sysrootderivado con identidadnueva y compilacion legacy en outputs propios. La base1270inputs y elguestoriginal390cc permanecen intactos; no editarcapturas/manifestsdeupstream ni MacHawk. No sustituir ELF a mano ni editar bytes de estados paraaprobar. Acreditar cada nuevoartefactodesdesusfuentes/pins/flags; actualizarautoridadtoolchains explicitamente trasverificacion, sin cambiarinventariosgoldenpara ocultar diferencias.",
