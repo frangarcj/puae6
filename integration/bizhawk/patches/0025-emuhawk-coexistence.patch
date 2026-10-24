@@ -9,7 +9,7 @@
 +				: args.Length > 0 && args[0] == "--puae6-self-check" ? Puae6SelfCheck.Run(args) : SubMain(args);
 --- /dev/null
 +++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,158 @@
 +using System.Collections.Generic;
 +using System.IO;
 +using System.Linq;
@@ -35,6 +35,13 @@
 +  private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
 +  private static string Hash(byte[] bytes) { using var sha = SHA256.Create(); return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant(); }
 +  private static byte[] State(IEmulator core) { using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream); core.AsStatable().SaveStateBinary(writer); return stream.ToArray(); }
++  private static string Difference(byte[] expected, byte[] actual)
++  {
++   int first = 0, common = Math.Min(expected.Length, actual.Length);
++   while (first < common && expected[first] == actual[first]) first++;
++   return $"expected={expected.Length}/{Hash(expected)} actual={actual.Length}/{Hash(actual)} first={first} "
++    + $"expected_bytes={BitConverter.ToString(expected.Skip(first).Take(32).ToArray())} actual_bytes={BitConverter.ToString(actual.Skip(first).Take(32).ToArray())}";
++  }
 +  private static void Identity(Dictionary<string, string> native)
 +  {
 +   var loaded = Enumerable.Range(0, checked((int)ImageCount())).Select(i => Marshal.PtrToStringAnsi(ImageName((uint)i)))
@@ -126,12 +133,17 @@
 +    Identity(native);
 +    var cases = new List<Dictionary<string, object>>(); var names = new[] { "UAE", "PUAE6" };
 +    foreach (string format in new[] { "bk2", "tasproj" }) {
-+     var rows = new[] { new List<string[]>(), new List<string[]>() }; var states = new byte[2][];
++     var rows = new[] { new List<string[]>(), new List<string[]>() }; var states = new byte[2][]; var boots = new byte[2][];
 +     for (int pass = 0; pass < 2; pass++) {
 +      var sessions = new[] { Session(), Session() }; var cores = new IEmulator[2];
 +      try {
 +       for (int i = 0; i < 2; i++) cores[i] = Open(names[i], sessions[i], Path.Combine(Stage, "Movies", names[i] + "." + format), pass == 0);
 +       Identity(native);
++       for (int i = 0; i < 2; i++) {
++        var boot = State(cores[i]);
++        if (pass == 0) boots[i] = boot;
++        else if (!boot.SequenceEqual(boots[i])) Console.Error.WriteLine($"{format}/{names[i]} initial state differs: " + Difference(boots[i], boot));
++       }
 +       for (int frame = 0; frame < 12; frame++) for (int i = 0; i < 2; i++) {
 +        var other = State(cores[1 - i]); var row = Step(cores[i], sessions[i]);
 +        Require(other.SequenceEqual(State(cores[1 - i])), "Advancing one sandbox changed the other");
@@ -141,7 +153,7 @@
 +        Require(sessions[i].Movie.InputLogLength == 12, "Movie did not preserve all twelve frames");
 +        var state = State(cores[i]);
 +        if (pass == 0) { states[i] = state; Require(!sessions[i].Movie.Save().IsError, "Movie save failed"); }
-+        else { Require(state.SequenceEqual(states[i]), "Replay final state differs"); cases.Add(new Dictionary<string, object> {
++        else { Require(state.SequenceEqual(states[i]), $"{format}/{names[i]} replay final state differs: " + Difference(states[i], state)); cases.Add(new Dictionary<string, object> {
 +          ["format"] = format, ["core"] = names[i], ["frames"] = 12, ["replayed"] = 12, ["isolation"] = true,
 +          ["video_sha256"] = Hash(Encoding.UTF8.GetBytes(string.Join("\n", rows[i].Select(r => r[0])))),
 +          ["audio_sha256"] = Hash(Encoding.UTF8.GetBytes(string.Join("\n", rows[i].Select(r => r[1])))), ["state_sha256"] = Hash(state) }); }
