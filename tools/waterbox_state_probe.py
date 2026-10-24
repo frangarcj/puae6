@@ -118,14 +118,22 @@ def git_blob(root, commit, name):
 
 def provenance(receipt, root):
     recorded = receipt['input_sha256']; pin = GUEST_PRODUCER
-    require(receipt['guest']['sha256'] == pin['guest_sha256'] and recorded['build_recipe'] == pin['recipe_sha256']
-        and recorded['toolchains_json'] == pin['toolchain_sha256'], 'Unapproved mini-guest producer')
-    blobs = {name: git_blob(root, pin['commit'], name) for name in ('tools/build_waterbox.py', 'plan/toolchains.json')}
-    for name, key in (('tools/build_waterbox.py', 'recipe_sha256'), ('plan/toolchains.json', 'toolchain_sha256')):
-        require(hashlib.sha256(blobs[name]).hexdigest() == pin[key], 'Producer raw Git blob differs')
-    old = json.loads(blobs['plan/toolchains.json']); current = json.loads((root / 'plan/toolchains.json').read_text())
-    require(os.environ.get(wb.TOOLCHAIN_PROFILE_ENV, 'local') == 'local'
-        and all(old[k] == current[k] for k in ('profile', 'tools', 'runtime', 'guest', 'sysroot')), 'Producer causal toolchain differs')
+    actual_recipe = wb.sha256(root / 'tools/build_waterbox.py'); actual_lock = wb.sha256(root / 'plan/toolchains.json')
+    current = json.loads((root / 'plan/toolchains.json').read_text())
+    if recorded['build_recipe'] == actual_recipe and recorded['toolchains_json'] == actual_lock:
+        old = current
+        producer = {'mode': 'current', 'recipe_sha256': actual_recipe, 'toolchain_sha256': actual_lock,
+            'guest_sha256': receipt['guest']['sha256'], 'toolchain_profile': os.environ.get(wb.TOOLCHAIN_PROFILE_ENV, 'local')}
+    else:
+        require(receipt['guest']['sha256'] == pin['guest_sha256'] and recorded['build_recipe'] == pin['recipe_sha256']
+            and recorded['toolchains_json'] == pin['toolchain_sha256'], 'Unapproved mini-guest producer')
+        blobs = {name: git_blob(root, pin['commit'], name) for name in ('tools/build_waterbox.py', 'plan/toolchains.json')}
+        for name, key in (('tools/build_waterbox.py', 'recipe_sha256'), ('plan/toolchains.json', 'toolchain_sha256')):
+            require(hashlib.sha256(blobs[name]).hexdigest() == pin[key], 'Producer raw Git blob differs')
+        old = json.loads(blobs['plan/toolchains.json'])
+        require(os.environ.get(wb.TOOLCHAIN_PROFILE_ENV, 'local') == 'local'
+            and all(old[k] == current[k] for k in ('profile', 'tools', 'runtime', 'guest', 'sysroot')), 'Producer causal toolchain differs')
+        producer = {**pin, 'mode': 'historical'}
     require(set(recorded) == set(RECORDED_INPUTS) | {'build_recipe', 'toolchains_json'}, 'Uninventoried producer inputs')
     proof = {}
     for key, name in RECORDED_INPUTS.items():
@@ -139,7 +147,14 @@ def provenance(receipt, root):
         require(len(inventory) == receipt['sysroot']['file_count'] == old['sysroot']['file_count']
             and wb.canonical_hash(inventory) == receipt['sysroot']['inventory_sha256'] == old['sysroot']['inventory_sha256'], 'Producer sysroot inventory differs')
         proof[str(path)] = wb.canonical_hash(inventory)
-    return {**proof, 'guest_producer': dict(pin)}
+    return {**proof, 'guest_producer': producer}
+
+
+def tools_identity():
+    lock = wb.selected_toolchain(); paths = wb.selected_tool_paths(lock)
+    proof = {str(path): wb.sha256(path) for path in paths.values()}
+    require(all(proof[str(paths[name])] == tool['sha256'] for name, tool in lock['tools'].items()), 'Pinned compiler/tool differs')
+    return proof
 
 
 def inputs():
@@ -151,14 +166,13 @@ def inputs():
         require(paths[name].resolve() == paths[name] and not paths[name].is_symlink(), 'Linked artifact')
         require(wb.sha256(paths[name]) == receipt[field]['sha256'], 'Artifact receipt differs')
     wb.validate_elf(paths['guest'], 16384)
-    for tool in wb.selected_toolchain()['tools'].values():
-        require(wb.sha256(Path(tool['path'])) == tool['sha256'], 'Pinned compiler/tool differs')
+    tool_proof = tools_identity()
     header = paths['runtime'].read_bytes()[:32]
     require(len(header) == 32 and struct.unpack_from('<II', header) == (0xfeedfacf, 0x100000c), 'Runtime ISA differs')
     producer = provenance(receipt, ROOT)
     sources = [ROOT / p for p in ('integration/bizhawk/smoke/Native.cs', 'tests/waterbox-smoke/StateProbe.cs', 'integration/bizhawk/smoke/global.json', 'tools/waterbox_state_probe.py', 'Directory.Build.targets', 'tools/build_waterbox.py', 'plan/toolchains.json')]
     require(json.loads(sources[2].read_text()) == {'sdk': {'version': '10.0.402', 'rollForward': 'disable'}}, 'SDK pin differs')
-    proof = {**producer, **{str(p): wb.sha256(p) for p in [receipt_path, *paths.values(), *sources]}}
+    proof = {**producer, **tool_proof, **{str(p): wb.sha256(p) for p in [receipt_path, *paths.values(), *sources]}}
     dotnet = Path(shutil.which('dotnet') or '/missing-dotnet').resolve(); proof[str(dotnet)] = wb.sha256(dotnet)
     return paths, proof, dotnet
 

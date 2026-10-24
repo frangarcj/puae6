@@ -73,9 +73,10 @@ class StateProbeTests(unittest.TestCase):
             pin = {'commit': '1' * 40, 'guest_sha256': 'a' * 64, 'recipe_sha256': hashlib.sha256(blobs['tools/build_waterbox.py']).hexdigest(), 'toolchain_sha256': hashlib.sha256(blobs['plan/toolchains.json']).hexdigest()}
             recorded.update(build_recipe=pin['recipe_sha256'], toolchains_json=pin['toolchain_sha256'])
             receipt = {'guest': {'sha256': pin['guest_sha256']}, 'input_sha256': recorded, 'sysroot': lock['sysroot']}
+            recipe = root / 'tools/build_waterbox.py'; recipe.parent.mkdir(); recipe.write_bytes(b'own current recipe')
             current = root / 'plan/toolchains.json'; current.parent.mkdir(); current.write_text(json.dumps({**lock, 'toolchain_profiles': {'unused': 'own'}}))
             with mock.patch.object(p, 'GUEST_PRODUCER', pin), mock.patch.object(p, 'git_blob', side_effect=lambda _, commit, name: blobs[name]) as read, mock.patch.dict(os.environ, {p.wb.TOOLCHAIN_PROFILE_ENV: 'local'}):
-                self.assertEqual(p.provenance(receipt, root)['guest_producer'], pin)
+                self.assertEqual(p.provenance(receipt, root)['guest_producer'], {**pin, 'mode': 'historical'})
                 self.assertTrue(all(call.args[1] == pin['commit'] for call in read.call_args_list))
                 for mutate, restore in (
                     (lambda: receipt['guest'].update(sha256='b' * 64), lambda: receipt['guest'].update(sha256=pin['guest_sha256'])),
@@ -87,6 +88,27 @@ class StateProbeTests(unittest.TestCase):
                     mutate()
                     with self.assertRaises(ValueError): p.provenance(receipt, root)
                     restore()
+
+
+                recorded.update(build_recipe=p.wb.sha256(recipe), toolchains_json=p.wb.sha256(current)); receipt['guest']['sha256'] = 'd' * 64
+                read.reset_mock()
+                self.assertEqual(p.provenance(receipt, root)['guest_producer']['mode'], 'current'); read.assert_not_called()
+                for path in (recipe, current, root / p.RECORDED_INPUTS['guest_cpp']):
+                    before = path.read_bytes(); path.write_bytes(before + b' ')
+                    with self.assertRaises(ValueError): p.provenance(receipt, root)
+                    path.write_bytes(before)
+                with mock.patch.dict(os.environ, {p.wb.TOOLCHAIN_PROFILE_ENV: 'hosted-macos26'}):
+                    self.assertEqual(p.provenance(receipt, root)['guest_producer']['toolchain_profile'], 'hosted-macos26')
+                read.assert_not_called()
+
+    def test_tools_use_verified_selected_paths_and_reject_changed_bytes(self):
+        with tempfile.TemporaryDirectory(prefix='selected-tools-fixture-', dir=ROOT / 'build') as tmp:
+            path = Path(tmp) / 'own-tool'; path.write_bytes(b'own fixture, never executed')
+            lock = {'tools': {'clang': {'path': '/absent/default/clang', 'sha256': p.wb.sha256(path)}}}
+            with mock.patch.object(p.wb, 'selected_toolchain', return_value=lock), mock.patch.object(p.wb, 'selected_tool_paths', return_value={'clang': path}) as selected:
+                self.assertEqual(p.tools_identity(), {str(path): p.wb.sha256(path)}); selected.assert_called_once_with(lock)
+                path.write_bytes(b'changed')
+                with self.assertRaisesRegex(ValueError, 'Pinned compiler'): p.tools_identity()
 
     def test_orchestrator_is_offline_isolated_pinned_and_rejects_context_or_input_drift(self):
         (ROOT / 'build').mkdir(exist_ok=True)
