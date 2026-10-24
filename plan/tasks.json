@@ -11928,7 +11928,8 @@
         "Integrar el nuevo bootstrap real T40j en la lane functional acumulada: activar P6_TEST_EMUHAWK_SELFCHECK=1 junto a los opt-ins existentes y extender el test dirigido de seleccion/ENV. Su modulo completo debe ejecutarse, sin convertir el nuevo opt-in ausente en omision verde; preparar el EmuHawk real actual por la receta ya existente. No repetir lanes anteriores por esta integracion de runner ni atribuirles la nueva prueba. Dos rutas ya autorizadas: tools/ci/nightly.py y tests/ci/test_nightly.py.",
         "Integrar T40k en la lane functional sin omisiones: activar P6_TEST_EMUHAWK_COEXISTENCE=1 y extender el mismo test dirigido de seleccion/ENV. El escenario usa el EmuHawk actual preparado por las recetas existentes, ambos guests y un solo runtime actual. Este registro no acredita ejecucion de coexistencia ni repite lanes anteriores; root conserva pendiente la aceptacion real hasta que pase. Rutas ya autorizadas: tools/ci/nightly.py y tests/ci/test_nightly.py.",
         "Registrar el diagnostico dirigido T40l dentro de functional: activar P6_TEST_WATERBOX_STATE_PROBE=1 y conservar seleccion del modulo completo mediante el test de ENV existente. El diagnostico clasifica snapshots del mini-guest y nunca acredita la coexistencia T40k ni sus cuatro escenarios; su fallo/ambiguedad no se convierte en omision verde. Rutas ya autorizadas tools/ci/nightly.py y tests/ci/test_nightly.py; no repetir otras lanes por la integracion del runner.",
-        "El run publico40093393108/8f termina FAIL en el guard final de performance-bench120883346190: benchmark inputs/outputs/headers changed, sin identificar componente. Engine120883346043 conserva75ventanas/2metodos PASS de esa revision; frontends no ejecutados y agregador falla por jobs ausentes, no atribuirles PASS. Antes de repetir135ventanas, ampliar exclusivamente tools/ci/performance_bench.py y tests/ci/test_performance_bench.py (ya dentro touch): conservar captura y comparacion final estrictas en su mismo punto, representar familias common/tools/source_environment/generated/inputs con nombres y diagnosticar paths exactos de hojas diferentes mediante hashes before/after, sin valores privados ni tolerancias. Fixture corto provoca drift de cada familia/subcampo sin compilar ni medir. Despues aislar mutantes potenciales mediante inventarios antes/despues de los constructores reales build_ffi_release, build_targets(state-opt,TARGETS,optimized=True) y build_managed/ensure_runtime_lane(debug) sobre inputs propios ya existentes; no ejecutar la campana135/39 ni atribuir causa a8f sin observacion real. Agente ci_close implementa2rutas en worktree aislado, root integra metadata/publicacion; ninguna nueva corrida remota antes de causa concreta."
+        "El run publico40093393108/8f termina FAIL en el guard final de performance-bench120883346190: benchmark inputs/outputs/headers changed, sin identificar componente. Engine120883346043 conserva75ventanas/2metodos PASS de esa revision; frontends no ejecutados y agregador falla por jobs ausentes, no atribuirles PASS. Antes de repetir135ventanas, ampliar exclusivamente tools/ci/performance_bench.py y tests/ci/test_performance_bench.py (ya dentro touch): conservar captura y comparacion final estrictas en su mismo punto, representar familias common/tools/source_environment/generated/inputs con nombres y diagnosticar paths exactos de hojas diferentes mediante hashes before/after, sin valores privados ni tolerancias. Fixture corto provoca drift de cada familia/subcampo sin compilar ni medir. Despues aislar mutantes potenciales mediante inventarios antes/despues de los constructores reales build_ffi_release, build_targets(state-opt,TARGETS,optimized=True) y build_managed/ensure_runtime_lane(debug) sobre inputs propios ya existentes; no ejecutar la campana135/39 ni atribuir causa a8f sin observacion real. Agente ci_close implementa2rutas en worktree aislado, root integra metadata/publicacion; ninguna nueva corrida remota antes de causa concreta.",
+        "Registrar T40m en functional mediante P6_TEST_EMUHAWK_STATE_PROBE=1 y test dirigido existente de seleccion/ENV (tools/ci/nightly.py y tests/ci/test_nightly.py ya permitidos); el probe dirigido no sustituye a T40k ni se atribuye a lanes anteriores."
       ],
       "checks": [
         "PLAN01",
@@ -12448,6 +12449,52 @@
       "stop": "No corregir runtime/ABI/legacy a ciegas ni normalizar/eliminar partes de snapshot para aprobar. Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis verificables, marcar blocked y elegir trabajo independiente. Agente no modifica metadata, publica ni ejecuta compilaciones pesadas o el escenario EmuHawk completo."
     },
     {
+      "id": "T40m",
+      "title": "Localizar la diferencia de estado UAE real por seccion, pagina y campo",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40j",
+        "T40l"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch",
+        "tools/emuhawk_selfcheck.py",
+        "tools/emuhawk_coexistence.py",
+        "references/machawk/src/BizHawk.Emulation.Cores/Waterbox/WaterboxHost.cs",
+        "references/machawk/src/BizHawk.Emulation.Cores/Waterbox/WaterboxCore.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0026-emuhawk-state-probe.patch",
+        "tools/emuhawk_state_probe.py",
+        "tools/emuhawk_selfcheck.py",
+        "tests/packages/test_emuhawk_state_probe.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Resultado negativo real de T40l: el mini-guest no reproduce y las pilas de entrada principal/alternativa ya son invisible por elf.rs. Mantener T40k BLOCKED: ninguna correccion ABI/runtime esta acreditada. hosted_bootstrap implementa esta vertical dirigida en worktree aislado; root integra, revisa y serializa la unica compilacion managed necesaria. No repetir matrices/CPU/WinUAE/codegen/runtime/guest ni los cuatro casos completos de T40k.",
+        "Añadir una entrada CLI explicita de diagnostico a EmuHawk real mediante parche0026, conservando intacta la comparacion y los cuatro casos de0025. Compartir metodos privados haciendo parcial Puae6Coexistence, sin copiar RomLoader/MovieSession ni inventar APIs. Ejecutar solo el caso BK2 de12frames con UAE y PUAE6 vivos/alternados en ambos pases para conservar las condiciones del fallo, A/V e identidad. No presentar este recorrido como aceptacion completa de coexistencia o de UI.",
+        "Capturar SaveStateBinary original de UAE mediante Stream que registra cada Write/WriteByte real, sin cambiar bytes ni callbacks nativos. Leer el mapa real con WaterboxHost.GetPagesDomain del mismo core, por acceso diagnostico verificable al campo existente _exe; no modificar wrapper/runtime. Capturar inicial/final y dos saves consecutivos por pase para separar inestabilidad de save frente a diferencia de arranque/replay. Dividir estructuralmente runtime y cola managed original, validar todas las escrituras/longitudes desde WaterboxCore/UAE reales; reutilizar decoder T40l para runtime y clasificar tambien todos los bytes de wrapper. Comparar SHA/tamano de estado completo ademas de rangos por seccion/pagina/proteccion; no omitir la cola ni buscar magic ingenuamente en RAM.",
+        "Orquestador comparte staging autenticado de emuhawk_selfcheck y emuhawk_coexistence.prepare, con entrada/marker/cota de transporte explicitas. Mantener .NET10.0.13/SDK10.0.402, closure real, assets propios, runtime y ambos guests antes/despues y fallo de inventario incompleto. Datos solo memoria/pipe acotado y build temporal limpio, stdout compacto; no informes ni cambios en MacHawk. Fixtures rechazan mapa/cola/truncamiento/cobertura falsa, y opt-in P6_TEST_EMUHAWK_STATE_PROBE=1. Root registra checks y lane functional sin sustituir T40k.",
+        "Objetivo cinco rutas de implementacion y menos400lineas logicas, mas registro del coordinador; si necesita otra ruta explicitar motivo antes de editar. Primer resultado debe identificar seccion/pagina real de cada diferencia o declarar no-reproduccion limitada. No atribuir padding, punteros o ciclo causal por semejanza de bytes. Revisar ADR y registrar correccion atomica antes de tocar runtime/motor/ABI. Tras dos fallos de este reproducer, conservarlo y bloquear con dos hipotesis verificables."
+      ],
+      "checks": [
+        "WB03",
+        "WB09"
+      ],
+      "acceptance": [
+        "Una ejecucion real del caso dirigido con ambos cores identifica sin ambiguedad los rangos diferentes del estado UAE completo, incluida cola managed, o acredita la no-reproduccion en este recorrido con sus limites. Identidades, A/V, numero de frames y mapa de paginas son reales y actuales; ninguna simulacion de core ni comparacion tolerante.",
+        "Fixtures de esquema/cobertura pasan, cola y runtime no pierden bytes, temporales se limpian e inputs/referencia quedan intactos. La observacion produce una decision causal revisable sin declarar resuelta T40k ni ejecutar otra vez todas sus variantes."
+      ],
+      "stop": "No cambiar ABI/CPU/runtime, excluir bytes, normalizar estados ni modificar hashes/comparadores para aprobar. Dos intentos razonados sin localizar la misma diferencia requieren blocked_reason y trabajo independiente. Agente no edita metadata compartida, instala, publica ni ejecuta compilaciones pesadas."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12470,7 +12517,8 @@
         "T40i",
         "T40j",
         "T40k",
-        "T40l"
+        "T40l",
+        "T40m"
       ],
       "read": [
         "docs/05-maintenance.md",
