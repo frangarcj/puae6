@@ -19,6 +19,29 @@ function Verify-File([string]$Path, [long]$Bytes, [string]$Sha) {
     Require ((Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $Sha) 'Input SHA256 differs'
 }
 
+function Verify-Registration($Registration) {
+    Require ($Registration.hive -ceq 'ClassesRoot' -and $Registration.view -ceq 'Registry32' -and
+        $Registration.key -ceq 'CLSID\{8c3eda3f-f182-4617-a352-00b48a8e49f2}\InprocServer32' -and
+        $Registration.value_name -ceq '' -and $Registration.value_kind -ceq 'REG_SZ' -and
+        $Registration.filename -ceq 'AdvrCntr6.dll' -and $Registration.export_ordinal -eq 5) 'Unsupported registration contract'
+    Verify-Pin ([long]$Registration.bytes) $Registration.sha256
+    $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::ClassesRoot, [Microsoft.Win32.RegistryView]::Registry32)
+    $key = $null
+    try {
+        $key = $hive.OpenSubKey($Registration.key, $false)
+        Require ($null -ne $key) 'Prerequisite absent: HKCR Registry32 AdvrCntr6 InprocServer32 registration; no download or Nero execution attempted'
+        Require ($key.GetValueKind($Registration.value_name) -eq [Microsoft.Win32.RegistryValueKind]::String) 'Registration must contain unexpanded REG_SZ'
+        $path = $key.GetValue($Registration.value_name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        Require ($path -is [string] -and [IO.Path]::IsPathFullyQualified($path) -and
+            [IO.Path]::GetFileName($path) -ieq $Registration.filename) 'Registration must name an absolute AdvrCntr6.dll path'
+        Verify-File $path ([long]$Registration.bytes) $Registration.sha256
+        Write-Output 'P6_NERO_PREREQUISITE authenticated HKCR Registry32 registration and DLL; no DLL loaded'
+    } finally {
+        if ($null -ne $key) { $key.Dispose() }
+        $hive.Dispose()
+    }
+}
+
 function Download-Fixed([string]$Destination) {
     $handler = [Net.Http.HttpClientHandler]::new()
     $handler.AllowAutoRedirect = $false
@@ -117,6 +140,7 @@ try {
     Require ($env:RUNNER_TEMP -and [IO.Path]::IsPathFullyQualified($env:RUNNER_TEMP)) 'Absolute RUNNER_TEMP required'
     $lock = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../../plan/upstream.lock.json') -Raw | ConvertFrom-Json
     $pin = $lock.reference_tools.nero_2025
+    Verify-Registration $pin.registration
     Require ($pin.version -ceq '27.0.1000' -and $pin.url -ceq 'https://ecloud.nero.com/public.php/dav/files/pBxLJzgPaNtAJBi') 'Unsupported official source'
     Require ($pin.filename -cmatch '^[A-Za-z0-9_.-]+\.exe$' -and $pin.payload.path -ceq 'NeroInstaller/NeroBurningROM.zip') 'Unsupported archive layout'
     Require ($pin.command_path -ceq 'Nero Burning ROM/NeroCmd.exe') 'Unsupported command layout'
