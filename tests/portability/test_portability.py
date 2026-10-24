@@ -17,6 +17,7 @@ from unittest import mock
 from tests.portability import corpus
 from tests.portability.row_driver import PROBE_SCHEMA
 from tests.portability.rows import OPT_ORDER, OUT_OF_SCOPE, ROWS
+from tools.ci.matrix_checks import check_observations
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLCHAINS = json.loads((ROOT / "plan/toolchains.json").read_text())
@@ -112,18 +113,7 @@ def check_matrix_result(test, dataset, name, opt):
     host = json.loads((folder / f"{opt}-host{suffix}.json").read_text())
     record = json.loads((folder / f"{opt}-record{suffix}.json").read_text())
     test.assertTrue(record["faketime"]["shifted"], "DET06 requires another host clock")
-    test.assertEqual(base["probe_schema"], expected["probe_schema"])
-    test.assertEqual(host["probe_schema"], expected["probe_schema"])
-    test.assertEqual(base["errors"], {})
-    test.assertEqual(host["errors"], {})
-    test.assertEqual(set(base["cases"]), set(expected["cases"]))
-    for case_id, wanted in expected["cases"].items():
-        got, shifted = base["cases"][case_id], host["cases"][case_id]
-        test.assertEqual(got["probe_schema"], wanted["probe_schema"])
-        test.assertEqual(shifted["probe_schema"], wanted["probe_schema"])
-        for field in ("hardware", "av"):
-            test.assertEqual(got[field], wanted[field], f"{name}/{opt} {case_id} {field}")
-            test.assertEqual(shifted[field], got[field], f"DET06 {name}/{opt} {case_id} {field}")
+    check_observations(expected, base, host, f"{name}/{opt}")
 
 
 def execute_matrix(test, dataset):

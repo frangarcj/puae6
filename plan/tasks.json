@@ -11767,7 +11767,9 @@
         "tests/waterbox-poison/test_poison.py",
         "patches/winuae/0416-display-owner-interlace-power-on.patch",
         "CMakeLists.txt",
-        "tools/bench.py"
+        "tools/bench.py",
+        "tests/simd/frontend_matrix.py",
+        "manifests/release/waterbox-preview.json"
       ],
       "steps": [
         "Definir jobs rapidos PR y completos nightly/release para plataformas realmente disponibles; no crear checks decorativos.",
@@ -11904,7 +11906,12 @@
         "Preflight de la lane performance detecta tools/bench.py:build_ffi_release forzando ~/.nuget/packages e ignorando P6_WATERBOX_MANAGED_FEED. Ampliar touch con tools/bench.py; tests/ci/test_managed_inputs.py ya esta permitido. Reutilizar managed_restore_sources(default=cachelocal), conservando cache local cuando no hay seleccion explicita y exigiendo validacion offline del feed canonico cuando la hay, sin fallback ni fetch. Regresion con nupkg propios y build simulado comprueba feed verificado propagado a Release, rechazo de tamper/selector invalido antes de dotnet y politica local anterior; ninguna medida ni compilacion del motor para esta correccion.",
         "Cerrar hueco causal de procedencia guest descubierto al empaquetar: el recibo actual enumera TUs pero no headers manuales. Vertical minima ci_close en tools/build_waterbox.py y tests/waterbox-smoke/test_build.py, sin cambios de flags/motor/Make ni compilaciones por agente. Exponer puae6_manual_inputs(root=ROOT) puro: inventario SHA de todos los archivos regulares bajo bridge, ports/portable, adapters/waterbox, third_party y references/machawk/waterbox/emulibc, rechazando symlinks y rutas ausentes, mas CMakeLists/manifests de seleccion/codegen/imports. Capturar antes/despues de make, incluir manual_inputs en build_inputs (cambio fuerza rebuild completo una vez con receta actual) y en recibo como manual_inputs; drift falla y no conserva recibo. Mantener sources con semantica actual TUs para consumidores existentes. check_guest_matches_trees exige manual_inputs actual. Fixture propio header alterado con mtime conservado obliga rebuild y deja invalido guest antiguo; cambios durante build y enlaces fallan sinrecibo. Root integra, ejecuta una unica reconstruccion oficial guest necesaria para acreditar estos inputs y el smoke instalado Waterbox ya exigido; NO repetir matriz/fuzz/clean/hosted ni runtime sin cambio concreto. Consumidor T40g exige manual_inputs actuales; no prometer fuentes correspondientes completas por TUs solos. Objetivo menos180lineas/dosrutas, checks dirigidos existentes del builder y nueva regresion header, sin informes. Ajuste cercano autorizado tambien en tests/codegen/test_build_trees.py: su fixture de check_guest_matches_trees debe aportar manual_inputs actual y conservar asserts de arboles/fuente/guest; actualizar comentario que excluia bridge de la competencia. Son tres rutas, mismo objetivo y menos180lineas; ejecutar solo metodo afectado, sin repetir toda suite codegen.",
         "Integracion del cierre manual: tools/ci/nightly.py waterbox_inputs exige ambos inventarios manual_inputs contra puae6_manual_inputs actual antes de preparar/ejecutar CI; tests/ci/test_nightly.py amplia el fixture existente con header modificado o inventario ausente/tampered en cualquiera de ambos campos, conservando sus checks anteriores. Añadir P6_WATERBOX_PACKAGE_ZIP al negativo existente de archivos requeridos. Solo dos rutas ya permitidas, menos40lineas y los dos metodos afectados; no nueva bateria ni recompilacion del guest/runtime, porque cambia el consumidor de metadata exclusivamente.",
-        "Vertical remota minima tras native15/corpus15/WaterboxPR ya PASS: ci_close en worktree hosted-native-release-gates separado de main6939 inmutable. Ampliar workflow hosted existente con selector explicito clean o sanitizers, jobs independientes macos-26 gratuitos sobre repo publico. Reutilizar bootstrap SDK/feed/tools ya fijado, leyendo preflight real para preparar solo inputs requeridos por cada lane; ejecutar tools/ci/nightly.py --source-audit snapshot --lane seleccionada y validar su stdout con validate_result existente. No ejecutar PR68 ni native15/corpus15 como efecto lateral, no instalar nuevas dependencias/Capstone si no requerido, no Docker/activos privados/runners pagados. Guardar datos temporales solo bajo build y limpiar; stdout y Actions son registro normal. Maximo cinco rutas/250lineas: workflow existente, herramientas CI y tests CI propios/docs si necesarios. Root revisa antes de publicar arbol seleccionado, agente solo lint/tests de receta sin red/escrituras GitHub/compilaciones reales/metadata. No cerrar T39b por estas dos lanes: funcional/matriz/opt/perf acumuladas remotas conservan scope y bloqueo concreto hasta resolver distribucion/inputs. El preflight comun exige recibos Waterbox incluso para clean/sanitizers nativos; corregir esa dependencia de preparacion, no compilar guests no usados. API preflight conserva require_waterbox=True por defecto para PR; nightly pasa True en funcional/performance y False en clean/matrix/sanitizers/optimization, que no seleccionan checks Waterbox. Mantener arquitectura/herramientas, assets, identidades y todas assertions seleccionadas. Cinco rutas maximo: workflow hosted existente, tools/ci/run.py, tools/ci/nightly.py, tests/ci/test_runner.py y tests/ci/test_nightly.py. Tests existentes prueban defaultPR/performance siguen exigiendo recibos reales y lanes nativas no los fabrican/omiten checks; selector clean/sanitizers no construye runtime/guest ni ejecutaPR68. Si el cambio atomico necesita sexta ruta, root amplia razon antes de editarla; no hacer stubs ni importar PASS historicos. Ajuste final antes de implementar: limitar require_waterbox=False exclusivamente a clean y sanitizers para esta vertical; matriz/optimization mantienen politica anterior, PR/functional/performance siguen True. La opcion False tampoco exige dotnet si ningun check seleccionado lo usa; conserva todas herramientas nativas/host/identidades. Cinco rutas finales workflow/run.py/nightly.py/test_nightly.py/docs/ci.md: regresion preflightdefault se añade a test_nightly y se ejecutan metodos existentes test_runner sin editar ese fichero. Los jobs clean/sanitizers usan AppleClang nativo ya observado/pinado y no ejecutan bootstrapSDK/feed/21tools/guest/runtime que no consumen; preservar exactos los jobs existentes y condiciones de component all/tools/managed/gate."
+        "Recuperacion explicita de inputs Docker ausentes autorizada por el usuario: reconstruir las dos imagenes de portabilidad y RetroArch con sus Dockerfiles sin cambios y la base Ubuntu fijada por digest; verificar offline por ID la ISA, versiones y bytes de compiladores/cabeceras antes de actualizar los pins. No sustituir IDs silenciosamente ni convertir resultados de imagenes anteriores en una ejecucion de las nuevas. Conservar el alcance real de la validacion acumulada y ejecutar los selectores pendientes con identidad estable; ninguna recuperacion de infraestructura acredita una nueva matriz completa.",
+        "Vertical remota minima tras native15/corpus15/WaterboxPR ya PASS: ci_close en worktree hosted-native-release-gates separado de main6939 inmutable. Ampliar workflow hosted existente con selector explicito clean o sanitizers, jobs independientes macos-26 gratuitos sobre repo publico. Reutilizar bootstrap SDK/feed/tools ya fijado, leyendo preflight real para preparar solo inputs requeridos por cada lane; ejecutar tools/ci/nightly.py --source-audit snapshot --lane seleccionada y validar su stdout con validate_result existente. No ejecutar PR68 ni native15/corpus15 como efecto lateral, no instalar nuevas dependencias/Capstone si no requerido, no Docker/activos privados/runners pagados. Guardar datos temporales solo bajo build y limpiar; stdout y Actions son registro normal. Maximo cinco rutas/250lineas: workflow existente, herramientas CI y tests CI propios/docs si necesarios. Root revisa antes de publicar arbol seleccionado, agente solo lint/tests de receta sin red/escrituras GitHub/compilaciones reales/metadata. No cerrar T39b por estas dos lanes: funcional/matriz/opt/perf acumuladas remotas conservan scope y bloqueo concreto hasta resolver distribucion/inputs. El preflight comun exige recibos Waterbox incluso para clean/sanitizers nativos; corregir esa dependencia de preparacion, no compilar guests no usados. API preflight conserva require_waterbox=True por defecto para PR; nightly pasa True en funcional/performance y False en clean/matrix/sanitizers/optimization, que no seleccionan checks Waterbox. Mantener arquitectura/herramientas, assets, identidades y todas assertions seleccionadas. Cinco rutas maximo: workflow hosted existente, tools/ci/run.py, tools/ci/nightly.py, tests/ci/test_runner.py y tests/ci/test_nightly.py. Tests existentes prueban defaultPR/performance siguen exigiendo recibos reales y lanes nativas no los fabrican/omiten checks; selector clean/sanitizers no construye runtime/guest ni ejecutaPR68. Si el cambio atomico necesita sexta ruta, root amplia razon antes de editarla; no hacer stubs ni importar PASS historicos. Ajuste final antes de implementar: limitar require_waterbox=False exclusivamente a clean y sanitizers para esta vertical; matriz/optimization mantienen politica anterior, PR/functional/performance siguen True. La opcion False tampoco exige dotnet si ningun check seleccionado lo usa; conserva todas herramientas nativas/host/identidades. Cinco rutas finales workflow/run.py/nightly.py/test_nightly.py/docs/ci.md: regresion preflightdefault se añade a test_nightly y se ejecutan metodos existentes test_runner sin editar ese fichero. Los jobs clean/sanitizers usan AppleClang nativo ya observado/pinado y no ejecutan bootstrapSDK/feed/21tools/guest/runtime que no consumen; preservar exactos los jobs existentes y condiciones de component all/tools/managed/gate.",
+        "Eliminar verificacion duplicada de frontend en la receta optimization: ampliar touch solo tests/simd/frontend_matrix.py para exponer accion build en CLI conservando prepare como build+verify manual. nightly.prepare(optimization) construye todas las filas opt/san y sus dos selectores actuales ejecutan cada verificacion real una sola vez; conservar corpus, restauracion, comparacion entre filas, sanitizers, counts e identidad. La preparacion performance conserva build+verify antes de medir y no cambia su protocolo. Ajustar tests de infraestructura existentes y guia, sin compilaciones por agente, cambios de motor ni importacion de PASS historicos. Root mantiene la candidata actual inmutable hasta terminar optimization/performance y solo integra despues esta mejora del runner futuro.",
+        "Integracion de T40h/T40i: habilitar expresamente sus dos opt-ins reales en ENV de la lane funcional para que los nuevos modulos no omitan reconstrucciones; extender la assertion existente de cobertura funcional y mantener los limites de cada producto. Ajustar el recuento exacto del plan y las dependencias de T40 a 521 tareas/492 obligatorias sin borrar puertas. Actualizar solo el pin RetroArch a la imagen reconstruida y verificada el 24oct, conservando la procedencia de la receta/base y sin atribuir ejecucion completa del frontend por provisionar una imagen. Root prepara esta integracion en worktree aislado mientras la candidata755 permanece estable para optimization/performance.",
+        "La reconstruccion Docker autorizada cambio exclusivamente IDs/procedencia de la matriz en plan/toolchains.json (9dea613f a 5a8ada57), pero la politica Waterbox conserva el SHA anterior y compose rechaza correctamente Changed policy input. Ampliar previamente touch solo manifests/release/waterbox-preview.json para sincronizar su pin con el manifiesto real verificado. Conservar todos los hashes de fuentes/licencias/Cargo/NuGet/sysroot, los ZIP historicos y sus identidades; no presentar el cambio de metadata como una nueva prueba del emulador. Ejecutar WaterboxPolicyTests existente con sus negativos estrictos; integrar despues de la campaña de rendimiento755 congelada.",
+        "Perfil hosted distribuido para la matriz remota: conservar intacta la receta local con Docker fijado y añadir gate matrix explicito sobre runners publicos nativos. Reutilizar el validador original por celda para ambos corpus; ejecutar tambien todos los checks ligeros y el reproducer de reloj en las cinco filas sanitizer. Agregar exclusivamente resultados de las 15 combinaciones de una misma ejecucion/intento/revision con fuentes/receta/goldens autenticados; omisiones, duplicados, mezclas o fallos bloquean. Usar transporte de JSON temporal por logs, sin informes ni artefactos historicos. Identificar runner/compiladores reales y el perfil nuevo, sin atribuirle IDs Docker locales ni importar los PASS remotos anteriores. Primera vertical comparte validador y sus regresiones; segunda conecta workers y agregacion, cada cambio acotado. No ejecutar builds locales pesados mientras se mide la candidata755 ni modificarla; coordinador revisa y ejecuta el gate remoto real despues de integrar fuentes publicas limpias autorizadas."
       ],
       "checks": [
         "PLAN01",
@@ -12242,6 +12249,47 @@
       "stop": "No editar main/metadata por agente ni compilar pesado, descargar binarios/paquetes, instalar, publicar o modificar hermanos. Una distribucion sin closure/avisos completos o sin restore real no esta done; conservar reproducer si falla."
     },
     {
+      "id": "T40h",
+      "title": "Comprobar reproducibilidad binaria de los tres productos nativos",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40a",
+        "T40c"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/native-preview.md",
+        "tools/package.py",
+        "tests/packages/test_linux_preview.py"
+      ],
+      "touch": [
+        "tools/package.py",
+        "tests/packages/test_reproducible.py",
+        "tools/check.py",
+        "docs/user/native-preview.md"
+      ],
+      "steps": [
+        "Vertical independiente de T40 con dependencias DONE; toolchain_review implementa en worktree native-binary-repro aislado, root integra y serializa las compilaciones reales despues del bloque actual. Main6939 no cambia durante optimization35971. Agente no edita metadata ni ejecuta compilacion pesada, emulador o paquetes instalados de nuevo.",
+        "Añadir operacion reproducible al empaquetador existente que use dos directorios CMake realmente nuevos y temporales bajo build, misma fuente limpia/revision, compiler/environment identificados y configure_command vigente para native_platform. Compilar puae6_libretro, p6_headless y p6_libretro_host en cada arbol con paralelo2; ambos son builds de objetos limpios, sin reusar CMakeCache/objetos ni usar package.build/smoke. Reusar generados/materializado actuales ya verificados; no repetir GEN01 ni escenarios del motor. Entorno/toolchain/fuente estables antes/despues; salida por stdout con hashes por producto, sin informes historicos ni falsos PASS por metadata/caches.",
+        "Comparar bytes exactos por producto entre dos builds de cada plataforma macOSARM64/LinuxARM64/Linuxx86_64. Ninguna normalizacion de UUID/buildID/rutas/timestamps, hashesgolden ni flags distintos de la receta de paquete. Diferencia concreta falla y conserva un reproducer dirigido en test/codigo, no proclama reproducible; no cambiar global binary_reproducibility_verified de los paquetes porque Waterbox/managed/conjunto completo conserva puertas de T40.",
+        "Helper pequeño y fixtures propios de infraestructura mockean un compilador para probar dos carpetas vacias distintas, targets/flags exactos y ejecucion unica, mismatch/sourcedrift/cleanup ante errores. Tests de mocks no acreditan BUILD01. Registrar PKG01/BUILD01 mediante prueba real opt-in y permitir a root ejecutar una vez el mismo helper en cada runner declarado. No duplicar unittest instalado si helper directo ya cubre exactamente la aceptacion, ni smokes existentes; falta herramienta/input bloquea honestamente. Root usa imagenes Docker fijadas, sin red/pulls/instalacion y mismo policyELF/ISA relevante, sin modificar MacHawk.",
+        "Objetivo cuatro rutas y menos250lineas logicas manuales. root compara tambien los hashes de los binarios de las previews efectivas si se pretende acreditar esos ZIP, sin renovar paquetes ni emularlos otra vez por mera fuente/helper. Dos builds iguales solo acreditan los tres binarios de esa plataforma; no cierra EmuHawk, Waterbox/managed, CI acumulada ni T40/T41."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Los tres productos nativos resultan byteidenticos entre dos compilaciones de objetos limpias en cada una de las tres plataformas declaradas; fuentes/toolchain/entorno se mantienen y las salidas corresponden a los targets reales sin omisiones.",
+        "Los tests propios pasan, temporales se limpian y la comprobacion no repite motor/estado/paquetes ya aprobados ni atribuye reproducibilidad a productos o plataformas no ejecutados."
+      ],
+      "stop": "No heavybuild por agente/mainmutation mientras lane actual; no normalizar diferencias ni tocar flags/pins/goldens para aprobar. No afirmar reproducibilidad de todo el paquete ni Waterbox por este subconjunto. No publicar ni instalar/modificar hermanos."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12259,7 +12307,9 @@
         "T40d",
         "T40g",
         "T40e",
-        "T40f"
+        "T40f",
+        "T40h",
+        "T40i"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12282,7 +12332,8 @@
         "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas.",
         "T40g entrega una preview Waterbox Darwin ARM64 standalone relocable con wrapper/FFI, guest/runtime y politica de fuentes/avisos completa. No es un plugin para copiar en EmuHawk; esta ficha conserva integracion porruntime, coexistencia y dos builds limpios reproducibles, ademas de la CI completa.",
         "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
-        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."
+        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad.",
+        "T40i compara dos reconstrucciones limpias del payload Waterbox standalone con rutas fijas y conserva la diferencia entre binarios iguales entre si y reproducibilidad del ZIP distribuido. Esta puerta no sustituye EmuHawk real ni la reproducibilidad de los productos nativos y del paquete completo."
       ],
       "checks": [
         "PKG01",
@@ -23510,6 +23561,45 @@
         "XML/direct/catalogo publico ETNFglobal normalizado conserva TOC/identidad/lease/SaveRAM y futuroAVPCM/RAM/estado exacto con snapshot en sandbox/proceso nuevos. Datos/Q/huecos y negativos son transaccionales; guest/runtime actuales y limitesmedidos, sin cambiarlegacy ni cerrarTINF/ETN2multi."
       ],
       "stop": "Sin runnerguest actual dejar gateBLOCKED. No aprobar conbibliotecanativa/snapshotprivado, timeout, solo pantallao compilacion; no repetir campañascompletas por cambio deharness."
+    },
+    {
+      "id": "T40i",
+      "title": "Comparar dos builds limpios del payload Waterbox standalone",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40d",
+        "T40g"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/03-waterbox.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "tools/reproduce_waterbox.py",
+        "tests/packages/test_waterbox_reproducible.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Construir dos veces desde objetos vacios en una misma ruta de staging aislada los ocho productos standalone: guest Release, runtime Release y seis outputs managed Release, con las recetas/flags/SDK/feed fijados actuales. Cachés de fuentes/dependencias verificadas pueden reutilizarse; no objetos ni salidas de una pasada anterior. Reutilizar funciones del builder; no ejecutar su build general ni repetir tests internos/smokes ya acreditados.",
+        "Exigir inventario completo, identidad de fuentes/herramientas/entorno estable antes/despues, pin managed del guest recien reconstruido y SHA-256 identicos de todos los ocho productos. El helper no instala ni descarga; faltantes bloquean. Aislar todos los outputs de los arboles oficiales y restaurar estado global/env incluso con fallo. Eliminar temporales propios al terminar.",
+        "Registrar CLI y gate real opt-in en PKG01/BUILD01; pruebas propias capturan build fallido, producto ausente/diferente, drift de inputs y limpieza, sin compilar el emulador en los tests de infraestructura. Root ejecuta el gate real despues de optimization, con builds pesados serializados.",
+        "Declarar el limite de rutas fijas: los DLL managed incluyen CodeView con path; no cambiar PathMap/PDB/flags ni normalizar binarios para aprobar. Dos builds iguales no acreditan igualdad con un ZIP existente si sus ocho hashes no coinciden; comparar sus pins antes de extender la afirmacion. T40 conserva integracion EmuHawk y reproducibilidad de la distribucion completa."
+      ],
+      "checks": [
+        "PKG01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Dos reconstrucciones reales con todos los arboles de objetos inicialmente vacios producen exactamente los mismos ocho binarios en las condiciones y ruta declaradas.",
+        "Ningun output oficial o proyecto hermano se modifica, no hay descarga/instalacion ni casos omitidos convertidos a PASS. La igualdad del ZIP se afirma solo si coincide con sus ocho productos."
+      ],
+      "stop": "No simular exito ni relajar comparacion byte a byte. Tras dos fallos razonados conservar reproducer, dos hipotesis verificables y bloqueo; no sustituir EmuHawk real por standalone."
     }
   ],
   "max_in_progress": 4

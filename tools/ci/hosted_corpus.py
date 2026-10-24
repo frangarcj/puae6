@@ -10,6 +10,7 @@ import tempfile
 from tests.build_support import digest
 from tests.portability import corpus, row_driver, run_matrix
 from tools import package
+from tools.ci.matrix_checks import check_observations
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,14 +46,14 @@ def clocks(base, shifted):
 
 
 def compare(expected, baseline, host, *, headless):
+    try:
+        check_observations(expected, baseline, host)
+    except AssertionError as error:
+        raise RuntimeError(str(error)) from error
     wanted = expected['cases']
-    require(bool(wanted), 'empty golden corpus')
-    require(type(expected.get('probe_schema')) is int and expected['probe_schema'] == row_driver.PROBE_SCHEMA, 'unsupported golden observation schema')
     for variant, record in (('baseline', baseline), ('host', host)):
-        require(type(record.get('probe_schema')) is int and record['probe_schema'] == row_driver.PROBE_SCHEMA, 'unsupported corpus observation schema')
-        require(record['variant'] == variant and record['errors'] == {} and set(record['cases']) == set(wanted), 'missing/extra/failed corpus cases')
+        require(record['variant'] == variant, 'wrong corpus variant')
         for name, case in record['cases'].items():
-            require(all(type(item.get('probe_schema')) is int for item in (case, wanted[name])) and case.get('probe_schema') == wanted[name].get('probe_schema') == row_driver.PROBE_SCHEMA, 'unsupported case observation schema')
             require(all(re.fullmatch('[0-9a-f]{64}', case[key]) and re.fullmatch('[0-9a-f]{64}', wanted[name][key]) for key in ('hardware', 'av')), 'malformed corpus hash')
             require(type(case['units']) is int and case['units'] == wanted[name]['units'] > 0 and case['lines'] > 0, 'incomplete corpus units')
             require(len(case['per_unit']) == case['units'] and all(re.fullmatch(r'\d+', unit) and len(pair) == 2 and all(re.fullmatch('[0-9a-f]{16}', h) for h in pair) for unit, pair in case['per_unit'].items()), 'incomplete per-unit hashes')
@@ -68,7 +69,7 @@ def compare(expected, baseline, host, *, headless):
     return dict(probe_schema=row_driver.PROBE_SCHEMA, cases=len(wanted), variants=['baseline', 'host'], hardware_equal=len(wanted), av_equal=len(wanted), headless=len(baseline['headless']))
 
 
-def run(tree, cc, mode, execute):
+def run(tree, cc, mode, execute, *, clock_execute=None):
     with tempfile.TemporaryDirectory(prefix='public-corpus-', dir=tree) as temporary:
         work = Path(temporary)
         library = work / ('faketime.dylib' if sys.platform == 'darwin' else 'faketime.so')
@@ -79,9 +80,10 @@ def run(tree, cc, mode, execute):
         if mode['sanitizers']:
             flags += ['-fsanitize=address,undefined', '-fno-sanitize-recover=all']
         execute([cc, *flags, '-DFAKETIME_CHECK', source, '-o', check])
-        plain = execute([check])
+        clock_execute = clock_execute or execute
+        plain = clock_execute([check])
         preload = dict(row_driver.preload_environment(check, library), P6_FAKE_TIME_OFFSET=str(run_matrix.FAKE_OFFSET))
-        clock = clocks(plain, execute([check], env=preload))
+        clock = clocks(plain, clock_execute([check], env=preload))
         results = {}
         for dataset, writer in corpus.CORPORA.items():
             name = dataset or 'corpus'

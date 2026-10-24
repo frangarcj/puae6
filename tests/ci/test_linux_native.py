@@ -110,18 +110,61 @@ class LinuxNativeTests(unittest.TestCase):
         self.assertIn('fail-fast: false',workflow)
         self.assertIn('max-parallel: 4',workflow)
         self.assertIn('options: [all, san]',workflow)
-        self.assertIn('options: [native, corpus]',workflow)
+        self.assertIn('options: [native, corpus, matrix]',workflow)
         self.assertIn("--gate '${{ inputs.gate }}'",workflow)
         self.assertIn('default: all',workflow)
         self.assertIn('inputs.variants == \'san\' && \'[{"optimization":"O0"},{"optimization":"O2"}]\'',workflow)
         self.assertIn("--row '${{ matrix.platform.row }}' --opt '${{ matrix.optimization }}'",workflow)
         self.assertIn("timeout-minutes: 45", workflow)
-        self.assertEqual(workflow.count("uses:"), 1)
+        self.assertEqual(workflow.count("uses:"), 4)
         self.assertIn("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683", workflow)
         self.assertNotRegex(workflow, r"upload-artifact|actions/cache|secrets\.|pull_request:|schedule:|continue-on-error")
 
+    def test_distributed_matrix_requires_all_variants_and_current_attempt_aggregation(self):
+        workflow = (ci.ROOT/'.github/workflows/native-linux.yml').read_text()
+        native, rest = workflow.split('  matrix-infrastructure:', 1)
+        self.assertIn("if: inputs.gate != 'matrix'", native)
+        infrastructure, rest = rest.split('  matrix-worker:', 1)
+        workers, aggregate = rest.split('  matrix-result:', 1)
+        self.assertIn("test '${{ inputs.variants }}' = all", infrastructure)
+        self.assertIn('hosted_matrix.py infrastructure', infrastructure)
+        self.assertIn('needs: matrix-infrastructure', workers)
+        self.assertIn('hosted_matrix.py cell', workers)
+        self.assertEqual(dict(re.findall(r'- row: (\S+)\n\s+runner: (\S+)', workers)), ci.HOSTED_RUNNERS)
+        self.assertIn('optimization: [O0, O2, san]', workers)
+        self.assertIn('max-parallel: 4', workers)
+        self.assertNotIn('exclude:', workers)
+        self.assertIn("if: always() && inputs.gate == 'matrix'", aggregate)
+        self.assertIn('needs: [matrix-infrastructure, matrix-worker]', aggregate)
+        self.assertIn('actions: read', aggregate)
+        self.assertIn('hosted_matrix.py aggregate', aggregate)
+        self.assertNotRegex(rest, r'linux_native.py|nightly.py|build_waterbox|dotnet|docker|--fetch')
+
 
 class HostedCorpusTests(unittest.TestCase):
+    def test_local_and_hosted_cells_share_exact_schema_cases_and_both_digests(self):
+        from tests.portability import test_portability as local
+        (ci.ROOT/'build').mkdir(exist_ok=True)
+        for fault in ('none', 'schema', 'missing', 'extra-host', 'error', 'hardware', 'av'):
+            expected, base, host = self.records()
+            if fault == 'schema': host['probe_schema'] = True
+            if fault == 'missing': base['cases'] = {}
+            if fault == 'extra-host': host['cases']['extra'] = host['cases']['one']
+            if fault == 'error': base['errors'] = {'one': 'own failure'}
+            if fault == 'hardware': base['cases']['one']['hardware'] = 'd'*64
+            if fault == 'av': host['cases']['one']['av'] = 'd'*64
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(dir=ci.ROOT/'build') as directory:
+                root = Path(directory); folder = root/'build/portability/own-row'; folder.mkdir(parents=True)
+                for name, data in (('baseline', base), ('host', host), ('record', {'faketime': {'shifted': True}})):
+                    (folder/f'O2-{name}.json').write_text(json.dumps(data))
+                with mock.patch.object(local, 'ROOT', root), mock.patch.object(local, 'golden', return_value=expected):
+                    if fault == 'none':
+                        local.check_matrix_result(self, '', 'own-row', 'O2')
+                        corpus_ci.compare(expected, base, host, headless=False)
+                    else:
+                        with self.assertRaises(AssertionError): local.check_matrix_result(self, '', 'own-row', 'O2')
+                        with self.assertRaises(RuntimeError): corpus_ci.compare(expected, base, host, headless=False)
+
     @staticmethod
     def records(headless=False):
         case = dict(probe_schema=2, hardware='a'*64, av='b'*64, units=1)

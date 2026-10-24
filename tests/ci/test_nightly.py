@@ -234,6 +234,10 @@ class NightlyRecipeTests(unittest.TestCase):
     def test_functional_keeps_the_frame_boundary_mutation_checks_enabled(self):
         self.assertEqual(ci.ENV["P6_TEST_MUTANTS"], "1")
         self.assertIn("tests.step.test_step", ci.suites("functional"))
+        for flag, module in (("P6_TEST_NATIVE_REPRODUCIBLE", "tests.packages.test_reproducible"),
+                             ("P6_TEST_WATERBOX_REPRODUCIBLE", "tests.packages.test_waterbox_reproducible")):
+            self.assertEqual(ci.ENV[flag], "1")
+            self.assertIn(module, ci.suites("functional"))
 
     def test_programmable_beam_audio_is_selected_on_both_supported_presets(self):
         from tests.audio.test_audio import AudioTests, AudioA600Tests, AudioA1200Tests
@@ -404,6 +408,34 @@ class NightlyRecipeTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Commit the public sources"):
                     ci.candidate_package()
 
+    def test_frontend_build_only_cli_covers_all_rows_and_manual_prepare_still_verifies(self):
+        from tests.simd import frontend_matrix as frontend
+        for action in ('build', 'prepare'):
+            for sanitized in (False, True):
+                for rows in ([], [next(iter(frontend.ROWS))]):
+                    argv = ['frontend_matrix', action, *(['--sanitizers'] if sanitized else []),
+                            *[item for row in rows for item in ('--row', row)]]
+                    with mock.patch.object(ci.sys, 'argv', argv), mock.patch.object(frontend, 'execute') as execute:
+                        frontend.main()
+                    actions = ('build', 'verify') if action == 'prepare' else ('build',)
+                    self.assertEqual(execute.call_args_list,
+                        [mock.call(row, step, sanitized) for row in rows or tuple(frontend.ROWS) for step in actions])
+        with mock.patch.object(ci.sys, 'argv', ['frontend_matrix', 'verify']), mock.patch.object(frontend, 'verify') as verify:
+            frontend.main()
+        verify.assert_called_once_with(False)
+
+    def test_optimization_builds_frontends_once_without_verifying_before_the_existing_selectors(self):
+        with mock.patch.object(ci, 'execute') as execute:
+            ci.prepare('optimization')
+        commands = [list(map(str, call.args[0])) for call in execute.call_args_list]
+        frontend = [argv for argv in commands if 'tests.simd.frontend_matrix' in argv]
+        self.assertEqual(frontend, [[ci.sys.executable, '-m', 'tests.simd.frontend_matrix', 'build'],
+                                    [ci.sys.executable, '-m', 'tests.simd.frontend_matrix', 'build', '--sanitizers']])
+        self.assertEqual(commands[-2:], frontend)
+        selected = ci.suites('optimization')
+        for cls in ('EquivalenceTests', 'SafetyTests'):
+            self.assertEqual(selected.count('tests.simd.test_frontend_rgb565.' + cls), 1)
+
     def test_cpu_campaign_is_prepared_once_before_its_measurements_are_consumed(self):
         with mock.patch.object(ci, "execute") as execute:
             ci.prepare("performance")
@@ -411,6 +443,9 @@ class NightlyRecipeTests(unittest.TestCase):
         build = [ci.sys.executable, "tools/bench.py", "build", "--jobs", "2"]
         run = [ci.sys.executable, "tools/bench.py", "run", "--root", str(ci.CPU_PERF_DIR.parent),
                "--id", ci.CPU_PERF_DIR.name, "--compare-cpu-levels", "--force"]
+        frontend = [ci.sys.executable, "-m", "tests.simd.frontend_matrix", "prepare"]
+        self.assertEqual(commands.count(frontend), 1)
+        self.assertLess(commands.index(frontend), commands.index(build))
         self.assertEqual(commands.count(build), 1)
         self.assertEqual(commands.count(run), 1)
         self.assertLess(commands.index(build), next(i for i, argv in enumerate(commands) if "measure" in argv))
@@ -424,6 +459,8 @@ class NightlyRecipeTests(unittest.TestCase):
                 raise RuntimeError("missing CPU benchmark artifact")
         with mock.patch.object(ci, "execute", side_effect=stop) as execute, self.assertRaisesRegex(RuntimeError, "missing CPU"):
             ci.prepare("performance")
+        frontend = [ci.sys.executable, "-m", "tests.simd.frontend_matrix", "prepare"]
+        self.assertEqual(sum(call.args[0] == frontend for call in execute.call_args_list), 1)
         self.assertFalse(any("measure" in call.args[0] for call in execute.call_args_list))
 
     def test_native_lanes_never_inspect_images_and_sanitizers_execute_every_suite(self):

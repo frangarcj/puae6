@@ -22,6 +22,7 @@ LANES = ("clean", "functional", "matrix", "sanitizers", "optimization", "perform
 CPU_PERF_DIR = ci.ROOT / "build/baselines/ci-cpu"
 GUEST_RECEIPT = ci.ROOT / "build/waterbox/puae6/puae6-receipt.json"
 ENV = dict(ci.ENV, P6_TEST_PORTABILITY="1", P6_TEST_SIMD_MATRIX="1", P6_TEST_ENGINE_FLAGS="1", P6_TEST_RGB565_FRONTEND="1",
+           P6_TEST_NATIVE_REPRODUCIBLE="1", P6_TEST_WATERBOX_REPRODUCIBLE="1",
            P6_TEST_COMPILERS="1", P6_TEST_FPU_MATRIX="1", P6_TEST_MUTANTS="1", P6_EMUHAWK_BUILD="1", P6_TEST_REAL_FRONTEND="1", P6_TEST_DET01_UNITS="10000",
            P6_A600_UNITS="1800", P6_A1200_UNITS="2200", P6_A1200_DMS_UNITS="2200", P6_GAME_UNITS="420", P6_HDF_UNITS="700", P6_HDF_UNITS_13="700",
            P6_CPU_PERF_DIR=str(CPU_PERF_DIR), P6_RUN_CPU_PERF="0", P6_MEDIA_MOVIE_GUEST_RECEIPT=str(GUEST_RECEIPT))
@@ -220,9 +221,9 @@ def prepare(lane):
                 execute([py, "-m", "tests.simd.engine_flags", "merge"])
             execute([py, "-m", "tests.simd.engine_flags", "build", "--variant", variant])
             execute([py, "-m", "tests.simd.engine_flags", "verify", "--variant", variant])
-        execute([py, "-m", "tests.simd.frontend_matrix", "prepare"])
+        execute([py, "-m", "tests.simd.frontend_matrix", "build" if lane == "optimization" else "prepare"])
         if lane == "optimization":
-            execute([py, "-m", "tests.simd.frontend_matrix", "prepare", "--sanitizers"])
+            execute([py, "-m", "tests.simd.frontend_matrix", "build", "--sanitizers"])
         else:
             execute([py, "tools/bench.py", "build", "--jobs", "2"])
             execute([py, "-m", "tests.simd.engine_flags", "measure"])

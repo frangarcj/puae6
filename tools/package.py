@@ -11,6 +11,7 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -53,9 +54,9 @@ def configure_command(target, tree):
     return command
 
 
-def verify_binaries(directory, target):
+def verify_binaries(directory, target, *, subdirectory='bin'):
     for name in products(target):
-        binary = directory / 'bin' / name
+        binary = directory / subdirectory / name
         if target == 'macos-arm64':
             if 'arm64' not in run(['file', '-b', binary]):
                 raise ValueError('Wrong package architecture')
@@ -447,14 +448,78 @@ def build(output, tree):
     return {'archive': str(output), 'revision': revision, 'sha256': sha(output), 'smoke': result}
 
 
+def reproducible_inputs(target, environment):
+    """Verify existing derived sources without materializing or regenerating them."""
+    sys.path[:0] = [str(ROOT), str(ROOT / 'tools')]
+    from tools import import_sources, materialize_upstream, generate_cpu
+    revision = clean_revision()
+    for name in ('build/upstream', 'build/generated'):
+        if not (ROOT / name).exists(): raise FileNotFoundError('Verified canonical input is required: ' + name)
+    tools = {}
+    for name in ('cmake', 'ninja', '/usr/bin/clang', '/usr/bin/clang++'):
+        path = shutil.which(name, path=environment.get('PATH'))
+        if not path: raise FileNotFoundError('Missing native reproducibility tool: ' + name)
+        tools[Path(name).name] = dict(path=str(Path(path).absolute()), sha256=sha(path),
+                                    version=run([path, '--version'], cwd=ROOT, env=environment).strip())
+    pristine = import_sources.verify_source(ROOT)
+    series, series_sha = materialize_upstream._series(ROOT, pristine['source']['commit'])
+    upstream = materialize_upstream._expected_receipt(ROOT, pristine, series, series_sha)
+    if import_sources.inventory(ROOT / 'build/upstream') != upstream['files']: raise ValueError('Stale native upstream inputs')
+    recipe = json.loads((ROOT / 'manifests/codegen.json').read_bytes())
+    generated = generate_cpu._cached_output(ROOT / 'build/generated', [n for g in recipe['generators'] for n in g['outputs']])
+    if generated is None: raise FileNotFoundError('Verified canonical build/generated is required')
+    identity = generated['identity']
+    expected = dict(upstream_commit=upstream['upstream_commit'], series=series_sha, recipe=sha(ROOT / 'manifests/codegen.json'),
+                    source_manifest=sha(ROOT / 'manifests/source-manifest.json'), runner=sha(ROOT / 'tools/generate_cpu.py'),
+                    support=import_sources.inventory(ROOT / 'tools/codegen_host'), truth_test=sha(ROOT / 'tests/codegen/blitter_truth.c'),
+                    compilers={'c': tools['clang'], 'c++': tools['clang++']})
+    expected['host_environment'] = {k: environment[k] for k in ('SDKROOT', 'DEVELOPER_DIR', 'MACOSX_DEPLOYMENT_TARGET',
+                                   'GCC_EXEC_PREFIX', 'COMPILER_PATH', 'SOURCE_DATE_EPOCH') if k in environment}
+    if any(identity.get(k) != v for k, v in expected.items()): raise ValueError('Stale canonical codegen identity')
+    if any(sha(Path(n)) != value for n, value in identity['host_inputs'].items()): raise ValueError('Changed codegen host input')
+    names = run(['git', 'ls-files', '-z'], cwd=ROOT, env=environment).split('\0')
+    sources = {n: hashlib.sha256(os.fsencode(os.readlink(ROOT / n)) if (ROOT / n).is_symlink() else (ROOT / n).read_bytes()).hexdigest() for n in names if n}
+    digest = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return dict(platform=target, revision=revision, source_sha256=digest(sources), generated_sha256=digest(generated),
+                upstream_sha256=digest(upstream), tools=tools, environment_sha256=digest(environment))
+
+
+def reproducible():
+    """Two fresh object builds, exact bytes; no emulation, packaging or cache verdict."""
+    target = native_platform(); environment = dict(os.environ)
+    if any(environment.get(k) for k in ('CMAKE_C_COMPILER_LAUNCHER', 'CMAKE_CXX_COMPILER_LAUNCHER')):
+        raise ValueError('Compiler launchers cannot establish clean object builds')
+    identity = reproducible_inputs(target, environment)
+    (ROOT / 'build').mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='p6-native-repro-', dir=ROOT / 'build') as temporary:
+        trees = [Path(temporary) / name for name in ('first', 'second')]
+        for tree in trees:
+            tree.mkdir()
+            run(configure_command(target, tree), cwd=ROOT, env=environment)
+            run(['cmake', '--build', tree, '--parallel', '2', '--target', 'puae6_libretro', 'p6_headless', 'p6_libretro_host'], cwd=ROOT, env=environment)
+            if any((tree / n).is_symlink() or not (tree / n).is_file() for n in products(target)): raise ValueError('Missing/linked native build output')
+            verify_binaries(tree, target, subdirectory='.')
+            if reproducible_inputs(target, environment) != identity: raise ValueError('Native reproducibility inputs changed during build')
+        hashes = {}
+        for name in products(target):
+            first, second = (tree / name for tree in trees)
+            if first.read_bytes() != second.read_bytes(): raise ValueError(f'Native binary mismatch {name}: {sha(first)} != {sha(second)}')
+            hashes[name] = sha(first)
+    return dict(status='PASS', clean_object_builds=2, products=hashes, inputs=identity,
+                scope='three native binaries only; no package, Waterbox or EmuHawk reproducibility claim')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('build', 'check'))
+    parser.add_argument('command', choices=('build', 'check', 'reproducible'))
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--build-dir', type=Path, default=ROOT / 'build/native-release')
     args = parser.parse_args()
     args.archive = args.archive or ROOT / ('build/product/puae6-preview-' + native_platform() + '.zip')
-    if args.command == 'build':
+    if args.command == 'reproducible':
+        try: result = reproducible()
+        except FileNotFoundError as error: parser.exit(2, 'BLOCKED: ' + str(error) + '\n')
+    elif args.command == 'build':
         result = build(args.archive, args.build_dir)
     else:
         with tempfile.TemporaryDirectory(prefix='p6-preview-check-') as temporary:
