@@ -11934,7 +11934,8 @@
         "Registrar T40m en functional mediante P6_TEST_EMUHAWK_STATE_PROBE=1 y test dirigido existente de seleccion/ENV (tools/ci/nightly.py y tests/ci/test_nightly.py ya permitidos); el probe dirigido no sustituye a T40k ni se atribuye a lanes anteriores.",
         "El reproducer local de constructores confirma igualdad tras preparar inputs actuales (FFI Release, state-opt, Smoke y Debug runtime); las primeras actualizaciones de outputs locales previos no acreditan causa remota. Para aislar el fallo40093393108 sin repetir135ventanas, anadir diagnostico manual publico separado performance-inputs en .github/workflows/native-linux.yml, tools/ci/performance_inputs.py y tests/ci/test_performance_inputs.py; si un fixture de workflow necesita ajuste acotado hacerlo dentro tests/ci ya permitido. Reutilizar action prepare-performance-waterbox y performance_bench.prepare originales y ejecutar cada uno de los cuatro constructores en su proceso/ENV original; inventarios completos common/tools/source/generated/inputs antes/despues con guard estricto por paso, sin emular/medir ni cambiar el worker completo. Marker propio DIAGNOSTIC_STABLE/FAIL, nunca PASS de135/39 o relevo del gate original. Fixture debe rechazar drift en cualquier paso, identidad incompleta/cambio de cobertura y comprobar ausencia de campaign/selectores completos. Root revisa y publica proyeccion segura antes de un unico dispatch de este diagnostico, sin relanzar engine/frontend/campana anterior.",
         "Integracion portable del probe T40l en functional: la procedencia0713/guest62199 es una lane HISTORICA local y requiereobjetosGitprivados; no debe ser requisito para un mini-guest recien construido enCI/publico. Antes de publicar una lane functional completa, anadir modo de productor ACTUAL cuando receipt.input_sha256.build_recipe/toolchains_json coincidan exactamente con archivosactuales; validar todoslosinputs delrecibo/sysroot/arquitectura/herramientas igualqueantes, sinGit historico ysin asumir SHA guest62199. El modo historico mantiene suallowlistexacta yblobsverificados, no fallback paraotrosreceiptsviejos. Seleccionar rutasdeherramientas con selected_tool_paths(lock) para perfiles/relocacionesya fijados, conservando SHA/versions de selected_toolchain. Dosrutasexplicitas tools/waterbox_state_probe.py/tests/waterbox-smoke/test_state_probe.py. Fixtures actuales/historicos/hostedpaths niegancambiosnoacreditados; no repetirprobe real6PASS si el cambio queda limitado a procedencia/rutas y el preflight de losmismosinputs sigueigual. Noatribuir estearregloaldiagnosticoperformance-inputs publicado, que no llamaalmini-probe.",
-        "Registrar oraculo ABI T40n en functional: P6_TEST_WATERBOX_SETJMP=1 y seleccion del modulo tests.waterbox-smoke.test_setjmp en test deENVexistente, sin acreditarproducto/coexistencia desdeesteprobe. Coordinador modifica tools/ci/nightly.py ytests/ci/test_nightly.py yaautorizados; no repetir otraslanes porintegracion de runner."
+        "Registrar oraculo ABI T40n en functional: P6_TEST_WATERBOX_SETJMP=1 y seleccion del modulo tests.waterbox-smoke.test_setjmp en test deENVexistente, sin acreditarproducto/coexistencia desdeesteprobe. Coordinador modifica tools/ci/nightly.py ytests/ci/test_nightly.py yaautorizados; no repetir otraslanes porintegracion de runner.",
+        "Causa reproducida con proyecto CMake C/CXX minimo: segundo configure reintroduce -DCMAKE_*_COMPILER y cambia tipo/comentario del cache aun con ruta absoluta FILEPATH; todosbinariosremotos eraniguales. Correccion acotada tests/build_support.py y tests/test_build_support.py: seleccionar clang/clang++ en cachefrio, en caliente validar ambas entradas unicas/rutasreales contra las herramientas actuales y omitir solo esos dos -D. Mantener restantes flags yguard SHA exacto. Fixture CMake real frio→reconfigure en proyecto propio sin motor y negativos de compilador distinto/entradas faltantes o duplicadas. ci_close implementa aislado; root integra/revisa y ejecuta diagnostico constructor4, sin repetir135/75 ventanas."
       ],
       "checks": [
         "PLAN01",
@@ -12553,13 +12554,54 @@
       "stop": "Tras dos intentos razonados del mismo fallo conservar reproducer y doshipotesis; bloquear antes de knobs/ABI alazar. Sin paquetes/red/escrituraMacHawk ni artefactos producto sustituidos. Agente no edita metadata ni compila/runtime/guest/EmuHawk ni publica."
     },
     {
+      "id": "T40o1",
+      "title": "Derivar sysroot Waterbox con libc setjmp corregida desde fuentes y base autenticadas",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40n"
+      ],
+      "read": [
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/build_waterbox_sysroot.py",
+        "tools/build_waterbox.py",
+        "tools/waterbox_setjmp.py"
+      ],
+      "touch": [
+        "tools/build_waterbox_guest_sysroot.py",
+        "tests/waterbox-smoke/test_guest_sysroot.py",
+        "plan/toolchains.json",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical fuente independiente de T40o, sin sustituir su integracion ni cuatrocasos. Copiar base sysroot1270 autenticada a nuevooutput propio y recompilar UNICAMENTE ambos ASM con parcheatomicofuente T40n, clangtarget fijado yflags x18/x28. No binpatch ni cambios a base/referencias/MacHawk. Compilador actual18.1.8 explicitamente identificado; no afirmar identidadhistorica18.1.3.",
+        "Fijar llvm-ar efectivo por ruta/SHA/version antesdeejecutarlo. Reemplazar solo miembros setjmp.o/longjmp.o en copia libc.a, preservando secuencia yocurrencias de todoslosdemas miembros incluido nombreduplicado. Verificar ASM originales/parcheados, aliases y ELF AArch64 de nuevosobjetos, original/fixed .text difiere exclusivamente instruccion x28 acordada. Indice/relocs validos, resto de payload miembros identico y restantes1269paths iguales. No usar diccionario que oculte duplicados.",
+        "Recibo derivado identifica baseinventario/parche/receta/compilador/archiver/fuentes/objetos/archivo y nuevoinventario, antes/despues. Publicar solo outputnuevo exclusivo, fallo no deja producto parcial ni edita autoridad. Root fija nuevaidentidad tras ejecucionreal; agente hosted_bootstrap solo dosrutas implementacion, sin metadata ni compilacionesproducto.",
+        "Fixtures de miembrosduplicados/deltaextra/ISA/inputs/outputs rechazan falsoPASS; ejecucionreal reconstruye dosobjetos/fuente ylibc propia, con control positivo/negativo original-fix de T40n y sysrootbase intacto. Recibo nuevo no acredita legacy, producto o peliculas; T40o conserva puertaoriginal."
+      ],
+      "checks": [
+        "BUILD01",
+        "ABI01"
+      ],
+      "acceptance": [
+        "Sysroot derivado verificable desde base y dosASM fijados; solo libc.a difiere en dosmiembros permitidos, con orden/duplicados/restantesbytespreservados ycompiler/archiver autenticados.",
+        "Fixtures y derivacionreal pasan; base yreferencias intactas, output yrecibo con identidad nueva, planvalido. No se cierra T40o/T40k desdeesteoutput."
+      ],
+      "stop": "Trasdosintentos razonados bloquear con reproducer/hipotesis; no instalar herramientas, recuperar imagenes ni modificarcapturas. No reemplazar rebuildfuente por binpatch."
+    },
+    {
       "id": "T40o",
       "title": "Integrar el ABI setjmp corregido en sysroot y guests derivados sin modificar MacHawk",
       "milestone": "M4",
       "required": true,
       "status": "pending",
       "depends": [
-        "T40n"
+        "T40n",
+        "T40o1"
       ],
       "read": [
         "docs/03-waterbox.md",
