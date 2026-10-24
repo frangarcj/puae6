@@ -65,6 +65,7 @@ def parallel_optimization(queues, docker):
                 print("RUN " + module, file=sys.stderr, flush=True)
                 p = ci.command([sys.executable, "-c", ci.check.DRIVER, module], ENV, timeout=6 * 3600)
                 status, counts = ci.verdict(p)
+                if status != "PASS": stopped.set()
                 diagnostic = ci.redact(p.stderr[-6000:])
                 if lane_images("optimization") != docker:
                     raise RuntimeError("Docker inputs changed during CI")

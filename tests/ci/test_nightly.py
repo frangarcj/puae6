@@ -67,25 +67,36 @@ class ParallelOptimizationTests(unittest.TestCase):
                 (subprocess.CompletedProcess([],0,"invalid counts","own diagnostic"),"FAIL"))
         for bad, status in bads:
             with self.subTest(status=status,stdout=bad.stdout):
-                rendezvous=threading.Barrier(2); active=threading.Event(); release=threading.Event(); observed=threading.Event()
-                called=[]; outcomes=[]; original=ci.ci.verdict
+                rendezvous=threading.Barrier(2); active=threading.Event(); release=threading.Event(); inspecting=threading.Event()
+                release_inspection=threading.Event(); submitted=threading.Event(); futures=[]
+                called=[]; outcomes=[]; bad_thread=[]
+                class ObservedPool(ci.ThreadPoolExecutor):
+                    def submit(self,*args,**kwargs):
+                        future=super().submit(*args,**kwargs); futures.append(future)
+                        if len(futures)==2: submitted.set()
+                        return future
                 def command(argv, *args, **kwargs):
                     module=argv[-1]; called.append(module)
                     if module in {q[0] for q in ci.OPTIMIZATION_QUEUES}: rendezvous.wait(timeout=3)
-                    if module==ci.OPTIMIZATION_QUEUES[0][0]: return bad
+                    if module==ci.OPTIMIZATION_QUEUES[0][0]: bad_thread.append(threading.get_ident()); return bad
                     active.set(); self.assertTrue(release.wait(timeout=3)); return self.process()
-                def verdict(process):
-                    result=original(process)
-                    if process is bad: observed.set()
-                    return result
-                with mock.patch.object(ci.ci,"command",side_effect=command), mock.patch.object(ci.ci,"verdict",side_effect=verdict):
+                def images(**kwargs):
+                    if bad_thread and threading.get_ident()==bad_thread[0]:
+                        inspecting.set(); self.assertTrue(release_inspection.wait(timeout=3))
+                    return {}
+                with mock.patch.object(ci.ci,"command",side_effect=command), mock.patch.object(ci,"images",side_effect=images), \
+                     mock.patch.object(ci,"ThreadPoolExecutor",ObservedPool):
                     runner=threading.Thread(target=lambda:outcomes.append(ci.run("optimization")))
                     runner.start()
                     try:
-                        self.assertTrue(active.wait(timeout=3)); self.assertTrue(observed.wait(timeout=3))
+                        self.assertTrue(active.wait(timeout=3)); self.assertTrue(inspecting.wait(timeout=3))
                         self.assertTrue(runner.is_alive(),"must await the active subprocess")
+                        release.set(); self.assertTrue(submitted.wait(timeout=3)); futures[1].result(timeout=3)
+                        self.assertCountEqual(called,[q[0] for q in ci.OPTIMIZATION_QUEUES],
+                                              "known failure stops pending selectors while Docker inspection is held")
+                        self.assertTrue(runner.is_alive(),"must also await the retained inspection")
                     finally:
-                        release.set(); runner.join(timeout=5)
+                        release.set(); release_inspection.set(); runner.join(timeout=5)
                 self.assertFalse(runner.is_alive()); self.assertEqual(outcomes[0]["status"],status)
                 self.assertEqual(len(called),len(set(called)))
                 self.assertTrue(outcomes[0]["completed"])
