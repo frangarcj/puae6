@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       gate:
-        description: Native cold restore, public corpora, or complete distributed matrix
+        description: Native restore, corpora, complete matrix or optimization
         type: choice
-        options: [native, corpus, matrix, matrix-recover]
+        options: [native, corpus, matrix, matrix-recover, optimization]
         default: native
       variants:
         description: All combinations or sanitizer follow-up
@@ -142,3 +142,93 @@ jobs:
           SOURCE_RUN: ${{ inputs.source_run }}
           SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
         run: python3 -I -B tooling/tools/ci/recover_matrix.py recover --source "$GITHUB_WORKSPACE/source" --source-run "$SOURCE_RUN" --source-attempt "$SOURCE_ATTEMPT"
+  optimization-engine:
+    name: optimization-engine
+    if: inputs.gate == 'optimization'
+    runs-on: macos-26
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Complete engine training, six variants and four original tests
+        run: |
+          test '${{ inputs.variants }}' = all
+          python3 -B tools/ci/hosted_optimization.py partition
+          python3 -B -m tools.ci.optimization_engine
+  optimization-standalone:
+    name: optimization-standalone
+    if: inputs.gate == 'optimization'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Select an existing Ruby for the authenticated tool bundle
+        run: |
+          test '${{ inputs.variants }}' = all
+          python3 -B tools/ci/hosted_optimization.py partition
+          python3 - <<'PY'
+          import os, shutil, subprocess
+          for candidate in ['/opt/homebrew/opt/ruby/bin/ruby', '/opt/homebrew/opt/ruby@3.4/bin/ruby', '/opt/homebrew/opt/ruby@3.3/bin/ruby', 'ruby']:
+              ruby = shutil.which(candidate)
+              if ruby and subprocess.run([ruby, '-e', 'exit((RUBY_VERSION.split(".").map(&:to_i) <=> [3,3]) == -1 ? 2 : 0)']).returncode == 0:
+                  with open(os.environ['GITHUB_ENV'], 'a') as output:
+                      output.write('P6_HOSTED_RUBY=' + ruby + '\n')
+                  break
+          else:
+              raise SystemExit('BLOCKED: existing Ruby >=3.3 required')
+          PY
+      - name: Prepare the existing pinned LLVM bundle
+        run: python3 -B tools/ci/prepare_hosted_tools.py --fetch --ruby "$P6_HOSTED_RUBY"
+      - name: Run all three original RGB565 methods with LLVM 23.1.4
+        env:
+          P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools
+          P6_WATERBOX_TOOLS_FILE: build/hosted-tools/paths.json
+        run: python3 -B -m tools.ci.optimization_simd standalone
+  optimization-worker:
+    name: optimization / ${{ matrix.platform.row }}
+    if: inputs.gate == 'optimization'
+    needs: [optimization-engine, optimization-standalone]
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        platform:
+          - row: macos-arm64-appleclang
+            runner: macos-26
+          - row: linux-arm64-clang
+            runner: ubuntu-24.04-arm
+          - row: linux-arm64-gcc
+            runner: ubuntu-24.04-arm
+          - row: linux-x86_64-clang
+            runner: ubuntu-24.04
+          - row: linux-x86_64-gcc
+            runner: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Full frontend opt and sanitizer assertions
+        run: python3 -B -m tools.ci.optimization_frontend --row '${{ matrix.platform.row }}'
+      - name: Full RGB domain in optimized, scalar and sanitizer modes
+        run: python3 -B -m tools.ci.optimization_simd row --row '${{ matrix.platform.row }}'
+  optimization-result:
+    if: always() && inputs.gate == 'optimization'
+    needs: [optimization-engine, optimization-standalone, optimization-worker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Require every original selector and complete current-attempt observations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tools/ci/hosted_optimization.py aggregate

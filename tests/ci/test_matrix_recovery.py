@@ -121,7 +121,7 @@ def aggregate():
         workflow=(r.ROOT/'.github/workflows/native-linux.yml').read_text()
         native=workflow.split('  matrix-infrastructure:',1)[0]
         self.assertIn("if: inputs.gate == 'native' || inputs.gate == 'corpus'",native)
-        recovery=workflow.split('  matrix-recovery:',1)[1]
+        recovery=workflow.split('  matrix-recovery:',1)[1].split('  optimization-engine:',1)[0]
         self.assertIn("if: inputs.gate == 'matrix-recover'",recovery); self.assertIn('actions: read',recovery)
         self.assertEqual(recovery.count('persist-credentials: false'),2)
         self.assertIn('ref: ${{ github.sha }}',recovery); self.assertIn('ref: ${{ steps.source.outputs.source_sha }}',recovery)

@@ -30,6 +30,33 @@ class HostedOptimizationTests(unittest.TestCase):
         with mock.patch.dict(hosted.SELECTORS, {'tests.simd.test_rgb565': 4}), self.assertRaisesRegex(RuntimeError, 'method count'):
             hosted.partition()
 
+    def test_workflow_preserves_exact_rows_pins_and_four_job_bound_without_pgo_transfers(self):
+        workflow = (hosted.ROOT/'.github/workflows/native-linux.yml').read_text()
+        engine, rest = workflow.split('  optimization-engine:', 1)[1].split('  optimization-standalone:', 1)
+        standalone, rest = rest.split('  optimization-worker:', 1)
+        workers, result = rest.split('  optimization-result:', 1)
+        self.assertIn('runs-on: macos-26', engine)
+        self.assertIn('tools.ci.optimization_engine', engine)
+        self.assertIn('hosted_optimization.py partition', engine)
+        self.assertIn("test '${{ inputs.variants }}' = all", engine)
+        self.assertIn('runs-on: macos-26', standalone)
+        self.assertIn('prepare_hosted_tools.py --fetch --ruby', standalone)
+        self.assertIn('tools.ci.optimization_simd standalone', standalone)
+        self.assertIn('P6_WATERBOX_HOSTED_TOOLS: build/hosted-tools', standalone)
+        self.assertIn('needs: [optimization-engine, optimization-standalone]', workers)
+        self.assertIn('max-parallel: 4', workers)
+        self.assertIn('fail-fast: false', workers)
+        import re
+        expected = dict(hosted.matrix.native.HOSTED_RUNNERS, **{'macos-arm64-appleclang': 'macos-26'})
+        self.assertEqual(dict(re.findall(r'- row: (\S+)\n\s+runner: (\S+)', workers)), expected)
+        self.assertIn('tools.ci.optimization_frontend --row', workers)
+        self.assertIn('tools.ci.optimization_simd row --row', workers)
+        self.assertIn("if: always() && inputs.gate == 'optimization'", result)
+        self.assertIn('needs: [optimization-engine, optimization-standalone, optimization-worker]', result)
+        self.assertIn('hosted_optimization.py aggregate', result)
+        self.assertIn('actions: read', result)
+        self.assertNotRegex(engine + standalone + workers + result, r'upload-artifact|actions/cache|continue-on-error|docker|nightly.py|build_waterbox')
+
     def test_complete_recipe_calls_all_shared_worker_oracles_without_inventing_unittest_counts(self):
         records = self.records()
         with mock.patch.object(hosted, 'validators', return_value=self.checks): result = hosted.validate(records, self.common)
