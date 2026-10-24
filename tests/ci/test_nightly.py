@@ -323,27 +323,32 @@ class NightlyRecipeTests(unittest.TestCase):
                 path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(name.encode())
             runtime = dict(path=str(root / "runtime.dylib"), sha256=ci.wb.sha256(root / "runtime.dylib"))
             manual = {"bridge/own.h": "a" * 64}
+            proof = {"inventory_sha256": "b" * 64, "inputs": {"source": "own derived capture"}}
             valid = dict(schema_version=1, status="BUILD01_PASS_GUEST_NOT_EXECUTED",
                          sources={name: ci.wb.sha256(root / name) for name in sources},
-                         manual_inputs=manual, build_inputs={"manual_inputs": manual},
+                         manual_inputs=manual, guest_abi=proof,
+                         build_inputs={"manual_inputs": manual, "guest_abi": proof, "sysroot": proof["inventory_sha256"]},
                          recipe={key: ci.wb.sha256(root / name) for key, name in recipes.items()},
                          guest=dict(path=str(root / "guest.wbx"), sha256=ci.wb.sha256(root / "guest.wbx")))
             receipt = root / "receipt.json"
             stack.enter_context(mock.patch.object(ci, "GUEST_RECEIPT", receipt))
             stack.enter_context(mock.patch.object(ci.ci, "ROOT", root))
+            abi = stack.enter_context(mock.patch.object(ci.wb, "puae6_guest_abi", return_value=proof))
             stack.enter_context(mock.patch.object(ci.wb, "puae6_sources", return_value=list(sources)))
             headers = stack.enter_context(mock.patch.object(ci.wb, "puae6_manual_inputs", return_value=manual))
             trees = stack.enter_context(mock.patch.object(ci.wb, "ensure_current_trees"))
             elf = stack.enter_context(mock.patch.object(ci.wb, "validate_elf"))
             tls = stack.enter_context(mock.patch.object(ci.wb, "check_no_compiler_tls"))
-            stack.enter_context(mock.patch.object(ci.wb, "read_runtime_receipt", return_value={"runtime_dylib": runtime}))
+            runtime_read = stack.enter_context(mock.patch.object(ci.wb, "read_runtime_receipt", return_value={"runtime_dylib": runtime}))
             runtime_path = stack.enter_context(mock.patch.object(ci.wb, "runtime_receipt_path", return_value=root / "runtime.json"))
             receipt.write_text(json.dumps(valid)); ci.waterbox_inputs()
+            abi.assert_called_once_with(root)
             trees.assert_called_once_with(root=root)
             elf.assert_called_once_with(root / "guest.wbx"); tls.assert_called_once_with(root / "guest.wbx")
             runtime_path.assert_called_once_with("release")
             for kind in ("schema", "status", "selection", "source", "recipe", "guest", "runtime", "trees",
-                         "manual_missing", "manual_receipt", "manual_build_inputs", "manual_header"):
+                         "manual_missing", "manual_receipt", "manual_build_inputs", "manual_header",
+                         "abi_missing", "abi_topcopy", "abi_buildcopy", "abi_inventory", "abi_capture"):
                 data = json.loads(json.dumps(valid))
                 if kind == "schema": data["schema_version"] = 0
                 if kind == "status": data["status"] = "PASS"
@@ -354,12 +359,20 @@ class NightlyRecipeTests(unittest.TestCase):
                 if kind == "manual_missing": data.pop("manual_inputs")
                 if kind == "manual_receipt": data["manual_inputs"] = {}
                 if kind == "manual_build_inputs": data["build_inputs"]["manual_inputs"] = {}
+                if kind == "abi_missing": data.pop("guest_abi")
+                if kind == "abi_topcopy": data["guest_abi"]["inputs"]["source"] = "stale"
+                if kind == "abi_buildcopy": data["build_inputs"]["guest_abi"] = {}
+                if kind == "abi_inventory": data["build_inputs"]["sysroot"] = "base-inventory"
+                abi.side_effect = ValueError("altered derived capture") if kind == "abi_capture" else None
                 headers.return_value = {"bridge/own.h": "b" * 64} if kind == "manual_header" else manual
                 runtime["sha256"] = "0" * 64 if kind == "runtime" else ci.wb.sha256(root / "runtime.dylib")
                 trees.side_effect = ValueError("stale derived tree") if kind == "trees" else None
+                for operation in (trees, elf, tls, runtime_read, runtime_path): operation.reset_mock()
                 receipt.write_text(json.dumps(data))
                 with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "invalid current Waterbox inputs"):
                     ci.waterbox_inputs()
+                if kind.startswith("abi_"):
+                    for operation in (trees, elf, tls, runtime_read, runtime_path): operation.assert_not_called()
             for invalid in ("not JSON", "{}", "[]"):
                 receipt.write_text(invalid)
                 with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "invalid current Waterbox inputs"):

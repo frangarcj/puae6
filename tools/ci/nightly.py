@@ -158,6 +158,7 @@ def waterbox_inputs():
         data = json.loads(GUEST_RECEIPT.read_text())
         if data["schema_version"] != 1 or data["status"] != "BUILD01_PASS_GUEST_NOT_EXECUTED":
             raise ValueError("invalid guest receipt")
+        wb.check_puae6_guest_abi(data, root=ci.ROOT)
         if set(data["sources"]) != set(wb.puae6_sources()):
             raise ValueError("guest source selection differs from the current sources")
         manual = wb.puae6_manual_inputs(root=ci.ROOT)
