@@ -12101,12 +12101,13 @@
       "title": "Cerrar la politica de fuentes y avisos para distribuir Waterbox standalone",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "pending",
       "depends": [
         "T38",
         "T40a",
         "T28c",
-        "T09d"
+        "T09d",
+        "T40d1"
       ],
       "read": [
         "docs/05-maintenance.md",
@@ -12126,7 +12127,8 @@
         "Definir descriptor de politica Waterbox que reutilice la politica nativa y añada capturas references/machawk, references/musl-darwin, references/compiler-rt-emutls y sus manifests necesarios. El helper debe producir source_paths/licenses con el contrato de package.notice_files, sin duplicar ni debilitar la seleccion original. Ningun asset privado, binario de build, captura antigua PUAE excluida o ruta absoluta local en la distribucion.",
         "Identificar los componentes realmente enlazados del sysroot, runtime Rust y dependencias managed de Ffi/Puae6.Core. Verificar pins/manifests/archivos ya disponibles; Cargo.lock y la identidad fijada de NuGet son autoridades para cada version/checksum. Cargo metadata offline/locked con herramientas existentes es lectura permitida, sin build/fetch/instalacion ni modificar caches ajenas. No usar una lista adivinada ni atribuir el ensamblado Release antiguo al guest actual.",
         "Conservar los avisos originales y su atribucion/procedencia en waterbox-notices.txt, con hashes/identidades verificables en la politica. Texto de licencias importado se conserva exacto, sin reescribirlo, y no cuenta como logica manual; objetivo restante menor300lineas en cuatro rutas. Usar entradas locales verificadas (crates/paquetes o fuentes capturadas). Si falta texto, consultar unicamente fuentes primarias y fijar commit/version/hash para cualquier texto importado, sin bajar paquetes/binarios nuevos ni ROMs. No inventar licencias ni crear informes historicos.",
-        "Añadir tests dirigidos de union de politica, cobertura exacta de componentes seleccionados y rechazo de aviso ausente/alterado o fuente/pin inesperado. Registrar SRC01/PKG01 con este scope explicito de politica, sin mocks acreditados como ejecucion Waterbox. La politica y su comprobacion real offline deben aprobar antes de done; la generacion/verificacion del ZIP y smoke instalado pertenecen a otra vertical y T40 conserva su puerta completa."
+        "Añadir tests dirigidos de union de politica, cobertura exacta de componentes seleccionados y rechazo de aviso ausente/alterado o fuente/pin inesperado. Registrar SRC01/PKG01 con este scope explicito de politica, sin mocks acreditados como ejecucion Waterbox. La politica y su comprobacion real offline deben aprobar antes de done; la generacion/verificacion del ZIP y smoke instalado pertenecen a otra vertical y T40 conserva su puerta completa.",
+        "La primera composicion82336a34 conserva34componentes/63avisos y pasa8tests, pero la aceptacion offline devuelveBLOCKED2: los6textosRustpropios no cubren crates externos/submodulos de std. Mantener puerta original completa; T40d1 cierra esa cobertura conservadoramente antes de retomar la aceptacion. No atribuir los19crates del runtime a las versiones distintas de std ni usar los agregadosHomebrew con out-of-tree vacio como prueba."
       ],
       "checks": [
         "SRC01",
@@ -12137,6 +12139,50 @@
         "Tests negativos y comprobacion offline real de la politica pasan; ninguna prueba de catalogo se presenta como binario empaquetado, ejecucion instalada o cierre de T40/T41."
       ],
       "stop": "No editar main/metadata por agente, compilar, instalar, publicar ni afirmar un plugin EmuHawk. Ante procedencia/licencia no acreditada conservar bloqueo explicito, sin texto supuesto ni omitir componente."
+    },
+    {
+      "id": "T40d1",
+      "title": "Completar avisos verificables de la biblioteca estandar Rust distribuida en Waterbox",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T38",
+        "T40a",
+        "T28c",
+        "T09d"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "manifests/release/waterbox-preview.json",
+        "tools/waterbox_package_policy.py",
+        "plan/toolchains.json"
+      ],
+      "touch": [
+        "manifests/release/waterbox-preview.json",
+        "manifests/release/waterbox-notices.txt",
+        "tools/waterbox_package_policy.py",
+        "tests/packages/test_waterbox_policy.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Vertical independiente de fuentes/avisos de T40d. Reutilizar worktree waterbox-package-policy limpio82336a34; coordinador conserva metadata, agente toolchain_review implementa. Main48c74 permanece congelado hasta terminal de matriz. No alterar avisos ya autenticados, motor, guest, runtime, CSharp ni decisiones de soporte.",
+        "Autenticar library/Cargo.lock del commitRust58cf8f9c35b355199727627d07ae34a4e2846d67 contra fuente primaria exacta. La copia instalada observada tiene9822bytes SHA25653d9ccff0c906de434b65af90d5c30063894b940fc839261f1fb06ef2e69e3d3 y49packages/30registry. Capturar su texto exacto como input de la politica. Cubrir conservadoramente las30entradasregistry conchecksum, aunque algunas sean de build/tests u otros targets; no presentarlas como prueba de seleccion efectiva del std binario.",
+        "Capturar copyright/textos completos de cada una de esas30versiones desde archivosfuente .crate autenticados porchecksumCargo.lock. Revisar primero caches existentes SOLOlectura; se autoriza fetch explicito de esos archivosFUENTE inmutables desde static.crates.io, limitados y verificados, exclusivamente en temporalpropio build/. No instalacion de paquetes, binarios nuevos, herramientas, resolucioncargo implicitamente online ni modificacion de caches ajenas. Conservar todoslos LICENSE/COPYING/NOTICE y referencias de copyright relevantes; no suponer misma licencia por parecido o por compartir nombreconcrates de runtime.",
+        "Inventariar tambien las19entradaspath locales y sus submodulos de library (incluidos compiler-builtins/backtrace/portable-simd/stdarch si aparecen). Identificar gitlinks/repos exactos en la fuenteRustprimaria fijada, capturar cada aviso original y fuente/commit/hash, sin inferir su atribucion de LICENSE-MIT generalRust ni importar agregado local no autenticado. URLs y pins quedan en el descriptor sin rutas privadas. Si falta una autoridad concreta, detener solo esa cobertura con motivo explicito.",
+        "Ampliar composicion/verificacion con cobertura exacta del Cargo.lockstd y avisos locales, conservando25cratesruntime/build actuales, dosNuGet, seisavisossysroot y seistextosRustpropios. Avisos originales/importacion e indice generado son datos, objetivo de codigo/test manual delta menor250lineas, mismas5rutas. RegistroSRC01/PKG01 de la ficha debe ejecutar pruebas correspondientes, sin simular instalacion/ejecucion de Waterbox.",
+        "Pruebas dirigidas negativas: entradaCargo.lock omitida/version ochecksum falso, licencia obligatoria faltante/texto alterado, gitlink o fuente de submodulo distinto. Usar fixturespropios pequeños para pathsdearchivos y fallo, no red/builds en unittest. Comprobacionreal de importacion valida cadaarchive/body offline despuesdel fetch primario explicito; eliminar archivosfuente temporales tras conservar avisos exactos/pins. Al terminar rust_std_external_pending vacio debe derivarse de cobertura verificada, sin permitir vaciar el campo para saltar puerta; CLI policy termina0 solo cuando toda cobertura pasa. Reejecutar solo checksafectados, noLinuxni matrices niWaterbox."
+      ],
+      "checks": [
+        "SRC01",
+        "PKG01"
+      ],
+      "acceptance": [
+        "La politica lleva copyright/licencias exactos de la clausura conservadora30registry mas todos los inputs path/submodulos std observados, con Cargo.lock y autoridades primarias exactas; no confunde cobertura conservadora con selección efectiva de enlace.",
+        "Pruebas negativas y comprobacion offline real pasan, CLI de politica completa sale0 y no admite borrar o falsear el estado pendiente para saltar cobertura. T40d conserva su aceptacion completa y T40 su paquete instalado/reproducibilidad/coexistencia."
+      ],
+      "stop": "No tocar main/metadata por agente ni instalar, compilar, publicar o descargar binarios. Ante licencia o pin de fuente no autenticable conservar pendiente concreto; no omitir componente ni alterar hashes para aprobar."
     },
     {
       "id": "T40",
