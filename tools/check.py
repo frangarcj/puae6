@@ -926,6 +926,8 @@ for _gate in ('BUILD01', 'LR01'):
 for _gate in ('PKG01', 'STATE02'):
     TASK_SUITES[(_gate, 'T40e')] = {'installed_preview': 'tests.packages.test_preview.InstalledPreviewTests'}
 TASK_SUITES[('PKG01', 'T40f')] = {'legacy_coexistence': 'tests.packages.test_preview.CoexistenceTests'}
+for _gate in ('PKG01', 'BUILD01'):
+    TASK_SUITES[(_gate, 'T40h')] = {'native_binary_reproducibility': 'tests.packages.test_reproducible.RealReproducibleTests'}
 # Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
 TASK_SUITES[('IN01', 'T70a')] = {
     'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',
