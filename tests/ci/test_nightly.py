@@ -253,7 +253,8 @@ class NightlyRecipeTests(unittest.TestCase):
         self.assertEqual(ci.ENV["P6_TEST_MUTANTS"], "1")
         self.assertIn("tests.step.test_step", ci.suites("functional"))
         for flag, module in (("P6_TEST_NATIVE_REPRODUCIBLE", "tests.packages.test_reproducible"),
-                             ("P6_TEST_WATERBOX_REPRODUCIBLE", "tests.packages.test_waterbox_reproducible")):
+                             ("P6_TEST_WATERBOX_REPRODUCIBLE", "tests.packages.test_waterbox_reproducible"),
+                             ("P6_TEST_EMUHAWK_SELFCHECK", "tests.packages.test_emuhawk_selfcheck")):
             self.assertEqual(ci.ENV[flag], "1")
             self.assertIn(module, ci.suites("functional"))
 
