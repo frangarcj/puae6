@@ -89,6 +89,9 @@ def preflight(home):
     cargo = cargo_inputs(home)
     lock = wb.selected_toolchain()
     wb.verify_sysroot(lock)
+    # Runtime uses the base, but build_puae6 also requires this authenticated
+    # derived input. Capture it before allocating/building either clean pass.
+    inputs['guest_abi'] = wb.puae6_guest_abi(ROOT)
     inputs['captures'] = {n: wb.source_spec(n, wb.source_audit_mode())[1] for n in ('machawk', lock['sysroot']['associated_source'])}
     tools, versions = wb.locked_tools(lock)
     dotnet = shutil.which('dotnet')

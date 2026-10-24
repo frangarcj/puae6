@@ -21,6 +21,7 @@ class ReproducibilityTests(unittest.TestCase):
             patch = mock.patch.object(target, attribute, value); patch.start(); self.addCleanup(patch.stop)
         self.state = {'revision': 'a' * 40, 'cargo': {}, 'dotnet': 'own-sdk', 'sdk': 'own-sdk', 'tools': {}}
         self.actual_hrtmon = r.verify_hrtmon
+        self.actual_preflight = r.preflight
         self.preflight = mock.patch.object(r, 'preflight', return_value=self.state).start()
         self.hrtmon = mock.patch.object(r, 'verify_hrtmon').start()
         self.addCleanup(mock.patch.stopall)
@@ -64,6 +65,45 @@ class ReproducibilityTests(unittest.TestCase):
         with mock.patch.object(r, 'build_once') as build:
             self.assertEqual(r.reproduce(check_only=True)['status'], 'READY'); build.assert_not_called()
         self.assertEqual(list((self.root / 'build').iterdir()), [])
+
+    def test_actual_preflight_requires_derived_sysroot_before_outputs_and_tracks_its_drift(self):
+        for name in ('build/upstream/own.cpp', 'build/generated/own.cpp', 'build/assets/hrtmon_builtin.cpp',
+                     'build/.upstream-materialize.json', 'ports/own.cpp', 'compiler', 'dotnet'):
+            path = self.root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'own nonexecutable input')
+        proof = {'sysroot': str(self.root / 'build/derived/sysroot'), 'inventory_sha256': 'a'*64,
+                 'receipt_sha256': 'b'*64, 'inputs': {'base': 'c'*64, 'recipe': 'd'*64}}
+        prerequisites = [(r.wb.platform, 'system', 'Darwin'), (r.wb.platform, 'machine', 'arm64'),
+            (r.wb, 'runtime_profile', 'release'), (r.pkg.package, 'clean_revision', 'a'*40),
+            (r.prepare_managed_inputs, 'prepare', None), (r, 'tree_proof', {'own': 'trees'}),
+            (r.wb, 'puae6_manual_inputs', {'own': 'manual'}), (r.managed_release, 'capture_inputs', {'own': 'managed'}),
+            (r.wb, 'puae6_sources', ['ports/own.cpp']), (r, 'cargo_inputs', {}),
+            (r.wb, 'selected_toolchain', {'sysroot': {'associated_source': 'own-musl'}}),
+            (r.wb, 'verify_sysroot', ('own-base', [])), (r.wb, 'source_spec', ({}, {'own': 'capture'})),
+            (r.wb, 'source_audit_mode', 'snapshot'),
+            (r.wb, 'locked_tools', ({'clang': self.root / 'compiler'}, {'clang': 'own-version'})),
+            (r.shutil, 'which', str(self.root / 'dotnet')), (r.subprocess, 'check_output', 'own-sdk\n'),
+            (r.managed_release, 'expected_sdk', 'own-sdk')]
+        for target, name, value in prerequisites: self.enterContext(mock.patch.object(target, name, return_value=value))
+        abi = self.enterContext(mock.patch.object(r.wb, 'puae6_guest_abi', return_value=proof))
+        child = self.enterContext(mock.patch.object(r.subprocess, 'run'))
+        self.preflight.side_effect = self.actual_preflight
+        actual = r.preflight(self.root / 'cache')
+        self.assertEqual(actual['inputs']['guest_abi'], proof); abi.assert_called_once_with(self.root)
+        before = {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with mock.patch.object(r, 'build_once') as build:
+            self.assertEqual(r.reproduce(check_only=True)['status'], 'READY'); build.assert_not_called()
+        for error in (FileNotFoundError('missing derived sysroot'), ValueError('stale derived authority')):
+            self.hrtmon.reset_mock(); abi.side_effect = error
+            with self.subTest(error=error), mock.patch.object(r, 'build_once') as build:
+                with self.assertRaisesRegex(type(error), 'derived'): r.reproduce()
+                build.assert_not_called(); self.hrtmon.assert_not_called()
+            self.assertEqual({str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+        abi.side_effect = [proof, {**proof, 'receipt_sha256': 'e'*64}]
+        with mock.patch.object(r, 'build_once', side_effect=self.fake_build) as build:
+            with self.assertRaisesRegex(ValueError, 'inputs/environment changed'): r.reproduce()
+            self.assertEqual(build.call_count, 1)
+        self.assertEqual({str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+        child.assert_not_called()
 
     def test_builder_failure_restores_global_and_uses_new_target_and_cargo_archives_only(self):
         original, environment = r.wb.BUILD, dict(os.environ)
