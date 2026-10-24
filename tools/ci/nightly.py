@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Accumulated CI lanes. Missing assets, opt-ins, preparations or suites never pass."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
@@ -8,6 +9,7 @@ import shlex
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import zipfile
 
 sys.path[:0] = [str(Path(__file__).resolve().parents[2])]
@@ -36,6 +38,48 @@ SIMD = {
     "test_frontend_statistics": {"functional": (None,)}, "test_rgb565": {"optimization": (None,)},
     "test_matrix": {"optimization": (None,)},
 }
+OPTIMIZATION_QUEUES = (
+    ("tests.simd.test_frontend_rgb565.EquivalenceTests", "tests.simd.test_frontend_rgb565.SafetyTests"),
+    ("tests.simd.test_engine_flags.ConfigurationTests", "tests.simd.test_engine_flags.EquivalenceTests",
+     "tests.simd.test_engine_flags.SafetyTests", "tests.simd.test_matrix", "tests.simd.test_rgb565"),
+)
+
+
+def optimization_queues(selected):
+    classified = [module for queue in OPTIMIZATION_QUEUES for module in queue]
+    if (len(selected) != len(set(selected)) or len(classified) != len(set(classified))
+            or set(selected) != set(classified)):
+        raise ValueError("optimization queues must classify every selector exactly once")
+    return OPTIMIZATION_QUEUES
+
+
+def parallel_optimization(queues, docker):
+    # Frontend opt/san share their corpus writer. Other experiments have disjoint
+    # outputs or only read prepared receipts; preparation itself remains serial.
+    stopped = threading.Event()
+    def worker(queue):
+        results = {}
+        for module in queue:
+            if stopped.is_set(): break
+            try:
+                print("RUN " + module, file=sys.stderr, flush=True)
+                p = ci.command([sys.executable, "-c", ci.check.DRIVER, module], ENV, timeout=6 * 3600)
+                status, counts = ci.verdict(p)
+                if status != "PASS": stopped.set()
+                diagnostic = ci.redact(p.stderr[-6000:])
+                if lane_images("optimization") != docker:
+                    raise RuntimeError("Docker inputs changed during CI")
+            except (OSError, ValueError, RuntimeError, ci.subprocess.SubprocessError) as error:
+                status = "BLOCKED" if isinstance(error, ValueError) else "FAIL"
+                counts = diagnostic = ci.redact(str(error))
+            results[module] = status, counts, diagnostic
+            if status != "PASS": stopped.set()
+        return results
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(worker, queue) for queue in queues]
+        # Exit waits for both active subprocesses even after a failure. No replay
+        # or saved PASS can authorize selectors left pending after that failure.
+        return {module: result for future in futures for module, result in future.result().items()}
 
 
 def suites(lane):
@@ -206,6 +250,7 @@ def _run(lane):
     completed, facts = [], None
     try:
         selected = suites(lane)
+        queues = optimization_queues(selected) if lane == "optimization" else None
         ci.preflight(ASSETS if lane == "functional" else ())
         if lane == "functional":
             candidate_package()
@@ -214,17 +259,31 @@ def _run(lane):
         execute([sys.executable, "tools/generate_cpu.py"])
         facts = identity(docker)
         prepared = prepare(lane)
+        parallel = parallel_optimization(queues, docker) if queues else None
+        failed = None
         for module in selected:
-            print("RUN " + module, file=sys.stderr, flush=True)
-            p = ci.command([sys.executable, "-c", ci.check.DRIVER, module], ENV, timeout=6 * 3600)
-            status, counts = ci.verdict(p)
+            if parallel is not None:
+                if module not in parallel: continue
+                status, counts, diagnostic = parallel[module]
+            else:
+                print("RUN " + module, file=sys.stderr, flush=True)
+                p = ci.command([sys.executable, "-c", ci.check.DRIVER, module], ENV, timeout=6 * 3600)
+                status, counts = ci.verdict(p)
+                diagnostic = ci.redact(p.stderr[-6000:])
             if status != "PASS":
-                return dict(status=status, lane=lane, module=module, reason=counts, diagnostic=ci.redact(p.stderr[-6000:]), completed=completed, identity=facts)
+                failure = dict(status=status, lane=lane, module=module, reason=counts, diagnostic=diagnostic)
+                if parallel is None:
+                    return dict(failure, completed=completed, identity=facts)
+                if failed is None or (failed["status"] == "BLOCKED" and status == "FAIL"): failed = failure
+                continue
             completed.append(dict(module=module, counts=counts))
-            if lane_images(lane) != docker:
+            if parallel is None and lane_images(lane) != docker:
                 raise RuntimeError("Docker inputs changed during CI")
         if identity(lane_images(lane)) != facts:
             raise RuntimeError("source/codegen/toolchain inputs changed during CI")
+        if failed: return dict(failed, completed=completed, identity=facts)
+        if len(completed) != len(selected):
+            raise RuntimeError("CI execution omitted required selectors")
         return dict(status="PASS", lane=lane, completed=completed, preparation=prepared, identity=facts, images=docker,
                     budget_policy="advisory, unchanged plan/performance-budgets.json; not remote CI evidence")
     except (OSError, ValueError, RuntimeError, ci.subprocess.SubprocessError) as error:

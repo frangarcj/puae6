@@ -7,11 +7,121 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
 import unittest
 from unittest import mock
 import zipfile
 
 from tools.ci import nightly as ci
+
+
+class ParallelOptimizationTests(unittest.TestCase):
+    """Controlled thread/process mocks, never compilers, Docker or emulation."""
+    def setUp(self):
+        self.selected = ci.suites("optimization")
+        self.counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
+        self.facts = dict(source_tree_sha256="a"*64, inputs={"own": "fixture"})
+        self.stack = self.enterContext(ExitStack())
+        self.stack.enter_context(mock.patch.object(ci.ci,"preflight"))
+        self.stack.enter_context(mock.patch.object(ci,"execute"))
+        self.images = self.stack.enter_context(mock.patch.object(ci,"images",return_value={}))
+        self.identity = self.stack.enter_context(mock.patch.object(ci,"identity",return_value=self.facts))
+        self.prepared = threading.Event()
+        self.prepare = self.stack.enter_context(mock.patch.object(ci,"prepare",side_effect=lambda lane:self.prepared.set()))
+
+    def process(self, counts=None, code=0):
+        return subprocess.CompletedProcess([],code,json.dumps(self.counts if counts is None else counts),"own diagnostic")
+
+    def test_two_queues_overlap_after_preparation_frontend_is_serial_and_records_are_stable(self):
+        rendezvous = threading.Barrier(2)
+        firsts = {queue[0] for queue in ci.OPTIMIZATION_QUEUES}
+        frontend_done = threading.Event(); called = []
+        def command(argv, env, timeout):
+            self.assertTrue(self.prepared.is_set()); self.assertEqual(env,ci.ENV)
+            self.assertEqual(timeout,6*3600)
+            module = argv[-1]; called.append(module)
+            if module in firsts: rendezvous.wait(timeout=3)
+            if module == ci.OPTIMIZATION_QUEUES[0][0]: frontend_done.set()
+            if module == ci.OPTIMIZATION_QUEUES[0][1]: self.assertTrue(frontend_done.is_set())
+            return self.process()
+        with mock.patch.object(ci.ci,"command",side_effect=command): result = ci.run("optimization")
+        self.assertEqual(result["status"],"PASS",result)
+        self.assertCountEqual(called,self.selected); self.assertEqual(len(called),len(set(called)))
+        self.assertEqual(result["completed"],[dict(module=name,counts=self.counts) for name in self.selected])
+        self.assertEqual(self.images.call_count,len(self.selected)+2)
+        ci.validate_result(result,"optimization")
+
+    def test_unknown_missing_or_duplicate_selectors_block_before_preflight_or_preparation(self):
+        for selected in (self.selected+["own.new"],self.selected[:-1],self.selected+[self.selected[0]]):
+            with mock.patch.object(ci,"suites",return_value=selected), mock.patch.object(ci.ci,"preflight") as preflight:
+                result=ci.run("optimization")
+            self.assertEqual(result["status"],"BLOCKED"); self.assertIn("exactly once",result["diagnostic"])
+            preflight.assert_not_called(); self.prepare.assert_not_called()
+        with mock.patch.object(ci,"OPTIMIZATION_QUEUES",(tuple(self.selected),tuple(self.selected))), self.assertRaises(ValueError):
+            ci.optimization_queues(self.selected)
+
+    def test_failed_skipped_empty_or_invalid_counts_drain_the_active_other_worker(self):
+        bads = ((self.process(dict(self.counts,failures=1),1),"FAIL"),
+                (self.process(dict(self.counts,skipped=1)),"BLOCKED"),
+                (self.process(dict(self.counts,tests=0)),"FAIL"),
+                (subprocess.CompletedProcess([],0,"invalid counts","own diagnostic"),"FAIL"))
+        for bad, status in bads:
+            with self.subTest(status=status,stdout=bad.stdout):
+                rendezvous=threading.Barrier(2); active=threading.Event(); release=threading.Event(); inspecting=threading.Event()
+                release_inspection=threading.Event(); submitted=threading.Event(); futures=[]
+                called=[]; outcomes=[]; bad_thread=[]
+                class ObservedPool(ci.ThreadPoolExecutor):
+                    def submit(self,*args,**kwargs):
+                        future=super().submit(*args,**kwargs); futures.append(future)
+                        if len(futures)==2: submitted.set()
+                        return future
+                def command(argv, *args, **kwargs):
+                    module=argv[-1]; called.append(module)
+                    if module in {q[0] for q in ci.OPTIMIZATION_QUEUES}: rendezvous.wait(timeout=3)
+                    if module==ci.OPTIMIZATION_QUEUES[0][0]: bad_thread.append(threading.get_ident()); return bad
+                    active.set(); self.assertTrue(release.wait(timeout=3)); return self.process()
+                def images(**kwargs):
+                    if bad_thread and threading.get_ident()==bad_thread[0]:
+                        inspecting.set(); self.assertTrue(release_inspection.wait(timeout=3))
+                    return {}
+                with mock.patch.object(ci.ci,"command",side_effect=command), mock.patch.object(ci,"images",side_effect=images), \
+                     mock.patch.object(ci,"ThreadPoolExecutor",ObservedPool):
+                    runner=threading.Thread(target=lambda:outcomes.append(ci.run("optimization")))
+                    runner.start()
+                    try:
+                        self.assertTrue(active.wait(timeout=3)); self.assertTrue(inspecting.wait(timeout=3))
+                        self.assertTrue(runner.is_alive(),"must await the active subprocess")
+                        release.set(); self.assertTrue(submitted.wait(timeout=3)); futures[1].result(timeout=3)
+                        self.assertCountEqual(called,[q[0] for q in ci.OPTIMIZATION_QUEUES],
+                                              "known failure stops pending selectors while Docker inspection is held")
+                        self.assertTrue(runner.is_alive(),"must also await the retained inspection")
+                    finally:
+                        release.set(); release_inspection.set(); runner.join(timeout=5)
+                self.assertFalse(runner.is_alive()); self.assertEqual(outcomes[0]["status"],status)
+                self.assertEqual(len(called),len(set(called)))
+                self.assertTrue(outcomes[0]["completed"])
+                self.assertTrue(all(r["counts"]==self.counts for r in outcomes[0]["completed"]))
+
+    def test_exception_identity_drift_or_missing_worker_results_cannot_pass(self):
+        with mock.patch.object(ci.ci,"command",side_effect=OSError("own process error "+str(ci.ci.ROOT))):
+            result=ci.run("optimization")
+        self.assertEqual(result["status"],"FAIL"); self.assertNotIn(str(ci.ci.ROOT),json.dumps(result))
+        self.identity.side_effect=[self.facts,{**self.facts,"source_tree_sha256":"b"*64}]
+        with mock.patch.object(ci.ci,"command",return_value=self.process()):
+            result=ci.run("optimization")
+        self.assertEqual(result["status"],"FAIL"); self.assertIn("inputs changed",result["diagnostic"])
+        self.identity.side_effect=None
+        with mock.patch.object(ci,"parallel_optimization",return_value={}): result=ci.run("optimization")
+        self.assertEqual(result["status"],"FAIL"); self.assertIn("omitted",result["diagnostic"])
+
+    def test_matrix_and_performance_keep_all_selectors_sequential(self):
+        for lane in ("matrix","performance"):
+            selected=ci.suites(lane); caller=threading.get_ident(); calls=[]
+            def command(argv,*args,**kwargs):
+                self.assertEqual(threading.get_ident(),caller); calls.append(argv[-1]); return self.process()
+            with mock.patch.object(ci,"ThreadPoolExecutor",side_effect=AssertionError("unexpected concurrency")), \
+                 mock.patch.object(ci.ci,"command",side_effect=command): result=ci.run(lane)
+            self.assertEqual(result["status"],"PASS",result); self.assertEqual(calls,selected)
 
 
 class NightlyRecipeTests(unittest.TestCase):
@@ -306,16 +416,18 @@ class NightlyRecipeTests(unittest.TestCase):
         counts = dict(tests=1, failures=0, errors=0, skipped=0, expected_failures=0, unexpected_successes=0)
         frozen = {"fixture-tag": "sha256:frozen"}
         for lane in ("functional", "matrix", "optimization", "performance"):
+            selected = ci.suites(lane) if lane == "optimization" else ["fixture"]
             with self.subTest(lane=lane), ExitStack() as stack:
                 for name in ("candidate_package", "waterbox_inputs", "prepare", "execute", "identity"):
                     stack.enter_context(mock.patch.object(ci, name, return_value={}))
                 stack.enter_context(mock.patch.object(ci.ci, "preflight"))
-                stack.enter_context(mock.patch.object(ci, "suites", return_value=["fixture"]))
+                stack.enter_context(mock.patch.object(ci, "suites", return_value=selected))
                 stack.enter_context(mock.patch.object(ci.ci, "command", return_value=subprocess.CompletedProcess([], 0, json.dumps(counts), "")))
                 images = stack.enter_context(mock.patch.object(ci, "images", return_value=frozen))
                 self.assertEqual("PASS", ci.run(lane)["status"])
-                self.assertEqual([mock.call(retroarch=lane == "functional")] * 3, images.call_args_list)
-                images.side_effect = [frozen, {"fixture-tag": "sha256:changed"}]
+                self.assertEqual([mock.call(retroarch=lane == "functional")] * (len(selected)+2), images.call_args_list)
+                images.reset_mock()
+                images.side_effect = lambda **kw: frozen if images.call_count == 1 else {"fixture-tag": "sha256:changed"}
                 result = ci.run(lane)
                 self.assertEqual("FAIL", result["status"])
                 self.assertIn("Docker inputs changed", result["diagnostic"])

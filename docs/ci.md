@@ -86,6 +86,13 @@ dependencias ni considera una omision de Capstone como prueba superada.
 - `sanitizers`: toda la suite fuzz; conserva semillas y conteos.
 - `optimization`: prepara/valida todos los experimentos de flags y los cinco
   frontends normales/sanitizados; incluye equivalencia SIMD y guardas.
+  Tras esa preparacion secuencial, ejecuta dos colas simultaneas: equivalencia
+  y seguridad del frontend RGB565 comparten una cola porque regeneran el mismo
+  corpus; configuracion y receipts de flags, matriz SIMD y tests de pixeles usan
+  la otra. Antes del preflight exige que las colas cubran exactamente todos los
+  selectores, sin duplicados. Conserva orden estable, counts/verdict originales,
+  imagenes e identidad final. Ante fallo deja de iniciar pendientes y espera a
+  los workers activos antes de devolver; una ejecucion incompleta nunca aprueba.
 - `performance`: prepara y verifica los inputs antes de las 75 medidas de flags
   y las 150 medidas del frontend, y construye los probes nativo/libretro y C# Release
   antes de medir. Ejecuta tambien la comparacion CPU completa (135 ventanas) en
@@ -93,6 +100,10 @@ dependencias ni considera una omision de Capstone como prueba superada.
   esos datos y verifica identidad/cobertura, sin lanzar otra campaña. Despues ejecuta
   las suites de medicion y presupuesto.
   Se mantiene la politica ADVISORY existente; no transforma ruido en limite duro.
+
+Las otras lanes siguen secuenciales. En particular, `matrix` conserva juntos
+los corpus y no solapa los tests de reloj que comparten `faketime`; `performance`
+conserva preparacion, mediciones y selectores secuenciales, sin carga competidora.
 
 Los IDs de las imagenes de portabilidad estan fijados en
 `plan/toolchains.json` (`portability_matrix.image_ids`); SIMD y el preflight
