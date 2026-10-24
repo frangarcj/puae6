@@ -12352,6 +12352,52 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer como test, dos hipotesis verificables y blocked_reason; no instalar ni cambiar framework/flags al azar. Falta de closure o carga incompleta no produce PASS. Agente no modifica metadata compartida ni publica."
     },
     {
+      "id": "T40k",
+      "title": "Probar UAE y PUAE6 con RomLoader y peliculas en el mismo EmuHawk real",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40j",
+        "T21",
+        "T22",
+        "T40f",
+        "T40g"
+      ],
+      "read": [
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "tools/emuhawk_selfcheck.py",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch",
+        "tools/emuhawk_selfcheck.py",
+        "tools/emuhawk_coexistence.py",
+        "tests/packages/test_emuhawk_coexistence.py",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Continuacion de T40 tras bootstrap real T40j DONE. hosted_bootstrap implementa en worktree aislado desde candidata limpia actual; root registra metadata, revisa e integra y serializa build/ejecucion. No tocar MacHawk, copiar motorlegacy al nuevo ni usar hostFFI alternativo. Mantener EXE/proyectos/assembliesBizHawk completos net48 y politica Newtonsoft13.0.3net6 deT40j para runtime10.0.13.",
+        "Añadir entrada CLI explicita al EmuHawk original mediante parche derivado0025. Inicializar Database.InitializeDatabase y MAMEMachineDB.Initialize reales con DB del microROM/ADF propios y MAMEvacio, todos dentro del staging. CoreFileProvider y FirmwareManager originales resuelven seleccion explicita del firmware propio; Config.DontTryOtherCores=true evita fallback. Cargar mediante RomLoader.LoadRom, primero UAE por defecto y luego PUAE6 explicito. No invocar constructoresdirectos de cores, cambiar macroGAMEDB_ALWAYS_MISS ni filtrar CoreInventory.",
+        "Copiar exclusivamente el runtime Release actual verificado dePUAE6 y ambos guests reales: puae6.wbx del reciboactual y uae.wbx de la closurelegacy autorizada enMacHawk. Todos originales readonly identificados antes/despues; validar arquitectura/identidad actuales antes de ejecutar. Ambos cores comparten WaterboxHost.NativeImpl: probarlos realmente con un solo runtime, sin copiar runtimelegacy distinto ni trasladar PASSentreprocesos deT40f. Proveedor/ROM/ADF propios sin assets comerciales; ningun input nuevo por red/instalacion.",
+        "Mantener ambos cores vivos en ese proceso y alternar al menos12frames porcore; observar A/V y estado y demostrar que avanzar uno no muta el otro. Grabar pelicula porcore mediante MovieSession original con nombre/syncsettings e identidad reales. Para reproducir, partir de preferencia contraria y usar QueueNewMovie, QueuedCoreName, RomLoader.LoadRom y RunQueuedMovie comoMainForm; comprobar eleccioncorrecta sinfallback y replayexacto A/V/estadofinal porcore. Nunca comparar entre motores como si fueran equivalentes. Cubrir BK2 y TASproj si cabe en el mismo bucle/vertical sin exceder400lineas; si TAS exige otra vertical, registrar su sucesora sin borrar la puerta completa de T40.",
+        "Runner reutiliza la preparacion/verificacion de staging deT40j, sin compilar implicitamente ni reemplazar sus asserts. Añadir fixtures propios para identidad/runtimeunico/inventario/cuentas/fallo/cleanup y un opt-in real P6_TEST_EMUHAWK_COEXISTENCE=1. Root registraPKG01/WB09 y activa opt-infunctional dentroT39b. Gate real exige todos los escenarios declarados, ningunSKIP/PASSparcial; datos temporales desaparecen inclusoantefallo. Comprobar previamente los hashes de runtime y ambos guests, y despues closure y referenciaMacHawk intactos. No afirmar GUI, compatibilidadentrecores/builds ni cierre deotraspuertas WB09/WB11.",
+        "Objetivo cuatro rutas de implementacion y menos400lineas logicas nuevas, mas registro decheck/metadata coordinador. Primero pruebas dirigidas e independiente revision, despues una compilacion del EXE afectado y ejecucion del mismo runner. No repetir motor/codegen/matriz/rendimiento por cambios deCLI. Tras dos intentos razonados del mismo fallo conservar reproducer, dos hipotesis verificables y blocked_reason."
+      ],
+      "checks": [
+        "PKG01",
+        "WB09"
+      ],
+      "acceptance": [
+        "El EmuHawk.exe original completo carga mediante RomLoader ambos cores con el mismo runtime actual, los mantiene vivos y demuestra aislamiento al alternar al menos12frames. Graba y reproduce peliculas por MovieSession y el nombre grabado elige el core correcto frente a una preferencia contraria, con continuacion A/V/estado exacta porcore y ninguna omision.",
+        "Todos los fixtures y el escenario real declarado pasan; fuentes/outputs/guests/runtime/MacHawk permanecen intactos y temporales propios se limpian. El resultado identifica realmente las tres piezas nativas y el EXE, sin atribuir GUI ni el resto de T40 por esta puerta."
+      ],
+      "stop": "No instalar dependencias/runtime ni descargar assets, no usar stubs, constructores directos o hostreducido para superar el escenario. Incompatibilidad real legacy/runtimeunico requiere reproducer y decision; no cambiar CPU/ABIflags al azar ni recuperar el runtimelegacy como fallback. Agente no edita metadata ni publica ni ejecuta baterias/buildpesado."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12372,7 +12418,8 @@
         "T40f",
         "T40h",
         "T40i",
-        "T40j"
+        "T40j",
+        "T40k"
       ],
       "read": [
         "docs/05-maintenance.md",
