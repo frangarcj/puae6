@@ -12065,7 +12065,7 @@
       "title": "Preparar previews locales Linux ARM64 y x86_64 con fuentes y smoke instalado",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T38",
         "T40a"
@@ -12255,7 +12255,8 @@
         "T40d",
         "T40g",
         "T40e",
-        "T40f"      ],
+        "T40f"
+      ],
       "read": [
         "docs/05-maintenance.md",
         "docs/03-waterbox.md",
@@ -12277,7 +12278,8 @@
         "T40d prepara solo politica de fuentes/avisos para Waterbox standalone sobre los inputs existentes; el empaquetado instalado, reconstruccion managed Release con guest actual, coexistencia EmuHawk y dos builds limpios siguen requeridos en T40. Ninguna politica legal ni preview FFI sustituye esas puertas.",
         "T40g entrega una preview Waterbox Darwin ARM64 standalone relocable con wrapper/FFI, guest/runtime y politica de fuentes/avisos completa. No es un plugin para copiar en EmuHawk; esta ficha conserva integracion porruntime, coexistencia y dos builds limpios reproducibles, ademas de la CI completa.",
         "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
-        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."      ],
+        "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad."
+      ],
       "checks": [
         "PKG01",
         "SRC01",
