@@ -1,0 +1,778 @@
+{
+  "schema_version": 1,
+  "scope": "Partial source/notice policy for standalone Waterbox Darwin ARM64. Rust std external-crate notices remain pending; no complete-distribution, binary, installed-package or plugin claim. Framework-dependent net8 uses the separately installed .NET runtime.",
+  "base_policy": "manifests/release/native-preview.json",
+  "inputs": {
+    "manifests/release/native-preview.json": "4ff235c8002808dbbc2106ffbb840a5942bd953d37aeb211ef0afab4ff2daaa5",
+    "plan/toolchains.json": "9dea613f75872fba8e7ea18def11cf1c0e9390cd3098b17e5bee73ca7eb42dd0",
+    "tools/ci/managed-inputs.json": "13c0a9f14c266af20d7904e91059ab0047f44cfeacd582f7a38800f4f07aad88",
+    "references/machawk.manifest.json": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3",
+    "references/musl-darwin.manifest.json": "bb962ceae3a5b7c116841e568f48704edd6d20dc5a3bada77370257d4429a04f",
+    "references/compiler-rt-emutls.manifest.json": "66f01d7f0656b30749511417756255b6d0d97e06c115eeebfb91589594f96a88",
+    "references/machawk/waterbox/waterboxhost/Cargo.toml": "2d8cbc02c4a6d86c28295a0e3de9161282ef1efc590cc53f9c91dc327399315f",
+    "references/machawk/waterbox/waterboxhost/Cargo.lock": "76821437d8a47e084e442c9d6fc4c85a3a05c3fe7c9713ae440dbcb6f16bf7bf",
+    "third_party/waterbox-sysroot/PROVENANCE.json": "5ebc056c476ad650f8c033c12ee9d68043a637b98aea83157dad8525f5204445",
+    "integration/bizhawk/core/Puae6.Core.csproj": "7117fc7e5cd218d50b25037c5b2fb1cb76a802ab489bbc92a49e538d6d01272f",
+    "tests/ffi/Ffi.csproj": "f63a39df0ef03ebbf6c6d63a322c369d1a6517ce428611b2b5261207cb4bb7d1",
+    "tools/build_waterbox_sysroot.py": "47d1de6a0042197329550dffa7df13882cc7787c3fbc13e3b666b5f7eea27797"
+  },
+  "source_additions": [
+    "references/machawk",
+    "references/machawk.manifest.json",
+    "references/musl-darwin",
+    "references/musl-darwin.manifest.json",
+    "references/compiler-rt-emutls",
+    "references/compiler-rt-emutls.manifest.json"
+  ],
+  "target": "aarch64-apple-darwin",
+  "cargo_manifest": "references/machawk/waterbox/waterboxhost/Cargo.toml",
+  "cargo_lock": "references/machawk/waterbox/waterboxhost/Cargo.lock",
+  "excluded_cargo": {
+    "winapi": "0.3.9",
+    "winapi-i686-pc-windows-gnu": "0.4.0",
+    "winapi-x86_64-pc-windows-gnu": "0.4.0"
+  },
+  "components": [
+    {
+      "kind": "crate",
+      "name": "anyhow",
+      "version": "1.0.86",
+      "phase": "runtime",
+      "checksum": "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da",
+      "source_url": "https://static.crates.io/crates/anyhow/anyhow-1.0.86.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 470,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 10304,
+          "bytes": 1023,
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "bitflags",
+      "version": "1.3.2",
+      "phase": "runtime",
+      "checksum": "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a",
+      "source_url": "https://static.crates.io/crates/bitflags/bitflags-1.3.2.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 11442,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 22401,
+          "bytes": 1071,
+          "sha256": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "block-buffer",
+      "version": "0.9.0",
+      "phase": "runtime",
+      "checksum": "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4",
+      "source_url": "https://static.crates.io/crates/block-buffer/block-buffer-0.9.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 23591,
+          "bytes": 10849,
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 34556,
+          "bytes": 1082,
+          "sha256": "d5c22aa3118d240e877ad41c5d9fa232f9c77d757d4aac0c2f943afc0a95e0ef"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "cfg-if",
+      "version": "1.0.0",
+      "phase": "runtime",
+      "checksum": "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd",
+      "source_url": "https://static.crates.io/crates/cfg-if/cfg-if-1.0.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 35751,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 46708,
+          "bytes": 1057,
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "cpufeatures",
+      "version": "0.2.12",
+      "phase": "runtime",
+      "checksum": "53fe5e26ff1b7aef8bca9c6080520cfb8d9333c7568e1829cef191a9723e5504",
+      "source_url": "https://static.crates.io/crates/cpufeatures/cpufeatures-0.2.12.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 47884,
+          "bytes": 10849,
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 58849,
+          "bytes": 1077,
+          "sha256": "904801faf3f1850328af8e1aa1047b9190cc22ed40df5c87f2d93d17f847ef67"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "digest",
+      "version": "0.9.0",
+      "phase": "runtime",
+      "checksum": "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066",
+      "source_url": "https://static.crates.io/crates/digest/digest-0.9.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 60039,
+          "bytes": 10849,
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 70998,
+          "bytes": 1057,
+          "sha256": "9e0dfd2dd4173a530e238cb6adb37aa78c34c6bc7444e0e10c1ab5d8881f63ba"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "either",
+      "version": "1.12.0",
+      "phase": "runtime",
+      "checksum": "3dca9240753cf90908d7e4aac30f630662b02aebaa1b58a3cadabdb23385b58b",
+      "source_url": "https://static.crates.io/crates/either/either-1.12.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 72169,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 83127,
+          "bytes": 1043,
+          "sha256": "7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "generic-array",
+      "version": "0.14.7",
+      "phase": "runtime",
+      "checksum": "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a",
+      "source_url": "https://static.crates.io/crates/generic-array/generic-array-0.14.7.crate",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "offset": 84284,
+          "bytes": 1107,
+          "sha256": "c09aae9d3c77b531f56351a9947bc7446511d6b025b3255312d3e3442a9a7583"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "goblin",
+      "version": "0.2.3",
+      "phase": "runtime",
+      "checksum": "d20fd25aa456527ce4f544271ae4fea65d2eda4a6561ea56f39fb3ee4f7e3884",
+      "source_url": "https://static.crates.io/crates/goblin/goblin-0.2.3.crate",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "offset": 85497,
+          "bytes": 1075,
+          "sha256": "036bf6b6d6fd6dd1abda2ff6cdb672a63bdf32c468048720072910f2268a965f"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "itertools",
+      "version": "0.9.0",
+      "phase": "runtime",
+      "checksum": "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b",
+      "source_url": "https://static.crates.io/crates/itertools/itertools-0.9.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 86688,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 97648,
+          "bytes": 1043,
+          "sha256": "7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "lazy_static",
+      "version": "1.4.0",
+      "phase": "runtime",
+      "checksum": "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646",
+      "source_url": "https://static.crates.io/crates/lazy_static/lazy_static-1.4.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 98809,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 109771,
+          "bytes": 1071,
+          "sha256": "0621878e61f0d0fda054bcbe02df75192c28bde1ecc8289cbd86aeba2dd72720"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "libc",
+      "version": "0.2.155",
+      "phase": "runtime",
+      "checksum": "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c",
+      "source_url": "https://static.crates.io/crates/libc/libc-0.2.155.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 110955,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 120788,
+          "bytes": 1076,
+          "sha256": "a8d47ff51ca256f56a8932dba07660672dbfe3004257ca8de708aac1415937a1"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "log",
+      "version": "0.4.21",
+      "phase": "runtime",
+      "checksum": "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c",
+      "source_url": "https://static.crates.io/crates/log/log-0.4.21.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 121975,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 132930,
+          "bytes": 1071,
+          "sha256": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "opaque-debug",
+      "version": "0.3.1",
+      "phase": "runtime",
+      "checksum": "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381",
+      "source_url": "https://static.crates.io/crates/opaque-debug/opaque-debug-0.3.1.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 134120,
+          "bytes": 10849,
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 145085,
+          "bytes": 1082,
+          "sha256": "f59f5a78193597e04fd932ee9af86254d14d08be5c9d0e003ab888feccce2161"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "page_size",
+      "version": "0.4.2",
+      "phase": "runtime",
+      "checksum": "eebde548fbbf1ea81a99b128872779c437752fb99f217c45245e1a61dcd9edcd",
+      "source_url": "https://static.crates.io/crates/page_size/page_size-0.4.2.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 146283,
+          "bytes": 10846,
+          "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 157242,
+          "bytes": 1070,
+          "sha256": "14435fbcd271e2783f721b57b7bf4f6502c1379249a4300e0e5bb774686c2d90"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "plain",
+      "version": "0.2.3",
+      "phase": "runtime",
+      "checksum": "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6",
+      "source_url": "https://static.crates.io/crates/plain/plain-0.2.3.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 158424,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 169380,
+          "bytes": 1062,
+          "sha256": "bc12b75fd81829814d843a03fa52aad0e53355b1f13665e309ff7fa33c66e5b5"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "proc-macro2",
+      "version": "1.0.85",
+      "phase": "build",
+      "checksum": "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23",
+      "source_url": "https://static.crates.io/crates/proc-macro2/proc-macro2-1.0.85.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 170561,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 180400,
+          "bytes": 1023,
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "quote",
+      "version": "1.0.36",
+      "phase": "build",
+      "checksum": "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7",
+      "source_url": "https://static.crates.io/crates/quote/quote-1.0.36.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 181536,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 191369,
+          "bytes": 1023,
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "scroll",
+      "version": "0.10.2",
+      "phase": "runtime",
+      "checksum": "fda28d4b4830b807a8b43f7b0e6b5df875311b3e7621d84577188c175b6ec1ec",
+      "source_url": "https://static.crates.io/crates/scroll/scroll-0.10.2.crate",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "offset": 192499,
+          "bytes": 1070,
+          "sha256": "6e24b7455f0b9afefdf4f3efd59a56ce76a3020c2dc4371937e281fc5e587fd7"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "scroll_derive",
+      "version": "0.10.5",
+      "phase": "build",
+      "checksum": "aaaae8f38bb311444cfb7f1979af0bc9240d95795f75f9ceddf6a59b79ceffa0",
+      "source_url": "https://static.crates.io/crates/scroll_derive/scroll_derive-0.10.5.crate",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "offset": 193683,
+          "bytes": 1057,
+          "sha256": "afb11426e09da40a1ae4f8fa17ddcc6b6a52d14df04c29bc5bcd06eb8730624d"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "sha2",
+      "version": "0.9.9",
+      "phase": "runtime",
+      "checksum": "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800",
+      "source_url": "https://static.crates.io/crates/sha2/sha2-0.9.9.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 194851,
+          "bytes": 10849,
+          "sha256": "a9040321c3712d8fd0b09cf52b17445de04a23a10165049ae187cd39e5c86be5"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 205808,
+          "bytes": 1138,
+          "sha256": "b4eb00df6e2a4d22518fcaa6a2b4646f249b3a3c9814509b22bd2091f1392ff1"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "syn",
+      "version": "1.0.109",
+      "phase": "build",
+      "checksum": "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237",
+      "source_url": "https://static.crates.io/crates/syn/syn-1.0.109.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 207058,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 218014,
+          "bytes": 1023,
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "typenum",
+      "version": "1.17.0",
+      "phase": "runtime",
+      "checksum": "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825",
+      "source_url": "https://static.crates.io/crates/typenum/typenum-1.17.0.crate",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "offset": 219145,
+          "bytes": 17,
+          "sha256": "db11fec9946737df39ca3898d9cd8c10ec6f6c3a884a6802b0ad0b81b4e8f23a"
+        },
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 219277,
+          "bytes": 10835,
+          "sha256": "516b24e051bf5630880ebbd55c40a25ce9552ebaf8970a53e8976eb70e522406"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 230224,
+          "bytes": 1083,
+          "sha256": "a825bd853ab71619a4923d7b4311221427848070ff44d990da39b0b274c1683f"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "unicode-ident",
+      "version": "1.0.12",
+      "phase": "build",
+      "checksum": "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b",
+      "source_url": "https://static.crates.io/crates/unicode-ident/unicode-ident-1.0.12.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 231428,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 241269,
+          "bytes": 1023,
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "member": "LICENSE-UNICODE",
+          "offset": 242414,
+          "bytes": 2315,
+          "sha256": "68f5b9f5ea36881a0942ba02f558e9e1faf76cc09cb165ad801744c61b738844"
+        }
+      ]
+    },
+    {
+      "kind": "crate",
+      "name": "version_check",
+      "version": "0.9.4",
+      "phase": "build",
+      "checksum": "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f",
+      "source_url": "https://static.crates.io/crates/version_check/version_check-0.9.4.crate",
+      "notices": [
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 244849,
+          "bytes": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 255813,
+          "bytes": 1085,
+          "sha256": "b7e650f3fce5c53249d1cdc608b54df156a97edd636cf9d23498d0cfe7aec63e"
+        }
+      ]
+    },
+    {
+      "kind": "nuget",
+      "name": "communitytoolkit.highperformance",
+      "version": "8.4.0",
+      "phase": "runtime",
+      "bytes": 537255,
+      "archive_sha512_base64": "0mKu+UVJjUaZ6WIppuCsZh+YVpYLlCtt92kJFcaZoQ8Biq4hM7umOWjaq1AyCd4Hq9OuR3DsH5bFGSV7nfaZqA==",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/communitytoolkit.highperformance/8.4.0/communitytoolkit.highperformance.8.4.0.nupkg",
+      "notices": [
+        {
+          "member": "License.md",
+          "offset": 257033,
+          "bytes": 1158,
+          "sha256": "651997ef19dbb9ecb8dd660dbc86444a65af21f18cfe08daa69bf201cd5cfdfc"
+        },
+        {
+          "member": "ThirdPartyNotices.txt",
+          "offset": 258337,
+          "bytes": 8600,
+          "sha256": "7774f8b0ab66bfb47ec154ce24a2d6d574febc44a74d940b8a037d1c56756163"
+        }
+      ]
+    },
+    {
+      "kind": "nuget",
+      "name": "newtonsoft.json",
+      "version": "13.0.3",
+      "phase": "runtime",
+      "bytes": 2441966,
+      "archive_sha512_base64": "mbJSvHfRxfX3tR/U6n1WU+mWHXswYc+SB/hkOpx8yZZe68hNZGfymJu0cjsaJEkVzCMqePiU6LdIyogqfIn7kg==",
+      "source_url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg",
+      "notices": [
+        {
+          "member": "LICENSE.md",
+          "offset": 267056,
+          "bytes": 1104,
+          "sha256": "b98a397897ff55f76cddc380041507a95a896b2946e0188703bf0496793d6516"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "BizHawk-LICENSE",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/BizHawk-LICENSE",
+          "offset": 268278,
+          "bytes": 2515,
+          "sha256": "6601cab56cb56875001906593a3adf94d52a0b82e6919fcbee81c31a48499121"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "compiler-rt/LICENSE.TXT",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/compiler-rt/LICENSE.TXT",
+          "offset": 270919,
+          "bytes": 16708,
+          "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "libcxx/LICENSE.TXT",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/libcxx/LICENSE.TXT",
+          "offset": 287748,
+          "bytes": 16703,
+          "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "libcxxabi/LICENSE.TXT",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/libcxxabi/LICENSE.TXT",
+          "offset": 304575,
+          "bytes": 16706,
+          "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "libunwind/LICENSE.TXT",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/libunwind/LICENSE.TXT",
+          "offset": 321405,
+          "bytes": 16706,
+          "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d"
+        }
+      ]
+    },
+    {
+      "kind": "sysroot",
+      "name": "musl-COPYRIGHT",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "licenses/musl-COPYRIGHT",
+          "offset": 338228,
+          "bytes": 6107,
+          "sha256": "afe1df384787fce3577f3356b8b0d417381483f7c704eacb63f8050349fac77a"
+        }
+      ]
+    },
+    {
+      "kind": "rust-std",
+      "name": "rust-std",
+      "version": "1.99.1",
+      "phase": "runtime",
+      "notices": [
+        {
+          "member": "COPYRIGHT",
+          "offset": 344554,
+          "bytes": 1571,
+          "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/COPYRIGHT"
+        },
+        {
+          "member": "LICENSE-MIT",
+          "offset": 346348,
+          "bytes": 1068,
+          "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSE-MIT"
+        },
+        {
+          "member": "LICENSE-APACHE",
+          "offset": 347645,
+          "bytes": 9723,
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSE-APACHE"
+        },
+        {
+          "member": "license-metadata.json",
+          "offset": 357611,
+          "bytes": 9198,
+          "sha256": "7bed295fb8d5ddc54ef9e7c795b18207d8da747513ae83fce9748e840200b40c",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/license-metadata.json"
+        },
+        {
+          "member": "LICENSES/Unicode-3.0.txt",
+          "offset": 367058,
+          "bytes": 1995,
+          "sha256": "f5062c9a188d81dfe66b56db4182dcf9e4b17c0d9b0d311a8e20b3a1b075c443",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSES/Unicode-3.0.txt"
+        },
+        {
+          "member": "LICENSES/BSD-2-Clause.txt",
+          "offset": 369304,
+          "bytes": 1267,
+          "sha256": "f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df",
+          "url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/LICENSES/BSD-2-Clause.txt"
+        }
+      ]
+    }
+  ],
+  "rust_std": {
+    "version": "1.99.1",
+    "commit": "58cf8f9c35b355199727627d07ae34a4e2846d67",
+    "source_url": "https://github.com/rust-lang/rust/archive/58cf8f9c35b355199727627d07ae34a4e2846d67.tar.gz",
+    "coverage": "Exact primary source copyright, license-metadata and complete license texts for the root defaults and every library/* exception. No claim of equality to a generated bottle copyright aggregate.",
+    "licenses": [
+      "Apache-2.0",
+      "BSD-2-Clause",
+      "MIT",
+      "Unicode-3.0"
+    ]
+  },
+  "sysroot": {
+    "archive": "third_party/waterbox-sysroot/waterbox-sysroot-aarch64.tar.xz",
+    "provenance": "third_party/waterbox-sysroot/PROVENANCE.json",
+    "source_recipe": "tools/build_waterbox_sysroot.py",
+    "complete_llvm_source_url": "https://github.com/llvm/llvm-project/archive/3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff.tar.gz"
+  },
+  "notices": {
+    "path": "manifests/release/waterbox-notices.txt",
+    "bytes": 370571,
+    "sha256": "f4a2eedd8f28968e2372561a418c01fe5b511eb215588e98f16ff33e1ff3abc2"
+  },
+  "rust_std_external_pending": {
+    "reason": "The primary Rust license-metadata covers in-tree std attributions, but not external crates linked through std. The installed generated copyright documents have an empty out-of-tree section and are not authenticated imports. Exact notices for the external std closure remain required before distribution acceptance.",
+    "source_lock_url": "https://raw.githubusercontent.com/rust-lang/rust/58cf8f9c35b355199727627d07ae34a4e2846d67/library/Cargo.lock",
+    "observed_unconditional_dependencies": {
+      "hashbrown": "0.17.1",
+      "rustc-demangle": "0.1.28",
+      "cfg-if": "1.0.4",
+      "libc": "0.2.189",
+      "compiler_builtins": "0.1.160"
+    },
+    "selection_limit": "These unconditional source dependencies demonstrate a gap; they are not a closed inventory of the shipped std. Optional backtrace and other external dependencies still require conservative coverage."
+  }
+}
