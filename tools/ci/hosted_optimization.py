@@ -113,5 +113,6 @@ if __name__ == '__main__':
         result = aggregate() if args.action == 'aggregate' else dict(status='PASS', profile=PROFILE, selectors=partition(), scope='selector partition only')
     except (OSError, ValueError, RuntimeError, AssertionError, KeyError, TypeError) as error:
         result = dict(status='FAIL', profile=PROFILE, diagnostic=str(error))
-    print(MARKER + ci.redact(json.dumps(result, sort_keys=True)))
+    marker = MARKER if args.action == 'aggregate' else 'P6_OPTIMIZATION_PARTITION '
+    print(marker + ci.redact(json.dumps(result, sort_keys=True)))
     sys.exit(0 if result['status'] == 'PASS' else 1)

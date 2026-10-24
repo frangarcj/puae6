@@ -1,6 +1,8 @@
 """Own worker records and mocked API only; no emulator, compiler or network."""
 import copy
 import json
+import subprocess
+import sys
 import unittest
 from unittest import mock
 
@@ -56,6 +58,13 @@ class HostedOptimizationTests(unittest.TestCase):
         self.assertIn('hosted_optimization.py aggregate', result)
         self.assertIn('actions: read', result)
         self.assertNotRegex(engine + standalone + workers + result, r'upload-artifact|actions/cache|continue-on-error|docker|nightly.py|build_waterbox')
+
+    def test_partition_cli_cannot_be_mistaken_for_a_terminal_worker_record(self):
+        process = subprocess.run([sys.executable, '-B', hosted.__file__, 'partition'], cwd=hosted.ROOT,
+                                 capture_output=True, text=True, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertTrue(process.stdout.startswith('P6_OPTIMIZATION_PARTITION '))
+        self.assertNotIn(hosted.MARKER, process.stdout)
 
     def test_complete_recipe_calls_all_shared_worker_oracles_without_inventing_unittest_counts(self):
         records = self.records()
