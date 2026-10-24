@@ -12241,7 +12241,7 @@
       "title": "Probar estado incompatible y rechazo transaccional en la preview nativa instalada",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40a",
         "T30",
