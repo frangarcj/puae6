@@ -33,6 +33,12 @@ def descriptor(record, common, kind):
     require(re.fullmatch('[0-9a-f]{64}', record['source_environment_sha256']) is not None, 'missing worker environment identity')
 
 
+def headers(record):
+    inventory = record['headers']
+    require(set(inventory) == {'files', 'sha256'} and type(inventory['files']) is int and 0 < inventory['files'] <= 16384
+            and re.fullmatch('[0-9a-f]{64}', inventory['sha256']) is not None, 'missing effective header identity')
+
+
 def validate_rows(records, common):
     """Validate current-attempt worker observations without executing or reading files."""
     found, expected = set(), None
@@ -46,6 +52,7 @@ def validate_rows(records, common):
                 and Path(compiler['compiler_implementation']['path']).is_absolute()
                 and re.fullmatch('[0-9a-f]{64}', compiler['compiler_implementation']['sha256']) is not None, 'invalid raw C++ compiler identity')
         for mode, result in record['results'].items():
+            headers(result)
             require(all(result[k] == v for k, v in compiler.items()), 'SIMD compiler changed between modes')
             require(re.fullmatch('[0-9a-f]{64}', result['binary_sha256']) is not None, 'missing executed SIMD binary')
             expected = matrix.validate_record(result, row, mode, expected, SOURCES)
@@ -68,6 +75,12 @@ def validate_standalone(record, common):
     process = ci.subprocess.CompletedProcess([], 0, json.dumps(record['counts']), '')
     status, counts = ci.verdict(process)
     require(status == 'PASS' and counts['tests'] == 3, 'standalone SIMD omitted/failed assertions')
+    require(set(record['builds']) == set(MODES), 'standalone omitted/duplicated build mode')
+    for mode, build in record['builds'].items():
+        headers(build)
+        require(build['mode'] == mode and all(build[k] == v for k, v in compiler.items())
+                and build['sources'] == SOURCES and build['flags'] == evaluate.flags(mode)
+                and re.fullmatch('[0-9a-f]{64}', build['binary_sha256']) is not None, 'standalone build identity differs')
     return counts
 
 
@@ -78,6 +91,10 @@ def row(row, common=None):
     build = ROOT/'build'; build.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='hosted-simd-', dir=build) as temporary:
         results = {mode: evaluate.evaluate(Path(temporary), mode, row) for mode in MODES}
+        for mode, result in results.items():
+            exe = Path(temporary)/('rgb565-' + mode)
+            require(evaluate.dependency_inputs(exe.with_suffix('.d')) == result['headers']
+                    and evaluate.digest(exe) == result['binary_sha256'], 'SIMD inputs changed between modes')
     keys = ('compiler', 'compiler_sha256', 'compiler_path', 'compiler_implementation', 'driver_mode')
     compiler = {key: results['opt'][key] for key in keys}
     result = dict(status='PASS', profile=PROFILE, kind='simd-row', common=before, row=row,
@@ -98,11 +115,14 @@ def standalone(common=None):
     source = source_identity()
     build = ROOT/'build'; build.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='hosted-rgb565-', dir=build) as temporary:
-        process = ci.command([sys.executable, '-B', '-c', ci.check.DRIVER, SELECTOR], env={'TMPDIR': temporary}, timeout=900)
+        process = ci.command([sys.executable, '-B', '-c', ci.check.DRIVER, SELECTOR],
+                             env={'TMPDIR': temporary, 'P6_SIMD_BUILD_INPUTS': '1'}, timeout=900)
     status, counts = ci.verdict(process)
     require(status == 'PASS', 'standalone SIMD failed: ' + str(counts) + process.stderr[-3000:])
+    builds = [json.loads(line[len(evaluate.BUILD_MARKER):]) for line in process.stdout.splitlines() if line.startswith(evaluate.BUILD_MARKER)]
+    require(len(builds) == len(MODES), 'standalone missing/duplicate actual compilations')
     result = dict(status='PASS', profile=PROFILE, kind='simd-standalone', common=before, selector=SELECTOR,
-                  source_environment_sha256=source, compiler=compiler, counts=counts)
+                  source_environment_sha256=source, compiler=compiler, counts=counts, builds={b['mode']: b for b in builds})
     validate_standalone(result, before)
     require(source_identity() == source and context(before) == before and evaluate.compiler_configuration()[2] == compiler, 'standalone SIMD inputs changed')
     return result
