@@ -1,0 +1,10 @@
+--- a/src/setjmp/waterbox_aarch64/setjmp.s
++++ b/src/setjmp/waterbox_aarch64/setjmp.s
+@@ -16,1 +16,1 @@
+-	stp x27, x28, [x0,#64]
++	stp x27, xzr, [x0,#64]
+--- a/src/setjmp/waterbox_aarch64/longjmp.s
++++ b/src/setjmp/waterbox_aarch64/longjmp.s
+@@ -11,1 +11,1 @@
+-	ldp x27, x28, [x0,#64]
++	ldp x27, xzr, [x0,#64]
