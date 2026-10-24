@@ -14420,7 +14420,7 @@
       "title": "68040/68060, A4000/040 y Fast Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T55b",
         "T55c1",
@@ -14502,7 +14502,7 @@
       "title": "68030/68040/68060, A4000/030 y A4000/040 (KS 3.1, 2M Chip + 8M Fast) y Zorro III",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T54",
         "T49",
