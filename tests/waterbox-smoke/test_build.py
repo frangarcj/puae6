@@ -3,6 +3,7 @@
 import struct
 import importlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -513,6 +514,7 @@ class GuestToolchainCacheTests(unittest.TestCase):
                   mock.patch.object(build_waterbox, 'ensure_current_trees'),
                   mock.patch.object(prepare_hrtmon, 'prepare'),
                   mock.patch.object(build_waterbox, 'puae6_sources', return_value=['adapters/waterbox/cd_source.cpp']),
+                  mock.patch.object(build_waterbox, 'puae6_manual_inputs', return_value={'fixture.h': 'f' * 64}),
                   mock.patch.object(build_waterbox, 'validate_elf', return_value={'sha256': 'c' * 64, 'size': 1}),
                   mock.patch.object(build_waterbox, 'check_no_compiler_tls', return_value={'wb16': 'PASS'}),
                   mock.patch.object(build_waterbox, 'audit_imports', return_value={'unexpected': []}),
@@ -546,6 +548,51 @@ class GuestToolchainCacheTests(unittest.TestCase):
                 self.assertFalse(receipt.exists())
                 run.side_effect = make
                 build(True)   # A failed partial build must not reuse the prior identity.
+
+    def test_manual_headers_force_rebuild_with_preserved_mtime_and_drift_or_links_lose_receipt(self):
+        import prepare_hrtmon
+        with tempfile.TemporaryDirectory(dir=ROOT / 'build', prefix='wb-manual-') as directory:
+            root = Path(directory)
+            for name in build_waterbox.PUAE6_MANUAL_DIRS:
+                path = root / name; path.mkdir(parents=True); (path / 'own.h').write_text('own header')
+            for name in (*build_waterbox.PUAE6_MANUAL_FILES, 'ports/waterbox/Makefile',
+                         'references/machawk/waterbox/common.mak', 'references/machawk/waterbox/linkscript_aarch64.T', 'bridge/own.cpp'):
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('own fixture')
+            cc, ld = root / 'cc', root / 'ld'; cc.write_text('mock cc'); ld.write_text('mock ld')
+            tc = dict(lock={'toolchain_profile': 'local', 'profile': 'fixture', 'tools': {}}, versions={}, paths={'make': 'mock-make'},
+                      sysroot_copy=root, sysroot_inventory=[], cc_wrapper=cc, ld_wrapper=ld, env={}, source_audit={'mode': 'snapshot'})
+            receipt = root / 'out/puae6/puae6-receipt.json'; commands = []; drift = False
+            header = root / 'bridge/own.h'
+            def make(command, **kwargs):  # Compiler calls are infrastructure mocks, never executed.
+                self.assertFalse(receipt.exists()); commands.append(command)
+                if drift: header.write_text('changed during mocked make')
+                return subprocess.CompletedProcess(command, 0)
+            with (mock.patch.object(build_waterbox, 'ROOT', root), mock.patch.object(build_waterbox, 'BUILD', root / 'out'),
+                  mock.patch.object(build_waterbox, 'ensure_current_trees'), mock.patch.object(build_waterbox, '_TREES_CHECKED', False),
+                  mock.patch.object(prepare_hrtmon, 'prepare'), mock.patch.object(build_waterbox, 'puae6_sources', return_value=['bridge/own.cpp']),
+                  mock.patch.object(build_waterbox, 'validate_elf', return_value={'sha256': 'c' * 64, 'size': 1}),
+                  mock.patch.object(build_waterbox, 'check_no_compiler_tls', return_value={}),
+                  mock.patch.object(build_waterbox, 'audit_imports', return_value={}), mock.patch('builtins.print'),
+                  mock.patch.object(build_waterbox.subprocess, 'run', side_effect=make)):
+                first = build_waterbox.build_puae6(tc, 2)
+                self.assertIn('-B', commands[-1])
+                self.assertIn('bridge/own.h', first['manual_inputs'])
+                self.assertEqual(first['manual_inputs'], first['build_inputs']['manual_inputs'])
+                build_waterbox.check_guest_matches_trees(receipt, root)
+                build_waterbox.build_puae6(tc, 2); self.assertNotIn('-B', commands[-1])
+                stamp = header.stat(); header.write_text('new header bytes'); os.utime(header, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+                self.assertEqual(stamp.st_mtime_ns, header.stat().st_mtime_ns)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'inputs manuales'): build_waterbox.check_guest_matches_trees(receipt, root)
+                build_waterbox.build_puae6(tc, 2); self.assertIn('-B', commands[-1])
+                link = root / 'bridge/linked.h'; link.symlink_to(cc)
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'enlace'): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists()); link.unlink()
+                build_waterbox.build_puae6(tc, 2)
+                drift = True
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'durante make'): build_waterbox.build_puae6(tc, 2)
+                self.assertFalse(receipt.exists())
+                missing = root / 'third_party'; missing.rename(root / 'saved-third-party')
+                with self.assertRaisesRegex(build_waterbox.BuildError, 'ausente'): build_waterbox.puae6_manual_inputs(root)
 
 
 class SourceAuditTests(unittest.TestCase):

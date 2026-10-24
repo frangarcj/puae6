@@ -879,6 +879,29 @@ def audit_imports(tc: dict, objects: list[Path]) -> dict:
 
 
 PUAE6_GUEST = "puae6.wbx"
+PUAE6_MANUAL_DIRS = ('bridge', 'ports/portable', 'adapters/waterbox', 'third_party', 'references/machawk/waterbox/emulibc')
+PUAE6_MANUAL_FILES = ('CMakeLists.txt', 'manifests/source-manifest.json', 'manifests/codegen.json', 'ports/waterbox/imports.json')
+
+
+def puae6_manual_inputs(root: Path = ROOT) -> dict[str, str]:
+    """Read the complete manual guest closure, including headers; never follow links."""
+    root, inventory = Path(root), {}
+    if root.is_symlink() or not root.is_dir(): raise BuildError('raiz de inputs manuales ausente/enlazada')
+    def visit(path):
+        if path.is_symlink(): raise BuildError(f'enlace en inputs manuales del guest: {path}')
+        if path.is_dir():
+            for child in sorted(path.iterdir()): visit(child)
+        elif path.is_file(): inventory[path.relative_to(root).as_posix()] = sha256(path)
+        else: raise BuildError(f'input manual ausente/no regular del guest: {path}')
+    for name in (*PUAE6_MANUAL_DIRS, *PUAE6_MANUAL_FILES):
+        path = root
+        for part in Path(name).parts:
+            path /= part
+            if path.is_symlink(): raise BuildError(f'enlace en inputs manuales del guest: {path}')
+        if name in PUAE6_MANUAL_DIRS and not path.is_dir(): raise BuildError(f'directorio manual ausente: {path}')
+        if name in PUAE6_MANUAL_FILES and not path.is_file(): raise BuildError(f'archivo manual ausente: {path}')
+        visit(path)
+    return dict(sorted(inventory.items()))
 
 
 def cmake_sources(target: str) -> list[str]:
@@ -948,6 +971,11 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     prepare_hrtmon.prepare(ROOT)
     out = BUILD / "puae6"
     out.mkdir(parents=True, exist_ok=True)
+    receipt_path = out / "puae6-receipt.json"
+    previous = json.loads(receipt_path.read_text()) if receipt_path.is_file() else {}
+    # Even a rejected manual input must invalidate the preceding build receipt.
+    receipt_path.unlink(missing_ok=True)
+    manual_inputs = puae6_manual_inputs(ROOT)
     sources = puae6_sources()
     sources_mk = out / "sources.mk"
     sources_mk.write_text("SRCS := " + " \\\n  ".join(sources) + "\n")
@@ -956,9 +984,8 @@ def build_puae6(tc: dict, jobs: int) -> dict:
     flags = {"optimization": "-O2", "target": "aarch64", "host_page_size": PAGE_SIZE}
     tool_hashes = {name: entry["sha256"] for name, entry in tc["lock"]["tools"].items()}
     build_inputs = {**toolchain_receipt(tc), "tools": tool_hashes, "versions": tc["versions"], "sysroot": canonical_hash(tc["sysroot_inventory"]),
-                    "cc_wrapper": sha256(tc["cc_wrapper"]), "ld_wrapper": sha256(tc["ld_wrapper"]), "recipe": recipe, "flags": flags, "sources": sources}
-    receipt_path = out / "puae6-receipt.json"
-    previous = json.loads(receipt_path.read_text()) if receipt_path.is_file() else {}
+                    "cc_wrapper": sha256(tc["cc_wrapper"]), "ld_wrapper": sha256(tc["ld_wrapper"]), "recipe": recipe, "flags": flags, "sources": sources,
+                    "manual_inputs": manual_inputs}
     force = previous.get("build_inputs") != build_inputs
     # make's .d files do not track compiler, sysroot or flag changes. A failed
     # partial build must also lose its receipt before it can overwrite objects.
@@ -974,6 +1001,8 @@ def build_puae6(tc: dict, jobs: int) -> dict:
         result = subprocess.run(command, cwd=ROOT, env=tc["env"], text=True, stdout=output, stderr=subprocess.STDOUT)
     if result.returncode:
         raise BuildError(f"la receta de puae6.wbx fallo ({result.returncode}); ultimas lineas de {log}:\n" + "\n".join(log.read_text().splitlines()[-25:]))
+    if puae6_manual_inputs(ROOT) != manual_inputs:
+        raise BuildError('inputs manuales del guest cambiaron durante make; reconstruir con inputs estables')
     guest = out / "release" / PUAE6_GUEST
     metadata = validate_elf(guest, PAGE_SIZE)
     metadata["path"] = str(guest)
@@ -983,6 +1012,7 @@ def build_puae6(tc: dict, jobs: int) -> dict:
                **toolchain_receipt(tc),
                "source_audit": tc["source_audit"],
                "sources": {source: sha256(ROOT / source) for source in sources},
+               "manual_inputs": manual_inputs,
                "recipe": recipe, "tool_hashes": tool_hashes, "tool_versions": tc["versions"], "flags": flags, "build_inputs": build_inputs}
     receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     print(f"PUAE6 BUILD PASS: {guest} ({metadata['size']} bytes, sha256 {metadata['sha256'][:16]}...)")
@@ -994,17 +1024,22 @@ _TREES_CHECKED = False
 
 def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
     """T48f: a guest is only measured if the engine trees are the current series' (checked once per process) and puae6.wbx was built from exactly those files:
-    its receipt lists the sha256 of every source, including the pinned builtin under build/assets, and generated inputs must still be the ones on disk."""
+    its receipt lists the sha256 of every source, including the pinned builtin under build/assets, and generated inputs must still be the ones on disk.
+    The complete manual closure, including headers, is rechecked on every call."""
     global _TREES_CHECKED
     if not _TREES_CHECKED:
         ensure_current_trees(root)
         _TREES_CHECKED = True
-    sources = json.loads(Path(guest_receipt).read_text())["sources"]
+    receipt = json.loads(Path(guest_receipt).read_text())
+    sources = receipt["sources"]
     stale = sorted(name for name, digest in sources.items()
                    if name.startswith(("build/upstream/", "build/generated/", "build/assets/")) and (not (root / name).is_file() or sha256(root / name) != digest))
     if stale:
         raise BuildError(f"{guest_receipt} se construyo con otro build/upstream, build/generated o build/assets ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
                          "reconstruir el guest con tools/build_waterbox.py --puae6")
+    manual = puae6_manual_inputs(root)
+    if receipt.get('manual_inputs') != manual or receipt.get('build_inputs', {}).get('manual_inputs') != manual:
+        raise BuildError(f'{guest_receipt}: inputs manuales del guest distintos o ausentes; reconstruir con tools/build_waterbox.py --puae6')
 
 
 MEMORY_MANIFEST = ROOT / "manifests/waterbox-memory.json"
