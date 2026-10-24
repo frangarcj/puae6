@@ -75,7 +75,7 @@ def elf(data, aliases):
     names = payload(sections[names_index]); result = {}; symbols = []
     for section in sections[1:]:
         end = names.find(b'\0', section[0]); require(end >= section[0], 'Bad ELF section name'); name = names[section[0]:end].decode('ascii')
-        require(name not in result and not section[2]&0x400, 'Duplicate/TLS section'); result[name] = (section[1], section[2], section[8], payload(section))
+        require(name not in result and not section[2]&0x400, 'Duplicate/TLS section'); result[name] = (section[1], section[2], section[8], payload(section), (section[3],section[6],section[7],section[9]))
         if section[1] == 2:
             require(section[9] == 24 and section[5]%24 == 0 and section[6] < count, 'Bad ELF symbol table')
             strings = payload(sections[section[6]])
@@ -88,11 +88,33 @@ def elf(data, aliases):
     return result, symbols
 
 
-def objects(before, after, name):
+def metadata(before, after, name, *, base_metadata=False):
     old, symbols = elf(before, TARGETS[name]); new, new_symbols = elf(after, TARGETS[name])
-    require(old.keys() == new.keys() and symbols == new_symbols, 'Object sections/symbols differ')
+    require(before[:40]==after[:40] and before[48:64]==after[48:64], 'Object ELF header attributes differ')
+    require(list(old) == list(new), 'Object sections differ')
+    renamed = False
+    if base_metadata and symbols != new_symbols:
+        text_index=next(s[3] for s in symbols if s[0]==TARGETS[name][0])
+        local=('$x.0',0,0,text_index,0,0); replacement=('$x',*local[1:])
+        require(symbols.count(local)==1 and [replacement if s==local else s for s in symbols]==new_symbols, 'Unexpected assembler symbol delta')
+        renamed=True
+    else: require(symbols == new_symbols, 'Object symbols differ')
     for section in old:
-        if section != '.text': require(old[section] == new[section], 'Unexpected object metadata/relocation delta')
+        a,b=old[section],new[section]
+        require(a[:3]+a[4:] == b[:3]+b[4:], 'Object section attributes differ')
+        if renamed and section=='.strtab':
+            require(a[0]==3 and a[3].startswith(b'\0') and a[3].endswith(b'\0') and b[3].startswith(b'\0') and b[3].endswith(b'\0')
+                and sorted(b'$x' if s==b'$x.0' else s for s in a[3].split(b'\0'))==sorted(b[3].split(b'\0')), 'Unexpected assembler string table delta')
+        elif renamed and section=='.symtab': require(a[0]==2 and len(a[3])==len(b[3]), 'Unexpected symbol table delta')
+        elif section != '.text': require(a == b, 'Unexpected object metadata/relocation delta')
+    return old,new
+
+
+def objects(before, after, name, *, base_metadata=False):
+    old,new=metadata(before,after,name,base_metadata=base_metadata)
+    if not base_metadata:
+        changes=[i for i,(a,b) in enumerate(zip(before,after)) if a!=b]
+        require(len(before)==len(after) and len(changes)==1 and before[changes[0]]^after[changes[0]]==0x0c, 'Unexpected raw object delta')
     a, b = old['.text'][3], new['.text'][3]; opcode = 0xa904701b if name == 'setjmp.o' else 0xa944701b
     require(old['.text'][:3] == new['.text'][:3] and len(a) == len(b) and len(a) >= 20
         and a[:16] == b[:16] and a[20:] == b[20:] and struct.unpack_from('<I',a,16)[0] == opcode
@@ -131,7 +153,7 @@ def verify(output=None, *, root=ROOT):
         and wb.sha256(output/'sysroot/lib/libc.a') == receipt['libc_sha256'] == cfg['result']['libc_sha256'], 'Derived sysroot authority/receipt differs')
     require([e for e in original if e['path']!='lib/libc.a'] == [e for e in derived if e['path']!='lib/libc.a'] and len(original)==len(derived), 'Other sysroot paths changed')
     a,b=preserved((base/'lib/libc.a').read_bytes(),(output/'sysroot/lib/libc.a').read_bytes())
-    for name in TARGETS: objects(next(m[1] for m in a if m[0]==name),next(m[1] for m in b if m[0]==name),name)
+    for name in TARGETS: objects(next(m[1] for m in a if m[0]==name),next(m[1] for m in b if m[0]==name),name,base_metadata=True)
     return dict(sysroot=output/'sysroot', inventory_sha256=receipt['inventory_sha256'], libc_sha256=receipt['libc_sha256'], receipt_sha256=wb.sha256(output/'receipt.json'), inputs=inputs)
 
 
@@ -163,7 +185,8 @@ def derive(*, root=ROOT, output=None, execute=False):
         for name in TARGETS:
             objects(compiled['original',name],compiled['fixed',name],name)
             old=next(m[1] for m in old_members if m[0]==name); elf(old,TARGETS[name])
-            require(elf(old,TARGETS[name]) == elf(compiled['original',name],TARGETS[name]),'Original source object sections/aliases differ from base')
+            baseline,recompiled=metadata(old,compiled['original',name],name,base_metadata=True)
+            require(baseline['.text'][3]==recompiled['.text'][3],'Original source object text differs from base')
             differences[name]=dict(base_identical=old==compiled['original',name], original_sha256=digest(compiled['original',name]),fixed_sha256=digest(compiled['fixed',name]))
         archive_path=stage/'sysroot/lib/libc.a'; command([cfg['archiver']['path'],'rcsD','--format=gnu',archive_path,*[stage/'objects/fixed'/n for n in TARGETS]])
         _,updated=preserved((base/'lib/libc.a').read_bytes(),archive_path.read_bytes())

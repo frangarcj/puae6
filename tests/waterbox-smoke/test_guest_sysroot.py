@@ -14,12 +14,16 @@ spec=importlib.util.spec_from_file_location('guest_sysroot',ROOT/'tools/build_wa
 p=importlib.util.module_from_spec(spec); spec.loader.exec_module(p)
 
 
-def obj(name, fixed=False, extra=False):
+def obj(name, fixed=False, extra=False, *, legacy=False, extra_symbol=False, global_name=None):
     aliases=p.TARGETS[name]; strings=b'\0'; offsets={}
-    for word in ('.strtab','.text','.note.GNU-stack','.symtab',*aliases): offsets[word]=len(strings); strings+=word.encode()+b'\0'
+    local='$x.0' if legacy else '$x'; words=('.strtab','.text','.note.GNU-stack','.symtab',local,*aliases)
+    if global_name: words=(*words,global_name)
+    for word in reversed(words) if legacy else words: offsets[word]=len(strings); strings+=word.encode()+b'\0'
     text=bytearray(24); opcode=0xa904701b if name=='setjmp.o' else 0xa944701b
     struct.pack_into('<I',text,16,opcode+(0xc00 if fixed else 0)); text[0]=int(extra)
-    symbols=bytes(24)+b''.join(struct.pack('<IBBHQQ',offsets[a],0x12,0,2,0,0) for a in aliases)
+    symbols=bytes(24)+struct.pack('<IBBHQQ',offsets[local],0,0,2,0,0)
+    symbols+=b''.join(struct.pack('<IBBHQQ',offsets[global_name if global_name and a==aliases[0] else a],0x12,0,2,0,0) for a in aliases)
+    if extra_symbol: symbols+=struct.pack('<IBBHQQ',offsets[local],0,0,2,4,0)
     data=bytearray(64); sections=[(0,0,0,0,0,0,0,0,0,0)]
     for word,kind,flags,payload,link,align,entry in (('.strtab',3,0,strings,0,1,0),('.text',1,6,text,0,4,0),('.note.GNU-stack',1,0,b'',0,1,0),('.symtab',2,0,symbols,1,8,24)):
         while len(data)%align: data.append(0)
@@ -46,6 +50,17 @@ def ar(members, *, other_symbol=True):
 
 class GuestSysrootTests(unittest.TestCase):
     def members(self,fixed=False): return [('dup.o',b'own-one'),('setjmp.o',obj('setjmp.o',fixed)),('dup.o',b'own-two'),('longjmp.o',obj('longjmp.o',fixed))]
+
+    def test_base_assembler_local_mapping_name_and_offsets_only(self):
+        for name in p.TARGETS:
+            base,current,fixed=obj(name,legacy=True),obj(name),obj(name,True)
+            a,b=p.metadata(base,current,name,base_metadata=True); self.assertEqual(a['.text'],b['.text'])
+            p.objects(base,fixed,name,base_metadata=True); p.objects(current,fixed,name)
+            with self.assertRaises(ValueError): p.objects(base,fixed,name)
+            for bad in (obj(name,global_name='changed'),obj(name,extra_symbol=True),obj(name,True,True)):
+                with self.assertRaises(ValueError): p.objects(base,bad,name,base_metadata=True)
+            flags=bytearray(fixed); struct.pack_into('<I',flags,48,1)
+            with self.assertRaises(ValueError): p.objects(base,flags,name,base_metadata=True)
 
     def test_duplicate_member_occurrences_index_and_exact_text_delta(self):
         before,after=ar(self.members()),ar(self.members(True)); p.preserved(before,after)
