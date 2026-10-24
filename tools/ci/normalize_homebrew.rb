@@ -7,6 +7,12 @@ require "find"
 require "tempfile"
 
 ROOT = File.expand_path("../..", __dir__)
+ASAN_PATH = "llvm/23.1.4/lib/clang/23/lib/darwin/libclang_rt.asan_osx_dynamic.dylib"
+ASAN_ID = "@rpath/libclang_rt.asan_osx_dynamic.dylib"
+ASAN_SOURCE_SHA = "7c8af9f0737137dcb777c0d964753a1161f00a8314450dc4fc5eff6a1728af87"
+ASAN_SOURCE_BYTES = 3966096
+ASAN_RESULT_SHA = "8c8883d8ca701c5fb8001291a00e4e5b68976696db330fd5c3adacbfbc1e0ba4"
+ASAN_RESULT_BYTES = 1115280
 def sha(bytes) = Digest::SHA256.hexdigest(bytes)
 
 def regular(path, limit)
@@ -120,7 +126,7 @@ end
 def normalize(target, dylib_id = nil, signature_policy = nil)
   raise "Ruby >= 3.3 required" if (RUBY_VERSION.split('.').map(&:to_i) <=> [3, 3]) == -1
   source = audit_library # Do not load captured code before its complete audit.
-  raise "unknown signature policy" unless [nil, "preserve-adhoc-layout"].include?(signature_policy)
+  raise "unknown signature policy" unless [nil, "preserve-adhoc-layout", "asan-arm64-rpath"].include?(signature_policy)
   raise "one explicit target required" unless target
   raise "noncanonical target path" if target.split('/').include?('..')
   path = File.expand_path(target)
@@ -132,18 +138,34 @@ def normalize(target, dylib_id = nil, signature_policy = nil)
   end
   bytes, stat = regular(path, 512 << 20)
   raise "target must belong to current user" unless stat.uid == Process.euid
-  header = bytes.unpack("L<4")
-  raise "thin ARM64 executable/dylib required" unless header[0] == 0xfeedfacf && header[1] == 0x100000c && [2, 6].include?(header[3])
+  asan = signature_policy == "asan-arm64-rpath"
+  extracted = false
+  if asan
+    raise "invalid ASan policy target/ID" unless path.end_with?("/#{ASAN_PATH}") && dylib_id == ASAN_ID
+    original = sha(bytes) == ASAN_SOURCE_SHA && bytes.bytesize == ASAN_SOURCE_BYTES
+    normalized = sha(bytes) == ASAN_RESULT_SHA && bytes.bytesize == ASAN_RESULT_BYTES
+    raise "ASan source/result SHA or size mismatch" unless original || normalized
+  end
   require "#{ROOT}/references/ruby-macho/lib/macho"
-  macho = MachO::MachOFile.new_from_bin(bytes.dup)
+  if asan && original
+    raise "ASan input must be FAT" unless [0xcafebabe, 0xcafebabf].include?(bytes.unpack1("N"))
+    fat = MachO::FatFile.new_from_bin(bytes.dup)
+    raise "exactly one ARM64 ASan slice required" unless fat.machos.count { |m| m.cputype == :arm64 } == 1
+    macho = fat.extract(:arm64)
+    extracted = true
+  else
+    macho = MachO::MachOFile.new_from_bin(bytes.dup)
+  end
+  header = macho.serialize.unpack("L<4")
+  raise "thin ARM64 executable/dylib required" unless header[0] == 0xfeedfacf && header[1] == 0x100000c && [2, 6].include?(header[3])
   if dylib_id
     # Explicit observed policy, not a universal Homebrew/Rust install-name rule.
     canonical = dylib_id.match?(%r{\A/opt/homebrew/opt/[A-Za-z0-9@+_.-]+(?:/[A-Za-z0-9@+_.-]+)*/[A-Za-z0-9_+.-]+\.dylib\z}) &&
                 dylib_id.split('/').none? { |part| [".", ".."].include?(part) }
-    raise "invalid explicit dylib ID" unless canonical && header[3] == 6 && macho.dylib_id &&
+    raise "invalid explicit dylib ID" unless (canonical || asan) && header[3] == 6 && macho.dylib_id &&
                                             File.basename(dylib_id) == File.basename(macho.dylib_id)
   end
-  preserved = preserved_adhoc(macho, bytes) if signature_policy
+  preserved = preserved_adhoc(macho, bytes) if signature_policy == "preserve-adhoc-layout"
   replacements = 0
   relocate = lambda do |name|
     pairs = [["@@HOMEBREW_CELLAR@@", "/opt/homebrew/Cellar"], ["@@HOMEBREW_PREFIX@@", "/opt/homebrew"]]
@@ -163,7 +185,8 @@ def normalize(target, dylib_id = nil, signature_policy = nil)
       replacements += 1
     end
   end
-  if replacements.positive?
+  modified = replacements.positive? || extracted
+  if modified
     if preserved
       result = rehash_preserved(macho, bytes, preserved)
     else
@@ -182,7 +205,7 @@ def normalize(target, dylib_id = nil, signature_policy = nil)
   else
     result = bytes
   end
-  { status: "PASS", scope: "host-tool-data-normalization-only", modified: replacements.positive?, replacements: replacements,
+  { status: "PASS", scope: "host-tool-data-normalization-only", modified: modified, replacements: replacements,
     before_sha256: sha(bytes), after_sha256: sha(result), source_commit: source.fetch("commit") }
 end
 

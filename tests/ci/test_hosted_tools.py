@@ -147,6 +147,29 @@ class HostedToolsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'invalid signature policy'): h.prepare(True)
         self.network.assert_not_called(); self.normalizer.assert_not_called()
 
+    def test_asan_source_and_policy_are_checked_before_normalizing_only_its_fixed_path(self):
+        row=dict(path=h.ASAN_PATH,sha256=sha(b'data'),bytes=4,dylib_id=h.ASAN_ID,signature_policy='asan-arm64-rpath',source_sha256=sha(b'data'),source_bytes=4)
+        self.manifest['normalized_macho'].append(row)
+        blob=self.archive([(h.ASAN_PATH,b'data',None),('llvm/23.1.4/LICENSE.TXT',b'own notice',None)])
+        self.manifest['archives'].append(dict(owner='llvm',slug='llvm',version='23.1.4',prefix='llvm/23.1.4',sha256=sha(blob),bytes=len(blob),
+            url='https://ghcr.io/v2/homebrew/core/llvm/blobs/sha256:'+sha(blob),notices=['llvm/23.1.4/LICENSE.TXT']))
+        self.manifest['library_directories'].append('llvm/23.1.4/lib')
+        self.network.return_value.open.side_effect=lambda request,**kw: io.BytesIO(b'{"token":"secret"}' if isinstance(request,str) else blob if request.full_url.endswith(sha(blob)) else self.blob)
+        with patch.object(h,'ASAN_SOURCE_SHA',sha(b'data')),patch.object(h,'ASAN_SOURCE_BYTES',4):
+            for key,bad in (('path',h.ASAN_PATH.replace('/23/','/24/')),('dylib_id','@rpath/foreign.dylib'),('source_sha256','a'*64),('source_bytes',5)):
+                old=row[key]; row[key]=bad; self.write_manifest()
+                with self.assertRaisesRegex(ValueError,'invalid ASan'): h.prepare(True)
+                row[key]=old
+            self.network.assert_not_called(); self.normalizer.assert_not_called()
+            row['source_sha256']=sha(b'evil'); self.write_manifest()
+            with patch.object(h,'ASAN_SOURCE_SHA',sha(b'evil')),self.assertRaisesRegex(ValueError,'ASan source SHA/size mismatch'): h.prepare(True)
+            self.assertFalse((self.root/'build/hosted-tools').exists())
+            row['source_sha256']=sha(b'data'); self.write_manifest(); self.normalizer.reset_mock()
+            output=h.prepare(True,'mock-ruby'); commands=[c.args[0] for c in self.normalizer.call_args_list]
+            self.assertEqual(1,sum('asan-arm64-rpath' in c for c in commands))
+            self.assertIn('--dylib-id',commands[-1]); self.assertIn(h.ASAN_ID,commands[-1])
+            self.assertEqual((output/h.ASAN_PATH).read_bytes(),b'data'); self.assertEqual(h.prepare(),output)
+
     def test_verify_collects_all_independent_target_mismatches(self):
         output = h.prepare(True)
         rows = self.manifest['normalized_macho']
