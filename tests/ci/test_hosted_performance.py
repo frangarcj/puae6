@@ -1,6 +1,7 @@
 """Own summaries and mocked current-attempt API; no compilation or measurement."""
 import copy
 import json
+import re
 import subprocess
 import sys
 import unittest
@@ -80,3 +81,29 @@ class HostedPerformanceTests(unittest.TestCase):
                 if fault == 'none': self.assertEqual(hosted.aggregate()['status'],'PASS')
                 else:
                     with self.assertRaises(RuntimeError): hosted.aggregate()
+
+    def test_workflow_runs_all_protocols_with_pinned_public_inputs_and_four_job_bound(self):
+        workflow = (hosted.ROOT/'.github/workflows/native-linux.yml').read_text()
+        bench, rest = workflow.split('  performance-bench:',1)[1].split('  performance-engine:',1)
+        engine, rest = rest.split('  performance-worker:',1)
+        workers, result = rest.split('  performance-result:',1)
+        for job in (bench,engine):
+            self.assertIn('runs-on: macos-26',job); self.assertIn('timeout-minutes: 360',job)
+            self.assertIn("test '${{ inputs.variants }}' = all",job)
+            self.assertIn('hosted_performance.py partition',job)
+        self.assertIn('uses: ./.github/actions/prepare-performance-waterbox',bench)
+        self.assertIn('tools.ci.performance_bench',bench); self.assertIn('tools.ci.performance_engine',engine)
+        self.assertIn('needs: [performance-bench, performance-engine]',workers)
+        self.assertIn('max-parallel: 4',workers); self.assertIn('fail-fast: false',workers)
+        expected = dict(hosted.shared.matrix.native.HOSTED_RUNNERS, **{'macos-arm64-appleclang':'macos-26'})
+        self.assertEqual(dict(re.findall(r'- row: (\S+)\n\s+runner: (\S+)',workers)),expected)
+        self.assertIn('tools.ci.performance_frontend --row',workers)
+        self.assertIn("if: always() && inputs.gate == 'performance'",result)
+        self.assertIn('needs: [performance-bench, performance-engine, performance-worker]',result)
+        self.assertIn('actions: read',result); self.assertIn('hosted_performance.py aggregate',result)
+        action = (hosted.ROOT/'.github/actions/prepare-performance-waterbox/action.yml').read_text()
+        for fragment in ('prepare_hosted_tools.py --fetch','prepare_managed_inputs.py --fetch','uses: ./.github/actions/prepare-managed-sdk',
+                         'P6_WATERBOX_SOURCE_AUDIT=snapshot','P6_WATERBOX_TOOLCHAIN_PROFILE=hosted-macos26','P6_WATERBOX_RUNTIME=release','P6_EVICT=0',
+                         'prepare_waterbox_sysroot.py','--source-audit snapshot --fetch --jobs 2','--source-audit snapshot --puae6 --jobs 2'):
+            self.assertIn(fragment,action)
+        self.assertNotRegex(action+bench+engine+workers+result,r'continue-on-error|upload-artifact|actions/cache|docker|--smoke|authorized-downloads|P6_KICKSTART|P6_GAME_ADF')

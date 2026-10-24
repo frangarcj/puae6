@@ -5,7 +5,7 @@ on:
       gate:
         description: Native restore, corpora, complete matrix or optimization
         type: choice
-        options: [native, corpus, matrix, matrix-recover, optimization]
+        options: [native, corpus, matrix, matrix-recover, optimization, performance]
         default: native
       variants:
         description: All combinations or sanitizer follow-up
@@ -232,3 +232,77 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -B tools/ci/hosted_optimization.py aggregate
+  performance-bench:
+    name: performance-bench
+    if: inputs.gate == 'performance'
+    runs-on: macos-26
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Require the complete original selector partition
+        run: |
+          test '${{ inputs.variants }}' = all
+          python3 -B tools/ci/hosted_performance.py partition
+      - name: Prepare the existing pinned public Waterbox inputs
+        uses: ./.github/actions/prepare-performance-waterbox
+      - name: Measure all 135 CPU windows and execute all 39 original methods
+        run: python3 -B -m tools.ci.performance_bench
+  performance-engine:
+    name: performance-engine
+    if: inputs.gate == 'performance'
+    runs-on: macos-26
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Train and verify before measuring all 75 engine windows
+        run: |
+          test '${{ inputs.variants }}' = all
+          python3 -B tools/ci/hosted_performance.py partition
+          python3 -B -m tools.ci.performance_engine
+  performance-worker:
+    name: performance / ${{ matrix.platform.row }}
+    if: inputs.gate == 'performance'
+    needs: [performance-bench, performance-engine]
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        platform:
+          - row: macos-arm64-appleclang
+            runner: macos-26
+          - row: linux-arm64-clang
+            runner: ubuntu-24.04-arm
+          - row: linux-arm64-gcc
+            runner: ubuntu-24.04-arm
+          - row: linux-x86_64-clang
+            runner: ubuntu-24.04
+          - row: linux-x86_64-gcc
+            runner: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify all five rows and measure the three original frontend rows
+        run: python3 -B -m tools.ci.performance_frontend --row '${{ matrix.platform.row }}'
+  performance-result:
+    if: always() && inputs.gate == 'performance'
+    needs: [performance-bench, performance-engine, performance-worker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Require all twelve original selectors from this attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tools/ci/hosted_performance.py aggregate
