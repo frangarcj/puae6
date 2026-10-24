@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Execute the actual complete EmuHawk EXE's explicit CLI; never build implicitly."""
 import argparse
+import base64
+import io
 import hashlib
 import importlib.util
 import json
@@ -11,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("emuhawk_build_tree", ROOT / "integration/bizhawk/patches/build_tree.py")
@@ -20,6 +23,25 @@ MARKER = "P6_EMUHAWK_BOOTSTRAP "
 FRAMEWORK = ".NETFramework,Version=v4.8"
 AMIGA = [{"name": "PUAE6", "type": "Puae6.Puae6Core", "priority": 100},
          {"name": "UAE", "type": "BizHawk.Emulation.Cores.Computers.Amiga.UAE", "priority": 0}]
+
+
+
+def runtime_json_asset():
+    # .NET 10 needs the modern asset of the SAME pinned package, not its CAS/net45 asset.
+    packages = json.loads((ROOT / "tools/ci/managed-inputs.json").read_text())["packages"]
+    selected = [p for p in packages if p["id"] == "newtonsoft.json"]
+    if len(selected) != 1 or selected[0]["version"] != "13.0.3":
+        raise ValueError("Unexpected Newtonsoft runtime package")
+    pin = selected[0]
+    archive = ROOT / "build/hosted-managed-feed/newtonsoft.json.13.0.3.nupkg"
+    if archive.is_symlink() or not archive.is_file():
+        raise FileNotFoundError("Pinned offline Newtonsoft archive is required")
+    data = archive.read_bytes()
+    if len(data) != pin["bytes"] or base64.b64encode(hashlib.sha512(data).digest()).decode() != pin["archive_sha512_base64"]:
+        raise ValueError("Newtonsoft archive differs from the pinned bytes/SHA512")
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        asset = package.read("lib/net6.0/Newtonsoft.Json.dll")
+    return asset
 
 
 def validate(record, stage, files):
@@ -52,12 +74,16 @@ def run(*, without_virtu=False):
         raise FileNotFoundError("dotnet with Microsoft.NETCore.App 10.0.13 is required")
     dotnet = Path(dotnet).resolve()
     host_sha = hashlib.sha256(dotnet.read_bytes()).hexdigest()
+    json_asset = runtime_json_asset()
+    json_sha = hashlib.sha256(json_asset).hexdigest()
     with tempfile.TemporaryDirectory(prefix="emuhawk-selfcheck-", dir=ROOT / "build") as temporary:
         stage = Path(temporary)
         for name in files:
             path = stage / name; path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(output / name, path)
         expected = dict(files)
+        (stage / "dll/Newtonsoft.Json.dll").write_bytes(json_asset)
+        expected["dll/Newtonsoft.Json.dll"] = json_sha
         if without_virtu:
             (stage / "dll/Virtu.dll").unlink(); del expected["dll/Virtu.dll"]
         config = stage / "EmuHawk.runtimeconfig.json"
@@ -71,6 +97,7 @@ def run(*, without_virtu=False):
             "--puae6-self-check"], cwd=stage, env=environment, capture_output=True, text=True, timeout=60)
         if (builder.output_closure(stage) != expected or builder.output_closure(output) != files
                 or hashlib.sha256(dotnet.read_bytes()).hexdigest() != host_sha
+                or runtime_json_asset() != json_asset
                 or len(result.stdout) + len(result.stderr) > 1024 * 1024):
             raise ValueError("EmuHawk inputs changed or output exceeded limit")
         lines = [line[len(MARKER):] for line in result.stdout.splitlines() if line.startswith(MARKER)]
@@ -82,7 +109,8 @@ def run(*, without_virtu=False):
             raise ValueError("EmuHawk bootstrap failed: " + result.stdout[-1500:] + result.stderr[-3000:])
         record = json.loads(lines[0]); validate(record, stage, files)
         return {"status": "PASS", "scope": "bootstrap-only", "tree_key": builder.tree_key(), "runtime": record["runtime"],
-            "dotnet_sha256": host_sha, "files": files, "types_count": record["types_count"], "types_sha256": record["types_sha256"], "amiga": record["amiga"]}
+            "dotnet_sha256": host_sha, "files": files, "runtime_assets": {"dll/Newtonsoft.Json.dll": {
+                "package": "newtonsoft.json/13.0.3", "asset": "lib/net6.0/Newtonsoft.Json.dll", "sha256": json_sha}}, "types_count": record["types_count"], "types_sha256": record["types_sha256"], "amiga": record["amiga"]}
 
 
 def main():

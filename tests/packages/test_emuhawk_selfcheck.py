@@ -1,11 +1,14 @@
 """Own non-executable byte fixtures; only the opt-in class launches real EmuHawk."""
+import base64
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from unittest import mock
 from tools import emuhawk_selfcheck as s
 
@@ -17,7 +20,7 @@ class BootstrapTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup); self.root = Path(temporary.name)
         (self.root / "build").mkdir(); self.tree = self.root / "build/key-emuhawk"
         self.output = self.tree / "output"; (self.output / "dll").mkdir(parents=True)
-        for name in ("EmuHawk.exe", "EmuHawk.exe.config", "dll/BizHawk.Emulation.Cores.dll", "dll/Virtu.dll", "dll/Other.dll"):
+        for name in ("EmuHawk.exe", "EmuHawk.exe.config", "dll/BizHawk.Emulation.Cores.dll", "dll/Virtu.dll", "dll/Other.dll", "dll/Newtonsoft.Json.dll"):
             (self.output / name).write_bytes(b"own data, never executed: " + name.encode())
         self.dotnet = self.root / "own-dotnet"; self.dotnet.write_bytes(b"own host fixture, never executed")
         self.files = s.builder.output_closure(self.output)
@@ -27,6 +30,8 @@ class BootstrapTests(unittest.TestCase):
                       mock.patch.object(s.builder, "tree_key", return_value="key"), mock.patch.object(s.builder, "pinned_commit", return_value="a" * 40),
                       mock.patch.object(s.builder, "check_source"), mock.patch.object(s.shutil, "which", return_value=str(self.dotnet))):
             patch.start(); self.addCleanup(patch.stop)
+        self.asset_patch = mock.patch.object(s, "runtime_json_asset", return_value=b"own modern JSON asset")
+        self.asset = self.asset_patch.start()
         self.process = mock.patch.object(s.subprocess, "run", side_effect=self.execute).start()
         self.addCleanup(mock.patch.stopall); self.stages = []
 
@@ -45,6 +50,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(json.loads((stage / "EmuHawk.runtimeconfig.json").read_text())["runtimeOptions"]["rollForward"], "Disable")
         self.assertEqual((stage / "dll/Other.dll").read_bytes(), (self.output / "dll/Other.dll").read_bytes())
         self.assertNotIn("DOTNET_STARTUP_HOOKS", kwargs["env"])
+        self.assertEqual((stage / "dll/Newtonsoft.Json.dll").read_bytes(), b"own modern JSON asset")
         return subprocess.CompletedProcess(command, 0, s.MARKER + json.dumps(self.record(stage)) + "\n", "")
 
     def test_actual_exe_contract_copies_complete_closure_identifies_bytes_and_cleans_staging(self):
@@ -90,6 +96,22 @@ class BootstrapTests(unittest.TestCase):
         self.process.side_effect = reject
         self.assertEqual(s.run(without_virtu=True)["status"], "EXPECTED_REJECTION")
         self.assertFalse(self.stages[-1].exists()); self.assertTrue((self.output / "dll/Virtu.dll").exists())
+
+    def test_runtime_asset_authenticates_archive_and_does_not_install_or_modify_inputs(self):
+        self.asset_patch.stop()
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as package:
+            package.writestr("lib/net6.0/Newtonsoft.Json.dll", b"own modern JSON asset")
+        raw = data.getvalue(); archive = self.root / "build/hosted-managed-feed/newtonsoft.json.13.0.3.nupkg"
+        archive.parent.mkdir(); archive.write_bytes(raw)
+        manifest = self.root / "tools/ci/managed-inputs.json"; manifest.parent.mkdir(parents=True)
+        manifest.write_text(json.dumps({"packages": [{"id": "newtonsoft.json", "version": "13.0.3",
+            "bytes": len(raw), "archive_sha512_base64": base64.b64encode(hashlib.sha512(raw).digest()).decode()}]}))
+        self.assertEqual(s.runtime_json_asset(), b"own modern JSON asset")
+        self.assertEqual(archive.read_bytes(), raw)
+        archive.write_bytes(raw + b"tamper")
+        with self.assertRaisesRegex(ValueError, "SHA512"): s.runtime_json_asset()
+        self.process.assert_not_called()
 
     def test_skip_chd_is_explicit_and_default_still_builds_provider(self):
         self.process.side_effect = None; self.process.return_value = subprocess.CompletedProcess([], 0)
