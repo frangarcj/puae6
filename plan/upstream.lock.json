@@ -312,5 +312,39 @@
     "T02: decide selected dependencies from actual WinUAE 6.0.3 source graph",
     "T03/T09: pin native generators and Waterbox sysroot/toolchain build recipes",
     "T09: pin and validate final Waterbox sysroot/LLVM/container inputs and provision registry packages from captured descriptors; selected local source closure is captured"
-  ]
+  ],
+  "reference_tools": {
+    "nero_2025": {
+      "purpose": "temporary portable help probe for the original NRG producer; not an emulator dependency",
+      "version": "27.0.1000",
+      "component_version": "27.0.1.3",
+      "url": "https://ecloud.nero.com/public.php/dav/files/pBxLJzgPaNtAJBi",
+      "filename": "Nero-Burning-ROM-2025-Full-27.0.1000.exe",
+      "bytes": 275434744,
+      "sha256": "3fbc9dd234eb1dec0d5a51bd2c9df2dfad0144c5cdb3d1d353ba91c9f2618f94",
+      "payload": {
+        "path": "NeroInstaller/NeroBurningROM.zip",
+        "bytes": 80677840,
+        "sha256": "9fffbea66c939f3933cd4c1efe5b6e44491f21865a35035e8eb75a10611ebd52"
+      },
+      "command_path": "Nero Burning ROM/NeroCmd.exe",
+      "components": [
+        {
+          "path": "Nero Burning ROM/NeroAPIEngine.dll",
+          "bytes": 1999184,
+          "sha256": "5c09c57a441d34af2a75d82e74acce412c1bbeb6d31af7645849a7f060039879"
+        },
+        {
+          "path": "Nero Burning ROM/uimage.dll",
+          "bytes": 79696,
+          "sha256": "59522845afe8a67110b5934cb8583b1e172994f948420b67c2abcbbbd77ba623"
+        },
+        {
+          "path": "Nero Burning ROM/uImageGen.dll",
+          "bytes": 46928,
+          "sha256": "5d6523cf6dc558667ea3546a9b893d2b0cf4e1ee413aaf4586d3e92e1133587c"
+        }
+      ]
+    }
+  }
 }
