@@ -12286,7 +12286,7 @@
       "title": "Probar coexistencia aislada con la distribucion UAE antigua de MacHawk",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40a",
         "T30",
