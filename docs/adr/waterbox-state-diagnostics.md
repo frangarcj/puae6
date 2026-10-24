@@ -1,6 +1,6 @@
 # Diagnóstico estructural de snapshots Waterbox (T40l)
 
-Estado: probe ejecutado; el mini-guest no reproduce la divergencia de T40k.
+Estado actual: corrección ABI integrada en los guests derivados; pasan los cuatro casos originales de coexistencia y las restauraciones en sandbox/proceso nuevo. El diagnóstico siguiente conserva la causa y la decisión, sin excluir bytes del estado.
 
 T40k conserva su comparación exacta y sus dos fallos BK2/UAE. A/V coincidente
 no demuestra igualdad del snapshot. Este probe independiente usa únicamente el
@@ -97,7 +97,7 @@ capturado obliga a observar la restauración 4→2→4 en el segundo sandbox y
 y el futuro difiere del baseline; una carga que no hiciera nada no pasaría.
 El guest original se rechaza antes de saltar al detectar su slot no canónico.
 Los inputs se verifican antes/después y los outputs temporales se eliminan.
-La integración del sysroot y los guests derivados sigue pendiente en T40o.
+La integración de T40o usa un sysroot derivado autenticado y guests construidos desde fuentes, con wrappers propios. El empaquetador y el preflight de reproducibilidad exigen esa procedencia. La base, el runtime y la referencia MacHawk permanecen intactos; los estados siguen sin promesa de compatibilidad entre builds.
 
 ## Derivación de libc y metadatos del ensamblador
 

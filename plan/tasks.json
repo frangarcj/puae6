@@ -12653,7 +12653,7 @@
       "title": "Integrar el ABI setjmp corregido en sysroot y guests derivados sin modificar MacHawk",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T40n",
         "T40o1",
@@ -12696,7 +12696,8 @@
         "Ampliacion minima test_build_trees: sufixture positiva de inventario usa proyecto sintetico sin sysroot; aislar nuevo check_puae6_guest_abi mediante mock explicito para conservar pruebaindependiente de engine/headers. La seleccionderivada tiene susfixturespropios positivos/negativos. RevisionRO sinbloqueantesparacompilar; preflight package_waterbox aunrequierebase, actualizarlo en fasepaquetesT40 antesderegenerarZIP, sin declararpaqueteactualporcompilarP6.",
         "BuildPUAE6desde sysrootderivadoPASS yELF b8e09133... byteidentico alprevio; runtime9defintacto,coreEXE7cb se reutiliza conpinactual. T40m ycuatrocasosT40k realesyaPASS. Checkmemorymanifest detectadeudaprevia:16claves aún a28cb6de ynoP6b8e; re-registrorealcon APIs directas una pasada(15×60u+WB12×5600), sinrebuildporfila ni cambiargoldensinmedir. WB13/WB15 afectados ypaquetepreflight nuevos quedanpendientes antesfinalesoriginales.",
         "Integracion final de consumidores ABI: ampliar touch solo package_waterbox.py y test_waterbox_preview.py para autenticar guest_abi actual, inventario derivado y wrappers guest-toolchain/bin; conservar guardas y exigir fuentes/ASM/parche dentro del source archive. Root refresca exclusivamente pin toolchains de waterbox-preview.json cuando lock final estable; misma musl/licencias, sin schema nuevo ni relajar procedencia. Agente hosted_bootstrap implementa en worktree aislado sin metadata; root integra, prueba y genera preview propia, sin atribuir release formal. Medidas16 completas y coherencia5/presupuestos7/HDF/floppy pasan; regresiones RealGuestTests WB13..15 diez PASS en73.860s.",
-        "Revision RO detecta consumidor reproducible aun sin preflight ABI: ampliar solo reproduce_waterbox.py y test_waterbox_reproducible.py para autenticar y capturar guest_abi antes outputs/builds. Missing/stale bloquea temprano; identidad prueba drift durante dosbuilds. No repetir dosbuilds por fixture ni atribuir reproducibilidad nueva por preflight. Responsable toolchain_review aislado, root metadata e integracion."
+        "Revision RO detecta consumidor reproducible aun sin preflight ABI: ampliar solo reproduce_waterbox.py y test_waterbox_reproducible.py para autenticar y capturar guest_abi antes outputs/builds. Missing/stale bloquea temprano; identidad prueba drift durante dosbuilds. No repetir dosbuilds por fixture ni atribuir reproducibilidad nueva por preflight. Responsable toolchain_review aislado, root metadata e integracion.",
+        "Cierre local integrado: cuatrocasos T40k y T40m exactos; RealGuestTests WB13/14/15 diezPASS73.860s. Re-registro real16configuraciones termina y cincofixtures coherencia/siete presupuestos+HDF/floppyestaticos PASS, guestb8e/runtime9def actuales. Consumidores paquete/reproducibilidad exigen derivado antesbuild; PolicyTests6 y ReproducibilityTests10 PASS. Preflight real delpaquete y sourcepolicy completosPASS; FFIRelease reconstruido SDKpinactual. Fingerprints MacHawk ysubmoduloUAE intactos. Paquete nuevo/CI candidata siguen enT40/T39b; no se acredita release ni nueva reproducibilidad binaria por estos fixtures."
       ],
       "checks": [
         "BUILD01",
