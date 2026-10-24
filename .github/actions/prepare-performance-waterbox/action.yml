@@ -36,6 +36,9 @@ runs:
     - name: Build the pinned Release runtime
       shell: bash
       run: python3 -B tools/build_waterbox.py --source-audit snapshot --fetch --jobs 2
+    - name: Prepare the authenticated derived guest ABI sysroot
+      shell: bash
+      run: python3 -B -m tools.ci.prepare_guest_sysroot
     - name: Build the complete ARM64 guest
       shell: bash
       run: |

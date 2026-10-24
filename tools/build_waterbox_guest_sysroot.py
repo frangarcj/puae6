@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PATCH = 'integration/waterbox-guest/0001-setjmp-x28.patch'
 TARGETS = {'setjmp.o': ('__setjmp', '_setjmp', 'setjmp'), 'longjmp.o': ('_longjmp', 'longjmp')}
 FLAGS = ['--target=aarch64-linux-gnu', '-ffixed-x18', '-ffixed-x28', '-DWBX_HOST_PAGE_SIZE=16384', '-Wa,--noexecstack']
+HOSTED_AR = 'build/hosted-tools/llvm/23.1.4/bin/llvm-ar'
 
 
 def require(ok, message):
@@ -129,19 +130,38 @@ def preserved(before, after):
     return a,b
 
 
+def selected_archiver(root, cfg, effective):
+    pin = {key: cfg['archiver'][key] for key in ('path','sha256','version')}
+    if effective['toolchain_profile'] == 'hosted-macos26':
+        require(cfg['archiver'].get('hosted_path') == HOSTED_AR, 'Missing/canonical hosted archiver path required')
+        path = root/HOSTED_AR; sources.no_links(root,path)
+        require(path.resolve() == path, 'Hosted archiver path must be canonical')
+        pin['path'] = str(path)
+    return pin
+
+
+def execution_environment(lock):
+    base = os.environ
+    if lock.get('toolchain_profile') == 'hosted-macos26':
+        base = wb.hosted_environment(wb.selected_tool_paths(lock))['direct_env']
+    environment={k:v for k,v in base.items() if k not in ('CPATH','C_INCLUDE_PATH','CPLUS_INCLUDE_PATH','OBJC_INCLUDE_PATH','LIBRARY_PATH','COMPILER_PATH','GCC_EXEC_PREFIX','SDKROOT','CFLAGS','CPPFLAGS','LDFLAGS','ARFLAGS','MAKEFLAGS')}
+    return {**environment, 'LC_ALL':'C', 'LANG':'C'}
+
+
 def identity(root):
     lock = json.loads((root/'plan/toolchains.json').read_text()); cfg = lock['waterbox_guest_sysroot']
     require(cfg['schema_version'] == 1 and type(cfg['schema_version']) is int and cfg['patch']['file'] == PATCH and wb.sha256(root/PATCH) == cfg['patch']['sha256'], 'Guest overlay pin differs')
     effective = wb.selected_toolchain(lock); compiler = effective['tools']['clang']; paths = wb.selected_tool_paths(effective)
-    for path,pin in ((paths['clang'],compiler),(Path(cfg['archiver']['path']),cfg['archiver'])):
+    archiver = selected_archiver(root,cfg,effective)
+    for path,pin in ((paths['clang'],compiler),(Path(archiver['path']),archiver)):
         require(path.is_absolute() and wb.sha256(path) == pin['sha256'], 'Compiler/archiver pin differs')
     base = root/lock['sysroot']['source_path']; inventory = wb.inventory(base)
     require(len(inventory) == lock['sysroot']['file_count'] and wb.canonical_hash(inventory) == lock['sysroot']['inventory_sha256'], 'Base sysroot differs')
     capture = sources.verify_source(root, lock['sysroot']['associated_source']); captured = {f['path']:f['sha256'] for f in capture['files']}
     require(all(captured.get(n) == h for n,h in capture['source']['snapshot'].get('overlay_sha256',{}).items()), 'Musl capture overlay differs')
     inputs = dict(base=wb.canonical_hash(inventory), source=wb.canonical_hash(capture), patch=cfg['patch'], compiler=compiler,
-        compiler_path=str(paths['clang']), archiver=cfg['archiver'], recipe=wb.sha256(Path(__file__)), flags=FLAGS)
-    return lock,cfg,base,inventory,root/capture['destination'],inputs
+        compiler_path=str(paths['clang']), archiver=archiver, recipe=wb.sha256(Path(__file__)), flags=FLAGS)
+    return effective,cfg,base,inventory,root/capture['destination'],inputs
 
 
 def verify(output=None, *, root=ROOT):
@@ -163,12 +183,11 @@ def derive(*, root=ROOT, output=None, execute=False):
     lock,cfg,base,inventory,musl,inputs=identity(root)
     if not execute: return dict(status='NOT_RUN', output=str(output), inputs=inputs)
     require(fcntl is not None, 'Materialization requires POSIX process locking (Darwin/Linux)')
-    environment={k:v for k,v in os.environ.items() if k not in ('CPATH','C_INCLUDE_PATH','CPLUS_INCLUDE_PATH','OBJC_INCLUDE_PATH','LIBRARY_PATH','COMPILER_PATH','GCC_EXEC_PREFIX','SDKROOT','CFLAGS','CPPFLAGS','LDFLAGS','ARFLAGS','MAKEFLAGS')}
-    environment.update(LC_ALL='C',LANG='C'); working=root
+    environment=execution_environment(lock); working=root
     def command(args):
         result=subprocess.run(list(map(str,args)),cwd=working,env=environment,capture_output=True,text=True,timeout=60)
         require(result.returncode==0 and len(result.stdout)+len(result.stderr)<1<<20,'Derivation command failed: '+result.stderr[-1000:]); return result.stdout
-    for path,pin in ((inputs['compiler_path'],inputs['compiler']),(cfg['archiver']['path'],cfg['archiver'])):
+    for path,pin in ((inputs['compiler_path'],inputs['compiler']),(inputs['archiver']['path'],inputs['archiver'])):
         require(command([path,'--version']).splitlines()[0].strip()==pin['version'],'Observed compiler/archiver version differs')
     with tempfile.TemporaryDirectory(prefix='guest-sysroot-',dir=root/'build') as temporary:
         stage=Path(temporary); working=stage; shutil.copytree(base,stage/'sysroot'); source=stage/'src/setjmp/waterbox_aarch64'; source.mkdir(parents=True)
@@ -188,7 +207,7 @@ def derive(*, root=ROOT, output=None, execute=False):
             baseline,recompiled=metadata(old,compiled['original',name],name,base_metadata=True)
             require(baseline['.text'][3]==recompiled['.text'][3],'Original source object text differs from base')
             differences[name]=dict(base_identical=old==compiled['original',name], original_sha256=digest(compiled['original',name]),fixed_sha256=digest(compiled['fixed',name]))
-        archive_path=stage/'sysroot/lib/libc.a'; command([cfg['archiver']['path'],'rcsD','--format=gnu',archive_path,*[stage/'objects/fixed'/n for n in TARGETS]])
+        archive_path=stage/'sysroot/lib/libc.a'; command([inputs['archiver']['path'],'rcsD','--format=gnu',archive_path,*[stage/'objects/fixed'/n for n in TARGETS]])
         _,updated=preserved((base/'lib/libc.a').read_bytes(),archive_path.read_bytes())
         require(all(next(m[1] for m in updated if m[0]==name)==compiled['fixed',name] for name in TARGETS),'Archiver did not replace exact objects')
         derived=wb.inventory(stage/'sysroot'); require(len(derived)==len(inventory) and [e for e in derived if e['path']!='lib/libc.a']==[e for e in inventory if e['path']!='lib/libc.a'],'Other sysroot paths changed')

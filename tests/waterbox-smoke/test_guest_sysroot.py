@@ -51,6 +51,27 @@ def ar(members, *, other_symbol=True):
 class GuestSysrootTests(unittest.TestCase):
     def members(self,fixed=False): return [('dup.o',b'own-one'),('setjmp.o',obj('setjmp.o',fixed)),('dup.o',b'own-two'),('longjmp.o',obj('longjmp.o',fixed))]
 
+    def test_hosted_archiver_is_explicit_same_pin_and_loader_environment_stays_clean(self):
+        (ROOT/'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='own-archiver-',dir=ROOT/'build') as tmp:
+            root=Path(tmp); cfg={'archiver':dict(path='/own/local-ar',sha256='a'*64,version='own ar',hosted_path=p.HOSTED_AR)}
+            local=p.selected_archiver(root,cfg,dict(toolchain_profile='local'))
+            self.assertEqual(local['path'],'/own/local-ar')
+            hosted=p.selected_archiver(root,cfg,dict(toolchain_profile='hosted-macos26'))
+            self.assertEqual(hosted,{**local,'path':str(root/p.HOSTED_AR)})
+            for bad in (None,'../llvm-ar','build/hosted-tools/llvm/24/bin/llvm-ar'):
+                cfg['archiver']['hosted_path']=bad
+                with self.assertRaisesRegex(ValueError,'hosted archiver'): p.selected_archiver(root,cfg,dict(toolchain_profile='hosted-macos26'))
+            cfg['archiver']['hosted_path']=p.HOSTED_AR
+            path=root/p.HOSTED_AR; path.parent.mkdir(parents=True); path.symlink_to(root/'foreign')
+            with self.assertRaises(ValueError): p.selected_archiver(root,cfg,dict(toolchain_profile='hosted-macos26'))
+        env=dict(PATH='own',DYLD_LIBRARY_PATH='verified-libraries',CPATH='foreign',CFLAGS='foreign',ARFLAGS='foreign')
+        with mock.patch.object(p.wb,'selected_tool_paths',return_value={'own':'paths'}) as paths, \
+             mock.patch.object(p.wb,'hosted_environment',return_value={'direct_env':env}) as loader:
+            cleaned=p.execution_environment(dict(toolchain_profile='hosted-macos26'))
+            loader.assert_called_once_with({'own':'paths'}); paths.assert_called_once()
+            self.assertEqual(cleaned,dict(PATH='own',DYLD_LIBRARY_PATH='verified-libraries',LC_ALL='C',LANG='C'))
+
     def test_base_assembler_local_mapping_name_and_offsets_only(self):
         for name in p.TARGETS:
             base,current,fixed=obj(name,legacy=True),obj(name),obj(name,True)
@@ -87,7 +108,7 @@ class GuestSysrootTests(unittest.TestCase):
             source=musl/'src/setjmp/waterbox_aarch64'; source.mkdir(parents=True)
             for name in p.TARGETS: shutil.copyfile(ROOT/'references/musl-darwin/src/setjmp/waterbox_aarch64'/name.replace('.o','.s'),source/name.replace('.o','.s'))
             patch=root/p.PATCH; patch.parent.mkdir(parents=True); shutil.copyfile(ROOT/p.PATCH,patch)
-            cfg={'archiver':{'path':'/own/ar','version':'own ar'}}; inputs={'compiler_path':'/own/clang','compiler':{'version':'own clang'},'own':'fixture'}
+            cfg={'archiver':{'path':'/own/ar','version':'own ar'}}; inputs={'compiler_path':'/own/clang','compiler':{'version':'own clang'},'archiver':cfg['archiver'],'own':'fixture'}
             identity=({},cfg,base,original,musl,inputs); real_run=subprocess.run; mode='ok'
             def command(args,**kwargs):
                 args=list(map(str,args))
