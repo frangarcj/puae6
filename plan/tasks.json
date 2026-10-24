@@ -12283,14 +12283,18 @@
         "tools/package.py",
         "tests/packages/test_reproducible.py",
         "tools/check.py",
-        "docs/user/native-preview.md"
+        "docs/user/native-preview.md",
+        "cmake/Chd.cmake",
+        "tools/import_chd.py",
+        "tests/media/test_chd_dependencies.py"
       ],
       "steps": [
         "Vertical independiente de T40 con dependencias DONE; toolchain_review implementa en worktree native-binary-repro aislado, root integra y serializa las compilaciones reales despues del bloque actual. Main6939 no cambia durante optimization35971. Agente no edita metadata ni ejecuta compilacion pesada, emulador o paquetes instalados de nuevo.",
         "Añadir operacion reproducible al empaquetador existente que use dos directorios CMake realmente nuevos y temporales bajo build, misma fuente limpia/revision, compiler/environment identificados y configure_command vigente para native_platform. Compilar puae6_libretro, p6_headless y p6_libretro_host en cada arbol con paralelo2; ambos son builds de objetos limpios, sin reusar CMakeCache/objetos ni usar package.build/smoke. Reusar generados/materializado actuales ya verificados; no repetir GEN01 ni escenarios del motor. Entorno/toolchain/fuente estables antes/despues; salida por stdout con hashes por producto, sin informes historicos ni falsos PASS por metadata/caches.",
         "Comparar bytes exactos por producto entre dos builds de cada plataforma macOSARM64/LinuxARM64/Linuxx86_64. Ninguna normalizacion de UUID/buildID/rutas/timestamps, hashesgolden ni flags distintos de la receta de paquete. Diferencia concreta falla y conserva un reproducer dirigido en test/codigo, no proclama reproducible; no cambiar global binary_reproducibility_verified de los paquetes porque Waterbox/managed/conjunto completo conserva puertas de T40.",
         "Helper pequeño y fixtures propios de infraestructura mockean un compilador para probar dos carpetas vacias distintas, targets/flags exactos y ejecucion unica, mismatch/sourcedrift/cleanup ante errores. Tests de mocks no acreditan BUILD01. Registrar PKG01/BUILD01 mediante prueba real opt-in y permitir a root ejecutar una vez el mismo helper en cada runner declarado. No duplicar unittest instalado si helper directo ya cubre exactamente la aceptacion, ni smokes existentes; falta herramienta/input bloquea honestamente. Root usa imagenes Docker fijadas, sin red/pulls/instalacion y mismo policyELF/ISA relevante, sin modificar MacHawk.",
-        "Objetivo cuatro rutas y menos250lineas logicas manuales. root compara tambien los hashes de los binarios de las previews efectivas si se pretende acreditar esos ZIP, sin renovar paquetes ni emularlos otra vez por mera fuente/helper. Dos builds iguales solo acreditan los tres binarios de esa plataforma; no cierra EmuHawk, Waterbox/managed, CI acumulada ni T40/T41."
+        "Objetivo cuatro rutas y menos250lineas logicas manuales. root compara tambien los hashes de los binarios de las previews efectivas si se pretende acreditar esos ZIP, sin renovar paquetes ni emularlos otra vez por mera fuente/helper. Dos builds iguales solo acreditan los tres binarios de esa plataforma; no cierra EmuHawk, Waterbox/managed, CI acumulada ni T40/T41.",
+        "Corregir la dependencia de ruta del diagnostico assert de dr_flac.h en Linux sin normalizar binarios ni cambiar flags, precision, asserts, pins o fuente upstream: materializar CHD una vez en ROOT/build/p6-chd verificado y compartido, con objetos separados por build. Ampliar touch a cmake/Chd.cmake, tools/import_chd.py y tests/media/test_chd_dependencies.py. Publicar la derivacion desde staging hermano mediante rename atomico sin sobrescribir; validar al ganador de carreras, rechazar destino symlink, preservar cachehit sin escritura y limpiar staging propio. Ajustar el consumidor Zlib a la ruta real y cubrir dos configuraciones, objetos de la TU real, concurrencia, tamper y no-op con checks dirigidos; el coordinador repite solo las comparaciones de compilaciones afectadas y conserva la comparacion exacta de todos los productos."
       ],
       "checks": [
         "PKG01",
