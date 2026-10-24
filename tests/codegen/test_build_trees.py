@@ -133,19 +133,22 @@ class CurrentTreesTests(unittest.TestCase):
         receipt = self.root / "puae6-receipt.json"
         sources = {"build/upstream/sample.cpp": digest(b"head\nnew\nfoot\n"), "build/generated/gen.c": digest(b"int gen;\n"),
                    "build/assets/builtin.h": digest(asset.read_bytes()), "bridge/other.c": "0" * 64}
-        receipt.write_text(json.dumps({"sources": sources}))
-        with patch.object(build_waterbox, "_TREES_CHECKED", False):
-            build_waterbox.check_guest_matches_trees(receipt, self.root)       # bridge/ is not an engine tree: not its business
+        manual = {"bridge/other.c": "0" * 64}
+        def write_sources(value):
+            receipt.write_text(json.dumps({"sources": value, "manual_inputs": manual, "build_inputs": {"manual_inputs": manual}}))
+        write_sources(sources)
+        with patch.object(build_waterbox, "_TREES_CHECKED", False), patch.object(build_waterbox, "puae6_manual_inputs", return_value=manual):
+            build_waterbox.check_guest_matches_trees(receipt, self.root)       # Manual closure is checked independently from engine/generated inputs.
             message = "otro build/upstream, build/generated o build/assets.*1 fuentes.*--puae6"
             for name in sources:
                 if not name.startswith("build/"):
                     continue
                 with self.subTest(source=name):
-                    receipt.write_text(json.dumps({"sources": {**sources, name: "0" * 64}}))
+                    write_sources({**sources, name: "0" * 64})
                     with self.assertRaisesRegex(build_waterbox.BuildError, message) as error:
                         build_waterbox.check_guest_matches_trees(receipt, self.root)
                     self.assertIn(name, str(error.exception))
-            receipt.write_text(json.dumps({"sources": sources}))
+            write_sources(sources)
             asset.unlink()
             with self.assertRaisesRegex(build_waterbox.BuildError, message) as error:
                 build_waterbox.check_guest_matches_trees(receipt, self.root)
