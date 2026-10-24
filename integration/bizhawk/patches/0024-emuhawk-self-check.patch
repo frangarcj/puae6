@@ -25,7 +25,8 @@
  		[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
 --- /dev/null
 +++ b/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,58 @@
++using System.Collections.Generic;
 +using System.IO;
 +using System.Linq;
 +using System.Reflection;
@@ -51,24 +52,25 @@
 +		{
 +			try
 +			{
-+				if (args.Length != 1) throw new ArgumentException("--puae6-self-check accepts no other arguments");
++				if (args.Length != 1) throw new ArgumentException("--puae6-self-check accepts no other arguments", nameof(args));
 +				var entry = Assembly.GetEntryAssembly();
 +				var cores = typeof(CoreInventory).Assembly;
 +				// ReflectionCache.Types silently drops failed types; never use it here.
 +				var types = cores.GetTypes();
 +				var names = types.Select(t => t.FullName).OrderBy(n => n, StringComparer.Ordinal).ToArray();
 +				var amiga = CoreInventory.Instance.GetCores("Amiga")
-+					.Select(c => new { name = c.Name, type = c.Type.FullName, priority = (int)c.Priority }).OrderBy(c => c.name).ToArray();
-+				if (amiga.Length != 2 || !amiga.Any(c => c.name == "UAE" && c.type == "BizHawk.Emulation.Cores.Computers.Amiga.UAE")
-+					|| !amiga.Any(c => c.name == "PUAE6" && c.type == "Puae6.Puae6Core")) throw new InvalidOperationException("Incomplete Amiga inventory");
-+				Console.WriteLine("P6_EMUHAWK_BOOTSTRAP " + JsonConvert.SerializeObject(new {
-+					schema_version = 1, kind = "emuhawk-cli-bootstrap", runtime = Environment.Version.ToString(),
-+					entry_name = entry.GetName().Name, entry_type = entry.EntryPoint.DeclaringType.FullName,
-+					entry_path = entry.Location, entry_sha256 = Hash(File.ReadAllBytes(entry.Location)),
-+					framework = entry.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
-+					cores_path = cores.Location, cores_sha256 = Hash(File.ReadAllBytes(cores.Location)),
-+					cores_framework = cores.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
-+					types_count = types.Length, types_sha256 = Hash(Encoding.UTF8.GetBytes(string.Join("\n", names))), amiga
++					.Select(c => new Dictionary<string, object> { ["name"] = c.Name, ["type"] = c.Type.FullName, ["priority"] = (int)c.Priority })
++					.OrderBy(c => (string)c["name"], StringComparer.Ordinal).ToArray();
++				if (amiga.Length != 2 || !amiga.Any(c => (string)c["name"] == "UAE" && (string)c["type"] == "BizHawk.Emulation.Cores.Computers.Amiga.UAE")
++					|| !amiga.Any(c => (string)c["name"] == "PUAE6" && (string)c["type"] == "Puae6.Puae6Core")) throw new InvalidOperationException("Incomplete Amiga inventory");
++				Console.WriteLine("P6_EMUHAWK_BOOTSTRAP " + JsonConvert.SerializeObject(new Dictionary<string, object> {
++					["schema_version"] = 1, ["kind"] = "emuhawk-cli-bootstrap", ["runtime"] = Environment.Version.ToString(),
++					["entry_name"] = entry.GetName().Name, ["entry_type"] = entry.EntryPoint.DeclaringType.FullName,
++					["entry_path"] = entry.Location, ["entry_sha256"] = Hash(File.ReadAllBytes(entry.Location)),
++					["framework"] = entry.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
++					["cores_path"] = cores.Location, ["cores_sha256"] = Hash(File.ReadAllBytes(cores.Location)),
++					["cores_framework"] = cores.GetCustomAttribute<TargetFrameworkAttribute>().FrameworkName,
++					["types_count"] = types.Length, ["types_sha256"] = Hash(Encoding.UTF8.GetBytes(string.Join("\n", names))), ["amiga"] = amiga
 +				}));
 +				return 0;
 +			}
