@@ -21,7 +21,8 @@ internal static unsafe class Program
             Require(o[13] == 0xC0FFEF65 && o[26] == 0x7157 && o[27] == 0x7157 && o[28] == 0x1234 && o[29] == 0x1234, "Callback/TLS/errno canaries");
             return true;
         });
-        internal void Cases() { Check(0); Check(7); }
+        internal ulong Count() => In(() => Guest<Sandbox.Value>("sj_count")());
+        internal void Cases() { ulong before = Count(); Check(0); Check(7); Require(Count() == before + 2, "Two observable successful jumps"); }
     }
     public static int Main(string[] args)
     {
@@ -30,16 +31,18 @@ internal static unsafe class Program
             string mode = args[0]; Require(mode is "original" or "fixed" or "restore", "Unknown mode");
             using var native = new Native(args[1]); native.SetAlwaysEvict(true); var image = File.ReadAllBytes(args[2]);
             using var a = new Probe(native, image);
-            if (mode == "original") { a.Check(0, true); Console.WriteLine("P6_SETJMP " + JsonSerializer.Serialize(new { status = "EXPECTED_ORIGINAL_REJECTION", jumps = 0 })); return 28; }
+            if (mode == "original") { a.Check(0, true); Require(a.Count() == 0, "Original did not jump"); Console.WriteLine("P6_SETJMP " + JsonSerializer.Serialize(new { status = "EXPECTED_ORIGINAL_REJECTION", jumps = 0 })); return 28; }
             if (mode == "restore") {
-                var saved = File.ReadAllBytes(args[3]); a.Load(saved); Require(a.Save().SequenceEqual(saved), "Fresh restore full state");
+                Require(a.Count() == 0, "Fresh sandbox counter");
+                var saved = File.ReadAllBytes(args[3]); a.Load(saved); Require(a.Count() == 2 && a.Save().SequenceEqual(saved), "Fresh restore full state and counter");
                 a.Cases(); Console.WriteLine("P6_SETJMP " + JsonSerializer.Serialize(new { status = "RESTORED", jumps = 2, baseline = Hash(saved), future = Hash(a.Save()) })); return 0;
             }
             using var b = new Probe(native, image); a.Cases(); b.Cases(); var baseline = a.Save();
-            Require(b.Save().SequenceEqual(baseline), "Twins full snapshots"); File.WriteAllBytes(args[3], baseline);
-            a.Cases(); var future = a.Save(); b.Load(baseline); Require(b.Save().SequenceEqual(baseline), "Second sandbox immediate full restore"); b.Cases();
-            Require(b.Save().SequenceEqual(future), "Second sandbox full future");
-            Console.WriteLine("P6_SETJMP " + JsonSerializer.Serialize(new { status = "FIXED", jumps = 8, baseline = Hash(baseline), future = Hash(future) })); return 0;
+            Require(a.Count() == 2 && b.Count() == 2 && b.Save().SequenceEqual(baseline), "Twins full snapshots"); File.WriteAllBytes(args[3], baseline);
+            a.Cases(); var future = a.Save(); b.Cases(); Require(b.Count() == 4, "Second sandbox changed before restore");
+            b.Load(baseline); Require(b.Count() == 2 && b.Save().SequenceEqual(baseline), "Second sandbox immediate full restore"); b.Cases();
+            Require(a.Count() == 4 && b.Count() == 4 && !baseline.SequenceEqual(future) && b.Save().SequenceEqual(future), "Observable full future after restore");
+            Console.WriteLine("P6_SETJMP " + JsonSerializer.Serialize(new { status = "FIXED", jumps = 10, baseline = Hash(baseline), future = Hash(future) })); return 0;
         } catch (Exception error) { Console.Error.WriteLine(error); return 2; }
     }
 }

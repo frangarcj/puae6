@@ -942,6 +942,9 @@ for _gate in ('WB03', 'ABI01'):
 for _gate in ('WB03', 'WB09'):
     TASK_SUITES[(_gate, 'T40m')] = {'emuhawk_state_probe_harness': 'tests.packages.test_emuhawk_state_probe.StateProbeTests',
                                  'real_emuhawk_state_probe': 'tests.packages.test_emuhawk_state_probe.RealStateProbeTests'}
+for _gate in ('ABI01', 'WB13', 'WB15'):
+    TASK_SUITES[(_gate, 'T40n')] = {'waterbox_setjmp_harness': 'tests.waterbox-smoke.test_setjmp.SetjmpTests',
+                                 'real_waterbox_setjmp': 'tests.waterbox-smoke.test_setjmp.RealSetjmpTests'}
 # Each CD32 gate exercises its actual boundary. Other T70 devices retain their own tasks.
 TASK_SUITES[('IN01', 'T70a')] = {
     'cd32_mapping_and_abi': 'tests.input.test_cd32.Cd32MappingTests',

@@ -31,11 +31,12 @@ class SetjmpTests(unittest.TestCase):
 
     def test_missing_process_wrong_return_count_or_snapshot_cannot_pass(self):
         records = [{'status': 'EXPECTED_ORIGINAL_REJECTION', 'jumps': 0},
-            {'status': 'FIXED', 'jumps': 8, 'baseline': 'a'*64, 'future': 'b'*64},
+            {'status': 'FIXED', 'jumps': 10, 'baseline': 'a'*64, 'future': 'b'*64},
             {'status': 'RESTORED', 'jumps': 2, 'baseline': 'a'*64, 'future': 'b'*64}]
-        self.assertEqual(p.validate(records)['valid_jumps'], 10)
+        self.assertEqual(p.validate(records)['valid_jumps'], 12)
         for bad in (records[:2], records+[records[2]], [{**records[0], 'jumps': False}, *records[1:]],
                     [records[0], {**records[1], 'jumps': 7}, records[2]],
+                    [records[0], {**records[1], 'future': 'a'*64}, {**records[2], 'future': 'a'*64}],
                     [*records[:2], {**records[2], 'future': 'c'*64}], [*records[:2], {**records[2], 'baseline': 'bad'}]):
             with self.subTest(record=bad), self.assertRaises(ValueError): p.validate(bad)
 
@@ -56,4 +57,4 @@ class SetjmpTests(unittest.TestCase):
 @unittest.skipUnless(os.environ.get('P6_TEST_WATERBOX_SETJMP') == '1', 'requires authenticated offline Darwin ARM64 runtime, sysroot, compiler and SDK')
 class RealSetjmpTests(unittest.TestCase):
     def test_real_original_rejection_fixed_live_jumps_and_full_cross_process_restore(self):
-        result = p.run(); self.assertEqual(result['valid_jumps'], 10); print(json.dumps(result, sort_keys=True))
+        result = p.run(); self.assertEqual(result['valid_jumps'], 12); print(json.dumps(result, sort_keys=True))

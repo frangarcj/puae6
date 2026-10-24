@@ -69,7 +69,7 @@ puntero host. La corrección requiere un test de salto real y restauración en o
 sandbox, además del escenario original. No basta con ocultar el slot al comparar
 ni parchear datos de estado. MacHawk y su binario original permanecen intactos.
 
-## Decisión ABI de T40n, pendiente de ejecución
+## Decisión ABI de T40n, ejecutada en el oráculo
 
 El overlay es exclusivo de `src/setjmp/waterbox_aarch64`: cambiar juntos el
 escritor a `stp x27,xzr` y el lector a `ldp x27,xzr`, conservando el contexto x28
@@ -89,3 +89,12 @@ waterbox_aarch64 y la variante AArch64 genérica usa otro tamaño de `__jmp_buf`
 Tampoco acredita otros caminos de señales o corutinas. Sysroot y guest derivados
 requieren identidad nueva y las puertas de integración originales antes de cerrar
 T40o y T40k; el overlay del oráculo no cambia todavía los productos.
+
+La prueba real del overlay pasa: diez saltos en dos sandboxes y dos en un
+proceso nuevo, con retornos 0→1 y 7, registros y TLS intactos. Un contador
+capturado obliga a observar la restauración 4→2→4 en el segundo sandbox y
+0→2→4 en el proceso nuevo. Los estados completos coinciden entre instancias,
+y el futuro difiere del baseline; una carga que no hiciera nada no pasaría.
+El guest original se rechaza antes de saltar al detectar su slot no canónico.
+Los inputs se verifican antes/después y los outputs temporales se eliminan.
+La integración del sysroot y los guests derivados sigue pendiente en T40o.

@@ -9,6 +9,7 @@ extern int smoke_abi_probe(callback_t callback, uint64_t *out, size_t capacity);
 static jmp_buf saved;
 static pthread_key_t key;
 static volatile int requested, last_value, status;
+static uint64_t successful_jumps;
 static uint64_t written;
 ECL_EXPORT int sj_init(void) { return pthread_key_create(&key, 0) || pthread_setspecific(key, (void *)0x4567); }
 static __attribute__((noinline)) uint64_t jump_callback(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f)
@@ -22,8 +23,8 @@ static __attribute__((noinline)) uint64_t jump_callback(uint64_t a,uint64_t b,ui
         if (written) { status = 28; return 0xBAD28; } /* original: no dangerous jump */
         saved[0].__jb[9] = UINT64_C(0xBAD028BAD028BAD0);
         longjmp(saved, requested); /* same C activation, no C++ frame crossed */
-    case 1: last_value = 1; break;
-    case 7: last_value = 7; break;
+    case 1: last_value = 1; ++successful_jumps; break;
+    case 7: last_value = 7; ++successful_jumps; break;
     default: status = 2; return 0xBAD02;
     }
     uintptr_t current; __asm__ volatile("mov %0,x28" : "=r"(current));
@@ -40,3 +41,4 @@ ECL_EXPORT int sj_run(int value, uint64_t *out, size_t capacity)
 ECL_EXPORT uint64_t sj_status(void) { return (uint64_t)status; }
 ECL_EXPORT uint64_t sj_nonzero_slot(void) { return written != 0; }
 ECL_EXPORT uint64_t sj_return(void) { return (uint64_t)last_value; }
+ECL_EXPORT uint64_t sj_count(void) { return successful_jumps; }

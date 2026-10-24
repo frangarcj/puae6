@@ -31,11 +31,12 @@ def validate(records):
     base.require(isinstance(records, list) and len(records) == 3, 'Missing setjmp process coverage')
     original, fixed, restored = records
     base.require(original == {'status': 'EXPECTED_ORIGINAL_REJECTION', 'jumps': 0} and type(original['jumps']) is int, 'Original did not reject before longjmp')
-    for record, status, jumps in ((fixed, 'FIXED', 8), (restored, 'RESTORED', 2)):
+    for record, status, jumps in ((fixed, 'FIXED', 10), (restored, 'RESTORED', 2)):
         base.require(set(record) == {'status', 'jumps', 'baseline', 'future'} and record['status'] == status and type(record['jumps']) is int and record['jumps'] == jumps
             and all(isinstance(record[k], str) and re.fullmatch('[0-9a-f]{64}', record[k]) for k in ('baseline', 'future')), 'Incomplete fixed setjmp/restore coverage')
     base.require(fixed['baseline'] == restored['baseline'] and fixed['future'] == restored['future'], 'Fresh-process full snapshot differs')
-    return {'scope': 'waterbox-setjmp-oracle-only', 'original_rejected_before_longjmp': True, 'values': [0, 7], 'valid_jumps': 10,
+    base.require(fixed['baseline'] != fixed['future'], 'Jump sequence must change captured state')
+    return {'scope': 'waterbox-setjmp-oracle-only', 'original_rejected_before_longjmp': True, 'values': [0, 7], 'valid_jumps': 12,
         'two_sandboxes': True, 'fresh_process': True, 'baseline_sha256': fixed['baseline'], 'future_sha256': fixed['future']}
 
 
