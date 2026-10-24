@@ -98,13 +98,11 @@ def training_record(tools):
                 raw_profiles=len(raw), private_assets=False, tool_sha256=merged['tool_sha256'])
 
 
-def validate(record, expected):
-    """Pure record validation against current declarations; no build/tool execution."""
-    require(record['status'] == 'PASS' and record['profile'] == PROFILE and record['kind'] == 'engine'
-            and record['common'] == expected, 'foreign/failed engine result')
+def validate_artifacts(record, variants):
+    """Shared engine provenance for the optimization and performance recipes."""
     sha64 = lambda value: type(value) is str and re.fullmatch('[0-9a-f]{64}', value) is not None
     require(sha64(record['source_environment_sha256']), 'missing source/environment identity')
-    require(record['preparation'] == preparation() and set(record['variants']) == set(VARIANTS), 'incomplete engine preparation')
+    require(set(record['variants']) == set(variants), 'incomplete engine variants')
     tools = record['tools']
     require(set(tools) == {'cc', 'cxx', 'git', 'cmake', 'ninja', 'patch', 'python', 'llvm-profdata'}, 'incomplete tools')
     require(all(sha64(value['sha256']) and bool(value['path']) and bool(value['version']) for value in tools.values()), 'invalid tools')
@@ -128,6 +126,15 @@ def validate(record, expected):
             and training['instrument_verification'] == record['variants']['instrument']['verification']
             and training['tool_sha256'] == tools['llvm-profdata']['sha256'] and sha64(training['receipt'])
             and sha64(training['profile']['sha256']) and type(training['profile']['bytes']) is int and training['profile']['bytes'] > 0, 'incomplete training')
+    return record
+
+
+def validate(record, expected):
+    """Pure record validation against current declarations; no build/tool execution."""
+    require(record['status'] == 'PASS' and record['profile'] == PROFILE and record['kind'] == 'engine'
+            and record['common'] == expected, 'foreign/failed engine result')
+    require(record['preparation'] == preparation(), 'incomplete engine preparation')
+    validate_artifacts(record, VARIANTS)
     require([item['selector'] for item in record['completed']] == list(SELECTORS), 'missing/duplicate engine selectors')
     for item in record['completed']:
         process = matrix.ci.subprocess.CompletedProcess([], 0, json.dumps(item['counts']), '')
