@@ -12401,6 +12401,51 @@
       "blocked_reason": "Dos ejecuciones reales tras corregir la carga absoluta del runtime (76900 y54248) reproducen bk2/UAE: 12frames y replayA/V/aislamiento pasan, pero snapshot final de2733230B difiere. Segunda corrida: primer byte distinto2027554 (C5 frenteCD), conservada comparacion exacta y reproducer RealCoexistenceTests/0025. H1: se serializan residuos de punteros/registros host en paginas RWStack del guest; interop_aarch64 conserva GPR host al entrar y Darwin vuelca todas esas paginas. H2: GuestThreadSet serializa structs Rust incluyendo padding/HashMap; localizar seccion y rango reales antes de decidir. La coincidencia A/V no prueba estado completo; no normalizar, omitir bytes, cambiar hashes ni declarar los cuatro casos aprobados. Se requiere reproducer dirigido y revision de la decision ABI/snapshot antes de otra corrida completa."
     },
     {
+      "id": "T40l",
+      "title": "Aislar la divergencia de snapshots mediante el mini-guest Waterbox real",
+      "milestone": "M4",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T40j",
+        "T09d",
+        "T28c"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "docs/adr/0017-darwin-host-tpidr.md",
+        "integration/bizhawk/smoke/Native.cs",
+        "tests/waterbox-smoke/guest.cpp",
+        "tools/build_waterbox.py"
+      ],
+      "touch": [
+        "tools/waterbox_state_probe.py",
+        "tests/waterbox-smoke/StateProbe.cs",
+        "tests/waterbox-smoke/test_state_probe.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Vertical de diagnostico independiente tras los dos fallos exactos de T40k, que permanece BLOCKED y conserva su reproducer. hosted_bootstrap implementa en worktree aislado, root registra metadata y ejecuta una vez el probe dirigido. No repetir EmuHawk/WinUAE/codegen/matriz/rendimiento para investigar la misma diferencia. Runtime/guest/ABI de producto quedan intactos durante esta vertical; ninguna prueba de este host pequeño sustituye el escenario original T40k.",
+        "Reutilizar el runtime Release y el p6-smoke.wbx existentes, verificados por recibos/pins/arquitectura y fuentes actuales; no construir runtime ni guest. Compilar offline solamente un host C# pequeño bajo build, enlazando el Native.cs real existente y las clases propias de StateProbe. Crear dos sandboxes del mismo mini-guest, con los mismos inputs y buffers host diferentes mantenidos vivos; llamar smoke_frame real y comparar resultados causales. Capturar snapshots completos al inicio y tras avanzar, dos saves consecutivos por instancia y entre ambas, conservando bytes exactos en memoria.",
+        "Registrar los limites exactos de cada callback Write de wbx_save_state y PageCount/PageInfo reales. Identificar estructuralmente la secuencia de escrituras de ActivatedMemoryBlock, hash32, direccion/tamaño, mapa status/dirty y las paginas de4096bytes, contrastando cantidades con page_info (stack0x10/dirty0x80/invisible0x40). No asumir representacion Rust del enum PageAllocation ni buscar el magic ingenuamente en RAM. Mantener separadas las regiones GuestThreadSet y el resto del formato; rechazar fragmentacion/esquema ambiguos o incoherentes, truncados y mapas imposibles.",
+        "Clasificar cada rango distinto como encabezado/hash, pagina real con direccion/proteccion, threading u otra seccion, sin modificar ni excluir ningun byte. Si una pagina RWStack contiene un puntero host identificado y cambia al cambiar exclusivamente ese buffer, la observacion apoya causalmente H1; un cambio en threading requiere demostrar layout/orden antes de atribuirlo a padding. Resultados iguales refutan solo la reproduccion por este camino; una observacion ambigua permanece unresolved y no es una correccion. Publicar solo stdout compacto y decision util en ADR, sin informes ni datos historicos.",
+        "Fixtures dirigidos deben rechazar datos truncados, chunks ambiguos, mapas incompatibles y clasificaciones inventadas. Añadir gate real opt-in P6_TEST_WATERBOX_STATE_PROBE=1; root registra WB03/ABI01 con alcance exclusivamente diagnostico. Verificar identidades de runtime/guest/fuentes antes y despues y limpiar todos los outputs propios al terminar. Ninguna instalacion, red, modificacion de MacHawk ni cambio de comparadores, hashes, tolerancias, alloc_invisible o flags de CPU.",
+        "Objetivo cuatro rutas de implementacion, menos400lineas logicas nuevas, mas registro tools/check.py y metadata/tests del plan por coordinador. Antes de tocar runtime o interop, revisar en ADR el reproducer y la decision correspondiente; si se acredita una causa, registrar la ficha atomica de correccion con su propia aceptacion antes de implementarla. No convertir el diagnostico en PASS del emulador ni cerrar T40k por AV coincidente."
+      ],
+      "checks": [
+        "WB03",
+        "ABI01"
+      ],
+      "acceptance": [
+        "El mini-guest y runtime reales producen una observacion verificable de snapshots exactos de ambas instancias; cada diferencia observada se localiza sin ambiguedad usando callbacks y mapa de paginas reales. Se demuestra o refuta el camino causal propuesto para el mini-guest, con limites expresos sobre la divergencia de UAE que sigue abierta.",
+        "Fixtures y probe dirigido pasan con inputs estables y sin alterar productos/referencia ni dejar temporales. La decision de ABI/snapshot queda revisable antes de cualquier correccion; datos ambiguos o faltantes no se presentan como causa demostrada ni como aceptacion de T40k."
+      ],
+      "stop": "No corregir runtime/ABI/legacy a ciegas ni normalizar/eliminar partes de snapshot para aprobar. Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis verificables, marcar blocked y elegir trabajo independiente. Agente no modifica metadata, publica ni ejecuta compilaciones pesadas o el escenario EmuHawk completo."
+    },
+    {
       "id": "T40",
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
@@ -12422,7 +12467,8 @@
         "T40h",
         "T40i",
         "T40j",
-        "T40k"
+        "T40k",
+        "T40l"
       ],
       "read": [
         "docs/05-maintenance.md",
