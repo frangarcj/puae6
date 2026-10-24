@@ -102,6 +102,24 @@ def campaign(directory):
                 raw_sha256=checksum(raw),summaries_sha256=checksum({'/'.join(k):v for k,v in rows.items()}),protocol=PROTOCOL)
 
 
+def require_unchanged(before, after):
+    """Keep the exact boundary comparison; disclose paths and value hashes only."""
+    changes = []
+    missing = object()
+    def fingerprint(value):
+        # Presence is hashed too: an absent field differs from an explicit null.
+        return checksum(dict(present=False) if value is missing else dict(present=True, value=value))
+    def compare(old, new, path):
+        if isinstance(old, dict) and isinstance(new, dict):
+            for key in sorted(old.keys() | new.keys()):
+                component = key.replace('~', '~0').replace('/', '~1')
+                compare(old.get(key, missing), new.get(key, missing), path+'/'+component)
+        elif old != new:
+            changes.append(dict(field=path, before_sha256=fingerprint(old), after_sha256=fingerprint(new)))
+    compare(before, after, '')
+    require(not changes, 'benchmark inputs/outputs/headers changed: '+json.dumps(changes, sort_keys=True))
+
+
 def validate(record, expected):
     """Pure validation of observations; no tools, compilation, measurements or writes."""
     require(record['status'] == 'PASS' and record['profile'] == PROFILE and record['kind'] == 'bench' and record['common'] == expected, 'foreign benchmark result')
@@ -164,7 +182,9 @@ def run():
             require(status == 'PASS' and counts['tests'] == count, selector+': '+str(counts)+process.stderr[-3000:])
             completed.append(dict(selector=selector,counts=counts))
         require(campaign(directory) == measured, 'CPU campaign changed during selectors')
-    require((hosted.common(),tools(),build_support.source_identity(),hosted.generated(),inputs()) == (before,toolset,source,codegen,proof), 'benchmark inputs/outputs/headers changed')
+    require_unchanged(dict(common=before, tools=toolset, source_environment=source, generated=codegen, inputs=proof),
+                      dict(common=hosted.common(), tools=tools(), source_environment=build_support.source_identity(),
+                           generated=hosted.generated(), inputs=inputs()))
     result = validate(dict(status='PASS',profile=PROFILE,kind='bench',common=before,source_environment_sha256=source,
                            tools=toolset,generated=codegen,inputs=proof,campaign=measured,completed=completed,policy=policy()),before)
     require(len(json.dumps(result,separators=(',',':')).encode()) < 100*1024, 'benchmark observation exceeds100KiB')
