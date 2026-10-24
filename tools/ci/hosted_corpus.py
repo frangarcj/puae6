@@ -69,7 +69,7 @@ def compare(expected, baseline, host, *, headless):
     return dict(probe_schema=row_driver.PROBE_SCHEMA, cases=len(wanted), variants=['baseline', 'host'], hardware_equal=len(wanted), av_equal=len(wanted), headless=len(baseline['headless']))
 
 
-def run(tree, cc, mode, execute):
+def run(tree, cc, mode, execute, *, clock_execute=None):
     with tempfile.TemporaryDirectory(prefix='public-corpus-', dir=tree) as temporary:
         work = Path(temporary)
         library = work / ('faketime.dylib' if sys.platform == 'darwin' else 'faketime.so')
@@ -80,9 +80,10 @@ def run(tree, cc, mode, execute):
         if mode['sanitizers']:
             flags += ['-fsanitize=address,undefined', '-fno-sanitize-recover=all']
         execute([cc, *flags, '-DFAKETIME_CHECK', source, '-o', check])
-        plain = execute([check])
+        clock_execute = clock_execute or execute
+        plain = clock_execute([check])
         preload = dict(row_driver.preload_environment(check, library), P6_FAKE_TIME_OFFSET=str(run_matrix.FAKE_OFFSET))
-        clock = clocks(plain, execute([check], env=preload))
+        clock = clocks(plain, clock_execute([check], env=preload))
         results = {}
         for dataset, writer in corpus.CORPORA.items():
             name = dataset or 'corpus'
