@@ -105,7 +105,7 @@ class LegacyGuestTests(unittest.TestCase):
         def capture(sid, mode):
             self.assertEqual(mode, 'snapshot')
             return {'snapshot': {'destination': 'references/'+sid, 'overlay_sha256': overlays}}, {'commit': 'pinned'}
-        with mock.patch.object(p.wb, 'source_spec', side_effect=capture) as captures, mock.patch.object(p.wb, 'selected_toolchain', return_value={'tools': {n: {'sha256': 'a'*64, 'version': v} for n, v in self.versions.items()}}), mock.patch.object(p.wb, 'selected_tool_paths', return_value=self.tools), mock.patch.object(p.wb, 'sha256', return_value='a'*64), mock.patch.object(p, 'derived', return_value={'sysroot': self.sysroot, 'receipt_sha256': 'b'*64}):
+        with mock.patch.object(p.wb, 'source_spec', side_effect=capture) as captures, mock.patch.object(p.wb, 'selected_toolchain', return_value={'profile': 'fixture', 'toolchain_profile': 'local', 'tools': {n: {'sha256': 'a'*64, 'version': v} for n, v in self.versions.items()}}), mock.patch.object(p.wb, 'selected_tool_paths', return_value=self.tools), mock.patch.object(p.wb, 'sha256', return_value='a'*64), mock.patch.object(p, 'derived', return_value={'sysroot': self.sysroot, 'receipt_sha256': 'b'*64}):
             self.assertEqual(p.inputs()[3]['captures']['bizhawk_uae_reference']['overlays'], overlays)
             self.assertEqual([c.args[0] for c in captures.call_args_list], list(p.IDS))
             overlays.pop('7')
@@ -114,6 +114,33 @@ class LegacyGuestTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'tools differ'): p.inputs()
             p.wb.sha256.return_value = 'a'*64; p.derived.side_effect = ValueError('missing derivation')
             with self.assertRaisesRegex(ValueError, 'derivation'): p.inputs()
+
+    def test_identity_ignores_unrelated_lock_keys_but_tracks_effective_tools_profiles_and_derivation(self):
+        plan = self.root / 'plan'; plan.mkdir(); lockfile = plan / 'toolchains.json'
+        (plan / 'machawk.reference.json').write_text('{"own_fingerprint":true}')
+        for name, path in self.tools.items(): path.write_text('own '+name+' fixture')
+        lock = {'profile': 'fixture-profile', 'tools': {n: {'path': str(path), 'sha256': p.wb.sha256(path), 'version': 'v1'} for n, path in self.tools.items()}}
+        def write(): lockfile.write_text(json.dumps(lock))
+        write(); select = p.wb.selected_toolchain
+        def capture(sid, mode):
+            return {'snapshot': {'destination': 'references/'+sid, 'overlay_sha256': {str(n): 'a'*64 for n in range(8)}}}, {'commit': sid}
+        with mock.patch.dict(p.os.environ, {}, clear=True), mock.patch.object(p.wb, 'source_spec', side_effect=capture), mock.patch.object(p.wb, 'selected_toolchain', side_effect=lambda: select(json.loads(lockfile.read_text()))), mock.patch.object(p, 'derived', return_value={'sysroot': self.sysroot, 'receipt_sha256': 'b'*64, 'inputs': {'authority': 'derived pin'}}):
+            before = p.inputs()[3]
+            self.assertEqual(before['tools']['clang']['path'], str(self.tools['clang']))
+            lock.update(documentation='changed prose', default_product_guest={'new_unrelated_pin': True}); write()
+            self.assertEqual(p.inputs()[3], before)
+            lock['profile'] = 'other'; write(); self.assertNotEqual(p.inputs()[3], before)
+            lock['profile'] = 'fixture-profile'; lock['tools']['clang']['version'] = 'v2'; write(); self.assertNotEqual(p.inputs()[3], before)
+            lock['tools']['clang']['version'] = 'v1'; lock['tools']['clang']['sha256'] = 'f'*64; write()
+            with self.assertRaisesRegex(ValueError, 'tools differ'): p.inputs()
+            lock['tools']['clang']['sha256'] = p.wb.sha256(self.tools['clang']); write()
+            alternative = self.root / 'other-clang'; shutil.copyfile(self.tools['clang'], alternative)
+            lock['tools']['clang']['path'] = str(alternative); write(); self.assertNotEqual(p.inputs()[3], before)
+            lock['tools']['clang']['path'] = str(self.tools['clang']); write()
+            p.derived.return_value = {**p.derived.return_value, 'receipt_sha256': 'c'*64}
+            self.assertNotEqual(p.inputs()[3], before)
+            p.derived.side_effect = ValueError('derived authority mismatch')
+            with self.assertRaisesRegex(ValueError, 'authority'): p.inputs()
 
     def test_import_export_parser_rejects_incomplete_or_strong_undefined_symbols(self):
         path = self.root / 'symbols.data'

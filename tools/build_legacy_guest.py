@@ -48,9 +48,9 @@ def inputs():
     require(all(hashes[n] == pin['sha256'] for n, pin in lock['tools'].items()), 'Pinned tools differ')
     sysroot = derived()
     require(isinstance(sysroot['sysroot'], Path) and sysroot['sysroot'].resolve() == sysroot['sysroot'], 'Canonical derived sysroot required')
-    proof = {'captures': captures, 'tools': {n: {'sha256': hashes[n], 'version': lock['tools'][n]['version']} for n in tools},
+    proof = {'captures': captures, 'tools': {n: {'path': str(tools[n]), 'sha256': hashes[n], 'version': lock['tools'][n]['version']} for n in tools},
              'sysroot': {k: str(v) if isinstance(v, Path) else v for k, v in sysroot.items()},
-             'recipe_sha256': wb.sha256(Path(__file__)), 'toolchains_sha256': wb.sha256(ROOT / 'plan/toolchains.json'),
+             'recipe_sha256': wb.sha256(Path(__file__)), 'profile': lock['profile'], 'toolchain_profile': lock['toolchain_profile'],
              'reference_fingerprint_sha256': wb.sha256(ROOT / 'plan/machawk.reference.json')}
     return paths, tools, sysroot['sysroot'], proof
 
