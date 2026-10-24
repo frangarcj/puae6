@@ -12101,7 +12101,7 @@
       "title": "Cerrar la politica de fuentes y avisos para distribuir Waterbox standalone",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T38",
         "T40a",
@@ -12145,7 +12145,7 @@
       "title": "Completar avisos verificables de la biblioteca estandar Rust distribuida en Waterbox",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T38",
         "T40a",
