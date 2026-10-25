@@ -6,7 +6,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef _WIN32
+#define P6_CHD_EXPORT __declspec(dllexport)
+#define P6_CHD_CALL __cdecl
+#else
 #define P6_CHD_EXPORT __attribute__((visibility("default")))
+#define P6_CHD_CALL
+#endif
 typedef struct {
     uint32_t version, size, unit_bytes, hunk_bytes, tracks, reserved;
     uint64_t bytes;
@@ -16,10 +22,10 @@ typedef struct {
     uint64_t offset_frames;
     char type[16], subtype[8], pgtype[16], pgsub[8];
 } p6_chd_host_track;
-P6_CHD_EXPORT int p6_chd_host_open(const char *utf8_path, void **owner, p6_chd_host_info *info);
-P6_CHD_EXPORT int p6_chd_host_get_track(void *owner, uint32_t index, p6_chd_host_track *track);
-P6_CHD_EXPORT int p6_chd_host_read(void *owner, uint64_t offset, void *out, uint32_t count);
-P6_CHD_EXPORT void p6_chd_host_close(void *owner);
+P6_CHD_EXPORT int P6_CHD_CALL p6_chd_host_open(const char *utf8_path, void **owner, p6_chd_host_info *info);
+P6_CHD_EXPORT int P6_CHD_CALL p6_chd_host_get_track(void *owner, uint32_t index, p6_chd_host_track *track);
+P6_CHD_EXPORT int P6_CHD_CALL p6_chd_host_read(void *owner, uint64_t offset, void *out, uint32_t count);
+P6_CHD_EXPORT void P6_CHD_CALL p6_chd_host_close(void *owner);
 #ifdef __cplusplus
 }
 #endif
