@@ -1,0 +1,406 @@
+{
+  "schema_version": 1,
+  "task": "T46",
+  "scope": "study_only_no_profile_changes",
+  "source_id": "machawk",
+  "pin": {
+    "source_id": "machawk",
+    "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+    "snapshot_manifest": "references/machawk.manifest.json",
+    "manifest_sha256": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3"
+  },
+  "decision": "audit_complete_execution_blocked",
+  "support_announced": false,
+  "current_platform": "Darwin ARM64 remains the implemented initial target; no profile or acceptance changes",
+  "candidate": {
+    "runtime_target": "x86_64-unknown-linux-gnu",
+    "guest_elf": "ELF64LE EM_X86_64 ET_EXEC",
+    "guest_page_bytes": 4096,
+    "host_page_bytes": 4096,
+    "host_16384_status": "blocked_no_linux_grouping_proof",
+    "host_65536_status": "blocked_no_linux_grouping_proof",
+    "calling_convention": "SysV64; GS TLS; 64 callback slots",
+    "emulator_jit_enabled": false
+  },
+  "sources": [
+    {
+      "source_id": "machawk",
+      "commit": "9b62757833c9bdd15bf43cef058c88bf91eb0ad7",
+      "snapshot_manifest": "references/machawk.manifest.json",
+      "manifest_sha256": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "commit": "22440a465d6f7d3241e73bdf990c2b8026022625",
+      "snapshot_manifest": "references/musl-darwin.manifest.json",
+      "manifest_sha256": "bb962ceae3a5b7c116841e568f48704edd6d20dc5a3bada77370257d4429a04f"
+    }
+  ],
+  "source_paths": [
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/Cargo.toml",
+      "sha256": "2d8cbc02c4a6d86c28295a0e3de9161282ef1efc590cc53f9c91dc327399315f"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/Cargo.lock",
+      "sha256": "76821437d8a47e084e442c9d6fc4c85a3a05c3fe7c9713ae440dbcb6f16bf7bf"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/rust-toolchain.toml",
+      "sha256": "a7878e34b9c384cebeee054f9dce3d1290c78befa952a14e30dff43eae165d2e"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/lib.rs",
+      "sha256": "1cc1c3bb052c11a8659466b219d8bbb312e9af36a3242cd86ebb3b11a380c872"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/host.rs",
+      "sha256": "9b90b8e0e0ccb6b14ebb837716ca45f346e83997fd543eb645468b656fb64618"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/elf.rs",
+      "sha256": "883c7f461f9abd301654d9b8ac2c84daf09fa1389cdc463b94d29f73098629a4"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/context/mod.rs",
+      "sha256": "4172af211acd78634f359de5571eee21a6f5d486d85b8744108c8a2b3fd307f0"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/context/interop.s",
+      "sha256": "56ae171775d91570168e5b774895ba6cc1b6e7600a58572c1bcbaf10fa3cc3a3"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/context/interop.bin",
+      "sha256": "c3bf57a7d8597ef2254b3e2c35f66caf21b2521bb82c53e9abee73843fd2d437"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/context/thunks.rs",
+      "sha256": "14f0abd831e9c16436e093f9459077748242461af38cfce2c1980edf5e7924cf"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/memory_block/pal.rs",
+      "sha256": "88107f0379bd4d83c71b4ef82c7e61f3a6f039f65a34ebcf9b41cf0a1f91052f"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/memory_block/tripguard.rs",
+      "sha256": "cdf2f323e352830a01624ebd0d99dae9571ad26b6b3f56af37b7c98e4c3d7e3f"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/memory_block/mod.rs",
+      "sha256": "2615fea0f5ae7d68e33ce65eb45f6bff229451a52f272dc57f84d85091ec7bb9"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/common.mak",
+      "sha256": "9f1938ad6ebb497607cd25c3f7a23ecc5ae3d0b37c3e0107fe3cc0852094bd34"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/linkscript.T",
+      "sha256": "3a5f16e86596f0bb4b254b0fa0c4ba68effbf8a438ef34bbfbe7b179692cd536"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/musl-waterbox-x86_64-atomics.patch",
+      "sha256": "140d5b22b88afb5ccb0cefb0c5ecede5e525c50940cc65146d77f9ed23ae3bf2"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/src/BizHawk.Emulation.Cores/Waterbox/WaterboxHostPlatform.cs",
+      "sha256": "623bc0f18f11917f425212f40ecb71f700f651bb18ff46b800baf7379f7b9155"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/src/BizHawk.BizInvoke/CallingConventionAdapter.cs",
+      "sha256": "51e7506468f55c2bb5ab811d26e5fa7feec1209d851475c7ca58ac1fd00d71d4"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/src/BizHawk.Common/OSTailoredCode.cs",
+      "sha256": "542f97d383aaeaac6759931812f2f2fdd95628c6c79dcab0dcd9df95d4cac626"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/configure",
+      "sha256": "52b1720b1a3d822d17fca460e544723d26f00324ce13b68af78fe37f2e6aa031"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/arch/waterbox/atomic_arch.h",
+      "sha256": "424d096d99896b4bb4cc70e28b80bf020119b9ef37e804e2758e9d812df2f730"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/arch/waterbox/pthread_arch.h",
+      "sha256": "084e554f3049c565cd7300b65de9d713e96e0cc2d3b74aba5833a54499946502"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/arch/waterbox/syscall_arch.h",
+      "sha256": "22d3d9c059da2efefbe1ad413eb9019bd124962b61f8a7aa5fc7d73303c1d52a"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/arch/waterbox/bits/setjmp.h",
+      "sha256": "1773ba63f2fe1291d7c0f07f25c800678e8f7fef66a9ba0afeeae076d5ada170"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/src/setjmp/waterbox/setjmp.s",
+      "sha256": "749244a4886125d89a578e293b543b5e40b11bda1d91ec1407c064d6c929577a"
+    },
+    {
+      "source_id": "waterbox_musl_darwin",
+      "path": "references/musl-darwin/src/setjmp/waterbox/longjmp.s",
+      "sha256": "b349d88bfbe727bc4d5101f1869cfc6172f69ec30b951193139109ec5131e054"
+    },
+    {
+      "source_id": "machawk",
+      "path": "references/machawk/waterbox/waterboxhost/src/threading.rs",
+      "sha256": "d4b57b37ff0c81ae886d56a3fd8e6a6e80b5ab5a64b12a35cf2368ad0b6b100d"
+    }
+  ],
+  "pending_authorities": {
+    "linux_rust_toolchain_sha256": null,
+    "guest_toolchain_manifest": null,
+    "sysroot_inventory_sha256": null,
+    "runtime_receipt": null,
+    "mini_guest_receipt": null,
+    "linux_runner_identity": null
+  },
+  "observed_unverified_artifact": {
+    "path": "../MacHawk/Assets/dll/libwaterboxhost.so",
+    "bytes": 682848,
+    "sha256": "d1d2a05cb64cb68cf3c56afe53e1ed9ec6c1a7516a95907e769b8779097299db",
+    "format": "ELF64LE EM_X86_64 ET_DYN",
+    "executed": false,
+    "accepted_as_wb01": false
+  },
+  "subbacklog": [
+    {
+      "id": "WBX86-A",
+      "depends": [],
+      "status": "proposed",
+      "kind": "runtime_recipe",
+      "deliverable": "Pin Linux toolchain/Cargo closure/NASM, captured source and patches, x86_64 guest sysroot inventory; isolated outputs and actual Linux4KiB runner identity. Keep current Darwin profile unchanged.",
+      "oracle": "Before/after source and tool hashes; reject missing/stale receipts, wrong ISA, exports or fixed maps before guest entry."
+    },
+    {
+      "id": "WBX86-B",
+      "depends": [
+        "WBX86-A"
+      ],
+      "status": "proposed",
+      "kind": "runtime_probe",
+      "gates": [
+        "WB01"
+      ],
+      "deliverable": "Public mini-core using real C API and managed NativeConvention; full snapshot, ABI/TLS, dirty tracking, eviction policy and actual Linux process.",
+      "oracle": "Mini-core real, ABI SysV64/TLS/callback/syscall, seal/frame, snapshot completo y dos sandboxes; ningún wrapper nativo sustituye Waterbox."
+    },
+    {
+      "id": "WBX86-C",
+      "depends": [
+        "WBX86-B"
+      ],
+      "status": "proposed",
+      "kind": "core_port",
+      "gates": [
+        "WB02",
+        "WB03",
+        "WB04",
+        "WB05",
+        "WB06",
+        "WB07",
+        "WB08"
+      ],
+      "deliverable": "Dedicated core build profile and ABI/source identity; p6_run_frame only, no runtime stand-ins or host scheduling shortcuts.",
+      "oracle": "Original functional scenarios and exact states, same/new sandbox and process; no new support until all gates."
+    },
+    {
+      "id": "WBX86-D",
+      "depends": [
+        "WBX86-C"
+      ],
+      "status": "proposed",
+      "kind": "integration",
+      "gates": [
+        "WB09",
+        "WB10",
+        "WB11",
+        "WB12"
+      ],
+      "deliverable": "Real managed movies/media integration, rejection/limits and performance measured on that runtime.",
+      "oracle": "All corresponding original selectors including adverse restore and durable-media immutability; no inherited Darwin PASS."
+    }
+  ],
+  "gates": {
+    "WB01": {
+      "status": "blocked",
+      "depends": [
+        "WBX86-A"
+      ],
+      "reason": "No authenticated Linux x86_64 mini-core execution",
+      "oracle": "Mini-core real, ABI SysV64/TLS/callback/syscall, seal/frame, snapshot completo y dos sandboxes; ningún wrapper nativo sustituye Waterbox."
+    },
+    "WB02": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "A500: 10000 unidades con input fijo dos veces."
+    },
+    "WB03": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Snapshot N, ejecutar M, restaurar y repetir: hardware/video/audio y estado completo exactos."
+    },
+    "WB04": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Restore en sandbox nuevo y dos sandboxes alternados; proceso nuevo e inputs distintos."
+    },
+    "WB05": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Estado con disco/DMA/audio activos, tecla retenida y swap pendiente."
+    },
+    "WB06": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Cada campo managed causal cambia y recupera su efecto tras save/load."
+    },
+    "WB07": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Canarios A/V, límites de memoria y referencias host invalidadas/repuestas."
+    },
+    "WB08": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Desactivar temporalmente render/sound conserva la emulación futura."
+    },
+    "WB09": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Película reset/ratón/teclado/eject/insert; rama y seek repetidos."
+    },
+    "WB10": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Overlay vuelve atrás sin modificar medio base ni archivo durable."
+    },
+    "WB11": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "Otro core/build/ROM se rechaza antes de mutar instancia y conserva su futuro."
+    },
+    "WB12": {
+      "status": "blocked",
+      "depends": [
+        "WB01"
+      ],
+      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "oracle": "p50/p95 frame/snapshot, bytes/páginas mutadas y ocupación de heaps medidos."
+    }
+  },
+  "outside_scope": [
+    "Darwin ARM64 support changes",
+    "Linux16/64KiB support claim",
+    "Windows/macOS x86_64 runtime claim",
+    "binary compatibility across builds or ISAs",
+    "ROM upload/download",
+    "MacHawk writes",
+    "runtime execution during this study"
+  ],
+  "linux_wb01_inputs": {
+    "runner": {
+      "image_os": "ubuntu24",
+      "image_version": "20261023.334.3",
+      "os": "Linux",
+      "isa": "x86_64",
+      "page_bytes": 4096
+    },
+    "tools": {
+      "clang": {
+        "path": "/usr/lib/llvm-18/bin/clang",
+        "sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+        "version": "Ubuntu clang version 18.1.3 (1ubuntu1)"
+      },
+      "lld": {
+        "path": "/usr/bin/ld.lld-18",
+        "sha256": "7ad9a0e8fe6d0e79b71172d731e33872c0274e49fceb7b516d774876d5a58ade",
+        "version": "Ubuntu LLD 18.1.3 (compatible with GNU linkers)"
+      },
+      "ar": {
+        "path": "/usr/lib/llvm-18/bin/llvm-ar",
+        "sha256": "eedd2efbdee80acf60e17e10adeddf31be0347226245f935be95efa3ae00ec79",
+        "version": "Ubuntu LLVM version 18.1.3"
+      },
+      "make": {
+        "path": "/usr/bin/make",
+        "sha256": "d78b8f1d099fbcfb6f2f49ab87223b9b68fb3956642f92d6ec6de812e8afa965",
+        "version": "GNU Make 4.3"
+      },
+      "patch": {
+        "path": "/usr/bin/patch",
+        "sha256": "a7ae8b838a75711c06f86a2a8293dcad85a20b564670a120717e704c436e6f3a",
+        "version": "GNU patch 2.7.6"
+      },
+      "rustc": {
+        "path": "/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+        "sha256": "f3834d26669b03f6855fa54bd2381443123e860167bc0c7a8dd137e5cf6e5e4f",
+        "version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+      },
+      "cargo": {
+        "path": "/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+        "sha256": "e951141cc55a6cd7b9876d187bd30a3720e6086b99413af95e3b8de1cdd72f14",
+        "version": "cargo 1.99.0 (5f94df478 2026-08-27)"
+      }
+    },
+    "rust_stdlib_inventory_sha256": "59d731d4980d7f1e5f4b2574e7336d0110d42b6737e7a4d7c3f4c4fa67d0ed04",
+    "observed_run": "40176860226",
+    "scope": "mini-core runtime/sysroot inputs only; no Amiga support"
+  }
+}

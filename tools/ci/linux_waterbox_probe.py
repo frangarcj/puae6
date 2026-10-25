@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""Inventory preinstalled Linux WB01 inputs; no installs, downloads or builds."""
+"""Inventory or prepare pinned Linux inputs; no global installs or guest execution."""
 import argparse
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import hashlib
 import json
 import os
 from pathlib import Path
 import platform
+import re
+import shlex
+import struct
+import tempfile
 import shutil
 import stat
 import subprocess
@@ -53,9 +61,10 @@ def file_identity(path):
 
 def tool_identity(path):
     result = file_identity(path)
-    result['version'] = command([path, '--version']).splitlines()[0]
-    if not result['version']:
+    lines = command([path, *(['-flavor', 'gnu'] if Path(path).name == 'lld' else []), '--version']).splitlines()
+    if not lines:
         raise ValueError('empty tool version')
+    result['version'] = lines[0]
     return result
 
 
@@ -84,17 +93,17 @@ def source_identity(root):
     return result
 
 
-def cargo_cache(root):
+def cargo_cache(root, home=None):
     lock = root / 'references/machawk/waterbox/waterboxhost/Cargo.lock'
     data = tomllib.loads(lock.read_text())
-    home = Path(os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
+    home = Path(home or os.environ.get('CARGO_HOME', Path.home() / '.cargo'))
     found = []; missing = []
     for package in data['package']:
         if not package.get('source', '').startswith('registry+'):
             continue
         name = f"{package['name']}-{package['version']}.crate"
         candidates = list((home / 'registry/cache').glob('*/' + name))
-        valid = [p for p in candidates if p.is_file() and not p.is_symlink() and sha(p) == package['checksum']]
+        valid = len(candidates) == 1 and candidates[0].is_file() and not candidates[0].is_symlink() and sha(candidates[0]) == package['checksum']
         (found if valid else missing).append(name)
     return {'lock_sha256': sha(lock), 'authenticated_archives': sorted(found), 'missing_archives': sorted(missing),
             'offline_ready': not missing}
@@ -132,16 +141,155 @@ def inventory(root=ROOT):
     return result
 
 
+MUSL_FLAGS = '-Werror -fvisibility=hidden -mcmodel=large -mstack-protector-guard=global -fno-pic -fno-pie -fcf-protection=none'
+OUTPUT = 'build/linux-waterbox-wb01'
+
+
+def pinned_inputs(root=ROOT):
+    authority = json.loads((root / 'plan/extensions/waterbox-platforms.json').read_text())['linux_wb01_inputs']
+    expected = authority['runner']
+    actual = dict(os=platform.system(), isa=platform.machine(), page_bytes=os.sysconf('SC_PAGE_SIZE'),
+                  image_os=os.environ.get('ImageOS'), image_version=os.environ.get('ImageVersion'))
+    if actual != expected or Path('/.dockerenv').exists() or Path('/run/.containerenv').exists() or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted' or os.environ.get('RUNNER_ARCH') != 'X64':
+        raise ValueError('pinned native Linux runner identity differs')
+    standard = authority.get('rust_stdlib_inventory_sha256')
+    if not isinstance(standard, str) or not re.fullmatch('[0-9a-f]{64}', standard):
+        raise ValueError('Rust standard library inventory is not pinned; inventory only')
+    if set(authority['tools']) != {'clang', 'lld', 'ar', 'make', 'patch', 'rustc', 'cargo'}:
+        raise ValueError('incomplete Linux tool authority')
+    for name, pin in authority['tools'].items():
+        if set(pin) != {'path', 'version', 'sha256'} or not Path(pin['path']).is_absolute() or not re.fullmatch('[0-9a-f]{64}', pin['sha256']):
+            raise ValueError('invalid pinned Linux tool: ' + name)
+        if file_identity(pin['path'])['sha256'] != pin['sha256']:
+            raise ValueError('pinned tool bytes differ: ' + name)
+        observed = tool_identity(pin['path'])
+        if observed['sha256'] != pin['sha256'] or observed['version'] != pin['version']:
+            raise ValueError('pinned tool bytes/version differ: ' + name)
+    rust = rust_identity(authority['tools']['rustc'])
+    if rust['stdlib_inventory_sha256'] != standard:
+        raise ValueError('Rust standard library inventory differs')
+    return {'authority': authority, 'sources': source_identity(root), 'recipe_sha256': sha(Path(__file__)),
+            'rust': rust, 'rustc_bootstrap': '1', 'target': TARGET, 'musl_flags': MUSL_FLAGS}
+
+
+def elf(path, kind):
+    with Path(path).open('rb') as stream:
+        header = stream.read(64)
+    if len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01' or struct.unpack_from('<HH', header, 16) != (kind, 62):
+        raise ValueError('wrong Linux x86_64 ELF: ' + str(path))
+
+
+def verify(output=None, root=ROOT):
+    output = Path(output or root / OUTPUT).absolute()
+    sources.no_links(root, output)
+    if output.resolve() != output or not output.is_relative_to(root / 'build') or set(p.name for p in output.iterdir()) != {'runtime.so', 'sysroot', 'receipt.json'}:
+        raise ValueError('foreign preparation output')
+    for name in ('runtime.so', 'receipt.json'):
+        sources.no_links(output, output / name)
+        if not (output / name).is_file() or (output / name).stat().st_nlink != 1:
+            raise ValueError('preparation output is not regular')
+    receipt = json.loads((output / 'receipt.json').read_text())
+    if receipt.get('schema_version') != 1 or receipt['inputs'] != pinned_inputs(root) or receipt['status'] != 'PREPARED' or receipt['scope'] != 'runtime_and_musl_only':
+        raise ValueError('stale preparation inputs')
+    elf(output / 'runtime.so', 3)
+    if sha(output / 'runtime.so') != receipt['runtime_sha256'] or canonical(sources.inventory(output / 'sysroot')) != receipt['sysroot_inventory_sha256']:
+        raise ValueError('prepared output bytes differ')
+    return {**receipt, 'output': str(output)}
+
+
+def execute(argv, cwd, env):
+    completed = subprocess.run(list(map(str, argv)), cwd=cwd, env=env, stdout=sys.stderr, stderr=sys.stderr, timeout=1800)
+    if completed.returncode:
+        raise ValueError(f'preparation command failed ({completed.returncode}): {argv[0]}')
+
+
+def prepare(root=ROOT):
+    before = pinned_inputs(root)
+    if fcntl is None:
+        raise ValueError('preparation requires POSIX file locking')
+    sources.no_links(root, root / 'build')
+    (root / 'build').mkdir(exist_ok=True)
+    lock = root / 'build/.linux-waterbox-wb01.lock'
+    with os.fdopen(os.open(lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), 'r+') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode) or os.fstat(stream.fileno()).st_nlink != 1:
+            raise ValueError('invalid preparation lock')
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        return _prepare(root, before)
+
+
+def _prepare(root, before):
+    output = root / OUTPUT
+    sources.no_links(root, output)
+    if output.exists():
+        return verify(output, root)
+    build = root / 'build'; build.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='linux-wb01-', dir=build) as tmp:
+        stage = Path(tmp); publish = stage / 'publish'; publish.mkdir()
+        tools = {name: spec['path'] for name, spec in before['authority']['tools'].items()}
+        bindir = stage / 'bin'; bindir.mkdir()
+        # LLD's real filename is generic 'lld'; explicitly select the GNU driver.
+        path = bindir / 'ld.lld'
+        path.write_text('#!/bin/sh\nexec ' + shlex.join([tools['lld'], '-flavor', 'gnu']) + ' "$@"\n'); path.chmod(0o755)
+        for name in ('home', 'tmp'):
+            (stage / name).mkdir()
+        env = {'PATH': str(bindir) + ':/usr/bin:/bin', 'HOME': str(stage / 'home'), 'TMPDIR': str(stage / 'tmp'), 'LANG': 'C.UTF-8',
+               'CARGO_HOME': str(stage / 'cargo-home'), 'CARGO_TARGET_DIR': str(stage / 'cargo'), 'RUSTC': tools['rustc'], 'RUSTC_BOOTSTRAP': '1',
+               'RUSTFLAGS': '-C linker=' + tools['clang'] + ' -C link-arg=-fuse-ld=' + str(bindir / 'ld.lld'), 'CC': tools['clang'], 'AR': tools['ar'], 'RANLIB': tools['ar'] + ' s',
+               'CFLAGS': MUSL_FLAGS, 'LDFLAGS': '-fuse-ld=' + str(bindir / 'ld.lld')}
+        runtime = stage / 'runtime'
+        shutil.copytree(root / 'references/machawk/waterbox/waterboxhost', runtime, symlinks=True)
+        execute([tools['cargo'], 'fetch', '--locked'], runtime, env)
+        packages = cargo_cache(root, stage / 'cargo-home')
+        if not packages['offline_ready']:
+            raise ValueError('Cargo archive checksums/closure differ from Cargo.lock')
+        execute([tools['cargo'], 'build', '--offline', '--locked', '--release', '--target', TARGET, '-j2'], runtime, env)
+        shutil.copyfile(stage / 'cargo' / TARGET / 'release/libwaterboxhost.so', publish / 'runtime.so')
+        elf(publish / 'runtime.so', 3)
+        musl = stage / 'musl'
+        shutil.copytree(root / 'references/musl-darwin', musl, symlinks=True)
+        header = musl / 'arch/waterbox/atomic_arch.h'; original = header.read_bytes()
+        if original.count(b'\t*p++;') != 1 or original.count(b'\t*p--;') != 1:
+            raise ValueError('unexpected original musl atomics')
+        expected = original.replace(b'\t*p++;', b'\t(*p)++;').replace(b'\t*p--;', b'\t(*p)--;')
+        patch = root / 'references/machawk/waterbox/musl-waterbox-x86_64-atomics.patch'
+        execute([tools['patch'], '--batch', '--fuzz=0', '-p1', '-i', patch], musl, env)
+        if header.read_bytes() != expected:
+            raise ValueError('musl atomics patch output differs')
+        prefix = output / 'sysroot'
+        execute(['sh', './configure', '--target=waterbox', '--build=waterbox', '--disable-shared', '--disable-wrapper',
+                 '--prefix=' + str(prefix), '--syslibdir=' + str(prefix / 'syslib')], musl, env)
+        execute([tools['make'], '-s', '-j2'], musl, env)
+        execute([tools['make'], '-s', 'install', 'DESTDIR=' + str(stage / 'install')], musl, env)
+        installed = stage / 'install' / str(prefix).lstrip('/')
+        installed.rename(publish / 'sysroot')
+        for name in ('lib/libc.a', 'lib/crt1.o', 'include/pthread.h'):
+            if not (publish / 'sysroot' / name).is_file():
+                raise ValueError('musl output missing: ' + name)
+        if (publish / 'sysroot/lib/libc.a').read_bytes()[:8] != b'!<arch>\n':
+            raise ValueError('musl libc is not an archive')
+        elf(publish / 'sysroot/lib/crt1.o', 1)
+        if pinned_inputs(root) != before:
+            raise ValueError('source/toolchain changed during preparation')
+        receipt = {'schema_version': 1, 'status': 'PREPARED', 'scope': 'runtime_and_musl_only', 'inputs': before,
+                   'runtime_sha256': sha(publish / 'runtime.so'), 'sysroot_inventory_sha256': canonical(sources.inventory(publish / 'sysroot')),
+                   'cargo': packages, 'musl_patch': {'sha256': sha(patch), 'before': hashlib.sha256(original).hexdigest(), 'after': sha(header)}}
+        (publish / 'receipt.json').write_text(json.dumps(receipt, sort_keys=True) + '\n')
+        publish.rename(output)  # Exclusive output, no stale cache repair or overwrite.
+    return verify(output, root)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--inventory', action='store_true', required=True)
-    parser.parse_args()
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument('--inventory', action='store_true')
+    selection.add_argument('--prepare', action='store_true')
+    args = parser.parse_args()
     try:
-        result = inventory()
-    except (ValueError, OSError, StopIteration, subprocess.SubprocessError) as error:
-        print(MARKER + json.dumps({'schema_version': 1, 'status': 'BLOCKED', 'scope': 'inventory only; no WB01 execution', 'error': str(error)}))
+        result = inventory() if args.inventory else prepare()
+    except (ValueError, OSError, KeyError, TypeError, StopIteration, subprocess.SubprocessError) as error:
+        print((MARKER if args.inventory else 'P6_LINUX_WATERBOX_PREPARATION ') + json.dumps({'schema_version': 1, 'status': 'BLOCKED', 'scope': 'inventory/preparation only; no WB01 execution', 'error': str(error)}))
         return 2
-    print(MARKER + json.dumps(result, sort_keys=True))
+    print((MARKER if args.inventory else 'P6_LINUX_WATERBOX_PREPARATION ') + json.dumps(result, sort_keys=True))
     return 2 if result['status'] == 'BLOCKED' else 0
 
 
