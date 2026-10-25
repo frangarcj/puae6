@@ -19,12 +19,13 @@ diff --git a/src/BizHawk.Client.Common/movie/MovieSession.cs b/src/BizHawk.Clien
 diff --git a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs b/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
 --- a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
 +++ b/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs
-@@ -176,6 +176,12 @@
+@@ -176,6 +176,13 @@
  			movie.Core = Emulator.Attributes().CoreName;
  			movie.SystemID = Emulator.SystemId; // TODO: I feel like setting this shouldn't be necessary, but it is currently
  
 +			if (Emulator is global::Puae6.Puae6Core mediaCore && mediaCore.Identity.Machine != "CD32")
 +			{
++				if (movie.StartsFromSavestate) movie.SaveRam = mediaCore.CloneMovieStateSaveRam();
 +				if (movie.StartsFromSaveRam && movie.SaveRam is null) movie.StartsFromSaveRam = false;
 +				foreach (var entry in global::Puae6.Puae6Movie.HeaderForStart(mediaCore, movie.StartsFromSavestate, movie.StartsFromSaveRam ? movie.SaveRam : null))
 +					movie.HeaderEntries[entry.Key] = entry.Value;
@@ -32,3 +33,33 @@ diff --git a/src/BizHawk.Client.EmuHawk/MainForm.Movie.cs b/src/BizHawk.Client.E
  			var settable = GetSettingsAdapterForLoadedCoreUntyped();
  			if (settable.HasSyncSettings)
  			{
+diff --git a/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs b/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
+--- a/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
++++ b/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
+@@ -113,7 +113,8 @@
+ 						zstdCompress: false);
+ 				}
+ 			}
+-			else if (StartsFromSaveRam)
++			// PUAE6 state movies carry their sealed media bases separately from Corestate.
++			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate && Core == global::Puae6.Puae6Names.Core && SaveRam is not null))
+ 			{
+ 				bs.PutLump(BinaryStateLump.MovieSaveRam, (BinaryWriter bw) => bw.Write(SaveRam));
+ 			}
+@@ -131,6 +132,7 @@
+ 			_syncSettingsJson = "";
+ 			TextSavestate = null;
+ 			BinarySavestate = null;
++			SaveRam = null; // A missing lump must not reuse bases from a previous Load().
+ 		}
+ 
+ 		protected override void LoadFields(ZipStateLoader bl)
+@@ -182,7 +184,7 @@
+ 						}
+ 					});
+ 			}
+-			else if (StartsFromSaveRam)
++			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate && Core == global::Puae6.Puae6Names.Core))
+ 			{
+ 				bl.GetLump(BinaryStateLump.MovieSaveRam, false,
+ 					br => SaveRam = br.ReadAllBytes());

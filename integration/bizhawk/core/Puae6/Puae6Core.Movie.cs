@@ -27,11 +27,14 @@ public sealed unsafe partial class Puae6Core
 		if (_imported is not null) throw new MovieRejectedException(MovieRejection.BadStart, "a movie requires the original media bases before Attach");
 	}
 
-	internal void ValidateMediaMovieState(byte[] state)
+	/// <summary>The immutable bases required by an initial movie state, without subsequent guest writes.</summary>
+	public byte[]? CloneMovieStateSaveRam() => _imported?.Bytes.ToArray();
+
+	internal void ValidateMediaMovieState(byte[] state, StateIdentity identity)
 	{
-		// No identity override: an imported sealed base still needs separate transport.
+		// Preflight only. StoreSaveRam installs these bases before the normal strict load.
 		using var reader = new BinaryReader(new MemoryStream(state, false));
-		var payload = StateEnvelope.Read(reader, _identity);
+		var payload = StateEnvelope.Read(reader, identity);
 		using var fields = new BinaryReader(new MemoryStream(payload, false));
 		Parse(fields);
 	}

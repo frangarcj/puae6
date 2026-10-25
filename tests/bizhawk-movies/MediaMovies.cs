@@ -81,17 +81,18 @@ internal static unsafe partial class Program
   for (int i = 0; i < 3; i++) { Require(core.ExportMedium(i, out var image, out _) == P6.Ok); hashes.Add(Hash(image!)); }
   return string.Join(" ", hashes);
  }
- static string[] Play(MovieSession session, Puae6Core core)
+ static string[] Play(MovieSession session, Puae6Core core, bool witness = false)
  {
-  var rows = new List<string>();
+  var rows = new List<string>(); var buttons = session is null ? new Buttons(core.ControllerDefinition) : (Buttons)session.MovieIn;
   while (core.Frame < 12) {
-   ((Buttons)session.MovieIn).Frame = core.Frame; session.HandleFrameBefore();
-   foreach (var name in core.ControllerDefinition.BoolButtons) Require(session.MovieOut.IsPressed(name) == session.MovieIn.IsPressed(name));
-   Require(core.FrameAdvance(session.MovieOut, true, true));
+   buttons.Frame = core.Frame; session?.HandleFrameBefore(); var input = session?.MovieOut ?? buttons;
+   foreach (var name in core.ControllerDefinition.BoolButtons) Require(input.IsPressed(name) == buttons.IsPressed(name));
+   Require(core.FrameAdvance(input, true, true));
    core.GetSamplesSync(out var samples, out int count); var pcm = new byte[count * 4]; Buffer.BlockCopy(samples, 0, pcm, 0, pcm.Length);
    var pixels = new byte[core.BufferWidth * core.BufferHeight * 4]; Buffer.BlockCopy(core.GetVideoBuffer(), 0, pixels, 0, pixels.Length);
-   rows.Add($"{core.Frame} {core.CycleCount} {Hash(pixels)} {Hash(pcm)}"); session.HandleFrameAfter(true);
-   if (core.Frame == 5 && session.Movie is ITasMovie tas) tas.TasStateManager.Capture(5, core, true);
+   var ram = witness ? Convert.ToHexString(Enumerable.Range(0,32).Select(n => HrtRam(core).PeekByte(0x70000+n)).ToArray()) : "";
+   rows.Add($"{core.Frame} {core.CycleCount} {Hash(pixels)} {Hash(pcm)}" + (witness ? " " + ram : "")); session?.HandleFrameAfter(true);
+   if (core.Frame == 5 && session?.Movie is ITasMovie tas) tas.TasStateManager.Capture(5, core, true);
   }
   return rows.ToArray();
  }
@@ -160,6 +161,101 @@ internal static unsafe partial class Program
   Require(Play(session, core).SequenceEqual(File.ReadAllLines(Path.Combine(args[1], "False.tasproj.future"))));
   Require(Save(core).SequenceEqual(Read(args[1], "False.tasproj.end"))); (valid as IDisposable)?.Dispose();
   Console.WriteLine("real media movie rejects before Attach without mutation and preserves future PASS");
+ }
+ // A state owns the later overlay; MovieSaveRam transports only its original sealed bases.
+ static void StateMovies(string[] args)
+ {
+  string initial = Path.Combine(args[1], "media.initial");
+  if (args[0] == "statesave") {
+   using var original = Open(args); var supplied = Read(args[1], "B.sram"); original.StoreSaveRam(supplied);
+   var canonical = original.CloneMovieStateSaveRam()!; var clone = original.CloneMovieStateSaveRam()!;
+   clone[0] ^= 1; supplied[20] ^= 1;
+   Require(original.CloneMovieStateSaveRam()!.SequenceEqual(canonical), "base must be an owned clone");
+   Require(Hash(canonical) == File.ReadAllText(Path.Combine(args[1], "B.sha")), "base excludes padding");
+   var buttons = new Buttons(original.ControllerDefinition);
+   for (int i = 0; i < 3; i++) { buttons.Frame = i; Require(original.FrameAdvance(buttons,true,true)); }
+   for (int n = 0; n < 32; n++) HrtRam(original).PokeByte(0x70000+n,(byte)(0x80+n));
+   Require(original.GetHardFileWriteStatus(0).MediumSectors > 0 && !original.CloneSaveRam(false)!.SequenceEqual(canonical), "guest wrote after the base was imported");
+   Require(original.CloneMovieStateSaveRam()!.SequenceEqual(canonical), "later writes cannot replace the base");
+   File.WriteAllBytes(initial,Save(original)); File.WriteAllBytes(initial+".base",canonical);
+   File.WriteAllText(initial+".header",System.Text.Json.JsonSerializer.Serialize(Puae6Movie.HeaderForStart(original,true,null)));
+   using (var reader = new BinaryReader(new MemoryStream(Read(args[1], "media.initial")))) {
+    var payload = StateEnvelope.Read(reader,original.Identity); Array.Fill(payload,(byte)255,0,4);
+    using var writer = new BinaryWriter(File.Create(initial+".badfields")); StateEnvelope.Write(writer,original.Identity,payload);
+   }
+   original.ResetCounters(); File.WriteAllLines(initial+".future",Play(null,original,true));
+   File.WriteAllBytes(initial+".end",Save(original)); File.WriteAllText(initial+".media",Media(original));
+  }
+  var expected = File.ReadAllLines(initial+".future"); var end = File.ReadAllBytes(initial+".end");
+  foreach (string extension in new[] {"bk2","tasproj"}) {
+   Phase = args[0]+"/state/"+extension; string path = Path.Combine(args[1],"state."+extension);
+   if (args[0] == "statesave") {
+    using var recording = Open(args); var session = Session(args[1],recording); var movie = session.Get(path,false);
+    movie.StartsFromSavestate = true; movie.BinarySavestate = Read(args[1],"media.initial");
+    movie.SaveRam = Read(args[1],"media.initial.base"); movie.SyncSettingsJson = ConfigService.SaveWithType(recording.GetSyncSettings());
+    // Header captured at the actual cut, after later writes, as MainForm does before reboot.
+    foreach (var h in System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,string>>(File.ReadAllText(initial+".header"))!) movie.HeaderEntries[h.Key] = h.Value;
+    Start(session,movie,recording,true); if (movie is ITasMovie tas) tas.Markers.Add(new TasMovieMarker(6,"state cut 5"));
+    Require(Play(session,recording,true).SequenceEqual(expected) && Save(recording).SequenceEqual(end),"record vs live state future");
+    Require(Media(recording) == File.ReadAllText(initial+".media") && !movie.StartsFromSaveRam,"overlay and state mode");
+    Require(!movie.Save().IsError,"persist state and bases"); (movie as IDisposable)?.Dispose();
+   }
+   using var core = Open(args); var replay = Session(args[1],core); var loaded = replay.Get(path,true);
+   Require(loaded.StartsFromSavestate && !loaded.StartsFromSaveRam,"state must not become SRAM start");
+   Require(loaded.SaveRam.SequenceEqual(File.ReadAllBytes(initial+".base")),"MovieSaveRam survived serialization");
+   if (loaded is ITasMovie history) Require(history.TasStateManager.HasState(5),"persisted state seek");
+   Start(replay,loaded,core,false);
+   Require(core.CloneMovieStateSaveRam()!.SequenceEqual(loaded.SaveRam),"installed exact original bases");
+   Require(Play(replay,core,true).SequenceEqual(expected) && Save(core).SequenceEqual(end),"replay/fullstate/RAM/AV/PCM/ticks");
+   Require(Media(core) == File.ReadAllText(initial+".media"),"all three media exports");
+   if (loaded is ITasMovie movieTas) {
+    var state = movieTas.TasStateManager.GetStateClosestToFrame(5); Require(state.Key == 5,"seek at five");
+    using (var reader = new BinaryReader(state.Value)) core.LoadStateBinary(reader);
+    Require(Play(replay,core,true).SequenceEqual(expected.Skip(5)) && Save(core).SequenceEqual(end),"seek/fullstate");
+    Require(Media(core) == File.ReadAllText(initial+".media"),"seek exports");
+   }
+   (loaded as IDisposable)?.Dispose(); StateReject(args,path,initial,expected,end);
+   Console.WriteLine($"real media state {extension}/{args[0]} bases/replay/seek/fullstate/RAM/AV/PCM/ticks/exports PASS");
+  }
+ }
+ static void StateReject(string[] args, string path, string initial, string[] expected, byte[] end)
+ {
+  using var core = Open(args); var session = Session(args[1],core); var movie = session.Get(path,true);
+  var before = Save(core); var header = new Dictionary<string,string>(movie.HeaderEntries); var blob = movie.SaveRam; var state = movie.BinarySavestate;
+  void Refused() {
+   var controller = session.MovieController;
+   try { Start(session,movie,core,false); throw new Exception("bad state movie accepted"); }
+   catch (Exception e) when (e is MovieRejectedException or SaveRamRejectedException or StateRejectedException) { }
+   Require(session.Movie == null && movie.Emulator == null && ReferenceEquals(controller,session.MovieController),"rejected before Attach");
+   session.AbortQueuedMovie(); Require(Save(core).SequenceEqual(before) && core.CloneMovieStateSaveRam() is null,"rejected without base mutation");
+  }
+  foreach (var invalid in new byte[][] {null, Read(args[1],"A.sram"), blob[..20], blob.Concat(new byte[]{1}).ToArray()}) {
+   movie.SaveRam = invalid; Refused();
+  }
+  // Reload the same object from an old-style state archive with no base lump.
+  string oldPath = path+".old"+Path.GetExtension(path); File.Copy(path,oldPath,true);
+  using (var zip = System.IO.Compression.ZipFile.Open(oldPath,System.IO.Compression.ZipArchiveMode.Update))
+   zip.GetEntry(BinaryStateLump.MovieSaveRam.FileName)!.Delete();
+  var stale = session.Get(oldPath,true); stale.SaveRam = blob;
+  Require(stale.Load() && stale.SaveRam is null,"missing lump clears previously loaded bases");
+  var validMovie = movie; movie = stale; Refused(); movie = validMovie; (stale as IDisposable)?.Dispose();
+  movie.SaveRam = blob.ToArray(); movie.SaveRam[20] ^= 1; Refused(); movie.SaveRam = blob;
+  foreach (string key in new[] {Puae6Movie.GuestKey,Puae6Movie.ConfigKey,Puae6Movie.FirmwareKey,Puae6Movie.MediaKey}) {
+   movie.HeaderEntries[key] = "bad"; Refused(); movie.HeaderEntries[key] = header[key];
+  }
+  movie.BinarySavestate = null; Refused();
+  movie.BinarySavestate = state.ToArray(); movie.BinarySavestate[^1] ^= 1; Refused();
+  movie.BinarySavestate = File.ReadAllBytes(initial+".badfields"); Refused(); movie.BinarySavestate = state;
+  for (int changed = 0; changed < 3; changed++) {
+   using var other = Open(args,changed); var foreignSession = Session(args[1],other); var foreign = foreignSession.Get(path,true); var pristine = Save(other);
+   try { Start(foreignSession,foreign,other,false); throw new Exception("foreign base accepted"); }
+   catch (Exception e) when (e is MovieRejectedException or SaveRamRejectedException) { }
+   Require(foreignSession.Movie == null && foreign.Emulator == null && Save(other).SequenceEqual(pristine),"foreign rejection transactional");
+   (foreign as IDisposable)?.Dispose();
+  }
+  Start(session,movie,core,false); Require(Play(session,core,true).SequenceEqual(expected) && Save(core).SequenceEqual(end),"valid future after all refusals");
+  Require(Media(core) == File.ReadAllText(initial+".media"),"exports after refusals"); (movie as IDisposable)?.Dispose();
+  Console.WriteLine("real media state rejects missing/swapped/corrupt/base/header/envelope/fields before Attach PASS");
  }
  static void HrtConfig(string expectedSha)
  {
@@ -313,5 +409,5 @@ internal static unsafe partial class Program
  }
  static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else if (args[0] == "hrtconfig") HrtConfig(args[1]);
   else if(args[0] == "arconfig") CartridgeConfig(args);
-  else { LoadRuntime(args[2]); if (args[0].StartsWith("hrt")) HrtMovies(args); else if(args[0].StartsWith("arreal-")) CommercialMovies(args); else if(args[0].StartsWith("ar")) CartridgeWrapper(args); else Movies(args); } }
+  else { LoadRuntime(args[2]); if (args[0].StartsWith("state")) StateMovies(args); else if (args[0].StartsWith("hrt")) HrtMovies(args); else if(args[0].StartsWith("arreal-")) CommercialMovies(args); else if(args[0].StartsWith("ar")) CartridgeWrapper(args); else Movies(args); } }
 }

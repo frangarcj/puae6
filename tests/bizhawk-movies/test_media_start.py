@@ -105,6 +105,29 @@ class MediaMovieStartTests(unittest.TestCase):
             self.assertEqual(5, output.count(' PASS'), output); print(output, end='')
 
 
+@unittest.skipUnless(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT'), 'BLOCKED: falta guest coordinado actual')
+class MediaMovieStateStartTests(unittest.TestCase):
+    def test_real_bk2_tas_imported_state_bases_replay_seek_and_cold_process(self):
+        receipt = Path(os.environ['P6_MEDIA_MOVIE_GUEST_RECEIPT']); data = json.loads(receipt.read_text())
+        wb.check_guest_matches_trees(receipt, root=ROOT)
+        self.assertTrue(all(wb.sha256(ROOT / path) == digest for path, digest in data['sources'].items()))
+        for key, path in {'makefile': 'ports/waterbox/Makefile', 'common_mak': 'references/machawk/waterbox/common.mak',
+                          'linkscript_aarch64': 'references/machawk/waterbox/linkscript_aarch64.T', 'build_recipe': 'tools/build_waterbox.py'}.items():
+            self.assertEqual(data['recipe'][key], wb.sha256(ROOT / path))
+        guest = Path(data['guest']['path']); self.assertEqual(data['guest']['sha256'], wb.sha256(guest))
+        wb.validate_elf(guest); wb.check_no_compiler_tls(guest)
+        runtime = json.loads(wb.runtime_receipt_path().read_text())['runtime_dylib']
+        self.assertEqual(runtime['sha256'], wb.sha256(Path(runtime['path'])))
+        for mode in ('statesave', 'stateload'):
+            output = run(['dotnet', str(EXE), mode, str(WORK), runtime['path'], str(guest), data['guest']['sha256']])
+            self.assertEqual(4, output.count(' PASS'), output)
+            for extension in ('bk2', 'tasproj'):
+                self.assertIn(f'real media state {extension}/{mode} bases/replay/seek/fullstate/RAM/AV/PCM/ticks/exports PASS', output)
+            self.assertEqual(2, output.count('rejects missing/swapped/corrupt/base/header/envelope/fields before Attach PASS'), output)
+            print(output, end='')
+        self.assertEqual(BEFORE, (build_tree.git('rev-parse', 'HEAD').stdout, build_tree.git('diff', '--no-ext-diff').stdout))
+
+
 class HrtMonManagedConfigTests(unittest.TestCase):
     def test_public_setting_flags_controls_and_pinned_abi_without_guest(self):
         from tools.prepare_hrtmon import RAW_SHA

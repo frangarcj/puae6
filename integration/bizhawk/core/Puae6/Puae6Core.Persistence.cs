@@ -259,11 +259,12 @@ public sealed unsafe partial class Puae6Core
 			throw new SaveRamRejectedException(SaveRamRejection.WritesDisabled, "the SaveRam holds floppy writes and this core was created without them");
 		// The disks and the hard files the guest starts with are the bases with the SaveRam over them (a new core with other media, as for floppies): the chunks are then part of the base, which is the baseline
 		// of the sandbox's snapshot, and the overlay starts empty. SerializeSaveRam keeps them because it compares with the bases the core was given.
+		var canonical = data.Take(contents.Length).ToArray();
 		var disks = SaveRam.Apply(_media, contents.Floppy);
 		var hardFiles = SaveRam.ApplyHard(_hardFiles, contents.Hard);
 		BootGuest(disks, hardFiles, new ImportedSaveRam
 		{
-			Hash = StateEnvelope.Sha256(data.Take(contents.Length).ToArray()),
+			Hash = StateEnvelope.Sha256(canonical), Bytes = canonical,
 			Disks = new HashSet<int>(contents.Floppy.Select(e => e.Disk)), HardFiles = new HashSet<int>(contents.Hard.Select(e => e.HardFile)),
 		});
 		_serviceProvider.Register<IMemoryDomains>(_domains);

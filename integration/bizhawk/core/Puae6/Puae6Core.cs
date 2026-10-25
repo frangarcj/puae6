@@ -349,6 +349,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	sealed class ImportedSaveRam
 	{
 		internal byte[] Hash = [ ];
+		internal byte[] Bytes = [ ]; // Canonical imported base, never the later write overlay.
 		internal HashSet<int> Disks = new();
 		internal HashSet<int> HardFiles = new();
 	}

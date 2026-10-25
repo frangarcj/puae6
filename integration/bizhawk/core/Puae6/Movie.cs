@@ -83,8 +83,13 @@ public static class Puae6Movie
 		{
 			core.CheckMediaMovieBoot();
 			if (fromSram && saveRam is null) throw new MovieRejectedException(MovieRejection.BadStart, "the movie has no initial SaveRAM");
-			Validate(header, fromState ? core.Identity : core.MediaMovieIdentity(fromSram ? saveRam : null), null);
-			if (fromState) core.ValidateMediaMovieState(state ?? throw new MovieRejectedException(MovieRejection.BadStart, "a binary initial state is required"));
+			var mediaIdentity = core.MediaMovieIdentity(fromState || fromSram ? saveRam : null);
+			Validate(header, mediaIdentity, null);
+			if (fromState)
+			{
+				core.ValidateMediaMovieState(state ?? throw new MovieRejectedException(MovieRejection.BadStart, "a binary initial state is required"), mediaIdentity);
+				if (saveRam is not null) core.StoreSaveRam(saveRam); // All input checks precede this transactional rebuild.
+			}
 			return null;
 		}
 		if (!header.TryGetValue(NvramKey, out var text)) throw new MovieRejectedException(MovieRejection.MissingKey, $"the movie has no {NvramKey}");
