@@ -44,7 +44,7 @@ PKG01/BUILD01 de T40i requiere `P6_TEST_WATERBOX_REPRODUCIBLE=1`; sin ello queda
 
 ## Integracion MacHawk solicitada
 
-La rama [`codex/puae6-machawk`](https://github.com/frangarcj/BizHawk/tree/codex/puae6-machawk)
+El [PR #11](https://github.com/frangarcj/BizHawk/pull/11), fusionado en `main`,
 integra las fuentes del wrapper en BizHawk.Emulation.Cores, junto con registro,
 carga de medios y peliculas. Incluye el ZIP verificado con su fuente completa,
 una preparacion offline y el pin del guest; no se instala el DLL standalone.
@@ -66,3 +66,8 @@ compilada desde fuentes (incluye la correccion setjmp ya validada). El
 carece de SetCDVolume y no carga con el wrapper actual; se conserva y no se
 atribuye a ese binario el resultado de la referencia. El runtime nuevo pasa
 ademas un smoke separado del Snes9x existente con save/restore y video+RAM.
+
+La fusion no publica una preview PUAE6 automaticamente: el workflow existente
+publica Windows y no prepara su guest Darwin ARM64. Hace falta conectar un
+paquete de prueba del host macOS correspondiente; el ZIP standalone disponible
+sigue siendo una alternativa FFI, no una distribucion completa de MacHawk.
