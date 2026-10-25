@@ -13,6 +13,59 @@ import check
 
 
 class DispatcherTests(unittest.TestCase):
+    def test_cd_parents_keep_all_child_selectors_without_duplicate_execution(self):
+        gates = {'T66': {'MED01': ('MED01', 'MED02'),
+                         'DET02': ('DET02', 'STATE01', 'LR01', 'WB03'),
+                         'LR01': ('LR01',), 'WB03': ('WB03',)},
+                 'T67': {'MED01': ('MED01',),
+                         'DET02': ('DET02', 'STATE01', 'WB03'), 'LR01': ('LR01',)}}
+        for parent, mapped in gates.items():
+            for gate, child_gates in mapped.items():
+                selected = tuple(check.TASK_SUITES[(gate, parent)].values())
+                self.assertTrue(selected, (parent, gate))
+                self.assertEqual(len(selected), len(set(selected)))
+                for (child_gate, child), suites in check.TASK_SUITES.items():
+                    if child == parent or not child.startswith(parent) or child.startswith('T66x'):
+                        continue
+                    if child_gate in child_gates:
+                        for selector in suites.values():
+                            self.assertTrue(any(selector == s or selector.startswith(s + '.')
+                                                for s in selected), (parent, gate, child, selector))
+                for selector in selected:
+                    self.assertFalse(any(selector.startswith(s + '.') for s in selected if s != selector))
+
+    def test_cd_parent_keeps_real_game_audio_cold_restore_and_deferred_rejections(self):
+        expected = {
+            ('LR01', 'T66'): ('tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore',),
+            ('MED01', 'T66'): ('tests.media.test_cd_nrg.CdNrgTests', 'tests.media.test_nrg_metadata.NrgMetadataTests'),
+            ('AV02', 'T66'): ('tests.audio.test_cd_audio', 'tests.media.test_cd_device_audio',
+                             'tests.media.test_akiko_state', 'tests.waterbox-media.test_cd_source'),
+            ('DET02', 'T67'): ('tests.waterbox-media.test_cdtv_boot.CdtvPublicWaterboxTests',),
+            ('LR01', 'T67'): ('tests.libretro-host.test_cdtv_load.CdtvLoadTests',),
+        }
+        for key, selectors in expected.items():
+            selected = tuple(check.TASK_SUITES[key].values())
+            for selector in selectors:
+                self.assertTrue(any(selector == s or selector.startswith(s + '.') for s in selected), (key, selector))
+
+    def test_cd_extras_do_not_silently_enter_the_first_release_gate(self):
+        with mock.patch.dict(check.TASK_SUITES, {('MED01', 'T66x1'): {'future': 'tests.future_tinf'},
+                                                ('MED01', 'T66x2'): {'future': 'tests.future_etn2'}}):
+            selected = check._cd_parent_suites('T66', ('MED01',))
+        self.assertNotIn('tests.future_tinf', selected.values())
+        self.assertNotIn('tests.future_etn2', selected.values())
+
+    def test_cd32_parent_keeps_pad_and_movie_swap_from_other_gate_names(self):
+        for gate, child_gate, child in (('MED01', 'IN01', 'T70a'),
+                                        ('DET02', 'DET02', 'T70a'),
+                                        ('LR01', 'LR01', 'T70a'),
+                                        ('WB03', 'WB03', 'T70a'),
+                                        ('WB03', 'WB09', 'T66u6'),
+                                        ('DET02', 'WB09', 'T66u6')):
+            selected = check.TASK_SUITES[(gate, 'T66')].values()
+            for selector in check.TASK_SUITES[(child_gate, child)].values():
+                self.assertTrue(any(selector == s or selector.startswith(s + '.') for s in selected), (gate, selector))
+
     def test_cli_unknown_and_unimplemented_checks_never_pass(self):
         for check_id, expected in [('NO_SUCH_CHECK', 'FAIL'), ('STEP01', 'NOT_IMPLEMENTED')]:
             result = subprocess.run([sys.executable, ROOT / 'tools/check.py', '--check', check_id],

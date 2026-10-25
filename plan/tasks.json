@@ -19567,7 +19567,7 @@
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T24",
         "T70",
@@ -20580,7 +20580,7 @@
       "title": "CDTV",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T66",
         "T50",
@@ -20611,12 +20611,14 @@
         "adapters/libretro/**",
         "integration/bizhawk/**",
         "tests/**",
-        "config/**"
+        "config/**",
+        "tools/check.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CDTV (1M Chip, ROM extendida). Preset CDTV sobre el backend de CD de T66, con la ROM extendida aportada por el usuario.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: blkdev_cdimage.c/bizhawk-cd.h de MacHawk para el backend de CD, y el preset CDTV de src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs.",
-        "Hojas posteriores obligatorias explicitas: T67c3e conecta CDTV fijo al loader publico BizHawk; T67d1 prueba primero ausencia/audio/poll del controlador real antes de abrir cambio en frontends. Padre conserva T66 y todas sus puertas, sin fingir que una hoja completa CDTV entero."
+        "Hojas posteriores obligatorias explicitas: T67c3e conecta CDTV fijo al loader publico BizHawk; T67d1 prueba primero ausencia/audio/poll del controlador real antes de abrir cambio en frontends. Padre conserva T66 y todas sus puertas, sin fingir que una hoja completa CDTV entero.",
+        "Cierre del padre: agregar MED01/DET02/LR01 de las hojas, incluidos estado y snapshot publico, deduplicando modulos/clases/metodos ya cubiertos. Cambiar solo dispatcher y sus pruebas de seleccion; conservar T66 como dependencia y usar la cobertura acumulada real sin repetir emulacion sin causa. Se amplia touch a tools/check.py para esta conexion de checks existente."
       ],
       "checks": [
         "MED01",

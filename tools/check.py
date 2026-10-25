@@ -1079,6 +1079,40 @@ for _gate in ('BUILD01', 'ABI01', 'SRC01'):
                                    'current_source_guest': 'tests.waterbox-smoke.test_legacy_guest.LegacyArtifactTests'}
 TASK_SUITES[('ABI01', 'T40o2')]['legacy_quotient_adapter'] = 'tests.waterbox-smoke.test_legacy_guest.LegacySoftfloatAdapterTests'
 
+def _cd_parent_suites(parent, gates, extra=()):
+    # T66x* are the explicitly deferred NRG extras, outside this release gate.
+    selectors = set(extra)
+    for (gate, task), suites in TASK_SUITES.items():
+        if gate in gates and task != parent and task.startswith(parent) and not task.startswith('T66x'):
+            selectors.update(suites.values())
+    # A module includes its classes/methods; a class includes its methods.
+    selected = []
+    for selector in sorted(selectors, key=lambda value: (len(value), value)):
+        if not any(selector.startswith(covered + '.') for covered in selected):
+            selected.append(selector)
+    return {selector: selector for selector in selected}
+
+
+# The parent contracts keep the real component, public frontend and cold-restore
+# cases. These selectors also belong to the accumulated functional CI selection.
+TASK_SUITES[('MED01', 'T66')] = _cd_parent_suites('T66', ('MED01', 'MED02'), TASK_SUITES[('IN01', 'T70a')].values())
+TASK_SUITES[('DET02', 'T66')] = _cd_parent_suites('T66', ('DET02', 'STATE01', 'LR01', 'WB03'), (
+    *TASK_SUITES[('DET02', 'T70a')].values(), *TASK_SUITES[('WB09', 'T66u6')].values(),
+))
+TASK_SUITES[('LR01', 'T66')] = _cd_parent_suites('T66', ('LR01',), TASK_SUITES[('LR01', 'T70a')].values())
+TASK_SUITES[('WB03', 'T66')] = _cd_parent_suites('T66', ('WB03',), (
+    *TASK_SUITES[('WB03', 'T70a')].values(), *TASK_SUITES[('WB09', 'T66u6')].values(),
+))
+TASK_SUITES[('AV02', 'T66')] = _cd_parent_suites('T66', (), (
+    'tests.audio.test_cd_audio', 'tests.media.test_cd_audio',
+    'tests.media.test_cd_audio_state', 'tests.media.test_cd_device_audio',
+    'tests.media.test_cd_device_state', 'tests.media.test_akiko_state',
+    'tests.libretro-host.test_cd32_load', 'tests.waterbox-media.test_cd_source',
+))
+TASK_SUITES[('MED01', 'T67')] = _cd_parent_suites('T67', ('MED01',))
+TASK_SUITES[('DET02', 'T67')] = _cd_parent_suites('T67', ('DET02', 'STATE01', 'WB03'))
+TASK_SUITES[('LR01', 'T67')] = _cd_parent_suites('T67', ('LR01',))
+
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 
