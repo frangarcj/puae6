@@ -56,8 +56,9 @@ dotnet build src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj -c Release
 
 Seleccionar PUAE6 en los cores preferidos de Amiga. UAE conserva la prioridad
 predeterminada y su identidad. El checkout local original y sus submodulos no
-se modifican. El alcance sigue siendo Darwin ARM64; no se anuncia GUI WinForms
-macOS por la compilacion y las pruebas CLI.
+se modifican. Darwin ARM64 conserva su carril FFI; la preview de producto para
+los probadores utiliza EmuHawk Windows x64. No se anuncia GUI WinForms macOS por compilar o
+ejecutar pruebas CLI.
 
 La prueba dirigida de la aplicacion real compara BK2/TAS, A/V, estado final y
 sandboxes aislados de UAE/PUAE6 con una micro-ROM propia y la referencia UAE
@@ -92,5 +93,34 @@ excluye ningun byte del comparador.
 
 El constructor reconoce macOS ARM64 y Windows x64, comprueba la ISA y el SHA
 fijado en el ensamblado antes de adquirir firmware o medios y vuelve a comprobar
-el guest antes de crear Waterbox. El PR #12 sigue en borrador mientras se conecta
-y prueba el carril Windows real; compilar su guest no acredita su ejecucion.
+el guest antes de crear Waterbox. El carril Windows usa un guest x64 distinto y
+el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su ejecucion en Windows.
+
+
+## Descarga de EmuHawk Windows con PUAE6
+
+Las [releases del fork](https://github.com/frangarcj/BizHawk/releases) son el
+canal de los probadores. Extraer la preview PUAE6 Windows x64 completa en una
+carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
+(.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
+Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
+y autorizada y abrir el contenido. UAE conserva la seleccion predeterminada.
+
+Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
+se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
+fuentes y licencias, incluida la captura musl source-x64.tar.gz que se extrae
+junto con source.tar.gz. El paquete no incluye Kickstart ni juegos comerciales.
+Los otros guests proceden de la release fijada hatari-preview-56ea1841 y conservan
+su aviso CAPSImg y el EmuTOS libre.
+
+La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
+restauracion exacta del estado completo en otro sandbox, comparacion A/V y cuatro
+pruebas CHD nativas. La prueba GUI abre contenido propio, reconoce PUAE6 en la
+ventana visible y la cierra normalmente. Solo esa configuracion temporal usa el
+fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
+cambia la configuracion distribuida ni elimina la comparacion del PCM emulado.
+
+Estados y peliculas dependen del build, configuracion y medios; no son
+intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
+el caso CU06 pendiente siguen como extras. JIT, MMU, RTG y CD32 FMV no estan
+habilitados en esta preview.
