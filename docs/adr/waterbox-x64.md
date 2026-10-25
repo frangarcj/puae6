@@ -46,3 +46,22 @@ con valor0 es la conversion de una referencia weak oculta segun
 no una peticion de binding externo; globales sin resolver siguen rechazados.
 El objeto audio.cpp x64 llama a floorf para la fase del resampler (upstream
 linea2436), por lo que se permite esa funcion libm del sysroot estatico.
+
+La reconstruccion offline preparada en T83d se invoca con:
+
+```sh
+python3 tools/build_waterbox_x64_sysroot.py --llvm-source build/source-cache/llvm-emutls --output build/waterbox-x64-sysroot-rebuilt
+```
+
+Sin `--execute` verifica fuentes/herramientas y prepara el comando (salida3,
+`NOT_RUN`); solo `--execute` inicia la compilacion. Un worktree puede leer las
+capturas de otro checkout mediante `--source-root /ruta/uae`, si su lock coincide.
+La imagen amd64 existente queda fijada por ID y hashes/versiones de herramientas.
+No hay red, descargas ni instalaciones: musl/MacHawk/LLVM se montan readonly.
+La derivacion aplica los parches getcwd/atomics capturados, reproduce VERSION
+1.2.0-git y usa GNU ld explicitamente en el wrapper local porque falta LLD en
+esa imagen. Las cuatro fases reconstruyen builtins/unwind/libc++/libc++abi.
+Un inventario distinto del cache historico es una identidad nueva valida, sin
+modificar el pin del producto: exige recompilar el guest con ese derivado.
+El recibo conserva `publication_ready=false` y `runtime_verified=false`; la
+receta no sustituye las puertas de ejecucion ni afirma igualdad binaria historica.

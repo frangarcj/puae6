@@ -54,5 +54,66 @@
     "source": "references/machawk/waterbox/linkscript.T",
     "sha256": "3a5f16e86596f0bb4b254b0fa0c4ba68effbf8a438ef34bbfbe7b179692cd536",
     "derived_sha256": "53752a88ae36bf46c0483c952915b8a143565f97c5b7e5d6b1ac98f205fff9c5"
+  },
+  "sysroot_rebuild": {
+    "status": "recipe_prepared_not_executed",
+    "image_id": "sha256:f140966c41c141f699376ec67fd032b15c19712bef327e38ac19181d08c51523",
+    "platform": "linux/amd64",
+    "llvm_inventory_sha256": "47ea5d1b3d4b0a8a3f78913743b195ffcb93caaa91cb9a215725e65ae3d69f1a",
+    "source_ids": [
+      "waterbox_musl",
+      "machawk",
+      "compiler_rt_emutls"
+    ],
+    "tools": {
+      "clang": {
+        "path": "/usr/bin/clang",
+        "version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+        "sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45"
+      },
+      "gcc": {
+        "path": "/usr/bin/gcc",
+        "version": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+      },
+      "cmake": {
+        "path": "/usr/bin/cmake",
+        "version": "cmake version 3.28.3",
+        "sha256": "1c5227af4edd22d8d689def545e18ee458260c0fd579eba2187967f38817e638"
+      },
+      "make": {
+        "path": "/usr/bin/make",
+        "version": "GNU Make 4.3",
+        "sha256": "d78b8f1d099fbcfb6f2f49ab87223b9b68fb3956642f92d6ec6de812e8afa965"
+      },
+      "ar": {
+        "path": "/usr/bin/ar",
+        "version": "GNU ar (GNU Binutils for Ubuntu) 2.42",
+        "sha256": "6452af2eea333b8c65e1adb92964fc8f97863ab003fa13f9d12bff5345cd7dbe"
+      },
+      "ranlib": {
+        "path": "/usr/bin/ranlib",
+        "version": "GNU ranlib (GNU Binutils for Ubuntu) 2.42",
+        "sha256": "60254978b8ee2c1b21b41d16a18a621dbbcc72e43eb2fa9f916818256c77e9ee"
+      },
+      "ld": {
+        "path": "/usr/bin/ld",
+        "version": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+        "sha256": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b"
+      },
+      "python3": {
+        "path": "/usr/bin/python3",
+        "version": "Python 3.12.3",
+        "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+      },
+      "git": {
+        "path": "/usr/bin/git",
+        "version": "git version 2.43.0",
+        "sha256": "eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201"
+      }
+    },
+    "linker": "/usr/bin/ld (GNU ld), explicit replacement in a derived musl wrapper; not historical LLD equivalence",
+    "musl_flags": "-Werror -fvisibility=hidden -mcmodel=large -mstack-protector-guard=global -fno-pic -fno-pie -fcf-protection=none -DWBX_HOST_PAGE_SIZE=4096",
+    "publication_ready": false
   }
 }
