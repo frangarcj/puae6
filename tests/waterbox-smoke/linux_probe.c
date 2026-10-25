@@ -85,7 +85,11 @@ static uintptr_t make(struct Blob *image, uint64_t seed, uint64_t *context)
     require(out[0] == UINT64_C(0xcafe123456789abc) && out[16] == out[0], "ABI canaries");
     for (unsigned i = 0; i < 6; ++i) require(out[i + 1] == 0xb001 + i, "SysV nonvolatile register");
     require(out[7] == 3111 && out[8] && out[8] == out[9], "callback result and GS context");
-    require(out[10] == 7 && out[11] == 0x1234 && out[12] == UINT64_MAX && out[13] == 9 && out[14] == 7 && out[15] == 43, "TLS/errno survive callback and real close syscall");
+    /* Captured host.rs:arg_to_fd rejects negative descriptors with EBADFD=77
+     * before fs::close can return EBADF=9. This probes Waterbox's syscall ABI. */
+    int abi_valid = out[10] == 7 && out[11] == 0x1234 && out[12] == UINT64_MAX && out[13] == 77 && out[14] == 7 && out[15] == 43;
+    if (!abi_valid) fprintf(stderr, "ABI observed TLS=%llu errno=%llu close=%lld close_errno=%llu TLS_after=%llu constructor=%llu\n", (unsigned long long)out[10], (unsigned long long)out[11], (long long)out[12], (unsigned long long)out[13], (unsigned long long)out[14], (unsigned long long)out[15]);
+    require(abi_valid, "TLS/errno survive callback and real close syscall");
     *context = out[8]; require(((Status)proc(h, "linux_capacity"))() == 1, "allocator capacity refusal");
     r = (struct Result){0}; api.proc(h, "nonexistent_export", &r); require(checked(&r) == 0, "missing export is null");
     action(api.seal, h); action(api.deactivate, h); return h;
