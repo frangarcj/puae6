@@ -22343,7 +22343,7 @@
       "title": "CD32 FMV (MPEG-2) y cartuchos CD32 (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T66"
       ],
@@ -22354,11 +22354,14 @@
       ],
       "touch": [
         "docs/adr/future-cd.md",
-        "plan/extensions/cd.json"
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Lo obligatorio de CD32/CDTV paso a T66/T67; queda el modulo FMV opcional.",
-        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: cd32_fmv.c/.h de uae-waterbox.patch."
+        "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: cd32_fmv.c/.h de uae-waterbox.patch.",
+        "El coordinador valida el subplan y registra AV01/DET02 conservando los escenarios CD32 actuales acumulados; ninguna prueba actual acredita FMV futuro. No ampliar perfiles ni anunciar decodificacion funcional desde un estudio."
       ],
       "checks": [
         "AV01",
