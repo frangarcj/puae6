@@ -165,3 +165,20 @@ con configuracion y TOC independientes que distingan los significados pendientes
 una etiqueta, un literal o esta lectura estatica parcial no sustituyen ese
 oraculo. No se incorpora codigo ni binarios propietarios al proyecto y esta
 decision no cierra T66.
+
+## Limite de las referencias PUAE5 y WinUAE 6
+
+Los parsers `parsenrg` de [PUAE5 fijado](https://github.com/libretro/libretro-uae/blob/6536174a80d74e6c325aaa5390ff091fac8761d0/sources/src/blkdev_cdimage.c#L2000)
+y [WinUAE 6.0.3](https://github.com/tonioni/WinUAE/blob/857f48fcb09399d4d95527e29a2fdeaedb41f827/blkdev_cdimage.cpp#L1972)
+no contienen una rama TINF. Ambos leen ETN2 solamente mientras `gotsession`
+es falso y fijan el numero de pistas con el primer SINF; el parser de la
+referencia MacHawk conserva esas mismas condiciones. No reconstruyen una tabla
+completa de sesiones ETN2 y no sirven de oraculo para esa normalizacion.
+Esto permite afirmar soporte ETN2 de una sesion, no soporte multisesion completo;
+no excluye que algun archivo multisesion pueda abrirse parcialmente.
+
+TINF y ETN2 multisesion completo amplian la paridad con esas referencias.
+Su implementacion requiere el contrato independiente descrito arriba. Este
+limite de la referencia no retira los requisitos actuales de T66 ni cambia
+sus dependencias: aplazarlos para una primera entrega requiere una decision
+explicita de alcance. Mientras tanto se conservan los rechazos existentes.
