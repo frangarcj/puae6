@@ -208,3 +208,84 @@ class LinuxWaterboxBuildTests(unittest.TestCase):
         self.assertEqual(64, len(result['runtime_sha256']))
         self.assertEqual(64, len(result['sysroot_inventory_sha256']))
         print('P6_LINUX_WATERBOX_PREPARATION ' + json.dumps(result, sort_keys=True))
+
+
+class LinuxWaterboxSmokeTests(unittest.TestCase):
+    def result(self):
+        return dict(schema_version=1, status='PASS', scope='WB01_MINICORE', assertions=300, **probe.COUNTS)
+
+    def image(self):
+        data = bytearray(128); data[:7] = b'\x7fELF\x02\x01\x01'
+        struct.pack_into('<HH', data, 16, 2, 62); struct.pack_into('<QQ', data, 24, 0x36f00000078, 64)
+        struct.pack_into('<HHH', data, 52, 64, 56, 1)
+        struct.pack_into('<IIQQQQQQ', data, 64, 1, 5, 0, 0x36f00000000, 0, 128, 128, 4096)
+        return data
+
+    def test_marker_counts_scope_and_duplicates_cannot_hide_missing_work(self):
+        good = probe.RESULT_MARKER + json.dumps(self.result())
+        self.assertEqual(probe.validate_result(good), self.result())
+        for key in probe.COUNTS:
+            record = self.result(); record[key] -= 1
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'incomplete'):
+                probe.validate_result(probe.RESULT_MARKER + json.dumps(record))
+        for text in ('', probe.RESULT_MARKER + '[]', good + '\n' + good, good.replace('WB01_MINICORE', 'NATIVE'), good.replace('"schema_version": 1', '"schema_version": true'), good.replace('"frames": 15', '"frames": 0, "frames": 15')):
+            with self.assertRaises(ValueError): probe.validate_result(text)
+
+    def test_static_elf_requires_bounded_load_table_and_executable_entry(self):
+        (probe.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=probe.ROOT / 'build') as tmp:
+            path = Path(tmp) / 'own-elf'; path.write_bytes(self.image()); probe.guest_elf(path)
+            for field, value in [(64, 3), (64, 2), (68, 4)]:
+                data = self.image(); struct.pack_into('<I', data, field, value); path.write_bytes(data)
+                with self.assertRaises(ValueError): probe.guest_elf(path)
+            path.write_bytes(self.image()[:100])
+            with self.assertRaisesRegex(ValueError, 'headers'): probe.guest_elf(path)
+
+    def test_driver_authenticates_before_and_after_and_cleans_all_owned_outputs(self):
+        (probe.ROOT / 'build').mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=probe.ROOT / 'build') as tmp:
+            root = Path(tmp); output = root / probe.OUTPUT; output.mkdir(parents=True)
+            runtime = output / 'runtime.so'; header = self.image(); struct.pack_into('<H', header, 16, 3); runtime.write_bytes(header)
+            names = ('tests/waterbox-smoke/linux_guest.c', 'tests/waterbox-smoke/linux_probe.c')
+            for name in names:
+                path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'own source, never compiled')
+            prepared = {'output': str(output), 'inputs': {'authority': {'tools': {n: {'path': '/own/' + n} for n in ('clang', 'lld')}}}, 'sysroot_inventory_sha256': 'a' * 64}
+            commands = []; stages = []
+            def execute(argv, cwd, env):
+                commands.append(list(map(str, argv))); stages.append(cwd)
+                self.assertEqual(env['HOME'], str(cwd)); self.assertNotIn('LD_PRELOAD', env)
+                target = Path(argv[argv.index('-o') + 1]); data = self.image()
+                if target.name == 'linux_probe': struct.pack_into('<H', data, 16, 3)
+                target.write_bytes(data)
+            good = probe.RESULT_MARKER + json.dumps(self.result())
+            child_result = type('OwnChild', (), {'returncode': 0, 'stdout': good, 'stderr': ''})()
+            with mock.patch.object(probe, 'prepare', return_value=prepared), mock.patch.object(probe, 'verify', return_value=prepared) as verify, mock.patch.object(probe, 'execute', side_effect=execute), mock.patch.object(probe.subprocess, 'run', return_value=child_result) as child:
+                result = probe.smoke(root)
+                self.assertEqual(result['scope'], 'WB01_MINICORE'); self.assertEqual(result['runtime_sha256'], probe.sha(runtime))
+                self.assertEqual(set(result['source_sha256']), set(names)); self.assertEqual(len(child.call_args.args[0]), 3)
+                self.assertTrue(all(not path.exists() for path in stages))
+                self.assertTrue(any('--start-group' in c and '-static' in c for c in commands))
+                self.assertTrue(all('-nostdinc' in c for c in commands if '-c' in c))
+                for code, text in [(1, good), (0, ''), (0, good + '\n' + good)]:
+                    child_result.returncode = code; child_result.stdout = text
+                    with self.assertRaises(ValueError): probe.smoke(root)
+                child_result.returncode = 0; child_result.stdout = good
+                verify.side_effect = [prepared, {**prepared, 'changed': True}]
+                with self.assertRaisesRegex(ValueError, 'changed during'): probe.smoke(root)
+                verify.side_effect = None
+                def mutate(argv, **kwargs):
+                    Path(argv[2]).write_bytes(b'changed guest after execution'); return child_result
+                child.side_effect = mutate
+                with self.assertRaisesRegex(ValueError, 'changed during'): probe.smoke(root)
+            self.assertFalse(any((root / 'build').glob('linux-wb01-smoke-*')))
+
+
+@unittest.skipUnless(os.environ.get('P6_LINUX_WATERBOX_SMOKE') == '1', 'requires pinned native Linux x86_64 Waterbox inputs')
+class LinuxWaterboxRuntimeTests(unittest.TestCase):
+    def test_real_runtime_and_guest_preserve_exact_snapshot_and_abi(self):
+        result = probe.smoke()
+        self.assertEqual((result['status'], result['scope']), ('PASS', 'WB01_MINICORE'))
+        self.assertTrue(all(result[k] == n for k, n in probe.COUNTS.items()))
+        for name in ('runtime_sha256', 'guest_sha256', 'host_sha256'):
+            self.assertEqual(64, len(result[name]))
+        print(probe.RESULT_MARKER + json.dumps(result, sort_keys=True))

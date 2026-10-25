@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inventory or prepare pinned Linux inputs; no global installs or guest execution."""
+"""Inventory, prepare, or run the pinned Linux WB01 mini-core; no global installs."""
 import argparse
 try:
     import fcntl
@@ -175,7 +175,7 @@ def pinned_inputs(root=ROOT):
 def elf(path, kind):
     with Path(path).open('rb') as stream:
         header = stream.read(64)
-    if len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01' or struct.unpack_from('<HH', header, 16) != (kind, 62):
+    if len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01' or struct.unpack_from('<H', header, 18)[0] != 62 or struct.unpack_from('<H', header, 16)[0] not in (kind if isinstance(kind, tuple) else (kind,)):
         raise ValueError('wrong Linux x86_64 ELF: ' + str(path))
 
 
@@ -278,18 +278,94 @@ def _prepare(root, before):
     return verify(output, root)
 
 
+RESULT_MARKER = 'P6_LINUX_WATERBOX_RESULT '
+COUNTS = dict(frames=15, callbacks=3, snapshots=23, mismatch_rejections=1, max_live_sandboxes=2, sandboxes_created=3, host_page_bytes=4096)
+
+
+def validate_result(text):
+    lines = [line[len(RESULT_MARKER):] for line in text.splitlines() if line.startswith(RESULT_MARKER)]
+    if len(lines) != 1:
+        raise ValueError('missing or duplicate WB01 result')
+    def unique(pairs):
+        result = dict(pairs)
+        if len(result) != len(pairs):
+            raise ValueError('duplicate WB01 result key')
+        return result
+    result = json.loads(lines[0], object_pairs_hook=unique)
+    if not isinstance(result, dict) or type(result.get('schema_version')) is not int or set(result) != {'schema_version', 'status', 'scope', 'assertions', *COUNTS} or result['schema_version'] != 1 or result['status'] != 'PASS' or result['scope'] != 'WB01_MINICORE':
+        raise ValueError('wrong WB01 result schema/scope')
+    if any(type(result[k]) is not int or result[k] != n for k, n in COUNTS.items()) or type(result['assertions']) is not int or result['assertions'] <= 0:
+        raise ValueError('incomplete WB01 assertions/cases')
+    return result
+
+
+def guest_elf(path):
+    elf(path, 2)
+    if Path(path).stat().st_size > 64 << 20:
+        raise ValueError('guest ELF exceeds bound')
+    data = Path(path).read_bytes(); offset = struct.unpack_from('<Q', data, 32)[0]
+    size, count = struct.unpack_from('<HH', data, 54)
+    if size != 56 or not 1 <= count <= 64 or offset < 64 or offset + size * count > len(data):
+        raise ValueError('malformed guest ELF program headers')
+    entry = struct.unpack_from('<Q', data, 24)[0]; executable = False
+    for index in range(count):
+        kind, flags, start, address, _, files, memory, _ = struct.unpack_from('<IIQQQQQQ', data, offset + index * size)
+        if kind in (2, 3):
+            raise ValueError('guest must be static without interpreter')
+        if kind == 1:
+            if files > memory or start + files > len(data) or (address - start) % 4096:
+                raise ValueError('malformed guest ELF segment')
+            executable |= bool(flags & 1 and address <= entry < address + memory)
+    if not executable:
+        raise ValueError('guest entry is not executable')
+
+
+def smoke(root=ROOT):
+    prepared = prepare(root); output = Path(prepared['output'])
+    names = ('tests/waterbox-smoke/linux_guest.c', 'tests/waterbox-smoke/linux_probe.c')
+    source_hashes = {name: sha(root / name) for name in names}
+    tools = {name: pin['path'] for name, pin in prepared['inputs']['authority']['tools'].items()}
+    sysroot = output / 'sysroot'; runtime = output / 'runtime.so'
+    with tempfile.TemporaryDirectory(prefix='linux-wb01-smoke-', dir=root / 'build') as tmp:
+        stage = Path(tmp); guest = stage / 'guest.wbx'; host = stage / 'linux_probe'
+        env = {'PATH': '/usr/bin:/bin', 'HOME': str(stage), 'TMPDIR': str(stage), 'LANG': 'C.UTF-8'}
+        emulibc = root / 'references/machawk/waterbox/emulibc'
+        flags = [*shlex.split(MUSL_FLAGS), '-O2', '-Wall', '-std=c11', '-DWBX_HOST_PAGE_SIZE=4096',
+                 '-nostdinc', '-isystem', str(sysroot / 'include'), '-I', str(emulibc)]
+        for source, target in ((root / names[0], stage / 'guest.o'), (emulibc / 'emulibc.c', stage / 'emulibc.o')):
+            execute([tools['clang'], *flags, '-c', source, '-o', target], stage, env)
+        execute([tools['lld'], '-flavor', 'gnu', '-static', '--no-dynamic-linker', '--eh-frame-hdr', '-O2',
+                 '-T', root / 'references/machawk/waterbox/linkscript.T', sysroot / 'lib/crt1.o', sysroot / 'lib/crti.o',
+                 stage / 'guest.o', stage / 'emulibc.o', '--start-group', sysroot / 'lib/libc.a', '--end-group', sysroot / 'lib/crtn.o', '-o', guest], stage, env)
+        execute([tools['clang'], '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', root / names[1], '-ldl', '-o', host], stage, env)
+        guest_elf(guest); elf(host, (2, 3)); elf(runtime, 3)
+        binaries = {str(path): sha(path) for path in (runtime, guest, host)}
+        if verify(root=root) != prepared or source_hashes != {name: sha(root / name) for name in names}:
+            raise ValueError('WB01 inputs changed before execution')
+        child = subprocess.run([str(host), str(runtime), str(guest)], cwd=stage, env=env, text=True, capture_output=True, timeout=180)
+        if child.returncode or len(child.stdout) + len(child.stderr) > 1 << 20:
+            raise ValueError(f'WB01 child failed ({child.returncode}): ' + child.stdout[-1500:] + child.stderr[-1500:])
+        result = validate_result(child.stdout)
+        if binaries != {str(path): sha(path) for path in (runtime, guest, host)} or verify(root=root) != prepared or source_hashes != {name: sha(root / name) for name in names}:
+            raise ValueError('WB01 inputs/binaries changed during execution')
+        return {**result, 'runtime_sha256': binaries[str(runtime)], 'guest_sha256': binaries[str(guest)], 'host_sha256': binaries[str(host)],
+                'source_sha256': source_hashes, 'preparation_sha256': canonical(prepared), 'sysroot_inventory_sha256': prepared['sysroot_inventory_sha256']}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument('--inventory', action='store_true')
     selection.add_argument('--prepare', action='store_true')
+    selection.add_argument('--smoke', action='store_true')
     args = parser.parse_args()
+    marker = MARKER if args.inventory else RESULT_MARKER if args.smoke else 'P6_LINUX_WATERBOX_PREPARATION '
     try:
-        result = inventory() if args.inventory else prepare()
+        result = inventory() if args.inventory else smoke() if args.smoke else prepare()
     except (ValueError, OSError, KeyError, TypeError, StopIteration, subprocess.SubprocessError) as error:
-        print((MARKER if args.inventory else 'P6_LINUX_WATERBOX_PREPARATION ') + json.dumps({'schema_version': 1, 'status': 'BLOCKED', 'scope': 'inventory/preparation only; no WB01 execution', 'error': str(error)}))
+        print(marker + json.dumps({'schema_version': 1, 'status': 'BLOCKED', 'scope': 'requested Linux WB01 phase failed; no execution credited', 'error': str(error)}))
         return 2
-    print((MARKER if args.inventory else 'P6_LINUX_WATERBOX_PREPARATION ') + json.dumps(result, sort_keys=True))
+    print(marker + json.dumps(result, sort_keys=True))
     return 2 if result['status'] == 'BLOCKED' else 0
 
 
