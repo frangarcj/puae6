@@ -40,3 +40,29 @@ revisión y ruta; esta comparación no demuestra independencia de ruta.
 `archive_payload_matches` compara los ocho productos con el ZIP indicado; no
 afirma igualdad byte a byte del ZIP completo ni integración EmuHawk. El gate real
 PKG01/BUILD01 de T40i requiere `P6_TEST_WATERBOX_REPRODUCIBLE=1`; sin ello queda BLOCKED.
+
+
+## Integracion MacHawk solicitada
+
+La rama [`codex/puae6-machawk`](https://github.com/frangarcj/BizHawk/tree/codex/puae6-machawk)
+integra las fuentes del wrapper en BizHawk.Emulation.Cores, junto con registro,
+carga de medios y peliculas. Incluye el ZIP verificado con su fuente completa,
+una preparacion offline y el pin del guest; no se instala el DLL standalone.
+
+```sh
+python3 waterbox/puae6/prepare.py
+dotnet build src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj -c Release -p:InstallGitHooks=false
+```
+
+Seleccionar PUAE6 en los cores preferidos de Amiga. UAE conserva la prioridad
+predeterminada y su identidad. El checkout local original y sus submodulos no
+se modifican. El alcance sigue siendo Darwin ARM64; no se anuncia GUI WinForms
+macOS por la compilacion y las pruebas CLI.
+
+La prueba dirigida de la aplicacion real compara BK2/TAS, A/V, estado final y
+sandboxes aislados de UAE/PUAE6 con una micro-ROM propia y la referencia UAE
+compilada desde fuentes (incluye la correccion setjmp ya validada). El
+`uae.wbx.zst` local antiguo SHA `ba1bc2f601214b205132ad86325f6dbaf3e4c7780ac12d4a82b160683642c857`
+carece de SetCDVolume y no carga con el wrapper actual; se conserva y no se
+atribuye a ese binario el resultado de la referencia. El runtime nuevo pasa
+ademas un smoke separado del Snes9x existente con save/restore y video+RAM.

@@ -24154,6 +24154,44 @@
       "blocked_reason": "El runner no tiene AdvrCntr6 registrado y no puede iniciar Nero. Falta productor funcional y TOC independiente de dos sesiones: H1 cursor global; H2 reinicio/ajustes de lead-in/out. Inspeccion parcial del escritor no decide el contrato. Extra posterior a T41, sin soporte anunciado."
     },
     {
+      "id": "T81",
+      "title": "Integrar y subir PUAE6 en el fork MacHawk por peticion del usuario",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T41",
+        "T80"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/release-notes.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/**",
+        "tests/test_machawk_integration.py",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Peticion del usuario de 2026-10-25 autoriza integrar y subir al fork frangarcj/BizHawk. Usar worktree aislado desde fork/main, conservar checkout y submodulos locales; no subir historial privado de PUAE6.",
+        "Importar las fuentes C# y cola ya probadas, conectar guest ARM64 y runtime fijados con fuentes/licencias y una preparacion reproducible sin instalaciones globales. Excepcion de tamano: importacion de la integracion existente, sin reescritura del motor.",
+        "Compilar la aplicacion real y probar carga explicita y replay BK2/TAS de UAE/PUAE6 con medios propios; publicar solo paquete verificado y rama limpia. La comprobacion CLI no acredita GUI WinForms macOS.",
+        "Integracion subida a frangarcj/BizHawk, rama codex/puae6-machawk, HEAD 4a1be82d8aaa3b03cf8b25b15eb631eee0b866ee, PR #11 abierto. BUILD01 dirigido pasa con UAE de referencia compilado desde fuentes; Snes9x pasa con runtime9def19. El UAE local antiguo carece de SetCDVolume: se conserva y no se le atribuye ese PASS."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "MacHawk registra y carga PUAE6 con el guest correcto; UAE conserva su seleccion y replay en la prueba dirigida real.",
+        "Rama y fuentes binarias correspondientes accesibles en el fork/publicacion autorizada, sin ROMs, juegos, HDF privados ni cambios ajenos."
+      ],
+      "stop": "Un fallo real de integracion bloquea la ficha; no repetir la matriz del motor sin cambio relevante."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

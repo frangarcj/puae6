@@ -1165,6 +1165,7 @@ for _gate, _directories in (
 
 TASK_SUITES[('PKG01', 'T41')] = _cd_parent_suites('T40', ('PKG01',))
 TASK_SUITES[('PLAN01', 'T41')] = {'plan': 'tests.test_plan', 'dispatcher': 'tests.contracts.test_dispatcher'}
+TASK_SUITES[('BUILD01', 'T81')] = {'machawk_integration': 'tests.test_machawk_integration'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
 TASK_SUITES[('WB09', 'T41')] = {
@@ -1245,6 +1246,8 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
         executed.append(name)
     diagnostic = ('Contrato documental, pin y subbacklog comprobados; no se ejecuta la feature ni un runtime nuevo'
                   if study_only else 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion')
+    if task == 'T81':
+        diagnostic = 'Aplicacion MacHawk real: UAE de referencia y PUAE6, replay BK2/TAS y aislamiento; no acredita GUI'
     return finish('PASS', diagnostic, wanted, 'HARNESS')
 
 
