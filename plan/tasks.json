@@ -24327,7 +24327,8 @@
         "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
         "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
         "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha.",
-        "BUILD01 GUI real Release PASS: menu Settings abre dialogo Cocoa, refleja todas las propiedades, aplica volumen P10 en vivo y seed=2 pendiente sin cambiar seed=1 ni avanzar el core durante el dialogo; replay de cuatro unidades estado/video/PCM exacto, audio real y raton. Revision manual ve ambas pestañas y salida Cmd-Q; HDF se deshabilita sin disco. No acredita las herramientas WinForms en Eto."
+        "BUILD01 GUI real Release PASS: menu Settings abre dialogo Cocoa, refleja todas las propiedades, aplica volumen P10 en vivo y seed=2 pendiente sin cambiar seed=1 ni avanzar el core durante el dialogo; replay de cuatro unidades estado/video/PCM exacto, audio real y raton. Revision manual ve ambas pestañas y salida Cmd-Q; HDF se deshabilita sin disco. No acredita las herramientas WinForms en Eto.",
+        "Cambios subidos junto a los hooks de EmuHawk en PR draft https://github.com/frangarcj/BizHawk/pull/12, rama codex/puae6-macos-preview, commit ce4c778c3. No se publica release ni se cierra paridad general."
       ],
       "acceptance": [
         "Menus Cocoa Amiga Settings y Export Hard Disk conectados a ajustes/API reales, junto a Open/Close, estados, pausa y Reboot Core.",
@@ -24356,16 +24357,28 @@
         "T82d"
       ],
       "touch": [
-        "integration/bizhawk/core/Puae6/**",
-        "integration/bizhawk/waterbox/**",
-        "src/**",
-        "include/**",
-        "patches/winuae/**",
-        "tests/**",
-        "tools/check.py"
+        "bridge/include/p6.h",
+        "bridge/session.h",
+        "bridge/lifecycle.cpp",
+        "bridge/frame_step.cpp",
+        "bridge/state.cpp",
+        "adapters/waterbox/puae6_guest.cpp",
+        "adapters/waterbox/p6w.h",
+        "adapters/waterbox/exports.txt",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/lifecycle/**",
+        "tests/step/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "tests/ffi/Session.cs",
+        "tools/check.py",
+        "docs/02-contracts.md"
       ],
       "steps": [
-        "El inventario de menus revela que UAE publica Reset y Power y PUAE6 solo Power. Resolver la diferencia funcional con vertical pequeña y check dirigido antes de prometer paridad."
+        "El inventario de menus revela que UAE publica Reset y Power y PUAE6 solo Power. Resolver la diferencia funcional con vertical pequeña y check dirigido antes de prometer paridad.",
+        "Revision de codigo: UAE_RESET=2 ya tiene primitive real en el head upstream, hard=4 limpia RAM y soft la conserva. Añadir simbolos ABI aditivos sin cambiar p6_reset; persistir y validar modo pendiente 0/1/2, hard prevalece. Probar marcador RAM 1 tras hard y 2 tras soft, estado con soft pendiente y futuro exacto en Waterbox. Requiere guest nuevo e identidad nueva; no es un cambio de etiquetas del menu."
       ],
       "acceptance": [
         "Reset suave real, distinto del hard reset, en la API comun y el controlador BizHawk, con reproducer determinista y restauracion.",
