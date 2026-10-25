@@ -24688,6 +24688,44 @@
       "stop": "Dosfallosrazonados bloquean conhipotesis; sinpaquetesglobales ni modificarMacHawkoriginal."
     },
     {
+      "id": "T83c",
+      "title": "Seleccion de identidad Waterbox para Windowsx64 y DarwinARM64 en el core real",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83a"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-x64.md",
+        "integration/bizhawk/core/Puae6/GuestIdentity.cs",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/GuestIdentity.cs",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/waterbox-state/test_guest_identity_x64.py"
+      ],
+      "steps": [
+        "Para el ZIPWindows que usanlostesters, el wrapper debeadmitir ELF62/Windowsx64 y conservar ELF183/DarwinARM64. Guesthash siguepin decompilacion porpaquete (Puae6GuestSha256); no convertirloenhashcalculado deunarchivoarbitrario al cargar. La CI compila porhostconelguestfijado y los builds no sonintercambiables.",
+        "Agente enworktreeaislado reutilizadoy limpio tras T83b: cambiossolo4touch, sinmetadata/artefactos/buildsgrandes/push. ConservarVerify/CheckElf defaultARM para llamadoresexistentes; parametroexplicito deISA soportada parafixtures y seleccionarhostreal antesde crear sandbox oadquirirfirmware/medios. Windows no admiteARMELF ni Darwinx64 guest x86 si nohabilitado.",
+        "Pruebasconheaders ELF propios y SHAexacto deambosISA; negativos (.zst,hash,byteorder,otherISA) conservados. No anunciar ejecucionWindows desdeestosfixtures; elrunnerreal yensambladosEmuHawk van enlasiguientefase."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Wrapper rechaza ISA/host/guesthash equivocados antesdeWaterbox y permite exclusivamente DarwinARM64 yWindowsx64 conguestdelbuild. CasosARMexistentes se conservan yfixturesx64seleccionanexplícitamente esaISA.",
+        "Pruebamanagedreal validaheaders/pins/errores, ycorestandalone/EmuHawk compilan conlasmismasfuentes; nopingWindowsdesdeDarwin, nofondear unsupported comoPASS."
+      ],
+      "stop": "Dosfallosmismo comportamiento bloquean conrepro; no hacerpasarheadersx64 alectorARM ni calcularunpinenruntimeparaaceptarcualquierguest."
+    },
+    {
       "id": "T82c",
       "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
       "milestone": "M4",
