@@ -24586,13 +24586,15 @@
         "docs/user/waterbox-preview.md",
         "tools/check.py",
         "tests/test_plan.py",
-        "tests/test_machawk_integration.py"
+        "tests/test_machawk_integration.py",
+        "manifests/release/waterbox-preview.json"
       ],
       "steps": [
         "Tras oraclecausalT82i y revision ABI, promoverparchecon ASM/binario generado y fijar before/after/SHA; aplicar soloDarwin enMacHawk con sourcebin exactos. ContratoContext/frame/argumentosx18/x28 quedan intactos; no tocar engine/ABIsetjmp ni LinuxARM.",
         "Actualizacionatomica del patchset,pins,oraculo y artefactos de integracion: mantenercontroloriginal reconstruible al probar un runtimeproducto yacanonico. No debilitar el comparador de coexistencia; compilar serialmente trasdeltaabiprobeT83a para mantenerfuentes/recibos coherentes.",
         "Una candidata de runtime/guest con inputs actuales, gatesdirigidos ABIcallback/reentrada/restauracion y caso originalEmuHawkBK2/TAS, sin repetir matricesmotor. Rehacerpaquetefuentelicencias solo cuando binariospins actuales verificables.",
-        "La prueba diagnosticaT82h debe conservar la localizacion ante error y admitir observacion de no-reproduccion cuando la candidata corrige el fallo; el gate de release original permanece exigiendoPASS de los cuatrocasos sinnormalizar. El control negativo del decodificador sigue enfixtures propios."
+        "La prueba diagnosticaT82h debe conservar la localizacion ante error y admitir observacion de no-reproduccion cuando la candidata corrige el fallo; el gate de release original permanece exigiendoPASS de los cuatrocasos sinnormalizar. El control negativo del decodificador sigue enfixtures propios.",
+        "Actualizar únicamente el hash plan/toolchains.json de la política de fuentes al promover el runtime: la receta fuente debe corresponder a los binarios nuevos antes de empaquetar, sin ampliar exclusiones ni licencias."
       ],
       "checks": [
         "WB03",
@@ -24633,7 +24635,8 @@
         "docs/adr/waterbox-x64.md",
         "build/waterbox-x64/**",
         "adapters/waterbox/abi_probe.cpp",
-        "ports/waterbox/imports.json"
+        "ports/waterbox/imports.json",
+        "tools/check.py"
       ],
       "steps": [
         "Usuario aclara que los testers descargan releases deGitHub. gh confirma paquetesWindowsx64 del workflowhatari-waterbox-preview.yml; el bancoEto noes producto. MantenerARM64 y añadir carrilx64 necesario para ese paquete; no asumir soporteWindows desde Darwin.",
@@ -24671,7 +24674,8 @@
         "ports/portable/media/chd_host.cpp",
         "ports/portable/media/chd_host.h",
         "integration/bizhawk/chd-host/CMakeLists.txt",
-        "tests/media/test_chd_host_windows.py"
+        "tests/media/test_chd_host_windows.py",
+        "tools/check.py"
       ],
       "steps": [
         "ReleaseWindowsreal encontrada via gh porindicaciondelusuario. El host CHD actual rechazaWIN32 y usa soloPOSIX; portar esta frontera sin cambiarlector/codec/metadatos. Mantener oneowner/thread noreentry documentado.",
@@ -24692,7 +24696,7 @@
       "title": "Seleccion de identidad Waterbox para Windowsx64 y DarwinARM64 en el core real",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T83a"
       ],
@@ -24709,12 +24713,14 @@
         "integration/bizhawk/core/Puae6/GuestIdentity.cs",
         "integration/bizhawk/core/Puae6/Puae6Guest.cs",
         "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
-        "tests/waterbox-state/test_guest_identity_x64.py"
+        "tests/waterbox-state/test_guest_identity_x64.py",
+        "tools/check.py"
       ],
       "steps": [
         "Para el ZIPWindows que usanlostesters, el wrapper debeadmitir ELF62/Windowsx64 y conservar ELF183/DarwinARM64. Guesthash siguepin decompilacion porpaquete (Puae6GuestSha256); no convertirloenhashcalculado deunarchivoarbitrario al cargar. La CI compila porhostconelguestfijado y los builds no sonintercambiables.",
         "Agente enworktreeaislado reutilizadoy limpio tras T83b: cambiossolo4touch, sinmetadata/artefactos/buildsgrandes/push. ConservarVerify/CheckElf defaultARM para llamadoresexistentes; parametroexplicito deISA soportada parafixtures y seleccionarhostreal antesde crear sandbox oadquirirfirmware/medios. Windows no admiteARMELF ni Darwinx64 guest x86 si nohabilitado.",
-        "Pruebasconheaders ELF propios y SHAexacto deambosISA; negativos (.zst,hash,byteorder,otherISA) conservados. No anunciar ejecucionWindows desdeestosfixtures; elrunnerreal yensambladosEmuHawk van enlasiguientefase."
+        "Pruebasconheaders ELF propios y SHAexacto deambosISA; negativos (.zst,hash,byteorder,otherISA) conservados. No anunciar ejecucionWindows desdeestosfixtures; elrunnerreal yensambladosEmuHawk van enlasiguientefase.",
+        "Cierre dirigido: fixture managed real 4tests PASS; core standalone Release y EmuHawk Release con estas mismas fuentes compilan; la candidata Darwin pasa cuatro casos exactos. Esto habilita seleccion Windows, no acredita aun ejecucion en ese host."
       ],
       "checks": [
         "BUILD01"
@@ -24756,7 +24762,8 @@
         "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
         "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS.",
         "Guardia de host añadida en el constructor EmuHawk antes de firmware/medios/mapeo: el guest/runtime ARM64 solo admite Darwin ARM64. Compilacion completa Release PASS (0 errores). El banco Eto conserva su alcance exclusivo de infraestructura de pruebas.",
-        "El gate dirigido P6_TEST_MACHAWK_INTEGRATION=1 python3 -m unittest tests.test_machawk_integration falla dos veces en tasproj/UAE con estado completo de2733262bytes y primer cambio en offset2027529. BK2 llega a pasar; TAS compara A/V antes de fallar el estado UAE. No normalizar bytes ni interpretar el PASS historico como aceptacion de la candidata. Mantener PR12 en borrador y no publicar una GUI de producto a partir del banco."
+        "El gate dirigido P6_TEST_MACHAWK_INTEGRATION=1 python3 -m unittest tests.test_machawk_integration falla dos veces en tasproj/UAE con estado completo de2733262bytes y primer cambio en offset2027529. BK2 llega a pasar; TAS compara A/V antes de fallar el estado UAE. No normalizar bytes ni interpretar el PASS historico como aceptacion de la candidata. Mantener PR12 en borrador y no publicar una GUI de producto a partir del banco.",
+        "Consulta gh autorizada por el usuario: la ultima release hatari-preview-56ea1841 distribuye solo Windowsx64. El gate original de coexistencia vuelve a PASS con runtime Darwin corregido; el cierre de descarga util debe seguir el frontend real, no ampliar Eto."
       ],
       "checks": [
         "BUILD01"
@@ -24766,7 +24773,7 @@
         "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
       ],
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
-      "blocked_reason": "Dos reproducciones del mismo fallo TASproj/UAE en la candidata impiden cerrar la preview; reproducer existente tests/test_machawk_integration.py. Hipotesis1: registros preservados por setjmp distintos de x28 arrastran valores host al estado legacy; verificar seccion/pagina/simbolos y ABI antes de cambiarlo. Hipotesis2: el recorrido de TASStateManager provoca una escritura guest dependiente del host que no aparece en BK2; contrastar capturas estructurales de ambos recorridos sin excluir bytes. Causa aun no localizada. Ademas, la GUI WinForms de EmuHawk no esta acreditada en macOS; el usuario excluye convertir el banco Eto en frontend."
+      "blocked_reason": "El fallo TASproj/UAE esta corregido: T82i demuestra causa GPR de entrada y el runtime integrado pasa los cuatro casos reales exactos. El usuario aclara que Eto es solo un banco y que los testers usan releases GitHub Windows x64; no existe una GUI WinForms macOS acreditada. Se prepara el carril real Windows en T83a/b/c antes de ofrecer una preview de producto, manteniendo ARM64 separado."
     },
     {
       "id": "T82",
@@ -24843,6 +24850,45 @@
       ],
       "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
       "blocked_reason": "Extra final solicitado por el usuario; no dispone de un 68040 fisico. Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
+    },
+    {
+      "id": "T83d",
+      "title": "Reconstruir el sysroot x64 desde las fuentes locales congeladas",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83a"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-x64.md",
+        "tools/build_waterbox_sysroot.py",
+        "tools/build_waterbox_x64.py",
+        "plan/extensions/waterbox-x64.json"
+      ],
+      "touch": [
+        "tools/build_waterbox_x64_sysroot.py",
+        "tests/waterbox-smoke/test_x64_sysroot.py",
+        "plan/extensions/waterbox-x64.json",
+        "docs/adr/waterbox-x64.md",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Las fuentes musl y LLVM y los scripts de cuatro fases ya estan disponibles; congelar una receta offline x64 dentro de Docker autorizado sin tocar MacHawk original ni instalar paquetes. Agente aislado prepara codigo/tests; root serializa la reconstruccion pesada.",
+        "Reutilizar autenticacion capturas/LLVM existente, aplicar parches getcwd y atomics exactamente, producir libc/libc++/libc++abi/libunwind/builtins e inventario propio. No exigir igualdad de bytes con cache historico desconocido: un derivado diferente recibe identidad nueva y obliga recompilar guest.",
+        "Mantener publication_ready false hasta ejecutar receta y verificar fuente correspondiente. No sustituir TLS/scheduler ni normalizar estado. Tras dos fallos razonados conservar reproducer/hipotesis y bloquear."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Receta verifica pins y fuentes antes de construir, no accede red ni altera inputs y produce sysroot autenticado con fuente completa disponible.",
+        "Guest x64 se reconstruye usando exclusivamente ese derivado; las pruebas de receta y ELF dirigidas pasan. La ejecucion Windows queda en puerta separada."
+      ],
+      "stop": "Sin toolchain Docker autorizado o dos fallos razonados, blocked con causas concretas; no instalar globalmente ni afirmar reproducibilidad no medida."
     }
   ],
   "max_in_progress": 4

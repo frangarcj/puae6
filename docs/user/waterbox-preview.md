@@ -67,10 +67,10 @@ carece de SetCDVolume y no carga con el wrapper actual; se conserva y no se
 atribuye a ese binario el resultado de la referencia. El runtime nuevo pasa
 ademas un smoke separado del Snes9x existente con save/restore y video+RAM.
 
-La fusion no publica una preview PUAE6 automaticamente: el workflow existente
-publica Windows y no prepara su guest Darwin ARM64. Hace falta conectar un
-paquete de prueba del host macOS correspondiente; el ZIP standalone disponible
-sigue siendo una alternativa FFI, no una distribucion completa de MacHawk.
+Las releases que usan los probadores publican EmuHawk para Windows x64. La
+integracion de PUAE6 debe incluir un guest ELF x64 y su pin de compilacion,
+ademas del lector CHD para Windows. El guest Darwin ARM64 no sirve para ese ZIP;
+su paquete standalone sigue siendo una alternativa FFI separada.
 
 
 ## Menus e infraestructura de pruebas
@@ -83,8 +83,14 @@ no el frontend de producto; el usuario excluye portar alli TAStudio/Lua/RAM Watc
 Las pruebas Cocoa acreditan solo ese banco con los ensamblados reales.
 No acreditan que WinForms EmuHawk funcione como GUI macOS.
 
-La candidata del PR #12 permanece en borrador: el gate de coexistencia del
-EmuHawk real reproduce una diferencia de estado final de UAE en TASproj,
-aunque coinciden imagen y audio en ese recorrido. La comparacion exacta sigue
-activa y la preview completa no esta cerrada. El constructor PUAE6 rechaza
-hosts distintos de Darwin ARM64 antes de cargar su guest.
+El gate de coexistencia de la candidata pasa los cuatro casos BK2/TAS con
+UAE y PUAE6: imagen, audio, estado completo y aislamiento. El runtime Darwin
+inicializa los registros no argumentales al entrar al guest para evitar que
+setjmp guarde valores del host. El oraculo conserva el control negativo anterior,
+los callbacks con reentrada y la restauracion en sandbox/proceso nuevo. No se
+excluye ningun byte del comparador.
+
+El constructor reconoce macOS ARM64 y Windows x64, comprueba la ISA y el SHA
+fijado en el ensamblado antes de adquirir firmware o medios y vuelve a comprobar
+el guest antes de crear Waterbox. El PR #12 sigue en borrador mientras se conecta
+y prueba el carril Windows real; compilar su guest no acredita su ejecucion.

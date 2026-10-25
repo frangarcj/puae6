@@ -1180,6 +1180,12 @@ TASK_SUITES[('WB03', 'T82i')] = {'entry_gpr_fixtures': 'tests.waterbox-smoke.tes
     'real_entry_gpr': 'tests.waterbox-smoke.test_entry_gpr.RealEntryGprTests'}
 TASK_SUITES[('WB03', 'T82h')] = {'state_diagnostic_fixtures': 'tests.packages.test_emuhawk_state_probe.StateProbeTests',
     'real_state_localization': 'tests.test_machawk_integration.MacHawkStateDiagnosticTests'}
+TASK_SUITES[('WB03', 'T82j')] = {'real_coexistence': 'tests.test_machawk_integration.MacHawkIntegrationTests',
+    'installed_preview': 'tests.packages.test_waterbox_preview.InstalledPreviewTests'}
+TASK_SUITES[('WB13', 'T82j')] = dict(TASK_SUITES[('WB03', 'T82i')])
+TASK_SUITES[('BUILD01', 'T83a')] = {'x64_guest_recipe': 'tests.waterbox-smoke.test_x64_guest_build'}
+TASK_SUITES[('MED01', 'T83b')] = {'host_reader': 'tests.media.test_chd_host_windows'}
+TASK_SUITES[('BUILD01', 'T83c')] = {'host_guest_identity': 'tests.waterbox-state.test_guest_identity_x64'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])

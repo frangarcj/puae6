@@ -158,3 +158,16 @@ callbacks con reentrada conservan GPR, FP, x18/x28/x29/SP, TLS y errno.
 El oraculo compila un runtime temporal y lo elimina: el producto y sus
 recibos siguen intactos. Integrar la propuesta y repetir TASproj/UAE sigue
 siendo una puerta distinta; no se deduce cierre de la preview.
+
+## Integracion del runtime (T82j)
+
+El parche0003 forma parte de la cadena autenticada del producto Darwin y del
+worktree de integracion MacHawk. ASM y binario generado corresponden entre si;
+la ruta Linux ARM permanece intacta. El runtime Release resultante coincide
+con el del oraculo. Al probar un producto ya corregido, el oraculo reconstruye
+el control anterior revirtiendo el parche exacto en una copia temporal.
+
+La candidata ejecuta los cuatro casos originales BK2/TAS por UAE/PUAE6 en el
+EmuHawk real y pasa imagen, audio, snapshot completo y aislamiento. Se mantienen
+los doce frames por pase y todos los bytes del comparador. La correccion cierra
+este reproducer; no acredita por si sola el empaquetado o la GUI en otro host.
