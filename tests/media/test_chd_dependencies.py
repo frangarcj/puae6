@@ -191,6 +191,105 @@ module.materialize(pathlib.Path(sys.argv[2]))
         self.assertEqual(self.snapshot(), before)
         self.assertFalse(self.target.parent.exists())
 
+    def windows_inputs(self):
+        expected = self.importer.verify()
+        outputs = {f["path"]: f["sha256"] for f in expected["files"]}
+        for patch in self.importer.PATCHES:
+            outputs.update(patch["after"])
+        return expected, outputs
+
+    def test_windows_publisher_complete_tree_and_immutable_cache(self):
+        expected, outputs = self.windows_inputs()
+        original = self.importer.stage_derived
+        def observed(staged, *args):
+            self.assertFalse(self.target.exists())
+            original(staged, *args)
+            self.assertFalse(self.target.exists())
+        with mock.patch.object(self.importer, "stage_derived", side_effect=observed):
+            self.importer.publish_windows(self.target, expected, outputs)
+        self.importer.verify_derived(self.target, expected, outputs)
+        before = self.snapshot()
+        with mock.patch.object(self.importer, "stage_derived", side_effect=AssertionError("cache wrote")):
+            self.importer.publish_windows(self.target, expected, outputs)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual([p.name for p in self.target.parent.iterdir()], ["p6-chd"])
+
+    def test_windows_publisher_accepts_only_an_exact_concurrent_winner(self):
+        expected, outputs = self.windows_inputs()
+        original = self.importer.stage_derived
+        winner = {}
+        def raced(staged, *args):
+            original(staged, *args)
+            shutil.copytree(staged, self.target)
+            winner.update({p.relative_to(self.target).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
+                           for p in self.target.rglob("*") if p.is_file()})
+        with mock.patch.object(self.importer, "stage_derived", side_effect=raced):
+            self.importer.publish_windows(self.target, expected, outputs)
+        self.assertEqual(winner, {p.relative_to(self.target).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
+                                 for p in self.target.rglob("*") if p.is_file()})
+        self.assertEqual([p.name for p in self.target.parent.iterdir()], ["p6-chd"])
+
+    def test_windows_publisher_rejects_corrupt_or_symlink_winner(self):
+        expected, outputs = self.windows_inputs()
+        original = self.importer.stage_derived
+        victim = self.root / "victim"; victim.mkdir(); (victim / "own").write_bytes(b"unrelated")
+        for kind in ("corrupt", "symlink"):
+            target = self.target.with_name(kind)
+            def raced(staged, *args):
+                original(staged, *args)
+                if kind == "corrupt":
+                    shutil.copytree(staged, target)
+                    (target / "src/libchdr_chd.c").write_bytes(b"corrupted winner")
+                else:
+                    target.symlink_to(victim, target_is_directory=True)
+            with mock.patch.object(self.importer, "stage_derived", side_effect=raced):
+                with self.assertRaises(ValueError):
+                    self.importer.publish_windows(target, expected, outputs)
+            self.assertEqual((victim / "own").read_bytes(), b"unrelated")
+            self.assertFalse(list(target.parent.glob("." + kind + "-*")))
+
+    def test_windows_publisher_propagates_rename_error_without_valid_winner(self):
+        expected, outputs = self.windows_inputs()
+        with mock.patch.object(Path, "rename", side_effect=PermissionError("own rename fault")):
+            with self.assertRaisesRegex(PermissionError, "own rename fault"):
+                self.importer.publish_windows(self.target, expected, outputs)
+        self.assertFalse(self.target.exists())
+        self.assertFalse(list(self.target.parent.iterdir()))
+
+    def test_windows_publisher_never_exposes_failed_or_linked_staging(self):
+        expected, outputs = self.windows_inputs()
+        with mock.patch.object(self.importer.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "git")):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.importer.publish_windows(self.target, expected, outputs)
+        victim = self.root / "own"; victim.write_bytes(b"unrelated")
+        def linked(staged, *_):
+            staged.mkdir(); (staged / "linked").symlink_to(victim)
+        with mock.patch.object(self.importer, "stage_derived", side_effect=linked):
+            with self.assertRaisesRegex(ValueError, "linked/nonregular"):
+                self.importer.publish_windows(self.target, expected, outputs)
+        self.assertFalse(self.target.exists())
+        self.assertFalse(list(self.target.parent.iterdir()))
+        self.assertEqual(victim.read_bytes(), b"unrelated")
+
+    def test_windows_publisher_concurrent_processes_publish_only_complete_tree(self):
+        code = '''import importlib.util,pathlib,sys
+spec=importlib.util.spec_from_file_location("chd",sys.argv[1])
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+expected=module.verify();outputs={f["path"]:f["sha256"] for f in expected["files"]}
+for patch in module.PATCHES: outputs.update(patch["after"])
+module.publish_windows(pathlib.Path(sys.argv[2]),expected,outputs)
+'''
+        processes = [subprocess.Popen([sys.executable, "-B", "-c", code,
+                     str(self.root / "tools/import_chd.py"), str(self.target)], stdout=subprocess.PIPE,
+                     stderr=subprocess.PIPE) for _ in range(3)]
+        for process in processes:
+            self.addCleanup(lambda p=process: p.kill() if p.poll() is None else None)
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=30)
+            self.assertEqual(process.returncode, 0, (stdout + stderr).decode())
+        self.importer.verify_derived(self.target, *self.windows_inputs())
+        self.assertEqual([p.name for p in self.target.parent.iterdir()], ["p6-chd"])
+
     def test_two_clean_object_trees_compile_the_same_verified_decoder_source(self):
         # A minimal CMake consumer inherits the package's -O2/assert/precision recipe.
         # Compile only its FLAC translation unit, never the engine or an executable.

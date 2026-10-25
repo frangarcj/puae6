@@ -113,7 +113,7 @@ def verify(destination=DEST):
     if json.loads((destination / "selection.json").read_text()) != expected:
         raise ValueError("CHD selection differs from pinned manifest")
     allowed = {f["path"] for f in expected["files"] + PATCHES} | {"selection.json", "NOTICE.md"}
-    actual = {str(p.relative_to(destination)) for p in destination.rglob("*") if p.is_file()}
+    actual = {p.relative_to(destination).as_posix() for p in destination.rglob("*") if p.is_file()}
     if actual != allowed or any(p.is_symlink() for p in destination.rglob("*")):
         raise ValueError("CHD selection contains missing/extra files or symlinks")
     for f in expected["files"] + expected["patches"]:
@@ -143,7 +143,7 @@ def verify_derived(destination, expected, outputs):
     paths = list(destination.rglob("*"))
     if any(p.is_symlink() or not (p.is_dir() or p.is_file()) for p in paths):
         raise ValueError("CHD derived receipt differs: linked/nonregular file")
-    hashes = {str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
+    hashes = {p.relative_to(destination).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in paths if p.is_file() and p != destination / "receipt.json"}
     receipt = json.loads((destination / "receipt.json").read_text())
     if receipt != {"selection": expected, "files": outputs} or hashes != outputs:
@@ -161,11 +161,37 @@ def stage_derived(destination, expected, outputs):
     for patch in PATCHES:
         subprocess.run(["git", "apply", "--verbose", str(DEST / patch["path"])], cwd=destination,
                        env=env, check=True, capture_output=True)
-    hashes = {str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
+    hashes = {p.relative_to(destination).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(destination.rglob("*")) if p.is_file()}
     if hashes != outputs:
         raise ValueError("CHD patch output differs from pinned after hashes")
     (destination / "receipt.json").write_text(json.dumps({"selection": expected, "files": hashes}, indent=2) + "\n")
+
+
+
+def publish_windows(destination, expected, outputs):
+    """Publish a complete exclusive staging tree; a concurrent winner must verify.
+
+    Windows rename never replaces an existing destination. No process can observe
+    our tree there until every patch and receipt check succeeded.
+    """
+    destination = derived_destination(destination)
+    if destination.exists():
+        verify_derived(destination, expected, outputs)
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="." + destination.name + "-", dir=destination.parent) as temporary:
+        staged = Path(temporary) / "tree"
+        stage_derived(staged, expected, outputs)
+        verify_derived(staged, expected, outputs)
+        derived_destination(destination)
+        try:
+            staged.rename(destination)
+        except OSError:
+            derived_destination(destination)
+            if not destination.exists():
+                raise
+            verify_derived(destination, expected, outputs)
 
 
 def materialize(destination):
@@ -177,6 +203,8 @@ def materialize(destination):
     if destination.exists():
         verify_derived(destination, expected, outputs)
         return  # An immutable cache hit needs neither a lock nor any writes.
+    if os.name == "nt":
+        return publish_windows(destination, expected, outputs)
     try:
         import fcntl
         if not hasattr(fcntl, "flock") or not hasattr(os, "O_NOFOLLOW"):
