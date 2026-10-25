@@ -24164,13 +24164,15 @@
         "tests/waterbox-smoke/linux_probe.c",
         "tools/ci/linux_waterbox_probe.py",
         "tests/ci/test_linux_waterbox_probe.py",
-        "tools/check.py"
+        "tools/check.py",
+        ".github/workflows/waterbox-runner-probe.yml"
       ],
       "steps": [
         "Usar receta/autenticacion deT46a1 y API C Waterboxcapturada; guest C enlazado con musl/emulibc reales y hostdlopen. PropuestaC iniciada bajo alcance originalT46a se integra solo tras prerequisitoDONE.",
         "Ejecutar init/seal/avance/snapshot/continuacion/restauracion en misma y nueva instancia, ABI/TLS/callback/canarios/capacidad ypagina/dirtytracking, sin motor Amiga.",
         "Hashes de runtime/guest realmente cargados, estado completo/futuro exacto, entradas distintas y rechazo de identidad propio antes load; no atribuir transaccionalidad genérica al loaderraw si puede poison.",
-        "El coordinador registra WB01 con la clase runtime real y preflight; la ejecucion fuente66ea892e/run40177496198 deT46a1 no acredita por si misma este WB01."
+        "El coordinador registra WB01 con la clase runtime real y preflight; la ejecucion fuente66ea892e/run40177496198 deT46a1 no acredita por si misma este WB01.",
+        "El coordinador selecciona en el workflow la clase runtime real opt-in, en una unica ejecucion de15metodosincluida la pruebaWB01; no repetirBUILD01aparte en ese workspace."
       ],
       "checks": [
         "WB01"

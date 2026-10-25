@@ -952,6 +952,13 @@ for _gate in ('BUILD01', 'SRC01'):
         'linux_preparation_refusals': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxPreparationTests',
         'real_linux_runtime_and_sysroot_build': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxBuildTests',
     }
+TASK_SUITES[('WB01', 'T46a2')] = {
+    'linux_input_preflight': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxProbeTests',
+    'linux_preparation_refusals': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxPreparationTests',
+    'linux_smoke_refusals': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxSmokeTests',
+    'real_linux_minicore_snapshot_abi': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxRuntimeTests',
+}
+TASK_SUITES[('WB01', 'T46a')] = dict(TASK_SUITES[('WB01', 'T46a2')])
 TASK_SUITES[('DET02', 'T44')] = {
     'pmmu_rejection_regression': 'tests.state.test_cpu_modes.Cpu020NoMmuTests',
     'current_030_restore': 'tests.state.test_a4030',
