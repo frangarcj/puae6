@@ -12579,7 +12579,7 @@
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T38",
         "T39",
@@ -22258,7 +22258,7 @@
       "title": "Auditar y decidir la primera release",
       "milestone": "M4",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T40",
         "T48a",
@@ -22276,13 +22276,18 @@
       ],
       "touch": [
         "docs/user/release-notes.md",
-        "plan/upstream.lock.json"
+        "plan/upstream.lock.json",
+        "tools/check.py",
+        "tests/contracts/test_dispatcher.py",
+        "tests/test_plan.py",
+        "docs/06-execution.md"
       ],
       "steps": [
         "Revisar evidencia de todas las tareas obligatorias y cada plataforma/perfil anunciado; cerrar pendientes del lock solo tras verificarlos.",
         "Ejecutar gate completo de corpus, libretro, snapshots/movie WBX, malformed inputs y presupuestos sobre paquetes finales.",
         "Registrar incompatibilidades y conservar artefacto anterior para peliculas; auditar que no se sustituyo uae.wbx.",
-        "Decidir READY o BLOCKED con razones. Preparar notas locales; publicar o enviar PR requiere orden separada."
+        "Decidir READY o BLOCKED con razones. Preparar notas locales; publicar o enviar PR requiere orden separada.",
+        "Cierre local con los paquetes declarados por revision propia: refrescar Waterbox por T80c, conservar nativos445 mientras inputsC/C++ no cambien y conservar Waterbox445 como distribucion anterior para peliculas. Cerrar solo los tres unresolved obsoletos del lock al contrastar tareas, manifiestos y recibos de toolchain actuales; no cambiar pins ni manifiestos del motor por cosmetica. Cablear siete gates con las pruebas existentes y la cobertura acumulada, incluyendo WB10real overlays/HDF. Ampliar touch a dispatcher/tests y actualizar docs/06-execution.md que aun describia el marco inicial sin motor. No repetir CI/matriz/rendimiento sin cambio causal ni publicar."
       ],
       "checks": [
         "PKG01",
