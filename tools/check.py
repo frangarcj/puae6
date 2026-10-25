@@ -946,6 +946,12 @@ TASK_SUITES[('GEN01', 'T44')] = {
     'study_contract': 'tests.test_future_extensions.MmuStudyTests',
     'current_no_mmu_generation': 'tests.codegen.test_gencpu_models.GencpuModelTests',
 }
+for _gate in ('BUILD01', 'SRC01'):
+    TASK_SUITES[(_gate, 'T46a1')] = {
+        'linux_input_preflight': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxProbeTests',
+        'linux_preparation_refusals': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxPreparationTests',
+        'real_linux_runtime_and_sysroot_build': 'tests.ci.test_linux_waterbox_probe.LinuxWaterboxBuildTests',
+    }
 TASK_SUITES[('DET02', 'T44')] = {
     'pmmu_rejection_regression': 'tests.state.test_cpu_modes.Cpu020NoMmuTests',
     'current_030_restore': 'tests.state.test_a4030',

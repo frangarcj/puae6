@@ -12,7 +12,7 @@ on:
         required: true
       mode:
         type: choice
-        options: [inventory, smoke]
+        options: [inventory, prepare, smoke]
         default: inventory
         required: true
 permissions:
@@ -60,6 +60,11 @@ jobs:
         if: inputs.mode == 'inventory'
         shell: bash
         run: python3 -B tools/ci/linux_waterbox_probe.py --inventory
+      - name: Build the pinned Linux runtime and C sysroot
+        if: inputs.mode == 'prepare'
+        env:
+          P6_LINUX_WATERBOX_PREPARE: '1'
+        run: python3 -B -m unittest tests.ci.test_linux_waterbox_probe.LinuxWaterboxProbeTests tests.ci.test_linux_waterbox_probe.LinuxWaterboxPreparationTests tests.ci.test_linux_waterbox_probe.LinuxWaterboxBuildTests
       - name: Execute the pinned Linux Waterbox mini-core
         if: inputs.mode == 'smoke'
         run: python3 -B tools/ci/linux_waterbox_probe.py --smoke

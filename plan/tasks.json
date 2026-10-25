@@ -24123,13 +24123,15 @@
         ".github/workflows/waterbox-runner-probe.yml",
         "tools/ci/linux_waterbox_probe.py",
         "tests/ci/test_linux_waterbox_probe.py",
-        "plan/extensions/waterbox-platforms.json"
+        "plan/extensions/waterbox-platforms.json",
+        "tools/check.py"
       ],
       "steps": [
         "Inventariar runner ubuntu-24.04 Linux x86_64 nativo4KiB, herramientas preinstaladas y hashes; distinguir observacion de ejecucion WB01.",
         "Fijar fuentes capturadas runtime/musl, linker y compiladores observados; construir copias aisladas con parche atomicsx86 capturado y Cargo.lock/checksums exactos. Cargo fetch --locked solo dependencias fuente a build; sinapt/rustup/global.",
         "Producir sysroot C y .so propios con identidades verificables, rechazos preflight y prueba BUILD01/SRC01 reales; no ejecutar aun mini-guest ni anunciarWB01.",
-        "El coordinador fija en el JSON de plataformas las herramientas preinstaladas observadas, sin reutilizar pins Darwin; Rust stdlib inicialmente null visible debe fijarse antes del build."
+        "El coordinador fija en el JSON de plataformas las herramientas preinstaladas observadas, sin reutilizar pins Darwin; Rust stdlib inicialmente null visible debe fijarse antes del build.",
+        "Registrar BUILD01/SRC01 con fixtures de rechazo mas clase que prepare runtime/sysroot reales opt-in; un PASS de fixtures no sustituye el build Linux."
       ],
       "checks": [
         "BUILD01",
