@@ -24562,7 +24562,7 @@
       "title": "Integrar GPR canonicos en el runtime Darwin y cerrar el reproducer TASproj",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T82i"
       ],
@@ -24594,7 +24594,8 @@
         "Actualizacionatomica del patchset,pins,oraculo y artefactos de integracion: mantenercontroloriginal reconstruible al probar un runtimeproducto yacanonico. No debilitar el comparador de coexistencia; compilar serialmente trasdeltaabiprobeT83a para mantenerfuentes/recibos coherentes.",
         "Una candidata de runtime/guest con inputs actuales, gatesdirigidos ABIcallback/reentrada/restauracion y caso originalEmuHawkBK2/TAS, sin repetir matricesmotor. Rehacerpaquetefuentelicencias solo cuando binariospins actuales verificables.",
         "La prueba diagnosticaT82h debe conservar la localizacion ante error y admitir observacion de no-reproduccion cuando la candidata corrige el fallo; el gate de release original permanece exigiendoPASS de los cuatrocasos sinnormalizar. El control negativo del decodificador sigue enfixtures propios.",
-        "Actualizar únicamente el hash plan/toolchains.json de la política de fuentes al promover el runtime: la receta fuente debe corresponder a los binarios nuevos antes de empaquetar, sin ampliar exclusiones ni licencias."
+        "Actualizar únicamente el hash plan/toolchains.json de la política de fuentes al promover el runtime: la receta fuente debe corresponder a los binarios nuevos antes de empaquetar, sin ampliar exclusiones ni licencias.",
+        "Cierre: runtime Release autenticado f2bfe26b; oracle causal con control original reconstruido PASS; cuatro casos EmuHawk Release BK2/TAS UAE/PUAE6 exactos PASS (22s); ZIP ARM fuente completa construido y smoke instalado PASS con cuatro unidades mismo sandbox y proceso nuevo. Public WT contiene ASM/bin y paquete correspondientes; Linux ARM intacto."
       ],
       "checks": [
         "WB03",
@@ -24714,7 +24715,10 @@
         "integration/bizhawk/core/Puae6/Puae6Guest.cs",
         "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
         "tests/waterbox-state/test_guest_identity_x64.py",
-        "tools/check.py"
+        "tools/check.py",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/GuestIdentity.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs"
       ],
       "steps": [
         "Para el ZIPWindows que usanlostesters, el wrapper debeadmitir ELF62/Windowsx64 y conservar ELF183/DarwinARM64. Guesthash siguepin decompilacion porpaquete (Puae6GuestSha256); no convertirloenhashcalculado deunarchivoarbitrario al cargar. La CI compila porhostconelguestfijado y los builds no sonintercambiables.",
@@ -24730,6 +24734,85 @@
         "Pruebamanagedreal validaheaders/pins/errores, ycorestandalone/EmuHawk compilan conlasmismasfuentes; nopingWindowsdesdeDarwin, nofondear unsupported comoPASS."
       ],
       "stop": "Dosfallosmismo comportamiento bloquean conrepro; no hacerpasarheadersx64 alectorARM ni calcularunpinenruntimeparaaceptarcualquierguest."
+    },
+    {
+      "id": "T83d",
+      "title": "Reconstruir el sysroot x64 desde las fuentes locales congeladas",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83a"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-x64.md",
+        "tools/build_waterbox_sysroot.py",
+        "tools/build_waterbox_x64.py",
+        "plan/extensions/waterbox-x64.json"
+      ],
+      "touch": [
+        "tools/build_waterbox_x64_sysroot.py",
+        "tests/waterbox-smoke/test_x64_sysroot.py",
+        "plan/extensions/waterbox-x64.json",
+        "docs/adr/waterbox-x64.md",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Las fuentes musl y LLVM y los scripts de cuatro fases ya estan disponibles; congelar una receta offline x64 dentro de Docker autorizado sin tocar MacHawk original ni instalar paquetes. Agente aislado prepara codigo/tests; root serializa la reconstruccion pesada.",
+        "Reutilizar autenticacion capturas/LLVM existente, aplicar parches getcwd y atomics exactamente, producir libc/libc++/libc++abi/libunwind/builtins e inventario propio. No exigir igualdad de bytes con cache historico desconocido: un derivado diferente recibe identidad nueva y obliga recompilar guest.",
+        "Mantener publication_ready false hasta ejecutar receta y verificar fuente correspondiente. No sustituir TLS/scheduler ni normalizar estado. Tras dos fallos razonados conservar reproducer/hipotesis y bloquear."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Receta verifica pins y fuentes antes de construir, no accede red ni altera inputs y produce sysroot autenticado con fuente completa disponible.",
+        "Guest x64 se reconstruye usando exclusivamente ese derivado; las pruebas de receta y ELF dirigidas pasan. La ejecucion Windows queda en puerta separada."
+      ],
+      "stop": "Sin toolchain Docker autorizado o dos fallos razonados, blocked con causas concretas; no instalar globalmente ni afirmar reproducibilidad no medida."
+    },
+    {
+      "id": "T83e",
+      "title": "Smoke real del frontend EmuHawk PUAE6 en Windows x64",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83c"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-x64.md",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "adapters/waterbox/abi_probe.cpp"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "integration/bizhawk/patches/0028-emuhawk-windows-smoke.patch",
+        "build/machawk-puae6/.github/workflows/puae6-windows.yml",
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Usar el EmuHawk real Windows net48 ya distribuido, sin convertir el banco Eto en frontend. El CLI existente tiene supuestos dylib/dyld; añadir recorrido Windows explícito conservando Darwin original. Cargar DLL absoluta y verificar módulo realmente cargado.",
+        "Probe real p6w_probe_abi SysV sobre Waterbox y callback/reentrada: 15slots x64, GScontext/GPR/SP/claveTLS/errno; nunca llamar SysV por delegado Win64 directo. RomLoader y microROM/ADF propios; snapshot completo, avance observable y restauracion en sandbox nuevo, A/V exacto. Sin ROMs comerciales.",
+        "Job Windows con artefactos fijados y fuentes/licencias actuales, pin de guest compilado por plataforma, lector CHD real con Unicode/offset64/errores. No ejecutar matrix completa para este delta. Root coordina publicacion solo tras PASS real; agente no edita metadata ni publica."
+      ],
+      "checks": [
+        "WB03",
+        "WB13"
+      ],
+      "acceptance": [
+        "EmuHawk real compila y ejecuta el guest x64 correcto en Windows: ABI/callback y restauracion causales pasan, sin exclusiones ni fallback.",
+        "Job remoto Windows termina PASS y salida descargable conserva fuente correspondiente/licencias/guestpin. La GUI se mantiene en frontend EmuHawk existente; no se infiere macOS WinForms."
+      ],
+      "stop": "Tras dos fallos razonados, conservar reproducer e hipotesis; no convertir crosscompile o prueba POSIX en PASS Windows."
     },
     {
       "id": "T82c",
@@ -24850,45 +24933,6 @@
       ],
       "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
       "blocked_reason": "Extra final solicitado por el usuario; no dispone de un 68040 fisico. Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
-    },
-    {
-      "id": "T83d",
-      "title": "Reconstruir el sysroot x64 desde las fuentes locales congeladas",
-      "milestone": "M4",
-      "required": false,
-      "status": "in_progress",
-      "depends": [
-        "T83a"
-      ],
-      "read": [
-        "README.md",
-        "AGENTS.md",
-        "docs/07-machawk.md",
-        "docs/adr/waterbox-x64.md",
-        "tools/build_waterbox_sysroot.py",
-        "tools/build_waterbox_x64.py",
-        "plan/extensions/waterbox-x64.json"
-      ],
-      "touch": [
-        "tools/build_waterbox_x64_sysroot.py",
-        "tests/waterbox-smoke/test_x64_sysroot.py",
-        "plan/extensions/waterbox-x64.json",
-        "docs/adr/waterbox-x64.md",
-        "tools/check.py"
-      ],
-      "steps": [
-        "Las fuentes musl y LLVM y los scripts de cuatro fases ya estan disponibles; congelar una receta offline x64 dentro de Docker autorizado sin tocar MacHawk original ni instalar paquetes. Agente aislado prepara codigo/tests; root serializa la reconstruccion pesada.",
-        "Reutilizar autenticacion capturas/LLVM existente, aplicar parches getcwd y atomics exactamente, producir libc/libc++/libc++abi/libunwind/builtins e inventario propio. No exigir igualdad de bytes con cache historico desconocido: un derivado diferente recibe identidad nueva y obliga recompilar guest.",
-        "Mantener publication_ready false hasta ejecutar receta y verificar fuente correspondiente. No sustituir TLS/scheduler ni normalizar estado. Tras dos fallos razonados conservar reproducer/hipotesis y bloquear."
-      ],
-      "checks": [
-        "BUILD01"
-      ],
-      "acceptance": [
-        "Receta verifica pins y fuentes antes de construir, no accede red ni altera inputs y produce sysroot autenticado con fuente completa disponible.",
-        "Guest x64 se reconstruye usando exclusivamente ese derivado; las pruebas de receta y ELF dirigidas pasan. La ejecucion Windows queda en puerta separada."
-      ],
-      "stop": "Sin toolchain Docker autorizado o dos fallos razonados, blocked con causas concretas; no instalar globalmente ni afirmar reproducibilidad no medida."
     }
   ],
   "max_in_progress": 4
