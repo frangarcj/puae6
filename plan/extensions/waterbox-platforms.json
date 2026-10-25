@@ -399,8 +399,8 @@
         "version": "cargo 1.99.0 (5f94df478 2026-08-27)"
       }
     },
-    "rust_stdlib_inventory_sha256": null,
-    "observed_run": "40176493763",
+    "rust_stdlib_inventory_sha256": "59d731d4980d7f1e5f4b2574e7336d0110d42b6737e7a4d7c3f4c4fa67d0ed04",
+    "observed_run": "40176860226",
     "scope": "mini-core runtime/sysroot inputs only; no Amiga support"
   }
 }
