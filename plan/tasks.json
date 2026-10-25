@@ -24352,7 +24352,7 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
       "id": "T82f",
       "title": "Soft Reset Amiga equivalente a UAE y conectado al menu BizHawk",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T82d"
       ],
@@ -24385,7 +24385,8 @@
         "El inventario de menus revela que UAE publica Reset y Power y PUAE6 solo Power. Resolver la diferencia funcional con vertical pequeña y check dirigido antes de prometer paridad.",
         "Revision de codigo: UAE_RESET=2 ya tiene primitive real en el head upstream, hard=4 limpia RAM y soft la conserva. Añadir simbolos ABI aditivos sin cambiar p6_reset; persistir y validar modo pendiente 0/1/2, hard prevalece. Probar marcador RAM 1 tras hard y 2 tras soft, estado con soft pendiente y futuro exacto en Waterbox. Requiere guest nuevo e identidad nueva; no es un cambio de etiquetas del menu.",
         "Cambio atomico de extension ABI y serializacion: mantener llamadas hard existentes, añadir soft en bridge/Waterbox/C#, y comprobar cola pendiente y RAM. Supera orientacion de cinco archivos por las fronteras del contrato, con cambios pequeños coordinados; no se modifica upstream. Se elimina exports.txt inexistente del touch y se incluye probe e inventario causal para el modo pendiente.",
-        "Se incluye importacion del guest con fuentes/licencias y pin nuevo en el worktree MacHawk: la nueva llamada requiere desplegar cliente y guest juntos. Menu Cocoa Soft/Hard Reset usa pulsos de una unidad, consumidos solo en FrameAdvance, con micro-ROM y comprobacion GUI. No reemplazar el ZIP/pin anterior sin conservar su procedencia Git."
+        "Se incluye importacion del guest con fuentes/licencias y pin nuevo en el worktree MacHawk: la nueva llamada requiere desplegar cliente y guest juntos. Menu Cocoa Soft/Hard Reset usa pulsos de una unidad, consumidos solo en FrameAdvance, con micro-ROM y comprobacion GUI. No reemplazar el ZIP/pin anterior sin conservar su procedencia Git.",
+        "BUILD01 PASS: micro-ROM original cuenta arranques en banco OCS inicialmente cero; hard=1, soft=2, soft consecutivos=3 y hard prevalece. Estado nativo con soft pendiente se reemite/restaura y tiene el mismo futuro en proceso nuevo; modo invalido3 rechazado. Waterbox: A/B con RAM, video/PCM/ticks y snapshot completo exactos tras reset y restauracion; GUI Cocoa real ejecuta ambos comandos y observa2/1. EmuHawk Release completo compila con el wrapper actualizado. Paquete9bb03c17 contiene guest0751703dca0815740b14ecef5ff258d74a66979c7d7a05494ee6b41ca3377b18, fuentes/licencias e installed smoke PASS (4 unidades mismo sandbox y proceso nuevo)."
       ],
       "acceptance": [
         "Reset suave real, distinto del hard reset, en la API comun y el controlador BizHawk, con reproducer determinista y restauracion.",
