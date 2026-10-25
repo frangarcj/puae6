@@ -63,6 +63,22 @@
             "after_sha256": "0e5734fc1331cb7f1fb179fce180b583d810191632e54690b22725738a4bf218"
           }
         ]
+      },
+      {
+        "file": "integration/waterbox-runtime/0003-darwin-entry-gpr.patch",
+        "sha256": "512f85fec3ac1ae24c101143e51bf3b2bb42b313dabe042ba3774c474bdf6912",
+        "files": [
+          {
+            "path": "src/context/interop_aarch64.s",
+            "before_sha256": "1c699494aeb30c03dbb8eadeb41f3f125476a21ef341cae04cce635d93fc4bf4",
+            "after_sha256": "1016e8e6bab90fb93ae5a3b197c3a308a5619fa17151e7932328512f29008f3d"
+          },
+          {
+            "path": "src/context/interop_aarch64.bin",
+            "before_sha256": "0e5734fc1331cb7f1fb179fce180b583d810191632e54690b22725738a4bf218",
+            "after_sha256": "3d79a9605a80f0c0f6aa0423d54dab4e537bd8c9ce1bc0f557d9fdf901280366"
+          }
+        ]
       }
     ]
   },

@@ -36,3 +36,13 @@ el layout de tres palabras contexto/clave/errno para la entrada reentrante.
 La rama AAPCS64 original permanece identica. El check optativo
 `P6_TEST_X64_PROBE_COMPILE=1` compila solo este archivo para ambos ISA; la
 ejecucion real del probe con callback y restauracion sigue siendo otra puerta.
+
+La receta deriva dos alineaciones de .lrodata/.ldata a4KiB con hashes de
+base/resultado; no modifica el linkscript capturado. El wrapper static omite
+el interprete ELF y fija el LLD real. No hay TLS estructural ni accesos FS;
+GS:0x18 es la unica lectura segmentada permitida. _DYNAMIC local/undefined
+con valor0 es la conversion de una referencia weak oculta segun
+[ELF gABI5.4](https://gabi.xinuos.com/elf/05-symtab.html#symbol-visibility),
+no una peticion de binding externo; globales sin resolver siguen rechazados.
+El objeto audio.cpp x64 llama a floorf para la fase del resampler (upstream
+linea2436), por lo que se permite esa funcion libm del sysroot estatico.

@@ -49,5 +49,10 @@
       "sha256": "1b4b790e952d146a44f98258f945d491e00a35a63ce21f2ba6976d8afc2db439",
       "version": "Homebrew LLVM version 23.1.4"
     }
+  },
+  "linkscript": {
+    "source": "references/machawk/waterbox/linkscript.T",
+    "sha256": "3a5f16e86596f0bb4b254b0fa0c4ba68effbf8a438ef34bbfbe7b179692cd536",
+    "derived_sha256": "53752a88ae36bf46c0483c952915b8a143565f97c5b7e5d6b1ac98f205fff9c5"
   }
 }

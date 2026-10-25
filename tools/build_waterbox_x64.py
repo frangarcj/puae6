@@ -24,6 +24,20 @@ def run(args, **kwargs):
     return subprocess.check_output(list(map(str, args)), text=True, **kwargs).strip()
 
 
+def linkscript(spec):
+    pin = spec['linkscript']; source = ROOT / pin['source']
+    if shared.sha256(source) != pin['sha256']:
+        raise Error('x64 linkscript source differs')
+    text = source.read_text()
+    old = 'ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1)) :'
+    if text.count(old) != 2:
+        raise Error('unexpected large-data section alignment')
+    derived = text.replace(old, 'ALIGN(CONSTANT (MAXPAGESIZE)) :')
+    if hashlib.sha256(derived.encode()).hexdigest() != pin['derived_sha256']:
+        raise Error('derived x64 linkscript differs')
+    return derived
+
+
 def verify_profile(spec):
     if (spec.get('profile'), spec.get('target'), spec.get('machine'), spec.get('host_page_size')) != (
             'waterbox-x86_64-local-cross', 'x86_64-linux-gnu', 62, 4096):
@@ -55,6 +69,7 @@ def verify_profile(spec):
     for name, digest in spec['musl']['templates'].items():
         if shared.sha256(musl / 'tools' / name) != digest:
             raise Error('musl wrapper template differs: ' + name)
+    linkscript(spec)
     return paths, entries
 
 
@@ -96,8 +111,13 @@ def validate_elf(path):
                 raise Error('invalid symbol table')
             symbols += 1
             for at in range(offset, offset + size, 24):
-                name, info, _, section, _, _ = struct.unpack_from('<IBBHQQ', raw, at)
-                if info & 15 == 6 or (name and section == 0 and info >> 4 != 2):
+                name, info, _, section, value, _ = struct.unpack_from('<IBBHQQ', raw, at)
+                # Hidden weak references (e.g. static musl's _DYNAMIC) become
+                # local undefined zero symbols at final link: they do not ask
+                # the loader for an external binding (ELF gABI 5.4).
+                unresolved = name and section == 0
+                if (info & 15 == 6 or (unresolved and info >> 4 not in (0, 2))
+                        or (unresolved and value != 0)):
                     raise Error('TLS symbol or unresolved non-weak import')
     if not symbols:
         raise Error('missing symbol table for TLS/import audit')
@@ -136,7 +156,15 @@ def build(spec, jobs):
     launcher = bindir / 'clang-x64'
     launcher.write_text('#!/bin/sh\nexec ' + shlex.quote(str(paths['clang'])) + ' --target=x86_64-linux-gnu "$@"\n')
     launcher.chmod(0o755)
-    cc, _ = shared.install_wrappers(sysroot, launcher, paths['lld'], Path(spec['musl']['path']), wrapper_dir=bindir)
+    cc, ld = shared.install_wrappers(sysroot, launcher, paths['lld'], Path(spec['musl']['path']), wrapper_dir=bindir)
+    text = ld.read_text()
+    tail = ' -dynamic-linker "$ldso"'
+    entry = 'exec $($cc -print-prog-name=ld.lld)'
+    if text.count(tail) != 1 or text.count(entry) != 1:
+        raise Error('unexpected x64 linker wrapper')
+    # A static Waterbox guest has no external interpreter. Pin the actual linker.
+    ld.write_text(text.replace(tail, '').replace(entry, 'exec ' + shlex.quote(str(paths['lld']))))
+    script = OUTPUT / 'linkscript.T'; script.write_text(linkscript(spec))
     env = {**os.environ, 'PATH': str(paths['lld'].parent) + os.pathsep + os.environ.get('PATH', '')}
     resolved = Path(run([launcher, '-print-prog-name=ld.lld'], env=env))
     if not resolved.is_absolute() or resolved.resolve() != paths['lld'].resolve():
@@ -146,7 +174,7 @@ def build(spec, jobs):
     command = [paths['make'], '-C', ROOT, '-f', 'ports/waterbox/Makefile', f'-j{jobs}', 'release',
                f'REPO={ROOT}', f'ROOT_DIR={ROOT}', f'OUT_DIR={OUTPUT}', f'SOURCES_MK={mk}', f'SYSROOT={sysroot}',
                f'CC={cc}', f'CXX={cc}', 'WBX_TARGET_ARCH=x86_64', 'WBX_HOST_PAGE_SIZE=4096',
-               'CCFLAGS_RELEASE=-O2', 'CXXFLAGS_RELEASE=-O2']
+               'CCFLAGS_RELEASE=-O2', 'CXXFLAGS_RELEASE=-O2', f'LINKSCRIPT={script}']
     if previous.get('build_inputs') != inputs:
         command.insert(1, '-B')
     subprocess.run(list(map(str, command)), cwd=ROOT, env=env, check=True)

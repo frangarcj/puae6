@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "purpose": "HOST01 for puae6.wbx: what the objects of the engine, the portable host port, the bridge and the guest adapter import from libc and from the C++ runtime. The deterministic profile has no clock, file, process, thread, network or dynamic loading, so none of those may appear; tools/build_waterbox.py audit_imports fails the build on any name outside this list. Measured with llvm-nm on the objects of the link: 37 libc and C++ runtime names plus the emulibc heap service.",
+  "purpose": "HOST01 for puae6.wbx: what the objects of the engine, the portable host port, the bridge and the guest adapter import from libc and from the C++ runtime. The deterministic profile has no clock, file, process, thread, network or dynamic loading, so none of those may appear; tools/build_waterbox.py audit_imports fails the build on any name outside this list. Measured with llvm-nm on the linked objects; includes target-specific compiler lowering such as audio floorf on x86_64, plus the emulibc heap service.",
   "libc": {
     "memory": [
       "malloc",
@@ -33,7 +33,8 @@
     "math": [
       "sinf",
       "cosf",
-      "powf"
+      "powf",
+      "floorf"
     ],
     "process": [
       "abort",

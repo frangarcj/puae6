@@ -26,6 +26,14 @@ def elf():
 
 
 class X64GuestBuildTests(unittest.TestCase):
+    def test_derived_linkscript_has_page_boundaries_and_authenticates_both_versions(self):
+        spec = json.loads(x64.PROFILE.read_text())
+        text = x64.linkscript(spec)
+        self.assertNotIn('ALIGN(CONSTANT (MAXPAGESIZE)) + (. & (CONSTANT (MAXPAGESIZE) - 1)) :', text)
+        for field in ('sha256', 'derived_sha256'):
+            wrong = copy.deepcopy(spec); wrong['linkscript'][field] = '0'*64
+            with self.subTest(field=field), self.assertRaises(x64.Error): x64.linkscript(wrong)
+
     def test_aarch64_probe_branch_is_unchanged(self):
         text = (ROOT / 'adapters/waterbox/abi_probe.cpp').read_text()
         prefix, branches = text.split('#if defined(__aarch64__)\n', 1)
@@ -93,6 +101,12 @@ class X64GuestBuildTests(unittest.TestCase):
         raw = elf(); struct.pack_into('<Q', raw, 344, 10000)
         with self.assertRaises(x64.Error):
             self.check(raw)
+
+    def test_hidden_weak_reference_localized_to_zero_is_not_an_external_import(self):
+        raw = elf(); struct.pack_into('<IB', raw, 384, 1, 0)
+        self.assertEqual(self.check(raw)['machine'], 62)
+        struct.pack_into('<Q', raw, 392, 1)
+        with self.assertRaises(x64.Error): self.check(raw)
 
     def test_compiler_tls_disassembly_and_explicit_sandbox_context(self):
         self.assertEqual(x64.check_segment_access('movq %gs:0x18, %rax'), 1)

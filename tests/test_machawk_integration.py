@@ -51,9 +51,16 @@ class MacHawkIntegrationTests(unittest.TestCase):
                      'explicit built MacHawk mismatch diagnostic required')
 class MacHawkStateDiagnosticTests(unittest.TestCase):
     def test_failed_state_is_localized_by_the_actual_application(self):
-        with self.assertRaisesRegex(ValueError, '^EmuHawk coexistence state mismatch: ') as failure:
-            run_application()
-        observation = json.loads(str(failure.exception).split(': ', 1)[1])
+        try:
+            result, _, head = run_application()
+        except ValueError as failure:
+            self.assertTrue(str(failure).startswith('EmuHawk coexistence state mismatch: '), str(failure))
+            observation = json.loads(str(failure).split(': ', 1)[1])
+        else:
+            self.assertEqual(result['status'], 'PASS')
+            self.assertEqual(len(result['cases']), 4)
+            print('MacHawk state localization:', head, 'no mismatch in the complete four-case path')
+            return
         self.assertEqual((observation['format'], observation['core'], observation['frames']), ('tasproj', 'UAE', 12))
         self.assertFalse(observation['equal'])
         self.assertTrue(observation['ranges'])

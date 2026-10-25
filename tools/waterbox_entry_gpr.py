@@ -14,7 +14,7 @@ from tools import waterbox_state_probe as base
 from tools.materialize_upstream import _apply
 
 ROOT = base.ROOT
-PATCH = ROOT / 'integration/waterbox-runtime/proposed/0003-darwin-entry-gpr.patch'
+PATCH = ROOT / 'integration/waterbox-runtime/0003-darwin-entry-gpr.patch'
 ASM = 'src/context/interop_aarch64.s'
 BIN = 'src/context/interop_aarch64.bin'
 
@@ -42,6 +42,7 @@ def assemble(source, destination, tools, stage):
 
 
 def prepare():
+    base.require(not PATCH.exists(), 'Do not overwrite an existing proposal')
     base.inputs(); tools = base.wb.selected_tool_paths(base.wb.selected_toolchain())
     source = base.wb.BUILD / 'runtime-src'
     with tempfile.TemporaryDirectory(prefix='entry-gpr-prepare-', dir=ROOT / 'build') as tmp:
@@ -57,7 +58,7 @@ def prepare():
                                cwd=stage, capture_output=True, text=True, timeout=10)
         base.require(delta.returncode == 1 and 'GIT binary patch' in delta.stdout, 'Missing generated binary patch')
         binary = delta.stdout.replace('a/before/', 'a/').replace('b/after/', 'b/')
-        patch = ''.join(difflib.unified_diff(text.splitlines(True), (after / ASM).read_text().splitlines(True),
+        patch = 'diff --git a/'+ASM+' b/'+ASM+'\n' + ''.join(difflib.unified_diff(text.splitlines(True), (after / ASM).read_text().splitlines(True),
                                            fromfile='a/'+ASM, tofile='b/'+ASM)) + binary
         base.require(not PATCH.exists(), 'Do not overwrite an existing proposal')
         PATCH.write_text(patch)
@@ -87,11 +88,22 @@ def run():
     with tempfile.TemporaryDirectory(prefix='entry-gpr-oracle-', dir=ROOT / 'build') as tmp:
         stage = Path(tmp); candidate = stage / 'runtime'
         shutil.copytree(tc['runtime_copy'], candidate, symlinks=True)
-        _apply(PATCH.read_bytes(), candidate, check=True); _apply(PATCH.read_bytes(), candidate, check=False)
+        current_fixed = 'Host non-argumental values must not enter guest' in (candidate / ASM).read_text()
+        if current_fixed:
+            # Keep the negative control real after integration: reconstruct its
+            # source by reversing exactly the selected patch, then build it.
+            patch_env = {k:v for k,v in tc['env'].items() if k not in
+                         ('GIT_DIR','GIT_WORK_TREE','GIT_INDEX_FILE','GIT_COMMON_DIR')}
+            patch_env['GIT_CEILING_DIRECTORIES'] = str(stage)
+            for flags in (['--check'], []):
+                execute(['git','apply','--reverse',*flags,PATCH],cwd=candidate,env=patch_env)
+        else:
+            _apply(PATCH.read_bytes(), candidate, check=True); _apply(PATCH.read_bytes(), candidate, check=False)
         env = {**tc['env'], 'CARGO_TARGET_DIR': str(stage / 'cargo')}
         execute([tools['cargo'], 'build', '--offline', '--locked', '--release', '-j2', '--target',
                  tc['lock']['runtime']['target'], '--manifest-path', candidate / 'Cargo.toml'], cwd=stage, env=env)
-        runtime = stage / 'cargo/aarch64-apple-darwin/release/libwaterboxhost.dylib'
+        alternative = stage / 'cargo/aarch64-apple-darwin/release/libwaterboxhost.dylib'
+        original, runtime = (alternative, paths['runtime']) if current_fixed else (paths['runtime'], alternative)
         guest = stage / 'guest'; guest.mkdir()
         for name in ('guest.cpp', 'entry_gpr.S'): shutil.copyfile(ROOT / 'tests/waterbox-smoke' / name, guest / name)
         (guest / 'Makefile').write_text('TARGET := entry-gpr.wbx\nSRCS := guest.cpp entry_gpr.S\n'
@@ -115,7 +127,7 @@ def run():
         execute([dotnet,'restore',stage/'Probe.csproj','--source',stage/'empty-feed'],cwd=stage,env=env)
         execute([dotnet,'build',stage/'Probe.csproj','--no-restore','--nologo','-o',stage/'out'],cwd=stage,env=env)
         state = stage/'state.bin'; records=[]
-        for mode, lib in [('original', paths['runtime']),('fixed', runtime),('restore', runtime)]:
+        for mode, lib in [('original', original),('fixed', runtime),('restore', runtime)]:
             stdout=execute([dotnet,stage/'out/Probe.dll',mode,lib,image,shim,state],cwd=stage,env=env)
             rows=[line.removeprefix('P6_ENTRY_GPR ') for line in stdout.splitlines() if line.startswith('P6_ENTRY_GPR ')]
             base.require(len(rows)==1,'Missing/duplicate oracle result'); records.append(json.loads(rows[0]))

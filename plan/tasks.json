@@ -24558,9 +24558,56 @@
       ]
     },
     {
+      "id": "T82j",
+      "title": "Integrar GPR canonicos en el runtime Darwin y cerrar el reproducer TASproj",
       "milestone": "M4",
       "required": false,
       "status": "in_progress",
+      "depends": [
+        "T82i"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/build_waterbox.py",
+        "tools/waterbox_entry_gpr.py"
+      ],
+      "touch": [
+        "integration/waterbox-runtime/proposed/0003-darwin-entry-gpr.patch",
+        "integration/waterbox-runtime/0003-darwin-entry-gpr.patch",
+        "plan/toolchains.json",
+        "tools/waterbox_entry_gpr.py",
+        "build/machawk-puae6/waterbox/waterboxhost/src/context/interop_aarch64_darwin.s",
+        "build/machawk-puae6/waterbox/waterboxhost/src/context/interop_aarch64_darwin.bin",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "tests/test_machawk_integration.py"
+      ],
+      "steps": [
+        "Tras oraclecausalT82i y revision ABI, promoverparchecon ASM/binario generado y fijar before/after/SHA; aplicar soloDarwin enMacHawk con sourcebin exactos. ContratoContext/frame/argumentosx18/x28 quedan intactos; no tocar engine/ABIsetjmp ni LinuxARM.",
+        "Actualizacionatomica del patchset,pins,oraculo y artefactos de integracion: mantenercontroloriginal reconstruible al probar un runtimeproducto yacanonico. No debilitar el comparador de coexistencia; compilar serialmente trasdeltaabiprobeT83a para mantenerfuentes/recibos coherentes.",
+        "Una candidata de runtime/guest con inputs actuales, gatesdirigidos ABIcallback/reentrada/restauracion y caso originalEmuHawkBK2/TAS, sin repetir matricesmotor. Rehacerpaquetefuentelicencias solo cuando binariospins actuales verificables.",
+        "La prueba diagnosticaT82h debe conservar la localizacion ante error y admitir observacion de no-reproduccion cuando la candidata corrige el fallo; el gate de release original permanece exigiendoPASS de los cuatrocasos sinnormalizar. El control negativo del decodificador sigue enfixtures propios."
+      ],
+      "checks": [
+        "WB03",
+        "WB13"
+      ],
+      "acceptance": [
+        "Runtimeproducto autenticado y par DarwinASM/bin correctos; oracle sigueteniendo controlnegativo original y candidato pasa registros/callbacks/fullrestore.",
+        "Caso originalEmuHawkcompleto BK2/TAS×UAE/PUAE6 pasa A/V/fullstate y aislamiento conruntimeactual; standalonepaquete/sourcecorrespondiente actualizadoantesdecerrarpreview."
+      ],
+      "stop": "Dosfallosmismo reproducer bloqueanconhipotesis; no moverbytes a invisible ni normalizarsnapshot."
+    },
+    {
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
       "checks": [
         "WB03"
       ],
@@ -24584,17 +24631,61 @@
         "tests/waterbox-smoke/test_x64_guest_build.py",
         "plan/extensions/waterbox-x64.json",
         "docs/adr/waterbox-x64.md",
-        "build/waterbox-x64/**"
+        "build/waterbox-x64/**",
+        "adapters/waterbox/abi_probe.cpp",
+        "ports/waterbox/imports.json"
       ],
       "steps": [
         "Usuario aclara que los testers descargan releases deGitHub. gh confirma paquetesWindowsx64 del workflowhatari-waterbox-preview.yml; el bancoEto noes producto. MantenerARM64 y añadir carrilx64 necesario para ese paquete; no asumir soporteWindows desde Darwin.",
         "Agente en worktree aislado: preparar receta/captura de identidad x64 (ELF62,4KiB), sysroot readonly ../MacHawk/waterbox/waterboxhost/target/x86_64-work/sysroot-x86_64, musl2063abc4e16c84218757b1db10d3cdf9f36ef3f8 y LLVM3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff. Verificar fuentes/inventarios/flags; si falta procedencia, conservarla como pendiente, no declarar release reproducible.",
-        "No editar metadata compartida, instalar ni publicar. No compilar hasta que root serialice. No modificar builder ARM64 ni susrecibos. Parametros target/page_size deben preservar defaultsARM64 y perfiles invalidos se rechazan. FuentesPUAE6 WinUAE se materializan de los mismos inputsverificados sincopiarPUAE5."
+        "No editar metadata compartida, instalar ni publicar. No compilar hasta que root serialice. No modificar builder ARM64 ni susrecibos. Parametros target/page_size deben preservar defaultsARM64 y perfiles invalidos se rechazan. FuentesPUAE6 WinUAE se materializan de los mismos inputsverificados sincopiarPUAE5.",
+        "Primer build real encuentra un supuestoARM64 en adapters/waterbox/abi_probe.cpp (AAPCS64 inlineASM). Ampliar touch para portar el probe aSysVx64 con canariosRBX/RBP/R12..15,GS/context/SP ycallback/TLS/errno; documentar layout propio porarquitectura y conservarARMbitporbit. No simular registrossucessni omitir exportos que el wrapperbindee. La ejecucionreal deWB13x64 se exige al integrar el runtime de ese host, no desde crosscompile.",
+        "Segundo build yaenlazaELF62; el validador rechazaPT_INTERP residual delwrappermusl y detecta .lrodata/.ldata coninicioparcial de pagina enlinkscript x86capturado. No esTLS: elELF no tienePT_TLS ni simbolosSTT_TLS. Derivar linkscript aislado con dos alineaciones4KiB (baseyresultado fijados) y quitarinterpreter dewrapperstatic; no tocarreferencias ni aflojarvalidador. La recetaautentica ambastransformaciones.",
+        "ELF final: unico undefinedlocal es _DYNAMIC, hiddenweak convertido aLOCAL/UNDEF/valor0 porLLD conforme gABI5.4; no importexterno. Validador diferencia bindinglocal/weak0 frente globalunresolved y conserva casosnegativos. HOST01 identifica floorf en audio.cpp:2436 (fase delresampler), emitido como llamada enx64 frente alintrinsecoARM. Añadir soloestafuncionlibmreal aallowlistmath, sin permitir APIs host nuevas. La unicaejecucionextra sera candidatafinal con estoschecksdirigidos, nunca relajarregresiones.",
+        "BuildrealELF62 completo PASS:6c420e17044010b5347d11ababe162bbab7b759f8aef1d98e4b67c2f6fc8b587,4KiB,sinPT_INTERP/PT_TLS ni importsinesperados;21lecturasGS:0x18 yningunTLSFS. Diezfixturespasan y elcheckdecompilacionABIambosISAse ejecutaenagentecon9PASS. Publication_ready/runtime_verified siguenfalse: ejecucionWindows yrecetasysrootpublicable no se deducen deesta vertical."
       ],
       "acceptance": [
         "Receta x64 aislada y fixtures verifican target/4KiB/herramientas/sysroot; ELFreal contieneEM62 y carece TLS del compilador/importsprohibidos. Puerta separada de runtime real siguependiente, nuncaPASS porelbuild.",
         "RutaARM64 conserva flags/pins/recibos; originalMacHawk intacto. Receta deja inputs publicables fijados o un bloqueo concreto de procedencia."
       ]
+    },
+    {
+      "id": "T83b",
+      "title": "Lector CHD host para la preview Windowsx64 existente",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T81"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "ports/portable/media/chd_host.cpp",
+        "ports/portable/media/chd_host.h",
+        "integration/bizhawk/chd-host/CMakeLists.txt",
+        "tests/media/test_chd_host_csharp.py"
+      ],
+      "touch": [
+        "ports/portable/media/chd_host.cpp",
+        "ports/portable/media/chd_host.h",
+        "integration/bizhawk/chd-host/CMakeLists.txt",
+        "tests/media/test_chd_host_windows.py"
+      ],
+      "steps": [
+        "ReleaseWindowsreal encontrada via gh porindicaciondelusuario. El host CHD actual rechazaWIN32 y usa soloPOSIX; portar esta frontera sin cambiarlector/codec/metadatos. Mantener oneowner/thread noreentry documentado.",
+        "Agente en worktree aislado reutilizado tras terminar codigoT83a, sinmetadata ni buildsgrandes/instalaciones/publicacion. Lecturaaleatoria64bit readonly con rutaUTF8Unicode y fdnoheredable; no exponerstructscodec, no stubsuccess. Version/size/status/outputstransaccionales intactos.",
+        "Checksdirigidos POSIX ya existentes y fixtureWindows propio preparado para runnerWindowsreal. La falta de ejecucionWindows no se convierte enDONE. Root serializa buildnative y conecta jobposterior."
+      ],
+      "checks": [
+        "MED01"
+      ],
+      "acceptance": [
+        "Biblioteca exporta API C con Cdecl enWindows y el lector host abre CHD autorizado por rutaUnicode y lee offset64bit correctamente, con errores/salidastransaccionales verificados.",
+        "RegresionesPOSIX del mismolectorpasan; fuentesincluidas y checkWindowsreal ejecutado dentrodel carril existente antesdeDONE."
+      ],
+      "stop": "Dosfallosrazonados bloquean conhipotesis; sinpaquetesglobales ni modificarMacHawkoriginal."
     },
     {
       "id": "T82c",
