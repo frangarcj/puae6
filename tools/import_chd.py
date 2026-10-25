@@ -159,14 +159,13 @@ def stage_derived(destination, expected, outputs):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env["GIT_CEILING_DIRECTORIES"] = str(destination.parent)
     for patch in PATCHES:
-        subprocess.run(["git", "apply", "--verbose", str(DEST / patch["path"])], cwd=destination,
+        subprocess.run(["git", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "apply", "--verbose", str(DEST / patch["path"])], cwd=destination,
                        env=env, check=True, capture_output=True)
     hashes = {p.relative_to(destination).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(destination.rglob("*")) if p.is_file()}
     if hashes != outputs:
         raise ValueError("CHD patch output differs from pinned after hashes")
     (destination / "receipt.json").write_text(json.dumps({"selection": expected, "files": hashes}, indent=2) + "\n")
-
 
 
 def publish_windows(destination, expected, outputs):

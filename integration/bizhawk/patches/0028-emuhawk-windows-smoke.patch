@@ -1,0 +1,166 @@
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+index 544cbce19..9c225c891 100644
+--- a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+@@ -110,6 +110,7 @@ namespace BizHawk.Client.EmuHawk
+   [MethodImpl(MethodImplOptions.NoInlining)]
+   public static int Run(string[] args)
+   {
++   if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return RunWindows(args);
+    try {
+     if (args.Length != 1) throw new ArgumentException("--puae6-coexistence accepts no other arguments", nameof(args));
+     Require(Puae6SelfCheck.Run(new[] { "--puae6-self-check" }) == 0, "Full inventory bootstrap failed");
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+new file mode 100644
+index 000000000..436e41a17
+--- /dev/null
++++ b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+@@ -0,0 +1,148 @@
++using System.Collections.Generic;
++using System.Diagnostics;
++using System.IO;
++using System.Linq;
++using System.Reflection;
++using System.Runtime.CompilerServices;
++using System.Runtime.InteropServices;
++using System.Text;
++using BizHawk.BizInvoke;
++using BizHawk.Client.Common;
++using BizHawk.Common;
++using BizHawk.Emulation.Common;
++using BizHawk.Emulation.Cores.Arcades.MAME;
++using Newtonsoft.Json;
++using Puae6;
++
++namespace BizHawk.Client.EmuHawk
++{
++ [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
++ public delegate ulong Puae6WindowsCallback(ulong a, ulong b, ulong c, ulong d, ulong e, ulong f);
++
++ public abstract class Puae6WindowsProbeApi
++ {
++  [BizImport(CallingConvention.Cdecl)] public abstract int p6w_probe_abi(Puae6WindowsCallback callback, IntPtr output, ulong capacity);
++  [BizImport(CallingConvention.Cdecl)] public abstract int p6w_identity(IntPtr output, ulong capacity);
++ }
++
++ internal static partial class Puae6Coexistence
++ {
++  [DllImport("kernel32.dll", EntryPoint = "SetDllDirectoryW", CharSet = CharSet.Unicode, SetLastError = true)]
++  [return: MarshalAs(UnmanagedType.Bool)] private static extern bool WindowsDllDirectory(string path);
++
++  private static void WindowsFiles(Dictionary<string, string> native)
++  {
++   Require(native != null && native.Keys.OrderBy(n => n, StringComparer.Ordinal).SequenceEqual(new[] { "puae6.wbx", "waterboxhost.dll" }), "Windows native manifest keys");
++   foreach (var item in native)
++    Require(item.Value != null && item.Value.Length == 64 && item.Value.All(Uri.IsHexDigit)
++     && Hash(File.ReadAllBytes(Path.Combine(Stage, "dll", item.Key))) == item.Value, "Windows native input differs: " + item.Key);
++   Require(Puae6Guest.BuiltWithSha256 == native["puae6.wbx"], "Compiled guest pin differs from staged guest");
++  }
++
++  private static void WindowsIdentity(Dictionary<string, string> native)
++  {
++   WindowsFiles(native);
++   using var process = Process.GetCurrentProcess();
++   var modules = process.Modules.Cast<ProcessModule>().Where(m => string.Equals(m.ModuleName, "waterboxhost.dll", StringComparison.OrdinalIgnoreCase)).ToArray();
++   Require(modules.Length == 1 && string.Equals(Path.GetFullPath(modules[0].FileName), Path.Combine(Stage, "dll", "waterboxhost.dll"), StringComparison.OrdinalIgnoreCase), "Runtime is not the single staged Windows module");
++  }
++
++  private static unsafe void WindowsAbi(IEmulator core)
++  {
++   var field = typeof(Puae6Core).GetField("_guest", BindingFlags.Instance | BindingFlags.NonPublic);
++   Require(core is Puae6Core && field != null && field.FieldType == typeof(Puae6Guest), "Private guest field contract differs");
++   var guest = (Puae6Guest)field.GetValue(core);
++   Require(guest != null && guest.IsSealed, "Real sealed guest required");
++   Puae6WindowsProbeApi api = null;
++   int callbacks = 0; string failure = null;
++   var nested = new ulong[3];
++   Puae6WindowsCallback callback = (a, b, c, d, e, f) =>
++   {
++    try
++    {
++     callbacks++;
++     Require(new[] { a, b, c, d, e, f }.SequenceEqual(new ulong[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 }), "SysV callback arguments");
++     fixed (ulong* p = nested)
++      Require(api.p6w_identity((IntPtr)p, 3) == 0, "Reentrant guest identity");
++     return 0xC0FFEE00UL + a + b + c + d + e + f;
++    }
++    catch (Exception error) { failure = error.ToString(); return 0xBAD; }
++   };
++   var output = new ulong[15];
++   using (guest.Host.EnterExit())
++   {
++    var adapter = CallingConventionAdapters.MakeWaterbox(new Delegate[] { callback }, guest.Host);
++    api = BizInvoker.GetInvoker<Puae6WindowsProbeApi>(guest.Host, guest.Host, adapter);
++    fixed (ulong* p = output) Require(api.p6w_probe_abi(callback, (IntPtr)p, 15) == 0, "x64 ABI export");
++    GC.KeepAlive(adapter);
++   }
++   GC.KeepAlive(callback);
++   Require(callbacks == 1 && failure == null, "Callback/reentry failed: " + failure);
++   Require(output[0] != 0 && output[0] == output[1] && nested[0] == output[0], "GS context changed");
++   Require(output[2] == 0xC0FFEF65 && output[9] == output[10] && output[9] != 0 && (output[9] & 15) == 0, "Callback result/SP alignment");
++   Require(output.Skip(3).Take(6).SequenceEqual(new ulong[] { 0xB003, 0xB005, 0xB012, 0xB013, 0xB014, 0xB015 }), "SysV nonvolatile registers");
++   Require(output[11] == 0x7157 && output[12] == 0x7157 && nested[1] == 0x7157
++    && output[13] == 0x1234 && output[14] == 0x1234 && nested[2] == 0x1234, "TLS/errno changed");
++  }
++
++  private static void WindowsLoad(IEmulator core, byte[] state)
++  {
++   using var stream = new MemoryStream(state, writable: false);
++   using var reader = new BinaryReader(stream);
++   core.AsStatable().LoadStateBinary(reader);
++   Require(stream.Position == stream.Length && State(core).SequenceEqual(state), "Full snapshot restore differs");
++  }
++
++  [MethodImpl(MethodImplOptions.NoInlining)]
++  private static int RunWindows(string[] args)
++  {
++   try
++   {
++    if (args.Length != 1) throw new ArgumentException("--puae6-coexistence accepts no other arguments", nameof(args));
++    Require(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && RuntimeInformation.ProcessArchitecture == Architecture.X64, "Windows x64 process required");
++    Require(WindowsDllDirectory(Path.Combine(Stage, "dll")), "SetDllDirectoryW failed: " + Marshal.GetLastWin32Error());
++    var native = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Stage, "native.json")));
++    WindowsFiles(native);
++    _ = OSTailoredCode.LinkedLibManager.LoadOrThrow(Path.Combine(Stage, "dll", "waterboxhost.dll"));
++    WindowsIdentity(native);
++    Require(Puae6SelfCheck.Run(new[] { "--puae6-self-check" }) == 0, "Full inventory bootstrap failed");
++    HawkFile.DearchivalMethod = SharpCompressDearchivalMethod.Instance;
++    var db = Path.Combine(Stage, "gamedb"); Database.InitializeDatabase(db, db, true); MAMEMachineDB.Initialize(db);
++    foreach (var directory in new[] { "User", "Movies", "Movie backups", "Temp Files" }) Directory.CreateDirectory(Path.Combine(Stage, directory));
++    var firstSession = Session(); var secondSession = Session();
++    IEmulator first = null, second = null;
++    try
++    {
++     first = Open("PUAE6", firstSession, Path.Combine(Stage, "Movies", "windows-first.bk2"), true);
++     WindowsAbi(first);
++     for (int i = 0; i < 3; i++) Step(first, firstSession);
++     var baseline = State(first); int baselineFrame = first.Frame;
++     var rows = new List<string[]>();
++     for (int i = 0; i < 3; i++) rows.Add(Step(first, firstSession));
++     var future = State(first);
++     Require(first.Frame == baselineFrame + 3 && !baseline.SequenceEqual(future), "No observable future");
++     second = Open("PUAE6", secondSession, Path.Combine(Stage, "Movies", "windows-second.bk2"), true);
++     Step(second, secondSession);
++     Require(second.Frame != baselineFrame && !State(second).SequenceEqual(baseline), "Restore control must differ");
++     WindowsLoad(second, baseline); Require(second.Frame == baselineFrame, "Restore frame counter");
++     for (int i = 0; i < 3; i++) Require(Step(second, secondSession).SequenceEqual(rows[i]), "Restored A/V differs");
++     Require(State(second).SequenceEqual(future) && State(first).SequenceEqual(future), "Restored future/isolation differs");
++     WindowsIdentity(native);
++     Console.WriteLine("P6_EMUHAWK_WINDOWS " + JsonConvert.SerializeObject(new Dictionary<string, object> {
++      ["schema_version"] = 1, ["runtime"] = Environment.Version.ToString(), ["architecture"] = "X64", ["core"] = "PUAE6", ["native"] = native,
++      ["abi_slots"] = 15, ["callbacks"] = 1, ["reentries"] = 1, ["sandboxes"] = 2, ["advanced_frames"] = 10,
++      ["baseline_frame"] = baselineFrame, ["future_frame"] = first.Frame, ["restored_frames"] = 3,
++      ["baseline_sha256"] = Hash(baseline), ["future_sha256"] = Hash(future),
++      ["av_sha256"] = Hash(Encoding.UTF8.GetBytes(string.Join("\n", rows.Select(r => string.Join("/", r))))) }));
++     return 0;
++    }
++    finally
++    {
++     if (firstSession.Movie != null) Close(firstSession); if (secondSession.Movie != null) Close(secondSession);
++     first?.Dispose(); second?.Dispose();
++    }
++   }
++   catch (Exception error) { Console.Error.WriteLine(error); return 2; }
++  }
++ }
++}

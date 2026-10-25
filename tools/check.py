@@ -1186,6 +1186,7 @@ TASK_SUITES[('WB13', 'T82j')] = dict(TASK_SUITES[('WB03', 'T82i')])
 TASK_SUITES[('BUILD01', 'T83a')] = {'x64_guest_recipe': 'tests.waterbox-smoke.test_x64_guest_build'}
 TASK_SUITES[('MED01', 'T83b')] = {'host_reader': 'tests.media.test_chd_host_windows'}
 TASK_SUITES[('BUILD01', 'T83c')] = {'host_guest_identity': 'tests.waterbox-state.test_guest_identity_x64'}
+TASK_SUITES[('BUILD01', 'T83d')] = {'sysroot_recipe': 'tests.waterbox-smoke.test_x64_sysroot'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])

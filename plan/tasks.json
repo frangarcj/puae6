@@ -24676,12 +24676,15 @@
         "ports/portable/media/chd_host.h",
         "integration/bizhawk/chd-host/CMakeLists.txt",
         "tests/media/test_chd_host_windows.py",
-        "tools/check.py"
+        "tools/check.py",
+        "tools/import_chd.py",
+        "tests/media/test_chd_dependencies.py"
       ],
       "steps": [
         "ReleaseWindowsreal encontrada via gh porindicaciondelusuario. El host CHD actual rechazaWIN32 y usa soloPOSIX; portar esta frontera sin cambiarlector/codec/metadatos. Mantener oneowner/thread noreentry documentado.",
         "Agente en worktree aislado reutilizado tras terminar codigoT83a, sinmetadata ni buildsgrandes/instalaciones/publicacion. Lecturaaleatoria64bit readonly con rutaUTF8Unicode y fdnoheredable; no exponerstructscodec, no stubsuccess. Version/size/status/outputstransaccionales intactos.",
-        "Checksdirigidos POSIX ya existentes y fixtureWindows propio preparado para runnerWindowsreal. La falta de ejecucionWindows no se convierte enDONE. Root serializa buildnative y conecta jobposterior."
+        "Checksdirigidos POSIX ya existentes y fixtureWindows propio preparado para runnerWindowsreal. La falta de ejecucionWindows no se convierte enDONE. Root serializa buildnative y conecta jobposterior.",
+        "La preparacion nativa CMake tambien necesita la frontera de build Windows: normalizar rutas de manifest con as_posix y publicar el derivado completo mediante rename atomico desde un temporal exclusivo en Windows, validando ganador si hay carrera; mantener flock/NOFOLLOW POSIX intactos. Misma vertical CHD Windows, sin tocar codecs ni desactivar verificaciones. Tests de transaccion/cache concurrencia existentes y dirigidos al nuevo publicador; job Windows ejecuta la ruta real."
       ],
       "checks": [
         "MED01"
@@ -24797,12 +24800,15 @@
         "integration/bizhawk/patches/0028-emuhawk-windows-smoke.patch",
         "build/machawk-puae6/.github/workflows/puae6-windows.yml",
         "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
-        "tools/check.py"
+        "tools/check.py",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/waterbox/puae6/**"
       ],
       "steps": [
         "Usar el EmuHawk real Windows net48 ya distribuido, sin convertir el banco Eto en frontend. El CLI existente tiene supuestos dylib/dyld; añadir recorrido Windows explícito conservando Darwin original. Cargar DLL absoluta y verificar módulo realmente cargado.",
         "Probe real p6w_probe_abi SysV sobre Waterbox y callback/reentrada: 15slots x64, GScontext/GPR/SP/claveTLS/errno; nunca llamar SysV por delegado Win64 directo. RomLoader y microROM/ADF propios; snapshot completo, avance observable y restauracion en sandbox nuevo, A/V exacto. Sin ROMs comerciales.",
-        "Job Windows con artefactos fijados y fuentes/licencias actuales, pin de guest compilado por plataforma, lector CHD real con Unicode/offset64/errores. No ejecutar matrix completa para este delta. Root coordina publicacion solo tras PASS real; agente no edita metadata ni publica."
+        "Job Windows con artefactos fijados y fuentes/licencias actuales, pin de guest compilado por plataforma, lector CHD real con Unicode/offset64/errores. No ejecutar matrix completa para este delta. Root coordina publicacion solo tras PASS real; agente no edita metadata ni publica.",
+        "Usar workflow_dispatch puae6_only en el workflow GitHub ya registrado para evitar lanzar toda la matriz: los cuatro jobs historicos mantienen su recorrido por defecto y el job Windows dirigido se selecciona explicitamente. Conservar pin de guest fijo y rechazo mientras el derivado no este construido."
       ],
       "checks": [
         "WB03",
