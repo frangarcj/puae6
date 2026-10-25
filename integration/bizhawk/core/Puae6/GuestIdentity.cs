@@ -2,9 +2,13 @@
 
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace Puae6;
+
+/// <summary>The two guest instruction sets supported by the enabled host profiles.</summary>
+public enum GuestIsa : ushort { X64 = 62, AArch64 = 183 }
 
 /// <summary>Why a guest file was refused.</summary>
 public enum GuestRejection
@@ -17,9 +21,9 @@ public enum GuestRejection
 	NotElf,
 	/// <summary>An ELF, but not 64-bit little-endian.</summary>
 	WrongClassOrByteOrder,
-	/// <summary>An ELF for another machine than AArch64 (e_machine 183).</summary>
+	/// <summary>An ELF for another machine than the explicitly selected guest ISA.</summary>
 	WrongMachine,
-	/// <summary>An AArch64 ELF whose SHA-256 is not the pinned one.</summary>
+	/// <summary>An ELF whose SHA-256 is not the pinned one.</summary>
 	WrongHash,
 }
 
@@ -33,21 +37,44 @@ public sealed class GuestRejectedException : Exception
 /// <summary>
 /// The identity gate of puae6.wbx (T20b). The Waterbox host of MacHawk accepts any ELF: measured in T09c, it loads an x86-64 guest without a word
 /// and does not look at the layout, and it picks <c>name.zst</c> over <c>name</c> when both exist. So the wrapper has to say what it is willing to
-/// run, before <c>wbx_create_host</c>: an ELF64 little-endian for AArch64 whose SHA-256 is the one this wrapper was built together with. A refused
+/// run, before <c>wbx_create_host</c>: an ELF64 little-endian for the enabled host's ISA whose SHA-256 is the one this wrapper was built together with. A refused
 /// guest is an error, never a fallback to another file (the UAE core's uae.wbx included).
 /// </summary>
 public static class GuestIdentity
 {
 	public const ushort EM_AARCH64 = 183;
+	public const ushort EM_X86_64 = 62;
 	const int ElfHeaderBytes = 64;
 
 	public readonly record struct VerifiedGuest(string Path, string Sha256, long Bytes);
+
+	/// <summary>Reject unsupported hosts before accessing firmware, media or a sandbox.</summary>
+	public static GuestIsa ForHost(OSPlatform os, Architecture architecture)
+	{
+		if (os == OSPlatform.OSX && architecture == Architecture.Arm64) return GuestIsa.AArch64;
+		if (os == OSPlatform.Windows && architecture == Architecture.X64) return GuestIsa.X64;
+		throw new PlatformNotSupportedException($"PUAE6 Waterbox supports macOS ARM64 and Windows x64 only (host {os}/{architecture}); select UAE on this host.");
+	}
+
+	public static GuestIsa CurrentHostIsa => ForHost(
+		RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? OSPlatform.OSX
+			: RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? OSPlatform.Windows
+			: OSPlatform.Create(RuntimeInformation.OSDescription), RuntimeInformation.ProcessArchitecture);
+
+	static void CheckIsa(GuestIsa isa)
+	{
+		if (isa is not (GuestIsa.AArch64 or GuestIsa.X64)) throw new ArgumentOutOfRangeException(nameof(isa), isa, "Unsupported guest ISA");
+	}
 
 	/// <summary>Checks the file the host is going to load and returns what was verified, or throws <see cref="GuestRejectedException"/>.</summary>
 	/// <param name="path">The guest, uncompressed. Its <c>.zst</c> sibling must not exist: WaterboxHost would load that one instead.</param>
 	/// <param name="pinnedSha256">Lowercase or uppercase hex of the SHA-256 that the wrapper was built with.</param>
 	public static VerifiedGuest Verify(string path, string pinnedSha256)
+		=> Verify(path, pinnedSha256, GuestIsa.AArch64);
+
+	public static VerifiedGuest Verify(string path, string pinnedSha256, GuestIsa isa)
 	{
+		CheckIsa(isa);
 		if (pinnedSha256 is null || pinnedSha256.Length != 64 || !pinnedSha256.All(Uri.IsHexDigit))
 			throw new ArgumentException("the pinned guest hash must be 64 hex digits", nameof(pinnedSha256));
 		if (File.Exists(path + ".zst"))
@@ -59,11 +86,11 @@ public static class GuestIdentity
 		{
 			throw new GuestRejectedException(GuestRejection.Missing, $"the PUAE6 guest {path} does not exist");
 		}
-		CheckElf(bytes, path);
+		CheckElf(bytes, path, isa);
 		string actual = Sha256Hex(bytes);
 		if (!string.Equals(actual, pinnedSha256, StringComparison.OrdinalIgnoreCase))
 			throw new GuestRejectedException(GuestRejection.WrongHash,
-				$"{path} is an AArch64 ELF but not the guest this wrapper was built with (sha256 {actual}, expected {pinnedSha256.ToLowerInvariant()})");
+				$"{path} is a {isa} ELF but not the guest this wrapper was built with (sha256 {actual}, expected {pinnedSha256.ToLowerInvariant()})");
 		return new VerifiedGuest(path, actual, bytes.LongLength);
 	}
 
@@ -76,13 +103,17 @@ public static class GuestIdentity
 
 	/// <summary>The header checks alone: ELF magic, 64-bit, little endian, e_machine AArch64.</summary>
 	public static void CheckElf(ReadOnlySpan<byte> bytes, string what)
+		=> CheckElf(bytes, what, GuestIsa.AArch64);
+
+	public static void CheckElf(ReadOnlySpan<byte> bytes, string what, GuestIsa isa)
 	{
+		CheckIsa(isa);
 		if (bytes.Length < ElfHeaderBytes || bytes[0] != 0x7F || bytes[1] != (byte)'E' || bytes[2] != (byte)'L' || bytes[3] != (byte)'F')
 			throw new GuestRejectedException(GuestRejection.NotElf, $"{what} is not an ELF file");
 		if (bytes[4] != 2 || bytes[5] != 1)
 			throw new GuestRejectedException(GuestRejection.WrongClassOrByteOrder, $"{what} is not a 64-bit little-endian ELF");
 		int machine = bytes[18] | (bytes[19] << 8);       // e_machine, little endian
-		if (machine != EM_AARCH64)
-			throw new GuestRejectedException(GuestRejection.WrongMachine, $"{what} is an ELF for machine {machine}, not AArch64 ({EM_AARCH64})");
+		if (machine != (ushort)isa)
+			throw new GuestRejectedException(GuestRejection.WrongMachine, $"{what} is an ELF for machine {machine}, not {isa} ({(ushort)isa})");
 	}
 }

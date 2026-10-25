@@ -3,7 +3,6 @@
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Common;
@@ -28,10 +27,10 @@ public sealed partial class Puae6Core
 
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
-		// This guest/runtime pair is Darwin ARM64 only. Refuse before firmware,
-		// media ownership or any sandbox mapping on another host.
-		if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
-			throw new PlatformNotSupportedException("This PUAE6 Waterbox build requires macOS ARM64; select the UAE core on this host.");
+		// Refuse unsupported hosts, the other ISA or a different build's guest
+		// before firmware, media ownership or any sandbox mapping.
+		string guestDirectory = PathUtils.DllDirectoryPath;
+		Puae6Guest.VerifyForCurrentHost(guestDirectory, "puae6.wbx");
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
 		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
 			throw new NotSupportedException("CD32/CDTV load 1..16 CD slots without other media");
@@ -81,7 +80,7 @@ public sealed partial class Puae6Core
 		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|').Last());
 		var result = Puae6WhdLoad.Resolve(new Puae6Parameters
 		{
-			GuestDirectory = PathUtils.DllDirectoryPath,
+			GuestDirectory = guestDirectory,
 			SyncSettings = settings,
 			CdInfo = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
 			CdInfoV2 = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,

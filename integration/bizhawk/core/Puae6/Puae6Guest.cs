@@ -58,6 +58,14 @@ public sealed class Puae6Guest : IDisposable
 	public static string BuiltWithSha256 { get; } = typeof(Puae6Guest).Assembly
 		.GetCustomAttributes<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "Puae6GuestSha256")?.Value ?? "";
 
+	/// <summary>The public loader's early gate, always using this assembly's compiled guest pin.</summary>
+	public static GuestIdentity.VerifiedGuest VerifyForCurrentHost(string directory, string fileName)
+	{
+		var isa = GuestIdentity.CurrentHostIsa;
+		if (BuiltWithSha256.Length == 0) throw new InvalidOperationException("this build of the wrapper has no pinned guest hash (Puae6GuestSha256)");
+		return GuestIdentity.Verify(Path.Combine(directory, fileName), BuiltWithSha256, isa);
+	}
+
 	/// <summary>Opens the guest this wrapper was built with. A build that did not record one cannot open anything.</summary>
 	public static Puae6Guest Open(string directory, string fileName, WaterboxOptions heaps, P6CdHost? cd = null)
 		=> Open(directory, fileName, BuiltWithSha256.Length != 0 ? BuiltWithSha256
@@ -82,7 +90,7 @@ public sealed class Puae6Guest : IDisposable
 	/// <param name="heaps">Heap sizes, which are part of what a snapshot is compatible with; <c>Path</c> and <c>Filename</c> are set here.</param>
 	public static Puae6Guest Open(string directory, string fileName, string pinnedSha256, WaterboxOptions heaps, P6CdHost? cd = null)
 	{
-		var identity = GuestIdentity.Verify(Path.Combine(directory, fileName), pinnedSha256);
+		var identity = GuestIdentity.Verify(Path.Combine(directory, fileName), pinnedSha256, GuestIdentity.CurrentHostIsa);
 		var options = new WaterboxOptions
 		{
 			Path = directory, Filename = fileName,
