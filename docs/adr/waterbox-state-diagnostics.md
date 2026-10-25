@@ -136,3 +136,25 @@ falta un control con canarios host distintos, restauracion en sandbox/proceso
 nuevo y el reproducer original antes de cambiar el runtime de producto.
 Los d8..d15 tambien se capturan por setjmp, pero este diagnostico no acredita
 un fallo alli ni autoriza limpiarlos sin preservar los valores del host.
+
+## Control causal de entrada GPR (T82i)
+
+El oraculo usa un shim nativo propio que pone dos patrones distintos en
+x19..x27 y comprueba que el runtime devuelve esos mismos valores al host.
+Un export ASM guest captura los diez GPR no argumentales antes de cualquier
+prologo C; el argumento y un contador quedan tambien en el estado completo.
+El runtime original conserva los patrones host en la captura guest.
+
+La propuesta0003 pone a cero x19..x27 yx29 despues de guardar el host,
+justo antes de entrar al export. Cabe en el espacio original del interop;
+ASM reconstruye el binario anterior byte a byte antes de generar el nuevo.
+No toca x18,x28, argumentos, Context, frames ni retornos de syscall.
+
+El control real pasa: ambos patrones vuelven intactos al host, los registros
+guest quedan canonicos y los snapshots completos coinciden entre dos
+sandboxes. Restaurar cambia el contador3→1 y el futuro vuelve a3; otro
+proceso restaura0→1→3 con los mismos hashes de estado completo. Dos
+callbacks con reentrada conservan GPR, FP, x18/x28/x29/SP, TLS y errno.
+El oraculo compila un runtime temporal y lo elimina: el producto y sus
+recibos siguen intactos. Integrar la propuesta y repetir TASproj/UAE sigue
+siendo una puerta distinta; no se deduce cierre de la preview.

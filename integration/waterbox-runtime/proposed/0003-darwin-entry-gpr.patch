@@ -1,0 +1,30 @@
+--- a/src/context/interop_aarch64.s
++++ b/src/context/interop_aarch64.s
+@@ -128,6 +128,18 @@
+ 
+     mov     x28, x10
+ 
++    // Host non-argumental values must not enter guest setjmp/state.
++    mov     x19, xzr
++    mov     x20, xzr
++    mov     x21, xzr
++    mov     x22, xzr
++    mov     x23, xzr
++    mov     x24, xzr
++    mov     x25, xzr
++    mov     x26, xzr
++    mov     x27, xzr
++    mov     x29, xzr
++
+     blr     x11                    // return address goes on guest stack
+     mov     x10, x28               // x28 is reserved throughout the guest
+ 
+diff --git a/src/context/interop_aarch64.bin b/src/context/interop_aarch64.bin
+index 53f236bdddd2cd0ae918808e2b565d015cc43edd..1bf4afc7c39e302c80d989db1e81fcabb59ae62c 100755
+GIT binary patch
+delta 54
+ycmZn=Xb{*C!=(P1S$@?QApQ!(-+=f#5dQ$;pFsQzh<^j|UuOBq(M+|Am{|c*=M`rF
+
+delta 17
+YcmZn=Xb{*C!!)^tsb->p#v*1`05fC-Hvj+t
+

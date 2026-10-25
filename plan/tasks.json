@@ -24518,7 +24518,7 @@
     {
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "checks": [
         "WB03"
       ],
@@ -24549,7 +24549,8 @@
       "steps": [
         "El diagnosticoT82h acredita slotsx19/x20/x24/x27 en __exbuf y copia. Revision independiente confirma que diez mov para x19..x27/x29 caben en68bytes antesde0x300, sin cambiarframe/Context/argumentos/x18/x28. Solo entrada al guest, nunca retorno desyscall.",
         "Crear oraculo aislado con dos canarios host distintos y captura de registros guest, conservacion host y snapshots completos. Candidato runtime en build temporal a partir de fuentes autenticadas; producto/recibos/MacHawk intactos. Parche propuesto incluye ASM y binario generado por toolchain fijada, nunca editarbinario a mano.",
-        "No cambiarFP sin prueba y preservacion host: este bloque prueba GPR observados. Preparar candidatos con fuentes/flags fijados, un build y prueba dirigida, sin reconstruir motor. Integracion del runtime de producto y reproducer original van despues del oraculo."
+        "No cambiarFP sin prueba y preservacion host: este bloque prueba GPR observados. Preparar candidatos con fuentes/flags fijados, un build y prueba dirigida, sin reconstruir motor. Integracion del runtime de producto y reproducer original van despues del oraculo.",
+        "WB03 dirigido PASS: dosfixtures y oraculo real. BaselineASM reproduce exactamente bin2048bytes; original acredita contaminacion con dosseedshost, candidato canoniza10GPR y conserva host/argumentos. Dos sandboxes/freshprocess fullstate exactos con contador3→1→3 y0→1→3; callbacksreentrantes2 conservanGP/FP/x18/x28/x29/SP/TLS/errno. Runtime/recibosoriginales intactos y temporales eliminados. No cierreT82c: falta integrarproducto y reproducerTAS."
       ],
       "acceptance": [
         "Original demuestra contaminacion de registros no argumentales al variar canarios host; candidato canoniza GPR guest y recupera canarios host, sin cambiar argumentos/x18/x28 ni offsets del interop.",
