@@ -1,4 +1,4 @@
-"""Exercise the real Cocoa window of the isolated self-contained MacHawk app."""
+"""Exercise a Cocoa GUI test bench against the real integrated MacHawk core."""
 import os
 from pathlib import Path
 import subprocess
@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class MacHawkGuiTests(unittest.TestCase):
     def test_visible_frame_input_and_exact_state_replay(self):
         from tests.fixtures.microrom import build_rom
-        default = ROOT / 'build/machawk-puae6/waterbox/puae6/build/gui-probe/BizHawk.Client.MacHawk.app'
+        default = ROOT / 'build/machawk-puae6/waterbox/puae6/build/gui-probe/PUAE6IntegrationSmoke.app'
         app = Path(os.environ.get('P6_MACHAWK_APP', default)).resolve()
-        executable = app / 'Contents/MacOS/MacHawk'
+        executable = app / 'Contents/MacOS/Puae6GuiSmoke'
         self.assertTrue(executable.is_file(), 'publish the app explicitly before the GUI gate')
         with tempfile.TemporaryDirectory(prefix='machawk-gui-', dir=ROOT / 'build') as temporary:
             directory = Path(temporary)
@@ -28,7 +28,7 @@ class MacHawkGuiTests(unittest.TestCase):
             source = source.replace('loop:\n', 'loop:\n    MOVE.W #$0F00,$DFF180.L\n', 1)
             rom = directory / 'Own.rom'; rom.write_bytes(build_rom.build(source))
             disk = directory / 'Own.adf'; disk.write_bytes(bytes(901120))
-            environment = {**os.environ, 'MACHAWK_DATA_DIRECTORY': str(directory / 'user'),
+            environment = {**os.environ, 'P6_GUI_SMOKE_DATA_DIRECTORY': str(directory / 'user'),
                            'DOTNET_ROOT': str(directory / 'no-installed-dotnet'), 'DOTNET_MULTILEVEL_LOOKUP': '0'}
             result = subprocess.run([str(executable), '--gui-check', str(rom), str(disk)],
                                     env=environment, capture_output=True, text=True, timeout=30)

@@ -24216,7 +24216,8 @@
       "steps": [
         "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
         "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
-        "BUILD01 GUI real pasa con app Cocoa autocontenida net8.0/osx-arm64, pixel rojo transferido exacto, input causal observado y cuatro unidades de replay con estado/video/PCM exactos. Quit explicito evita confundir cierre de ventana macOS con salida del proceso. Core integrado real, no DLL standalone."
+        "BUILD01 GUI real pasa con app Cocoa autocontenida net8.0/osx-arm64, pixel rojo transferido exacto, input causal observado y cuatro unidades de replay con estado/video/PCM exactos. Quit explicito evita confundir cierre de ventana macOS con salida del proceso. Core integrado real, no DLL standalone.",
+        "Aclaracion del usuario 2026-10-25: Eto es un banco de pruebas, no la interfaz de producto. Su ejecucion acredita solo validacion GUI del core; no exige portar TAStudio/Lua/herramientas ni sustituye a EmuHawk."
       ],
       "checks": [
         "BUILD01"
@@ -24250,7 +24251,8 @@
       "steps": [
         "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
         "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
-        "BUILD01: GUI Cocoa real con PCM no nulo y avance observado del dispositivo OpenAL; borrado de cola/fuente al parar, raton y botones causales, replay estado/video/PCM exacto. No se repite la matriz del motor."
+        "BUILD01: GUI Cocoa real con PCM no nulo y avance observado del dispositivo OpenAL; borrado de cola/fuente al parar, raton y botones causales, replay estado/video/PCM exacto. No se repite la matriz del motor.",
+        "Aclaracion del usuario 2026-10-25: Eto es un banco de pruebas, no la interfaz de producto. Su ejecucion acredita solo validacion GUI del core; no exige portar TAStudio/Lua/herramientas ni sustituye a EmuHawk."
       ],
       "checks": [
         "BUILD01"
@@ -24328,7 +24330,8 @@
         "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
         "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha.",
         "BUILD01 GUI real Release PASS: menu Settings abre dialogo Cocoa, refleja todas las propiedades, aplica volumen P10 en vivo y seed=2 pendiente sin cambiar seed=1 ni avanzar el core durante el dialogo; replay de cuatro unidades estado/video/PCM exacto, audio real y raton. Revision manual ve ambas pestañas y salida Cmd-Q; HDF se deshabilita sin disco. No acredita las herramientas WinForms en Eto.",
-        "Cambios subidos junto a los hooks de EmuHawk en PR draft https://github.com/frangarcj/BizHawk/pull/12, rama codex/puae6-macos-preview, commit ce4c778c3. No se publica release ni se cierra paridad general."
+        "Cambios subidos junto a los hooks de EmuHawk en PR draft https://github.com/frangarcj/BizHawk/pull/12, rama codex/puae6-macos-preview, commit ce4c778c3. No se publica release ni se cierra paridad general.",
+        "Aclaracion del usuario 2026-10-25: Eto es un banco de pruebas, no la interfaz de producto. Su ejecucion acredita solo validacion GUI del core; no exige portar TAStudio/Lua/herramientas ni sustituye a EmuHawk."
       ],
       "acceptance": [
         "Menus Cocoa Amiga Settings y Export Hard Disk conectados a ajustes/API reales, junto a Open/Close, estados, pausa y Reboot Core.",
@@ -24407,11 +24410,10 @@
       ],
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
       "id": "T82e",
-      "title": "Menus de la ventana nativa MacHawk y paridad funcional con BizHawk UAE",
-      "status": "pending",
+      "title": "PUAE6 en los menus de la interfaz BizHawk existente",
+      "status": "done",
       "depends": [
         "T82d",
-        "T82e1",
         "T82f"
       ],
       "touch": [
@@ -24423,11 +24425,50 @@
       "steps": [
         "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
         "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
-        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha."
+        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha.",
+        "Correccion de alcance explicita del usuario: «noooo. eso es un banco de pruebas». No portar la interfaz general de BizHawk al banco Eto. La paridad solicitada es sobre los menus del BizHawk normal ya existentes.",
+        "BUILD01 acumulado de T82d/T82f: EmuHawk Release completo con los hooks y el core final compila (0 errores); Reset y Power se publican y ejecutan mediante los servicios del core. No se presenta ejecucion del banco como GUI WinForms."
       ],
       "acceptance": [
-        "La ventana nativa expone las opciones Amiga de UAE, ajustes completos del core y acciones generales de BizHawk solicitadas por el usuario.",
-        "Acciones conectadas a servicios reales y controles de disponibilidad correctos; comprobar desde la GUI las acciones cambiadas, sin menus ficticios ni presentar una ventana minima como paridad completa."
+        "La interfaz EmuHawk existente reconoce PUAE6 en menu Amiga, ajustes, exportacion HDF, icono y ajustes de cores; Soft/Hard Reset distintos.",
+        "Los menus generales de BizHawk conservan sus servicios existentes. El banco Eto no requiere paridad de TAStudio/Lua/RAM Watch: el usuario excluye ese port expresamente."
+      ]
+    },
+    {
+      "milestone": "M4",
+      "required": false,
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
+      "id": "T82g",
+      "title": "Conservar Eto como banco y separar la distribucion del core real",
+      "status": "done",
+      "depends": [
+        "T82e"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-puae6-integration-smoke/**",
+        "build/machawk-puae6/waterbox/puae6/README.md",
+        "tests/test_machawk_gui.py",
+        "tests/test_plan.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Aclaracion del usuario: la ventana Eto es un banco de pruebas. Moverla a la infraestructura smoke y retirar claims de frontend de producto; conservar sus regresiones utiles.",
+        "BUILD01 PASS tras mover a waterbox/waterboxhost/eto-puae6-integration-smoke y renombrar app/assembly/namespace/datos como banco: misma prueba de GUI/input/audio/estados/settings/reset con ensamblados reales. Se conserva el frontend EmuHawk y sus menus. Se retiran copias generadas obsoletas de la falsa ruta de producto."
+      ],
+      "acceptance": [
+        "El banco queda identificado como tal y las fuentes de producto siguen en EmuHawk/Emulation.Cores; no se agrega un segundo frontend de producto.",
+        "La GUI de validacion conserva ejecucion, input, audio, estados y resets tras el cambio de ubicacion; documentacion y PR distinguen prueba de integracion y frontend real."
       ]
     },
     {
@@ -24437,7 +24478,7 @@
       "required": false,
       "status": "pending",
       "depends": [
-        "T82e"
+        "T82g"
       ],
       "read": [
         "README.md",
@@ -24455,7 +24496,8 @@
       ],
       "steps": [
         "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
-        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta."
+        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
+        "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS."
       ],
       "checks": [
         "BUILD01"
@@ -24479,7 +24521,8 @@
         "T82d",
         "T82e",
         "T82e1",
-        "T82f"
+        "T82f",
+        "T82g"
       ],
       "read": [
         "README.md",
@@ -24500,7 +24543,7 @@
       "acceptance": [
         "Frontend nativo, contenido, controles, audio y estados funcionan en el paquete distribuido.",
         "Preview publica verificable, sin sustituir trabajo ajeno ni repetir campañas del motor sin causa.",
-        "Paridad de opciones de menu UAE y herramientas generales de BizHawk requerida antes de presentar la preview como completa."
+        "Menus PUAE6 conectados a la interfaz BizHawk existente. El usuario excluye portar herramientas generales al banco Eto."
       ],
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
     },

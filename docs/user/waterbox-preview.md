@@ -71,3 +71,14 @@ La fusion no publica una preview PUAE6 automaticamente: el workflow existente
 publica Windows y no prepara su guest Darwin ARM64. Hace falta conectar un
 paquete de prueba del host macOS correspondiente; el ZIP standalone disponible
 sigue siendo una alternativa FFI, no una distribucion completa de MacHawk.
+
+
+## Menus e infraestructura de pruebas
+
+El PR #12 conecta PUAE6 con los menus Amiga del EmuHawk existente: ajustes,
+exportacion HDF, icono, configuracion de cores y Soft/Hard Reset distintos.
+Los menus generales permanecen en BizHawk. La ventana Eto bajo
+`waterbox/waterboxhost/eto-puae6-integration-smoke` es un banco de pruebas,
+no el frontend de producto; el usuario excluye portar alli TAStudio/Lua/RAM Watch.
+Las pruebas Cocoa acreditan solo ese banco con los ensamblados reales.
+No acreditan que WinForms EmuHawk funcione como GUI macOS.

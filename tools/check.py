@@ -1168,6 +1168,7 @@ TASK_SUITES[('PLAN01', 'T41')] = {'plan': 'tests.test_plan', 'dispatcher': 'test
 TASK_SUITES[('BUILD01', 'T81')] = {'machawk_integration': 'tests.test_machawk_integration'}
 TASK_SUITES[('BUILD01', 'T82a')] = {'machawk_gui': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82b')] = {'machawk_gui_audio': 'tests.test_machawk_gui'}
+TASK_SUITES[('BUILD01', 'T82g')] = {'machawk_gui_test_bench': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82e1')] = {'machawk_gui_menus': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82f')] = {
     'native_soft_reset': 'tests.state.test_soft_reset',
@@ -1259,6 +1260,8 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
     if task in ('T81', 'T82a', 'T82b', 'T82e1'):
         diagnostic = ('GUI Cocoa real: imagen, input causal y replay estado/video/PCM exactos' if task in ('T82a', 'T82b', 'T82e1')
                       else 'Aplicacion MacHawk real: UAE de referencia y PUAE6, replay BK2/TAS y aislamiento; no acredita GUI')
+    if task == 'T82g':
+        diagnostic = 'Banco Cocoa de integracion con core real pasa; no acredita GUI WinForms ni es frontend de producto'
     if task == 'T82f':
         diagnostic = 'Soft/Hard Reset reales: RAM, estado nativo pendiente, replay en Waterbox y comandos de menu Cocoa; A/V y snapshot exactos'
     if task == 'T82d':
