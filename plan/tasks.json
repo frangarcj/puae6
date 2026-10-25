@@ -12579,7 +12579,7 @@
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T38",
         "T39",
