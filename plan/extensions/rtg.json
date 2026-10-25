@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "task": "T45",
+  "scope": "study_only_no_profile_changes",
+  "upstream": {
+    "source_id": "winuae",
+    "repository": "https://github.com/tonioni/WinUAE.git",
+    "tag": "6030",
+    "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "snapshot_manifest": "manifests/upstream-files.json"
+  },
+  "decision": {
+    "device": "UAE Zorro III virtual RTG",
+    "upstream_type": "GFXBOARD_UAE_Z3",
+    "upstream_type_value": 1,
+    "boards": 1,
+    "proposed_machine": "A4030/Normal/MMU0",
+    "vram_bytes": 4194304,
+    "z3_aperture_bytes": 16777216,
+    "populated_bytes": 4194304,
+    "mode_sizes": [
+      [
+        640,
+        480
+      ],
+      [
+        800,
+        600
+      ],
+      [
+        1024,
+        768
+      ]
+    ],
+    "formats": [
+      "RGBFB_CLUT",
+      "RGBFB_R5G6B5PC",
+      "RGBFB_A8R8G8B8"
+    ],
+    "advertised_modes": 9,
+    "virtual_width_max": 1024,
+    "virtual_height_max": 768,
+    "stride_max_bytes": 4096,
+    "presentation": "software_XRGB8888_one_display",
+    "timing": "upstream_emulated_vsync_path_rtgvblankrate0_no_host_vsync",
+    "runtime_support": "not_implemented"
+  },
+  "memory_proposal": {
+    "vram_bytes": 4194304,
+    "conversion_buffer_bytes": 3145728,
+    "auxiliary_cap_bytes": 16384,
+    "mutable_increment_bytes": 7356416,
+    "logical_4k_pages": 1796,
+    "physical_16k_groups": 449,
+    "initial_mmap_budget_increment_kib": 14368,
+    "native_save_scratch_cap_bytes": 7356416,
+    "measurement_status": "not_run",
+    "snapshot": "capture_all_mutable_initially",
+    "excludes": [
+      "existing_chipset_buffer_and_heaps",
+      "snapshot_format_metadata_and_wrapper_envelope",
+      "native_save_scratch_from_persistent_increment"
+    ],
+    "region_alignment_bytes": 16384
+  },
+  "source_paths": [
+    "upstream/winuae/include/gfxboard.h",
+    "upstream/winuae/expansion.cpp",
+    "upstream/winuae/od-win32/picasso96_win.cpp",
+    "upstream/winuae/od-win32/picasso96_win.h",
+    "upstream/winuae/include/picasso96.h",
+    "upstream/winuae/include/rtgmodes.h",
+    "upstream/winuae/od-win32/winuae_msvc15/winuae_msvc.vcxproj",
+    "ports/portable/video_present.h",
+    "integration/bizhawk/core/Puae6/Puae6Core.cs"
+  ],
+  "excluded": [
+    "host_GPU_dependency",
+    "render_thread",
+    "host_WriteWatch_dependency",
+    "host_monitor_mode_enumeration",
+    "physical_RTG_cards",
+    "Zorro_II",
+    "overlay",
+    "hardware_cursor",
+    "3D",
+    "multimonitor",
+    "MMU_changes",
+    "unbounded_modes_or_VRAM"
+  ],
+  "subbacklog": [
+    {
+      "id": "RTG-A",
+      "depends": [
+        "T41",
+        "T45"
+      ],
+      "status": "proposed",
+      "kind": "contract_and_source_probe",
+      "deliverable": "Fix one-board schema/ABI identity,9 modes, guest failure semantics and software closure from real WinUAE Windows RTG source; inventory traps/rtarea and license of any guest driver",
+      "oracle": "Exact source manifest and link/import closure; own Amiga Autoconfig enumeration expects16MiB aperture/4MiB populated and no overlap with Fast/Z3 RAM; unsupported requests fail before writes",
+      "gates": [
+        "SRC01",
+        "GEN01"
+      ]
+    },
+    {
+      "id": "RTG-B",
+      "depends": [
+        "RTG-A"
+      ],
+      "status": "proposed",
+      "kind": "bounded_software_device",
+      "deliverable": "Own VRAM and fixed modes/palette, fill/blit/traps, panning and checked conversion without threads/hostGPU/writewatch; single existing scheduler with emulated vblank",
+      "oracle": "Own microguest patterns plus independent byte-format and rectangle calculations; all9 modes, endian, overlapping blits, palette, edge/overflow/foreignbase/stride and hidden VRAM guards; IRQ/ticks against fixed upstream path",
+      "gates": [
+        "AV01",
+        "AV02",
+        "DET02"
+      ]
+    },
+    {
+      "id": "RTG-C",
+      "depends": [
+        "RTG-B"
+      ],
+      "status": "proposed",
+      "kind": "semantic_state",
+      "deliverable": "Inventory and version RTG codec including full VRAM/Z3 mapping, modes/palette/pending flags/IRQ, uaegfx vectors and callback rebinding",
+      "oracle": "Same/new process cuts during mode and palette/panning transitions; full VRAM/RAM/state/future/ticks/AV/PCM exact; corrupt or foreign state transactional rejection",
+      "gates": [
+        "STATE01",
+        "STATE02",
+        "DET02"
+      ]
+    },
+    {
+      "id": "RTG-D",
+      "depends": [
+        "RTG-C"
+      ],
+      "status": "proposed",
+      "kind": "frontend_integration",
+      "deliverable": "Libretro geometry and Waterbox IVideoProvider follow one bounded software display; preserve current nonRTG identities/caps",
+      "oracle": "Chipset/RTG/chipset and consecutive modes, offscreen/renderoff/black, restore in fresh sandbox/process, movie replay/seek with same identity and complete future; actual guest run, no native substitute",
+      "gates": [
+        "LR01",
+        "WB03",
+        "WB13",
+        "WB14",
+        "WB15",
+        "WB16"
+      ]
+    },
+    {
+      "id": "RTG-E",
+      "depends": [
+        "RTG-C",
+        "RTG-D"
+      ],
+      "status": "proposed",
+      "kind": "memory_and_portability_gate",
+      "deliverable": "Prove auxiliary16KiB cap and fixed allocations; measure actual committed/peak/dirty groups/state bound/save-load cost and cross-ISA software determinism",
+      "oracle": "Full4MiB VRAM dirty and all output groups dirty, mode switches, native scratch and two sandboxes; fail if budgets exceeded, no invisible exclusion without poison proof; matrix/sanitizers preserve nonRTG corpus",
+      "gates": [
+        "SAFE01",
+        "PERF01",
+        "DET02",
+        "AV01",
+        "AV02"
+      ]
+    },
+    {
+      "id": "RTG-F",
+      "depends": [
+        "RTG-E"
+      ],
+      "status": "proposed",
+      "kind": "driver_acceptance",
+      "deliverable": "Pin and authorize Amiga OS/Picasso96 driver inputs separately, execute real mode/operations/state workload on both frontends before exposing RTG option",
+      "oracle": "Independent own probe expectations plus driver version/hash/license and actual legal system run; no third-party screenshot-only oracle or claim of all physical RTG compatibility",
+      "gates": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "LR01",
+        "WB03"
+      ]
+    }
+  ]
+}
