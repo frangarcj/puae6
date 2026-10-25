@@ -922,6 +922,12 @@ TASK_SUITES[('LR01', 'T55c')] = {
 for _gate in ('GEN01', 'DET02', 'WB03', 'LR01'):
     # T55b adds the real 030 preset; shared schema/parity selectors keep one name.
     TASK_SUITES[(_gate, 'T55')] = {**TASK_SUITES[(_gate, 'T55c')], **TASK_SUITES[(_gate, 'T55b')]}
+# These ADR gates validate studies, never execution of an unimplemented feature.
+for _task, _method in (('T42', 'jit'), ('T45', 'rtg'),
+                       ('T46', 'waterbox_platforms'), ('T47', 'multi_instance')):
+    TASK_SUITES[('ADR01', _task)] = {
+        'study_contract': 'tests.test_future_extensions.PostReleaseStudyTests.test_' + _method,
+    }
 # T44 is a matrix/subbacklog study. Runtime selectors preserve MMU0 only.
 TASK_SUITES[('GEN01', 'T44')] = {
     'study_contract': 'tests.test_future_extensions.MmuStudyTests',
@@ -1189,11 +1195,12 @@ def _run_suite(module, env=None, timeout=120):
 
 def _dispatch_task_suites(check_id, task, required, finish, executed):
     suites = TASK_SUITES[(check_id, task)]
+    study_only = check_id == 'ADR01' and task in ('T42', 'T45', 'T46', 'T47')
     wanted = sorted(set(suites) | set(required))
     missing = [name for name in wanted if name not in suites]
     if missing:
         return finish('NOT_IMPLEMENTED', 'Falta cobertura requerida: ' + ', '.join(missing), wanted)
-    if not all(shutil.which(tool) for tool in ('clang', 'clang++', 'cmake')):
+    if not study_only and not all(shutil.which(tool) for tool in ('clang', 'clang++', 'cmake')):
         return finish('BLOCKED', 'Faltan compiladores HOST clang/clang++/cmake', wanted, 'HARNESS')
     for name in wanted:
         result = _run_suite(suites[name], TASK_SUITE_ENV, TASK_SUITE_TIMEOUT.get((check_id, task), 3600))
@@ -1210,7 +1217,9 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
         if counts['skipped'] or counts['expected_failures']:
             return finish('BLOCKED', f'{name}: assertions omitidas o pendientes', wanted, 'HARNESS')
         executed.append(name)
-    return finish('PASS', 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion', wanted, 'HARNESS')
+    diagnostic = ('Contrato documental, pin y subbacklog comprobados; no se ejecuta la feature ni un runtime nuevo'
+                  if study_only else 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion')
+    return finish('PASS', diagnostic, wanted, 'HARNESS')
 
 
 def dispatch(check_id, task='T04', profile='deterministic-a500', scenario=None, required=()):

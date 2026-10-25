@@ -22309,7 +22309,7 @@
       "title": "Estudio posterior de JIT nativo y perfil acelerado",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T41"
       ],
@@ -22320,12 +22320,15 @@
       ],
       "touch": [
         "docs/adr/future-jit.md",
-        "plan/extensions/jit.json"
+        "plan/extensions/jit.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
         "Medir si el interpreter incumple un caso prioritario; auditar backends JIT upstream y sus licencias/ISA a pin concreto.",
         "Diseñar invalidacion, self-modifying code, W^X, caches y politica de estados/perfil separado; no habilitarlo en Waterbox por arrastre.",
-        "Producir subbacklog con pruebas de paridad, seguridad y actualizacion antes de implementar."
+        "Producir subbacklog con pruebas de paridad, seguridad y actualizacion antes de implementar.",
+        "El coordinador registra ADR01 con validacion estatica del contrato/pin/subbacklog en tests/test_future_extensions.py y tools/check.py; no sustituye ninguna puerta de ejecucion futura."
       ],
       "checks": [
         "ADR01"
@@ -22404,7 +22407,7 @@
       "title": "Estudio posterior RTG sin acoplar una UI",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T41"
       ],
@@ -22415,12 +22418,15 @@
       ],
       "touch": [
         "docs/adr/future-rtg.md",
-        "plan/extensions/rtg.json"
+        "plan/extensions/rtg.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
         "Elegir un dispositivo RTG upstream concreto e inventariar VRAM/modos/capacidades y dependencias host.",
         "Diseñar ownership de buffers, cambios de modo y estado VRAM que puedan soportar ambos adaptadores sin D3D/OpenGL obligatorio.",
-        "Crear subbacklog de pruebas de modos, bounds, snapshot y presupuesto de memoria antes del port."
+        "Crear subbacklog de pruebas de modos, bounds, snapshot y presupuesto de memoria antes del port.",
+        "El coordinador registra ADR01 con validacion estatica del contrato/pin/subbacklog en tests/test_future_extensions.py y tools/check.py; no sustituye ninguna puerta de ejecucion futura."
       ],
       "checks": [
         "ADR01"
@@ -22435,7 +22441,7 @@
       "title": "Auditar runtimes adicionales sin aplazar el MacHawk inicial",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T41"
       ],
@@ -22447,12 +22453,15 @@
       ],
       "touch": [
         "docs/adr/future-waterbox-platforms.md",
-        "plan/extensions/waterbox-platforms.json"
+        "plan/extensions/waterbox-platforms.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
         "MacHawk Darwin ARM64 ya es referencia principal desde T00/T09/T19. Identificar aqui solamente otro runtime/fork o cambio de arquitectura solicitado y fijar su commit antes de proponer soporte.",
         "Auditar loader, ABI, sysroot, snapshot y calling convention; separar cambios del core de un port del runtime.",
-        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte."
+        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
+        "El coordinador registra ADR01 con validacion estatica del contrato/pin/subbacklog en tests/test_future_extensions.py y tools/check.py; no sustituye ninguna puerta de ejecucion futura."
       ],
       "checks": [
         "ADR01"
@@ -22460,14 +22469,15 @@
       "acceptance": [
         "El estudio adicional no rebaja ni aplaza el soporte MacHawk inicial; separa cambios de runtime y core con evidencia o bloqueo real."
       ],
-      "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites."
+      "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites.",
+      "blocked_reason": "Auditoria Linux x86_64 fijada y ADR01 coherente; WB01 no ejecutado: faltan receta/recibos vinculantes de toolchain, sysroot, runtime y mini-core en runner Linux real. Los binarios locales sin procedencia no acreditan ejecucion. WB01-WB12 siguen BLOCKED; Darwin ARM64 inicial permanece cerrado."
     },
     {
       "id": "T47",
       "title": "Evaluar multiples instancias nativas sin refactor masivo",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T41"
       ],
@@ -22478,12 +22488,15 @@
       ],
       "touch": [
         "docs/adr/future-multi-instance.md",
-        "plan/extensions/multi-instance.json"
+        "plan/extensions/multi-instance.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
       ],
       "steps": [
         "Definir caso real que necesita dos instancias en la misma imagen y comparar aislamiento por proceso/sandbox con contexto explicito.",
         "Inventariar costo de conversion incremental de globales, TLS/allocators y actualizaciones upstream.",
-        "Proponer subbacklog y pruebas alternadas/carga-error/restauracion solo si el beneficio justifica el costo."
+        "Proponer subbacklog y pruebas alternadas/carga-error/restauracion solo si el beneficio justifica el costo.",
+        "El coordinador registra ADR01 con validacion estatica del contrato/pin/subbacklog en tests/test_future_extensions.py y tools/check.py; no sustituye ninguna puerta de ejecucion futura."
       ],
       "checks": [
         "ADR01"

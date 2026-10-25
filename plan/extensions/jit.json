@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "task": "T42",
+  "scope": "study_only_no_profile_changes",
+  "upstream": {
+    "source_id": "winuae", "tag": "6030",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "snapshot_manifest": "manifests/upstream-files.json"
+  },
+  "decision": "defer_until_priority_cpu_hotspot_measured",
+  "support_announced": false,
+  "measurement_basis": {
+    "budget": "plan/performance-budgets.json",
+    "enforcement": "ADVISORY",
+    "baseline": "docs/04-validation.md",
+    "hosted_run": "https://github.com/frangarcj/puae6/actions/runs/40114263286",
+    "hosted_source": "c5b3b99fae85296b6eda0e234d81966aac2e5795",
+    "priority_cpu_hotspot_established": false,
+    "new_benchmark_executed_by_study": false
+  },
+  "source_paths": [
+    "upstream/winuae/jit/compemu_support.cpp", "upstream/winuae/jit/compemu.h",
+    "upstream/winuae/jit/codegen_x86.cpp", "upstream/winuae/jit/codegen_arm.cpp",
+    "upstream/winuae/jit/codegen_arm.h", "upstream/winuae/jit/gencomp.cpp",
+    "upstream/winuae/jit/gencomp_arm.c", "upstream/winuae/jit/compemu_fpp.cpp",
+    "upstream/winuae/jit/exception_handler.cpp", "ports/portable/sysconfig.h",
+    "manifests/source-manifest.json", "config/schema/options.json"
+  ],
+  "backends": [
+    {"isa": "IA32/AMD64", "source": "upstream/winuae/jit/codegen_x86.cpp", "license": "GPL-2.0-or-later", "port_verified": false},
+    {"isa": "ARM32 A32", "source": "upstream/winuae/jit/codegen_arm.cpp", "license": "GPL-2.0-or-later", "port_verified": false},
+    {"isa": "AArch64", "source": null, "license": null, "port_verified": false, "reason": "No AArch64 emitter identified in the pinned JIT snapshot"}
+  ],
+  "subbacklog": [
+    {
+      "id": "JIT-A", "depends": [], "status": "proposed", "kind": "decision",
+      "source_paths": ["tools/bench.py", "plan/performance-budgets.json", "docs/04-validation.md"],
+      "deliverable": "Select priority reproducible workload, measure interpreter CPU hotspot separately from runtime/presentation, approve host and budget before implementation",
+      "oracle": "Same precision/profile and fixed inputs; quiet runner, at least five repetitions and dispersion; demonstrate why interpreter/copy/runtime improvements are insufficient"
+    },
+    {
+      "id": "JIT-B", "depends": ["JIT-A"], "status": "proposed", "kind": "decision",
+      "source_paths": ["upstream/winuae/jit/compemu.h", "upstream/winuae/jit/gencomp.cpp", "manifests/codegen.json", "bridge/frame_step.cpp"],
+      "deliverable": "Choose explicit native ISA/CPU/accuracy/FPU fallback matrix, separate accelerated identity and smallest source/ABI/codegen closure",
+      "oracle": "No deterministic/Waterbox change; generated outputs twice clean; block exit reaches p6_run_frame before pending events with no second scheduler"
+    },
+    {
+      "id": "JIT-C", "depends": ["JIT-B"], "status": "proposed", "kind": "probe",
+      "source_paths": ["upstream/winuae/jit/compemu_support.cpp", "upstream/winuae/jit/exception_handler.cpp"],
+      "deliverable": "Bounded executable-cache allocator with W^X, host ABI/icache policy and explicit failure path; review low-address and exception dependencies",
+      "oracle": "Actual page permissions never RWX; allocation exhaustion, denied execute and invalid range fail cleanly; no global handler or unsupported host silently accepted"
+    },
+    {
+      "id": "JIT-D", "depends": ["JIT-C"], "status": "proposed", "kind": "probe",
+      "source_paths": ["upstream/winuae/jit/compemu_support.cpp", "upstream/winuae/newcpu.cpp", "bridge/state_cpu.cpp"],
+      "deliverable": "Prove CPU/DMA/alias/remap SMC invalidation, linked blocks and semantic state with cold/hot/poisoned translation caches",
+      "oracle": "Independent opcode/SMC/fault expectations plus interpreter CPU/RAM/events/ticks/AV parity; same/new process restore reconstructs code, never loads host pointers"
+    },
+    {
+      "id": "JIT-E", "depends": ["JIT-D"], "status": "proposed", "kind": "probe",
+      "source_paths": ["tools/update_upstream.py", "patches/winuae/series.json", "docs/05-maintenance.md"],
+      "deliverable": "Pin every reused backend/license, measure patch/codegen maintenance and exercise an upstream update with JIT enabled only in its explicit profile",
+      "oracle": "UPD01 exact application or explicit conflict; regenerated tables, source provenance and full invalidation/parity tests survive the chosen update"
+    },
+    {
+      "id": "JIT-F", "depends": ["JIT-D", "JIT-E"], "status": "proposed", "kind": "acceptance_gate",
+      "source_paths": ["docs/04-validation.md", "config/schema/options.json", "tests/portability"],
+      "deliverable": "Publish only complete accelerated matrix rows after behavior/security/restore/update gates and measured benefit on priority workload",
+      "oracle": "GEN01/HOST01/DET02/DET03/DET04/SAFE01/PERF01/UPD01; unchanged current profiles; no TAS or cross-build state compatibility inferred from speed"
+    }
+  ]
+}
