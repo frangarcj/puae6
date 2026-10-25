@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "observed_date": "2026-09-26",
-  "status": "source_snapshots_verified_build_toolchain_lock_pending",
+  "status": "source_snapshots_and_build_toolchains_verified",
   "sources": [
     {
       "id": "winuae",
@@ -308,11 +308,7 @@
       }
     }
   ],
-  "unresolved": [
-    "T02: decide selected dependencies from actual WinUAE 6.0.3 source graph",
-    "T03/T09: pin native generators and Waterbox sysroot/toolchain build recipes",
-    "T09: pin and validate final Waterbox sysroot/LLVM/container inputs and provision registry packages from captured descriptors; selected local source closure is captured"
-  ],
+  "unresolved": [],
   "reference_tools": {
     "nero_2025": {
       "purpose": "temporary portable help probe for the original NRG producer; not an emulator dependency",

@@ -13,6 +13,23 @@ import check
 
 
 class DispatcherTests(unittest.TestCase):
+    def test_release_has_all_required_gates_and_real_overlay_movie_suites(self):
+        task = next(t for t in json.loads((ROOT / 'plan/tasks.json').read_text())['tasks'] if t['id'] == 'T41')
+        for gate in task['checks']:
+            self.assertTrue(check.TASK_SUITES.get((gate, 'T41')), gate)
+            for selector in check.TASK_SUITES[(gate, 'T41')].values():
+                parts = selector.split('.')
+                while parts and not (ROOT.joinpath(*parts).with_suffix('.py')).is_file():
+                    parts.pop()
+                self.assertTrue(parts, ('missing release suite module', selector))
+        self.assertEqual(set(check.TASK_SUITES[('REF01', 'T32')].values()),
+                         set(check.TASK_SUITES[('REF01', 'T41')].values()))
+        self.assertEqual(set(check.TASK_SUITES[('LR02', 'T60')].values()),
+                         set(check.TASK_SUITES[('LR02', 'T41')].values()))
+        self.assertIn('tests.waterbox-media.test_media_overlay', check.TASK_SUITES[('WB10', 'T41')].values())
+        self.assertIn('tests.waterbox-media.test_media_hdf', check.TASK_SUITES[('WB10', 'T41')].values())
+        self.assertIn('tests.bizhawk-movies.test_media_start', check.TASK_SUITES[('WB09', 'T41')].values())
+
     def test_cd_parents_keep_all_child_selectors_without_duplicate_execution(self):
         gates = {'T66': {'MED01': ('MED01', 'MED02'),
                          'DET02': ('DET02', 'STATE01', 'LR01', 'WB03'),

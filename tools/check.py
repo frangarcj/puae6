@@ -1131,6 +1131,28 @@ for _gate, _directories in (
         for _path in sorted((ROOT / 'tests' / _directory).glob('test_*.py'))
     }
 
+TASK_SUITES[('PKG01', 'T41')] = _cd_parent_suites('T40', ('PKG01',))
+TASK_SUITES[('PLAN01', 'T41')] = {'plan': 'tests.test_plan', 'dispatcher': 'tests.contracts.test_dispatcher'}
+TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
+TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
+TASK_SUITES[('WB09', 'T41')] = {
+    'movies': 'tests.bizhawk-movies.test_movie_playback',
+    'media_starts': 'tests.bizhawk-movies.test_media_start',
+    'cd32_starts_and_swap': 'tests.bizhawk-movies.test_cd32_start',
+}
+TASK_SUITES[('WB10', 'T41')] = {
+    'floppy_overlay': 'tests.waterbox-media.test_media_overlay',
+    'hardfile_overlay': 'tests.waterbox-media.test_media_hdf',
+    'volume_overlay': 'tests.waterbox-media.test_media_volume',
+    'wrapper_restore': 'tests.waterbox-state.test_wrapper_state',
+}
+TASK_SUITES[('PERF01', 'T41')] = {
+    **TASK_SUITES[('PERF01', 'T34')],
+    **TASK_SUITES[('PERF01', 'T35')],
+    **TASK_SUITES[('PERF01', 'T53')],
+    'guest_memory_budgets': 'tests.waterbox-smoke.test_memory_manifest',
+}
+
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 
