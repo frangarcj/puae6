@@ -22309,7 +22309,7 @@
       "title": "Estudio posterior de JIT nativo y perfil acelerado",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T41"
       ],
@@ -22404,7 +22404,7 @@
       "title": "Estudio posterior RTG sin acoplar una UI",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T41"
       ],
@@ -22435,7 +22435,7 @@
       "title": "Auditar runtimes adicionales sin aplazar el MacHawk inicial",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T41"
       ],
@@ -22467,7 +22467,7 @@
       "title": "Evaluar multiples instancias nativas sin refactor masivo",
       "milestone": "FUTURE",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T41"
       ],
