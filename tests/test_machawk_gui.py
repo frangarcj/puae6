@@ -20,6 +20,10 @@ class MacHawkGuiTests(unittest.TestCase):
             directory = Path(temporary)
             source = (ROOT / 'tests/fixtures/microrom/input_all.s').read_text()
             # Original MIT test ROM, with an explicit red background for the native bitmap check.
+            from tests.scenarios.audio.audio import Tone, rom_source
+            tone = rom_source(Tone('gui', (0, 1), volume=16))
+            tone_setup = tone[tone.index('    MOVE.W #$000F'):tone.index('loop:')]
+            source = source.replace('    MOVE.L #kbd', tone_setup + '    MOVE.L #kbd', 1)
             source = source.replace('loop:\n', 'loop:\n    MOVE.W #$0F00,$DFF180.L\n', 1)
             rom = directory / 'Own.rom'; rom.write_bytes(build_rom.build(source))
             disk = directory / 'Own.adf'; disk.write_bytes(bytes(901120))
@@ -30,7 +34,7 @@ class MacHawkGuiTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout[-2000:] + result.stderr[-2000:])
             markers = [line for line in result.stdout.splitlines() if line.startswith('MACHAWK_GUI_PASS ')]
             self.assertEqual(len(markers), 1, result.stdout[-2000:] + result.stderr[-2000:])
-            self.assertIn('replay=4 state/video/PCM=exact input=observed', markers[0])
+            self.assertIn('replay=4 state/video/PCM=exact input=observed mouse=observed audio=played+cleared', markers[0])
             self.assertNotIn('System.Exception', result.stderr)
             print(markers[0])
 
