@@ -99,8 +99,8 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-Las [releases del fork](https://github.com/frangarcj/BizHawk/releases) son el
-canal de los probadores. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-e4739224)
+es la descarga para los probadores. El PR #12 esta fusionado en main. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia

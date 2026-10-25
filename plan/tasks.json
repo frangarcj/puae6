@@ -24905,7 +24905,7 @@
       "title": "Preview publica PUAE6 en el frontend EmuHawk que usan los probadores",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T82g",
         "T82k"
@@ -24932,17 +24932,12 @@
         "tests/test_machawk_windows.py"
       ],
       "steps": [
-        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
-        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
-        "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS.",
-        "Guardia de host añadida en el constructor EmuHawk antes de firmware/medios/mapeo: el guest/runtime ARM64 solo admite Darwin ARM64. Compilacion completa Release PASS (0 errores). El banco Eto conserva su alcance exclusivo de infraestructura de pruebas.",
-        "El gate dirigido P6_TEST_MACHAWK_INTEGRATION=1 python3 -m unittest tests.test_machawk_integration falla dos veces en tasproj/UAE con estado completo de2733262bytes y primer cambio en offset2027529. BK2 llega a pasar; TAS compara A/V antes de fallar el estado UAE. No normalizar bytes ni interpretar el PASS historico como aceptacion de la candidata. Mantener PR12 en borrador y no publicar una GUI de producto a partir del banco.",
-        "Consulta gh autorizada por el usuario: la ultima release hatari-preview-56ea1841 distribuye solo Windowsx64. El gate original de coexistencia vuelve a PASS con runtime Darwin corregido; el cierre de descarga util debe seguir el frontend real, no ampliar Eto.",
-        "Alcance aclarado por el usuario: mirar con gh las releases usadas por los probadores. Solo distribuyen Windowsx64; no se autoriza convertir Eto en frontend ni portar WinForms a macOS. Conservar ARM64 funcional y entregar preview en el frontend real Windows. Para el criterioGUI guardarConfigreal medianteConfigService tras el gatecore y lanzar EmuHawk normal --gdi conOwn.adf. UIAutomationWindows incorporado debe identificar ventanaOwn/Amiga ystatus real (Experimental) PUAE6; cerrar normalmente proceso propio. No usar el banco como pruebaGUIproducto.",
-        "El empaquetador normal omite carpetas fuera de su allowlist: añadir exclusivamente PUAE6 para conservar fuente/licencias. El job Windows empaqueta mediante Dist/Package.sh y sube packaged_output, eliminando PDB/objetos segun receta existente. No distribuir el staging de fixtures ni configGUI de prueba.",
-        "El primer gate GUI real llega al unico dialogo Initialization Error de MainForm: runner sin dispositivo de sonido. Configurar exclusivamente gui-config.json con ESoundOutputMethod.Dummy usa el fallback existente sin modal; no cambia el producto ni omite la comparacion de PCM del gate core. El job40199685784 pasa ABI/estado/CHD antes de ese aviso. Repetir solo esta candidata Windows tras la correccion.",
-        "UIAutomation del run40201184272 confirma el unico modal visible: Quick reminder: Windows8.1... en WindowsServer2022. Activar SkipOutdatedOsCheck solo en gui-config.json temporal; el detector antiguo del frontend clasifica Server como8.1. No modificar la deteccion global ni la configuracion distribuida. Repetir la candidata Windows con el mismo gate GUI integro.",
-        "El run40201835423 encuentra GUI PUAE6/contenido y cierra normalmente; PowerShell obtiene ExitCode nulo al consultar un proceso abierto por PID. Mantener WM_CLOSE+WaitForExit en UIAutomation y verificar el codigo0 desde Popen, propietario del handle, antes de emitir el marcador de exito. Empaquetar antes del gate y probar packaged_output; conservar candidato temporal tres dias para evitar recompilar al inspeccionarlo."
+        "Usar el frontend EmuHawk Windowsx64 que distribuyen las releases consultadas con gh, segun la aclaracion del usuario. Eto queda exclusivamente como banco de pruebas y DarwinARM64 mantiene su carril separado.",
+        "Integrar en el worktree aislado build/machawk-puae6, conservar el checkout hermano y los cambios ajenos, sin instalar herramientas globales ni repetir campañas del motor.",
+        "Comprobar la candidata con el guest x64 source-built y el pin compilado: ABI/callback/reentrada, restauracion exacta en otro sandbox, A/V y CHD nativo Windows.",
+        "Guardar Config mediante las APIs reales y abrir EmuHawk normal con contenido propio. UIAutomation requiere ventana visible Own/Amiga, status PUAE6 y WM_CLOSE normal; Popen, propietario del handle, verifica codigo0. La captura de ventanas/stdout/stderr queda acotada al PID propio y solo se imprime al fallar.",
+        "La configuracion temporal GUI usa Dummy por falta de dispositivo de audio del runner y omite el recordatorio que el frontend muestra al clasificar Server2022 comoWindows8.1. El producto conserva sus defaults; la prueba core compara PCM.",
+        "El empaquetador normal incluye exclusivamente PUAE6 en su allowlist adicional. Conservar sus fuentes/licencias, aviso CAPSImg y EmuTOS libre del baseline fijado. Probar packaged_output, inspeccionar el ZIP, fusionar y publicar la candidata exacta con limites explicitos. No distribuir fixtures ni configGUI temporal."
       ],
       "checks": [
         "BUILD01"
@@ -24958,7 +24953,7 @@
       "title": "PUAE6 en el EmuHawk de los probadores y carril Darwin ARM64",
       "milestone": "M4",
       "required": false,
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T82a",
         "T82b",
