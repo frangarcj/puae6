@@ -24276,7 +24276,7 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
       "id": "T82d",
       "title": "Menus del BizHawk normal: PUAE6 con las acciones Amiga de UAE",
-      "status": "pending",
+      "status": "done",
       "depends": [
         "T82b"
       ],
@@ -24290,7 +24290,8 @@
       ],
       "steps": [
         "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
-        "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor."
+        "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
+        "BUILD01 PASS: compilacion completa EmuHawk Release offline contra los tipos reales, 38 inserciones/9 eliminaciones en tres archivos; no ejecuta WinForms en macOS. Menus generales se conservan mediante interfaces ya implementadas (estados, rewind, peliculas/TAStudio, SaveRAM, memoria, A/V y controles)."
       ],
       "acceptance": [
         "El menu Amiga reconoce PUAE6, abre su configuracion real y exporta el HDF mediante su API; UAE conserva sus acciones.",
@@ -24310,9 +24311,9 @@
         "BUILD01"
       ],
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
-      "id": "T82e",
-      "title": "Menus de la ventana nativa MacHawk y paridad funcional con BizHawk UAE",
-      "status": "pending",
+      "id": "T82e1",
+      "title": "Opciones Amiga y ajustes reales en menus Cocoa de MacHawk",
+      "status": "in_progress",
       "depends": [
         "T82d"
       ],
@@ -24324,7 +24325,83 @@
       ],
       "steps": [
         "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
-        "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor."
+        "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
+        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha."
+      ],
+      "acceptance": [
+        "Menus Cocoa Amiga Settings y Export Hard Disk conectados a ajustes/API reales, junto a Open/Close, estados, pausa y Reboot Core.",
+        "Editor nativo refleja todas las propiedades reales del core, aplica ajustes de presentacion y conserva cambios sync para reinicio; GUI dirigida comprueba ventana de ajustes y replay. No declara paridad de TAStudio ni otras herramientas WinForms."
+      ]
+    },
+    {
+      "milestone": "M4",
+      "required": false,
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "docs/02-contracts.md",
+        "docs/01-architecture.md"
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
+      "id": "T82f",
+      "title": "Soft Reset Amiga equivalente a UAE y conectado al menu BizHawk",
+      "status": "pending",
+      "depends": [
+        "T82d"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/waterbox/**",
+        "src/**",
+        "include/**",
+        "patches/winuae/**",
+        "tests/**",
+        "tools/check.py"
+      ],
+      "steps": [
+        "El inventario de menus revela que UAE publica Reset y Power y PUAE6 solo Power. Resolver la diferencia funcional con vertical pequeña y check dirigido antes de prometer paridad."
+      ],
+      "acceptance": [
+        "Reset suave real, distinto del hard reset, en la API comun y el controlador BizHawk, con reproducer determinista y restauracion.",
+        "La accion Soft Reset de EmuHawk funciona como en UAE; no habilitar un alias falso de Power."
+      ]
+    },
+    {
+      "milestone": "M4",
+      "required": false,
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
+      "id": "T82e",
+      "title": "Menus de la ventana nativa MacHawk y paridad funcional con BizHawk UAE",
+      "status": "pending",
+      "depends": [
+        "T82d",
+        "T82e1",
+        "T82f"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "tests/test_machawk_gui.py",
+        "tests/test_plan.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
+        "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
+        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha."
       ],
       "acceptance": [
         "La ventana nativa expone las opciones Amiga de UAE, ajustes completos del core y acciones generales de BizHawk solicitadas por el usuario.",
@@ -24378,7 +24455,9 @@
         "T82b",
         "T82c",
         "T82d",
-        "T82e"
+        "T82e",
+        "T82e1",
+        "T82f"
       ],
       "read": [
         "README.md",
