@@ -2516,3 +2516,13 @@ El ABI del guest y las peliculas conservan sus contratos propios. Esta hoja
 prueba cambio pendiente, cancelacion y nuevo destino con restauracion local,
 en otro sandbox y proceso frio, 120 unidades completas y datos exclusivos de B.
 No acredita peliculas CDTV ni exportacion persistente de su bateria.
+
+
+## Limite NRG de la primera entrega
+
+La primera entrega admite las rutas NRG implementadas: DAO, incluido multisesion,
+ETNF compacto, ETN2 de una sesion y ETNF global multisesion Canonical150. No se
+anuncia compatibilidad NRG universal. TINF y ETN2 multisesion completo devuelven
+Unsupported; conservan su investigacion y criterios en T66x1/T66x2, extras
+posteriores a T41 aprobados por el usuario. ADR0018 fija el contrato pendiente.
+No cambian las identidades, los estados ni el comportamiento de las rutas actuales.

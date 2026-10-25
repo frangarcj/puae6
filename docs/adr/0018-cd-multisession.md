@@ -179,6 +179,10 @@ no excluye que algun archivo multisesion pueda abrirse parcialmente.
 
 TINF y ETN2 multisesion completo amplian la paridad con esas referencias.
 Su implementacion requiere el contrato independiente descrito arriba. Este
-limite de la referencia no retira los requisitos actuales de T66 ni cambia
-sus dependencias: aplazarlos para una primera entrega requiere una decision
-explicita de alcance. Mientras tanto se conservan los rechazos existentes.
+limite de la referencia permite separar su implementacion de la primera entrega:
+el usuario aprueba aplazar TINF a T66x1 y ETN2 multisesion a T66x2, ambos despues
+de T41. Siguen pendientes, con las cinco puertas originales de T66 y el contrato
+independiente requerido; no se atribuye exito a esas variantes. T66 conserva
+ISO/CUE/CCD/MDS/CHD, NRG DAO y ETNF global multisesion, ETNF/ETN2 de una sesion,
+CDDA, NVRAM, frontends y arranque/restauracion CD32. Se mantienen los rechazos de
+las variantes aplazadas y sus regresiones.

@@ -19567,7 +19567,7 @@
       "title": "Backend de CD (ISO/CUE/CCD/NRG/MDS/CHD) por lecturas de offset y CD32 (Akiko, CD32 pad, NVRAM)",
       "milestone": "M3",
       "required": true,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T24",
         "T70",
@@ -19686,7 +19686,9 @@
         "tests/**",
         "config/**",
         "manifests/**",
-        "docs/**"
+        "docs/**",
+        "tools/check.py",
+        "tests/test_plan.py"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): PUAE5 ofrece CD32 y CD32FR (con 8M Fast) y lee CUE/CCD/ISO/CHD/NRG; MacHawk tiene bizhawk-cd.h. Un CD de 650 MB no cabe en el heap: backend de lecturas puras por offset desde el host, determinista; Akiko, NVRAM, audio CD.",
@@ -19718,9 +19720,10 @@
         "T66s2 conecta proveedor MDF/TOC con identidad completa sobre metadata0388; seleccion CdImage/sesion/extension y prueba publica MDS quedan despues de esta pieza. Se conservan formatos/variantes/cambioCD y las puertas originales.",
         "T66s3 integraMDS/MDF en fabrica/sesion/extensionlibretro yrestorepublico sobre elproveedorT66s2; no cierraCHD, variantesNRG, cambioCD ni laspuertas delpadre.",
         "CHDnormalizacion restante trasproveedor inicialT66t6: Mode1cookedconsubcode, Mode2/2336/MIX/Form1/2048, Form2/2324conEDCreal, HTOA/postgap yPGTYPE/PGSUBdistintos (requierencontratoCONTROL/vista2048/subcanalescomun). Sonpuertas requeridaspendientes, noexclusionesdealcance ni cierredelpadre; carga publica/restauracion despuesdeproveedor completo.",
-        "DAO multisesion conecta parser, proveedor por offset, dispositivo, fabrica publica nativa y transporte/publico Waterbox mediante T66v1..T66v14. TAO single conserva su ruta publica de T66l9. TAO multisesion y TINF requieren un contrato propio antes de habilitarlos; no cerrar el padre solo por DAO.",
-        "Pendiente requerido antescierre incluso despuesDAOmultiV12: TAOmulti/TINF no tienen contrato de direcciones primario. libMiragea9d6a204 parser.c317..365/733..831/980..999 lee start_sector pero no lo usa al montar grupos; GNUlibcdio68ea374f nrg.c608..831 rechaza segundoETN yVCDImager23f07386emiteunETNF/SINF. H1start_sectorglobalovsreinicioporSesion requiereproductorDOSsesiones conTOCoriginal; no inferirCUE0/A2/huecos delectorqueignoracampo. H2TINFoffsetINDEX01vsINDEX00/pregap requiereproductor/documentacion/fixtureatribuida; registro12sinLBAyloaderDiscSystemUnsupported no resuelven. Mantener rechazos visibles; sin nueva campaña/decoder/pretendercierreporDAO.",
-        "El overlay SBI de T66v13 usa LBAs dispersos y el mismo owner, conserva la precedencia Q/CRC y rechaza huecos antes de IO. T66v12 incluye su identidad y snapshot publico en la misma puerta de carga multisesion; no hace falta una campaña SBI Waterbox separada."
+        "DAO multisesion y ETNF global Canonical150 quedan en esta entrega mediante T66v1..v14 y T66w1..w4; ETNF/ETN2 de una sesion conservan sus rutas publicas. TINF y ETN2 multisesion completo pasan a T66x1/T66x2 despues de T41 por decision expresa del usuario; no se anuncian ni se aceptan mientras falte su contrato independiente.",
+        "La investigacion de direcciones pendiente se conserva en ADR0018 y T66x1/T66x2: TINF requiere resolver INDEX00/INDEX01 y pregap; ETN2 multisesion requiere productor de dos sesiones y TOC original para cursor global/reinicio/lead-in/out. Los rechazos actuales y sus regresiones siguen siendo obligatorios en esta entrega.",
+        "El overlay SBI de T66v13 usa LBAs dispersos y el mismo owner, conserva la precedencia Q/CRC y rechaza huecos antes de IO. T66v12 incluye su identidad y snapshot publico en la misma puerta de carga multisesion; no hace falta una campaña SBI Waterbox separada.",
+        "Decision expresa del usuario: priorizar primera entrega y conservar TINF/ETN2 multisesion como extras finales. No se recortan MED01/DET02/AV02/WB03/LR01 ni arranque/restauracion CD32 en ambos adaptadores. Cablear su union deduplicada en tools/check.py y verificar la seleccion contra la cobertura acumulada real, repitiendo solo checks de infraestructura modificada. Se amplian touch a dispatcher y tests del plan para registrar este alcance, sin cambiar motor, formatos, identidades ni goldens."
       ],
       "checks": [
         "MED01",
@@ -19732,8 +19735,7 @@
       "acceptance": [
         "Un CD32 autorizado arranca y restaura en ambos adaptadores."
       ],
-      "stop": "No cargar el CD entero en memoria del guest.",
-      "blocked_reason": "ETNF global Canonical150 y sus componentes/nativo/libretro/C#/restauracion publica Waterbox cerrados en T66w1..w4. Nero2025 autenticado aporta un escritor ETN2 original: offsets/longitudes de archivo, cursor por pista y un ETN2 seguido de varios SINF (ADR0018). Falta su secuencia efectiva de dos sesiones y TOC independiente: H1 cursor global frente reinicio/ajustes de lead-in/out. TINF solo tiene lector identificado: H2 offset INDEX01 con pregap omitido frente INDEX00 con pregap fisico. NeroCmd requiere AdvrCntr6 registrado en HKCR Registry32 antes de NeroInit; falta ese prerrequisito en el runner hospedado. Pendiente un entorno Nero funcional autorizado para producir la imagen y su TOC; ni la ayuda ni la inspeccion parcial acreditan esas semanticas. Mantener rechazos y fixtures; no trasladar Canonical150 a ETN2 ni inventar Q/CUE0 fisicos. PUAE5 y WinUAE6 fijados no resuelven el contrato: sus parsers omiten TINF, consumen solo el primer ETN2 y fijan pistas con el primer SINF (ADR0018); estas variantes completas amplian la paridad, pero siguen requeridas hasta decision explicita de alcance."
+      "stop": "No cargar el CD entero en memoria del guest."
     },
     {
       "id": "T67a",
@@ -23860,6 +23862,94 @@
         "Ningun output oficial o proyecto hermano se modifica, no hay descarga/instalacion ni casos omitidos convertidos a PASS. La igualdad del ZIP se afirma solo si coincide con sus ocho productos."
       ],
       "stop": "No simular exito ni relajar comparacion byte a byte. Tras dos fallos razonados conservar reproducer, dos hipotesis verificables y bloqueo; no sustituir EmuHawk real por standalone."
+    },
+    {
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "blocked",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "integration/bizhawk/**",
+        "adapters/libretro/**",
+        "tests/**",
+        "manifests/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "AV02",
+        "WB03",
+        "LR01"
+      ],
+      "stop": "Sin contrato independiente no habilitar la variante ni inventar coordenadas; mantener rechazo explicito y limites de memoria, identidad y restauracion.",
+      "id": "T66x1",
+      "title": "Extra final: NRG TINF con coordenadas y pregap acreditados",
+      "steps": [
+        "Aplazado tras la primera entrega por decision expresa del usuario. Obtener un productor o documentacion primaria con fixture propia y TOC independiente que distinga offset INDEX00 con pregap fisico de INDEX01 con pregap omitido; los lectores PUAE5/WinUAE6 no implementan TINF. Conservar ambas hipotesis y el rechazo hasta resolverlas.",
+        "Implementar metadata acotada, proveedor nativo por offset y normalizacion C# sobre el mismo contrato; identidad completa, sin precarga del CD ni fallback tras errores. Dividir en hojas con dependencias antes de editar si supera el tamaño orientativo.",
+        "Conservar las cinco puertas originales de T66 para esta variante: metadata/sectores/Q contra oraculo independiente, errores transaccionales, CDDA, carga nativa/libretro y publica Waterbox, snapshot local y frio en proceso nuevo con RAM/AV/PCM/ticks/futuro e identidad ajena. No repetir los casos ya cubiertos sin cambio causal."
+      ],
+      "acceptance": [
+        "TINF se monta con TOC, sectores y pregap independientes correctos; un CD32 autorizado arranca y restaura por libretro y Waterbox sin adelantar IO ni mutar tras rechazos."
+      ],
+      "blocked_reason": "Falta contrato primario TINF: H1 offset INDEX01 y pregap omitido; H2 offset INDEX00 y pregap fisico. El lector Nero identificado y su conversion de registros no distinguen ambas; hace falta productor/fixture con TOC independiente. Extra posterior a T41, sin soporte anunciado."
+    },
+    {
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "blocked",
+      "depends": [
+        "T41"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "integration/bizhawk/**",
+        "adapters/libretro/**",
+        "tests/**",
+        "manifests/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/adr/0018-cd-multisession.md"
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "AV02",
+        "WB03",
+        "LR01"
+      ],
+      "stop": "Sin contrato independiente no habilitar la variante ni inventar coordenadas; mantener rechazo explicito y limites de memoria, identidad y restauracion.",
+      "id": "T66x2",
+      "title": "Extra final: NRG ETN2 multisesion con TOC independiente",
+      "steps": [
+        "Aplazado tras la primera entrega por decision expresa del usuario. Producir dos sesiones propias con Nero funcional autorizado y conservar configuracion/TOC originales durante el test. Resolver H1 cursor global frente H2 reinicio/ajustes de lead-in/out por sesion; el escritor autenticado observado solo acredita parte del contrato.",
+        "Implementar metadata, proveedor y fabrica nativa/libretro y normalizacion publica C#/Waterbox sin trasladar Canonical150 de ETNF ni inferir Q/CUE0 fisicos. Preservar ETN2 de una sesion y las identidades existentes. Dividir en hojas con dependencias antes de editar si supera el tamaño orientativo.",
+        "Conservar las cinco puertas originales de T66 para esta variante: TOC/sectores/CDDA de ambas sesiones, huecos sin IO, errores transaccionales, carga publica nativa/libretro y Waterbox, snapshot local/frio en otro proceso con RAM/AV/PCM/ticks/futuro, identidad y catalogo mixto. No repetir los casos ya cubiertos sin cambio causal."
+      ],
+      "acceptance": [
+        "ETN2 multisesion conserva coordenadas y datos de ambas sesiones contrastados con TOC independiente; un CD32 autorizado arranca y restaura por libretro y Waterbox, sin compactar LBAs ni inventar payload de huecos."
+      ],
+      "blocked_reason": "El runner no tiene AdvrCntr6 registrado y no puede iniciar Nero. Falta productor funcional y TOC independiente de dos sesiones: H1 cursor global; H2 reinicio/ajustes de lead-in/out. Inspeccion parcial del escritor no decide el contrato. Extra posterior a T41, sin soporte anunciado."
     },
     {
       "id": "T55c12",
