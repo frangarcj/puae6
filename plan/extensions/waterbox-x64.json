@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "profile": "waterbox-x86_64-local-cross",
+  "target": "x86_64-linux-gnu",
+  "machine": 62,
+  "host_page_size": 4096,
+  "runtime_verified": false,
+  "publication_ready": false,
+  "release_source_rebuild_verified": false,
+  "provenance_limit": "Local binary inventory and adjacent source revisions verified; rebuilding the x86_64 sysroot from a distributable frozen recipe remains pending. This profile does not certify a runtime or release.",
+  "llvm_source_commit": "3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff",
+  "sysroot": {
+    "path": "/Users/frangar/Fun/MacHawk/waterbox/waterboxhost/target/x86_64-work/sysroot-x86_64",
+    "inventory_sha256": "cd2a9ab2039a2fb7fcf5abbc93bc41f30c47f1805fa1ccd1558fd8801129450f",
+    "file_count": 1267
+  },
+  "musl": {
+    "path": "/Users/frangar/Fun/MacHawk/waterbox/waterboxhost/target/x86_64-work/musl-x86_64",
+    "commit": "2063abc4e16c84218757b1db10d3cdf9f36ef3f8",
+    "diff_sha256": "58f6c33c88f009db577b1d722ae8c9ac945b1734e9c4705a42311eda45b4e169",
+    "templates": {
+      "musl-clang.in": "b5a996a78abd3f58534f2584dbc7294e47b9c0893f480a5b05864ded562451a9",
+      "ld.musl-clang.in": "ae0c65680372dcbc9f423e33b81774bc4dbf30f2ffd44a72dc7d78262da49b72"
+    }
+  },
+  "tools": {
+    "clang": {
+      "path": "/opt/homebrew/opt/llvm/bin/clang",
+      "sha256": "5c51770b83a5407e507ad19fcfe1ec141deeb15f0d86312568915f3637f31f5a",
+      "version": "Homebrew clang version 23.1.4"
+    },
+    "lld": {
+      "path": "/opt/homebrew/bin/ld.lld",
+      "sha256": "4c6afc01e2cda45bd78412d6fadf140d94a84031647cdb05d75ad479145150b7",
+      "version": "Homebrew LLD 23.1.4 (compatible with GNU linkers)"
+    },
+    "make": {
+      "path": "/usr/bin/make",
+      "sha256": "5b1ddb7e9c11b87a034fc88b212e8ac243cfe2b4db696d767aa44c79595fc09a",
+      "version": "GNU Make 3.81"
+    },
+    "nm": {
+      "path": "/opt/homebrew/opt/llvm/bin/llvm-nm",
+      "sha256": "112f093d81d2b827eac76fd79cb4845e459378f5058d820f3fcaf921813ef470",
+      "version": "llvm-nm, compatible with GNU nm"
+    },
+    "objdump": {
+      "path": "/opt/homebrew/opt/llvm/bin/llvm-objdump",
+      "sha256": "1b4b790e952d146a44f98258f945d491e00a35a63ce21f2ba6976d8afc2db439",
+      "version": "Homebrew LLVM version 23.1.4"
+    }
+  }
+}

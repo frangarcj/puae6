@@ -1,10 +1,23 @@
-# Receta WBX AArch64 de puae6.wbx (T19a). No se invoca a mano: tools/build_waterbox.py --puae6 pasa REPO, ROOT_DIR, OUT_DIR,
+# Receta WBX de puae6.wbx (T19a/T83a), por defecto AArch64. Los builders pasan REPO, ROOT_DIR, OUT_DIR,
 # SOURCES_MK y la cadena de herramientas fijada, y ejecuta make con la raiz del repositorio como directorio de trabajo para que los
 # objetos reflejen la ruta de cada fuente. Usa el common.mak y el linkscript_aarch64.T capturados de MacHawk sin cambiarlos:
 # -ffixed-x18 -ffixed-x28, paginas de 16 KiB y el resto de los flags del contrato salen de ahi para TODAS las unidades.
 TARGET := puae6.wbx
+ifndef WBX_TARGET_ARCH
 WBX_TARGET_ARCH := aarch64
+endif
+ifndef WBX_HOST_PAGE_SIZE
+ifeq ($(WBX_TARGET_ARCH),aarch64)
 WBX_HOST_PAGE_SIZE := 16384
+else
+WBX_HOST_PAGE_SIZE := 4096
+endif
+endif
+ifeq ($(WBX_TARGET_ARCH)/$(WBX_HOST_PAGE_SIZE),aarch64/16384)
+else ifeq ($(WBX_TARGET_ARCH)/$(WBX_HOST_PAGE_SIZE),x86_64/4096)
+else
+$(error Unsupported PUAE6 Waterbox target/page pair: $(WBX_TARGET_ARCH)/$(WBX_HOST_PAGE_SIZE))
+endif
 include $(SOURCES_MK)
 
 # Mismos flags que el build nativo (CMakeLists.txt): C11/C++17 y sin contraccion de coma flotante, que cambiaria el ultimo bit de
