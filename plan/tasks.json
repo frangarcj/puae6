@@ -24612,7 +24612,7 @@
       "title": "Diagnostico de la ventana de EmuHawk Windows en runner alojado",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T83e"
       ],
@@ -24905,9 +24905,10 @@
       "title": "Preview publica PUAE6 en el frontend EmuHawk que usan los probadores",
       "milestone": "M4",
       "required": false,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
-        "T82g"
+        "T82g",
+        "T82k"
       ],
       "read": [
         "README.md",
@@ -24939,7 +24940,8 @@
         "Consulta gh autorizada por el usuario: la ultima release hatari-preview-56ea1841 distribuye solo Windowsx64. El gate original de coexistencia vuelve a PASS con runtime Darwin corregido; el cierre de descarga util debe seguir el frontend real, no ampliar Eto.",
         "Alcance aclarado por el usuario: mirar con gh las releases usadas por los probadores. Solo distribuyen Windowsx64; no se autoriza convertir Eto en frontend ni portar WinForms a macOS. Conservar ARM64 funcional y entregar preview en el frontend real Windows. Para el criterioGUI guardarConfigreal medianteConfigService tras el gatecore y lanzar EmuHawk normal --gdi conOwn.adf. UIAutomationWindows incorporado debe identificar ventanaOwn/Amiga ystatus real (Experimental) PUAE6; cerrar normalmente proceso propio. No usar el banco como pruebaGUIproducto.",
         "El empaquetador normal omite carpetas fuera de su allowlist: añadir exclusivamente PUAE6 para conservar fuente/licencias. El job Windows empaqueta mediante Dist/Package.sh y sube packaged_output, eliminando PDB/objetos segun receta existente. No distribuir el staging de fixtures ni configGUI de prueba.",
-        "El primer gate GUI real llega al unico dialogo Initialization Error de MainForm: runner sin dispositivo de sonido. Configurar exclusivamente gui-config.json con ESoundOutputMethod.Dummy usa el fallback existente sin modal; no cambia el producto ni omite la comparacion de PCM del gate core. El job40199685784 pasa ABI/estado/CHD antes de ese aviso. Repetir solo esta candidata Windows tras la correccion."
+        "El primer gate GUI real llega al unico dialogo Initialization Error de MainForm: runner sin dispositivo de sonido. Configurar exclusivamente gui-config.json con ESoundOutputMethod.Dummy usa el fallback existente sin modal; no cambia el producto ni omite la comparacion de PCM del gate core. El job40199685784 pasa ABI/estado/CHD antes de ese aviso. Repetir solo esta candidata Windows tras la correccion.",
+        "UIAutomation del run40201184272 confirma el unico modal visible: Quick reminder: Windows8.1... en WindowsServer2022. Activar SkipOutdatedOsCheck solo en gui-config.json temporal; el detector antiguo del frontend clasifica Server como8.1. No modificar la deteccion global ni la configuracion distribuida. Repetir la candidata Windows con el mismo gate GUI integro."
       ],
       "checks": [
         "BUILD01"
@@ -24948,8 +24950,7 @@
         "Paquete descargable inicia la GUI EmuHawk Windowsx64 real y carga contenido sin SDK instalado (runtime .NET Framework4.8); guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales. ARM64 conserva su carril separado; no se afirma GUI WinForms macOS.",
         "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
       ],
-      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
-      "blocked_reason": "Dos ejecuciones GUI reales no completan el gate. El aviso de audio se corrige con Dummy temporal; ahora no se obtiene ventana principal habilitada. Hipotesis1: MainWindowHandle apunta al owner deshabilitado de un modal; enumerar ventanas UIAutomation del PID. Hipotesis2: la configuracion minima CLI no cubre una ruta de inicializacion GUI; capturar texto de ventanas y stdout/stderr del proceso propio. No publicar ni cambiar mas flags sin ese diagnostico."
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
     },
     {
       "id": "T82",

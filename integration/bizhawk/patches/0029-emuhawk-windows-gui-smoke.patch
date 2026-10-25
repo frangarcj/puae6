@@ -2,7 +2,7 @@ diff --git a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs b/src/BizHawk.Clien
 index 436e41a17..73b8d5c1e 100644
 --- a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
 +++ b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
-@@ -128,6 +128,13 @@ namespace BizHawk.Client.EmuHawk
+@@ -128,6 +128,15 @@ namespace BizHawk.Client.EmuHawk
       for (int i = 0; i < 3; i++) Require(Step(second, secondSession).SequenceEqual(rows[i]), "Restored A/V differs");
       Require(State(second).SequenceEqual(future) && State(first).SequenceEqual(future), "Restored future/isolation differs");
       WindowsIdentity(native);
@@ -12,6 +12,8 @@ index 436e41a17..73b8d5c1e 100644
 +     guiConfig.FirstBoot = false;
 +     // Hosted runners have no audio endpoint; core PCM is compared above.
 +     guiConfig.SoundOutputMethod = ESoundOutputMethod.Dummy;
++     // The frontend misidentifies the hosted Windows Server as Windows 8.1.
++     guiConfig.SkipOutdatedOsCheck = true;
 +     Require(!ConfigService.Save(Path.Combine(Stage, "gui-config.json"), guiConfig).IsError, "GUI config save failed");
       Console.WriteLine("P6_EMUHAWK_WINDOWS " + JsonConvert.SerializeObject(new Dictionary<string, object> {
        ["schema_version"] = 1, ["runtime"] = Environment.Version.ToString(), ["architecture"] = "X64", ["core"] = "PUAE6", ["native"] = native,
