@@ -6,13 +6,13 @@
   "host_page_size": 4096,
   "runtime_verified": false,
   "publication_ready": false,
-  "release_source_rebuild_verified": false,
-  "provenance_limit": "Local binary inventory and adjacent source revisions verified; rebuilding the x86_64 sysroot from a distributable frozen recipe remains pending. This profile does not certify a runtime or release.",
+  "release_source_rebuild_verified": true,
+  "provenance_limit": "Sysroot rebuilt offline from the pinned musl and complete LLVM sources with the frozen Docker recipe; new inventory selected explicitly. Runtime execution and publication remain separate gates.",
   "llvm_source_commit": "3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff",
   "sysroot": {
-    "path": "/Users/frangar/Fun/MacHawk/waterbox/waterboxhost/target/x86_64-work/sysroot-x86_64",
-    "inventory_sha256": "cd2a9ab2039a2fb7fcf5abbc93bc41f30c47f1805fa1ccd1558fd8801129450f",
-    "file_count": 1267
+    "inventory_sha256": "e9a645bd55032680627926c7e71c7b61b2a3fd1899bde3569dc72d7b9125098b",
+    "file_count": 1265,
+    "path": "/Users/frangar/Fun/uae/build/waterbox-x64-sysroot-rebuilt/sysroot-x86_64"
   },
   "musl": {
     "path": "/Users/frangar/Fun/MacHawk/waterbox/waterboxhost/target/x86_64-work/musl-x86_64",
@@ -53,7 +53,7 @@
   "linkscript": {
     "source": "references/machawk/waterbox/linkscript.T",
     "sha256": "3a5f16e86596f0bb4b254b0fa0c4ba68effbf8a438ef34bbfbe7b179692cd536",
-    "derived_sha256": "53752a88ae36bf46c0483c952915b8a143565f97c5b7e5d6b1ac98f205fff9c5"
+    "derived_sha256": "0c4242c70a1159342e8bbb918c04acb1a89b7294e0ab9457291d165981b4e800"
   },
   "sysroot_rebuild": {
     "status": "recipe_prepared_not_executed",

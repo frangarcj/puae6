@@ -65,3 +65,22 @@ Un inventario distinto del cache historico es una identidad nueva valida, sin
 modificar el pin del producto: exige recompilar el guest con ese derivado.
 El recibo conserva `publication_ready=false` y `runtime_verified=false`; la
 receta no sustituye las puertas de ejecucion ni afirma igualdad binaria historica.
+
+La reconstruccion offline con GNU ld fijado produce un sysroot distinto del cache
+historico. Se selecciona explicitamente su inventario nuevo y se reconstruye el
+guest con ese derivado; no se declara equivalencia binaria con la receta antigua.
+El ELF final conserva las paginas de4KiB, no admite TLS estructural/imports
+inesperados y solo permite GS:0x18 para contexto. El cierre de fuentes usa la
+captura musl completa, sus parches y los scripts LLVM ya congelados. La ejecucion
+real Windows y la publicacion siguen siendo puertas separadas.
+
+Windows MapViewOfFileEx requiere una base multiplo de la granularidad de
+asignacion ([contrato Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffileex)).
+El primer job real falla con1132 antes de ejecutar el guest: LLD omite el
+segmento inicial vacio y el runtime toma como base el minimo PHDR no nulo,
+base+4KiB. Un enlace propio minimo reproduce ese layout; --image-base no lo
+corrige. Se añade una seccion explicita de un byte de solo lectura en la base
+64KiB del sandbox. Es un ancla de layout, no una cabecera ELF simulada. Se
+conservan paginas de4KiB y segmentos RX/R/RW separados, sin tocar el runtime.
+El validador repite el minimo PHDR usado por el loader y rechaza la base vieja;
+el reproducer real enlaza ambas variantes y conserva el control negativo.

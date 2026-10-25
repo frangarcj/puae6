@@ -41,6 +41,35 @@ class X64GuestBuildTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(),
                          'a1a80d998dbb3b0622234e4936c873d39298b21780f0d08aae87c89746722e28')
 
+    def test_windows_mapping_rejects_the_observed_four_kib_base(self):
+        raw = elf(); struct.pack_into('<Q', raw, 80, 0x101000)
+        with self.assertRaisesRegex(x64.Error, 'mapping base'):
+            self.check(raw)
+
+    @unittest.skipUnless(os.environ.get('P6_TEST_X64_LAYOUT_LINK') == '1', 'explicit tiny real LLD layout check')
+    def test_real_link_keeps_windows_mapping_base_and_four_kib_permissions(self):
+        spec = json.loads(x64.PROFILE.read_text()); tools, _ = x64.verify_profile(spec)
+        script = x64.linkscript(spec)
+        marker = '  .wbx_image_base 0x36f00000000 : { BYTE(0) }\n'
+        self.assertEqual(script.count(marker), 1)
+        with tempfile.TemporaryDirectory(dir=ROOT / 'build') as temporary:
+            stage = Path(temporary); source = stage / 'own.s'; obj = stage / 'own.o'
+            source.write_text('.text\n.global _start\n_start: ret\n.rodata\n.quad 42\n.data\n.quad 99\n')
+            subprocess.run([str(tools['clang']), '--target=x86_64-linux-gnu', '-c', str(source), '-o', str(obj)], check=True)
+            for name, text in (('original', script.replace(marker, '')), ('fixed', script)):
+                linker = stage / (name + '.T'); linker.write_text(text)
+                guest = stage / (name + '.wbx')
+                subprocess.run([str(tools['lld']), '-static', '-z', 'max-page-size=4096', '-T', str(linker), str(obj), '-o', str(guest)], check=True)
+                if name == 'original':
+                    with self.assertRaisesRegex(x64.Error, 'mapping base'):
+                        x64.validate_elf(guest)
+                else:
+                    result = x64.validate_elf(guest)
+                    self.assertEqual(result['mapping_base'], 0x36f00000000)
+                    first = result['load_segments'][0]
+                    self.assertEqual((first['vaddr'], first['memsz'], first['flags']), (0x36f00000000, 1, 4))
+                    self.assertEqual({s['flags'] for s in result['load_segments']}, {4, 5, 6})
+
     @unittest.skipUnless(os.environ.get('P6_TEST_X64_PROBE_COMPILE') == '1', 'explicit tiny cross-compile check')
     def test_probe_compiles_for_both_guest_architectures(self):
         spec = json.loads(x64.PROFILE.read_text())
@@ -124,7 +153,7 @@ class X64GuestBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(x64.Error, 'tool differs'):
                 x64.verify_profile(spec)
         self.assertFalse(spec['publication_ready'])
-        self.assertFalse(spec['release_source_rebuild_verified'])
+        self.assertTrue(spec['release_source_rebuild_verified'])
 
     def test_make_keeps_arm_defaults_and_refuses_mixed_pairs(self):
         with tempfile.TemporaryDirectory() as tmp:

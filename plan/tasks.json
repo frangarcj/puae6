@@ -24743,7 +24743,7 @@
       "title": "Reconstruir el sysroot x64 desde las fuentes locales congeladas",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T83a"
       ],
@@ -24766,7 +24766,8 @@
       "steps": [
         "Las fuentes musl y LLVM y los scripts de cuatro fases ya estan disponibles; congelar una receta offline x64 dentro de Docker autorizado sin tocar MacHawk original ni instalar paquetes. Agente aislado prepara codigo/tests; root serializa la reconstruccion pesada.",
         "Reutilizar autenticacion capturas/LLVM existente, aplicar parches getcwd y atomics exactamente, producir libc/libc++/libc++abi/libunwind/builtins e inventario propio. No exigir igualdad de bytes con cache historico desconocido: un derivado diferente recibe identidad nueva y obliga recompilar guest.",
-        "Mantener publication_ready false hasta ejecutar receta y verificar fuente correspondiente. No sustituir TLS/scheduler ni normalizar estado. Tras dos fallos razonados conservar reproducer/hipotesis y bloquear."
+        "Mantener publication_ready false hasta ejecutar receta y verificar fuente correspondiente. No sustituir TLS/scheduler ni normalizar estado. Tras dos fallos razonados conservar reproducer/hipotesis y bloquear.",
+        "Reconstruccion offline real PASS con GNUld fijado: sysroot nuevo de1265archivos e9a645bd55032680627926c7e71c7b61b2a3fd1899bde3569dc72d7b9125098b. Se selecciona ese inventario, no el cache historico. Guest recompilado PASS, ELF62/4KiB sinTLS/imports inesperados y21lecturasGScontext; SHA524232638bb4d987725b4e0fe4846ee514729153ba3c1fada608e6c61147d677. runtime_verified/publication_ready permanecen false hastaWindows."
       ],
       "checks": [
         "BUILD01"
@@ -24802,13 +24803,15 @@
         "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
         "tools/check.py",
         "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
-        "build/machawk-puae6/waterbox/puae6/**"
+        "build/machawk-puae6/waterbox/puae6/**",
+        "tests/test_machawk_windows.py"
       ],
       "steps": [
         "Usar el EmuHawk real Windows net48 ya distribuido, sin convertir el banco Eto en frontend. El CLI existente tiene supuestos dylib/dyld; añadir recorrido Windows explícito conservando Darwin original. Cargar DLL absoluta y verificar módulo realmente cargado.",
         "Probe real p6w_probe_abi SysV sobre Waterbox y callback/reentrada: 15slots x64, GScontext/GPR/SP/claveTLS/errno; nunca llamar SysV por delegado Win64 directo. RomLoader y microROM/ADF propios; snapshot completo, avance observable y restauracion en sandbox nuevo, A/V exacto. Sin ROMs comerciales.",
         "Job Windows con artefactos fijados y fuentes/licencias actuales, pin de guest compilado por plataforma, lector CHD real con Unicode/offset64/errores. No ejecutar matrix completa para este delta. Root coordina publicacion solo tras PASS real; agente no edita metadata ni publica.",
-        "Usar workflow_dispatch puae6_only en el workflow GitHub ya registrado para evitar lanzar toda la matriz: los cuatro jobs historicos mantienen su recorrido por defecto y el job Windows dirigido se selecciona explicitamente. Conservar pin de guest fijo y rechazo mientras el derivado no este construido."
+        "Usar workflow_dispatch puae6_only en el workflow GitHub ya registrado para evitar lanzar toda la matriz: los cuatro jobs historicos mantienen su recorrido por defecto y el job Windows dirigido se selecciona explicitamente. Conservar pin de guest fijo y rechazo mientras el derivado no este construido.",
+        "El primer job Windows experimental se lanza en paralelo con el sysroot local. Al cambiar el guest por el derivado autentificado, ejecutar solo el mismo job dirigido para esa candidata nueva; no repetir la matriz. Un check reutilizable lee el resultado remoto y sus marcadores del commit/guest actuales, sin volver a ejecutar emulacion ni aceptar un run historico distinto."
       ],
       "checks": [
         "WB03",
@@ -24819,6 +24822,47 @@
         "Job remoto Windows termina PASS y salida descargable conserva fuente correspondiente/licencias/guestpin. La GUI se mantiene en frontend EmuHawk existente; no se infiere macOS WinForms."
       ],
       "stop": "Tras dos fallos razonados, conservar reproducer e hipotesis; no convertir crosscompile o prueba POSIX en PASS Windows."
+    },
+    {
+      "id": "T83f",
+      "title": "Alinear el mapeo inicial ELF x64 al contrato real de Windows",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83d"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-x64.md",
+        "tools/build_waterbox_x64.py",
+        "references/machawk/waterbox/linkscript.T",
+        "build/machawk-puae6/waterbox/waterboxhost/src/memory_block/pal.rs"
+      ],
+      "touch": [
+        "tools/build_waterbox_x64.py",
+        "tests/waterbox-smoke/test_x64_guest_build.py",
+        "plan/extensions/waterbox-x64.json",
+        "docs/adr/waterbox-x64.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Primer job Windows real 40196814234 compila EmuHawk y CHD; wbx_create_host falla con MapViewOfFileEx ERROR_MAPPED_ALIGNMENT1132. LLD produce primerPT_LOAD enbase+0x1000, no alineado64KiB. Runtime aun no ejecutaemulacion, no esFPU ni snapshot. Conservar gate real intacto y derivar reproducer ELF minimo.",
+        "Revisar decisionde layout antes de cambio. Asegurarbase deMemoryBlock alineada64KiB conservando paginas logicas4KiB, permisosW/X separados y entradas/simbolos validos. No tocarruntime ni incluirheaders falsos como oracle; autentificarbase/derivado y rechazarantesdeupload un ELF incompatible.",
+        "Reenlazar guest desde sysroot de fuentes seleccionado y repetir solo job Windows dirigido con esa identidad; no repetir matrizmotor. El cierre original ABI/fullrestore permaneceT83e.",
+        "Revision ABI y reproducer minimo enlazado confirman marcador R deunbyte como ancla64KiB; no simula cabecera ni cambia paginas4KiB. Trece tests dirigidos PASS incluyendo enlace real original/candidato yprobeambosISA. Guest fuente reenlazado SHA5f951971a66db5a3067db457c4249fb21b0ec1ce5ddbff8a0b972929deef1326 conmapping_base0x36f00000000; pendiente comprobarcreacionhost enjobWindows."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Fixture enlazado real captura el fallo viejo y prueba nuevo layout valido; validator rechaza antiguo base+4KiB antesdecrearhost.",
+        "Guest final ELF62/4KiB tiene mappingbase64KiB y hash autentificado; Windows supera creacionhost con la nueva candidata."
+      ],
+      "stop": "Dos intentos razonados fallidos: blocked conreproducer ydoshipotesis verificables, sinflagsazar ni relajar validadores."
     },
     {
       "id": "T82c",

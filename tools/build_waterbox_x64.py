@@ -33,6 +33,12 @@ def linkscript(spec):
     if text.count(old) != 2:
         raise Error('unexpected large-data section alignment')
     derived = text.replace(old, 'ALIGN(CONSTANT (MAXPAGESIZE)) :')
+    anchor = 'SECTIONS\n{\n'
+    if derived.count(anchor) != 1:
+        raise Error('unexpected linkscript section entry')
+    # Windows maps the entire sandbox at its lowest nonzero PHDR address.
+    # LLD otherwise omits the empty header segment and starts at base+4KiB.
+    derived = derived.replace(anchor, anchor + '  .wbx_image_base 0x36f00000000 : { BYTE(0) }\n')
     if hashlib.sha256(derived.encode()).hexdigest() != pin['derived_sha256']:
         raise Error('derived x64 linkscript differs')
     return derived
@@ -84,9 +90,11 @@ def validate_elf(path):
     phoff, shoff, phsize, phnum, shsize, shnum = h[5], h[6], h[9], h[10], h[11], h[12]
     if phsize != 56 or not phnum or phoff < 64 or phoff + phnum * phsize > len(raw):
         raise Error('invalid program headers')
-    loads, pages = [], {}
+    loads, pages, mapping_starts = [], {}, []
     for i in range(phnum):
         kind, flags, offset, va, _, filesz, memsz, align = struct.unpack_from('<IIQQQQQQ', raw, phoff + i * phsize)
+        if va:
+            mapping_starts.append(va) # Same minimum as ElfLoader::elf_addr.
         if kind in (2, 3, 7):
             raise Error('dynamic/interpreter/compiler TLS segment')
         if kind != 1:
@@ -99,6 +107,8 @@ def validate_elf(path):
             if pages.setdefault(page, flags) != flags:
                 raise Error('mixed page protections')
         loads.append(dict(offset=offset, vaddr=va, memsz=memsz, flags=flags))
+    if not mapping_starts or min(mapping_starts) % 65536:
+        raise Error('Windows sandbox mapping base must align to 64KiB')
     if not loads or not shnum or shsize != 64 or shoff < 64 or shoff + shnum * shsize > len(raw):
         raise Error('missing loads or invalid section headers (unstripped audit required)')
     symbols = 0
@@ -121,7 +131,8 @@ def validate_elf(path):
                     raise Error('TLS symbol or unresolved non-weak import')
     if not symbols:
         raise Error('missing symbol table for TLS/import audit')
-    return dict(machine=62, host_page_size=4096, sha256=shared.sha256(Path(path)), load_segments=loads)
+    return dict(machine=62, host_page_size=4096, mapping_base=min(mapping_starts),
+                sha256=shared.sha256(Path(path)), load_segments=loads)
 
 
 def check_segment_access(disassembly):
