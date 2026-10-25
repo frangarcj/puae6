@@ -458,8 +458,13 @@ TASK_SUITES[('LR01', 'T66t14')] = {'public_chd_load_catalog_restore': 'tests.lib
 TASK_SUITES[('DET02', 'T66t14')] = {'real_chd_game': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore'}
 TASK_SUITES[('MED01', 'T66t13')] = {'typed_chd_canonical': 'tests.media.test_chd_canonical_csharp.ChdCanonicalCSharpTests', 'managed_disc_regression': 'tests.media.test_cd_source_csharp.DiscSourceCSharpTests', 'chd_blob_reads': 'tests.media.test_chd_blob_reads.ChdBlobReadTests'}
 TASK_SUITES[('STATE01', 'T80b')] = {'media_movie_identity': 'tests.bizhawk-movies.test_media_start.MediaMovieIdentityTests'}
+TASK_SUITES[('STATE01', 'T80c')] = dict(TASK_SUITES[('STATE01', 'T80b')])
 for _gate in ('WB09', 'WB03'):
     TASK_SUITES[(_gate, 'T80b')] = {'real_media_movie_start': 'tests.bizhawk-movies.test_media_start.MediaMovieStartTests'}
+    TASK_SUITES[(_gate, 'T80c')] = {
+        **TASK_SUITES[(_gate, 'T80b')],
+        'real_imported_state_movie': 'tests.bizhawk-movies.test_media_start.MediaMovieStateStartTests',
+    }
 TASK_SUITES[('MED01', 'T66t9')] = {
     'explicit_cd_regions': 'tests.media.test_cd_disc.CdDiscTests',
     'chd_regression': 'tests.media.test_cd_chd.CdChdTests',

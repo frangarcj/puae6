@@ -28,7 +28,7 @@ public sealed unsafe partial class Puae6Core
 	}
 
 	/// <summary>The immutable bases required by an initial movie state, without subsequent guest writes.</summary>
-	public byte[]? CloneMovieStateSaveRam() => _imported?.Bytes.ToArray();
+	public byte[]? CloneMovieStateSaveRam() => _imported is null ? null : (byte[])_imported.Bytes.Clone();
 
 	internal void ValidateMediaMovieState(byte[] state, StateIdentity identity)
 	{

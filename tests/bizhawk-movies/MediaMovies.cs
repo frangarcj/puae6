@@ -85,7 +85,7 @@ internal static unsafe partial class Program
  {
   var rows = new List<string>(); var buttons = session is null ? new Buttons(core.ControllerDefinition) : (Buttons)session.MovieIn;
   while (core.Frame < 12) {
-   buttons.Frame = core.Frame; session?.HandleFrameBefore(); var input = session?.MovieOut ?? buttons;
+   buttons.Frame = core.Frame; session?.HandleFrameBefore(); IController input = session is null ? buttons : session.MovieOut;
    foreach (var name in core.ControllerDefinition.BoolButtons) Require(input.IsPressed(name) == buttons.IsPressed(name));
    Require(core.FrameAdvance(input, true, true));
    core.GetSamplesSync(out var samples, out int count); var pcm = new byte[count * 4]; Buffer.BlockCopy(samples, 0, pcm, 0, pcm.Length);
@@ -234,8 +234,10 @@ internal static unsafe partial class Program
   }
   // Reload the same object from an old-style state archive with no base lump.
   string oldPath = path+".old"+Path.GetExtension(path); File.Copy(path,oldPath,true);
-  using (var zip = System.IO.Compression.ZipFile.Open(oldPath,System.IO.Compression.ZipArchiveMode.Update))
-   zip.GetEntry(BinaryStateLump.MovieSaveRam.FileName)!.Delete();
+  using (var zip = System.IO.Compression.ZipFile.Open(oldPath,System.IO.Compression.ZipArchiveMode.Update)) {
+   var entry = zip.GetEntry(BinaryStateLump.MovieSaveRam.FileName+".zst") ?? zip.GetEntry(BinaryStateLump.MovieSaveRam.FileName);
+   Require(entry is not null,"stored initial base lump"); entry!.Delete();
+  }
   var stale = session.Get(oldPath,true); stale.SaveRam = blob;
   Require(stale.Load() && stale.SaveRam is null,"missing lump clears previously loaded bases");
   var validMovie = movie; movie = stale; Refused(); movie = validMovie; (stale as IDisposable)?.Dispose();

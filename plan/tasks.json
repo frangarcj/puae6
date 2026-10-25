@@ -12579,7 +12579,7 @@
       "title": "Preparar paquetes reproducibles y documentacion de usuario",
       "milestone": "M4",
       "required": true,
-      "status": "done",
+      "status": "pending",
       "depends": [
         "T38",
         "T39",
@@ -12625,7 +12625,8 @@
         "T40e añade al smoke del paquete nativo extraido rechazo de un estado PAL valido desde NTSC, preservacion transaccional y continuacion exacta. No satisface coexistencia con UAE antiguo ni reproducibilidad, que siguen exigidas por esta ficha.",
         "T40f ejecuta la referencia UAE antigua existente y la preview nativa instalada en staging aislado, con originales de MacHawk verificados intactos. Esta coexistencia es entre distribuciones/procesos separados; no acredita dos cores dentro del mismo EmuHawk ni sustituye instalacion Waterbox/reproducibilidad.",
         "T40i compara dos reconstrucciones limpias del payload Waterbox standalone con rutas fijas y conserva la diferencia entre binarios iguales entre si y reproducibilidad del ZIP distribuido. Esta puerta no sustituye EmuHawk real ni la reproducibilidad de los productos nativos y del paquete completo.",
-        "T40j separa el arranque CLI del EmuHawk.exe completo como probe previo; aun con ese bootstrap aprobado siguen exigidos UAE y PUAE6 mediante RomLoader y MovieSession en el mismo proceso, instalacion Waterbox, paquete completo y los checks originales. No sustituir esa aceptacion por FFI/cores filtrados ni por coexistencia entre procesos."
+        "T40j separa el arranque CLI del EmuHawk.exe completo como probe previo; aun con ese bootstrap aprobado siguen exigidos UAE y PUAE6 mediante RomLoader y MovieSession en el mismo proceso, instalacion Waterbox, paquete completo y los checks originales. No sustituir esa aceptacion por FFI/cores filtrados ni por coexistencia entre procesos.",
+        "Al integrar el cambio managed T80c, refrescar los productos Waterbox instalados y su comparacion limpia antes de cerrar: los DLL anteriores no acreditan el wrapper nuevo. Conservar la prueba limpia de los payloads nativos si sus inputs no cambian; no repetir matriz/CPU/guest por metadata ni atribuir las notas nuevas a los ZIP anteriores."
       ],
       "checks": [
         "PKG01",
@@ -21429,7 +21430,7 @@
       "title": "Peliculas desde estado con bases ADF HDF y volumen importadas",
       "milestone": "M3",
       "required": true,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T80b",
         "T80a",
@@ -21475,7 +21476,7 @@
       "title": "Cierre de paridad con PUAE5: cada capacidad del inventario hecha, o fuera con justificacion registrada",
       "milestone": "M3",
       "required": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T49",
         "T50",
@@ -21520,12 +21521,16 @@
       ],
       "touch": [
         "docs/02-contracts.md",
-        "docs/parity-puae5.md"
+        "docs/parity-puae5.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "docs/options.md"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Recorrer el inventario completo y marcar cada fila con su tarea/commit y check; lo que quede fuera (JIT, red, RTG que PUAE5 tampoco compila; montaje vivo del FS del host; cheats vacios en PUAE5) con su justificacion.",
         "Auditar la conexion real de identidad de peliculas ADF/HDF/volumen: T66r5 conecta CD32; el arnes antiguo valida encabezados manualmente y no acredita transporte de bases importadas al MovieSession real.",
-        "La prueba real TAS CD32 usa Zwinder/TempFile y codec Zstd instalado. Auditar Darwin del gestor Paged predeterminado (mmap flags Linux) y nombre libzstd.so.1 del host; no declarar UI/macOS completa por compilar EmuHawk WinForms."
+        "La prueba real TAS CD32 usa Zwinder/TempFile y codec Zstd instalado. Auditar Darwin del gestor Paged predeterminado (mmap flags Linux) y nombre libzstd.so.1 del host; no declarar UI/macOS completa por compilar EmuHawk WinForms.",
+        "Cerrar el inventario explicito de las112opciones publicas de la referencia fijada: documentar equivalencia/limite o exclusion justificada, con tareas/checks/commit. El contrato permite excluir interfaces y atajos concretos, no atribuirles soporte por similitud. Revisar consumidores actuales del esquema y limpiar notas obsoletas de docs/options.md. Se amplian touch a dispatcher, test del inventario y guia de opciones para conectar LR01/WB03 con las suites acumuladas y T80c, sin añadir emulacion ni repetir la matriz."
       ],
       "checks": [
         "LR01",

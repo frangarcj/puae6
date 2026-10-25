@@ -626,10 +626,15 @@ Attach. PowerOn proyecta las bases originales; SaveRAM usa el blob seleccionado,
 validado contra esas bases y sin padding final. La importacion real reconstruye
 las bases selladas, tambien cuando TAS importa dos veces; no se reemplaza por un
 hash adoptado. Grabar desde SaveRAM sin cambios (null) se normaliza a PowerOn.
-Los estados sin base importada conservan su validacion estricta. Un estado creado
-sobre una base importada sigue pendiente de transporte binario de esa base; el
-snapshot y su hash solos no reconstruyen el heap sellado. STATE01 prueba solo la
-canonizacion host. WB09/WB03 requieren el guest compartido actual explicitado por
+Los estados conservan su validacion estricta. T80c transporta la base importada
+canonica en MovieSaveRam, separada de Corestate, tambien en BK2/TAS que empiezan
+desde estado; StartsFromSaveRam permanece desactivado. Esa base se captura al
+importar, sin padding ni escrituras posteriores del guest. Antes de Attach se
+comprueban cabeceras, blob, bases originales, envelope/checksum y campos wrapper;
+despues se reconstruye la base sellada y se carga el snapshot por la ruta estricta,
+sin override de identidad. No se añade un validador previo de la estructura interna
+del snapshot Waterbox: un fallo de esa carga conserva la politica faulted existente.
+STATE01 prueba solo la canonizacion host. WB09/WB03 requieren el guest compartido actual explicitado por
 `P6_MEDIA_MOVIE_GUEST_RECEIPT`, replay/seek y otro proceso; sin el, quedan BLOCKED.
 
 
