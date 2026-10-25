@@ -36,3 +36,19 @@ class WindowsCandidateTests(unittest.TestCase):
         self.assertNotEqual(record['baseline_sha256'], record['future_sha256'])
         self.assertIn('Ran 4 tests', log)
         print('Windows candidate:', commit, run_id, 'actual ABI, full restore and four native CHD checks PASS')
+
+
+class WindowsGuiTests(WindowsCandidateTests):
+    def test_real_windows_frontend_loads_puae6_and_closes_normally(self):
+        log = subprocess.check_output(['gh', 'run', 'view', os.environ['P6_WINDOWS_GITHUB_RUN'],
+            '--log', '--repo', 'frangarcj/BizHawk'], text=True, timeout=60)
+        records = [json.loads(line.split('P6_EMUHAWK_GUI ', 1)[1]) for line in log.splitlines() if 'P6_EMUHAWK_GUI ' in line]
+        self.assertEqual(len(records), 1)
+        gui = records[0]
+        self.assertEqual(set(gui), {'pid', 'title', 'core', 'exit_code'})
+        self.assertIs(type(gui['pid']), int)
+        self.assertGreater(gui['pid'], 0)
+        self.assertEqual((gui['core'], gui['exit_code']), ('(Experimental) PUAE6', 0))
+        self.assertIn('Own', gui['title'])
+        self.assertIn('Amiga', gui['title'])
+        print('Windows product GUI: own content, PUAE6 status and normal exit PASS')

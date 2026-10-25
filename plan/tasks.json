@@ -24658,7 +24658,7 @@
       "title": "Lector CHD host para la preview Windowsx64 existente",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T81"
       ],
@@ -24684,7 +24684,8 @@
         "ReleaseWindowsreal encontrada via gh porindicaciondelusuario. El host CHD actual rechazaWIN32 y usa soloPOSIX; portar esta frontera sin cambiarlector/codec/metadatos. Mantener oneowner/thread noreentry documentado.",
         "Agente en worktree aislado reutilizado tras terminar codigoT83a, sinmetadata ni buildsgrandes/instalaciones/publicacion. Lecturaaleatoria64bit readonly con rutaUTF8Unicode y fdnoheredable; no exponerstructscodec, no stubsuccess. Version/size/status/outputstransaccionales intactos.",
         "Checksdirigidos POSIX ya existentes y fixtureWindows propio preparado para runnerWindowsreal. La falta de ejecucionWindows no se convierte enDONE. Root serializa buildnative y conecta jobposterior.",
-        "La preparacion nativa CMake tambien necesita la frontera de build Windows: normalizar rutas de manifest con as_posix y publicar el derivado completo mediante rename atomico desde un temporal exclusivo en Windows, validando ganador si hay carrera; mantener flock/NOFOLLOW POSIX intactos. Misma vertical CHD Windows, sin tocar codecs ni desactivar verificaciones. Tests de transaccion/cache concurrencia existentes y dirigidos al nuevo publicador; job Windows ejecuta la ruta real."
+        "La preparacion nativa CMake tambien necesita la frontera de build Windows: normalizar rutas de manifest con as_posix y publicar el derivado completo mediante rename atomico desde un temporal exclusivo en Windows, validando ganador si hay carrera; mantener flock/NOFOLLOW POSIX intactos. Misma vertical CHD Windows, sin tocar codecs ni desactivar verificaciones. Tests de transaccion/cache concurrencia existentes y dirigidos al nuevo publicador; job Windows ejecuta la ruta real.",
+        "Gate Windows real PASS run40198241725, commit06722004829fdd18e4f0b0cdaff1e2ad14b7e292, guest5f951971: EmuHawknet48/Winx64, creacionhostalineada, callback/reentrada15slots, restauracionfullstate3→6 ensegundosandbox eaislamiento/A/Vexactos. MSVCCHD y4testsWindowsUnicode/offset>4GiB/errores/UTF8 sinSKIP. Checkremotoleecommitactual/guestactual ymarcadores sinre-ejecutaremulador."
       ],
       "checks": [
         "MED01"
@@ -24783,7 +24784,7 @@
       "title": "Smoke real del frontend EmuHawk PUAE6 en Windows x64",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T83c"
       ],
@@ -24811,7 +24812,8 @@
         "Probe real p6w_probe_abi SysV sobre Waterbox y callback/reentrada: 15slots x64, GScontext/GPR/SP/claveTLS/errno; nunca llamar SysV por delegado Win64 directo. RomLoader y microROM/ADF propios; snapshot completo, avance observable y restauracion en sandbox nuevo, A/V exacto. Sin ROMs comerciales.",
         "Job Windows con artefactos fijados y fuentes/licencias actuales, pin de guest compilado por plataforma, lector CHD real con Unicode/offset64/errores. No ejecutar matrix completa para este delta. Root coordina publicacion solo tras PASS real; agente no edita metadata ni publica.",
         "Usar workflow_dispatch puae6_only en el workflow GitHub ya registrado para evitar lanzar toda la matriz: los cuatro jobs historicos mantienen su recorrido por defecto y el job Windows dirigido se selecciona explicitamente. Conservar pin de guest fijo y rechazo mientras el derivado no este construido.",
-        "El primer job Windows experimental se lanza en paralelo con el sysroot local. Al cambiar el guest por el derivado autentificado, ejecutar solo el mismo job dirigido para esa candidata nueva; no repetir la matriz. Un check reutilizable lee el resultado remoto y sus marcadores del commit/guest actuales, sin volver a ejecutar emulacion ni aceptar un run historico distinto."
+        "El primer job Windows experimental se lanza en paralelo con el sysroot local. Al cambiar el guest por el derivado autentificado, ejecutar solo el mismo job dirigido para esa candidata nueva; no repetir la matriz. Un check reutilizable lee el resultado remoto y sus marcadores del commit/guest actuales, sin volver a ejecutar emulacion ni aceptar un run historico distinto.",
+        "Gate Windows real PASS run40198241725, commit06722004829fdd18e4f0b0cdaff1e2ad14b7e292, guest5f951971: EmuHawknet48/Winx64, creacionhostalineada, callback/reentrada15slots, restauracionfullstate3→6 ensegundosandbox eaislamiento/A/Vexactos. MSVCCHD y4testsWindowsUnicode/offset>4GiB/errores/UTF8 sinSKIP. Checkremotoleecommitactual/guestactual ymarcadores sinre-ejecutaremulador."
       ],
       "checks": [
         "WB03",
@@ -24828,7 +24830,7 @@
       "title": "Alinear el mapeo inicial ELF x64 al contrato real de Windows",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T83d"
       ],
@@ -24853,7 +24855,8 @@
         "Primer job Windows real 40196814234 compila EmuHawk y CHD; wbx_create_host falla con MapViewOfFileEx ERROR_MAPPED_ALIGNMENT1132. LLD produce primerPT_LOAD enbase+0x1000, no alineado64KiB. Runtime aun no ejecutaemulacion, no esFPU ni snapshot. Conservar gate real intacto y derivar reproducer ELF minimo.",
         "Revisar decisionde layout antes de cambio. Asegurarbase deMemoryBlock alineada64KiB conservando paginas logicas4KiB, permisosW/X separados y entradas/simbolos validos. No tocarruntime ni incluirheaders falsos como oracle; autentificarbase/derivado y rechazarantesdeupload un ELF incompatible.",
         "Reenlazar guest desde sysroot de fuentes seleccionado y repetir solo job Windows dirigido con esa identidad; no repetir matrizmotor. El cierre original ABI/fullrestore permaneceT83e.",
-        "Revision ABI y reproducer minimo enlazado confirman marcador R deunbyte como ancla64KiB; no simula cabecera ni cambia paginas4KiB. Trece tests dirigidos PASS incluyendo enlace real original/candidato yprobeambosISA. Guest fuente reenlazado SHA5f951971a66db5a3067db457c4249fb21b0ec1ce5ddbff8a0b972929deef1326 conmapping_base0x36f00000000; pendiente comprobarcreacionhost enjobWindows."
+        "Revision ABI y reproducer minimo enlazado confirman marcador R deunbyte como ancla64KiB; no simula cabecera ni cambia paginas4KiB. Trece tests dirigidos PASS incluyendo enlace real original/candidato yprobeambosISA. Guest fuente reenlazado SHA5f951971a66db5a3067db457c4249fb21b0ec1ce5ddbff8a0b972929deef1326 conmapping_base0x36f00000000; pendiente comprobarcreacionhost enjobWindows.",
+        "Gate Windows real PASS run40198241725, commit06722004829fdd18e4f0b0cdaff1e2ad14b7e292, guest5f951971: EmuHawknet48/Winx64, creacionhostalineada, callback/reentrada15slots, restauracionfullstate3→6 ensegundosandbox eaislamiento/A/Vexactos. MSVCCHD y4testsWindowsUnicode/offset>4GiB/errores/UTF8 sinSKIP. Checkremotoleecommitactual/guestactual ymarcadores sinre-ejecutaremulador."
       ],
       "checks": [
         "BUILD01"
@@ -24866,10 +24869,10 @@
     },
     {
       "id": "T82c",
-      "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
+      "title": "Preview publica PUAE6 en el frontend EmuHawk que usan los probadores",
       "milestone": "M4",
       "required": false,
-      "status": "blocked",
+      "status": "in_progress",
       "depends": [
         "T82g"
       ],
@@ -24888,7 +24891,11 @@
         "docs/user/waterbox-preview.md",
         "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
         "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs",
-        "build/machawk-puae6/waterbox/waterboxhost/eto-puae6-integration-smoke/**"
+        "build/machawk-puae6/waterbox/waterboxhost/eto-puae6-integration-smoke/**",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "build/machawk-puae6/Dist/Package.sh",
+        "integration/bizhawk/patches/0029-emuhawk-windows-gui-smoke.patch",
+        "tests/test_machawk_windows.py"
       ],
       "steps": [
         "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
@@ -24896,17 +24903,18 @@
         "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS.",
         "Guardia de host añadida en el constructor EmuHawk antes de firmware/medios/mapeo: el guest/runtime ARM64 solo admite Darwin ARM64. Compilacion completa Release PASS (0 errores). El banco Eto conserva su alcance exclusivo de infraestructura de pruebas.",
         "El gate dirigido P6_TEST_MACHAWK_INTEGRATION=1 python3 -m unittest tests.test_machawk_integration falla dos veces en tasproj/UAE con estado completo de2733262bytes y primer cambio en offset2027529. BK2 llega a pasar; TAS compara A/V antes de fallar el estado UAE. No normalizar bytes ni interpretar el PASS historico como aceptacion de la candidata. Mantener PR12 en borrador y no publicar una GUI de producto a partir del banco.",
-        "Consulta gh autorizada por el usuario: la ultima release hatari-preview-56ea1841 distribuye solo Windowsx64. El gate original de coexistencia vuelve a PASS con runtime Darwin corregido; el cierre de descarga util debe seguir el frontend real, no ampliar Eto."
+        "Consulta gh autorizada por el usuario: la ultima release hatari-preview-56ea1841 distribuye solo Windowsx64. El gate original de coexistencia vuelve a PASS con runtime Darwin corregido; el cierre de descarga util debe seguir el frontend real, no ampliar Eto.",
+        "Alcance aclarado por el usuario: mirar con gh las releases usadas por los probadores. Solo distribuyen Windowsx64; no se autoriza convertir Eto en frontend ni portar WinForms a macOS. Conservar ARM64 funcional y entregar preview en el frontend real Windows. Para el criterioGUI guardarConfigreal medianteConfigService tras el gatecore y lanzar EmuHawk normal --gdi conOwn.adf. UIAutomationWindows incorporado debe identificar ventanaOwn/Amiga ystatus real (Experimental) PUAE6; cerrar normalmente proceso propio. No usar el banco como pruebaGUIproducto.",
+        "El empaquetador normal omite carpetas fuera de su allowlist: añadir exclusivamente PUAE6 para conservar fuente/licencias. El job Windows empaqueta mediante Dist/Package.sh y sube packaged_output, eliminando PDB/objetos segun receta existente. No distribuir el staging de fixtures ni configGUI de prueba."
       ],
       "checks": [
         "BUILD01"
       ],
       "acceptance": [
-        "Paquete descargable inicia la GUI y carga contenido sin SDK instalado; guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales.",
+        "Paquete descargable inicia la GUI EmuHawk Windowsx64 real y carga contenido sin SDK instalado (runtime .NET Framework4.8); guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales. ARM64 conserva su carril separado; no se afirma GUI WinForms macOS.",
         "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
       ],
-      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
-      "blocked_reason": "El fallo TASproj/UAE esta corregido: T82i demuestra causa GPR de entrada y el runtime integrado pasa los cuatro casos reales exactos. El usuario aclara que Eto es solo un banco y que los testers usan releases GitHub Windows x64; no existe una GUI WinForms macOS acreditada. Se prepara el carril real Windows en T83a/b/c antes de ofrecer una preview de producto, manteniendo ARM64 separado."
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
     },
     {
       "id": "T82",
