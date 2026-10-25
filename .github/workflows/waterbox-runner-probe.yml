@@ -65,7 +65,7 @@ jobs:
           host = dict(os=platform.system(), isa=platform.machine(), page_bytes=os.sysconf('SC_PAGE_SIZE'))
           assert host == dict(os='Linux', isa='x86_64', page_bytes=4096), host
           tools = {}
-          for name in ['clang', 'clang++', 'ld.lld', 'llvm-ar', 'llvm-objcopy', 'make', 'cc', 'nasm', 'rustc', 'cargo', 'rustup', 'dotnet']:
+          for name in ['clang', 'clang++', 'ld.lld', 'ld.lld-18', 'llvm-ar', 'llvm-ar-18', 'llvm-objcopy', 'llvm-objcopy-18', 'ar', 'ld', 'objcopy', 'patch', 'python3', 'make', 'cc', 'nasm', 'rustc', 'cargo', 'rustup', 'dotnet']:
               path = shutil.which(name)
               if not path:
                   tools[name] = dict(available=False)
