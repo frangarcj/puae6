@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "task": "T43",
+  "scope": "study_only_no_profile_changes",
+  "upstream": {
+    "source_id": "winuae",
+    "tag": "6030",
+    "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "snapshot_manifest": "manifests/upstream-files.json"
+  },
+  "decision": {
+    "device": "CD32 FMV cartridge CL450 video + L64111 audio",
+    "target": "proposed_MPEG1_VideoCD_not_MPEG2_claim",
+    "video_sizes": [
+      [
+        352,
+        288
+      ],
+      [
+        352,
+        240
+      ]
+    ],
+    "audio": "MPEG1_LayerII_44100Hz_stereo",
+    "runtime_support": "not_implemented",
+    "firmware": {
+      "canonical_bytes": 262144,
+      "version": "40.30",
+      "sha1": "03ca81c7a7b259cf64bc9582863eca0f6529f435",
+      "provided_local_container_bytes": 524288,
+      "container_policy": "verify_identical_halves_then_identify_full_canonical_payload_before_preseal_copy",
+      "redistribute": false
+    },
+    "scheduler": "p6_run_frame_and_existing_emulated_hsync_only",
+    "media": "existing_cooperative_Disc_Akiko_path_no_direct_host_drive",
+    "native_decoder_codec": "undecided_blocks_implementation",
+    "output": "one_bounded_software_composed_frame_and_existing_PCM_ABI"
+  },
+  "reference": {
+    "source_id": "bizhawk_uae_reference",
+    "commit": "ccecb1ead642c1bbe391308b88a7ffa9478b918d",
+    "manifest": "references/machawk-uae.manifest.json",
+    "fmv_overlay_sha256": "b6981e1765a11688e45efbf0ea0d587098bb325ff1418b0a7412abc115b2fe3f",
+    "delta": "references/machawk/waterbox/uae/uae-waterbox.patch",
+    "reuse": "preseal_ROM_preload_idea_only_no_legacy_engine_copy",
+    "libmpeg2_version": "0.4.1_captured",
+    "libmpeg2_license": "GPL-2.0-or-later",
+    "kjmp2_version": "1.1",
+    "kjmp2_license": "zlib-style_notice_in_source"
+  },
+  "bounds_inventory": {
+    "fmv_ram_bytes": 524288,
+    "audio_ram_bytes": 262144,
+    "video_queue_entries": 8,
+    "video_entry_payload_bytes": 405504,
+    "compositor_payload_bytes": 405504,
+    "pcm_queue_entries": 128,
+    "pcm_entry_payload_bytes": 4608,
+    "pcm_output_buffers_bytes": 36864,
+    "known_mutable_payload_bytes": 5062656,
+    "libmpeg2_chunk_buffer_bytes": 1222660,
+    "newpacket_entries": 32,
+    "state_bound_status": "unknown_until_decoder_allocator_and_codec_probe",
+    "measurement_status": "not_run"
+  },
+  "source_paths": [
+    "upstream/winuae/cd32_fmv.cpp",
+    "upstream/winuae/cd32_fmv_genlock.cpp",
+    "upstream/winuae/include/cd32_fmv.h",
+    "upstream/winuae/expansion.cpp",
+    "upstream/winuae/rommgr.cpp",
+    "upstream/winuae/archivers/mp2/kjmp2.cpp",
+    "upstream/winuae/archivers/mp2/kjmp2.h",
+    "references/machawk-uae/sources/src/cd32_fmv.c",
+    "references/machawk-uae/sources/src/expansion.c",
+    "references/machawk-uae/deps/libmpeg2",
+    "references/machawk/waterbox/uae/Makefile",
+    "references/machawk/waterbox/uae/uae-waterbox.patch",
+    "ports/portable/media/cd_device.cpp",
+    "ports/portable/media/cd_read.h",
+    "ports/portable/audio_cda_state.h",
+    "ports/portable/video_present.cpp",
+    "patches/winuae/0362-cd32-without-fmv.patch"
+  ],
+  "excluded": [
+    "MPEG2_SVCD_DVD_claim",
+    "host_drive_or_file_decoder_bypass",
+    "host_decoder_threads_GPU",
+    "other_CD32_cartridges",
+    "unbounded_allocations_or_restore_replay",
+    "legacy_or_crossbuild_state_compatibility"
+  ],
+  "subbacklog": [
+    {
+      "id": "FMV-A",
+      "depends": [
+        "T66",
+        "T43"
+      ],
+      "status": "proposed",
+      "kind": "source_media_firmware_contract",
+      "deliverable": "Pin selected decoder closure/licenses; explicit cartridge sync identity and preseal ROM owner; verify raw sector view/demux/ports without extra CD reader",
+      "oracle": "Own sector/packet fixture with exact offsets, existing catalog identity/eject/error semantics, preload failures/session firmware changes; authorized private firmware is never a public asset",
+      "gates": [
+        "SRC01",
+        "HOST01",
+        "MED01"
+      ]
+    },
+    {
+      "id": "FMV-B",
+      "depends": [
+        "FMV-A"
+      ],
+      "status": "proposed",
+      "kind": "bounded_decoder_determinism_probe",
+      "deliverable": "Bound dimensions, FIFO/packets and allocations before parse/copy; fix and verify libmpeg2 scalar path, kjmp2 cos-generated tables/global state and SCR float behaviour without silent tolerance changes",
+      "oracle": "Independent own I/P/B pixel and LayerII vectors with source/expected samples; malformed/oversize/truncated streams reject safely; cross-ISA/compiler outputs/ticks exactly equal, actual memory bounds measured",
+      "gates": [
+        "AV01",
+        "AV02",
+        "SAFE01",
+        "PERF01"
+      ]
+    },
+    {
+      "id": "FMV-C",
+      "depends": [
+        "FMV-B"
+      ],
+      "status": "proposed",
+      "kind": "PCM_owner_phase_contract",
+      "deliverable": "Explicit coexistence/arbitration for4608-frame FMV blocks versus existing588-frame slot0 CDA codec; causal PCM queues/callbacks/Paula phase and reset/pause/mute",
+      "oracle": "Independent PCM sample/count expectations and next-event ticks with FMV/CDDA transitions, mute consumes without dropping state, no owner replacement or duplicated callback",
+      "gates": [
+        "AV02",
+        "DET02"
+      ]
+    },
+    {
+      "id": "FMV-D",
+      "depends": [
+        "FMV-B",
+        "FMV-C"
+      ],
+      "status": "proposed",
+      "kind": "decoder_state_decision_and_probe",
+      "deliverable": "Choose and prove bounded native context codec or bounded captured-input reconstruction; enumerate prediction/parse/function IDs/pointers/PTS/SCR plus complete cartridge/PCM state; Waterbox captures mutable decoder allocations",
+      "oracle": "Restore partial header/frame/I/P/B and pending delivery/IRQ in fresh process/sandbox with rebased owners, no I/O or unbounded replay; full state/RAM/PCM/pixels/ticks future equal; foreign/corrupt states reject transactionally",
+      "gates": [
+        "DET02",
+        "STATE01",
+        "STATE02",
+        "WB03",
+        "WB04"
+      ]
+    },
+    {
+      "id": "FMV-E",
+      "depends": [
+        "FMV-D"
+      ],
+      "status": "proposed",
+      "kind": "software_composition_probe",
+      "deliverable": "Bounded genlock/auxbuffer ownership/layout and IRQ cadence, preserving AGA and render/audio-off future; keep current rejection guards until real contract passes",
+      "oracle": "Analytic color/border/scale/stride/canary expectations plus pinned primary genlock evidence for any hardware claim; PAL/NTSC transitions and compositor state restore, no libmpeg2 borrowed frontend pointers",
+      "gates": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "SAFE01"
+      ]
+    },
+    {
+      "id": "FMV-F",
+      "depends": [
+        "FMV-E"
+      ],
+      "status": "proposed",
+      "kind": "frontend_acceptance",
+      "deliverable": "Expose only complete cartridge profile through shared schema, libretro and Waterbox; measure full heap/state budget, preserve all stockCD32 regression coverage",
+      "oracle": "Actual authorized firmware/own media boot+decode and BK2/TAS replay/seek/fresh owner/process; native/LR/WB AV/PCM/ticks/state exact, cross-ISA/sanitizers and real memory limits; absent legal assets or runner staysBLOCKED",
+      "gates": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "LR01",
+        "WB03",
+        "WB04",
+        "WB13",
+        "WB14",
+        "WB15",
+        "WB16",
+        "PERF01"
+      ]
+    }
+  ],
+  "current_checks": {
+    "AV01": {
+      "selectors": [
+        "tests.step.test_aga.PictureTests",
+        "tests.step.test_resolution.RasterTests"
+      ],
+      "covers": "Current AGA/raster coverage accumulated without FMV; not decoder or cartridge execution"
+    },
+    "DET02": {
+      "selectors": [
+        "tests.media.test_cd32_state.Cd32StateTests",
+        "tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner",
+        "tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore",
+        "tests.waterbox-media.test_cd_source.Cd32GameCoreTests"
+      ],
+      "covers": "Current native/libretro/Waterbox CD32 game, state and fresh-owner coverage without FMV; no decoder restore claim"
+    },
+    "future_fmv_checks_status": "not_executed_by_study"
+  }
+}
