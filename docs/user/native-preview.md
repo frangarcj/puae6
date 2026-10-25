@@ -161,7 +161,9 @@ arriba. Algunos slaves WHDLoad necesitan Kickstarts o RTB adicionales; esos
 archivos debe aportarlos el usuario
 mediante el preparador explicito descrito en `docs/whdload.md` de los fuentes.
 La integracion Waterbox/MacHawk es un producto separado y no se instala
-con este ZIP. No se declara CI remota ni reproducibilidad binaria auditada.
+con este ZIP. Las plataformas y puertas de CI están descritas en `docs/ci.md`
+de los fuentes. La cobertura se declara por receta; el ZIP por sí solo no
+certifica el cierre global de CI ni la reproducibilidad de toda la distribución.
 
 ## Consola y fuentes
 

@@ -2,7 +2,8 @@
 
 Preview FFI para macOS ARM64, páginas de 16 KiB y runtime .NET ARM64 compatible
 con net8.0 instalado (roll-forward Major). No incluye SDK. No es un plugin EmuHawk;
-esa integración sigue pendiente. Estados ligados al build.
+la integración con EmuHawk se prueba por separado y no forma parte de este ZIP.
+Estados ligados al build.
 
 Extrae el ZIP completo conservando bin/, config/, licenses/ y source.tar.gz juntos:
 
@@ -10,7 +11,8 @@ Extrae el ZIP completo conservando bin/, config/, licenses/ y source.tar.gz junt
 dotnet bin/Ffi.dll pin
 ```
 
-Extrae también source.tar.gz. El comprobador requiere Python 3.15 y otool de macOS:
+Extrae también source.tar.gz. El comprobador se ha probado con Python 3.14
+y requiere otool de macOS:
 
 ```sh
 python3 -B source/tools/package_waterbox.py check --archive /ruta/preview.zip
@@ -33,7 +35,8 @@ python3 -B tools/reproduce_waterbox.py --jobs 2 --archive /ruta/preview.zip
 No descarga ni instala. Aísla y elimina objetos y salidas propias, conserva una
 misma ruta entre ambas pasadas y no repite el smoke. El preflight solo genera el
 HRTMon esperado en un temporal propio; nunca repara inputs oficiales. Los DLL
-incluyen paths CodeView: esta comparación no demuestra independencia de ruta.
+incluyen la revisión Git y paths CodeView: ambas pasadas requieren la misma
+revisión y ruta; esta comparación no demuestra independencia de ruta.
 `archive_payload_matches` compara los ocho productos con el ZIP indicado; no
 afirma igualdad byte a byte del ZIP completo ni integración EmuHawk. El gate real
 PKG01/BUILD01 de T40i requiere `P6_TEST_WATERBOX_REPRODUCIBLE=1`; sin ello queda BLOCKED.
