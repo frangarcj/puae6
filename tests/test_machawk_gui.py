@@ -34,7 +34,7 @@ class MacHawkGuiTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout[-2000:] + result.stderr[-2000:])
             markers = [line for line in result.stdout.splitlines() if line.startswith('MACHAWK_GUI_PASS ')]
             self.assertEqual(len(markers), 1, result.stdout[-2000:] + result.stderr[-2000:])
-            self.assertIn('replay=4 state/video/PCM=exact input=observed mouse=observed audio=played+cleared', markers[0])
+            self.assertIn('replay=4 state/video/PCM=exact input=observed mouse=observed audio=played+cleared settings=applied+deferred', markers[0])
             self.assertNotIn('System.Exception', result.stderr)
             print(markers[0])
 

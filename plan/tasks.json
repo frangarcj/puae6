@@ -24313,7 +24313,7 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
       "id": "T82e1",
       "title": "Opciones Amiga y ajustes reales en menus Cocoa de MacHawk",
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T82d"
       ],
@@ -24326,7 +24326,8 @@
       "steps": [
         "Requisito expreso del usuario 2026-10-25: mismas opciones de menu que UAE original y BizHawk normal de MacHawk. Conservar los menus generales y conectar el core, no sustituir herramientas de BizHawk por botones de demostracion.",
         "Modificar solo el worktree aislado; no tocar el checkout hermano ni repetir campañas del motor.",
-        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha."
+        "La ventana Eto minima no hereda las herramientas WinForms: la paridad de menus generales requiere integracion real, no solo copiar etiquetas. T82e1 cubre Amiga y acciones basicas; las herramientas restantes conservan abierta esta ficha.",
+        "BUILD01 GUI real Release PASS: menu Settings abre dialogo Cocoa, refleja todas las propiedades, aplica volumen P10 en vivo y seed=2 pendiente sin cambiar seed=1 ni avanzar el core durante el dialogo; replay de cuatro unidades estado/video/PCM exacto, audio real y raton. Revision manual ve ambas pestañas y salida Cmd-Q; HDF se deshabilita sin disco. No acredita las herramientas WinForms en Eto."
       ],
       "acceptance": [
         "Menus Cocoa Amiga Settings y Export Hard Disk conectados a ajustes/API reales, junto a Open/Close, estados, pausa y Reboot Core.",

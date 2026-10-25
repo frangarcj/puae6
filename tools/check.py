@@ -1168,6 +1168,7 @@ TASK_SUITES[('PLAN01', 'T41')] = {'plan': 'tests.test_plan', 'dispatcher': 'test
 TASK_SUITES[('BUILD01', 'T81')] = {'machawk_integration': 'tests.test_machawk_integration'}
 TASK_SUITES[('BUILD01', 'T82a')] = {'machawk_gui': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82b')] = {'machawk_gui_audio': 'tests.test_machawk_gui'}
+TASK_SUITES[('BUILD01', 'T82e1')] = {'machawk_gui_menus': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
@@ -1249,8 +1250,8 @@ def _dispatch_task_suites(check_id, task, required, finish, executed):
         executed.append(name)
     diagnostic = ('Contrato documental, pin y subbacklog comprobados; no se ejecuta la feature ni un runtime nuevo'
                   if study_only else 'Suites nativas ejecutadas (sanitizers, fuzzing, matriz de portabilidad segun la tarea); no es un resultado de emulacion')
-    if task in ('T81', 'T82a', 'T82b'):
-        diagnostic = ('GUI Cocoa real: imagen, input causal y replay estado/video/PCM exactos' if task in ('T82a', 'T82b')
+    if task in ('T81', 'T82a', 'T82b', 'T82e1'):
+        diagnostic = ('GUI Cocoa real: imagen, input causal y replay estado/video/PCM exactos' if task in ('T82a', 'T82b', 'T82e1')
                       else 'Aplicacion MacHawk real: UAE de referencia y PUAE6, replay BK2/TAS y aislamiento; no acredita GUI')
     if task == 'T82d':
         diagnostic = 'EmuHawk real Release compila rutas de menu/configuracion/HDF; no acredita ejecucion de GUI WinForms'
