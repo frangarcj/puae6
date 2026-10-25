@@ -24516,6 +24516,86 @@
       "stop": "Tras dos intentos diagnosticos sin localizar, blocked con dos hipotesis verificables. No cambiar ABI ni hashes por intuicion."
     },
     {
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "checks": [
+        "WB03"
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis; no cambiar comparadores ni declarar ejecutado un guest que solo compila.",
+      "id": "T82i",
+      "title": "Oraculo causal de registros host no argumentales al entrar en Waterbox Darwin",
+      "depends": [
+        "T82h"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tools/waterbox_setjmp.py",
+        "integration/bizhawk/smoke/Native.cs"
+      ],
+      "touch": [
+        "integration/waterbox-runtime/proposed/0003-darwin-entry-gpr.patch",
+        "tools/waterbox_entry_gpr.py",
+        "tests/waterbox-smoke/EntryGprProbe.cs",
+        "tests/waterbox-smoke/entry_gpr.S",
+        "tests/waterbox-smoke/test_entry_gpr.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tests/test_plan.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "El diagnosticoT82h acredita slotsx19/x20/x24/x27 en __exbuf y copia. Revision independiente confirma que diez mov para x19..x27/x29 caben en68bytes antesde0x300, sin cambiarframe/Context/argumentos/x18/x28. Solo entrada al guest, nunca retorno desyscall.",
+        "Crear oraculo aislado con dos canarios host distintos y captura de registros guest, conservacion host y snapshots completos. Candidato runtime en build temporal a partir de fuentes autenticadas; producto/recibos/MacHawk intactos. Parche propuesto incluye ASM y binario generado por toolchain fijada, nunca editarbinario a mano.",
+        "No cambiarFP sin prueba y preservacion host: este bloque prueba GPR observados. Preparar candidatos con fuentes/flags fijados, un build y prueba dirigida, sin reconstruir motor. Integracion del runtime de producto y reproducer original van despues del oraculo."
+      ],
+      "acceptance": [
+        "Original demuestra contaminacion de registros no argumentales al variar canarios host; candidato canoniza GPR guest y recupera canarios host, sin cambiar argumentos/x18/x28 ni offsets del interop.",
+        "Snapshots completos de dos instancias/proceso nuevo y callback/reentrada conservan sus invariantes; fixtures rechazan cobertura falsa. No afirmar resueltoT82c desde el oraculo."
+      ]
+    },
+    {
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "checks": [
+        "WB03"
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo conservar reproducer y dos hipotesis; no cambiar comparadores ni declarar ejecutado un guest que solo compila.",
+      "id": "T83a",
+      "title": "Guest Waterbox x86_64 de PUAE6 con sysroot local autentificado",
+      "depends": [
+        "T81"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "ports/waterbox/Makefile",
+        "tools/build_waterbox.py",
+        "docs/03-waterbox.md"
+      ],
+      "touch": [
+        "ports/waterbox/Makefile",
+        "tools/build_waterbox_x64.py",
+        "tests/waterbox-smoke/test_x64_guest_build.py",
+        "plan/extensions/waterbox-x64.json",
+        "docs/adr/waterbox-x64.md",
+        "build/waterbox-x64/**"
+      ],
+      "steps": [
+        "Usuario aclara que los testers descargan releases deGitHub. gh confirma paquetesWindowsx64 del workflowhatari-waterbox-preview.yml; el bancoEto noes producto. MantenerARM64 y añadir carrilx64 necesario para ese paquete; no asumir soporteWindows desde Darwin.",
+        "Agente en worktree aislado: preparar receta/captura de identidad x64 (ELF62,4KiB), sysroot readonly ../MacHawk/waterbox/waterboxhost/target/x86_64-work/sysroot-x86_64, musl2063abc4e16c84218757b1db10d3cdf9f36ef3f8 y LLVM3b5b5c1ec4a3095ab096dd780e84d7ab81f3d7ff. Verificar fuentes/inventarios/flags; si falta procedencia, conservarla como pendiente, no declarar release reproducible.",
+        "No editar metadata compartida, instalar ni publicar. No compilar hasta que root serialice. No modificar builder ARM64 ni susrecibos. Parametros target/page_size deben preservar defaultsARM64 y perfiles invalidos se rechazan. FuentesPUAE6 WinUAE se materializan de los mismos inputsverificados sincopiarPUAE5."
+      ],
+      "acceptance": [
+        "Receta x64 aislada y fixtures verifican target/4KiB/herramientas/sysroot; ELFreal contieneEM62 y carece TLS del compilador/importsprohibidos. Puerta separada de runtime real siguependiente, nuncaPASS porelbuild.",
+        "RutaARM64 conserva flags/pins/recibos; originalMacHawk intacto. Receta deja inputs publicables fijados o un bloqueo concreto de procedencia."
+      ]
+    },
+    {
       "id": "T82c",
       "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
       "milestone": "M4",
