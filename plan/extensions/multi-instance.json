@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "task": "T47",
+  "scope": "study_only_no_profile_changes",
+  "upstream": {
+    "source_id": "winuae",
+    "tag": "6030",
+    "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+    "snapshot_manifest": "manifests/upstream-files.json"
+  },
+  "decision": {
+    "outcome": "postpone_explicit_native_contexts_reuse_process_or_sandbox_isolation",
+    "reason": "Alternated replay and rollback can use isolated owners without converting the engine globals; no measured deficit yet justifies the upstream and ABI cost of contexts in one native image.",
+    "preserve": ["one native machine per loaded image", "BUSY for nested calls", "BAD_STATE for a second sequential init", "one guest per Waterbox sandbox", "one hardware thread and p6_run_frame only"],
+    "not_claimed": ["native reentrancy", "thread safety", "isolated repeated dlopen", "new runtime test execution", "a public native process coordinator"]
+  },
+  "use_case": {
+    "operation": "Keep main replay A and speculative branch B alive, alternate units, restore A while B is stopped, replay and discard B without durable writes.",
+    "controls": ["same configuration and initial state with different input branches", "different configurations and media to expose global contamination"],
+    "oracle": "Each owner equals its isolated control at every boundary in CPU/chipset/RAM, video/PCM, ticks, media events and overlays; actions on A leave B and its future unchanged."
+  },
+  "source_paths": [
+    "docs/01-architecture.md",
+    "docs/02-contracts.md",
+    "docs/03-waterbox.md",
+    "docs/05-maintenance.md",
+    "docs/07-machawk.md",
+    "bridge/session.h",
+    "bridge/lifecycle.cpp",
+    "bridge/state.cpp",
+    "upstream/winuae/newcpu.cpp",
+    "upstream/winuae/include/newcpu.h",
+    "upstream/winuae/include/options.h",
+    "upstream/winuae/custom.cpp",
+    "upstream/winuae/events.cpp",
+    "upstream/winuae/memory.cpp",
+    "upstream/winuae/audio.cpp",
+    "ports/portable/alloc.h",
+    "ports/portable/blob_io.c",
+    "ports/portable/rtc_time.cpp",
+    "ports/portable/pcm_output.cpp",
+    "ports/portable/video_present.cpp",
+    "ports/portable/sound_lifecycle.cpp",
+    "ports/portable/drive_sound.cpp",
+    "adapters/libretro/libretro_core.cpp",
+    "adapters/waterbox/puae6_guest.cpp",
+    "adapters/waterbox/cd_source.cpp",
+    "references/machawk/waterbox/emulibc/emulibc.c",
+    "references/machawk/waterbox/waterboxhost/src/context/mod.rs",
+    "references/compiler-rt-emutls/compiler-rt/lib/builtins/emutls.c",
+    "integration/bizhawk/smoke/Native.cs",
+    "manifests/state-inventory.json",
+    "manifests/source-manifest.json",
+    "manifests/codegen.json",
+    "patches/winuae/series.json",
+    "tests/state/test_probe.py",
+    "tests/waterbox-state/test_wrapper_state.py"
+  ],
+  "inventory": [
+    {"family": "bridge", "owners": ["Session session", "stage", "config reference", "restart hook", "state VisitContext scratch"], "risk": "Singleton storage and non-atomic reentry guard; lifecycle and validation are owner-sensitive."},
+    {"family": "cpu_and_scheduler", "owners": ["regs", "currprefs/changed_prefs", "cpufunctbl", "eventtab/eventtab2", "cycle/beam phases"], "risk": "Generated handlers, callbacks and pointer tables reach globals transitively; CPU/RAM alone are insufficient."},
+    {"family": "memory_devices_caches", "owners": ["addrbank baseaddr", "CIA/disk/IDE/CD", "audio filters", "drawing caches"], "risk": "Distinguish immutable shared tables from owner-specific caches, stale mappings and persistent device state."},
+    {"family": "portable_host", "owners": ["blobs/overlays", "RTC", "PCM/raster", "drive sound", "diagnostics"], "risk": "Output buffers and host callbacks have lifetimes in addition to serialized state."},
+    {"family": "tls_allocators", "owners": ["libc malloc/free and errno", "pthread keys", "emutls and exception TLS", "Waterbox Context"], "risk": "Per-host-thread TLS does not isolate two alternating owners on one thread; audit failure cleanup, destructors, reserved registers and heap provenance."},
+    {"family": "adapters", "owners": ["libretro core/mapper/tray", "Waterbox loaded flag and CD catalog", "managed sandbox callbacks"], "risk": "A bridge handle alone cannot provide multi-instance libretro or rebind another owner's pointers."}
+  ],
+  "existing_controls": [
+    {"path": "tests/state/test_probe.py", "covers": "Native fresh processes and clean reload behaviour, not two simultaneous native owners."},
+    {"path": "tests/waterbox-state/test_wrapper_state.py", "covers": "Real sandbox restore/alternation, rejection and new-process scenarios; not native contexts in one image."}
+  ],
+  "subbacklog": [
+    {
+      "id": "MI-A", "depends": [], "status": "proposed", "kind": "decision",
+      "deliverable": "Specify explicit owner IDs, per-unit command protocol, input/state/media identities, output-buffer lifetime and close/flush policy for A/B. Select existing process and sandbox backends without changing engine ABI.",
+      "source_paths": ["bridge/include/p6.h", "tests/state/test_probe.py", "tests/ffi/Session.cs"],
+      "gates": ["ABI01", "ADR01"],
+      "oracle": "No host pointer crosses process/sandbox boundaries; native and Waterbox state formats remain distinct; deterministic command order and missing backend fail explicitly."
+    },
+    {
+      "id": "MI-B", "depends": ["MI-A"], "status": "proposed", "kind": "probe",
+      "deliverable": "Keep A/B alive and alternate A1/B1/A2/B2 versus isolated controls, then load invalid firmware/media into B and recreate/dispose B while A remains paused.",
+      "source_paths": ["tests/host/test_bridge_lifecycle.py", "tests/waterbox-state/test_wrapper_state.py", "bridge/lifecycle.cpp"],
+      "gates": ["LIFE01", "DET02", "WB03"],
+      "oracle": "Exact per-unit CPU/chipset/RAM, video/PCM/ticks and overlays; B's failed load cannot change A's saved state or future. BUSY and sequential BAD_STATE remain covered in the original single-image ABI."
+    },
+    {
+      "id": "MI-C", "depends": ["MI-B"], "status": "proposed", "kind": "probe",
+      "deliverable": "Rollback A during pending DMA/media/input while B is frozen; continue/discard B and exercise same/new owner restore plus invalid/foreign states and cache poison/reconstruction.",
+      "source_paths": ["bridge/state.cpp", "manifests/state-inventory.json", "tests/state", "tests/waterbox-state"],
+      "gates": ["STATE01", "DET02", "WB03"],
+      "oracle": "A's restored future equals its isolated branch; B stays exact before/after A operations. No omitted snapshot bytes or pointer normalization, no writes from discarded branches, no stale callback/cache/allocator references or cross-owner frees."
+    },
+    {
+      "id": "MI-D", "depends": ["MI-C"], "status": "proposed", "kind": "decision",
+      "deliverable": "Measure two-owner memory, startup, IPC/activation, snapshot and restore cost on the same declared host/tools; set the user's required budget before choosing a new architecture.",
+      "source_paths": ["tools/bench.py", "docs/04-validation.md", "manifests/waterbox-memory.json"],
+      "gates": ["PERF01", "ADR01"],
+      "oracle": "Repeated raw samples and exact correctness controls; identify a concrete unmet budget of process/sandbox isolation, or retain the postponement. No timing claim follows from this study."
+    },
+    {
+      "id": "MI-E", "depends": ["MI-D"], "status": "proposed", "kind": "conditional_probe",
+      "condition": "Only if MI-D justifies a same-image native benefit and a new scoped task approves the ownership boundary.",
+      "deliverable": "Inventory all reachable writable globals/TLS/allocations and one narrow explicit-context prototype; audit generated handlers and adapter ABI, or prove platform loader/dependency isolation before a separate-image alternative.",
+      "source_paths": ["upstream/winuae/gencpu.cpp", "bridge", "ports/portable", "adapters", "patches/winuae", "manifests/state-inventory.json"],
+      "gates": ["GEN01", "ABI01", "SAFE01", "DET02", "STATE01", "UPD01"],
+      "oracle": "Repeat MI-B/C on every proposed backend, verify owner-bound callbacks/heaps/caches and same-thread TLS isolation, measure hot-path overhead and upstream-update conflicts. Keep public single-image guards until a complete separately approved gate; no mass conversion or alternate scheduler."
+    }
+  ]
+}
