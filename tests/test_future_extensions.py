@@ -93,7 +93,18 @@ class PostReleaseStudyTests(unittest.TestCase):
         study = self.validate_study("T46", "waterbox-platforms", "docs/adr/future-waterbox-platforms.md")
         self.assertFalse(study["support_announced"])
         self.assertEqual({f"WB{i:02d}" for i in range(1, 13)}, set(study["gates"]))
-        self.assertTrue(all(g["status"] == "blocked" for g in study["gates"].values()))
+        self.assertEqual("passed", study["gates"]["WB01"]["status"])
+        self.assertTrue(all(g["status"] == "blocked" for key, g in study["gates"].items() if key != "WB01"))
+        execution = study["gates"]["WB01"]["execution"]
+        self.assertEqual("WB01_MINICORE", execution["scope"])
+        for name, expected in execution["source_sha256"].items():
+            self.assertEqual(expected, hashlib.sha256((ROOT / name).read_bytes()).hexdigest())
+        self.assertEqual(execution["recipe_sha256"], hashlib.sha256((ROOT / "tools/ci/linux_waterbox_probe.py").read_bytes()).hexdigest())
+        tasks = json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]
+        self.assertTrue(all(next(t for t in tasks if t["id"] == key)["status"] == "done"
+                            for key in ("T46a", "T46a1", "T46a2")))
+        self.assertEqual(check.TASK_SUITES[("WB01", "T46a2")], check.TASK_SUITES[("WB01", "T46a")])
+        self.assertIn("tests.ci.test_linux_waterbox_probe.LinuxWaterboxRuntimeTests", check.TASK_SUITES[("WB01", "T46a")].values())
         self.assertFalse(study["observed_unverified_artifact"]["accepted_as_wb01"])
         self.assertFalse(study["observed_unverified_artifact"]["executed"])
         sources = json.loads((ROOT / "plan/upstream.lock.json").read_text())["sources"]

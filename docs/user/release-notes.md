@@ -80,8 +80,10 @@ explicita, con escrituras reversibles durante replay y rewind.
 
 TINF y ETN2 multisesion completo quedan como extras T66x1/T66x2 posteriores,
 segun decision expresa del usuario; permanecen rechazados. Tambien siguen
-pendientes CU06 denormal, waiting_blits y la ejecucion Waterbox Linux adicional.
+pendientes CU06 denormal y waiting_blits. WB01 Linux adicional pasa con un
+mini-core C; no anuncia soporte Amiga/BizHawk en ese runtime ni cambia los ZIP.
 Los estudios de JIT, RTG y multiples instancias y el subplan FMV estan cerrados:
 definen decisiones y puertas futuras, sin habilitar esas capacidades. T44
-terminado es un estudio MMU, no soporte MMU. Los arranques comerciales acreditados no se extrapolan a todos
-los juegos; CDTV se comprueba con un programa propio y firmware autorizado.
+terminado es un estudio MMU, no soporte MMU. Los arranques comerciales acreditados
+no se extrapolan a todos los juegos; CDTV se comprueba con un programa propio y
+firmware autorizado.

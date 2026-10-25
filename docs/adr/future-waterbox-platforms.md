@@ -4,8 +4,9 @@ Decisión: estudiar el runtime Linux x86_64 de la referencia MacHawk fijada,
 con huésped ELF64 little endian x86_64 y páginas host/guest de 4096 bytes.
 No se añade un perfil ni se anuncia soporte. Darwin ARM64 sigue siendo el
 objetivo inicial implementado; sus puertas y sus páginas host de 16 KiB no
-se trasladan a una categoría futura. Este estudio satisface la aceptación
-documental de T46; WB01 del candidato permanece **BLOCKED**.
+se trasladan a una categoría futura. T46 cierra la auditoría; T46a1/T46a2
+completan **WB01 del mini-core C** en Linux nativo. WB02–WB12 y la integración
+Amiga/managed de esa fila permanecen **BLOCKED**.
 
 La autoridad es `plan/upstream.lock.json`: source_id `machawk`, commit
 `9b62757833c9bdd15bf43cef058c88bf91eb0ad7`, más la captura
@@ -47,11 +48,13 @@ autorizan habilitar el JIT del emulador.
 
 `common.mak` tiene selección x86_64, linker estático y linkscript específico;
 `arch/waterbox` llama al syscall bridge, no al kernel Linux directamente.
-La captura incluye el parche de atomics x86_64. Falta autenticar una receta
-x86_64 completa: compilador, linker, archiver, NASM, Rust/target, dependencias
-Cargo, cabeceras, libc/libc++/builtins y el inventario del sysroot resultante.
-`nightly-2026-08-01` en la fuente no fija los bytes del compilador. Ni el
-sysroot AArch64 derivado actual ni el Rust ARM64 instalado cubren esta fila.
+La captura incluye el parche de atomics x86_64. La receta
+`tools/ci/linux_waterbox_probe.py` fija compilador, linker, archiver, Rust/target,
+stdlib y Cargo.lock en `linux_wb01_inputs` del JSON; construye runtime y sysroot
+musl C propios. Usa el interop.bin capturado y verificado, sin instalar NASM.
+La fila Amiga futura necesita además su closure C++/builtins y pruebas propias.
+`nightly-2026-08-01` en la fuente no fija los bytes del compilador; la receta usa
+los binarios Rust preinstalados autenticados, sin pasar por el shim rustup.
 
 El snapshot serializa FS, program_break, ELF, páginas y hilos. Linux protege
 RWStack para dirty tracking; macOS tiene otra política. El interop guarda
@@ -68,18 +71,23 @@ Se observaron, sólo como datos, `../MacHawk/Assets/dll/libwaterboxhost.so`
 y su copia en output: ELF64LE x86_64 ET_DYN, 682848 bytes, SHA
 `d1d2a05cb64cb68cf3c56afe53e1ed9ec6c1a7516a95907e769b8779097299db`.
 Existen outputs ViceSmoke Linux y un guest Hatari x86_64 locales. No hay
-recibos que los vinculen a esta receta/captura ni un resultado WB01 de
-PUAE6 acreditado. No se ejecutaron; no son sustitutos del mini-core.
-El smoke/Makefile capturado construye Darwin AArch64. Las filas Docker
-nativas existentes tampoco acreditan un runner Waterbox Linux.
+recibos que vinculen esos binarios a la receta; no se ejecutaron.
+El smoke/Makefile capturado es Darwin AArch64 y no sustituye este mini-core.
 
-Primero se debe registrar una tarea de procedencia y receta aislada, con
-runner Linux x86_64 real de 4 KiB autenticado. Después WB01 debe cargar el
-mini-core público por la API C real, inicializar/sellar/avanzar y demostrar
-ABI, snapshot y dos sandboxes. Un ELF malformado/ISA distinta, falta de
-exports, fallo de mapeo o recibo alterado debe fallar sin PASS. Sólo tras
-WB01 se porta el core con el scheduler p6_run_frame y se ejecutan WB02–WB12
-con los oráculos originales de docs/03-waterbox.md. El subbacklog del JSON
-expresa ese orden y las puertas bloqueadas; no son tareas ya ejecutadas.
-No se instalaron herramientas, compilaron imágenes ni cambiaron perfiles,
-runtime o MacHawk durante el estudio.
+La [ejecución Linux nativa de WB01](https://github.com/frangarcj/puae6/actions/runs/40178369117)
+carga el runtime construido desde las capturas y un ELF x86_64 propio por la
+API C real. Inicializa/sella, comprueba SysV/GS, TLS, callback y syscall, límites,
+dirty tracking de 4 KiB y restauración completa. Quince pasos y 23 snapshots
+comparan contador, RAM, ROM, vídeo/PCM y futuro entre dos sandboxes vivos, con
+una recreación. El rechazo de identidad usa el sobre del probe antes del load;
+no acredita transaccionalidad de estados raw malformados del runtime.
+Los hashes del runtime/guest/host realmente ejecutados figuran en el JSON.
+
+`--inventory` observa herramientas; `--prepare` construye sólo runtime/sysroot;
+`--smoke` ejecuta el mini-core. Los temporales de compilación del probe y sus
+estados se eliminan; el caché útil queda en `build/linux-waterbox-wb01`.
+No se instalaron herramientas globales ni se cambió MacHawk. Este WB01 tampoco
+acredita la convención managed de un frontend Linux ni un perfil Amiga.
+La propuesta WBX86-B conserva esa integración por probar. Antes de anunciarla
+se debe portar el core con p6_run_frame y ejecutar WB02–WB12 con los oráculos
+originales de docs/03-waterbox.md; no se heredan los PASS de Darwin.

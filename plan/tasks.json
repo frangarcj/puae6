@@ -22477,6 +22477,132 @@
       "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites."
     },
     {
+      "id": "T46a1",
+      "title": "Preparar inputs fijados Linux x86_64 de runtime Waterbox y musl",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T46"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/future-waterbox-platforms.md",
+        "plan/upstream.lock.json"
+      ],
+      "touch": [
+        ".github/workflows/waterbox-runner-probe.yml",
+        "tools/ci/linux_waterbox_probe.py",
+        "tests/ci/test_linux_waterbox_probe.py",
+        "plan/extensions/waterbox-platforms.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Inventariar runner ubuntu-24.04 Linux x86_64 nativo4KiB, herramientas preinstaladas y hashes; distinguir observacion de ejecucion WB01.",
+        "Fijar fuentes capturadas runtime/musl, linker y compiladores observados; construir copias aisladas con parche atomicsx86 capturado y Cargo.lock/checksums exactos. Cargo fetch --locked solo dependencias fuente a build; sinapt/rustup/global.",
+        "Producir sysroot C y .so propios con identidades verificables, rechazos preflight y prueba BUILD01/SRC01 reales; no ejecutar aun mini-guest ni anunciarWB01.",
+        "El coordinador fija en el JSON de plataformas las herramientas preinstaladas observadas, sin reutilizar pins Darwin; Rust stdlib inicialmente null visible debe fijarse antes del build.",
+        "Registrar BUILD01/SRC01 con fixtures de rechazo mas clase que prepare runtime/sysroot reales opt-in; un PASS de fixtures no sustituye el build Linux."
+      ],
+      "checks": [
+        "BUILD01",
+        "SRC01"
+      ],
+      "acceptance": [
+        "En runner Linux x86_64 real, receta desde fuentes/herramientas fijadas produce runtime y sysroot C autenticados; no se acepta binario previo sin procedencia.",
+        "Tests rechazan host/ISA/herramientas/capturas o Cargo alterados, y registros identifican inputs/outputs exactos. Sin modificacion MacHawk ni perfilDarwin."
+      ],
+      "stop": "Tool ausente o hash desconocido quedaBLOCKED; noinstalacionimplicita ni latest. Este build no sustituye WB01."
+    },
+    {
+      "id": "T46a2",
+      "title": "Mini-core y host C de WB01 Linux con restauracion real",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T46a1"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/future-waterbox-platforms.md",
+        "plan/upstream.lock.json"
+      ],
+      "touch": [
+        "tests/waterbox-smoke/linux_guest.c",
+        "tests/waterbox-smoke/linux_probe.c",
+        "tools/ci/linux_waterbox_probe.py",
+        "tests/ci/test_linux_waterbox_probe.py",
+        "tools/check.py",
+        ".github/workflows/waterbox-runner-probe.yml"
+      ],
+      "steps": [
+        "Usar receta/autenticacion deT46a1 y API C Waterboxcapturada; guest C enlazado con musl/emulibc reales y hostdlopen. PropuestaC iniciada bajo alcance originalT46a se integra solo tras prerequisitoDONE.",
+        "Ejecutar init/seal/avance/snapshot/continuacion/restauracion en misma y nueva instancia, ABI/TLS/callback/canarios/capacidad ypagina/dirtytracking, sin motor Amiga.",
+        "Hashes de runtime/guest realmente cargados, estado completo/futuro exacto, entradas distintas y rechazo de identidad propio antes load; no atribuir transaccionalidad genérica al loaderraw si puede poison.",
+        "El coordinador registra WB01 con la clase runtime real y preflight; la ejecucion fuente66ea892e/run40177496198 deT46a1 no acredita por si misma este WB01.",
+        "El coordinador selecciona en el workflow la clase runtime real opt-in, en una unica ejecucion de15metodosincluida la pruebaWB01; no repetirBUILD01aparte en ese workspace."
+      ],
+      "checks": [
+        "WB01"
+      ],
+      "acceptance": [
+        "WB01 ejecutado en Waterbox Linux x86_64 real con fuentes/inputs fijados y miniguest propio, no biblioteca nativa renombrada ni mock.",
+        "Snapshot y continuacion reproducen contador/RAM/A-V de mini-core en misma y nueva instancia; ABI/TLS/callbacks/canarios/bounds correctos, hashes de runtime/guest cargados identificados.",
+        "Ninguna modificacion de MacHawk ni del perfil Darwin ARM64 inicial; WB02-WB12 siguen puertas separadas antes de cualquier soporte anunciado."
+      ],
+      "stop": "Sin herramientas o runner apropiados preparar receta verificable y conservar WB01 BLOCKED; no instalar globalmente ni sustituir ejecucion por cross-build."
+    },
+    {
+      "id": "T46a",
+      "title": "Ejecutar WB01 real en Waterbox Linux x86_64 antes de proponer soporte",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T46a1",
+        "T46a2"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/future-waterbox-platforms.md",
+        "plan/upstream.lock.json"
+      ],
+      "touch": [
+        "plan/extensions/waterbox-platforms.json",
+        "tools/check.py",
+        "docs/adr/future-waterbox-platforms.md",
+        "tests/test_future_extensions.py",
+        "docs/user/release-notes.md",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
+        "Primero inventariar runner Linux x86_64 nativo y herramientas existentes sin instalar ni confundir Docker x86 traducido en Mac ARM con host nativo. Fijar inputs/receta antes de la ejecucion; nada de master/latest ni .so local sin procedencia.",
+        "Construir runtime y mini-guest desde fuentes capturadas fuera de MacHawk, y ejecutar por API C real: init/seal/avance/save/load, continuacion exacta y sandbox nuevo; comprobar ABI/TLS, canarios, pagina/dirty tracking y fallo por capacidad.",
+        "Registrar hashes runtime/guest realmente cargados y runner/toolchain exactos en stdout/temporal build; conservar WB02-WB12 bloqueados y no anunciar soporte Amiga/Linux solo por WB01.",
+        "La division preserva la puerta de ejecucion del antiguo paso3 de T46; las rutas separan receta Python, guest/host C y workflow, mas regresion de rechazo/preflight. El coordinador actualiza el JSON de plataformas al integrar.",
+        "Division explicita por la estimacion de650-750 lineas: T46a1 prepara runtime/sysroot y T46a2 ejecuta miniguest/host reales; esta puerta de integracion conserva toda la aceptacion WB01 y no añade soporte Amiga. No repetir la misma ejecucion al cerrar el padre.",
+        "Al pasar WB01 actualizar el contrato de plataformas, ADR y limites de notas para distinguir mini-core C de soporte Amiga/Linux; conservar WB02-WB12 BLOCKED y ejecutar la regresion estatica de estudios. Sin reportes/evidencias historicas nuevos.",
+        "Actualizar el contador fijo del test documental al añadir las tres fichas de la division T46a/T46a1/T46a2, conservando500obligatorias y la puerta WB01; no se modifica un golden del emulador."
+      ],
+      "checks": [
+        "WB01"
+      ],
+      "acceptance": [
+        "WB01 ejecutado en Waterbox Linux x86_64 real con fuentes/inputs fijados y miniguest propio, no biblioteca nativa renombrada ni mock.",
+        "Snapshot y continuacion reproducen contador/RAM/A-V de mini-core en misma y nueva instancia; ABI/TLS/callbacks/canarios/bounds correctos, hashes de runtime/guest cargados identificados.",
+        "Ninguna modificacion de MacHawk ni del perfil Darwin ARM64 inicial; WB02-WB12 siguen puertas separadas antes de cualquier soporte anunciado."
+      ],
+      "stop": "Sin herramientas o runner apropiados preparar receta verificable y conservar WB01 BLOCKED; no instalar globalmente ni sustituir ejecucion por cross-build."
+    },
+    {
       "id": "T47",
       "title": "Evaluar multiples instancias nativas sin refactor masivo",
       "milestone": "FUTURE",
@@ -24063,130 +24189,6 @@
       ],
       "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
       "blocked_reason": "Extra final solicitado por el usuario; no dispone de un 68040 fisico. Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
-    },
-    {
-      "id": "T46a",
-      "title": "Ejecutar WB01 real en Waterbox Linux x86_64 antes de proponer soporte",
-      "milestone": "FUTURE",
-      "required": false,
-      "status": "pending",
-      "depends": [
-        "T46a1",
-        "T46a2"
-      ],
-      "read": [
-        "docs/03-waterbox.md",
-        "docs/04-validation.md",
-        "docs/07-machawk.md",
-        "docs/adr/future-waterbox-platforms.md",
-        "plan/upstream.lock.json"
-      ],
-      "touch": [
-        "plan/extensions/waterbox-platforms.json",
-        "tools/check.py",
-        "docs/adr/future-waterbox-platforms.md",
-        "tests/test_future_extensions.py",
-        "docs/user/release-notes.md"
-      ],
-      "steps": [
-        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
-        "Primero inventariar runner Linux x86_64 nativo y herramientas existentes sin instalar ni confundir Docker x86 traducido en Mac ARM con host nativo. Fijar inputs/receta antes de la ejecucion; nada de master/latest ni .so local sin procedencia.",
-        "Construir runtime y mini-guest desde fuentes capturadas fuera de MacHawk, y ejecutar por API C real: init/seal/avance/save/load, continuacion exacta y sandbox nuevo; comprobar ABI/TLS, canarios, pagina/dirty tracking y fallo por capacidad.",
-        "Registrar hashes runtime/guest realmente cargados y runner/toolchain exactos en stdout/temporal build; conservar WB02-WB12 bloqueados y no anunciar soporte Amiga/Linux solo por WB01.",
-        "La division preserva la puerta de ejecucion del antiguo paso3 de T46; las rutas separan receta Python, guest/host C y workflow, mas regresion de rechazo/preflight. El coordinador actualiza el JSON de plataformas al integrar.",
-        "Division explicita por la estimacion de650-750 lineas: T46a1 prepara runtime/sysroot y T46a2 ejecuta miniguest/host reales; esta puerta de integracion conserva toda la aceptacion WB01 y no añade soporte Amiga. No repetir la misma ejecucion al cerrar el padre.",
-        "Al pasar WB01 actualizar el contrato de plataformas, ADR y limites de notas para distinguir mini-core C de soporte Amiga/Linux; conservar WB02-WB12 BLOCKED y ejecutar la regresion estatica de estudios. Sin reportes/evidencias historicas nuevos."
-      ],
-      "checks": [
-        "WB01"
-      ],
-      "acceptance": [
-        "WB01 ejecutado en Waterbox Linux x86_64 real con fuentes/inputs fijados y miniguest propio, no biblioteca nativa renombrada ni mock.",
-        "Snapshot y continuacion reproducen contador/RAM/A-V de mini-core en misma y nueva instancia; ABI/TLS/callbacks/canarios/bounds correctos, hashes de runtime/guest cargados identificados.",
-        "Ninguna modificacion de MacHawk ni del perfil Darwin ARM64 inicial; WB02-WB12 siguen puertas separadas antes de cualquier soporte anunciado."
-      ],
-      "stop": "Sin herramientas o runner apropiados preparar receta verificable y conservar WB01 BLOCKED; no instalar globalmente ni sustituir ejecucion por cross-build."
-    },
-    {
-      "id": "T46a1",
-      "title": "Preparar inputs fijados Linux x86_64 de runtime Waterbox y musl",
-      "milestone": "FUTURE",
-      "required": false,
-      "status": "done",
-      "depends": [
-        "T46"
-      ],
-      "read": [
-        "docs/03-waterbox.md",
-        "docs/04-validation.md",
-        "docs/07-machawk.md",
-        "docs/adr/future-waterbox-platforms.md",
-        "plan/upstream.lock.json"
-      ],
-      "touch": [
-        ".github/workflows/waterbox-runner-probe.yml",
-        "tools/ci/linux_waterbox_probe.py",
-        "tests/ci/test_linux_waterbox_probe.py",
-        "plan/extensions/waterbox-platforms.json",
-        "tools/check.py"
-      ],
-      "steps": [
-        "Inventariar runner ubuntu-24.04 Linux x86_64 nativo4KiB, herramientas preinstaladas y hashes; distinguir observacion de ejecucion WB01.",
-        "Fijar fuentes capturadas runtime/musl, linker y compiladores observados; construir copias aisladas con parche atomicsx86 capturado y Cargo.lock/checksums exactos. Cargo fetch --locked solo dependencias fuente a build; sinapt/rustup/global.",
-        "Producir sysroot C y .so propios con identidades verificables, rechazos preflight y prueba BUILD01/SRC01 reales; no ejecutar aun mini-guest ni anunciarWB01.",
-        "El coordinador fija en el JSON de plataformas las herramientas preinstaladas observadas, sin reutilizar pins Darwin; Rust stdlib inicialmente null visible debe fijarse antes del build.",
-        "Registrar BUILD01/SRC01 con fixtures de rechazo mas clase que prepare runtime/sysroot reales opt-in; un PASS de fixtures no sustituye el build Linux."
-      ],
-      "checks": [
-        "BUILD01",
-        "SRC01"
-      ],
-      "acceptance": [
-        "En runner Linux x86_64 real, receta desde fuentes/herramientas fijadas produce runtime y sysroot C autenticados; no se acepta binario previo sin procedencia.",
-        "Tests rechazan host/ISA/herramientas/capturas o Cargo alterados, y registros identifican inputs/outputs exactos. Sin modificacion MacHawk ni perfilDarwin."
-      ],
-      "stop": "Tool ausente o hash desconocido quedaBLOCKED; noinstalacionimplicita ni latest. Este build no sustituye WB01."
-    },
-    {
-      "id": "T46a2",
-      "title": "Mini-core y host C de WB01 Linux con restauracion real",
-      "milestone": "FUTURE",
-      "required": false,
-      "status": "in_progress",
-      "depends": [
-        "T46a1"
-      ],
-      "read": [
-        "docs/03-waterbox.md",
-        "docs/04-validation.md",
-        "docs/07-machawk.md",
-        "docs/adr/future-waterbox-platforms.md",
-        "plan/upstream.lock.json"
-      ],
-      "touch": [
-        "tests/waterbox-smoke/linux_guest.c",
-        "tests/waterbox-smoke/linux_probe.c",
-        "tools/ci/linux_waterbox_probe.py",
-        "tests/ci/test_linux_waterbox_probe.py",
-        "tools/check.py",
-        ".github/workflows/waterbox-runner-probe.yml"
-      ],
-      "steps": [
-        "Usar receta/autenticacion deT46a1 y API C Waterboxcapturada; guest C enlazado con musl/emulibc reales y hostdlopen. PropuestaC iniciada bajo alcance originalT46a se integra solo tras prerequisitoDONE.",
-        "Ejecutar init/seal/avance/snapshot/continuacion/restauracion en misma y nueva instancia, ABI/TLS/callback/canarios/capacidad ypagina/dirtytracking, sin motor Amiga.",
-        "Hashes de runtime/guest realmente cargados, estado completo/futuro exacto, entradas distintas y rechazo de identidad propio antes load; no atribuir transaccionalidad genérica al loaderraw si puede poison.",
-        "El coordinador registra WB01 con la clase runtime real y preflight; la ejecucion fuente66ea892e/run40177496198 deT46a1 no acredita por si misma este WB01.",
-        "El coordinador selecciona en el workflow la clase runtime real opt-in, en una unica ejecucion de15metodosincluida la pruebaWB01; no repetirBUILD01aparte en ese workspace."
-      ],
-      "checks": [
-        "WB01"
-      ],
-      "acceptance": [
-        "WB01 ejecutado en Waterbox Linux x86_64 real con fuentes/inputs fijados y miniguest propio, no biblioteca nativa renombrada ni mock.",
-        "Snapshot y continuacion reproducen contador/RAM/A-V de mini-core en misma y nueva instancia; ABI/TLS/callbacks/canarios/bounds correctos, hashes de runtime/guest cargados identificados.",
-        "Ninguna modificacion de MacHawk ni del perfil Darwin ARM64 inicial; WB02-WB12 siguen puertas separadas antes de cualquier soporte anunciado."
-      ],
-      "stop": "Sin herramientas o runner apropiados preparar receta verificable y conservar WB01 BLOCKED; no instalar globalmente ni sustituir ejecucion por cross-build."
     }
   ],
   "max_in_progress": 4

@@ -9,7 +9,7 @@
     "snapshot_manifest": "references/machawk.manifest.json",
     "manifest_sha256": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3"
   },
-  "decision": "audit_complete_execution_blocked",
+  "decision": "audit_and_linux_c_minicore_complete_amiga_support_not_announced",
   "support_announced": false,
   "current_platform": "Darwin ARM64 remains the implemented initial target; no profile or acceptance changes",
   "candidate": {
@@ -174,12 +174,12 @@
     }
   ],
   "pending_authorities": {
-    "linux_rust_toolchain_sha256": null,
-    "guest_toolchain_manifest": null,
-    "sysroot_inventory_sha256": null,
-    "runtime_receipt": null,
-    "mini_guest_receipt": null,
-    "linux_runner_identity": null
+    "linux_rust_toolchain_sha256": "53a6f65a9a1fec6b7dc20a3e1dc06be60530975beb25b726ea2f1186d69604b6",
+    "guest_toolchain_manifest": "plan/extensions/waterbox-platforms.json#linux_wb01_inputs",
+    "sysroot_inventory_sha256": "c130c806823abd21aa1fb226d21724578f6cc41e1f206cab0659e8cce809a264",
+    "runtime_receipt": "build/linux-waterbox-wb01/receipt.json in the identified hosted execution",
+    "mini_guest_receipt": "gates.WB01.execution",
+    "linux_runner_identity": "linux_wb01_inputs.runner"
   },
   "observed_unverified_artifact": {
     "path": "../MacHawk/Assets/dll/libwaterboxhost.so",
@@ -249,19 +249,33 @@
   ],
   "gates": {
     "WB01": {
-      "status": "blocked",
+      "status": "passed",
       "depends": [
-        "WBX86-A"
+        "T46a1",
+        "T46a2"
       ],
-      "reason": "No authenticated Linux x86_64 mini-core execution",
-      "oracle": "Mini-core real, ABI SysV64/TLS/callback/syscall, seal/frame, snapshot completo y dos sandboxes; ningún wrapper nativo sustituye Waterbox."
+      "reason": "Real Linux x86_64 mini-core through the C API; no Amiga or managed-frontend support inferred",
+      "oracle": "Mini-core real, ABI SysV64/TLS/callback/syscall, seal/frame, snapshot completo y dos sandboxes; ningún wrapper nativo sustituye Waterbox.",
+      "execution": {
+        "scope": "WB01_MINICORE",
+        "source": "2ff5d89e7de6242214652d30d86eb9180fbc2359",
+        "run": "https://github.com/frangarcj/puae6/actions/runs/40178369117",
+        "runtime_sha256": "59ffbf68b320a9726dd157bd3d6aa76bdf9b500762789d904a7765892f2bc812",
+        "guest_sha256": "2557cc732ea54f45f57f9e7f9caf4882c72b7b7989398cfece72c5bb27370aca",
+        "host_sha256": "6308ee909968387edd03e63ceffe9bdbb91d48d41efc19ea14eb983720c607f6",
+        "source_sha256": {
+          "tests/waterbox-smoke/linux_guest.c": "a68abd671bc1ca3e436f17d221575074d675e8aff9f2c13934f20d95fdf8980d",
+          "tests/waterbox-smoke/linux_probe.c": "8c2cf7a4b058c610085d1d3bc245cf2d115760c7ad6fdbdea3df1cd483ea53b0"
+        },
+        "recipe_sha256": "fdd354aeaee1eaf6fa60f24b7c58b0bda1b69aeed64af1120cbb6380a5cb9726"
+      }
     },
     "WB02": {
       "status": "blocked",
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "A500: 10000 unidades con input fijo dos veces."
     },
     "WB03": {
@@ -269,7 +283,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Snapshot N, ejecutar M, restaurar y repetir: hardware/video/audio y estado completo exactos."
     },
     "WB04": {
@@ -277,7 +291,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Restore en sandbox nuevo y dos sandboxes alternados; proceso nuevo e inputs distintos."
     },
     "WB05": {
@@ -285,7 +299,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Estado con disco/DMA/audio activos, tecla retenida y swap pendiente."
     },
     "WB06": {
@@ -293,7 +307,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Cada campo managed causal cambia y recupera su efecto tras save/load."
     },
     "WB07": {
@@ -301,7 +315,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Canarios A/V, límites de memoria y referencias host invalidadas/repuestas."
     },
     "WB08": {
@@ -309,7 +323,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Desactivar temporalmente render/sound conserva la emulación futura."
     },
     "WB09": {
@@ -317,7 +331,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Película reset/ratón/teclado/eject/insert; rama y seek repetidos."
     },
     "WB10": {
@@ -325,7 +339,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Overlay vuelve atrás sin modificar medio base ni archivo durable."
     },
     "WB11": {
@@ -333,7 +347,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "Otro core/build/ROM se rechaza antes de mutar instancia y conserva su futuro."
     },
     "WB12": {
@@ -341,7 +355,7 @@
       "depends": [
         "WB01"
       ],
-      "reason": "Candidate WB01 not executed; core/integration lane unimplemented",
+      "reason": "Only the C mini-core WB01 is complete; Amiga core and managed-frontend integration lane unimplemented",
       "oracle": "p50/p95 frame/snapshot, bytes/páginas mutadas y ocupación de heaps medidos."
     }
   },
