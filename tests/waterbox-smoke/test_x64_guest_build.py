@@ -1,6 +1,8 @@
 """Own ELF/tool fixtures for the isolated x64 build; no guest compilation/execution."""
 import copy
+import hashlib
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -24,6 +26,40 @@ def elf():
 
 
 class X64GuestBuildTests(unittest.TestCase):
+    def test_aarch64_probe_branch_is_unchanged(self):
+        text = (ROOT / 'adapters/waterbox/abi_probe.cpp').read_text()
+        prefix, branches = text.split('#if defined(__aarch64__)\n', 1)
+        original = prefix + branches.split('\n#elif defined(__x86_64__)', 1)[0]
+        self.assertEqual(hashlib.sha256(original.encode()).hexdigest(),
+                         'a1a80d998dbb3b0622234e4936c873d39298b21780f0d08aae87c89746722e28')
+
+    @unittest.skipUnless(os.environ.get('P6_TEST_X64_PROBE_COMPILE') == '1', 'explicit tiny cross-compile check')
+    def test_probe_compiles_for_both_guest_architectures(self):
+        spec = json.loads(x64.PROFILE.read_text())
+        tools, _ = x64.verify_profile(spec)
+        arm_sysroot = Path(os.environ.get('P6_ARM_SYSROOT',
+            '/Users/frangar/Fun/uae/build/waterbox-guest-sysroot/sysroot'))
+        x64.OUTPUT.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=x64.OUTPUT) as tmp:
+            for arch, sysroot, flags in (
+                    ('x86_64', Path(spec['sysroot']['path']), []),
+                    ('aarch64', arm_sysroot, ['-ffixed-x18', '-ffixed-x28'])):
+                obj = Path(tmp) / (arch + '.o')
+                subprocess.run([str(tools['clang']), '--target=' + arch + '-linux-gnu', *flags,
+                    '-std=c++17', '-O2', '-nostdlibinc', '-nostdinc++', '-isystem', str(sysroot / 'include'),
+                    '-I', str(ROOT / 'references/machawk/waterbox/emulibc'), '-c',
+                    str(ROOT / 'adapters/waterbox/abi_probe.cpp'), '-o', str(obj)], check=True)
+                machine = int.from_bytes(obj.read_bytes()[18:20], 'little')
+                self.assertEqual(machine, 62 if arch == 'x86_64' else 183)
+                symbols = x64.run([tools['nm'], '--defined-only', obj])
+                for name in ('p6w_probe_abi_registers', 'p6w_probe_abi', 'p6w_identity'):
+                    self.assertRegex(symbols, r'(?m)\b' + name + '$')
+                if arch == 'x86_64':
+                    disassembly = x64.run([tools['objdump'], '-d', '--no-show-raw-insn', obj])
+                    self.assertGreater(x64.check_segment_access(disassembly), 0)
+                    for canary in ('0xb003', '0xb005', '0xb012', '0xb013', '0xb014', '0xb015'):
+                        self.assertIn(canary, disassembly.lower())
+
     def check(self, raw):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / 'own.elf'

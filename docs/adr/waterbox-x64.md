@@ -25,3 +25,14 @@ estructural y simbolos no resueltos. El desensamblado rechaza TLS FS/GS salvo
 la lectura GS:0x18 explicita del contexto sandbox de musl Waterbox.
 La ejecucion real, excepciones C++, callbacks y restauracion en runtimes
 Linux/Windows son puertas separadas; compilar nunca las da por superadas.
+
+El probe ABI x86_64 devuelve 15 palabras, sin reutilizar los 30 slots AAPCS64:
+GS:0x18 antes/despues [0,1], retorno callback [2], canarios RBX/RBP/R12..R15
+[3..8], SP antes/despues [9,10], clave pthread [11,12] y errno [13,14]. Los
+canarios son B003/B005/B012/B013/B014/B015; el callback recibe 11/22/33/44/55/66
+hex en RDI/RSI/RDX/RCX/R8/R9. La pila queda alineada a 16 antes del call.
+SysV no tiene registros SIMD preservados por el callee. `p6w_identity` conserva
+el layout de tres palabras contexto/clave/errno para la entrada reentrante.
+La rama AAPCS64 original permanece identica. El check optativo
+`P6_TEST_X64_PROBE_COMPILE=1` compila solo este archivo para ambos ISA; la
+ejecucion real del probe con callback y restauracion sigue siendo otra puerta.
