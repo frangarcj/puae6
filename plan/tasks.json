@@ -24083,7 +24083,10 @@
       ],
       "touch": [
         "plan/extensions/waterbox-platforms.json",
-        "tools/check.py"
+        "tools/check.py",
+        "docs/adr/future-waterbox-platforms.md",
+        "tests/test_future_extensions.py",
+        "docs/user/release-notes.md"
       ],
       "steps": [
         "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
@@ -24091,7 +24094,8 @@
         "Construir runtime y mini-guest desde fuentes capturadas fuera de MacHawk, y ejecutar por API C real: init/seal/avance/save/load, continuacion exacta y sandbox nuevo; comprobar ABI/TLS, canarios, pagina/dirty tracking y fallo por capacidad.",
         "Registrar hashes runtime/guest realmente cargados y runner/toolchain exactos en stdout/temporal build; conservar WB02-WB12 bloqueados y no anunciar soporte Amiga/Linux solo por WB01.",
         "La division preserva la puerta de ejecucion del antiguo paso3 de T46; las rutas separan receta Python, guest/host C y workflow, mas regresion de rechazo/preflight. El coordinador actualiza el JSON de plataformas al integrar.",
-        "Division explicita por la estimacion de650-750 lineas: T46a1 prepara runtime/sysroot y T46a2 ejecuta miniguest/host reales; esta puerta de integracion conserva toda la aceptacion WB01 y no añade soporte Amiga. No repetir la misma ejecucion al cerrar el padre."
+        "Division explicita por la estimacion de650-750 lineas: T46a1 prepara runtime/sysroot y T46a2 ejecuta miniguest/host reales; esta puerta de integracion conserva toda la aceptacion WB01 y no añade soporte Amiga. No repetir la misma ejecucion al cerrar el padre.",
+        "Al pasar WB01 actualizar el contrato de plataformas, ADR y limites de notas para distinguir mini-core C de soporte Amiga/Linux; conservar WB02-WB12 BLOCKED y ejecutar la regresion estatica de estudios. Sin reportes/evidencias historicas nuevos."
       ],
       "checks": [
         "WB01"
