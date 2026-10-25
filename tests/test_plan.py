@@ -65,9 +65,9 @@ class PlanTests(unittest.TestCase):
     def test_current_project_gate_and_machawk_priority(self):
         data = json.loads((ROOT / "plan/tasks.json").read_text())
         by_id = {task["id"]: task for task in data["tasks"]}
-        self.assertEqual(531, len(by_id))
+        self.assertEqual(532, len(by_id))
         self.assertEqual(["T28a", "T09b2", "T34a"], by_id["T28c"]["depends"])
-        self.assertEqual(499, sum(task["required"] for task in by_id.values()))
+        self.assertEqual(500, sum(task["required"] for task in by_id.values()))
         for extra in ("T66x1", "T66x2"):
             self.assertFalse(by_id[extra]["required"])
             self.assertEqual(["T41"], by_id[extra]["depends"])

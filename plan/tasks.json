@@ -21425,6 +21425,52 @@
       "stop": "Noaceptarhashmanualcomoreplay, usaridentidadimportadavieja nillevarbasesporoverrideglobaldeStateEnvelope; nativo nosustituyeWaterbox."
     },
     {
+      "id": "T80c",
+      "title": "Peliculas desde estado con bases ADF HDF y volumen importadas",
+      "milestone": "M3",
+      "required": true,
+      "status": "in_progress",
+      "depends": [
+        "T80b",
+        "T80a",
+        "T40k"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0007-media-movie-start.patch",
+        "integration/bizhawk/core/Puae6/Movie.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.Movie.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.Persistence.cs",
+        "tests/bizhawk-movies/MediaMovies.cs",
+        "tests/bizhawk-movies/test_media_start.py",
+        "docs/03-waterbox.md",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "steps": [
+        "Completar el caso requerido conservado por T80b: guardar por separado del Corestate las bases importadas que forman la identidad sellada. Conservar su blob canonico al importar, sin confundirlo con el SaveRAM actual que puede incluir escrituras posteriores. Reutilizar MovieSaveRam como lump separado para peliculas PUAE6 desde estado si el contrato real BK2/TAS lo permite; no cambiar formato del snapshot ni usar override global.",
+        "Antes de Attach validar blob/base original/config/firmware/header y envelope completo contra la identidad proyectada; solo despues reconstruir guest con esas bases y cargar por la ruta estricta normal. Rechazo previo no muta core, sesion, leases ni MovieController. Conservar PowerOn/SaveRAM/CD32 y rechazos de modos en conflicto. No modificar MacHawk ni referencias; cambios host derivados mediante parche0007.",
+        "BK2 y TAS reales con ADF+HDF+volumen: importar baseB, avanzar y tomar estado con cambios posteriores, grabar/reabrir desde otro proceso, comparar RAM/AV/PCM/ticks/snapshot/exportados y seek. Bases originales equivocadas, blob ausente/corrupto/intercambiado y estado/header alterado deben rechazarse antesAttach sin mutacion. Reutilizar fixture y guest/runtime verificados; prueba dirigida nueva mas regresion cercana PowerOn/SRAM, sin repetir CI completa.",
+        "Excepcion atomica hasta8rutas de implementacion y400lineas manuales orientativas, mas coordinacion dispatcher/docs/test_plan: captura-base, transporte BK2/TAS, preflight, carga estricta y reproducer deben concordar. Agente aislado no edita metadata ni ejecuta builds motor/guest; root integra y serializa checks managed reales. Avisar antes de ampliar tamaño/alcance."
+      ],
+      "checks": [
+        "STATE01",
+        "WB09",
+        "WB03"
+      ],
+      "acceptance": [
+        "Una pelicula PUAE6 desde estado con bases importadas ADF/HDF/volumen reabre BK2/TAS y restaura/seek/futuro completo en Waterbox y proceso nuevo, con identidad estricta y negativos transaccionales antesAttach."
+      ],
+      "stop": "No cerrar por header manual ni envolver/relajar StateEnvelope; sin transporte real persistente y ejecucion Waterbox queda bloqueada."
+    },
+    {
       "id": "T80",
       "title": "Cierre de paridad con PUAE5: cada capacidad del inventario hecha, o fuera con justificacion registrada",
       "milestone": "M3",
@@ -21464,7 +21510,8 @@
         "T15l",
         "T72a",
         "T80a",
-        "T80b"
+        "T80b",
+        "T80c"
       ],
       "read": [
         "docs/01-architecture.md",
