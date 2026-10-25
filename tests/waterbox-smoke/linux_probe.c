@@ -74,7 +74,9 @@ static uintptr_t make(struct Blob *image, uint64_t seed, uint64_t *context)
     uintptr_t h = checked(&r); require(h && image->pos == image->size, "ELF fully consumed");
     action(api.activate, h);
     require(((Init)proc(h, "linux_init"))(seed) == 0, "init / real musl constructor and allocation");
-    api.save(h, write_bytes, 0, &r); require(r.error[0] != 0, "save before seal refused");
+    struct Blob premature = {0};
+    api.save(h, write_bytes, (uintptr_t)&premature, &r); free(premature.data);
+    require(r.error[0] != 0, "save before seal refused");
     r = (struct Result){0}; api.callback(h, callback, 0, &r); uintptr_t cb = checked(&r);
     uint64_t out[17]; for (unsigned i = 0; i < 17; ++i) out[i] = UINT64_C(0xcafe123456789abc);
     require(((Abi)proc(h, "linux_abi"))(cb, out + 1, 14) == -1, "ABI capacity refusal");
