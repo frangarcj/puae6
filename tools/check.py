@@ -1118,6 +1118,19 @@ TASK_SUITES[('MED01', 'T67')] = _cd_parent_suites('T67', ('MED01',))
 TASK_SUITES[('DET02', 'T67')] = _cd_parent_suites('T67', ('DET02', 'STATE01', 'WB03'))
 TASK_SUITES[('LR01', 'T67')] = _cd_parent_suites('T67', ('LR01',))
 
+# Parity covers every published frontend scenario, including the movie/base
+# transport cases. Missing assets/opt-ins retain the normal BLOCKED verdict.
+for _gate, _directories in (
+    ('LR01', ('libretro-host', 'libretro-ui')),
+    ('WB03', ('waterbox-state', 'waterbox-media', 'bizhawk-movies')),
+):
+    TASK_SUITES[(_gate, 'T80')] = {
+        '.'.join(_path.relative_to(ROOT).with_suffix('').parts):
+            '.'.join(_path.relative_to(ROOT).with_suffix('').parts)
+        for _directory in _directories
+        for _path in sorted((ROOT / 'tests' / _directory).glob('test_*.py'))
+    }
+
 CI_LANES = {'BUILD01': ('clean', 'matrix', 'optimization'), 'DET02': ('functional',), 'WB03': ('functional',),
             'FUZZ01': ('sanitizers',), 'PERF01': ('performance',), 'WB13': ('functional',), 'WB14': ('functional',), 'WB15': ('functional',)}
 

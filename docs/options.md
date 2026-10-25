@@ -172,8 +172,8 @@ Notas:
   del frame, no de la maquina, y cuenta unidades emuladas, nunca reloj de pared.
 * El estado guardado por un frontend que no repite imagenes (`can_dupe` falso) lleva la ultima imagen **tal como se presento** (4 o 2 bytes por pixel); si se carga en
   una sesion con otro formato se descarta esa imagen y la siguiente unidad dibuja una nueva.
-* Fuera de T31c (quedan como paridad PUAE5 abierta): `puae_gfx_flickerfixer` (quitar artefactos de interlace), `zoom_mode*` (marcadores obsoletos de PUAE5, sustituidos por
-  los niveles de crop), y la resolucion/linea (`P24`, cambia el raster canonico y es de reinicio).
+* `puae_gfx_flickerfixer` no se ofrece; los marcadores obsoletos `zoom_mode*` se sustituyen por niveles de crop.
+  Resolucion y line mode ya se ofrecen como opciones de reinicio (T72); [la tabla de paridad](parity-puae5.md) conserva las diferencias restantes.
 
 ## Entrada (T31d) — categorias `Input`, `RetroPad Mapper` y `Hotkeys`
 
@@ -205,7 +205,9 @@ El dispositivo `CD32 pad` se selecciona por jugador en el frontend: B/A/X/Y son 
 
 Dos ratones: selecciona Mouse en ambos jugadores. El primero usa el puerto Amiga 1; el segundo, el 2, y tiene prioridad sobre el pad de jugador 1 con un aviso explicito. `puae6_mouse_speed` escala ambos con fracciones independientes; el stick de jugador 1 puede seguir moviendo su raton con `puae6_analog_mouse`. Los movimientos pendientes y las fracciones viajan en el estado. Esta ampliacion corresponde al desarrollo posterior a la preview del 19 de octubre.
 
-Siguen pendientes `joyport_order`, joystick analogico y lightgun/lightpen (T70). El disco de guardado se crea con `#SAVEDISK` en M3U; el teclado virtual y la barra de estado se describen a continuacion.
+Lightgun/lightpen y el adaptador paralelo estan disponibles (T70); se seleccionan como dispositivos del frontend.
+No se ofrece `joyport_order` ni un dispositivo de joystick analogico Amiga; el stick puede mover el raton mediante el mapper.
+El disco de guardado se crea con `#SAVEDISK` en M3U; el teclado virtual y la barra de estado se describen a continuacion.
 
 ## OSD: barra de estado, mensajes y LED (T31b) — categoria `OSD`
 

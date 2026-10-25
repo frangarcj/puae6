@@ -6,6 +6,7 @@ import copy
 import importlib.util
 import io
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -18,6 +19,22 @@ spec.loader.exec_module(plan)
 
 
 class PlanTests(unittest.TestCase):
+    def test_each_pinned_puae5_option_has_an_explicit_parity_disposition(self):
+        source = (ROOT / 'references/puae/libretro/libretro-core.c').read_text()
+        options = set(re.findall(r'\{\s*"(puae_[a-zA-Z0-9_]+)"\s*,', source))
+        document = (ROOT / 'docs/parity-puae5.md').read_text()
+        rows = [line for line in document.splitlines() if line.startswith('| ') and 'puae_' in line]
+        accounted = []
+        tasks = {task['id'] for task in json.loads((ROOT / 'plan/tasks.json').read_text())['tasks']}
+        for row in rows:
+            accounted.extend(re.findall(r'`(puae_[a-zA-Z0-9_]+)`', row))
+            self.assertRegex(row, r'\*\*(Disponible(?: con limites)?|Parcial|Interfaz propia|Fuera|Politica fija)\*\*')
+            self.assertRegex(row, r'@ `[0-9a-f]{8,40}`')
+            self.assertTrue(set(re.findall(r'\bT\d+[a-z0-9]*\b', row)) <= tasks)
+        self.assertTrue(options)
+        self.assertEqual(options, set(accounted))
+        self.assertEqual(len(accounted), len(set(accounted)))
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="p6-plan-test-")
         self.addCleanup(self.temporary.cleanup)
