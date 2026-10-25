@@ -90,11 +90,12 @@ extern "C" p6_result p6_run_frame(const p6_input *input, uint32_t render_flags, 
     if (!session.started)
         p6_bridge::apply_boot_media();
     if (session.reset_queued) {
-        // A hard reset started from the API: the same head as the power-on one, run by APPLY below. The engine's cycle
-        // counter restarts at zero there and the head tells counter_restarts() (lifecycle.cpp).
-        session.reset_queued = false;
+        // Both modes use the upstream reset head. Soft keeps RAM and does not repeat
+        // the power-on delay. Tick/RTC accounting follows the same restart hook.
+        const bool hard = session.reset_queued == p6_session::ResetHard;
+        session.reset_queued = p6_session::ResetNone;
         if (quit_program == 0)
-            quit_program = UAE_RESET_HARD;
+            quit_program = hard ? UAE_RESET_HARD : UAE_RESET;
         p6_bridge::reset_keyboard();
     }
     const int applied = m68k_go_unit(M68K_UNIT_APPLY);

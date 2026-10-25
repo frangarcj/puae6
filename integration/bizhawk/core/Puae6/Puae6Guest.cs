@@ -30,6 +30,7 @@ public abstract partial class LibPuae6
 	[BizImport(CC)] public abstract int p6w_media_write_status(IntPtr call);
 	[BizImport(CC)] public abstract int p6w_media_export(IntPtr call);
 	[BizImport(CC)] public abstract int p6w_reset();
+	[BizImport(CC)] public abstract int p6w_soft_reset();
 	[BizImport(CC)] public abstract int p6w_shutdown();
 	/// <summary>The memory areas of the loaded machine (P6wMemoryArea), up to <paramref name="capacity"/>; zero before p6w_init_machine succeeded.</summary>
 	[BizImport(CC)] public abstract ulong p6w_memory_areas(IntPtr output, ulong capacity);

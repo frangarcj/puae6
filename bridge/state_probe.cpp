@@ -473,7 +473,7 @@ std::vector<uint8_t> g_rom;          // what p6_load was given, for the operatio
 std::vector<p6_media> g_media;
 std::vector<std::vector<uint8_t>> g_appended;      // the images --append-at registered: borrowed by the bridge until p6_unload
 
-enum class OpKind { InputCheck, Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
+enum class OpKind { InputCheck, Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, SoftReset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
 
 struct StateOp {
     uint64_t unit;
@@ -632,9 +632,10 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
         p6_error error{P6_ABI_VERSION, sizeof error, {}};
         p6_state::Options options;
         options.allow_placeholders = true;
-        if (op.kind == OpKind::Reset) {
-            const p6_result result = p6_reset(&error);
-            printf("reset %" PRIu64 " %d %s\n", unit, int(result), error.message);
+        if (op.kind == OpKind::Reset || op.kind == OpKind::SoftReset) {
+            const bool soft = op.kind == OpKind::SoftReset;
+            const p6_result result = soft ? p6_soft_reset(&error) : p6_reset(&error);
+            printf("%sreset %" PRIu64 " %d %s\n", soft ? "soft-" : "", unit, int(result), error.message);
         } else if (op.kind == OpKind::Event) {
             // The public p6_media_event_enqueue with an explicit sequence; INDEX -1 ejects, otherwise it mounts a medium registered at p6_load.
             p6_media_event event{};
@@ -1130,6 +1131,8 @@ int main(int argc, char **argv)
             state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Rtc, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--reset-at") && i + 1 < argc) {
             state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::Reset, nullptr, nullptr});
+        } else if (!strcmp(argv[i], "--soft-reset-at") && i + 1 < argc) {
+            state_ops.push_back(StateOp{strtoull(argv[++i], nullptr, 10), OpKind::SoftReset, nullptr, nullptr});
         } else if (!strcmp(argv[i], "--event-at") && i + 4 < argc) {
             // --event-at UNIT DRIVE INDEX SEQUENCE (T15h): the API as a host calls it, with its own sequence number
             state_ops.push_back(StateOp{strtoull(argv[i + 1], nullptr, 10), OpKind::Event, argv[i + 3], argv[i + 2], argv[i + 4]});

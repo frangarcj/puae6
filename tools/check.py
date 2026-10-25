@@ -1169,6 +1169,12 @@ TASK_SUITES[('BUILD01', 'T81')] = {'machawk_integration': 'tests.test_machawk_in
 TASK_SUITES[('BUILD01', 'T82a')] = {'machawk_gui': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82b')] = {'machawk_gui_audio': 'tests.test_machawk_gui'}
 TASK_SUITES[('BUILD01', 'T82e1')] = {'machawk_gui_menus': 'tests.test_machawk_gui'}
+TASK_SUITES[('BUILD01', 'T82f')] = {
+    'native_soft_reset': 'tests.state.test_soft_reset',
+    'native_reset_validation': 'tests.state.test_state_bridge.BridgeStateTests.test_a_body_that_does_not_describe_an_image_is_refused_before_anything_is_applied',
+    'waterbox_soft_reset': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_soft_reset_keeps_ram_and_replays_in_another_sandbox',
+    'gui_reset_menus': 'tests.test_machawk_gui',
+}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])

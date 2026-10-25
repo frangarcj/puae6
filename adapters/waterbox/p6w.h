@@ -15,6 +15,11 @@ extern "C" {
 
 #define P6W_ABI_VERSION UINT32_C(1)
 
+/* Queued at the next frame head. The existing hard-reset export is unchanged;
+ * soft preserves RAM. Neither advances hardware during this call. */
+int32_t p6w_reset(void);
+int32_t p6w_soft_reset(void);
+
 typedef struct p6w_media {
     uint32_t type;                      /* P6_MEDIA_*; flags must be zero, as in p6_media. */
     uint32_t flags;

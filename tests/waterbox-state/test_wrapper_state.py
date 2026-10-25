@@ -39,6 +39,7 @@ from tests.input.test_parallel import ROM as PARALLEL_ROM  # noqa: E402
 from tests.input.test_pointer import ROM as POINTER_ROM  # noqa: E402
 from tests.input.test_mouse2 import ROM as MOUSE2_ROM  # noqa: E402
 from tests.audio.test_drive_sound import MECHANICAL  # noqa: E402
+from tests.state.test_soft_reset import ROM as RESET_ROM  # noqa: E402
 from tests.scenarios.disk import disk  # noqa: E402
 from test_puae6 import runtime_available  # noqa: E402
 multidrive = importlib.import_module("tests.libretro-host.test_multidrive")
@@ -63,7 +64,7 @@ class WrapperStateTests(unittest.TestCase):
         cls.dir = Path(cls.tmp.name)
         for name, source in (("disk", disk.rom_source()), ("input_all", (FIXTURES / "input_all.s").read_text(encoding="utf-8")),
                              ("chipcell", (ROOT / "tests/waterbox-smoke/chipcell.s").read_text(encoding="utf-8")), ("cd32", CD32_ROM),
-                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM), ("mechanical", MECHANICAL), ("parallel", PARALLEL_ROM)):
+                             ("four", multidrive.rom_source()), ("mouse2", MOUSE2_ROM), ("pointer", POINTER_ROM), ("mechanical", MECHANICAL), ("parallel", PARALLEL_ROM), ("reset", RESET_ROM)):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
@@ -108,6 +109,22 @@ class WrapperStateTests(unittest.TestCase):
         return f"core {name} adf={self.adfs(adf)}{extra}" if adf else f"core {name}{extra}"
 
     # --- WB03 and WB05 -------------------------------------------------------------------------------------------------------------
+
+    def test_soft_reset_keeps_ram_and_replays_in_another_sandbox(self):
+        out = self.session([
+            self.core('A', adf=''), 'run A 2', 'peek A Chip_RAM 900 4', 'save A initial',
+            'run A 4 press=3:Reset', 'peek A Chip_RAM 900 4', 'digest A soft',
+            self.core('B', adf=''), 'load B initial', 'run B 4 press=3:Reset',
+            'peek B Chip_RAM 900 4', 'digest B replay',
+            'load A initial', 'run A 1 press=3:Reset;3:Power', 'peek A Chip_RAM 900 4',
+            'load A initial', 'run A 2 press=3-4:Reset', 'peek A Chip_RAM 900 4',
+        ], firmware='reset')
+        self.assertEqual(['00000001', '00000002', '00000001', '00000003'],
+                         re.findall(r'^peek A Chip_RAM 900 (\w+)$', out, re.M))
+        self.assertIn('peek B Chip_RAM 900 00000002', out)
+        self.assertEqual(self.units(out, 'A')[2:6],
+                         [('A', *row[1:]) for row in self.units(out, 'B')])
+        self.assertEqual(self.digests(out, 'A')['soft'], self.digests(out, 'B')['replay'])
 
     def held_keys(self):
         """A key held from unit 50 on and the mouse moving: input that a state has to carry along."""

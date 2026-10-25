@@ -8,6 +8,7 @@ namespace p6_session {
 
 // Faulted: a unit failed after load (CPU loop left, clock or audio service error). Only unload leaves it.
 enum class State { Uninitialized, Initialized, Loaded, Faulted };
+enum ResetKind : uint8_t { ResetNone = 0, ResetHard = 1, ResetSoft = 2 };
 
 struct Session {
     State state = State::Uninitialized;
@@ -28,7 +29,7 @@ struct Session {
     int32_t drive_media[4] = {-1, -1, -1, -1};
     uint64_t last_sequence = 0;
     bool have_sequence = false;
-    bool reset_queued = false;    // p6_reset was called: the next p6_run_frame starts with a hard reset
+    uint8_t reset_queued = ResetNone; // pending reset mode; 0/1 retain their existing serialized meaning
     bool started = false;         // the first p6_run_frame got past validation: the power-on reset head has been reached
     uint8_t firmware_sha256[32] = {};                       // identity of what was loaded (docs/adr/0008-media-identity.md)
     uint32_t media_count = 0;

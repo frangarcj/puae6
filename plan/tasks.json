@@ -24352,7 +24352,7 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
       "id": "T82f",
       "title": "Soft Reset Amiga equivalente a UAE y conectado al menu BizHawk",
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T82d"
       ],
@@ -24364,7 +24364,6 @@
         "bridge/state.cpp",
         "adapters/waterbox/puae6_guest.cpp",
         "adapters/waterbox/p6w.h",
-        "adapters/waterbox/exports.txt",
         "integration/bizhawk/core/Puae6/Controllers.cs",
         "integration/bizhawk/core/Puae6/Puae6Guest.cs",
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
@@ -24374,11 +24373,19 @@
         "tests/waterbox-state/**",
         "tests/ffi/Session.cs",
         "tools/check.py",
-        "docs/02-contracts.md"
+        "docs/02-contracts.md",
+        "bridge/state_probe.cpp",
+        "manifests/state-inventory.json",
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/Puae6/**",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "tests/test_machawk_gui.py"
       ],
       "steps": [
         "El inventario de menus revela que UAE publica Reset y Power y PUAE6 solo Power. Resolver la diferencia funcional con vertical pequeña y check dirigido antes de prometer paridad.",
-        "Revision de codigo: UAE_RESET=2 ya tiene primitive real en el head upstream, hard=4 limpia RAM y soft la conserva. Añadir simbolos ABI aditivos sin cambiar p6_reset; persistir y validar modo pendiente 0/1/2, hard prevalece. Probar marcador RAM 1 tras hard y 2 tras soft, estado con soft pendiente y futuro exacto en Waterbox. Requiere guest nuevo e identidad nueva; no es un cambio de etiquetas del menu."
+        "Revision de codigo: UAE_RESET=2 ya tiene primitive real en el head upstream, hard=4 limpia RAM y soft la conserva. Añadir simbolos ABI aditivos sin cambiar p6_reset; persistir y validar modo pendiente 0/1/2, hard prevalece. Probar marcador RAM 1 tras hard y 2 tras soft, estado con soft pendiente y futuro exacto en Waterbox. Requiere guest nuevo e identidad nueva; no es un cambio de etiquetas del menu.",
+        "Cambio atomico de extension ABI y serializacion: mantener llamadas hard existentes, añadir soft en bridge/Waterbox/C#, y comprobar cola pendiente y RAM. Supera orientacion de cinco archivos por las fronteras del contrato, con cambios pequeños coordinados; no se modifica upstream. Se elimina exports.txt inexistente del touch y se incluye probe e inventario causal para el modo pendiente.",
+        "Se incluye importacion del guest con fuentes/licencias y pin nuevo en el worktree MacHawk: la nueva llamada requiere desplegar cliente y guest juntos. Menu Cocoa Soft/Hard Reset usa pulsos de una unidad, consumidos solo en FrameAdvance, con micro-ROM y comprobacion GUI. No reemplazar el ZIP/pin anterior sin conservar su procedencia Git."
       ],
       "acceptance": [
         "Reset suave real, distinto del hard reset, en la API comun y el controlador BizHawk, con reproducer determinista y restauracion.",

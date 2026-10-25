@@ -312,6 +312,12 @@ ECL_EXPORT int32_t p6w_reset(void)
     return p6_reset(&error);
 }
 
+ECL_EXPORT int32_t p6w_soft_reset(void)
+{
+    p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+    return p6_soft_reset(&error);
+}
+
 ECL_EXPORT int32_t p6w_shutdown(void)
 {
     if (loaded) {

@@ -257,7 +257,7 @@ class BridgeStateTests(ProbeCase):
                 ("a disk in DF0 that was not passed to p6_load", {"bridge.drive_media[0]": 2}, range_error),
                 ("a drive index below the eject value", {"bridge.drive_media[1]": -2}, range_error),
                 ("a delivery flag that is not a flag", {"bridge.handed_over": 2}, range_error),
-                ("a pending reset that is not a flag", {"bridge.reset_queued": 2}, range_error)):
+                ("a pending reset mode that does not exist", {"bridge.reset_queued": 3}, range_error)):
             attempts.append((name, table.with_values(values), 9, text))
         attempts.append(("the body one byte longer", reforge(blob, lambda c: c[BRIDGE].__setitem__(2, c[BRIDGE][2] + b"\0")), 9, "bytes after the last field"))
         attempts.append(("the body one byte shorter", reforge(blob, lambda c: c[BRIDGE].__setitem__(2, c[BRIDGE][2][:-1])), 9, "the body ends before its last field"))

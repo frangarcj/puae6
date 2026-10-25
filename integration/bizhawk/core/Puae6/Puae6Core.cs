@@ -737,9 +737,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		{
 			ApplyDiskButtons(controller);
 			// Order inside a boundary (docs/02-contracts.md): reset, media events, input, then the unit; both are queued here and run at its head.
-			if (power)
+			if (power || controller.IsPressed(Controllers.Reset))
 			{
-				int reset = _guest.Lib.p6w_reset();
+				int reset = power ? _guest.Lib.p6w_reset() : _guest.Lib.p6w_soft_reset();
 				if (reset != P6.Ok) throw new InvalidOperationException($"the machine refused a reset ({P6.ResultName(reset)})");
 			}
 			int result = _guest.Lib.p6w_frame_advance((IntPtr)(&packet), flags, (IntPtr)(&frame));

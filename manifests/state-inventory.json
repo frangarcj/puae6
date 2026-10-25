@@ -7297,7 +7297,7 @@
       {
         "id": "bridge-reset-and-start-flags",
         "subsystem": "bridge",
-        "component": "Pending hard reset and power-on state: reset_queued, started, quit_program = UAE_RESET_HARD",
+        "component": "Pending reset mode and power-on state: reset_queued (0 none, 1 hard, 2 soft), started, quit_program = UAE_RESET_HARD",
         "owner": "bridge/session.h",
         "chunk": null,
         "save": null,
@@ -7346,7 +7346,7 @@
           "file": "bridge/state.cpp",
           "visitor": "visit_bridge",
           "proves": "tests/state/test_state_bridge.py: three ordered media events queued, a reset pending and a key held at the saved unit come back in the same image (a machine rewound to the state, with none of those calls, goes on as the original in every subsystem the probe digests except the picture, for PAL and NTSC) and in a new process (saved again: the same bytes); the chunk alone puts the session back with the cycle of the payload; changing a field changes the future; seventeen bad bodies are refused before anything is applied; the disk and audio chunks are not there yet, so the drives and Paula are outside the future it compares",
-          "notes": "reset_queued (0 or 1) and started (must be 1) as u8. A restored pending reset runs at the head of the next p6_run_frame, which hard-resets the machine as the original would; quit_program is not set here because nothing sets it before that head."
+          "notes": "reset_queued (0 none, 1 hard, 2 soft) and started (must be 1) as u8. The next p6_run_frame applies the restored mode, preserving RAM for soft. tests/state/test_soft_reset.py covers mode2, hard priority and pending soft state replay; modes above2 are rejected. quit_program is set only at that head."
         }
       },
       {

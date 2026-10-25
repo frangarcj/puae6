@@ -435,6 +435,10 @@ p6_result p6_run_frame(const p6_input *input, uint32_t render_flags,
  * generator from the configured seed (the start-up delay is the power-on one) and drive
  * mechanics (cylinder) are not reset. */
 p6_result p6_reset(p6_error *error);
+/* Additive soft reset: the same boundary/ownership contract as p6_reset, but RAM is
+ * preserved and the power-on random delay is not repeated. A queued hard reset wins
+ * over a soft one; before the first frame the pending power-on remains hard. */
+p6_result p6_soft_reset(p6_error *error);
 p6_result p6_unload(p6_error *error);
 p6_result p6_shutdown(p6_error *error);
 

@@ -246,7 +246,7 @@ extern "C" p6_result p6_load(p6_buffer firmware, const p6_media *media, uint32_t
     return P6_OK;
 }
 
-extern "C" p6_result p6_reset(p6_error *error)
+static p6_result queue_reset(uint8_t mode, p6_error *error)
 {
     if (!p6_error_usable(error))
         return P6_ERROR_BAD_ARGUMENT;
@@ -258,8 +258,19 @@ extern "C" p6_result p6_reset(p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_STATE,
                        session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
     // Before the first frame the power-on reset is still pending: there is nothing to start over.
-    session.reset_queued = session.started;
+    if (session.started && session.reset_queued != p6_session::ResetHard)
+        session.reset_queued = mode;
     return P6_OK;
+}
+
+extern "C" p6_result p6_reset(p6_error *error)
+{
+    return queue_reset(p6_session::ResetHard, error);
+}
+
+extern "C" p6_result p6_soft_reset(p6_error *error)
+{
+    return queue_reset(p6_session::ResetSoft, error);
 }
 
 extern "C" p6_result p6_unload(p6_error *error)

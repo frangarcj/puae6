@@ -84,7 +84,7 @@ void visit_bridge(Archive &a)
     auto &s = session;
     const uint64_t audio = a.val<uint64_t>(s.audio_frames_total, "bridge.audio_frames_total");
     const uint8_t handed = get<uint8_t>(a, s.handed_over, 0, 1, "bridge.handed_over");
-    const uint8_t reset = get<uint8_t>(a, s.reset_queued, 0, 1, "bridge.reset_queued");
+    const uint8_t reset = get<uint8_t>(a, s.reset_queued, 0, p6_session::ResetSoft, "bridge.reset_queued");
     get<uint8_t>(a, s.started, 1, 1, "bridge.started");            // a state exists only for an image that ran its reset head
     const uint8_t have = get<uint8_t>(a, s.have_sequence, 0, 1, "bridge.have_sequence");
     const uint64_t sequence = a.val<uint64_t>(s.last_sequence, "bridge.last_sequence");
@@ -115,7 +115,7 @@ void visit_bridge(Archive &a)
         s.master_ticks = g_context->master_ticks;
         s.audio_frames_total = audio;
         s.handed_over = handed != 0;
-        s.reset_queued = reset != 0;
+        s.reset_queued = reset;
         s.started = true;
         s.have_sequence = have != 0;
         s.last_sequence = sequence;
