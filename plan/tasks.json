@@ -22446,7 +22446,7 @@
       "title": "Auditar runtimes adicionales sin aplazar el MacHawk inicial",
       "milestone": "FUTURE",
       "required": false,
-      "status": "blocked",
+      "status": "done",
       "depends": [
         "T41"
       ],
@@ -22465,7 +22465,7 @@
       "steps": [
         "MacHawk Darwin ARM64 ya es referencia principal desde T00/T09/T19. Identificar aqui solamente otro runtime/fork o cambio de arquitectura solicitado y fijar su commit antes de proponer soporte.",
         "Auditar loader, ABI, sysroot, snapshot y calling convention; separar cambios del core de un port del runtime.",
-        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
+        "La ejecucion WB01 del runtime adicional se conserva en T46a, separada de esta auditoria documental; WB02-WB12 deben planificarse antes de anunciar soporte. ADR01 de esta ficha no acredita WB01.",
         "El coordinador registra ADR01 con validacion estatica del contrato/pin/subbacklog en tests/test_future_extensions.py y tools/check.py; no sustituye ninguna puerta de ejecucion futura."
       ],
       "checks": [
@@ -22474,8 +22474,7 @@
       "acceptance": [
         "El estudio adicional no rebaja ni aplaza el soporte MacHawk inicial; separa cambios de runtime y core con evidencia o bloqueo real."
       ],
-      "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites.",
-      "blocked_reason": "Auditoria Linux x86_64 fijada y ADR01 PASS; paso WB01 sin ejecutar. Falta implementar y autenticar receta/toolchain/sysroot/runtime/mini-core de la fila Waterbox Linux. Existen runners Linux de CI, pero los binarios locales sin procedencia y las pruebas nativas no sustituyen WB01. WB01-WB12 siguen BLOCKED; Darwin ARM64 inicial permanece cerrado."
+      "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites."
     },
     {
       "id": "T47",
@@ -24064,6 +24063,47 @@
       ],
       "stop": "No cambiarflagsCPUalazarniagregararitmetica; trasdosintentosrazonados fallidos conservarreproducerydoshipotesis ybloquear.",
       "blocked_reason": "Extra final solicitado por el usuario; no dispone de un 68040 fisico. Retirado0397: los casos asumian que STAG5/exp3c00 y23bits identifican SINGLE reconstruido, pero FPSP op2_com cambiaCMDaDOUBLE sin marcador; una fraccionDOUBLE desplazada29bits colisiona y su valor difiere2^896. MC68040UMfig9-9 muestraETE0 para denormales, invalidando inferir3c00 del minimo. H1: un estadioCU06 previo aE1 tiene representacion/campos distintos que deben demostrarse; H2: estos frames reconstruidos no son legales para denormales o el workaroundFPSP tiene limite/errata. Hace falta fuente primaria adicional o reproducer dehardware, no mas casos con el mismo supuesto. Conservar decision/reproducer enADR0016; gate358PASS no acredita esta semantica."
+    },
+    {
+      "id": "T46a",
+      "title": "Ejecutar WB01 real en Waterbox Linux x86_64 antes de proponer soporte",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T46"
+      ],
+      "read": [
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/future-waterbox-platforms.md",
+        "plan/upstream.lock.json"
+      ],
+      "touch": [
+        ".github/workflows/waterbox-runner-probe.yml",
+        "tools/ci/linux_waterbox_probe.py",
+        "tests/waterbox-smoke/linux_probe.c",
+        "tests/waterbox-smoke/linux_guest.c",
+        "tests/ci/test_linux_waterbox_probe.py",
+        "plan/extensions/waterbox-platforms.json"
+      ],
+      "steps": [
+        "Ejecutar primero WB01 en ese runtime y planificar WB02-WB12 antes de anunciar soporte.",
+        "Primero inventariar runner Linux x86_64 nativo y herramientas existentes sin instalar ni confundir Docker x86 traducido en Mac ARM con host nativo. Fijar inputs/receta antes de la ejecucion; nada de master/latest ni .so local sin procedencia.",
+        "Construir runtime y mini-guest desde fuentes capturadas fuera de MacHawk, y ejecutar por API C real: init/seal/avance/save/load, continuacion exacta y sandbox nuevo; comprobar ABI/TLS, canarios, pagina/dirty tracking y fallo por capacidad.",
+        "Registrar hashes runtime/guest realmente cargados y runner/toolchain exactos en stdout/temporal build; conservar WB02-WB12 bloqueados y no anunciar soporte Amiga/Linux solo por WB01.",
+        "La division preserva la puerta de ejecucion del antiguo paso3 de T46; las rutas separan receta Python, guest/host C y workflow, mas regresion de rechazo/preflight. El coordinador actualiza el JSON de plataformas al integrar."
+      ],
+      "checks": [
+        "WB01"
+      ],
+      "acceptance": [
+        "WB01 ejecutado en Waterbox Linux x86_64 real con fuentes/inputs fijados y miniguest propio, no biblioteca nativa renombrada ni mock.",
+        "Snapshot y continuacion reproducen contador/RAM/A-V de mini-core en misma y nueva instancia; ABI/TLS/callbacks/canarios/bounds correctos, hashes de runtime/guest cargados identificados.",
+        "Ninguna modificacion de MacHawk ni del perfil Darwin ARM64 inicial; WB02-WB12 siguen puertas separadas antes de cualquier soporte anunciado."
+      ],
+      "stop": "Sin herramientas o runner apropiados preparar receta verificable y conservar WB01 BLOCKED; no instalar globalmente ni sustituir ejecucion por cross-build."
     }
   ],
   "max_in_progress": 4
