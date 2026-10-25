@@ -1176,6 +1176,8 @@ TASK_SUITES[('BUILD01', 'T82f')] = {
     'waterbox_soft_reset': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_soft_reset_keeps_ram_and_replays_in_another_sandbox',
     'gui_reset_menus': 'tests.test_machawk_gui',
 }
+TASK_SUITES[('WB03', 'T82h')] = {'state_diagnostic_fixtures': 'tests.packages.test_emuhawk_state_probe.StateProbeTests',
+    'real_state_localization': 'tests.test_machawk_integration.MacHawkStateDiagnosticTests'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])

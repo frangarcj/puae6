@@ -114,3 +114,25 @@ La comparación entre original y parcheado con el compilador actual sigue siendo
 estricta sobre los metadatos y sólo admite la instrucción acordada. No se edita
 ningún ELF ni se normalizan snapshots. La base y el índice completo del archivo
 se conservan como inputs; el derivado tendrá identidad propia.
+
+## Nueva localizacion de la candidata MacHawk (T82h)
+
+El gate real vuelve a fallar en TASproj/UAE tras pasar BK2. El diagnostico
+conserva los cuatro casos y cada byte del comparador original. CaptureLegacy
+registra las escrituras y PageInfo del estado final; solo exporta el par ante
+un mismatch y el transporte se elimina al terminar. No se normaliza el estado.
+
+La ejecucion identifica paginas guest RW: __exbuf en0x36f0279bc00 y
+s_try_stack en0x36f0279c580, con diferencias en los offsets0,8,40 y65.
+Los simbolos del ELF real identifican ambos objetos; el ASM setjmp guarda
+x19,x20,x24 yx27 en esos slots. La cola managed y el resto de secciones
+coinciden. x28 sigue canonico; no se trata del slot corregido porT40n.
+
+El interop Darwin actual conserva los GPR del host en su pila, pero entra al
+guest sin inicializar x19..x27 ni x29. La decision a probar es dar valores
+canonicos a esos registros no argumentales al entrar, manteniendo intactos
+los argumentos, x18, x28 y la restauracion del host/callbacks/hilos. Hace
+falta un control con canarios host distintos, restauracion en sandbox/proceso
+nuevo y el reproducer original antes de cambiar el runtime de producto.
+Los d8..d15 tambien se capturan por setjmp, pero este diagnostico no acredita
+un fallo alli ni autoriza limpiarlos sin preservar los valores del host.

@@ -1,0 +1,27 @@
+--- a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+@@ -122,6 +122,7 @@
+     var cases = new List<Dictionary<string, object>>(); var names = new[] { "UAE", "PUAE6" };
+     foreach (string format in new[] { "bk2", "tasproj" }) {
+      var rows = new[] { new List<string[]>(), new List<string[]>() }; var states = new byte[2][]; var boots = new byte[2][];
++     Dictionary<string, object> recordedLegacy = null;
+      for (int pass = 0; pass < 2; pass++) {
+       var sessions = new[] { Session(), Session() }; var cores = new IEmulator[2];
+       try {
+@@ -139,7 +140,15 @@
+        }
+        for (int i = 0; i < 2; i++) {
+         Require(sessions[i].Movie.InputLogLength == 12, "Movie did not preserve all twelve frames");
+-        var state = State(cores[i]);
++        // Preserve the original SaveStateBinary bytes; retain write/page boundaries
++        // so a failed full-state comparison can be localized without normalizing it.
++        var legacy = i == 0 ? CaptureLegacy(cores[i]) : null;
++        var state = legacy == null ? State(cores[i]) : (byte[])legacy["data"];
++        if (pass == 0 && legacy != null) recordedLegacy = legacy;
++        if (pass == 1 && legacy != null && !state.SequenceEqual(states[i]))
++         Console.WriteLine("P6_EMUHAWK_STATE_MISMATCH " + JsonConvert.SerializeObject(new Dictionary<string, object> {
++          ["format"] = format, ["core"] = names[i], ["frames"] = 12, ["native"] = native,
++          ["record"] = recordedLegacy, ["replay"] = legacy }));
+         if (pass == 0) { states[i] = state; Require(!sessions[i].Movie.Save().IsError, "Movie save failed"); }
+         else { Require(state.SequenceEqual(states[i]), $"{format}/{names[i]} replay final state differs: " + Difference(states[i], state)); cases.Add(new Dictionary<string, object> {
+           ["format"] = format, ["core"] = names[i], ["frames"] = 12, ["replayed"] = 12, ["isolation"] = true,

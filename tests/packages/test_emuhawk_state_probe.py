@@ -30,6 +30,35 @@ class StateProbeTests(unittest.TestCase):
             'native': {n: v['sha256'] for n, v in self.native().items()}, 'av': {'UAE': 'b' * 64, 'PUAE6': 'c' * 64},
             'captures': {name: self.capture(0 if '.initial' in name else 12) for name in p.NAMES}}
 
+    def mismatch(self):
+        return {'format': 'tasproj', 'core': 'UAE', 'frames': 12,
+                'native': {n: v['sha256'] for n, v in self.native().items()},
+                'record': self.capture(12), 'replay': self.capture(12, 8)}
+
+    def test_failed_coexistence_localizes_all_bytes_without_accepting_the_state(self):
+        result = p.c.s.localize_mismatch(self.mismatch(), self.native())
+        self.assertEqual(result['format'], 'tasproj')
+        self.assertEqual({r['section'] for r in result['ranges']}, {'managed.CycleCount'})
+        self.assertFalse(result['equal'])
+        for key, value in [('core', 'PUAE6'), ('format', 'other'), ('frames', True), ('native', {}),
+                           ('replay', self.capture(12)), ('record', {})]:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                p.c.s.localize_mismatch({**self.mismatch(), key:value}, self.native())
+
+        fixture = bootstrap.BootstrapTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
+        def execute(command, **kwargs):
+            stage = Path(kwargs['cwd']); fixture.stages.append(stage)
+            self.assertEqual(command[-1], '--puae6-coexistence')
+            return subprocess.CompletedProcess(command, 2,
+                p.c.s.MARKER + json.dumps(fixture.record(stage)) + '\nP6_EMUHAWK_STATE_MISMATCH '
+                + json.dumps(self.mismatch()) + '\n', 'original exact-state rejection')
+        fixture.process.side_effect = execute
+        with mock.patch.object(p.c, 'prepare', return_value=self.native()), \
+             mock.patch.object(p.c, 'inputs', return_value=self.native()):
+            with self.assertRaisesRegex(ValueError, 'EmuHawk coexistence state mismatch: .*managed.CycleCount'):
+                p.c.s.run(coexistence=True)
+        self.assertTrue(all(not stage.exists() for stage in fixture.stages))
+
     def test_every_runtime_and_managed_byte_is_compared_and_named(self):
         record = self.record(); self.assertEqual(p.validate(record, self.native())['conclusion'], 'identical-in-this-path')
         record['captures']['replay.final0'] = self.capture(12, 8)

@@ -24472,6 +24472,50 @@
       ]
     },
     {
+      "id": "T82h",
+      "title": "Localizar el nuevo desajuste TASproj/UAE dentro del EmuHawk real",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T82g"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch",
+        "integration/bizhawk/patches/0026-emuhawk-state-probe.patch",
+        "tools/emuhawk_selfcheck.py",
+        "tools/emuhawk_state_probe.py"
+      ],
+      "touch": [
+        "integration/bizhawk/patches/0027-emuhawk-coexistence-state-localization.patch",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "tools/emuhawk_selfcheck.py",
+        "tests/packages/test_emuhawk_state_probe.py",
+        "tests/test_machawk_integration.py",
+        "docs/adr/waterbox-state-diagnostics.md",
+        "tests/test_plan.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Vertical diagnostica tras dos reproducciones identicas del fallo TASproj/UAE de T82c: capturar las escrituras originales del estado y el mapa de paginas usando CaptureLegacy existente, al mismo punto final de los cuatro casos sin retirar comparaciones. No corregir ABI ni motor por semejanza de bytes.",
+        "Implementacion atomica de parche, copia aplicada al worktree, transporte y tests; las rutas de registro no cuentan como otra funcionalidad. Menos400lineas logicas. Exportar los dos estados solo ante mismatch, transporte acotado y temporales eliminados. Reutilizar decoder existente para localizar seccion/pagina/direccion; no normalizar ni omitir bytes.",
+        "Una compilacion incremental de EmuHawk y una ejecucion diagnostica del caso real; no recompilar guests/runtime ni repetir baterias. El gate original conserva su rechazo; una observacion localizada no cierra la preview.",
+        "WB03 PASS:39fixtures/plan; cola26parches aplica/revierte sobre pin real; EmuHawk Release0errores. Diagnostico real21.421s localiza8rangos en paginasRW de __exbuf/s_try_stack offsets0/8/40/65 (x19/x20/x24/x27), todas las otras secciones y cola iguales. Gate original sigue rechazando el estado; no cierre deT82c ni correccion runtime por este resultado. Un test adicional no requerido de normal-core EXPORT detecta una carencia previa de rutas de0007 en build_tree.py, sin relacion con este nuevo parche; no se modifica para aprobar."
+      ],
+      "checks": [
+        "WB03"
+      ],
+      "acceptance": [
+        "Diagnostico real identifica rangos, seccion y direccion guest del fallo TASproj/UAE con mapa y escrituras reales, incluyendo cola managed, o documenta no reproduccion limitada sin declarar resuelto el fallo.",
+        "Fixtures rechazan capturas incompletas/identidad erronea y un falso mismatch. Ningun byte se excluye del comparador; los inputs y checkout hermano permanecen intactos."
+      ],
+      "stop": "Tras dos intentos diagnosticos sin localizar, blocked con dos hipotesis verificables. No cambiar ABI ni hashes por intuicion."
+    },
+    {
       "id": "T82c",
       "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
       "milestone": "M4",

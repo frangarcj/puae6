@@ -58,6 +58,19 @@ def validate(record, stage, files):
         raise ValueError("EmuHawk provenance/framework/inventory differs")
 
 
+def localize_mismatch(record, native):
+    from tools import emuhawk_state_probe as probe
+    if (not isinstance(record, dict) or set(record) != {'format', 'core', 'frames', 'native', 'record', 'replay'}
+            or record['format'] not in ('bk2', 'tasproj') or record['core'] != 'UAE'
+            or type(record['frames']) is not int or record['frames'] != 12
+            or record['native'] != {n: v['sha256'] for n, v in native.items()}):
+        raise ValueError('State mismatch diagnostic identity/coverage differs')
+    observation = probe.compare(probe.decode(record['record'], 12), probe.decode(record['replay'], 12))
+    if observation['equal']:
+        raise ValueError('State mismatch diagnostic contains identical states')
+    return {k: record[k] for k in ('format', 'core', 'frames', 'native')} | observation
+
+
 def run(*, without_virtu=False, coexistence=False, state_probe=False):
     if sum((without_virtu, coexistence, state_probe)) > 1:
         raise ValueError("Independent explicit probes cannot be combined")
@@ -113,7 +126,7 @@ def run(*, without_virtu=False, coexistence=False, state_probe=False):
         if (builder.output_closure(stage) != expected or builder.output_closure(output) != files
                 or hashlib.sha256(dotnet.read_bytes()).hexdigest() != host_sha
                 or runtime_json_asset() != json_asset
-                or len(result.stdout) + len(result.stderr) > ((32 << 20) if state_probe else (1 << 20))):
+                or len(result.stdout) + len(result.stderr) > ((32 << 20) if native_mode else (1 << 20))):
             raise ValueError("EmuHawk inputs changed or output exceeded limit")
         lines = [line[len(MARKER):] for line in result.stdout.splitlines() if line.startswith(MARKER)]
         if without_virtu:
@@ -121,6 +134,14 @@ def run(*, without_virtu=False, coexistence=False, state_probe=False):
                 raise ValueError("Missing Virtu did not reject the complete inventory: " + result.stderr[-3000:])
             return {"status": "EXPECTED_REJECTION", "omitted": "dll/Virtu.dll", "exit_code": result.returncode}
         if result.returncode or len(lines) != 1 or "VIOLATION" in result.stdout + result.stderr:
+            diagnostics = [line.removeprefix('P6_EMUHAWK_STATE_MISMATCH ') for line in result.stdout.splitlines()
+                           if line.startswith('P6_EMUHAWK_STATE_MISMATCH ')]
+            if coexistence and result.returncode == 2 and len(lines) == 1 and len(diagnostics) == 1:
+                validate(json.loads(lines[0]), stage, files)
+                if scenario.inputs() != native:
+                    raise ValueError('Native inputs changed after failed coexistence')
+                observation = localize_mismatch(json.loads(diagnostics[0]), native)
+                raise ValueError('EmuHawk coexistence state mismatch: ' + json.dumps(observation, sort_keys=True))
             raise ValueError("EmuHawk bootstrap failed: " + result.stdout[-1500:] + result.stderr[-3000:])
         record = json.loads(lines[0]); validate(record, stage, files)
         if native_mode:
