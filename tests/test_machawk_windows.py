@@ -52,3 +52,23 @@ class WindowsGuiTests(WindowsCandidateTests):
         self.assertIn('Own', gui['title'])
         self.assertIn('Amiga', gui['title'])
         print('Windows product GUI: own content, PUAE6 status and normal exit PASS')
+
+
+@unittest.skipUnless(os.environ.get('P6_WINDOWS_GITHUB_RUN'), 'explicit completed Windows diagnostic run required')
+class WindowsGuiDiagnosticsTests(unittest.TestCase):
+    def test_owned_windows_are_observed_without_changing_the_gui_gate(self):
+        run_id = os.environ['P6_WINDOWS_GITHUB_RUN']
+        run = json.loads(subprocess.check_output(['gh', 'run', 'view', run_id, '--repo', 'frangarcj/BizHawk',
+            '--json', 'headSha,status'], text=True, timeout=60))
+        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT / 'build/machawk-puae6', text=True).strip()
+        self.assertEqual((run['headSha'], run['status']), (commit, 'completed'))
+        log = subprocess.check_output(['gh', 'run', 'view', run_id, '--repo', 'frangarcj/BizHawk', '--log'], text=True, timeout=60)
+        markers = [json.loads(line.split('P6_GUI_DIAGNOSTIC ', 1)[1]) for line in log.splitlines() if 'P6_GUI_DIAGNOSTIC ' in line and 'subprocess.CalledProcessError' not in line]
+        if markers:
+            self.assertEqual(len(markers), 1)
+            self.assertGreater(markers[0]['pid'], 0)
+            self.assertIn('main_handle', markers[0])
+            self.assertIsInstance(markers[0]['windows'], list)
+            print('Owned Windows GUI diagnosis:', markers[0])
+        else:
+            self.assertIn('P6_EMUHAWK_GUI ', log)

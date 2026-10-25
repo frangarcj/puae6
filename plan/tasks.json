@@ -24608,6 +24608,39 @@
       "stop": "Dosfallosmismo reproducer bloqueanconhipotesis; no moverbytes a invisible ni normalizarsnapshot."
     },
     {
+      "id": "T82k",
+      "title": "Diagnostico de la ventana de EmuHawk Windows en runner alojado",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T83e"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "tests/test_machawk_windows.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Observar el fallo GUI sin cambiar flags, frontend ni emulacion. Enumerar ventanas UIAutomation solo del PID propio, incluso si su owner esta deshabilitado; imprimir nombres/textos acotados en el fallo.",
+        "Capturar stdout/stderr temporales del proceso GUI y mostrarlos solo al fallar; conservar limpieza y kill solo del proceso propio. Usar una candidata Windows dirigida, sin repetir Darwin ni matrices completas."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "El fallo conserva un diagnostico observable de la ventana o el gate GUI completa normalmente, sin rebajar sus criterios ni alterar el producto."
+      ],
+      "stop": "No probar mas cambios de configuracion a ciegas; usar el diagnostico para una correccion explicita antes de reintentar."
+    },
+    {
       "milestone": "M4",
       "required": false,
       "status": "done",
@@ -24872,7 +24905,7 @@
       "title": "Preview publica PUAE6 en el frontend EmuHawk que usan los probadores",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "blocked",
       "depends": [
         "T82g"
       ],
@@ -24915,11 +24948,12 @@
         "Paquete descargable inicia la GUI EmuHawk Windowsx64 real y carga contenido sin SDK instalado (runtime .NET Framework4.8); guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales. ARM64 conserva su carril separado; no se afirma GUI WinForms macOS.",
         "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
       ],
-      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
+      "blocked_reason": "Dos ejecuciones GUI reales no completan el gate. El aviso de audio se corrige con Dummy temporal; ahora no se obtiene ventana principal habilitada. Hipotesis1: MainWindowHandle apunta al owner deshabilitado de un modal; enumerar ventanas UIAutomation del PID. Hipotesis2: la configuracion minima CLI no cubre una ruta de inicializacion GUI; capturar texto de ventanas y stdout/stderr del proceso propio. No publicar ni cambiar mas flags sin ese diagnostico."
     },
     {
       "id": "T82",
-      "title": "PUAE6 utilizable en MacHawk macOS ARM64 y preview para usuarios",
+      "title": "PUAE6 en el EmuHawk de los probadores y carril Darwin ARM64",
       "milestone": "M4",
       "required": false,
       "status": "pending",
@@ -24940,17 +24974,19 @@
         "docs/user/waterbox-preview.md"
       ],
       "touch": [
-        "docs/user/waterbox-preview.md"
+        "docs/user/waterbox-preview.md",
+        "tools/check.py"
       ],
       "steps": [
-        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
-        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta."
+        "Integrar PUAE6 en el BizHawk existente sin modificar el checkout hermano ni duplicar el wrapper standalone.",
+        "Aclaracion expresa del usuario: Eto es solo banco de pruebas. Seguir las releases reales consultadas con gh: frontend EmuHawk Windowsx64; conservar el carril DarwinARM64 separado y no atribuirle GUI WinForms macOS.",
+        "Conectar los menus existentes, comprobar la candidata dirigida y distribuir fuentes/licencias con la preview. BUILD01 reutiliza la prueba real Windows de T82c; las dependencias conservan sus puertas Darwin, menu, audio y estados. No repetir campañas ya superadas."
       ],
       "checks": [
         "BUILD01"
       ],
       "acceptance": [
-        "Frontend nativo, contenido, controles, audio y estados funcionan en el paquete distribuido.",
+        "Frontend real EmuHawk Windowsx64 con contenido y menus PUAE6, PCM/estados comprobados y paquete descargable. DarwinARM64 conserva su carril separado validado; no se presenta Eto como producto ni se afirma GUI WinForms macOS.",
         "Preview publica verificable, sin sustituir trabajo ajeno ni repetir campañas del motor sin causa.",
         "Menus PUAE6 conectados a la interfaz BizHawk existente. El usuario excluye portar herramientas generales al banco Eto."
       ],

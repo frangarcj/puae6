@@ -1191,6 +1191,8 @@ TASK_SUITES[('BUILD01', 'T83f')] = {'windows_mapping_layout': 'tests.waterbox-sm
 for _gate in ('WB03', 'WB13'):
     TASK_SUITES[(_gate, 'T83e')] = {'real_windows_candidate': 'tests.test_machawk_windows.WindowsCandidateTests'}
 TASK_SUITES[('BUILD01', 'T82c')] = {'real_product_gui': 'tests.test_machawk_windows.WindowsGuiTests'}
+TASK_SUITES[('BUILD01', 'T82')] = dict(TASK_SUITES[('BUILD01', 'T82c')])
+TASK_SUITES[('BUILD01', 'T82k')] = {'gui_diagnosis': 'tests.test_machawk_windows.WindowsGuiDiagnosticsTests'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
