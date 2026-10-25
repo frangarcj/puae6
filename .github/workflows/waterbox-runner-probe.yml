@@ -59,29 +59,7 @@ jobs:
       - name: Observe existing Linux tools without installing
         if: inputs.mode == 'inventory'
         shell: bash
-        run: |
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, platform, shutil, subprocess
-          host = dict(os=platform.system(), isa=platform.machine(), page_bytes=os.sysconf('SC_PAGE_SIZE'))
-          assert host == dict(os='Linux', isa='x86_64', page_bytes=4096), host
-          tools = {}
-          for name in ['clang', 'clang++', 'ld.lld', 'ld.lld-18', 'llvm-ar', 'llvm-ar-18', 'llvm-objcopy', 'llvm-objcopy-18', 'ar', 'ld', 'objcopy', 'patch', 'python3', 'make', 'cc', 'nasm', 'rustc', 'cargo', 'rustup', 'dotnet']:
-              path = shutil.which(name)
-              if not path:
-                  tools[name] = dict(available=False)
-                  continue
-              version = subprocess.run([path, '--version'], capture_output=True, text=True, timeout=30)
-              real = pathlib.Path(path).resolve()
-              if name in ('rustc', 'cargo') and shutil.which('rustup'):
-                  selected = subprocess.run(['rustup', 'which', name], capture_output=True, text=True, timeout=30)
-                  if selected.returncode == 0:
-                      real = pathlib.Path(selected.stdout.strip()).resolve()
-              tools[name] = dict(available=True, path=path, real_path=str(real), sha256=hashlib.sha256(real.read_bytes()).hexdigest(), version=(version.stdout or version.stderr).splitlines()[:3])
-          rust_sysroot = subprocess.run(['rustc', '--print', 'sysroot'], capture_output=True, text=True, timeout=30) if shutil.which('rustc') else None
-          print(json.dumps(dict(status='OBSERVED', scope='tool inventory only; no Waterbox execution', host=host,
-              image_os=os.environ.get('ImageOS'), image_version=os.environ.get('ImageVersion'), source=os.environ['GITHUB_SHA'],
-              rust_sysroot=rust_sysroot.stdout.strip() if rust_sysroot else None, tools=tools), sort_keys=True))
-          PY
+        run: python3 -B tools/ci/linux_waterbox_probe.py --inventory
       - name: Execute the pinned Linux Waterbox mini-core
         if: inputs.mode == 'smoke'
         run: python3 -B tools/ci/linux_waterbox_probe.py --smoke
