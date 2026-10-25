@@ -82,3 +82,9 @@ Los menus generales permanecen en BizHawk. La ventana Eto bajo
 no el frontend de producto; el usuario excluye portar alli TAStudio/Lua/RAM Watch.
 Las pruebas Cocoa acreditan solo ese banco con los ensamblados reales.
 No acreditan que WinForms EmuHawk funcione como GUI macOS.
+
+La candidata del PR #12 permanece en borrador: el gate de coexistencia del
+EmuHawk real reproduce una diferencia de estado final de UAE en TASproj,
+aunque coinciden imagen y audio en ese recorrido. La comparacion exacta sigue
+activa y la preview completa no esta cerrada. El constructor PUAE6 rechaza
+hosts distintos de Darwin ARM64 antes de cargar su guest.

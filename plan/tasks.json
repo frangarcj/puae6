@@ -24476,7 +24476,7 @@
       "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
       "milestone": "M4",
       "required": false,
-      "status": "pending",
+      "status": "blocked",
       "depends": [
         "T82g"
       ],
@@ -24492,12 +24492,17 @@
         "build/machawk-puae6/.github/**",
         "tests/test_machawk_gui.py",
         "tools/check.py",
-        "docs/user/waterbox-preview.md"
+        "docs/user/waterbox-preview.md",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-puae6-integration-smoke/**"
       ],
       "steps": [
         "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
         "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
-        "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS."
+        "Aclaracion usuario: no convertir banco Eto en frontend de producto. Empaquetar la integracion real con sus fuentes/licencias y distinguir cualquier banco incluido del frontend EmuHawk; no presentar GUI de pruebas como soporte WinForms macOS.",
+        "Guardia de host añadida en el constructor EmuHawk antes de firmware/medios/mapeo: el guest/runtime ARM64 solo admite Darwin ARM64. Compilacion completa Release PASS (0 errores). El banco Eto conserva su alcance exclusivo de infraestructura de pruebas.",
+        "El gate dirigido P6_TEST_MACHAWK_INTEGRATION=1 python3 -m unittest tests.test_machawk_integration falla dos veces en tasproj/UAE con estado completo de2733262bytes y primer cambio en offset2027529. BK2 llega a pasar; TAS compara A/V antes de fallar el estado UAE. No normalizar bytes ni interpretar el PASS historico como aceptacion de la candidata. Mantener PR12 en borrador y no publicar una GUI de producto a partir del banco."
       ],
       "checks": [
         "BUILD01"
@@ -24506,7 +24511,8 @@
         "Paquete descargable inicia la GUI y carga contenido sin SDK instalado; guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales.",
         "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
       ],
-      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable.",
+      "blocked_reason": "Dos reproducciones del mismo fallo TASproj/UAE en la candidata impiden cerrar la preview; reproducer existente tests/test_machawk_integration.py. Hipotesis1: registros preservados por setjmp distintos de x28 arrastran valores host al estado legacy; verificar seccion/pagina/simbolos y ABI antes de cambiarlo. Hipotesis2: el recorrido de TASStateManager provoca una escritura guest dependiente del host que no aparece en BK2; contrastar capturas estructurales de ambos recorridos sin excluir bytes. Causa aun no localizada. Ademas, la GUI WinForms de EmuHawk no esta acreditada en macOS; el usuario excluye convertir el banco Eto en frontend."
     },
     {
       "id": "T82",

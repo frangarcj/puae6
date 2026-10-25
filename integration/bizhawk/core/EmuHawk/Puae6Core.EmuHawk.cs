@@ -3,6 +3,7 @@
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 using BizHawk.Common.PathExtensions;
 using BizHawk.Emulation.Common;
@@ -27,6 +28,10 @@ public sealed partial class Puae6Core
 
 	static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
 	{
+		// This guest/runtime pair is Darwin ARM64 only. Refuse before firmware,
+		// media ownership or any sandbox mapping on another host.
+		if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
+			throw new PlatformNotSupportedException("This PUAE6 Waterbox build requires macOS ARM64; select the UAE core on this host.");
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
 		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
 			throw new NotSupportedException("CD32/CDTV load 1..16 CD slots without other media");
