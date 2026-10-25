@@ -24192,6 +24192,144 @@
       "stop": "Un fallo real de integracion bloquea la ficha; no repetir la matriz del motor sin cambio relevante."
     },
     {
+      "id": "T82a",
+      "title": "Frontend MacHawk Eto con PUAE6 real: carga, video, teclado y estados",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T81"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "tests/test_machawk_gui.py",
+        "tests/test_plan.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
+        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta.",
+        "BUILD01 GUI real pasa con app Cocoa autocontenida net8.0/osx-arm64, pixel rojo transferido exacto, input causal observado y cuatro unidades de replay con estado/video/PCM exactos. Quit explicito evita confundir cierre de ventana macOS con salida del proceso. Core integrado real, no DLL standalone."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Ventana Cocoa/Eto real presenta video del core integrado, abre ADF con firmware autorizado y conserva identidad de tipos BizHawk.",
+        "Teclado y save/load conectados al core; comprobacion GUI dirigida con programa propio y continuacion exacta, sin atribuir soporte a una prueba CLI."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+    },
+    {
+      "id": "T82b",
+      "title": "Audio audible, raton y controles de la preview MacHawk PUAE6",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T82a"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "tests/test_machawk_gui.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
+        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "PCM del core llega al dispositivo de audio del host sin avanzar hardware desde su callback.",
+        "Raton, botones, liberacion de teclas al perder foco y pausa/carga no dejan input ni audio residual; check dirigido."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+    },
+    {
+      "id": "T82c",
+      "title": "Paquete macOS ARM64 autocontenido y preview publica MacHawk PUAE6",
+      "milestone": "M4",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T82b"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.MacHawk/**",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "build/machawk-puae6/.github/**",
+        "tests/test_machawk_gui.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
+        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Paquete descargable inicia la GUI y carga contenido sin SDK instalado; guest/runtime/CHD con identidad, fuentes y licencias incluidas, sin ROMs comerciales.",
+        "Instalacion aislada del paquete y save/restore pasan; cambios subidos e integrados y preview accesible con limites explicitos."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+    },
+    {
+      "id": "T82",
+      "title": "PUAE6 utilizable en MacHawk macOS ARM64 y preview para usuarios",
+      "milestone": "M4",
+      "required": false,
+      "status": "pending",
+      "depends": [
+        "T82a",
+        "T82b",
+        "T82c"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md"
+      ],
+      "touch": [
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Nuevo goal expreso del usuario de 2026-10-25: PUAE6 en MacHawk. Reutilizar interfaz Eto existente y ensamblados reales, no duplicar tipos del core standalone.",
+        "Trabajar en el worktree aislado build/machawk-puae6 y conservar el checkout hermano; no instalar paquetes globales. Solo checks dirigidos del delta."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Frontend nativo, contenido, controles, audio y estados funcionan en el paquete distribuido.",
+        "Preview publica verificable, sin sustituir trabajo ajeno ni repetir campañas del motor sin causa."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
