@@ -22340,10 +22340,10 @@
     },
     {
       "id": "T43",
-      "title": "CD32 FMV (MPEG-2) y cartuchos CD32 (opcional)",
+      "title": "Subplan CD32 FMV: contratos MPEG y cartucho (opcional)",
       "milestone": "FUTURE",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T66"
       ],
@@ -22356,12 +22356,14 @@
         "docs/adr/future-cd.md",
         "plan/extensions/cd.json",
         "tests/test_future_extensions.py",
-        "tools/check.py"
+        "tools/check.py",
+        "docs/user/release-notes.md"
       ],
       "steps": [
         "Paridad PUAE5 (2026-10-08, inventario en plan/tasks.json con archivo:linea de cada opcion de references/machawk-uae y references/puae): Lo obligatorio de CD32/CDTV paso a T66/T67; queda el modulo FMV opcional.",
         "Reutilizar MacHawk (decision del usuario 2026-10-08): ../MacHawk (solo lectura) ya parchea PUAE5 para Waterbox; portar la idea o el cambio como parche pequeno a WinUAE (patches/winuae) o al adaptador, nunca copiar el motor viejo: cd32_fmv.c/.h de uae-waterbox.patch.",
-        "El coordinador valida el subplan y registra AV01/DET02 conservando los escenarios CD32 actuales acumulados; ninguna prueba actual acredita FMV futuro. No ampliar perfiles ni anunciar decodificacion funcional desde un estudio."
+        "El coordinador valida el subplan y registra AV01/DET02 conservando los escenarios CD32 actuales acumulados; ninguna prueba actual acredita FMV futuro. No ampliar perfiles ni anunciar decodificacion funcional desde un estudio.",
+        "Actualizar la lista de extras de las notas locales para distinguir estudios terminados de implementaciones no habilitadas; sin cambiar paquetes ni alcance publicado."
       ],
       "checks": [
         "AV01",
@@ -22473,7 +22475,7 @@
         "El estudio adicional no rebaja ni aplaza el soporte MacHawk inicial; separa cambios de runtime y core con evidencia o bloqueo real."
       ],
       "stop": "No cambiar el binding del proyecto ni modificar MacHawk sin peticion expresa; usar referencias autorizadas y registrar limites.",
-      "blocked_reason": "Auditoria Linux x86_64 fijada y ADR01 coherente; WB01 no ejecutado: faltan receta/recibos vinculantes de toolchain, sysroot, runtime y mini-core en runner Linux real. Los binarios locales sin procedencia no acreditan ejecucion. WB01-WB12 siguen BLOCKED; Darwin ARM64 inicial permanece cerrado."
+      "blocked_reason": "Auditoria Linux x86_64 fijada y ADR01 PASS; paso WB01 sin ejecutar. Falta implementar y autenticar receta/toolchain/sysroot/runtime/mini-core de la fila Waterbox Linux. Existen runners Linux de CI, pero los binarios locales sin procedencia y las pruebas nativas no sustituyen WB01. WB01-WB12 siguen BLOCKED; Darwin ARM64 inicial permanece cerrado."
     },
     {
       "id": "T47",

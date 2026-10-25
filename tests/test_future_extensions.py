@@ -20,7 +20,7 @@ class PostReleaseStudyTests(unittest.TestCase):
         tasks = json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]
         task = next(t for t in tasks if t["id"] == task_id)
         self.assertFalse(task["required"])
-        self.assertEqual(["ADR01"], task["checks"])
+        self.assertEqual(["AV01", "DET02"] if task_id == "T43" else ["ADR01"], task["checks"])
         self.assertIn(adr, task["touch"])
         self.assertTrue((ROOT / adr).read_text().strip())
         sources = json.loads((ROOT / "plan/upstream.lock.json").read_text())["sources"]
@@ -54,7 +54,18 @@ class PostReleaseStudyTests(unittest.TestCase):
             reached |= ready
         self.assertEqual(set(proposals), reached, "cyclic or unreachable proposal")
         selector = f"tests.test_future_extensions.PostReleaseStudyTests.{self._testMethodName}"
-        self.assertEqual({"study_contract": selector}, check.TASK_SUITES[("ADR01", task_id)])
+        if task_id == "T43":
+            for gate, spec in study["current_checks"].items():
+                self.assertTrue(spec["covers"].strip())
+                self.assertEqual(set(spec["selectors"]) | {selector},
+                                 set(check.TASK_SUITES[(gate, task_id)].values()))
+                for item in spec["selectors"]:
+                    loader = unittest.TestLoader()
+                    suite = loader.loadTestsFromName(item)
+                    self.assertFalse(loader.errors, item)
+                    self.assertGreater(suite.countTestCases(), 0)
+        else:
+            self.assertEqual({"study_contract": selector}, check.TASK_SUITES[("ADR01", task_id)])
         return study
 
     def test_jit(self):
@@ -96,6 +107,13 @@ class PostReleaseStudyTests(unittest.TestCase):
         study = self.validate_study("T47", "multi-instance", "docs/adr/future-multi-instance.md")
         self.assertIn("BUSY for nested calls", study["decision"]["preserve"])
         self.assertIn("native reentrancy", study["decision"]["not_claimed"])
+
+    def test_fmv(self):
+        study = self.validate_study("T43", "cd", "docs/adr/future-cd.md")
+        self.assertFalse(study["support_announced"])
+        self.assertEqual({"AV01", "DET02"}, set(study["current_checks"]))
+        self.assertIn("!defined(P6_PORTABLE)",
+                      (ROOT / "patches/winuae/0362-cd32-without-fmv.patch").read_text())
 
 
 class MmuStudyTests(unittest.TestCase):

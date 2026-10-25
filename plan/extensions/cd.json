@@ -212,7 +212,8 @@
         "tests.waterbox-media.test_cd_source.Cd32GameCoreTests"
       ],
       "covers": "Current native/libretro/Waterbox CD32 game, state and fresh-owner coverage without FMV; no decoder restore claim"
-    },
-    "future_fmv_checks_status": "not_executed_by_study"
-  }
+    }
+  },
+  "support_announced": false,
+  "future_fmv_checks_status": "not_executed_by_study"
 }

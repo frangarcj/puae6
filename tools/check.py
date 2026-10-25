@@ -928,6 +928,19 @@ for _task, _method in (('T42', 'jit'), ('T45', 'rtg'),
     TASK_SUITES[('ADR01', _task)] = {
         'study_contract': 'tests.test_future_extensions.PostReleaseStudyTests.test_' + _method,
     }
+# T43 validates a subplan and preserves existing non-FMV A/V and restore cases.
+TASK_SUITES[('AV01', 'T43')] = {
+    'study_contract': 'tests.test_future_extensions.PostReleaseStudyTests.test_fmv',
+    'current_aga_pixels': 'tests.step.test_aga.PictureTests',
+    'current_resolution_rasters': 'tests.step.test_resolution.RasterTests',
+}
+TASK_SUITES[('DET02', 'T43')] = {
+    'study_contract': 'tests.test_future_extensions.PostReleaseStudyTests.test_fmv',
+    'current_native_cd32_state': 'tests.media.test_cd32_state.Cd32StateTests',
+    'current_cd32_io_runahead': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner',
+    'current_cd32_game_restore': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore',
+    'current_waterbox_cd32_game_restore': 'tests.waterbox-media.test_cd_source.Cd32GameCoreTests',
+}
 # T44 is a matrix/subbacklog study. Runtime selectors preserve MMU0 only.
 TASK_SUITES[('GEN01', 'T44')] = {
     'study_contract': 'tests.test_future_extensions.MmuStudyTests',

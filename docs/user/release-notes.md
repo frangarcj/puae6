@@ -80,7 +80,8 @@ explicita, con escrituras reversibles durante replay y rewind.
 
 TINF y ETN2 multisesion completo quedan como extras T66x1/T66x2 posteriores,
 segun decision expresa del usuario; permanecen rechazados. Tambien siguen
-pendientes CU06 denormal, waiting_blits, FMV y los estudios de JIT, RTG,
-runtimes adicionales y multiples instancias. T44 terminado es un estudio MMU,
-no soporte MMU. Los arranques comerciales acreditados no se extrapolan a todos
+pendientes CU06 denormal, waiting_blits y la ejecucion Waterbox Linux adicional.
+Los estudios de JIT, RTG y multiples instancias y el subplan FMV estan cerrados:
+definen decisiones y puertas futuras, sin habilitar esas capacidades. T44
+terminado es un estudio MMU, no soporte MMU. Los arranques comerciales acreditados no se extrapolan a todos
 los juegos; CDTV se comprueba con un programa propio y firmware autorizado.
