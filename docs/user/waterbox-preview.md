@@ -5,11 +5,9 @@ con net8.0 instalado (roll-forward Major). No incluye SDK. No es un plugin EmuHa
 la integración con EmuHawk se prueba por separado y no forma parte de este ZIP.
 Estados ligados al build.
 
-La candidata FMV actual es
-`puae6-waterbox-macos-arm64-preview-68332e80.zip` (revision PUAE6
-`68332e803ee849249a71a40a0b66f0d2bfb07650`, SHA-256
-`4a539f1f5e1fc14882e9976fc89ad3e0dbcc98b2305fd0c728abda2c045292a3`).
-Su guest ARM64 es `a184e7a7af901f38a744c03985e92e09a534b5c2a4fe3d6c8c5d939a57e6bf72`.
+Cada candidata publicada lleva la revision PUAE6 y los SHA-256 exactos del guest
+y del runtime en `manifest.json`; el nombre del ZIP incorpora la revision corta.
+Usar juntos esos artefactos, las fuentes y el wrapper de la misma candidata.
 
 Extrae el ZIP completo conservando bin/, config/, licenses/ y source.tar.gz juntos:
 
