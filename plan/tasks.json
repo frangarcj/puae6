@@ -25536,7 +25536,7 @@
       "title": "PUAE6 en el EmuHawk de los probadores y carril Darwin ARM64",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T82a",
         "T82b",
@@ -25564,7 +25564,8 @@
         "Integrar PUAE6 en el BizHawk existente sin modificar el checkout hermano ni duplicar el wrapper standalone.",
         "Aclaracion expresa del usuario: Eto es solo banco de pruebas. Seguir las releases reales consultadas con gh: frontend EmuHawk Windowsx64; conservar el carril DarwinARM64 separado y no atribuirle GUI WinForms macOS.",
         "Conectar los menus existentes, comprobar la candidata dirigida y distribuir fuentes/licencias con la preview. BUILD01 reutiliza la prueba real Windows de T82c; las dependencias conservan sus puertas Darwin, menu, audio y estados. No repetir campañas ya superadas.",
-        "Ampliacion minima de paquete para la candidata FMV: incluir la clausura capturada de libmpeg2 que ahora forma parte del guest y actualizar el pin de la politica; el empaquetador exige que cada entrada de procedencia del build este presente en source.tar.gz."
+        "Ampliacion minima de paquete para la candidata FMV: incluir la clausura capturada de libmpeg2 que ahora forma parte del guest y actualizar el pin de la politica; el empaquetador exige que cada entrada de procedencia del build este presente en source.tar.gz.",
+        "BUILD01 de producto PASS: workflow Windows dirigido 40782278865 sobre MacHawk 8c31d60c compila y empaqueta EmuHawk Release, ejecuta ABI/reentrada, restauracion completa entre sandboxes, CHD y GUI visible; PR14 fusionado como fbb55ac5. Preview publica puae6-preview-fbb55ac5, ZIP SHA-256 839159d9f935880de93d6f546debc7c1817733fe15f5ebc7ed8249709061df73. El paquete Darwin 68332e80 pasa package check e installed smoke (cuatro unidades mismo sandbox y proceso nuevo). El harness local aislado informa BLOCKED porque real_product_gui no es ejecutable en macOS; no sustituye ni invalida la ejecucion Windows enlazada."
       ],
       "checks": [
         "BUILD01"

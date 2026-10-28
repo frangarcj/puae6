@@ -5,6 +5,12 @@ con net8.0 instalado (roll-forward Major). No incluye SDK. No es un plugin EmuHa
 la integración con EmuHawk se prueba por separado y no forma parte de este ZIP.
 Estados ligados al build.
 
+La candidata FMV actual es
+`puae6-waterbox-macos-arm64-preview-68332e80.zip` (revision PUAE6
+`68332e803ee849249a71a40a0b66f0d2bfb07650`, SHA-256
+`4a539f1f5e1fc14882e9976fc89ad3e0dbcc98b2305fd0c728abda2c045292a3`).
+Su guest ARM64 es `a184e7a7af901f38a744c03985e92e09a534b5c2a4fe3d6c8c5d939a57e6bf72`.
+
 Extrae el ZIP completo conservando bin/, config/, licenses/ y source.tar.gz juntos:
 
 ```sh
@@ -84,6 +90,12 @@ no el frontend de producto; el usuario excluye portar alli TAStudio/Lua/RAM Watc
 Las pruebas Cocoa acreditan solo ese banco con los ensamblados reales.
 No acreditan que WinForms EmuHawk funcione como GUI macOS.
 
+El [PR #14](https://github.com/frangarcj/BizHawk/pull/14), fusionado en
+`main`, actualiza esa integracion con el perfil CD32 FMV, el guest x64
+`0e1ac382f1481c874b22b39dc198a6862a4380b00f3c87a471e0243c5f832da1`
+y el paquete Darwin anterior. La opcion `Fmv` solicita la entrada de firmware
+`CD32FMV`; Freeze sigue apareciendo solo para cartuchos freezer.
+
 El gate de coexistencia de la candidata pasa los cuatro casos BK2/TAS con
 UAE y PUAE6: imagen, audio, estado completo y aislamiento. El runtime Darwin
 inicializa los registros no argumentales al entrar al guest para evitar que
@@ -99,12 +111,19 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-e4739224)
-es la descarga para los probadores. El PR #12 esta fusionado en main. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6 FMV](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-fbb55ac5)
+es la descarga para los probadores. El PR #14 esta fusionado en main. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
 y autorizada y abrir el contenido. UAE conserva la seleccion predeterminada.
+
+Para CD32 FMV, seleccionar maquina `CD32` y cartucho `Fmv`, y aportar en el
+gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
+dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
+formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
+juegos. El ZIP Windows tiene SHA-256
+`839159d9f935880de93d6f546debc7c1817733fe15f5ebc7ed8249709061df73`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
@@ -119,8 +138,14 @@ pruebas CHD nativas. La prueba GUI abre contenido propio, reconoce PUAE6 en la
 ventana visible y la cierra normalmente. Solo esa configuracion temporal usa el
 fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
 cambia la configuracion distribuida ni elimina la comparacion del PCM emulado.
+La ejecucion dirigida
+[40782278865](https://github.com/frangarcj/BizHawk/actions/runs/40782278865)
+supera todas esas etapas sobre el commit probado `8c31d60c`; la release apunta
+al merge `fbb55ac5` con el mismo contenido.
 
 Estados y peliculas dependen del build, configuracion y medios; no son
 intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
-el caso CU06 pendiente siguen como extras. JIT, MMU, RTG y CD32 FMV no estan
-habilitados en esta preview.
+el caso CU06 pendiente siguen como extras. JIT, MMU y RTG no estan habilitados
+en esta preview. CD32 FMV si esta habilitado; Cannon Fodder supera las puertas
+reales nativa, libretro y Waterbox, sin generalizar compatibilidad a todo el
+catalogo ni prometer estados entre builds.
