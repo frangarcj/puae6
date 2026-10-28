@@ -25536,7 +25536,7 @@
       "title": "PUAE6 en el EmuHawk de los probadores y carril Darwin ARM64",
       "milestone": "M4",
       "required": false,
-      "status": "pending",
+      "status": "in_progress",
       "depends": [
         "T82a",
         "T82b",
@@ -25556,12 +25556,15 @@
       ],
       "touch": [
         "docs/user/waterbox-preview.md",
+        "manifests/release/native-preview.json",
+        "manifests/release/waterbox-preview.json",
         "tools/check.py"
       ],
       "steps": [
         "Integrar PUAE6 en el BizHawk existente sin modificar el checkout hermano ni duplicar el wrapper standalone.",
         "Aclaracion expresa del usuario: Eto es solo banco de pruebas. Seguir las releases reales consultadas con gh: frontend EmuHawk Windowsx64; conservar el carril DarwinARM64 separado y no atribuirle GUI WinForms macOS.",
-        "Conectar los menus existentes, comprobar la candidata dirigida y distribuir fuentes/licencias con la preview. BUILD01 reutiliza la prueba real Windows de T82c; las dependencias conservan sus puertas Darwin, menu, audio y estados. No repetir campañas ya superadas."
+        "Conectar los menus existentes, comprobar la candidata dirigida y distribuir fuentes/licencias con la preview. BUILD01 reutiliza la prueba real Windows de T82c; las dependencias conservan sus puertas Darwin, menu, audio y estados. No repetir campañas ya superadas.",
+        "Ampliacion minima de paquete para la candidata FMV: incluir la clausura capturada de libmpeg2 que ahora forma parte del guest y actualizar el pin de la politica; el empaquetador exige que cada entrada de procedencia del build este presente en source.tar.gz."
       ],
       "checks": [
         "BUILD01"

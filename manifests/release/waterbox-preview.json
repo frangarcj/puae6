@@ -3,7 +3,7 @@
   "scope": "Source/notice policy for standalone Waterbox Darwin ARM64, with conservative pinned Rust std source closure. No binary, installed-package, plugin or effective std link-selection claim. Framework-dependent net8 uses the separately installed .NET runtime.",
   "base_policy": "manifests/release/native-preview.json",
   "inputs": {
-    "manifests/release/native-preview.json": "4ff235c8002808dbbc2106ffbb840a5942bd953d37aeb211ef0afab4ff2daaa5",
+    "manifests/release/native-preview.json": "bef9024c10caec5a1edc842d27e854dfeabad6e32a53ed5900a840b00ffa1cd0",
     "plan/toolchains.json": "81d1c9faa5998e90b8b76dca587ce045bc8832c5c18c5c702e0bb1cf428c33b0",
     "tools/ci/managed-inputs.json": "13c0a9f14c266af20d7904e91059ab0047f44cfeacd582f7a38800f4f07aad88",
     "references/machawk.manifest.json": "104750763ee7adb901d247e3458c521d7694cf5f06901888d5cfaa4263359fe3",

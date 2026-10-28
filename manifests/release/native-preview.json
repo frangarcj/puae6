@@ -23,7 +23,8 @@
     "tools",
     "upstream/winuae",
     "references/libretro-api",
-    "references/machawk-uae/COPYING"
+    "references/machawk-uae/COPYING",
+    "references/machawk-uae/deps/libmpeg2"
   ],
   "licenses": {
     "COPYING": "references/machawk-uae/COPYING",
