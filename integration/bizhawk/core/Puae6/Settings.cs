@@ -1,12 +1,15 @@
 #nullable enable
 
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
 using BizHawk.Common;
 
 namespace Puae6;
 
 public enum Puae6Region { PAL, NTSC }
 public enum Puae6WhdLoadMode { Auto, Disabled }
-public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6 }
+public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6, Fmv = 7 }
 
 /// <summary>
 /// The Amiga the core emulates: the A500 (OCS, 512 KiB Chip + 512 KiB Slow RAM, Kickstart 1.3) the A600 (ECS, 1 MiB Chip RAM, Kickstart 2.05, no IDE or PCMCIA) or the A1200 (68EC020, AGA, 2 MiB Chip RAM, Kickstart 3.1, no Gayle).
@@ -85,6 +88,8 @@ public sealed class Puae6Settings
 {
 	Puae6DriveSoundVolume _driveSoundVolume;
 	/// <summary>Mechanical drive volume, 0 (silent) to 100 percent. The phase advances even when silent.</summary>
+	[DisplayName("Floppy drive sound volume")]
+	[Description("Mechanical floppy-drive sound, from silent to 100 percent. This does not control CD audio.")]
 	public Puae6DriveSoundVolume DriveSoundVolume
 	{
 		get => _driveSoundVolume;
@@ -102,7 +107,7 @@ public sealed class Puae6SyncSettings
 	/// <summary>Restart option: Auto builds the three-volume WHDLoad bundle from one installed pack; Disabled keeps the generic volume loader.</summary>
 	public Puae6WhdLoadMode WhdLoad { get; set; } = Puae6WhdLoadMode.Auto;
 
-	/// <summary>Restart option: HRTMon builtin or user-supplied Action Replay firmware. Freeze is a recorded controller level.</summary>
+	/// <summary>Restart option: HRTMon builtin, user-supplied Action Replay, or the CD32 FMV module. Freeze is available only for HRTMon/Action Replay.</summary>
 	public Puae6Cartridge Cartridge { get; set; } = Puae6Cartridge.Disabled;
 	public bool WhdLoadButtonWait { get; set; } = false;
 
@@ -175,9 +180,15 @@ public sealed class Puae6SyncSettings
 	public Puae6ParallelPort ControllerPort3 { get; set; } = Puae6ParallelPort.None;
 	public Puae6ParallelPort ControllerPort4 { get; set; } = Puae6ParallelPort.None;
 
+	[DisplayName("Physical floppy drives")]
+	[Description("Auto connects at least two drives and grows to fit the boot disks. CD32 and CDTV always connect no floppy drives.")]
 	public Puae6FloppyDrives PhysicalFloppyDrives { get; set; } = Puae6FloppyDrives.Auto;
 
 	/// <summary>How many disks are in drives at power-on (1..4). Auto connects at least two drives, growing to fit this number; the rest are slots for Insert.</summary>
+	[DisplayName("Boot disks in floppy drives")]
+	[Description("Number of loaded floppy images mounted at power-on (1 to 4). CD32 and CDTV ignore this and connect no floppy drives.")]
+	[Range(1, 4)]
+	[TypeConverter(typeof(ConstrainedIntConverter))]
 	public int FloppyDrives { get; set; } = 1;
 
 	/// <summary>

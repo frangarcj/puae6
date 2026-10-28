@@ -1,0 +1,56 @@
+diff --git a/src/slice.c b/src/slice.c
+--- a/src/slice.c
++++ b/src/slice.c
+@@ -277,7 +277,7 @@ static inline int get_luma_dc_dct_diff (mpeg2_decoder_t * const decoder)
+ 	    dc_diff =
+ 		UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
+ 	    bit_buf <<= size;
+-	    return dc_diff << decoder->intra_dc_precision;
++	    return dc_diff * (1 << decoder->intra_dc_precision);
+ 	} else {
+ 	    DUMPBITS (bit_buf, bits, 3);
+ 	    return 0;
+@@ -290,6 +290,6 @@ static inline int get_luma_dc_dct_diff (mpeg2_decoder_t * const decoder)
+ 	dc_diff = UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
+ 	DUMPBITS (bit_buf, bits, size);
+-	return dc_diff << decoder->intra_dc_precision;
++	return dc_diff * (1 << decoder->intra_dc_precision);
+     }
+ #undef bit_buf
+ #undef bits
+@@ -314,7 +314,7 @@ static inline int get_chroma_dc_dct_diff (mpeg2_decoder_t * const decoder)
+ 	    dc_diff =
+ 		UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
+ 	    bit_buf <<= size;
+-	    return dc_diff << decoder->intra_dc_precision;
++	    return dc_diff * (1 << decoder->intra_dc_precision);
+ 	} else {
+ 	    DUMPBITS (bit_buf, bits, 2);
+ 	    return 0;
+@@ -327,17 +327,20 @@ static inline int get_chroma_dc_dct_diff (mpeg2_decoder_t * const decoder)
+ 	dc_diff = UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
+ 	DUMPBITS (bit_buf, bits, size);
+-	return dc_diff << decoder->intra_dc_precision;
++	return dc_diff * (1 << decoder->intra_dc_precision);
+     }
+ #undef bit_buf
+ #undef bits
+ #undef bit_ptr
+ }
+ 
+-#define SATURATE(val)				\
+-do {						\
+-    val <<= 4;					\
+-    if (unlikely (val != (int16_t) val))	\
+-	val = (SBITS (val, 1) ^ 2047) << 4;	\
++#define SATURATE(val)			\
++do {					\
++    if (unlikely (val > 2047))		\
++	val = 32752;			\
++    else if (unlikely (val < -2048))	\
++	val = -32768;			\
++    else				\
++	val *= 16;			\
+ } while (0)
+ 
+ static void get_intra_block_B14 (mpeg2_decoder_t * const decoder,

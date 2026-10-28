@@ -7,7 +7,7 @@ bool AudioPlayer::capture(AudioPlayerState *out) const
 {
     if (!out) return false;
     AudioPlayerState s{};
-    if (!p6_cda::capture(stream_, pcm_, 588, &s.stream)) return false;
+    if (!p6_cda::capture_runtime(stream_, pcm_, 588, &s.stream, &s.streamid)) return false;
     s.delay = delay_; memcpy(s.pcm, pcm_, sizeof pcm_);
     s.bound = disc_ != nullptr;
     if (disc_) memcpy(s.disc_id, disc_->layout().content_id, sizeof s.disc_id);
@@ -24,6 +24,7 @@ bool AudioPlayer::validate(const AudioPlayerState &s, const Disc *disc, uint32_t
     if (s.bound > 1 || s.running > 1 || s.sector > 1 || s.callbacks > 3
         || s.left > 65535 || s.right > 65535 || s.delay > max_delay || s.position > s.end || s.end > INT_MAX
         || s.error < int(Result::Ok) || s.error > int(Result::Unsupported) || s.stream.userdata
+        || s.streamid > p6_cda::kMaxStreams || bool(s.streamid) != bool(s.stream.active)
         || !p6_cda::validate(s.stream, 588, period)) return false;
     if (!s.bound) {
         const uint8_t empty[32]{};
@@ -58,13 +59,13 @@ bool AudioPlayer::can_restore(const AudioPlayerState &s, const Disc *disc,
                               play_status_callback status, play_subchannel_callback sub) const
 {
     return validate(s, disc, s.stream.period) && s.callbacks == ((status ? 1u : 0u) | (sub ? 2u : 0u)) &&
-        p6_cda::can_restore(stream_, pcm_, 588, s.stream);
+        p6_cda::can_restore_runtime(stream_, pcm_, 588, s.stream, s.streamid);
 }
 bool AudioPlayer::restore(const AudioPlayerState &s, const Disc *disc,
                           play_status_callback status, play_subchannel_callback sub)
 {
     if (!can_restore(s, disc, status, sub)
-        || !p6_cda::restore(stream_, pcm_, 588, s.stream, consumed, this)) return false;
+        || !p6_cda::restore_runtime(stream_, pcm_, 588, s.stream, s.streamid, consumed, this)) return false;
     // No failure or reentry remains after the stream preflight; PCM is owned here.
     memcpy(pcm_, s.pcm, sizeof pcm_); disc_ = disc;
     status_callback_ = status; sub_callback_ = sub;

@@ -16,6 +16,9 @@ extern bool profile_state_supported;
 
 // Name under which p6_load registers the firmware buffer with the engine's blob store.
 extern const char *const kFirmwareId;
+// Canonical 256 KiB CD32 FMV cartridge ROM copied by p6_cartridge_bind. It is
+// an immutable session owner, never a path or a pointer borrowed from the host.
+extern const char *const kFmvCartridgeId;
 
 // The memory a config asks for, in KiB, after the machine's own sizes have replaced the zeros of p6_config (T49).
 struct Memory {
@@ -79,6 +82,12 @@ bool ar_identity(uint8_t out[32]);
 // AR1200 shares the monitor slot between its private probe and public binding.
 p6_result bind_ar1200(p6_buffer image, p6_error *error);
 bool ar1200_bound();
+
+// CD32 FMV firmware owner (T43a). Binding does not claim that the decoder is
+// present; lifecycle rejects the load explicitly until FMV-B links it.
+p6_result bind_cd32_fmv(p6_buffer image, p6_error *error);
+bool cd32_fmv_bound();
+bool cd32_fmv_identity(uint8_t out[32]);
 
 // Private HRTMon vertical: the pinned raw builtin, copied before load; Freeze only at a running A1200 boundary.
 p6_result bind_hrtmon(p6_buffer image, p6_error *error);

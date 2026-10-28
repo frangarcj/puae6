@@ -16,6 +16,7 @@
 #include "media/cd_device.h"
 #include "media/cd_read.h"
 #include "audio_cda_state.h"
+#include "fmv_state.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -298,7 +299,13 @@ uint32_t cpu_spc(Mode mode) { return mode==Mode::Save ? uint32_t(regs.spcflags) 
 
 const MediaPlan *loading_media() { return g_context ? &g_context->media : nullptr; }
 
-uint32_t chunk_count() { return currprefs.cs_cdtvcd || session.config.machine == p6_bridge::kCd32Machine ? kMaxChunkCount : kChunkCount; }
+uint32_t chunk_count()
+{
+    if (currprefs.cs_cdtvcd) return kCdChunkCount;
+    if (session.config.machine == p6_bridge::kCd32Machine)
+        return p6_bridge::cd32_fmv_bound() ? kMaxChunkCount : kCdChunkCount;
+    return kChunkCount;
+}
 void publish_scheduler_cycle(int64_t cycle) { if (g_context) g_context->scheduler_cycle = cycle; }
 int64_t scheduler_cycle(Mode mode)
 {
@@ -318,6 +325,7 @@ const Chunk kChunks[kMaxChunkCount + 1] = {
     {"P6IN", "input", 1, visit_input, nullptr},
     {"P6BR", "bridge", 1, visit_bridge, nullptr},
     {"P6AK", "akiko", 1, visit_akiko, nullptr},
+    {"P6FM", "fmv", 1, visit_fmv, nullptr},
     {"P6CT", "cdtv", 1, visit_cdtv, nullptr, cdtv_matches_destination},
 };
 
@@ -346,6 +354,10 @@ void manifest_prefix_hash(uint32_t count, uint8_t out[32])
     if (p6_bridge::ar_identity(cartridge)) {
         const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
         domain_hash(armodel==1?"p6/media/ar1/v1":"p6/media/ar23/v1",parts,lengths,2,out);
+    }
+    if (p6_bridge::cd32_fmv_identity(cartridge)) {
+        const uint8_t *parts[2]={out,cartridge}; const uint64_t lengths[2]={32,32};
+        domain_hash("p6/media/cd32-fmv/v1",parts,lengths,2,out);
     }
     // The ordered CD catalog is fixed; which of its discs is selected is state.
     // Unbound legacy profiles preserve their existing identity byte for byte.
@@ -648,7 +660,6 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         archive.finish();
         if (!archive.ok()) return refused(error, chunk.name, archive.why());
     }
-
     // (8) What the bodies say about the media, against the manifest the identity has already compared (the registered media, which the image has whether or not it
     // has started): the drives of the live machine are not consulted, so a state is loaded whatever they hold now. Last of the refusals: the next step starts to
     // mutate the image.
@@ -668,7 +679,10 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // when there are no extra streams, including a cold destination.
     if (currprefs.cs_cdtvcd || session.config.machine == p6_bridge::kCd32Machine) {
         int32_t phase[p6_cda::kPhaseWords];
-        if (!p6_cd::device_phase_get(phase, p6_cda::kPhaseWords))
+        const bool phase_ok = currprefs.cs_cd32fmv
+            ? p6_fmv_audio_phase_get(phase, p6_cda::kPhaseWords)
+            : p6_cd::device_phase_get(phase, p6_cda::kPhaseWords);
+        if (!phase_ok)
             return p6_fail(error, P6_ERROR_BAD_STATE, "CD32 audio destination has an unsupported or foreign stream");
     }
     // (9) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
@@ -691,7 +705,10 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
         if (options.fail_apply) archive.fail("a failure injected by a test");
         if (!archive.ok()) {
             session.state = State::Faulted;
-            return p6_fail(error, P6_ERROR_INTERNAL, "a chunk failed to apply after it was validated; the image is faulted");
+            char text[P6_ERROR_TEXT_CAPACITY];
+            snprintf(text, sizeof text, "chunk %s failed to apply after validation: %s; the image is faulted",
+                     chunk.name, archive.why());
+            return p6_fail(error, P6_ERROR_INTERNAL, text);
         }
     }
     for (uint32_t i = 0; i < chunk_count(); ++i)

@@ -156,12 +156,16 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public static uint CartridgeModel(Puae6Cartridge cartridge) => cartridge switch
 	{
 		Puae6Cartridge.Disabled or Puae6Cartridge.HrtMon => 0, Puae6Cartridge.Ar1 => 1, Puae6Cartridge.Ar2 => 2,
-		Puae6Cartridge.Ar3 => 3, Puae6Cartridge.Ar1200 => 1200, _ => throw new ArgumentOutOfRangeException(nameof(cartridge)),
+		Puae6Cartridge.Ar3 => 3, Puae6Cartridge.Ar1200 => 1200, Puae6Cartridge.Fmv => 32, _ => throw new ArgumentOutOfRangeException(nameof(cartridge)),
 	};
+	public static bool IsFreezerCartridge(Puae6Cartridge cartridge) => cartridge is Puae6Cartridge.HrtMon
+		or Puae6Cartridge.Ar1 or Puae6Cartridge.Ar2 or Puae6Cartridge.Ar3 or Puae6Cartridge.Ar1200;
 	/// <summary>Only floppy writes and builtin HRTMon occupy config flags.</summary>
 	public static uint ConfigFlags(Puae6Cartridge cartridge, bool floppyWrites, Puae6Machine machine)
 	{
 		uint model = CartridgeModel(cartridge);
+		if (model == 32 && machine != Puae6Machine.CD32)
+			throw new ArgumentException("CD32 FMV requires the CD32 machine", nameof(cartridge));
 		if ((cartridge == Puae6Cartridge.HrtMon || model == 1200) && machine != Puae6Machine.A1200 || model is 1 or 2 or 3 && machine != Puae6Machine.A500)
 			throw new ArgumentException("HRTMon/AR1200 require A1200; AR1/2/3 require stock A500", nameof(cartridge));
 		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (cartridge == Puae6Cartridge.HrtMon ? P6.ConfigHrtMon : 0);
@@ -169,7 +173,16 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	static void ValidateCartridge(Puae6SyncSettings settings, byte[]? raw, bool cd)
 	{
 		uint model = CartridgeModel(settings.Cartridge); ConfigFlags(settings.Cartridge, settings.FloppyWrites, settings.Machine);
-		if (model == 0) { if (raw is not null) throw new ArgumentException("Only Action Replay takes cartridge firmware", nameof(raw)); return; }
+		if (model == 0) { if (raw is not null) throw new ArgumentException("Only an external cartridge takes cartridge firmware", nameof(raw)); return; }
+		if (model == 32)
+		{
+			if (!cd) throw new ArgumentException("CD32 FMV requires direct CD content", nameof(settings));
+			if (raw is null || raw.Length is not (262144 or 524288))
+				throw new ArgumentException("CD32 FMV requires a 256 KiB raw ROM or a doubled 512 KiB container", nameof(raw));
+			if (raw.Length == 524288 && !raw.AsSpan(0, 262144).SequenceEqual(raw.AsSpan(262144)))
+				throw new ArgumentException("CD32 FMV 512 KiB container halves differ", nameof(raw));
+			return; // p6_cartridge_bind authenticates the known 40.22/40.30 contents.
+		}
 		bool aga = model == 1200; var own = OwnMemory(settings.Machine);
 		if (cd || settings.FloppyWrites || settings.FpuModel != Puae6Fpu.None || settings.Z3Memory != Puae6Z3Memory.None || settings.HdfController != Puae6HdfController.Uae
 			|| settings.CpuModel != Puae6Cpu.Auto && settings.CpuModel != (aga ? Puae6Cpu.M68020 : Puae6Cpu.M68000)
@@ -196,9 +209,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public static WaterboxOptions Heaps(Puae6SyncSettings settings, IEnumerable<long> hardFileBytes)
 	{
 		long hard = hardFileBytes.Sum(bytes => (long)HardFileHeapKiB(bytes));
+		long fmv = settings.Cartridge == Puae6Cartridge.Fmv ? FmvMmapKiB : 0;
 		return new()
 		{
-			SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * (ExtraMemoryKiB(settings) + hard)),
+			SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * (ExtraMemoryKiB(settings) + hard + fmv)),
 		};
 	}
 
@@ -207,6 +221,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	/// <summary>The write overlay of the floppies counted as extra memory of the sandbox (T28): its pool is 3520 sectors, 1.8 MiB, and a machine whose guest wrote every track of both disks measured 3.9 MiB more committed in the mmap heap (manifests/waterbox-memory.json, measured_a500_floppy_writes_full).</summary>
 	public const int FloppyOverlayKiB = 4096;
+	/// <summary>The FMV board's RAM, eight decoded-frame slots, PCM queues, allocator overhead and libmpeg2 working/output buffers, rounded to 10 MiB. It is mutable mmap state and therefore grows the budget by the normal 2x measured-capacity rule.</summary>
+	public const int FmvMmapKiB = 10240;
 
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
@@ -379,6 +395,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
+			SyncSettings = _syncSettings.Clone(),
 			Firmware = (byte[])parameters.Firmware.Clone(), CartridgeFirmware = parameters.CartridgeFirmware?.ToArray(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
 			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
 			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
@@ -728,7 +745,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
         var packet = new P6InputV2 { Base = BuildInput(controller, out bool power) };
         if (_syncSettings.ControllerPort3 == Puae6ParallelPort.Joystick) packet.Port2 = JoystickPacket(controller, 3);
         if (_syncSettings.ControllerPort4 == Puae6ParallelPort.Joystick) packet.Port3 = JoystickPacket(controller, 4);
-        if (_syncSettings.Cartridge != Puae6Cartridge.Disabled && controller.IsPressed(Controllers.Freeze)) packet.Commands = P6.CommandFreeze;
+        if (IsFreezerCartridge(_syncSettings.Cartridge) && controller.IsPressed(Controllers.Freeze)) packet.Commands = P6.CommandFreeze;
         if (packet.Port2.Type != 0 || packet.Port3.Type != 0 || packet.Commands != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
@@ -920,9 +937,16 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	// Presentation stays at the user's current choice when a state loads.
 	public Puae6Settings GetSettings() => _settings.Clone();
-	public Puae6SyncSettings GetSyncSettings() => _syncSettings.Clone();
+	// Sync settings are pending until EmuHawk rebuilds the core. Keep them apart from _syncSettings: the latter describes the live machine and
+	// remains the identity/input source until that reboot, while GetSyncSettings is what the frontend commits to its configuration first.
+	public Puae6SyncSettings GetSyncSettings() => _parameters.SyncSettings.Clone();
 	public PutSettingsDirtyBits PutSettings(Puae6Settings settings) { _settings = settings.Clone(); return PutSettingsDirtyBits.None; }
-	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings) => Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
+	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings)
+	{
+		var result = Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
+		_parameters.SyncSettings = settings.Clone();
+		return result;
+	}
 
 	// ----- IStatable -----------------------------------------------------------------------------------------------------------------
 	// A state is an envelope (StateEnvelope: what it is valid for, its length and its checksum) around a payload: what the wrapper holds that the sandbox does not

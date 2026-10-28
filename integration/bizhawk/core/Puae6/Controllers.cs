@@ -120,7 +120,7 @@ public static class Controllers
 			? [ NextSlot, EjectDisk, InsertDisk ] : [ NextDrive, NextSlot, EjectDisk, InsertDisk ]);
 		// EmuHawk's Hard Reset and Soft Reset menu actions/hotkeys.
 		controller.BoolButtons.AddRange([ Power, Reset ]);
-		if (settings.Cartridge != Puae6Cartridge.Disabled) controller.BoolButtons.Add(Freeze);
+		if (Puae6Core.IsFreezerCartridge(settings.Cartridge)) controller.BoolButtons.Add(Freeze);
 		foreach (var name in KeyNames)
 		{
 			if (name is null) continue;

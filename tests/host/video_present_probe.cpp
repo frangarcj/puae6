@@ -178,7 +178,6 @@ int main()
         { P6_VIDEO_CFG_AUX_BUFFER, [](uae_prefs &p) { p.genlock_effects = 1; } },
         { P6_VIDEO_CFG_AUX_BUFFER, [](uae_prefs &p) { p.monitoremu = 1; } },
         { P6_VIDEO_CFG_AUX_BUFFER, [](uae_prefs &p) { p.monitoremu_mon = 1; } },
-        { P6_VIDEO_CFG_AUX_BUFFER, [](uae_prefs &p) { p.cs_cd32fmv = true; } },
         { P6_VIDEO_CFG_COLOR_MATH, [](uae_prefs &p) { p.gfx_luminance = 1; } },
         { P6_VIDEO_CFG_COLOR_MATH, [](uae_prefs &p) { p.gfx_contrast = -1; } },
         { P6_VIDEO_CFG_COLOR_MATH, [](uae_prefs &p) { p.gfx_gamma = 5; } },

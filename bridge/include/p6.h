@@ -416,11 +416,15 @@ p6_result p6_init(const p6_config *config, p6_error *error);
 #define P6_CARTRIDGE_AR1 UINT32_C(1)
 #define P6_CARTRIDGE_AR2 UINT32_C(2)
 #define P6_CARTRIDGE_AR3 UINT32_C(3)
+#define P6_CARTRIDGE_CD32_FMV UINT32_C(32)
 #define P6_CARTRIDGE_AR1200 UINT32_C(1200)
 /* Bind once after init/before load: copies raw AR1(64KiB)/AR2(128KiB)/AR3(256KiB)
  * on stock A500/68000 Exact or Compatible, or AR1200(256KiB ATZ!HRT!) on stock
- * A1200/68EC020. Exclusive with every cartridge/HRTMon; unload releases the copy.
- * Other models are BAD_ARGUMENT; wrong raw size is WRONG_MEDIA. */
+ * A1200/68EC020. CD32_FMV accepts only the known 40.22/40.30 256KiB ROM, or a
+ * 512KiB container made of two identical copies, and canonicalizes it to 256KiB.
+ * Owners are exclusive; unload/shutdown releases the copy. Other models are
+ * BAD_ARGUMENT; wrong raw size/content is WRONG_MEDIA. Until the decoder is
+ * linked, p6_load with CD32_FMV returns UNSUPPORTED rather than omitting it. */
 p6_result p6_cartridge_bind(uint32_t model, p6_buffer image, p6_error *error);
 p6_result p6_load(p6_buffer firmware, const p6_media *media,
                   uint32_t media_count, p6_error *error);

@@ -359,10 +359,10 @@ class LibretroParity(Schema):
         cartridge=self.options['cartridge']
         self.assertEqual([(v['value'],v['abi']) for v in cartridge['values']], [('disabled',0),('hrtmon',2)])
         self.assertEqual({v['value']:v['abi'] for v in cartridge['libretro']['extra_values']},
-                         {'ar1':3,'ar2':4,'ar3':5,'ar1200':6})
+                         {'ar1':3,'ar2':4,'ar3':5,'ar1200':6,'fmv':7})
         self.assertEqual(self.table['p6_config']['flags']['allowed'],[0,1,2,3])
-        self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6 }',read(SETTINGS_CS))
-        self.assertEqual(self.table['adapters']['cartridge']['wrapper_extra_values'], {'Ar1':3,'Ar2':4,'Ar3':5,'Ar1200':6})
+        self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6, Fmv = 7 }',read(SETTINGS_CS))
+        self.assertEqual(self.table['adapters']['cartridge']['wrapper_extra_values'], {'Ar1':3,'Ar2':4,'Ar3':5,'Ar1200':6,'Fmv':7})
         for bad in ('not an identifier', 'HrtMon'):
             changed=gen.load_schema(); next(o for o in changed['options'] if o['id']=='cartridge')['libretro']['extra_values'][0]['wrapper_name']=bad
             with self.assertRaises(gen.SchemaError): gen.validate_schema(changed)

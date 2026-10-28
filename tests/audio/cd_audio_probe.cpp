@@ -18,6 +18,8 @@ int do_cycles_cck(int) { abort(); }
 void event_doint_delay_do_ext(uae_u32) { abort(); }
 static int completed;
 static void ended(int tag, void *) { assert(tag == 7); ++completed; }
+static int fmv_completed;
+static void fmv_ended(int tag, void *) { assert(tag == 9); ++fmv_completed; }
 static void advance(int cycles)
 {
     schedule_audio(); events_schedule(); do_cycles_normal(cycles); update_audio();
@@ -44,6 +46,87 @@ static void start(int rate, bool ntsc, cd_audio_state &cas, int16_t *buffer)
     audio_cda_new_buffer(&cas, buffer, 588, 7, ended, nullptr);
 }
 #ifndef P6_CDA_FIXTURE_ONLY
+static void coexist_case()
+{
+    int16_t cdda_pcm[588 * 2], fmv_pcm[p6_cda::kMaxRuntimeFrames * 2];
+    for (int n = 0; n < 588; ++n) {
+        cdda_pcm[n * 2] = int16_t(1000 + n); cdda_pcm[n * 2 + 1] = int16_t(-1000 - n);
+    }
+    for (uint32_t n = 0; n < p6_cda::kMaxRuntimeFrames; ++n) {
+        fmv_pcm[n * 2] = int16_t(2000 + n % 100); fmv_pcm[n * 2 + 1] = int16_t(3000 + n % 100);
+    }
+    cd_audio_state cdda{}, fmv{};
+    start(44100, false, cdda, cdda_pcm);
+    fmv_completed = 0; audio_cda_volume(&fmv, 32768, 32768);
+    audio_cda_new_buffer(&fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, 9, fmv_ended, nullptr);
+    assert(cdda.cda_streamid == 1 && fmv.cda_streamid == 2 && audio_total_extra_streams == 2);
+
+    // Both owners share the same emulated 44.1-kHz deadline. The initial
+    // CYCLE_UNIT event plus ten periods consumes exactly eleven frames.
+    advance(int(CYCLE_UNIT + cda_evt * 10)); pcm();
+    assert(cdda.cda_bufptr == cdda_pcm + 11 * 2 && cdda.cda_length == 588 - 11);
+    assert(fmv.cda_bufptr == fmv_pcm + 11 * 2 && fmv.cda_length == int(p6_cda::kMaxRuntimeFrames) - 11);
+
+    // Muting and suppressing host delivery do not stop the emulated consumer.
+    audio_cda_volume(&fmv, 0, 0); p6_pcm_set_delivery(false);
+    advance(int(cda_evt * 7)); p6_pcm_set_delivery(true);
+    assert(cdda.cda_bufptr == cdda_pcm + 18 * 2 && fmv.cda_bufptr == fmv_pcm + 18 * 2);
+    assert(audio_stream[1].data[0].current_sample == 0 && audio_stream[1].data[1].current_sample == 0);
+
+    // Pause is owner-local: FMV emits silence without consuming while CDDA
+    // advances on the same five deadlines, then resumes without phase reset.
+    assert(p6_cda::pause(fmv, true));
+    advance(int(cda_evt * 5)); pcm();
+    assert(cdda.cda_bufptr == cdda_pcm + 23 * 2 && fmv.cda_bufptr == fmv_pcm + 18 * 2);
+    assert(audio_stream[1].data[0].current_sample == 0 && audio_stream[1].data[1].current_sample == 0);
+    assert(p6_cda::pause(fmv, false)); audio_cda_volume(&fmv, 32768, 32768);
+
+    // A copied/stale descriptor cannot stop slot1/slot2. The real FMV owner
+    // can stop only its slot, leaving CDDA live and on its next exact sample.
+    cd_audio_state forged = fmv;
+    audio_cda_new_buffer(&forged, nullptr, -1, 0, nullptr, nullptr);
+    assert(fmv.cda_streamid == 2 && audio_total_extra_streams == 2);
+    advance(int(cda_evt * 2)); pcm();
+    assert(cdda.cda_bufptr == cdda_pcm + 25 * 2 && fmv.cda_bufptr == fmv_pcm + 20 * 2);
+
+    // Both value codecs remain owner-local while the streams coexist. Rebind
+    // FMV to its saved slot without disturbing CDDA or its next sample.
+    p6_cda::State cdda_saved{}, fmv_saved{}, fmv_again{}; uint32_t fmv_streamid = 0, again_streamid = 0;
+    assert(p6_cda::capture(cdda, cdda_pcm, 588, &cdda_saved));
+    assert(p6_cda::capture_runtime(fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, &fmv_saved, &fmv_streamid));
+    assert(cdda_saved.offset == 25 && fmv_saved.offset == 20 && fmv_streamid == 2);
+    assert(!p6_cda::can_restore_runtime(fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, fmv_saved, 1));
+    audio_cda_new_buffer(&fmv, nullptr, -1, 0, nullptr, nullptr);
+    assert(p6_cda::can_restore_runtime(fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, fmv_saved, fmv_streamid));
+    assert(p6_cda::restore_runtime(fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, fmv_saved, fmv_streamid,
+                                   fmv_ended, nullptr));
+    assert(p6_cda::capture_runtime(fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, &fmv_again, &again_streamid));
+    assert(again_streamid == fmv_streamid && memcmp(&fmv_again, &fmv_saved, sizeof fmv_again) == 0);
+    p6_cda::State cdda_again{}; assert(p6_cda::capture(cdda, cdda_pcm, 588, &cdda_again));
+    assert(memcmp(&cdda_again, &cdda_saved, sizeof cdda_again) == 0);
+
+    audio_cda_new_buffer(&fmv, nullptr, -1, 0, nullptr, nullptr);
+    assert(fmv.cda_streamid == 0 && cdda.cda_streamid == 1 && audio_total_extra_streams == 1);
+    advance(int(cda_evt * 3)); pcm();
+    assert(cdda.cda_bufptr == cdda_pcm + 28 * 2);
+
+    cd_audio_state oversized{};
+    audio_cda_new_buffer(&oversized, fmv_pcm, p6_cda::kMaxRuntimeFrames + 1, 9, fmv_ended, nullptr);
+    assert(oversized.cda_streamid <= 0 && audio_total_extra_streams == 1);
+    audio_cda_new_buffer(&cdda, nullptr, -1, 0, nullptr, nullptr);
+    assert(audio_total_extra_streams == 0 && audio_data[4] == nullptr);
+
+    // Exhaustion invokes the callback once. A later deadline retires only the
+    // empty FMV stream; the simultaneous CDDA stream keeps advancing.
+    start(44100, false, cdda, cdda_pcm); fmv = {}; fmv_completed = 0;
+    audio_cda_volume(&fmv, 32768, 32768);
+    audio_cda_new_buffer(&fmv, fmv_pcm, 3, 9, fmv_ended, nullptr);
+    advance(int(CYCLE_UNIT + cda_evt * 4)); pcm();
+    assert(fmv_completed == 1 && fmv.cda_streamid == 0 && cdda.cda_streamid == 1);
+    assert(cdda.cda_bufptr == cdda_pcm + 5 * 2);
+    audio_cda_new_buffer(&cdda, nullptr, -1, 0, nullptr, nullptr);
+}
+
 static void restore_case(int rate, bool ntsc)
 {
     int16_t buffer[1176], rebound[1176];
@@ -170,6 +253,7 @@ static void restore_case(int rate, bool ntsc)
 int main()
 {
     for (int rate : {44100, 48000}) for (bool ntsc : {false, true}) restore_case(rate, ntsc);
+    coexist_case();
 }
 
 #endif

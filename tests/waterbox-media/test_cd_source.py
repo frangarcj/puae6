@@ -46,12 +46,14 @@ class CdTransportTests(unittest.TestCase):
 class Cd32WaterboxTests(CdTransportTests):
     modes = ("cd32save", "cd32load")
     def setUp(self):
-        main, ext = os.environ.get('P6_CD32_ROM_MAIN'), os.environ.get('P6_CD32_ROM_EXT')
-        if not main or not ext:
+        downloads = Path.home() / 'Downloads'
+        main = Path(os.environ.get('P6_CD32_ROM_MAIN', downloads / 'kick40060.CD32'))
+        ext = Path(os.environ.get('P6_CD32_ROM_EXT', downloads / 'kick40060.CD32.ext'))
+        if not main.is_file() or not ext.is_file():
             self.skipTest('BLOCKED: authorized CD32 main/ext ROMs required')
         wb.check_guest_matches_trees(RECEIPT)
         self.names = (os.environ.get('P6_CD_CUE_FILE', 'device.iso'),)
-        self.extra_args = (main, ext)
+        self.extra_args = (str(main), str(ext))
 
 class Cd32CatalogWaterboxTests(Cd32WaterboxTests):
     modes = ("cd32catalogsave", "cd32catalogload")
@@ -127,6 +129,9 @@ class Cd32PublicCoreTests(Cd32WaterboxTests):
                                      f'-p:CoreAssemblyDir={assembly.parent}', f'-p:RestoreSources={Path.home() / ".nuget/packages"}'],
                                     env=env, capture_output=True, text=True, timeout=180)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            guest_dir = work / 'bin/Debug/net8.0/dll'
+            guest_dir.mkdir(exist_ok=True)
+            shutil.copy2(GUEST, guest_dir / 'puae6.wbx')
             path = self.names[0]
             if path == 'device.iso':
                 path = str(work / path); Path(path).write_bytes(bytes(512 * 2048))
@@ -154,3 +159,18 @@ class Cd32GameCoreTests(Cd32PublicCoreTests):
         if not content:
             self.skipTest('BLOCKED: authorized Brian the Lion P6_CD32_GAME_CUE required')
         self.names = (content,)
+
+class Cd32FmvCoreTests(Cd32PublicCoreTests):
+    public_modes = ('fmvsave', 'fmvload')
+    def setUp(self):
+        downloads = Path.home() / 'Downloads'
+        main = Path(os.environ.get('P6_CD32_ROM_MAIN', downloads / 'kick40060.CD32'))
+        ext = Path(os.environ.get('P6_CD32_ROM_EXT', downloads / 'kick40060.CD32.ext'))
+        fmv = Path(os.environ.get('P6_CD32_FMV_ROM', downloads / 'FMV.CD32-2.rom'))
+        content = Path(os.environ.get('P6_CANNON_FODDER_CUE',
+                                      downloads / 'Cannon Fodder (Europe)' / 'Cannon Fodder (Europe).cue'))
+        if not all(path.is_file() for path in (main, ext, fmv, content)):
+            self.skipTest('BLOCKED: authorized CD32/FMV ROMs and P6_CANNON_FODDER_CUE required')
+        wb.check_guest_matches_trees(RECEIPT)
+        self.names = (str(content),)
+        self.extra_args = (str(main), str(ext), str(fmv))

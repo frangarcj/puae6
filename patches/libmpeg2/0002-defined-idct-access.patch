@@ -1,0 +1,67 @@
+diff --git a/src/idct.c b/src/idct.c
+--- a/src/idct.c
++++ b/src/idct.c
+@@ -70,17 +70,15 @@ static inline void idct_row (int16_t * const block)
+ {
+     int d0, d1, d2, d3;
+     int a0, a1, a2, a3, b0, b1, b2, b3;
+     int t0, t1, t2, t3;
++    int i;
+ 
+     /* shortcut */
+-    if (likely (!(block[1] | ((int32_t *)block)[1] | ((int32_t *)block)[2] |
+-		  ((int32_t *)block)[3]))) {
+-	uint32_t tmp = (uint16_t) (block[0] >> 1);
+-	tmp |= tmp << 16;
+-	((int32_t *)block)[0] = tmp;
+-	((int32_t *)block)[1] = tmp;
+-	((int32_t *)block)[2] = tmp;
+-	((int32_t *)block)[3] = tmp;
++    if (likely (!(block[1] | block[2] | block[3] | block[4] |
++		  block[5] | block[6] | block[7]))) {
++	int16_t tmp = block[0] >> 1;
++	for (i = 0; i < 8; i++)
++	    block[i] = tmp;
+ 	return;
+     }
+ 
+@@ -87,6 +85,6 @@ static inline void idct_row (int16_t * const block)
+-    d0 = (block[0] << 11) + 2048;
++    d0 = block[0] * 2048 + 2048;
+     d1 = block[1];
+-    d2 = block[2] << 11;
++    d2 = block[2] * 2048;
+     d3 = block[3];
+     t0 = d0 + d2;
+     t1 = d0 - d2;
+@@ -128,6 +126,6 @@ static inline void idct_col (int16_t * const block)
+-    d0 = (block[8*0] << 11) + 65536;
++    d0 = block[8*0] * 2048 + 65536;
+     d1 = block[8*1];
+-    d2 = block[8*2] << 11;
++    d2 = block[8*2] * 2048;
+     d3 = block[8*3];
+     t0 = d0 + d2;
+     t1 = d0 - d2;
+@@ -179,8 +177,8 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
+ 	dest[6] = CLIP (block[6]);
+ 	dest[7] = CLIP (block[7]);
+ 
+-	((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
+-	((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
++	block[0] = block[1] = block[2] = block[3] = 0;
++	block[4] = block[5] = block[6] = block[7] = 0;
+ 
+ 	dest += stride;
+ 	block += 8;
+@@ -207,8 +205,8 @@ static void mpeg2_idct_add_c (const int last, int16_t * block,
+ 	    dest[6] = CLIP (block[6] + dest[6]);
+ 	    dest[7] = CLIP (block[7] + dest[7]);
+ 
+-	    ((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
+-	    ((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
++	    block[0] = block[1] = block[2] = block[3] = 0;
++	    block[4] = block[5] = block[6] = block[7] = 0;
+ 
+ 	    dest += stride;
+ 	    block += 8;

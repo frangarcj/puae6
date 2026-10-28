@@ -881,8 +881,11 @@ def audit_imports(tc: dict, objects: list[Path]) -> dict:
 
 
 PUAE6_GUEST = "puae6.wbx"
-PUAE6_MANUAL_DIRS = ('bridge', 'ports/portable', 'adapters/waterbox', 'third_party', 'references/machawk/waterbox/emulibc')
-PUAE6_MANUAL_FILES = ('CMakeLists.txt', 'manifests/source-manifest.json', 'manifests/codegen.json', 'ports/waterbox/imports.json')
+PUAE6_MANUAL_DIRS = ('bridge', 'ports/portable', 'adapters/waterbox', 'third_party',
+                     'references/machawk/waterbox/emulibc', 'references/machawk-uae/deps/libmpeg2',
+                     'patches/libmpeg2')
+PUAE6_MANUAL_FILES = ('CMakeLists.txt', 'manifests/source-manifest.json', 'manifests/codegen.json',
+                      'ports/waterbox/imports.json', 'tools/materialize_libmpeg2.py')
 
 
 def puae6_manual_inputs(root: Path = ROOT) -> dict[str, str]:
@@ -931,23 +934,29 @@ def puae6_sources() -> list[str]:
 
 
 STALE_TREES_HELP = ("mueva build/upstream y build/generated a build/stale/<nombre> (nunca se sobrescriben ni se borran aqui) y ejecute "
-                    "python3 tools/materialize_upstream.py y python3 tools/generate_cpu.py")
+                    "python3 tools/materialize_upstream.py, python3 tools/materialize_libmpeg2.py y python3 tools/generate_cpu.py")
 
 
 def ensure_current_trees(root: Path = ROOT) -> dict:
-    """T48f: the guest is only built from build/upstream and build/generated of the CURRENT patch series (patches/winuae/series.json).
+    """The guest only uses current, hash-closed engine, generated, and decoder trees.
 
     build/upstream goes through the official materializer: absent, it is materialized; present, its inventory must be the one the pristine snapshot plus
-    the series gives, otherwise the materializer refuses and so does this. build/generated must carry the receipt of a codegen run over that same
+    the series gives, otherwise the materializer refuses and so does this. build/libmpeg2 follows the same rule from the pinned MacHawk capture and
+    patches/libmpeg2. build/generated must carry the receipt of a codegen run over that same
     upstream commit and series (and the same recipe and source manifest), with the bytes the receipt lists. Nothing is rebuilt or overwritten here: a tree of another
     series is refused with the steps to renew it, instead of compiling a guest from it (a change that does not break the link would otherwise go unnoticed)."""
     import materialize_upstream
+    import materialize_libmpeg2
     import generate_cpu
     root = Path(root)
     try:
         receipt, upstream = materialize_upstream.materialize(root)
     except (ValueError, OSError) as error:
         raise BuildError(f"build/upstream no corresponde a la serie actual de patches/winuae/series.json: {error}\n  {STALE_TREES_HELP}") from error
+    try:
+        libmpeg2_receipt, libmpeg2 = materialize_libmpeg2.materialize(root)
+    except (ValueError, OSError) as error:
+        raise BuildError(f"build/libmpeg2 no corresponde a la serie actual de patches/libmpeg2/series.json: {error}\n  {STALE_TREES_HELP}") from error
     generated = root / "build/generated"
     if not (generated / "codegen-receipt.json").is_file():
         raise BuildError(f"falta {generated / 'codegen-receipt.json'}: ejecute python3 tools/generate_cpu.py")
@@ -963,7 +972,9 @@ def ensure_current_trees(root: Path = ROOT) -> dict:
     stale = [f"{name}: {identity.get(name)} != {value}" for name, value in expected.items() if identity.get(name) != value]
     if stale:
         raise BuildError("build/generated se genero con otra serie o receta que las actuales (" + "; ".join(stale) + f")\n  {STALE_TREES_HELP}")
-    return {"upstream": str(upstream), "generated": str(generated), **expected}
+    return {"upstream": str(upstream), "generated": str(generated),
+            "libmpeg2": str(libmpeg2), "libmpeg2_series": libmpeg2_receipt["series_sha256"],
+            **expected}
 
 
 def puae6_guest_abi(root: Path = ROOT) -> dict:
@@ -1057,7 +1068,7 @@ _TREES_CHECKED = False
 
 
 def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
-    """T48f: a guest is only measured if the engine trees are the current series' (checked once per process) and puae6.wbx was built from exactly those files:
+    """A guest is only measured if all derived trees are current (checked once per process) and puae6.wbx was built from exactly those files:
     its receipt lists the sha256 of every source, including the pinned builtin under build/assets, and generated inputs must still be the ones on disk.
     The complete manual closure, including headers, is rechecked on every call."""
     global _TREES_CHECKED
@@ -1068,9 +1079,10 @@ def check_guest_matches_trees(guest_receipt: Path, root: Path = ROOT) -> None:
     check_puae6_guest_abi(receipt, root)
     sources = receipt["sources"]
     stale = sorted(name for name, digest in sources.items()
-                   if name.startswith(("build/upstream/", "build/generated/", "build/assets/")) and (not (root / name).is_file() or sha256(root / name) != digest))
+                   if name.startswith(("build/upstream/", "build/generated/", "build/assets/", "build/libmpeg2/"))
+                   and (not (root / name).is_file() or sha256(root / name) != digest))
     if stale:
-        raise BuildError(f"{guest_receipt} se construyo con otro build/upstream, build/generated o build/assets ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
+        raise BuildError(f"{guest_receipt} se construyo con otro arbol derivado ({len(stale)} fuentes distintas, p. ej. {stale[:3]}): "
                          "reconstruir el guest con tools/build_waterbox.py --puae6")
     manual = puae6_manual_inputs(root)
     if receipt.get('manual_inputs') != manual or receipt.get('build_inputs', {}).get('manual_inputs') != manual:

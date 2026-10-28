@@ -25,7 +25,7 @@ internal static unsafe partial class Program
   public string Extension => ".adf"; public string RomPath => "mixed.adf"; public GameInfo Game => null;
  }
 
- sealed class Firmware(byte[] main, byte[] ext, bool combined) : ICoreFileProvider
+ sealed class Firmware(byte[] main, byte[] ext, bool combined, byte[] fmv = null) : ICoreFileProvider
  {
   internal readonly List<string> Asked = new();
   internal bool Refuse { get; set; }
@@ -42,6 +42,7 @@ internal static unsafe partial class Program
    if (id.Firmware == Missing) throw new InvalidOperationException("Missing firmware " + Missing);
    if (Refuse) throw new InvalidOperationException("host-stop-before-guest");
    return id.Firmware switch { "CD32" => combined ? ext.Concat(main).ToArray() : main,
+    "CD32FMV" => fmv ?? throw new Exception("FMV firmware was not supplied"),
     "CDTV" => main, "CDTVext27" or "CD32ext" => ext, _ => throw new Exception("Wrong firmware request: " + id) };
   }
  }
@@ -68,11 +69,12 @@ internal static unsafe partial class Program
   using var stream = new MemoryStream(data); using var reader = new BinaryReader(stream); core.LoadStateBinary(reader);
  }
  static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data));
- static string[] Run(Puae6Core core, int count, IController controller = null, Action<short[], int> audioObserver = null)
+ static string[] Run(Puae6Core core, int count, IController controller = null, Action<short[], int> audioObserver = null,
+                     bool render = true, bool renderSound = true)
  {
   controller ??= new Idle(core.ControllerDefinition); var rows = new List<string>();
   for (int i = 0; i < count; ++i) {
-   Require(core.FrameAdvance(controller, true, true));
+   Require(core.FrameAdvance(controller, render, renderSound));
    core.GetSamplesSync(out var samples, out int frames);
    audioObserver?.Invoke(samples, frames);
    var audio = new byte[frames * 4]; Buffer.BlockCopy(samples, 0, audio, 0, audio.Length);
@@ -133,6 +135,31 @@ internal static unsafe partial class Program
   Check(core); using var freshDisc = Mount(args[1]); using var next = open(freshDisc); Check(next);
   Console.WriteLine("Public BizHawk CD32 Brian gameplay/Right interaction/active audio/ticks/full snapshot/new sandbox/new process PASS");
  }
+ static void FmvRestore(string[] args, Disc disc, Func<Disc, Puae6Core> open)
+ {
+  string file = Path.Combine(args[0], "cannon-fmv.state");
+  using var core = open(disc); byte[] cut; string[] future;
+  if (args[5] == "fmvsave") {
+   Run(core, 430);
+   Require(core.BufferWidth == 756 && core.BufferHeight == 576);
+   Require(core.GetVideoBuffer().Take(core.BufferWidth * core.BufferHeight).Any(p => ((uint)p & 0xffffff) != 0));
+   var heaps=Puae6Core.Heaps(core.GetSyncSettings()); ulong committed=CommittedMmap(core);
+   Console.WriteLine($"FMV mmap committed={committed} budget={heaps.MmapHeapSizeKB*1024UL}");
+   Require(heaps.MmapHeapSizeKB==36864 && committed*2<=heaps.MmapHeapSizeKB*1024UL);
+   cut = Save(core); File.WriteAllBytes(file, cut);
+   bool activeAudio = false;
+   future = Run(core, 16, null, (samples, frames) => activeAudio |= samples.Take(frames * 2).Any(s => s != 0));
+   Require(activeAudio); File.WriteAllLines(file + ".future", future); File.WriteAllBytes(file + ".end", Save(core));
+   Restore(core,cut); Require(Run(core,4,render:false,renderSound:false).Length==4);
+  } else { cut = File.ReadAllBytes(file); future = File.ReadAllLines(file + ".future"); }
+  void Check(Puae6Core target) {
+   Restore(target, cut); Require(target.GetSyncSettings().Cartridge == Puae6Cartridge.Fmv);
+   Require(Run(target, 16).SequenceEqual(future));
+   Require(Save(target).SequenceEqual(File.ReadAllBytes(file + ".end")));
+  }
+  Check(core); using var freshDisc = Mount(args[1]); using var next = open(freshDisc); Check(next);
+  Console.WriteLine("Public BizHawk CD32 Cannon Fodder FMV pixels/PCM/ticks/full snapshot/new sandbox/new process PASS");
+ }
  sealed class CdButtons(ControllerDefinition definition, params string[] pressed) : IController
  {
   public ControllerDefinition Definition => definition;
@@ -142,6 +169,14 @@ internal static unsafe partial class Program
   public void SetHapticChannelStrength(string name,int strength) { }
  }
  static Puae6Guest Guest(Puae6Core core) => (Puae6Guest)typeof(Puae6Core).GetField("_guest",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(core);
+ static ulong CommittedMmap(Puae6Core core)
+ {
+  var guest=Guest(core); var ranges=new ulong[16];
+  using(guest.Host.EnterExit()) fixed(ulong* p=ranges) Require(guest.Lib.p6w_memory_info((IntPtr)p,16)==16);
+  var pages=guest.Host.GetPagesDomain(); ulong committed=0, first=(ranges[14]-ranges[0])/4096, count=ranges[15]/4096;
+  for(ulong n=0;n<count;++n) if((pages.PeekByte((long)(first+n))&0x3f)!=0) committed+=4096;
+  return committed;
+ }
  static Puae6Parameters CatalogParameters(CoreComm comm, params Disc[] discs)
  {
   var lp=new CoreLoadParameters<Puae6Settings,Puae6SyncSettings> { Comm=comm, SyncSettings=new Puae6SyncSettings() };
@@ -396,6 +431,7 @@ internal static unsafe partial class Program
   LoadRuntime(args[2]);
   string statePath = Path.Combine(args[0], "public-cd32.state");
   byte[] main = File.ReadAllBytes(args[6]), ext = File.ReadAllBytes(args[7]);
+  byte[] fmv = args[5].StartsWith("fmv") ? File.ReadAllBytes(args[8]) : null;
 #if MOVIES
   if (args[5].StartsWith("movieswap")) { SwapMovies(args, main, ext); return; }
 #endif
@@ -404,9 +440,10 @@ internal static unsafe partial class Program
   long reads = 0;
   var seed = Enumerable.Range(0, 1024).Select(i => (byte)(i * 17 + 9)).ToArray();
   Puae6Core Open(Disc image, bool combined = false, byte[] imported = null, bool fast = false) {
-   var firmware = new Firmware(main, ext, combined);
+   var firmware = new Firmware(main, ext, combined, fmv);
    var comm = new CoreComm(_ => { }, (_, _) => { }, firmware, CoreComm.CorePreferencesFlags.None, null);
-   var original = new Puae6SyncSettings { ControllerPort2 = Puae6Port2.Cd32, FastMemory = fast ? Puae6Fast.MB8 : Puae6Fast.Auto };
+   var original = new Puae6SyncSettings { ControllerPort2 = Puae6Port2.Cd32, FastMemory = fast ? Puae6Fast.MB8 : Puae6Fast.Auto,
+    Cartridge = args[5].StartsWith("fmv") ? Puae6Cartridge.Fmv : Puae6Cartridge.Disabled };
    var lp = new CoreLoadParameters<Puae6Settings, Puae6SyncSettings> { Comm = comm, SyncSettings = original };
    lp.Discs.Add(new DiscAsset(image));
    var method = typeof(Puae6Core).GetMethod("ParametersFrom", BindingFlags.NonPublic | BindingFlags.Static);
@@ -422,11 +459,13 @@ internal static unsafe partial class Program
    var p = Resolve();
    Require(original.Machine == Puae6Machine.A500 && p.SyncSettings.Machine == Puae6Machine.CD32);
    Require(p.SyncSettings.FastMemory == original.FastMemory);
-   Require(firmware.Asked.SequenceEqual(combined ? new[] { "CD32" } : new[] { "CD32", "CD32ext" }));
+   var expectedFirmware = combined ? new List<string> { "CD32" } : new List<string> { "CD32", "CD32ext" };
+   if (fmv != null) expectedFirmware.Add("CD32FMV");
+   Require(firmware.Asked.SequenceEqual(expectedFirmware));
    p.GuestDirectory = Path.GetDirectoryName(args[3]); p.GuestFileName = Path.GetFileName(args[3]); p.PinnedGuestSha256 = args[4];
    var reader = p.ReadCd; p.ReadCd = (at, data, count) => { ++reads; return reader(at, data, count); };
    var core = new Puae6Core(comm, p);
-   if (args[5].StartsWith("game")) return core;
+   if (args[5].StartsWith("game") || args[5].StartsWith("fmv")) return core;
    if (args[5].StartsWith("fr")) { core.StoreSaveRam(seed); return core; }
    if (args[5].StartsWith("movie")) { if (imported != null) core.StoreSaveRam(imported); return core; }
    Require(core.GetSyncSettings().Machine == Puae6Machine.CD32);
@@ -457,6 +496,7 @@ internal static unsafe partial class Program
   }
   if (args[5].StartsWith("fr")) { FastCd32(args, fast => Open(disc, true, null, fast)); return; }
   if (args[5].StartsWith("game")) { GameRestore(args, disc, image => Open(image, true)); return; }
+  if (args[5].StartsWith("fmv")) { FmvRestore(args, disc, image => Open(image, true)); return; }
 #if MOVIES
   if (args[5].StartsWith("movie")) { Movies(args, nv => Open(disc, true, nv)); return; }
 #endif

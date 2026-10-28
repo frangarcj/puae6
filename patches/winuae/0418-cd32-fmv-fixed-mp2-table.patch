@@ -1,0 +1,47 @@
+diff --git a/archivers/mp2/kjmp2.cpp b/archivers/mp2/kjmp2.cpp
+--- a/archivers/mp2/kjmp2.cpp
++++ b/archivers/mp2/kjmp2.cpp
+@@ -23,5 +23,9 @@
+ 
++#include "sysconfig.h"
++
++#ifndef P6_PORTABLE
+ #include <math.h>
++#endif
+ 
+ #include "kjmp2.h"
+ 
+@@ -215,6 +219,6 @@
+ 
+ static int initialized = 0;
+-static int bit_window;
++static unsigned int bit_window;
+ static int bits_in_window;
+ static const unsigned char *frame_pos;
+ 
+@@ -236,17 +240,25 @@
+ // INITIALIZATION                                                             //
+ ////////////////////////////////////////////////////////////////////////////////
+ 
++#ifdef P6_PORTABLE
++static const int N[64][32] = {
++#include "kjmp2_n.inc"
++};
++#else
+ static int N[64][32];  // N[i][j] as 8-bit fixed-point
++#endif
+ 
+ void kjmp2_init(kjmp2_context_t *mp2) {
+     int i, j;
+     // check if global initialization is required
+     if (!initialized) {
++#ifndef P6_PORTABLE
+         int *nptr = &N[0][0];
+         // compute N[i][j]
+         for (i = 0;  i < 64;  ++i)
+             for (j = 0;  j < 32;  ++j)
+                 *nptr++ = (int) (256.0 * cos(((16 + i) * ((j << 1) + 1)) * 0.0490873852123405));
++#endif
+         initialized = 1;
+     }
+ 

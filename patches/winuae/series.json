@@ -4848,15 +4848,18 @@
     {
       "id": "0362-cd32-without-fmv",
       "file": "patches/winuae/0362-cd32-without-fmv.patch",
-      "sha256": "9dbf0597344932e852d101f2ea62ae0023110f32f31bfb85a53058a1cb504fad",
-      "title": "Compile stock CD32 without excluded FMV or accelerator host ROM hooks",
-      "reason": "T66k1 selects Akiko/CD32 hardware, while FMV remains an excluded and unavailable expansion. Guard its sole sync call rather than acknowledge it with a stub. Portable CD32 is stock 68EC020: exclude the accelerator ROM speed workaround and its unavailable protect_roms host hook, rather than provide a fake protection service. Guard both FMV sync and rendering; the first real link exposed active/genlock references in drawing.cpp.",
+      "sha256": "dd6cc62db0fb2eb909826aa950ef6e8c8252e040bff0d85a19f8c48f71280141",
+      "title": "Bounded portable CD32 FMV and stock accelerator-ROM policy",
+      "reason": "T43b1 links WinUAE's real CL450/L64111 device with the pinned scalar decoder. The cooperative build removes only its host semaphore, rejects dimensions above the fixed 352x288x4 buffers before conversion/copy and validates genlock inputs; audio remains on the emulated-time CDA stream. Portable CD32 is stock 68EC020, so the unrelated accelerator ROM speed workaround and unavailable protect_roms host hook stay excluded.",
       "category": "host hooks",
       "order": 179,
       "symbols": [
         "devices_update_sync",
         "patchrom",
-        "finish_drawing_frame"
+        "finish_drawing_frame",
+        "cl450_parse_frame",
+        "fmv_next_cd_audio_buffer_callback",
+        "cd32_fmv_new_image"
       ],
       "test": "tests/media/test_akiko_link.py",
       "upstream_candidate": false,
@@ -4876,6 +4879,16 @@
           "path": "drawing.cpp",
           "before_sha256": "5d2765d69ed4a10232aa6c5f99f14e272c50bdb5a865b8c47ba05ba212678986",
           "after_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a"
+        },
+        {
+          "path": "cd32_fmv.cpp",
+          "before_sha256": "6adf6612277bff79f2e3620870c895270e28c0fcf9659afd617c909db567a536",
+          "after_sha256": "d55e1ae8c0fab1c3b2be56cc17ad2aa9b97ad9effbabbaf635fba3b914395aad"
+        },
+        {
+          "path": "cd32_fmv_genlock.cpp",
+          "before_sha256": "8aa6f5c5e012c3c0f0a2948fea5ecc10ab3c8da966db74d46cdd095d6ffabab2",
+          "after_sha256": "8e1ba51c5416453c22f8fa1c1b26c9f8821b464a15b847798687f5542fe3bbfe"
         }
       ]
     },
@@ -6162,6 +6175,225 @@
           "path": "custom.cpp",
           "before_sha256": "65d6df9088b7c1117852b06da495183f0bb0b30decca4db693832121e9a56f9b",
           "after_sha256": "958633ed08a0a34dde6840a01ca3d7daad43835e1ae939e1c3e2c7873e3b9e73"
+        }
+      ]
+    },
+    {
+      "id": "0417-cd32-fmv-portable-graph",
+      "file": "patches/winuae/0417-cd32-fmv-portable-graph.patch",
+      "sha256": "7fca4e6407d075fa8948e569b3b271c34778bad4d711b54a5947ad45b6a499c7",
+      "title": "Connect the bounded CD32 FMV board to the portable expansion and video graph",
+      "reason": "T43b1 enables WinUAE's real FMV sync, compositor and Zorro II catalog only after the scalar decoder and bounded portable audio owner have been selected. The board still requires an authenticated pre-load ROM owner; stock CD32 without one keeps the previous graph.",
+      "category": "portable device graph",
+      "order": 232,
+      "symbols": [
+        "mpeg2_init",
+        "custom_reset",
+        "devices_update_sync",
+        "virtualdevice_init",
+        "finish_drawing_frame",
+        "expansionroms"
+      ],
+      "test": "tests/fmv/test_fmv_device.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cd32_fmv.cpp",
+          "before_sha256": "d55e1ae8c0fab1c3b2be56cc17ad2aa9b97ad9effbabbaf635fba3b914395aad",
+          "after_sha256": "ddf6da0bc65761e070d91343d128aed43296f331aaff58ba7a78aa0a134463a1"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "958633ed08a0a34dde6840a01ca3d7daad43835e1ae939e1c3e2c7873e3b9e73",
+          "after_sha256": "a5b33ff92b7678b83235168d046789790855d413cc838bf51ab04ff87bcd9450"
+        },
+        {
+          "path": "devices.cpp",
+          "before_sha256": "f73ea6810e32c9ba8f389327f2a3c7815076289824d97738b82cf61518ed1071",
+          "after_sha256": "1c409031d92ce0897276791ab22f6e07b00d301405bd1f9a360433bbcf19e1fd"
+        },
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "8f7bce0856be8b456624a274f1e150c471f8df304330314b403681af2685abdf",
+          "after_sha256": "d7d857460f5f2add43304dee273f681bc7b1be67be3f804999f6442defdb8593"
+        },
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "d23cacab6bef85d307be7a2e8d7b15646f2701aa5a5f3dbc42b6cc8880cb17b4",
+          "after_sha256": "215b5b7f16becd1acb229736c5fb98cf87f66291c8bbfaf07839f286559c3110"
+        }
+      ]
+    },
+    {
+      "id": "0418-cd32-fmv-fixed-mp2-table",
+      "file": "patches/winuae/0418-cd32-fmv-fixed-mp2-table.patch",
+      "sha256": "7b85e90f39f6deb30c643f1369c0dbe6c7c085057d18adbe1b9577fea520c3db",
+      "title": "Use fixed scalar tables and defined bit arithmetic for portable CD32 FMV Layer II audio",
+      "reason": "T43b1 removes the kjmp2 run-time cos import and the host/ISA-dependent initialization result; T43b2 makes the 24-bit window unsigned so a full input window cannot trigger signed-shift UB. The literal matrix is the version-1.1 formula truncated toward zero and is ordinary captured guest state; non-portable WinUAE keeps its original initialization.",
+      "category": "deterministic decoder table",
+      "order": 233,
+      "symbols": [
+        "kjmp2_init"
+      ],
+      "test": "tests/fmv/test_fmv_decoder.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "archivers/mp2/kjmp2.cpp",
+          "before_sha256": "f697ba5295df8da38838d7e02ba04b4ad6180cf5682f88f314b0dbcb3e6829b0",
+          "after_sha256": "92153150141792cd061c977c0aaff4aa732ea16565aef79a4a811d93207647db"
+        }
+      ]
+    },
+    {
+      "id": "0419-cd32-fmv-pcm-owner",
+      "file": "patches/winuae/0419-cd32-fmv-pcm-owner.patch",
+      "sha256": "f9906365f0654dcdefc0c14ed98caa9a54047b0771e7755ab437861eff585eb9",
+      "title": "Keep FMV and CDDA PCM streams bounded and owner-distinct",
+      "reason": "T43c lets the 4608-frame FMV block coexist with the existing 588-frame CDDA stream on the same emulated scheduler. Stop, refill and pause validate the exact cd_audio_state owner; forged or stale ids cannot replace another stream, and portable buffers are capped at one FMV block.",
+      "category": "portable audio ownership",
+      "order": 234,
+      "symbols": [
+        "audio_state_channel",
+        "audio_enable_stream",
+        "audio_cda_new_buffer",
+        "p6_cda::pause"
+      ],
+      "test": "tests/audio/test_cd_audio.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "77a937afc625022bb5517fe7ff4fa1568cac41c67f8ebe55dbd4bfd5aed5c48d",
+          "after_sha256": "ab07d3b5cd029878d3ab93ed2ce6fdbf239ff357079a544f4f9a1c6419d3a3ce"
+        }
+      ]
+    },
+    {
+      "id": "0420-cd32-fmv-decoder-journal",
+      "file": "patches/winuae/0420-cd32-fmv-decoder-journal.patch",
+      "sha256": "538aa3721579c9d2c03f7c9f5c825f3ebcc5b235ddfff2bb19515f3e5876cae8",
+      "title": "Record a bounded address-free FMV decoder journal",
+      "reason": "T43d1 routes portable CL450 input through stable journal-owned bytes and records exact scalar parse results. A sequence-to-I checkpoint permits bounded reconstruction in a fresh decoder without serializing libmpeg2 pointers, raw structs or host timing.",
+      "category": "portable state reconstruction",
+      "order": 235,
+      "symbols": [
+        "cl450_parse_frame",
+        "cl450_reset",
+        "cd32_fmv_init"
+      ],
+      "test": "tests/fmv/test_fmv_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cd32_fmv.cpp",
+          "before_sha256": "ddf6da0bc65761e070d91343d128aed43296f331aaff58ba7a78aa0a134463a1",
+          "after_sha256": "66d41ecb9bd5bd85f9fe84be49d67148d966ef085fff1d32b1a9a76a1ad77b4f"
+        }
+      ]
+    },
+    {
+      "id": "0421-cd32-fmv-state-owner",
+      "file": "patches/winuae/0421-cd32-fmv-state-owner.patch",
+      "sha256": "6f9a5c70575ed128eefcbdb8f8001faefd0d06f7cb9e129f440099ce09d3f95d",
+      "title": "Expose the complete CD32 FMV device as bounded value state",
+      "reason": "T43d2 captures the real CL450, L64111, PCM, video and genlock owners without pointers, reconstructs libmpeg2 from the bounded journal and restores its distinct audio stream only after candidate validation. A fresh image reconstructs the bound cartridge owner and fixed banks without guest execution; the public state registry remains unchanged for stock CD32 images.",
+      "category": "portable state ownership",
+      "order": 236,
+      "symbols": [
+        "p6_fmv_state_get",
+        "p6_fmv_state_validate",
+        "p6_fmv_state_apply",
+        "p6_cda::capture_runtime",
+        "p6_fmv_genlock_apply",
+        "p6_frame_geometry_get"
+      ],
+      "test": "tests/fmv/test_fmv_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "ab07d3b5cd029878d3ab93ed2ce6fdbf239ff357079a544f4f9a1c6419d3a3ce",
+          "after_sha256": "0ab6525284f16f81dfda9bc750031319d256c0f0416a54780c44a4a182cff85a"
+        },
+        {
+          "path": "cd32_fmv.cpp",
+          "before_sha256": "66d41ecb9bd5bd85f9fe84be49d67148d966ef085fff1d32b1a9a76a1ad77b4f",
+          "after_sha256": "a996cc767bc67661b285dc3648268542fa9543f8f0f31dc0e66fa69d5a0ed386"
+        },
+        {
+          "path": "cd32_fmv_genlock.cpp",
+          "before_sha256": "8e1ba51c5416453c22f8fa1c1b26c9f8821b464a15b847798687f5542fe3bbfe",
+          "after_sha256": "a78cef9a39e0601083c1bdcfc247a62630b0bb669832dcd2c61240eda045c5c2"
+        },
+        {
+          "path": "custom.cpp",
+          "before_sha256": "a5b33ff92b7678b83235168d046789790855d413cc838bf51ab04ff87bcd9450",
+          "after_sha256": "aab4e511a5015a961620e01ba28c266e8bc0a721470fa51fc5c22a127f4ed9dc"
+        }
+      ]
+    },
+    {
+      "id": "0422-cd32-fmv-compositor",
+      "file": "patches/winuae/0422-cd32-fmv-compositor.patch",
+      "sha256": "af51be1a38fef5c965f24477a9e0bd57c1acf54bc8bbebed889743f2f5212c81",
+      "title": "Bound CD32 FMV software composition before writing output",
+      "reason": "T43e1 replaces the unchecked row arithmetic with one scalar compositor that validates geometry, depth, stride and capacities before its first write. The portable probe exercises exact MPEG, border and Amiga selection for 16/32-bit layouts and integer scales without adding a clock, allocation or frontend hand-over.",
+      "category": "portable video composition",
+      "order": 237,
+      "symbols": [
+        "p6_fmv_compose",
+        "cd32_fmv_genlock"
+      ],
+      "test": "tests/fmv/test_fmv_compositor.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cd32_fmv_genlock.cpp",
+          "before_sha256": "a78cef9a39e0601083c1bdcfc247a62630b0bb669832dcd2c61240eda045c5c2",
+          "after_sha256": "7a78a3e6110d011b679a4eee95518575638d1936b30cd8176f6ef855899272d8"
+        }
+      ]
+    },
+    {
+      "id": "0423-cd32-fmv-live-state",
+      "file": "patches/winuae/0423-cd32-fmv-live-state.patch",
+      "sha256": "20fb3f63007108635b5584eb4a93a766a013a880671ee057e889b2289e527337",
+      "title": "Capture live FMV ownership and pre-frame genlock state",
+      "reason": "T43f2 found with Cannon Fodder that stock CD32 phase capture names the Akiko owner while active FMV PCM belongs to the cartridge, and that genlock can legitimately become active before its first decoded image. Route shared Paula phase through the exact FMV owner, restore inactive-owner gain, preserve this scalar-only genlock phase, and report specific capture failures without weakening candidate validation.",
+      "category": "portable live state ownership",
+      "order": 238,
+      "symbols": [
+        "p6_fmv_audio_phase_get",
+        "p6_fmv_audio_phase_set",
+        "p6_fmv_state_get",
+        "p6_fmv_genlock_validate",
+        "p6_fmv_genlock_apply"
+      ],
+      "test": "tests/fmv/test_fmv_frontend.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "cd32_fmv.cpp",
+          "before_sha256": "a996cc767bc67661b285dc3648268542fa9543f8f0f31dc0e66fa69d5a0ed386",
+          "after_sha256": "65779dd42edf7b886087ed1679487edc2f5c5b11480f4b317bae423a9b72823c"
+        },
+        {
+          "path": "audio.cpp",
+          "before_sha256": "0ab6525284f16f81dfda9bc750031319d256c0f0416a54780c44a4a182cff85a",
+          "after_sha256": "8afb4a956611677a2e1e3f6b77712bd276dc4743902e192aadfadf26c4655692"
+        },
+        {
+          "path": "cd32_fmv_genlock.cpp",
+          "before_sha256": "7a78a3e6110d011b679a4eee95518575638d1936b30cd8176f6ef855899272d8",
+          "after_sha256": "200cc2ec49e6152946b67375d25296f5cb611a0b2400de9a8126f7297539d13d"
         }
       ]
     }

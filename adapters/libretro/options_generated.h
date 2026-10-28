@@ -205,6 +205,7 @@ constexpr uint32_t kCartridgeAr1 = 3u;       // puae6_cartridge=ar1: resolved by
 constexpr uint32_t kCartridgeAr2 = 4u;       // puae6_cartridge=ar2: resolved by the core before the machine is made
 constexpr uint32_t kCartridgeAr3 = 5u;       // puae6_cartridge=ar3: resolved by the core before the machine is made
 constexpr uint32_t kCartridgeAr1200 = 6u;       // puae6_cartridge=ar1200: resolved by the core before the machine is made
+constexpr uint32_t kCartridgeFmv = 7u;       // puae6_cartridge=fmv: resolved by the core before the machine is made
 // The value set mapper_target: one list for every option that says values_from.
 constexpr Value kMapperTargetSetValues[] = {
     {"---", 0u},
@@ -567,6 +568,7 @@ constexpr Value kCartridgeValues[] = {
     {"ar2", 4u},
     {"ar3", 5u},
     {"ar1200", 6u},
+    {"fmv", 7u},
     {"disabled", 0u},
     {"hrtmon", 2u},
 };
@@ -991,7 +993,7 @@ constexpr Option kOptions[] = {
     {"puae6_sound_filter", true, &Settings::sound_filter, kSoundFilterValues, 3, 0},
     {"puae6_sound_filter_type", true, &Settings::sound_filter_type, kSoundFilterTypeValues, 3, 0},
     {"puae6_floppy_writes", true, &Settings::floppy_writes, kFloppyWritesValues, 2, 0},
-    {"puae6_cartridge", true, &Settings::cartridge, kCartridgeValues, 6, 4},
+    {"puae6_cartridge", true, &Settings::cartridge, kCartridgeValues, 7, 5},
     {"puae6_floppy_speed", true, &Settings::floppy_speed, kFloppySpeedValues, 5, 0},
     {"puae6_floppy_drives", true, &Settings::floppy_drive_count, kFloppyDriveCountValues, 5, 0},
     {"puae6_floppy_multidrive", true, &Settings::floppy_multidrive, kFloppyMultidriveValues, 2, 0},
@@ -1176,9 +1178,9 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
     {"puae6_cartridge", "Cartridge (Restart)", "Cartridge (Restart)",
-     "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "machine", {{"ar1", "Action Replay I (A500)"}, {"ar2", "Action Replay II (A500)"}, {"ar3", "Action Replay III (A500)"}, {"ar1200", "Action Replay 1200 (A1200)"}, {"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
+     "HRTMon builtin, an Action Replay ROM, or the CD32 Full Motion Video module from the system directory. AR1/2/3 require stock A500; AR1200 and HRTMon require A1200 and activate with Freeze. FMV requires CD32 content and a known 40.22/40.30 ROM (cd32-fmv.rom or an amiga-cd32-fmv-*.rom name); it has no Freeze control. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "HRTMon builtin, an Action Replay ROM, or the CD32 Full Motion Video module from the system directory. AR1/2/3 require stock A500; AR1200 and HRTMon require A1200 and activate with Freeze. FMV requires CD32 content and a known 40.22/40.30 ROM (cd32-fmv.rom or an amiga-cd32-fmv-*.rom name); it has no Freeze control. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"ar1", "Action Replay I (A500)"}, {"ar2", "Action Replay II (A500)"}, {"ar3", "Action Replay III (A500)"}, {"ar1200", "Action Replay 1200 (A1200)"}, {"fmv", "CD32 Full Motion Video module"}, {"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart)", "Floppy Speed (Restart)",
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
      "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1470,7 +1472,7 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_sound_filter", "Audio Filter (Restart)", "The low-pass output filter of Paula: emulated switches it with the power LED as the hardware does, off never filters, on always filters. The state of the filter is part of the native state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"emulated", "Emulated (follows the power LED)"}, {"off", "Off"}, {"on", "Always on"}}, "emulated"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart)", "The model of the output filter: auto uses the A500 model on the A500 and the A600 and the A1200 model on the A1200; A500 or A1200 force one. It has no effect while the filter is off. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Auto (by machine)"}, {"A500", "A500"}, {"A1200", "A1200"}}, "auto"},
     {"puae6_floppy_writes", "Floppy Writes (Restart)", "With writes enabled the guest can write to its floppies. The disk files are never touched: what the guest writes lives in the machine (it is part of save states, rewind and run-ahead) and is lost when the content closes unless Save Floppy Changes is on. Adds about 2 MB to the size of a save state. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled: every disk is write protected"}, {"enabled", "Enabled: the guest can write to the disks"}}, "disabled"},
-    {"puae6_cartridge", "Cartridge (Restart)", "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.", {{"ar1", "Action Replay I (A500)"}, {"ar2", "Action Replay II (A500)"}, {"ar3", "Action Replay III (A500)"}, {"ar1200", "Action Replay 1200 (A1200)"}, {"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
+    {"puae6_cartridge", "Cartridge (Restart)", "HRTMon builtin, an Action Replay ROM, or the CD32 Full Motion Video module from the system directory. AR1/2/3 require stock A500; AR1200 and HRTMon require A1200 and activate with Freeze. FMV requires CD32 content and a known 40.22/40.30 ROM (cd32-fmv.rom or an amiga-cd32-fmv-*.rom name); it has no Freeze control. Missing or invalid ROMs fail the load. It takes effect the next time the content is loaded; the running machine is not changed.", {{"ar1", "Action Replay I (A500)"}, {"ar2", "Action Replay II (A500)"}, {"ar3", "Action Replay III (A500)"}, {"ar1200", "Action Replay 1200 (A1200)"}, {"fmv", "CD32 Full Motion Video module"}, {"disabled", "Disabled"}, {"hrtmon", "HRTMon builtin (A1200 only)"}}, "disabled"},
     {"puae6_floppy_speed", "Floppy Speed (Restart)", "How fast the drive hands the bits of a track to the disk DMA: the real drive (300 RPM), twice, four or eight times as fast, or turbo, which removes the rotation and does a whole transfer at once. It is counted in emulated colour clocks, never in wall clock time, and it is part of the machine: a state, a rewind or a movie of one speed does not load in another. Programs that time their own disk reads, and copy protections, may not work above the default. It takes effect the next time the content is loaded; the running machine is not changed.", {{"100", "Default (the real drive, 300 RPM)"}, {"200", "2x"}, {"400", "4x"}, {"800", "8x"}, {"turbo", "Turbo"}}, "100"},
     {"puae6_floppy_drives", "Floppy Drives (Restart)", "Connected DD drives. Auto keeps the original two-drive machine and enables four when MultiDrive is requested. Explicit counts limit MultiDrive too. This setting is part of the machine and save-state identity. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Default (two drives; MultiDrive enables four)"}, {"1", "DF0"}, {"2", "DF0 and DF1"}, {"3", "DF0 to DF2"}, {"4", "DF0 to DF3"}}, "auto"},
     {"puae6_floppy_multidrive", "MultiDrive (Restart)", "At load, insert successive floppy images into separate drives, up to the connected-drive count (four on Auto). The (MD) filename tag also enables this. Save disks remain selectable in Disk Control and are not inserted into extra drives. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled"}, {"enabled", "Mount disks in separate drives"}}, "disabled"},
@@ -1566,7 +1568,7 @@ constexpr retro_variable kVariables[] = {
     {"puae6_sound_filter", "Audio Filter (Restart); emulated|off|on"},
     {"puae6_sound_filter_type", "Audio Filter Type (Restart); auto|A500|A1200"},
     {"puae6_floppy_writes", "Floppy Writes (Restart); disabled|enabled"},
-    {"puae6_cartridge", "Cartridge (Restart); disabled|ar1|ar2|ar3|ar1200|hrtmon"},
+    {"puae6_cartridge", "Cartridge (Restart); disabled|ar1|ar2|ar3|ar1200|fmv|hrtmon"},
     {"puae6_floppy_speed", "Floppy Speed (Restart); 100|200|400|800|turbo"},
     {"puae6_floppy_drives", "Floppy Drives (Restart); auto|1|2|3|4"},
     {"puae6_floppy_multidrive", "MultiDrive (Restart); disabled|enabled"},

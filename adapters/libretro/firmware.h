@@ -17,12 +17,22 @@
 namespace p6_libretro {
 
 // Local libretro selections are not p6_config flags or native cartridge IDs.
-struct CartridgeChoice { uint32_t selection, model; size_t bytes; const char *names[2]; };
+// A choice may accept two exact container sizes, but the native binder remains
+// the authority for the ROM identity and (for doubled FMV dumps) the two halves.
+struct CartridgeChoice {
+    uint32_t selection, model;
+    size_t min_bytes, max_bytes;
+    bool freeze;
+    const char *names[3];
+    size_t name_count;
+};
 constexpr CartridgeChoice kCartridges[] = {
-    {p6_options::kCartridgeAr1, P6_CARTRIDGE_AR1, 65536, {"ar1.rom", "Action_Replay_I_v1.00.rom"}},
-    {p6_options::kCartridgeAr2, P6_CARTRIDGE_AR2, 131072, {"ar2.rom", "Action_Replay_II_v2.14.rom"}},
-    {p6_options::kCartridgeAr3, P6_CARTRIDGE_AR3, 262144, {"ar3.rom", "Action_Replay_III_v3.17.rom"}},
-    {p6_options::kCartridgeAr1200, P6_CARTRIDGE_AR1200, 262144, {"ar1200.rom", "Action_Replay_1200.rom"}},
+    {p6_options::kCartridgeAr1, P6_CARTRIDGE_AR1, 65536, 65536, true, {"ar1.rom", "Action_Replay_I_v1.00.rom", nullptr}, 2},
+    {p6_options::kCartridgeAr2, P6_CARTRIDGE_AR2, 131072, 131072, true, {"ar2.rom", "Action_Replay_II_v2.14.rom", nullptr}, 2},
+    {p6_options::kCartridgeAr3, P6_CARTRIDGE_AR3, 262144, 262144, true, {"ar3.rom", "Action_Replay_III_v3.17.rom", nullptr}, 2},
+    {p6_options::kCartridgeAr1200, P6_CARTRIDGE_AR1200, 262144, 262144, true, {"ar1200.rom", "Action_Replay_1200.rom", nullptr}, 2},
+    {p6_options::kCartridgeFmv, P6_CARTRIDGE_CD32_FMV, 262144, 524288, false,
+     {"cd32-fmv.rom", "amiga-cd32-fmv-4030.rom", "amiga-cd32-fmv-4030-doubled.rom"}, 3},
 };
 inline const CartridgeChoice *cartridge_choice(uint32_t selection)
 {

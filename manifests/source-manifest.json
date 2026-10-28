@@ -62,7 +62,10 @@
     "akiko.cpp",
     "cdtv.cpp",
     "flashrom.cpp",
-    "ar.cpp"
+    "ar.cpp",
+    "cd32_fmv.cpp",
+    "cd32_fmv_genlock.cpp",
+    "archivers/mp2/kjmp2.cpp"
   ],
   "selection": {
     "status": "requires-port-patches-and-link-proof",
@@ -112,7 +115,10 @@
       "akiko.cpp",
       "cdtv.cpp",
       "flashrom.cpp",
-      "ar.cpp"
+      "ar.cpp",
+      "cd32_fmv.cpp",
+      "cd32_fmv_genlock.cpp",
+      "archivers/mp2/kjmp2.cpp"
     ],
     "generated_units": [
       "cpudefs.cpp",
@@ -144,7 +150,8 @@
       "DRIVESOUND",
       "CD32",
       "CDTV",
-      "ACTION_REPLAY"
+      "ACTION_REPLAY",
+      "CD32_FMV_SCALAR"
     ],
     "features_off": [
       "JIT",
@@ -303,7 +310,7 @@
     "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
     "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
     "gayle.cpp/ide.cpp": "T56: gayle.cpp e ide.cpp se compilan para el puerto IDE de Gayle del A600 y el A1200 con discos duros (opcion hdf_controller = ide; sin ella los presets siguen con cs_ide=cs_pcmcia=cs_compatible=0 y Gayle apagado). Quedan fuera (parches 0320, 0321): la ranura PCMCIA y sus tarjetas, Fat Gary/Ramsey, el SCSI del A4000T y el Dataflyer, los dispositivos ATAPI (CD-ROM, cinta), los .ini de identidad y el hilo del IDE (cada orden se sirve al escribirla). Gayle solo se enciende con un disco detras. Un dispositivo soportado nunca se simula con stubs de exito.",
-    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "JIT, PPC, MMU y RTG excluidos. CDTV compila solo el controlador privado cooperativo stock; sin perfil publico, codec, SCSI, CR, tarjeta ni persistencia NVRAM. CD32 se compila en T66k1 con Akiko y servicios CD reales; todavia no hay perfil CD32 publico hasta arranque/estado completo. FMV excluido por0362. FPU 68881/68882 SoftFloat disponible en perfiles compatibles.",
+    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "JIT, PPC, MMU y RTG excluidos. CDTV compila solo el controlador privado cooperativo stock; sin perfil publico, codec, SCSI, CR, tarjeta ni persistencia NVRAM. CD32 incluye Akiko, servicios CD y el cartucho FMV escalar con libmpeg2 generic-C; la opcion FMV se expone publicamente desde T43f2, tras cerrar decoder, audio, estado, compositor y aceptacion real en libretro y Waterbox. FPU 68881/68882 SoftFloat disponible en perfiles compatibles.",
     "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
   },
   "unresolved": [

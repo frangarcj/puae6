@@ -1,0 +1,505 @@
+diff --git a/audio.cpp b/audio.cpp
+index 805feb5d..30c0191e 100644
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -3021,11 +3021,12 @@ bool p6_audio_phase_set(const int32_t *in, unsigned n)
+ #ifdef P6_PORTABLE
+ namespace p6_cda {
+ static bool available(const cd_audio_state &);
++static bool streams_supported();
+ static bool phase_supported(const cd_audio_state &owner, unsigned n)
+ {
+     static_assert(kPhaseWords == P6_AUDIO_PHASE_WORDS, "Paula phase word count");
+-    // No active extra stream needs ownership. Otherwise require this exact CDA
+-    // owner, slot0 stereo and the real callback, using the stream preflight.
++    // Extra PCM owners carry their own channel integrators. The shared Paula
++    // phase is valid when this exact CDA owner proves the active stream set.
+     return p6_audio_phase_geometry(n) && (!audio_total_extra_streams || available(owner));
+ }
+ bool phase_get(const cd_audio_state &owner, int32_t *out, unsigned n)
+@@ -3170,6 +3171,24 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
+ 		&& audio_stream[slot].cb_data == cas;
+ }
+ 
++#ifdef P6_PORTABLE
++namespace p6_cda {
++static bool streams_supported()
++{
++    unsigned owners = 0;
++    for (int slot = 0; slot < AUDIO_CHANNEL_STREAMS; ++slot) {
++        if (!audio_extra_streams[slot]) continue;
++        ++owners;
++        if (audio_extra_streams[slot] != 2 || audio_stream[slot].cb != audio_state_cda || !audio_stream[slot].cb_data)
++            return false;
++        const auto *cas = static_cast<const cd_audio_state *>(audio_stream[slot].cb_data);
++        if (cas->cda_streamid != slot + 1 || !audio_cda_owned(cas)) return false;
++    }
++    return owners == unsigned(audio_total_extra_streams);
++}
++}
++#endif
++
+ void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int length, int userdata, CDA_CALLBACK next_cd_audio_buffer_callback, void *cb_data)
+ {
+ 	if (!cas)
+@@ -3221,13 +3240,13 @@ static bool available(const cd_audio_state &cas)
+ {
+     if (currprefs.sound_interpol == 2 || currprefs.sound_volcnt || currprefs.sound_mixed_stereo_delay) return false;
+     if (!audio_total_extra_streams) return cas.cda_streamid <= 0;
+-    return audio_total_extra_streams == 1 && cas.cda_streamid == 1 && audio_cda_owned(&cas);
++    return audio_cda_owned(&cas) && streams_supported();
+ }
+ static bool geometry(const int16_t *base, uint32_t frames)
+ {
+-    return base && reinterpret_cast<uintptr_t>(base) % alignof(int16_t) == 0 && frames && frames <= kMaxFrames;
++    return base && reinterpret_cast<uintptr_t>(base) % alignof(int16_t) == 0 && frames && frames <= kMaxRuntimeFrames;
+ }
+-bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
++static bool capture_at(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
+ {
+     if (!out || !geometry(base, frames) || !available(cas)) return false;
+     State s{};
+@@ -3241,7 +3260,7 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
+         s.offset = cas.cda_bufptr == dummy_buffer ? 0 : uint32_t((at - begin) / 4);
+         s.remaining = uint32_t(cas.cda_length); s.userdata = cas.cda_userdata;
+         if (s.remaining > frames - s.offset) return false;
+-        const auto &stream = audio_stream[0];
++        const auto &stream = audio_stream[cas.cda_streamid - 1];
+         s.event_cycles = stream.evtime;
+         for (int i = 0; i < 2; ++i) {
+             const auto &ch = stream.data[i];
+@@ -3252,9 +3271,13 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
+     if (!validate(s, frames, cda_evt)) return false;
+     *out = s; return true;
+ }
++bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
++{
++    return frames <= kMaxFrames && capture_at(cas, base, frames, out);
++}
+ bool validate(const State &s, uint32_t frames, uint32_t period)
+ {
+-    if (!frames || frames > kMaxFrames || !period || period >= INT_MAX ||
++    if (!frames || frames > kMaxRuntimeFrames || !period || period >= INT_MAX ||
+         s.active > 1 || s.paused > 1 || s.frames != frames || s.period != period) return false;
+     for (int i = 0; i < 2; ++i) {
+         if (s.volume[i] < 0 || s.volume[i] > 32768) return false;
+@@ -3267,19 +3290,29 @@ bool validate(const State &s, uint32_t frames, uint32_t period)
+     if (!s.active) return !s.paused && !s.offset && !s.remaining && !s.event_cycles && !s.userdata;
+     return s.offset <= frames && s.remaining <= frames - s.offset && s.event_cycles <= s.period;
+ }
+-bool can_restore(const cd_audio_state &cas, const int16_t *base, uint32_t frames, const State &s)
++static bool can_restore_at(const cd_audio_state &cas, const int16_t *base, uint32_t frames,
++                           const State &s, uint32_t streamid)
+ {
+-    return geometry(base, frames) && available(cas) && validate(s, frames, cda_evt);
++    if (!geometry(base, frames) || !streams_supported() || !validate(s, frames, cda_evt) || streamid > AUDIO_CHANNEL_STREAMS ||
++        (s.active && !streamid) || (!s.active && streamid)) return false;
++    if (cas.cda_streamid > 0 && !audio_cda_owned(&cas)) return false;
++    if (!s.active) return true;
++    const unsigned slot = streamid - 1;
++    return !audio_extra_streams[slot] || (cas.cda_streamid == int(streamid) && audio_cda_owned(&cas));
+ }
+-bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
+-             void (*next)(int, void *), void *context)
++static bool restore_at(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
++                       uint32_t streamid, void (*next)(int, void *), void *context)
+ {
+-    if (!can_restore(cas, base, frames, s)) return false;
++    if (!can_restore_at(cas, base, frames, s, streamid)) return false;
++    if (cas.cda_streamid > 0 && (!s.active || cas.cda_streamid != int(streamid)))
++        audio_enable_stream(false, cas.cda_streamid, 0, NULL, &cas);
+     cas.cda_bufptr = s.active ? base + s.offset * 2 : dummy_buffer;
+     cas.cda_length = int(s.remaining); cas.cda_userdata = s.userdata;
+-    cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? 1 : 0;
++    cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? int(streamid) : 0;
+     cas.cda_next_cd_audio_buffer_callback = next; cas.cb_data = context;
+-    auto &stream = audio_stream[0];
++    if (!s.active) { audio_set_extra_channels(); return true; }
++    const unsigned slot = streamid - 1;
++    auto &stream = audio_stream[slot];
+     stream = {}; stream.evtime = s.active ? s.event_cycles : MAX_EV;
+     stream.cb = audio_state_cda; stream.cb_data = &cas;
+     for (int i = 0; i < 2; ++i) {
+@@ -3289,9 +3322,43 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
+         ch.sample_accum = in.accumulator; ch.sample_accum_time = in.cycles;
+         ch.mixvol = 1; ch.adk_mask = ~0u;
+     }
+-    audio_extra_streams[0] = s.active ? 2 : 0;
++    audio_extra_streams[slot] = 2;
+     audio_set_extra_channels(); return true;
+ }
++bool can_restore(const cd_audio_state &cas, const int16_t *base, uint32_t frames, const State &s)
++{
++    return frames <= kMaxFrames && can_restore_at(cas, base, frames, s, s.active ? 1 : 0);
++}
++bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
++             void (*next)(int, void *), void *context)
++{
++    return frames <= kMaxFrames && restore_at(cas, base, frames, s, s.active ? 1 : 0, next, context);
++}
++bool capture_runtime(const cd_audio_state &cas, const int16_t *base, uint32_t frames,
++                     State *out, uint32_t *streamid)
++{
++    if (!out || !streamid) return false;
++    if (cas.cda_streamid <= 0 && audio_total_extra_streams) {
++        if (!geometry(base, frames) || !streams_supported()) return false;
++        State s{}; s.frames = frames; s.period = cda_evt;
++        for (int i = 0; i < 2; ++i) s.volume[i] = cas.cda_volume[i];
++        if (!validate(s, frames, cda_evt)) return false;
++        *out = s; *streamid = 0; return true;
++    }
++    if (!capture_at(cas, base, frames, out)) return false;
++    *streamid = cas.cda_streamid > 0 ? uint32_t(cas.cda_streamid) : 0;
++    return true;
++}
++bool can_restore_runtime(const cd_audio_state &cas, const int16_t *base, uint32_t frames,
++                         const State &s, uint32_t streamid)
++{
++    return can_restore_at(cas, base, frames, s, streamid);
++}
++bool restore_runtime(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s,
++                     uint32_t streamid, void (*next)(int, void *), void *context)
++{
++    return restore_at(cas, base, frames, s, streamid, next, context);
++}
+ bool pause(cd_audio_state &cas, bool paused)
+ {
+     if (!audio_cda_owned(&cas)) return false;
+diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
+index 9a7e04de..87c60aad 100644
+--- a/cd32_fmv.cpp
++++ b/cd32_fmv.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "options.h"
+ #include "memory.h"
++#include "autoconf.h"
+ #include "rommgr.h"
+ #include "custom.h"
+ #include "newcpu.h"
+@@ -26,6 +27,7 @@
+ #include "cda_play.h"
+ #ifdef P6_PORTABLE
+ #include "fmv_decoder_journal.h"
++#include "fmv_state.h"
+ #endif
+ #include "archivers/mp2/kjmp2.h"
+ 
+@@ -1507,6 +1509,195 @@ static void cd32_fmv_audio_handler(void)
+ 	l64111_regs[A_CB_STATUS] -= PCM_SECTORS;
+ }
+ 
++#ifdef P6_PORTABLE
++static uint32_t fmv_float_bits(float value) { uint32_t bits; memcpy(&bits, &value, sizeof bits); return bits; }
++static float fmv_bits_float(uint32_t bits) { float value; memcpy(&value, &bits, sizeof value); return value; }
++
++struct fmv_replay_context { mpeg2dec_t *decoder; const mpeg2_info_t *info; };
++static bool fmv_replay_reset(void *opaque)
++{
++	auto *r = static_cast<fmv_replay_context*>(opaque); mpeg2_reset(r->decoder, 1); return true;
++}
++static bool fmv_replay_feed(void *opaque, const uint8_t *data, uint32_t bytes)
++{
++	auto *r = static_cast<fmv_replay_context*>(opaque); auto *p = const_cast<uint8_t*>(data);
++	mpeg2_buffer(r->decoder, p, p + bytes); return true;
++}
++static int32_t fmv_replay_parse(void *opaque)
++{
++	return mpeg2_parse(static_cast<fmv_replay_context*>(opaque)->decoder);
++}
++static bool fmv_replay_after(void *opaque, int32_t state)
++{
++	auto *r = static_cast<fmv_replay_context*>(opaque);
++	if (state != STATE_SEQUENCE) return true;
++	return r->info->sequence && r->info->sequence->width && r->info->sequence->height &&
++		r->info->sequence->width <= 352 && r->info->sequence->height <= 288 &&
++		mpeg2_convert(r->decoder, mpeg2convert_rgb32, NULL) == 0;
++}
++static bool fmv_decoder_candidate(const p6_fmv_state *s, mpeg2dec_t **decoder_out,
++		p6_fmv::Journal **journal_out)
++{
++	auto *journal = xcalloc(p6_fmv::Journal, 1);
++	if (!journal || !p6_fmv::load(journal, s->journal, s->journal_size)) { xfree(journal); return false; }
++	mpeg2dec_t *decoder = mpeg2_init();
++	if (!decoder) { xfree(journal); return false; }
++	fmv_replay_context context{decoder, mpeg2_info(decoder)};
++	const p6_fmv::Replay replay{&context, fmv_replay_reset, fmv_replay_feed, fmv_replay_parse, fmv_replay_after};
++	if (!p6_fmv::replay(*journal, replay)) { mpeg2_close(decoder); xfree(journal); return false; }
++	if (decoder_out) *decoder_out = decoder; else mpeg2_close(decoder);
++	if (journal_out) *journal_out = journal; else xfree(journal);
++	return true;
++}
++
++bool p6_fmv_state_preflight()
++{
++	return fmv_ram_bank.baseaddr && fmv_ram_bank.allocated_size == P6_FMV_RAM_BYTES &&
++		fmv_rom_bank.baseaddr && audioram && videoram && pcmaudio && mpeg_decoder && mpeg_journal;
++}
++
++static bool p6_fmv_state_prepare()
++{
++	if (p6_fmv_state_preflight()) return true;
++	auto *aci = expansion_get_autoconfig_info(&currprefs, ROMTYPE_CD32CART, 0);
++	if (!currprefs.cs_cd32fmv || !aci || !aci->rc) return false;
++	const uaecptr saved_pointer = expamem_board_pointer;
++	const uae_u32 saved_size = expamem_board_size;
++	expamem_board_pointer = fmv_start;
++	expamem_board_size = fmv_board_size;
++	addrbank *bank = cd32_fmv_init(aci);
++	expamem_board_pointer = saved_pointer;
++	expamem_board_size = saved_size;
++	return bank == &fmv_rom_bank && p6_fmv_state_preflight();
++}
++
++bool p6_fmv_state_get(p6_fmv_state *s)
++{
++	if (!s || !p6_fmv_state_preflight()) return false;
++	memset(s, 0, sizeof *s); s->version = s->mapped = 1;
++	memcpy(s->ram, fmv_ram_bank.baseaddr, sizeof s->ram); memcpy(s->audio_ram, audioram, sizeof s->audio_ram);
++	memcpy(s->cl450_regs, cl450_regs, sizeof cl450_regs); memcpy(s->cl450_imem, cl450_imem, sizeof cl450_imem);
++	memcpy(s->cl450_tmem, cl450_tmem, sizeof cl450_tmem); memcpy(s->cl450_hmem, cl450_hmem, sizeof cl450_hmem);
++	memcpy(s->cl450_vid, cl450_vid, sizeof cl450_vid); s->cl450_scr_bits = fmv_float_bits(cl450_scr);
++	s->cl450_play = uint32_t(cl450_play); s->cl450_blank = cl450_blank; s->cl450_border_color = cl450_border_color;
++	s->cl450_interruptmask = cl450_interruptmask; s->cl450_pending_interrupts = cl450_pending_interrupts;
++	s->cl450_threshold = cl450_threshold; s->cl450_buffer_offset = cl450_buffer_offset;
++	s->cl450_buffer_empty_cnt = cl450_buffer_empty_cnt; s->libmpeg_offset = libmpeg_offset;
++	s->fmv_bufon[0] = fmv_bufon[0]; s->fmv_bufon[1] = fmv_bufon[1]; s->fmv_syncadjust_bits = fmv_float_bits(fmv_syncadjust);
++	s->newpacket_mode = cl450_newpacket_mode;
++	for (int n = 0; n < 32; ++n) { s->packets[n].length = cl450_newpacket_buffer[n].length; s->packets[n].pts = cl450_newpacket_buffer[n].pts; s->packets[n].pts_valid = cl450_newpacket_buffer[n].pts_valid; }
++	s->packet_write = cl450_newpacket_offset_write; s->packet_read = cl450_newpacket_offset_read;
++	s->frame_rate = cl450_frame_rate; s->frame_pixbytes = cl450_frame_pixbytes; s->frame_width = cl450_frame_width; s->frame_height = cl450_frame_height;
++	s->video_hsync_wait = cl450_video_hsync_wait; s->videoram_read = cl450_videoram_read; s->videoram_write = cl450_videoram_write;
++	s->videoram_count = cl450_videoram_cnt; s->frame_count = cl450_frame_cnt;
++	for (int n = 0; n < CL450_VIDEO_BUFFERS; ++n) { s->video[n].width = videoram[n].width; s->video[n].height = videoram[n].height; s->video[n].depth = videoram[n].depth; memcpy(s->video[n].data, videoram[n].data, sizeof s->video[n].data); }
++	memcpy(s->l64111_regs, l64111_regs, sizeof l64111_regs); memcpy(s->l64111_intmask, l64111intmask, sizeof l64111intmask);
++	memcpy(s->l64111_intstatus, l64111intstatus, sizeof l64111intstatus); s->mpeg_io_reg = mpeg_io_reg;
++	memcpy(s->l64111_fifo, l64111_fifo, sizeof l64111_fifo); s->l64111_fifo_count = l64111_fifo_cnt;
++	s->audio_frame_count = audio_frame_cnt; s->audio_frame_size = audio_frame_size; s->audio_frame_detect = audio_frame_detect;
++	s->audio_head_detect = audio_head_detect; s->l64111_cb_mask = l64111_cb_mask;
++	s->audio_data_remaining = audio_data_remaining; s->audio_skip_size = audio_skip_size;
++	s->mp2_id = mp2.id; memcpy(s->mp2_v, mp2.V, sizeof mp2.V); s->mp2_voffs = mp2.Voffs;
++	for (int n = 0; n < L64111_CHANNEL_BUFFERS; ++n) { s->pcm[n].ready = pcmaudio[n].ready; memcpy(s->pcm[n].pcm, pcmaudio[n].pcm, sizeof s->pcm[n].pcm); }
++	s->cda_present = cda != NULL; s->cd_audio_mode_changed = cd_audio_mode_changed;
++	const int active_buffer = cas.cda_userdata >= 0 && cas.cda_userdata < 2 ? cas.cda_userdata : 0;
++	if (cda) for (int n = 0; n < 2; ++n) memcpy(s->cda_buffers[n], cda->buffers[n], sizeof s->cda_buffers[n]);
++	const int16_t *stream_base = cda ? reinterpret_cast<int16_t*>(cda->buffers[active_buffer]) : s->cda_buffers[0];
++	if (!p6_cda::capture_runtime(cas, stream_base, p6_cda::kMaxRuntimeFrames, &s->cda_stream, &s->cda_streamid)) return false;
++	s->max_sync_vpos_bits = fmv_float_bits(max_sync_vpos); s->remaining_sync_vpos_bits = fmv_float_bits(remaining_sync_vpos);
++	if (!p6_fmv_genlock_get(&s->genlock)) return false;
++	if (!p6_fmv_aux_get(&s->aux)) return false;
++	size_t journal_size = 0;
++	if (!p6_fmv::save(*mpeg_journal, s->journal, sizeof s->journal, &journal_size) || journal_size > UINT32_MAX) return false;
++	s->journal_size = uint32_t(journal_size);
++	return true;
++}
++
++bool p6_fmv_state_validate(const p6_fmv_state *s, const p6_fmv_context &context)
++{
++	if (!s || s->version != 1 || s->mapped != 1 || context.scheduler_cycle < 0 || !context.pcm_period ||
++		(s->cl450_play != uint32_t(-1) && s->cl450_play > 1) || s->cl450_blank > 1 || s->newpacket_mode > 1 ||
++		s->cl450_buffer_offset < 0 || s->cl450_buffer_offset > CL450_MPEG_BUFFER_SIZE || s->cl450_buffer_empty_cnt < 0 || s->cl450_buffer_empty_cnt > 2 ||
++		s->libmpeg_offset < 0 || s->libmpeg_offset >= CL450_MPEG_DECODE_BUFFER_SIZE || s->packet_write < 0 || s->packet_write >= 32 || s->packet_read < 0 || s->packet_read >= 32 ||
++		s->frame_rate < 0 || s->frame_rate > 120 || (s->frame_pixbytes != 0 && s->frame_pixbytes != 2 && s->frame_pixbytes != 4) ||
++		s->frame_width < 0 || s->frame_width > 352 || s->frame_height < 0 || s->frame_height > 288 ||
++		s->video_hsync_wait < 0 || s->videoram_read < 0 || s->videoram_read >= 8 || s->videoram_write < 0 || s->videoram_write >= 8 || s->videoram_count < 0 || s->videoram_count >= 8 ||
++		s->l64111_fifo_count < 0 || s->l64111_fifo_count > 128 || s->audio_frame_size < 0 || s->audio_frame_size > KJMP2_MAX_FRAME_SIZE ||
++		s->audio_frame_count < 0 || s->audio_frame_count > s->audio_frame_size || s->audio_frame_detect < 0 || s->audio_head_detect < 0 ||
++		(s->l64111_cb_mask != 0 && s->l64111_cb_mask != 63 && s->l64111_cb_mask != 127) || s->audio_data_remaining < -1 || s->audio_skip_size < 0 ||
++		s->mp2_voffs < 0 || s->mp2_voffs > 1023 || s->cda_present > 1 || s->cd_audio_mode_changed > 1 || s->cda_streamid > AUDIO_CHANNEL_STREAMS ||
++		s->journal_size > sizeof s->journal || !p6_cda::validate(s->cda_stream, p6_cda::kMaxRuntimeFrames, context.pcm_period) ||
++		!p6_fmv_genlock_validate(&s->genlock) || !p6_fmv_aux_validate(&s->aux)) return false;
++	const float scr = fmv_bits_float(s->cl450_scr_bits), adjust = fmv_bits_float(s->fmv_syncadjust_bits);
++	const float maximum = fmv_bits_float(s->max_sync_vpos_bits), remaining = fmv_bits_float(s->remaining_sync_vpos_bits);
++	if (!isfinite(scr) || scr < 0 || !isfinite(adjust) || adjust <= 0 || !isfinite(maximum) || maximum < 0 || !isfinite(remaining) || remaining < 0 || remaining >= 2) return false;
++	if (bool(s->cda_stream.active) != bool(s->cda_streamid)) return false;
++	if (!s->cda_present && (s->cda_stream.active || s->cda_streamid || s->fmv_bufon[0] || s->fmv_bufon[1])) return false;
++	if (s->cda_stream.active && (s->cda_stream.userdata < 0 || s->cda_stream.userdata > 1 || !s->fmv_bufon[s->cda_stream.userdata])) return false;
++	for (const auto &packet : s->packets) if (packet.length > 0xffff || packet.pts_valid > 1) return false;
++	for (const auto &frame : s->video) if (frame.width < 0 || frame.width > 352 || frame.height < 0 || frame.height > 288 || (frame.depth != 0 && frame.depth != 2 && frame.depth != 4)) return false;
++	for (const auto &frame : s->pcm) if (frame.ready > 1) return false;
++	return fmv_decoder_candidate(s, NULL, NULL);
++}
++
++bool p6_fmv_state_apply(const p6_fmv_state *s, const p6_fmv_context &context, const char **why)
++{
++	if (why) *why = NULL;
++	const auto fail = [why](const char *message) { if (why) *why = message; return false; };
++	if (!p6_fmv_state_validate(s, context)) return fail("FMV candidate changed between validation and Apply");
++	if (!p6_fmv_aux_can_apply(&s->aux)) return fail("FMV auxiliary raster destination is unavailable");
++	mpeg2dec_t *next_decoder = NULL; p6_fmv::Journal *next_journal = NULL;
++	if (!fmv_decoder_candidate(s, &next_decoder, &next_journal)) return fail("FMV decoder reconstruction failed after validation");
++	cda_audio *next_cda = NULL;
++	if (s->cda_present) {
++		next_cda = new cda_audio(PCM_SECTORS, KJMP2_SAMPLES_PER_FRAME * 4, 44100);
++		if (!next_cda->buffers[0] || !next_cda->buffers[1]) { delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV PCM staging allocation failed"); }
++		for (int n = 0; n < 2; ++n) memcpy(next_cda->buffers[n], s->cda_buffers[n], sizeof s->cda_buffers[n]);
++	}
++	const int active_buffer = s->cda_stream.userdata >= 0 && s->cda_stream.userdata < 2 ? s->cda_stream.userdata : 0;
++	int16_t *stream_base = next_cda ? reinterpret_cast<int16_t*>(next_cda->buffers[active_buffer]) : const_cast<int16_t*>(s->cda_buffers[0]);
++	if (!p6_cda::can_restore_runtime(cas, stream_base, p6_cda::kMaxRuntimeFrames, s->cda_stream, s->cda_streamid)) {
++		delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV PCM stream destination is unavailable");
++	}
++	if (!p6_fmv_state_prepare()) {
++		delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV board storage cannot be reconstructed");
++	}
++	if (!p6_fmv_genlock_apply(&s->genlock)) {
++		delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV genlock destination allocation failed");
++	}
++	if (!p6_fmv_aux_apply(&s->aux)) {
++		delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV auxiliary raster changed after preflight");
++	}
++	if (!p6_cda::restore_runtime(cas, stream_base, p6_cda::kMaxRuntimeFrames,
++		s->cda_stream, s->cda_streamid, fmv_next_cd_audio_buffer_callback, NULL)) {
++		delete next_cda; mpeg2_close(next_decoder); xfree(next_journal); return fail("FMV PCM stream changed after preflight");
++	}
++	cda_audio *old_cda = cda; cda = next_cda; delete old_cda;
++	mpeg2dec_t *old_decoder = mpeg_decoder; mpeg_decoder = next_decoder; mpeg_info = mpeg2_info(mpeg_decoder); mpeg2_close(old_decoder);
++	auto *old_journal = mpeg_journal; mpeg_journal = next_journal; xfree(old_journal);
++	memcpy(fmv_ram_bank.baseaddr, s->ram, sizeof s->ram); memcpy(audioram, s->audio_ram, sizeof s->audio_ram);
++	memcpy(cl450_regs, s->cl450_regs, sizeof cl450_regs); memcpy(cl450_imem, s->cl450_imem, sizeof cl450_imem); memcpy(cl450_tmem, s->cl450_tmem, sizeof cl450_tmem);
++	memcpy(cl450_hmem, s->cl450_hmem, sizeof cl450_hmem); memcpy(cl450_vid, s->cl450_vid, sizeof cl450_vid);
++	cl450_scr = fmv_bits_float(s->cl450_scr_bits); cl450_play = int32_t(s->cl450_play); cl450_blank = s->cl450_blank; cl450_border_color = s->cl450_border_color;
++	cl450_interruptmask = s->cl450_interruptmask; cl450_pending_interrupts = s->cl450_pending_interrupts; cl450_threshold = s->cl450_threshold;
++	cl450_buffer_offset = s->cl450_buffer_offset; cl450_buffer_empty_cnt = s->cl450_buffer_empty_cnt; libmpeg_offset = s->libmpeg_offset;
++	fmv_bufon[0] = s->fmv_bufon[0]; fmv_bufon[1] = s->fmv_bufon[1]; fmv_syncadjust = fmv_bits_float(s->fmv_syncadjust_bits); cl450_newpacket_mode = s->newpacket_mode;
++	for (int n = 0; n < 32; ++n) { cl450_newpacket_buffer[n].length = s->packets[n].length; cl450_newpacket_buffer[n].pts = s->packets[n].pts; cl450_newpacket_buffer[n].pts_valid = s->packets[n].pts_valid; }
++	cl450_newpacket_offset_write = s->packet_write; cl450_newpacket_offset_read = s->packet_read; cl450_frame_rate = s->frame_rate; cl450_frame_pixbytes = s->frame_pixbytes;
++	cl450_frame_width = s->frame_width; cl450_frame_height = s->frame_height; cl450_video_hsync_wait = s->video_hsync_wait;
++	cl450_videoram_read = s->videoram_read; cl450_videoram_write = s->videoram_write; cl450_videoram_cnt = s->videoram_count; cl450_frame_cnt = s->frame_count;
++	for (int n = 0; n < CL450_VIDEO_BUFFERS; ++n) { videoram[n].width = s->video[n].width; videoram[n].height = s->video[n].height; videoram[n].depth = s->video[n].depth; memcpy(videoram[n].data, s->video[n].data, sizeof s->video[n].data); }
++	memcpy(l64111_regs, s->l64111_regs, sizeof l64111_regs); memcpy(l64111intmask, s->l64111_intmask, sizeof l64111intmask); memcpy(l64111intstatus, s->l64111_intstatus, sizeof l64111intstatus);
++	mpeg_io_reg = s->mpeg_io_reg; memcpy(l64111_fifo, s->l64111_fifo, sizeof l64111_fifo); l64111_fifo_cnt = s->l64111_fifo_count;
++	audio_frame_cnt = s->audio_frame_count; audio_frame_size = s->audio_frame_size; audio_frame_detect = s->audio_frame_detect; audio_head_detect = s->audio_head_detect;
++	l64111_cb_mask = s->l64111_cb_mask; audio_data_remaining = s->audio_data_remaining; audio_skip_size = s->audio_skip_size;
++	mp2.id = s->mp2_id; memcpy(mp2.V, s->mp2_v, sizeof mp2.V); mp2.Voffs = s->mp2_voffs;
++	for (int n = 0; n < L64111_CHANNEL_BUFFERS; ++n) { pcmaudio[n].ready = s->pcm[n].ready; memcpy(pcmaudio[n].pcm, s->pcm[n].pcm, sizeof s->pcm[n].pcm); }
++	cd_audio_mode_changed = s->cd_audio_mode_changed; max_sync_vpos = fmv_bits_float(s->max_sync_vpos_bits); remaining_sync_vpos = fmv_bits_float(s->remaining_sync_vpos_bits);
++	rethink_cd32fmv(); return true;
++}
++#endif
++
+ static void cd32_fmv_hsync_handler(void)
+ {
+ 	if (!fmv_ram_bank.baseaddr)
+@@ -1622,9 +1813,9 @@ addrbank *cd32_fmv_init (struct autoconfig_info *aci)
+ 		return &expamem_null;
+ 	}
+ 	if (!audioram)
+-		audioram = xmalloc(uae_u8, 262144);
++		audioram = xcalloc(uae_u8, 262144);
+ 	if (!videoram)
+-		videoram = xmalloc(struct cl450_videoram, CL450_VIDEO_BUFFERS);
++		videoram = xcalloc(struct cl450_videoram, CL450_VIDEO_BUFFERS);
+ 	mapped_malloc(&fmv_ram_bank);
+ 	if (!pcmaudio)
+ 		pcmaudio = xcalloc(struct fmv_pcmaudio, L64111_CHANNEL_BUFFERS);
+diff --git a/cd32_fmv_genlock.cpp b/cd32_fmv_genlock.cpp
+index dd138edb..b93e88d9 100644
+--- a/cd32_fmv_genlock.cpp
++++ b/cd32_fmv_genlock.cpp
+@@ -12,6 +12,9 @@
+ 
+ #include "options.h"
+ #include "xwin.h"
++#ifdef P6_PORTABLE
++#include "fmv_state.h"
++#endif
+ 
+ static uae_u8 *mpeg_out_buffer;
+ static int mpeg_width, mpeg_height, mpeg_depth;
+@@ -49,6 +52,7 @@ void cd32_fmv_new_image(int w, int h, int d, uae_u8 *s)
+ 		memset(mpeg_out_buffer, 0, MAX_MPEG_WIDTH * MAX_MPEG_HEIGHT * MPEG_PIXBYTES_32);
+ 		mpeg_width = MAX_MPEG_WIDTH;
+ 		mpeg_height = MAX_MPEG_HEIGHT;
++		mpeg_depth = MPEG_PIXBYTES_32;
+ 		return;
+ 	}
+ 	memcpy(mpeg_out_buffer, s, w * h * d);
+@@ -62,6 +66,42 @@ void cd32_fmv_state(int state)
+ 	cd32_fmv_active = state;
+ }
+ 
++#ifdef P6_PORTABLE
++bool p6_fmv_genlock_get(p6_fmv_genlock_state *out)
++{
++	if (!out) return false;
++	p6_fmv_genlock_state s{};
++	s.allocated = mpeg_out_buffer != NULL; s.active = cd32_fmv_active;
++	s.width = mpeg_width; s.height = mpeg_height; s.depth = mpeg_depth;
++	s.border32 = fmv_border_color; s.border16 = fmv_border_color_16;
++	if (mpeg_out_buffer) memcpy(s.pixels, mpeg_out_buffer, sizeof s.pixels);
++	if (!p6_fmv_genlock_validate(&s)) return false;
++	*out = s; return true;
++}
++bool p6_fmv_genlock_validate(const p6_fmv_genlock_state *s)
++{
++	if (!s || s->allocated > 1 || s->active > 1 || s->border16 > 0xffff) return false;
++	if (!s->allocated) return !s->active && !s->width && !s->height && !s->depth;
++	return s->width > 0 && s->width <= MAX_MPEG_WIDTH && s->height > 0 && s->height <= MAX_MPEG_HEIGHT &&
++		(s->depth == MPEG_PIXBYTES_16 || s->depth == MPEG_PIXBYTES_32);
++}
++bool p6_fmv_genlock_apply(const p6_fmv_genlock_state *s)
++{
++	if (!p6_fmv_genlock_validate(s)) return false;
++	if (!s->allocated) {
++		xfree(mpeg_out_buffer); mpeg_out_buffer = NULL;
++		mpeg_width = mpeg_height = mpeg_depth = cd32_fmv_active = 0;
++		fmv_border_color = fmv_border_color_16 = 0; return true;
++	}
++	if (!mpeg_out_buffer) mpeg_out_buffer = xmalloc(uae_u8, sizeof s->pixels);
++	if (!mpeg_out_buffer) return false;
++	memcpy(mpeg_out_buffer, s->pixels, sizeof s->pixels);
++	mpeg_width = int(s->width); mpeg_height = int(s->height); mpeg_depth = int(s->depth);
++	cd32_fmv_active = int(s->active); fmv_border_color = s->border32; fmv_border_color_16 = uae_u16(s->border16);
++	return true;
++}
++#endif
++
+ // slow software method but who cares.
+ 
+ 
+diff --git a/custom.cpp b/custom.cpp
+index dac17abd..343417e6 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13437,8 +13437,8 @@ extern void p6_draw_flags_set(int erase, int center, int locked);
+ bool p6_frame_geometry_get(int32_t *out, unsigned n)
+ {
+ 	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
+-	if (!out || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
+-	const struct vidbuffer *vb = vi->inbuffer;
++	if (!out || n != P6_FRAME_GEOMETRY_WORDS) return false;
++	const struct vidbuffer *vb = &vi->drawbuffer;
+ 	int erase, center, locked;
+ 	p6_draw_flags_get(&erase, &center, &locked);
+ 	const int32_t words[] = {
+@@ -13455,8 +13455,10 @@ bool p6_frame_geometry_get(int32_t *out, unsigned n)
+ bool p6_frame_geometry_set(const int32_t *in, unsigned n)
+ {
+ 	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
+-	if (!in || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
+-	struct vidbuffer *vb = vi->inbuffer;
++	if (!in || n != P6_FRAME_GEOMETRY_WORDS) return false;
++	struct vidbuffer *selected = vi->inbuffer;
++	struct vidbuffer *vb = &vi->drawbuffer;
++	vi->inbuffer = vb;
+ 	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
+ 	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
+ 	vb->inwidth = in[7]; vb->inheight = in[8]; vb->inwidth2 = in[9]; vb->inheight2 = in[10]; vb->outwidth = in[11]; vb->outheight = in[12];
+@@ -13470,6 +13472,7 @@ bool p6_frame_geometry_set(const int32_t *in, unsigned n)
+ 	vb->outwidth = in[11]; vb->outheight = in[12];
+ 	display_redraw = in[22] != 0;
+ 	p6_draw_flags_set(in[23], in[24], in[25]);
++	vi->inbuffer = selected;
+ 	return true;
+ }
+ 
+@@ -13481,7 +13484,7 @@ bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first)
+ {
+ 	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
+ 	struct vidbuffer *vb = &vi->drawbuffer;
+-	if (!width || !height || !stride || !first || vi->inbuffer != vb || !vb->bufmem || vb->pixbytes != 4 || vb->rowbytes <= 0) return false;
++	if (!width || !height || !stride || !first || !vb->bufmem || vb->pixbytes != 4 || vb->rowbytes <= 0) return false;
+ 	*width = vb->width_allocated;
+ 	*height = vb->height_allocated;
+ 	*stride = vb->rowbytes;

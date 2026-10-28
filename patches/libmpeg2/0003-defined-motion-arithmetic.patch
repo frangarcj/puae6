@@ -1,0 +1,47 @@
+diff --git a/src/slice.c b/src/slice.c
+--- a/src/slice.c
++++ b/src/slice.c
+@@ -214,3 +214,6 @@ static inline int bound_motion_vector (const int vector, const int f_code)
+ {
+-    return ((int32_t)vector << (27 - f_code)) >> (27 - f_code);
++    const unsigned int bits = 5 + f_code;
++    const unsigned int modulus = 1u << bits;
++    const unsigned int value = (unsigned int) vector & (modulus - 1);
++    return (value & (modulus >> 1)) ? (int) ((int64_t) value - modulus) : (int) value;
+ }
+@@ -1268,4 +1271,4 @@ static void motion_mp1 (mpeg2_decoder_t * const decoder,
+     motion_x = (motion->pmv[0][0] +
+ 		(get_motion_delta (decoder,
+-				   motion->f_code[0]) << motion->f_code[1]));
++				   motion->f_code[0]) * (1 << motion->f_code[1])));
+     motion_x = bound_motion_vector (motion_x,
+@@ -1276,4 +1279,4 @@ static void motion_mp1 (mpeg2_decoder_t * const decoder,
+     motion_y = (motion->pmv[0][1] +
+ 		(get_motion_delta (decoder,
+-				   motion->f_code[0]) << motion->f_code[1]));
++				   motion->f_code[0]) * (1 << motion->f_code[1])));
+     motion_y = bound_motion_vector (motion_y,
+@@ -1327,6 +1330,6 @@ static void motion_fr_field_##FORMAT (mpeg2_decoder_t * const decoder,
+     motion_y = ((motion->pmv[0][1] >> 1) +				      \
+ 		get_motion_delta (decoder, motion->f_code[1]));		      \
+     /* motion_y = bound_motion_vector (motion_y, motion->f_code[1]); */	      \
+-    motion->pmv[0][1] = motion_y << 1;					      \
++    motion->pmv[0][1] = motion_y * 2;					      \
+ 									      \
+     MOTION_FIELD (table, motion->ref[0], motion_x, motion_y, 0, & ~1, field); \
+@@ -1344,6 +1347,6 @@ static void motion_fr_field_##FORMAT (mpeg2_decoder_t * const decoder,
+     motion_y = ((motion->pmv[1][1] >> 1) +				      \
+ 		get_motion_delta (decoder, motion->f_code[1]));		      \
+     /* motion_y = bound_motion_vector (motion_y, motion->f_code[1]); */	      \
+-    motion->pmv[1][1] = motion_y << 1;					      \
++    motion->pmv[1][1] = motion_y * 2;					      \
+ 									      \
+     MOTION_FIELD (table, motion->ref[0], motion_x, motion_y, 1, & ~1, field); \
+@@ -1367,6 +1370,6 @@ static void motion_fr_dmv_##FORMAT (mpeg2_decoder_t * const decoder,
+     motion_y = ((motion->pmv[0][1] >> 1) +				      \
+ 		get_motion_delta (decoder, motion->f_code[1]));		      \
+     /* motion_y = bound_motion_vector (motion_y, motion->f_code[1]); */	      \
+-    motion->pmv[1][1] = motion->pmv[0][1] = motion_y << 1;		      \
++    motion->pmv[1][1] = motion->pmv[0][1] = motion_y * 2;		      \
+     dmv_y = get_dmv (decoder);						      \
+ 									      \

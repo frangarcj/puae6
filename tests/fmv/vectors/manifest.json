@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generator": "ffmpeg 9.0.2 scalar encoders; commands are provenance only and are not test dependencies",
+  "video": {
+    "file": "mpeg1_ipb_352x288.b64",
+    "decoded_bytes": 2605,
+    "sha256": "7dad7e58b46fd386701f388e149918500874dac38e29da2d414d8f253ea2d5bc",
+    "source": "black YUV420P 352x288 at 25 fps; saturated red 32x32 box at y=96 moving x=24*n",
+    "command": "ffmpeg -f lavfi -i nullsrc=size=352x288:rate=25:duration=0.28,geq=<documented-source-expression> -vf format=yuv420p -c:v mpeg1video -g 12 -bf 2 -q:v 2 -sc_threshold 0 -frames:v 7 -f mpeg1video",
+    "picture_types": "IBBPBBP",
+    "rgb32_sha256": [
+      "249a400e8a964e2da5654463c48ee3bec4218c93d59cdf46b14b1c844534b3c1",
+      "a370c46a92ecf213dba97d3b99db1cef582df1c392cf2b45b840ce1caef21964",
+      "9c3e1516c5c60785724fd5e52eca857a9c8a7b2dc87c3cc456026a6a3ef64cd1",
+      "1c0c707581fe66b7a14fad84be03638eb12d718b18aa4de7f967fe1600559de6",
+      "79e24ca367450521dcecc4d22432f5bed954603d4075b92d6553035b4ba2dd1e",
+      "1a604de41d7c5a921338d17cba96b9fab1323d15265f7a2b58f7d75aeda4c3c6",
+      "ae4a6a86ac92020d08930f1b03255babeb8c85f4adac21574560568a97c05139"
+    ]
+  },
+  "audio": {
+    "encoded_bytes": 626,
+    "rate": 44100,
+    "channels": 2,
+    "samples_per_channel": 1152,
+    "tone": {
+      "file": "mp2_stereo_tone.b64",
+      "sha256": "d5023e50a33ccf69c95702feb8beea303304ee63be661736d7d53c0a83cd38f9",
+      "source": "left=0.60*sin(2*pi*440*t), right=0.40*sin(2*pi*660*t)",
+      "pcm_s16le_sha256": "80a9adf00863fb402f84fb9c2d527c214e75c0b52e58519f0e2775970bb63345"
+    },
+    "silence": {
+      "file": "mp2_stereo_silence.b64",
+      "sha256": "e8539cebb348cc5c3f90247cf6302eb96b1deb4ee1d05e6ef061707e16207d14",
+      "source": "1152 exact zero samples per stereo channel",
+      "pcm_s16le_sha256": "606f558e014930f9c1669f03c71c28945c4631568e39cd308c6c7f4077c7bfb9"
+    }
+  },
+  "libmpeg2_requested_bytes_at_352x288_rgb32": {
+    "peak_live": 2793536,
+    "context": 18312,
+    "chunk": 1222660,
+    "yuv": 321024,
+    "convert_id": 15028,
+    "converted_frames": 1216512
+  },
+  "kjmp2_context_bytes": 8200
+}

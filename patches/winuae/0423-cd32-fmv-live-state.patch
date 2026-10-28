@@ -1,0 +1,94 @@
+diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
+--- a/cd32_fmv.cpp
++++ b/cd32_fmv.cpp
+@@ -1571,9 +1571,21 @@ static bool p6_fmv_state_prepare()
+ 	return bank == &fmv_rom_bank && p6_fmv_state_preflight();
+ }
+ 
+-bool p6_fmv_state_get(p6_fmv_state *s)
++bool p6_fmv_audio_phase_get(int32_t *out, unsigned count)
+ {
+-	if (!s || !p6_fmv_state_preflight()) return false;
++	return p6_cda::phase_get(cas, out, count);
++}
++
++bool p6_fmv_audio_phase_set(const int32_t *in, unsigned count)
++{
++	return p6_cda::phase_set(cas, in, count);
++}
++
++bool p6_fmv_state_get(p6_fmv_state *s, const char **why)
++{
++	if (why) *why = NULL;
++	const auto fail = [why](const char *message) { if (why) *why = message; return false; };
++	if (!s || !p6_fmv_state_preflight()) return fail("FMV board storage is unavailable");
+ 	memset(s, 0, sizeof *s); s->version = s->mapped = 1;
+ 	memcpy(s->ram, fmv_ram_bank.baseaddr, sizeof s->ram); memcpy(s->audio_ram, audioram, sizeof s->audio_ram);
+ 	memcpy(s->cl450_regs, cl450_regs, sizeof cl450_regs); memcpy(s->cl450_imem, cl450_imem, sizeof cl450_imem);
+@@ -1603,12 +1615,12 @@ bool p6_fmv_state_get(p6_fmv_state *s)
+ 	const int active_buffer = cas.cda_userdata >= 0 && cas.cda_userdata < 2 ? cas.cda_userdata : 0;
+ 	if (cda) for (int n = 0; n < 2; ++n) memcpy(s->cda_buffers[n], cda->buffers[n], sizeof s->cda_buffers[n]);
+ 	const int16_t *stream_base = cda ? reinterpret_cast<int16_t*>(cda->buffers[active_buffer]) : s->cda_buffers[0];
+-	if (!p6_cda::capture_runtime(cas, stream_base, p6_cda::kMaxRuntimeFrames, &s->cda_stream, &s->cda_streamid)) return false;
++	if (!p6_cda::capture_runtime(cas, stream_base, p6_cda::kMaxRuntimeFrames, &s->cda_stream, &s->cda_streamid)) return fail("FMV PCM stream cannot be captured");
+ 	s->max_sync_vpos_bits = fmv_float_bits(max_sync_vpos); s->remaining_sync_vpos_bits = fmv_float_bits(remaining_sync_vpos);
+-	if (!p6_fmv_genlock_get(&s->genlock)) return false;
+-	if (!p6_fmv_aux_get(&s->aux)) return false;
++	if (!p6_fmv_genlock_get(&s->genlock)) return fail("FMV genlock cannot be captured");
++	if (!p6_fmv_aux_get(&s->aux)) return fail("FMV auxiliary raster cannot be captured");
+ 	size_t journal_size = 0;
+-	if (!p6_fmv::save(*mpeg_journal, s->journal, sizeof s->journal, &journal_size) || journal_size > UINT32_MAX) return false;
++	if (!p6_fmv::save(*mpeg_journal, s->journal, sizeof s->journal, &journal_size) || journal_size > UINT32_MAX) return fail("FMV decoder journal cannot be captured");
+ 	s->journal_size = uint32_t(journal_size);
+ 	return true;
+ }
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -3174,5 +3174,6 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
+ #ifdef P6_PORTABLE
+ namespace p6_cda {
++static_assert(kMaxStreams == AUDIO_CHANNEL_STREAMS, "portable CDA stream count");
+ static bool streams_supported()
+ {
+     unsigned owners = 0;
+@@ -3309,15 +3310,15 @@ static bool restore_at(cd_audio_state &cas, int16_t *base, uint32_t frames, cons
+     cas.cda_bufptr = s.active ? base + s.offset * 2 : dummy_buffer;
+     cas.cda_length = int(s.remaining); cas.cda_userdata = s.userdata;
+     cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? int(streamid) : 0;
+     cas.cda_next_cd_audio_buffer_callback = next; cas.cb_data = context;
++    for (int i = 0; i < 2; ++i) cas.cda_volume[i] = s.volume[i];
+     if (!s.active) { audio_set_extra_channels(); return true; }
+     const unsigned slot = streamid - 1;
+     auto &stream = audio_stream[slot];
+     stream = {}; stream.evtime = s.active ? s.event_cycles : MAX_EV;
+     stream.cb = audio_state_cda; stream.cb_data = &cas;
+     for (int i = 0; i < 2; ++i) {
+-        cas.cda_volume[i] = s.volume[i];
+         auto &ch = stream.data[i]; const auto &in = s.channel[i];
+         ch.current_sample = in.current; ch.last_sample = in.previous;
+         ch.sample_accum = in.accumulator; ch.sample_accum_time = in.cycles;
+         ch.mixvol = 1; ch.adk_mask = ~0u;
+diff --git a/cd32_fmv_genlock.cpp b/cd32_fmv_genlock.cpp
+--- a/cd32_fmv_genlock.cpp
++++ b/cd32_fmv_genlock.cpp
+@@ -82,6 +82,6 @@ bool p6_fmv_genlock_validate(const p6_fmv_genlock_state *s)
+ {
+ 	if (!s || s->allocated > 1 || s->active > 1 || s->border16 > 0xffff) return false;
+-	if (!s->allocated) return !s->active && !s->width && !s->height && !s->depth;
++	if (!s->allocated) return !s->width && !s->height && !s->depth;
+ 	return s->width > 0 && s->width <= MAX_MPEG_WIDTH && s->height > 0 && s->height <= MAX_MPEG_HEIGHT &&
+ 		(s->depth == MPEG_PIXBYTES_16 || s->depth == MPEG_PIXBYTES_32);
+ }
+@@ -90,8 +90,9 @@ bool p6_fmv_genlock_apply(const p6_fmv_genlock_state *s)
+ 	if (!p6_fmv_genlock_validate(s)) return false;
+ 	if (!s->allocated) {
+ 		xfree(mpeg_out_buffer); mpeg_out_buffer = NULL;
+-		mpeg_width = mpeg_height = mpeg_depth = cd32_fmv_active = 0;
+-		fmv_border_color = fmv_border_color_16 = 0; return true;
++		mpeg_width = mpeg_height = mpeg_depth = 0; cd32_fmv_active = int(s->active);
++		fmv_border_color = s->border32; fmv_border_color_16 = uae_u16(s->border16);
++		return true;
+ 	}
+ 	if (!mpeg_out_buffer) mpeg_out_buffer = xmalloc(uae_u8, sizeof s->pixels);
+ 	if (!mpeg_out_buffer) return false;

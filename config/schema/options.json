@@ -633,12 +633,13 @@
       ],
       "libretro": {
         "key": "puae6_cartridge", "category": "machine", "label": "Cartridge",
-        "info": "HRTMon builtin, or an Action Replay ROM from the system directory (ar1.rom, ar2.rom, ar3.rom, ar1200.rom). AR1/2/3 require stock A500; AR1200 and HRTMon require A1200. Activate with Freeze. Missing or invalid ROMs fail the load.",
+        "info": "HRTMon builtin, an Action Replay ROM, or the CD32 Full Motion Video module from the system directory. AR1/2/3 require stock A500; AR1200 and HRTMon require A1200 and activate with Freeze. FMV requires CD32 content and a known 40.22/40.30 ROM (cd32-fmv.rom or an amiga-cd32-fmv-*.rom name); it has no Freeze control. Missing or invalid ROMs fail the load.",
         "extra_values": [
           {"value": "ar1", "abi": 3, "label": "Action Replay I (A500)", "const": "Ar1", "wrapper_name": "Ar1"},
           {"value": "ar2", "abi": 4, "label": "Action Replay II (A500)", "const": "Ar2", "wrapper_name": "Ar2"},
           {"value": "ar3", "abi": 5, "label": "Action Replay III (A500)", "const": "Ar3", "wrapper_name": "Ar3"},
-          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200", "wrapper_name": "Ar1200"}
+          {"value": "ar1200", "abi": 6, "label": "Action Replay 1200 (A1200)", "const": "Ar1200", "wrapper_name": "Ar1200"},
+          {"value": "fmv", "abi": 7, "label": "CD32 Full Motion Video module", "const": "Fmv", "wrapper_name": "Fmv"}
         ]
       },
       "headless": {"how": "fixed"},

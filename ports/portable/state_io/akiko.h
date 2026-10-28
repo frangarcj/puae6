@@ -63,6 +63,7 @@ inline void akiko_candidate_fields(Archive &a, p6_akiko_state &candidate)
         AK_VALUE(channel, current); AK_VALUE(channel, previous);
         AK_VALUE(channel, accumulator); AK_VALUE(channel, cycles);
     }
+    AK_VALUE(audio, streamid);
     AK_VALUE(audio, bound); AK_VALUE(audio, running); AK_VALUE(audio, sector);
     AK_VALUE(audio, callbacks); AK_VALUE(audio, position); AK_VALUE(audio, end);
     AK_VALUE(audio, left); AK_VALUE(audio, right); AK_VALUE(audio, status); AK_VALUE(audio, error);

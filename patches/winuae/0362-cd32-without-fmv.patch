@@ -41,3 +41,108 @@ diff --git a/drawing.cpp b/drawing.cpp
  	// cd32 fmv
  	if (!currprefs.monitoremu && vidinfo->tempbuffer.bufmem_allocated && currprefs.cs_cd32fmv) {
  		if (!denise_lock()) {
+diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
+--- a/cd32_fmv.cpp
++++ b/cd32_fmv.cpp
+@@ -19,7 +19,9 @@
+ #include "debug.h"
+ #include "audio.h"
+ #include "devices.h"
++#ifndef P6_PORTABLE
+ #include "threaddep/thread.h"
++#endif
+ 
+ #include "cda_play.h"
+ #include "archivers/mp2/kjmp2.h"
+@@ -222,7 +224,9 @@
+ static int cl450_buffer_offset;
+ static int cl450_buffer_empty_cnt;
+ static int libmpeg_offset;
++#ifndef P6_PORTABLE
+ static uae_sem_t play_sem;
++#endif
+ static volatile bool fmv_bufon[2];
+ static float fmv_syncadjust;
+ static struct cd_audio_state cas;
+@@ -838,6 +842,16 @@
+ 			break;
+ 			case STATE_SEQUENCE:
+ 				cl450_frame_pixbytes = 4;
++				if (!mpeg_info->sequence->width || !mpeg_info->sequence->height ||
++					mpeg_info->sequence->width > 352 || mpeg_info->sequence->height > 288) {
++					write_log(_T("CL450 rejected MPEG dimensions %ux%u\n"),
++						mpeg_info->sequence->width, mpeg_info->sequence->height);
++					mpeg2_reset(mpeg_decoder, 1);
++					cl450_frame_width = cl450_frame_height = 0;
++					cl450_buffer_offset = libmpeg_offset = 0;
++					cl450_set_status(CL_INT_UND);
++					return;
++				}
+ 				mpeg2_convert(mpeg_decoder, cl450_frame_pixbytes == 2 ? mpeg2convert_rgb16 : mpeg2convert_rgb32, NULL);
+ 				cl450_set_status(CL_INT_SEQ_V);
+ 				cl450_frame_rate = mpeg_info->sequence->frame_period ? 27000000 / mpeg_info->sequence->frame_period : 0;
+@@ -1367,7 +1381,9 @@
+ 
+ static void fmv_next_cd_audio_buffer_callback(int bufnum, void *param)
+ {
++#ifndef P6_PORTABLE
+ 	uae_sem_wait(&play_sem);
++#endif
+ 	if (bufnum >= 0) {
+ 		fmv_bufon[bufnum] = 0;
+ 		bufnum = 1 - bufnum;
+@@ -1378,7 +1395,9 @@
+ 	if (bufnum < 0) {
+ 		audio_cda_new_buffer(&cas, NULL, 0, -1, NULL, NULL);
+ 	}
++#ifndef P6_PORTABLE
+ 	uae_sem_post(&play_sem);
++#endif
+ }
+ 
+ static void cd32_fmv_vsync_handler(void)
+@@ -1401,6 +1420,11 @@
+ 			fmv_bufon[0] = fmv_bufon[1] = 0;
+ 			delete cda;
+ 			cda = new cda_audio(PCM_SECTORS, KJMP2_SAMPLES_PER_FRAME * 4, 44100);
++			if (!cda->buffers[0] || !cda->buffers[1]) {
++				delete cda;
++				cda = NULL;
++				return;
++			}
+ 			l64111_setvolume();
+ 		}
+ 	}
+@@ -1523,7 +1547,9 @@
+ 		delete cda;
+ 	}
+ 	cda = NULL;
++#ifndef P6_PORTABLE
+ 	uae_sem_destroy(&play_sem);
++#endif
+ 	xfree(pcmaudio);
+ 	pcmaudio = NULL;
+ 	if (mpeg_decoder)
+@@ -1577,7 +1603,9 @@
+ 	map_banks(&fmv_rom_bank, (fmv_start + ROM_BASE) >> 16, fmv_rom_size >> 16, 0);
+ 	map_banks(&fmv_ram_bank, (fmv_start + RAM_BASE) >> 16, fmv_ram_size >> 16, 0);
+ 	map_banks(&fmv_bank, (fmv_start + IO_BASE) >> 16, (RAM_BASE - IO_BASE) >> 16, 0);
++#ifndef P6_PORTABLE
+ 	uae_sem_init(&play_sem, 0, 1);
++#endif
+ 	cd32_fmv_reset(1);
+ 
+ 	device_add_hsync(cd32_fmv_hsync_handler);
+diff --git a/cd32_fmv_genlock.cpp b/cd32_fmv_genlock.cpp
+--- a/cd32_fmv_genlock.cpp
++++ b/cd32_fmv_genlock.cpp
+@@ -44,7 +44,8 @@
+ {
+ 	if (!mpeg_out_buffer)
+ 		mpeg_out_buffer = xmalloc(uae_u8, MAX_MPEG_WIDTH * MAX_MPEG_HEIGHT * MPEG_PIXBYTES_32);
+-	if (s == NULL || w > MAX_MPEG_WIDTH || h > MAX_MPEG_HEIGHT) {
++	if (s == NULL || w <= 0 || h <= 0 || w > MAX_MPEG_WIDTH || h > MAX_MPEG_HEIGHT ||
++		(d != MPEG_PIXBYTES_16 && d != MPEG_PIXBYTES_32)) {
+ 		memset(mpeg_out_buffer, 0, MAX_MPEG_WIDTH * MAX_MPEG_HEIGHT * MPEG_PIXBYTES_32);
+ 		mpeg_width = MAX_MPEG_WIDTH;
+ 		mpeg_height = MAX_MPEG_HEIGHT;

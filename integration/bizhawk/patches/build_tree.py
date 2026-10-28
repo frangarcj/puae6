@@ -55,7 +55,8 @@ INSTALL_AT = "src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6"
 EXPORT = [".editorconfig", ".global.editorconfig.ini", ".stylecop.json", "Common.props", "Directory.Packages.props", "global.json", "References",
           "ExternalProjects", "src/.gitignore", "src/BannedSymbols.BannedApiAnalyzers.txt", "src/MainSlnCommon.props", "src/Menees.Analyzers.Settings.xml",
           "src/BizHawk.BizInvoke", "src/BizHawk.Common", "src/BizHawk.Emulation.Common", "src/BizHawk.Emulation.Cores", "src/BizHawk.Emulation.DiscSystem",
-          "src/BizHawk.Client.Common/config/Config.cs", "src/BizHawk.Client.Common/RomLoader.cs", "src/BizHawk.Client.Common/movie/MovieSession.cs", "src/BizHawk.Client.Common/rewind/ZwinderBuffer.cs",
+          "src/BizHawk.Client.Common/config/Config.cs", "src/BizHawk.Client.Common/RomLoader.cs", "src/BizHawk.Client.Common/movie/MovieSession.cs",
+          "src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs", "src/BizHawk.Client.Common/rewind/ZwinderBuffer.cs",
           "src/BizHawk.Client.EmuHawk/MainForm.cs", "src/BizHawk.Client.EmuHawk/MainForm.Movie.cs", "src/BizHawk.Client.EmuHawk/Program.cs"]
 EXPORT_EMUHAWK = [path for path in EXPORT if not path.startswith(("src/BizHawk.Client.Common/", "src/BizHawk.Client.EmuHawk/"))] + [
     "src/MainSlnExecutable.props", "src/BizHawk.Bizware.Audio", "src/BizHawk.Bizware.Graphics", "src/BizHawk.Bizware.Graphics.Controls", "src/BizHawk.Bizware.Input",

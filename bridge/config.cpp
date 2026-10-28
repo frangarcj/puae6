@@ -39,8 +39,62 @@
 namespace p6_bridge {
 
 namespace { const char *const kCartridgeId = "p6-cartridge.rom", *const kActionReplayId = "p6-action-replay.rom"; }
+const char *const kFmvCartridgeId = "p6-cd32-fmv.rom";
 bool ar_bound() { return p6_blob_exists(kActionReplayId) == P6_BLOB_OK; }
 bool hrtmon_bound() { return p6_blob_exists(kCartridgeId) == P6_BLOB_OK; }
+bool cd32_fmv_bound() { return p6_blob_exists(kFmvCartridgeId) == P6_BLOB_OK; }
+
+static bool rom_id_matches(const uint8_t *data, size_t size, int id)
+{
+    const auto *rd = getromdatabyid(id);
+    uae_u8 sha[SHA1_SIZE];
+    if (!data || !rd || rd->size != size) return false;
+    get_sha1(const_cast<uae_u8 *>(data), int(size), sha);
+    for (unsigned n = 0; n < SHA1_SIZE; ++n)
+        if (sha[n] != uint8_t(rd->sha1[n / 4] >> (24 - 8 * (n % 4)))) return false;
+    return true;
+}
+
+bool cd32_fmv_identity(uint8_t out[32])
+{
+    uint64_t bytes = 0; uint32_t kind = 0;
+    if (!out || p6_blob_size(kFmvCartridgeId, &bytes, &kind) != P6_BLOB_OK ||
+        kind != P6_BLOB_ROM || bytes != 262144) return false;
+    p6_sha256 hash; p6_sha256_init(&hash);
+    static const char domain[] = "p6/cartridge/cd32-fmv/v1";
+    p6_sha256_update(&hash, domain, sizeof domain);
+    uint8_t block[4096];
+    for (uint64_t at = 0; at < bytes;) {
+        const size_t n = bytes - at < sizeof block ? size_t(bytes - at) : sizeof block;
+        size_t got = 0;
+        if (p6_blob_pread(kFmvCartridgeId, at, block, n, &got) != P6_BLOB_OK || got != n) return false;
+        p6_sha256_update(&hash, block, n); at += n;
+    }
+    p6_sha256_final(&hash, out);
+    return true;
+}
+
+p6_result bind_cd32_fmv(p6_buffer image, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error); p6_session::Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
+    const auto &s = p6_session::session;
+    if (s.state != p6_session::State::Initialized || ar_bound() || hrtmon_bound() || cd32_fmv_bound())
+        return p6_fail(error, P6_ERROR_BAD_STATE, "bind one cartridge before load");
+    if (s.config.machine != kCd32Machine)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "FMV cartridge requires CD32");
+    if (!image.data || (image.bytes != 262144 && image.bytes != 524288))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "expected a 256 KiB FMV ROM or two identical copies");
+    const auto *raw = static_cast<const uint8_t *>(image.data);
+    if (image.bytes == 524288 && memcmp(raw, raw + 262144, 262144))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "512 KiB FMV container halves differ");
+    if (!rom_id_matches(raw, 262144, 23) && !rom_id_matches(raw, 262144, 74))
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "FMV ROM is not revision 40.22 or 40.30");
+    if (p6_blob_register(kFmvCartridgeId, P6_BLOB_ROM, raw, 262144) != P6_BLOB_OK)
+        return p6_fail(error, P6_ERROR_CAPACITY, "cannot copy the FMV ROM into the image");
+    return P6_OK;
+}
 
 bool ar1200_bound()
 {
@@ -101,7 +155,7 @@ p6_result bind_hrtmon(p6_buffer image, p6_error *error)
     p6_error_clear(error);
     p6_session::Guard guard;
     if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
-    if (p6_session::session.state != p6_session::State::Initialized || hrtmon_bound() || ar_bound())
+    if (p6_session::session.state != p6_session::State::Initialized || hrtmon_bound() || ar_bound() || cd32_fmv_bound())
         return p6_fail(error, P6_ERROR_BAD_STATE, "bind HRTMon once, before load");
     if (p6_session::session.config.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private HRTMon requires A1200");
@@ -114,7 +168,7 @@ p6_result bind_ar1200(p6_buffer image, p6_error *error)
     p6_error_clear(error); p6_session::Guard guard;
     if (!guard.ok) return p6_fail(error,P6_ERROR_BUSY,"another call is active");
     const auto &s=p6_session::session; const auto &c=s.config;
-    if (s.state!=p6_session::State::Initialized || ar_bound() || hrtmon_bound())
+    if (s.state!=p6_session::State::Initialized || ar_bound() || hrtmon_bound() || cd32_fmv_bound())
         return p6_fail(error,P6_ERROR_BAD_STATE,"bind one monitor before load");
     if (c.machine!=P6_MACHINE_A1200 || resolve_cpu(c)!=68020 || resolve_cpu_multiplier(c)!=4 ||
         c.flags || c.fpu_model || c.z3_memory || c.hdf_controller || !memory_is_preset(c))
@@ -133,7 +187,7 @@ static p6_result bind_ar(uint32_t model, p6_buffer image, p6_error *error)
     p6_session::Guard guard;
     if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is active");
     const auto &s = p6_session::session; const auto &c = s.config;
-    if (s.state != p6_session::State::Initialized || ar_bound() || hrtmon_bound())
+    if (s.state != p6_session::State::Initialized || ar_bound() || hrtmon_bound() || cd32_fmv_bound())
         return p6_fail(error, P6_ERROR_BAD_STATE, "bind one cartridge before load");
     if (c.machine != P6_MACHINE_A500 || resolve_cpu(c) != 68000 || resolve_cpu_multiplier(c) != 2 ||
         c.cpu_compatibility == P6_CPU_NORMAL || c.fpu_model || c.z3_memory || c.flags || c.hdf_controller || !memory_is_preset(c))
@@ -154,7 +208,7 @@ p6_result bind_ar1(p6_buffer image, p6_error *error)
 p6_result load_builtin_hrtmon(p6_error *error)
 {
     if (!(p6_session::session.config.flags & P6_CONFIG_HRTMON) || hrtmon_bound()) return P6_OK;
-    if (ar_bound()) return p6_fail(error, P6_ERROR_BAD_STATE, "Action Replay already owns the cartridge slot");
+    if (ar_bound() || cd32_fmv_bound()) return p6_fail(error, P6_ERROR_BAD_STATE, "another cartridge already owns the slot");
     extern const uint8_t hrtmon_builtin[198732];
     return register_hrtmon({hrtmon_builtin, sizeof hrtmon_builtin}, error);
 }
@@ -567,13 +621,7 @@ p6_result validate_config(const p6_config &c, p6_error *error)
 }
 
 static bool firmware_matches(const uae_u8 *data, int size, int id)
-{
-    const auto *rd = getromdatabyid(id); uae_u8 sha[SHA1_SIZE]; get_sha1(const_cast<uae_u8 *>(data), size, sha);
-    if (!rd || rd->size != unsigned(size)) return false;
-    for (unsigned n = 0; n < SHA1_SIZE; ++n)
-        if (sha[n] != uint8_t(rd->sha1[n / 4] >> (24 - 8 * (n % 4)))) return false;
-    return true;
-}
+{ return rom_id_matches(data, size_t(size), id); }
 p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_error *error)
 {
     if (!firmware.data || firmware.bytes == 0)
@@ -748,6 +796,12 @@ void build_preferences(const p6_config &c, bool ide)
     currprefs.cartfile[0] = 0;
     if (hrtmon_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kCartridgeId); }
     else if (ar_bound()) { currprefs.cart_internal = 0; _tcscpy(currprefs.cartfile, kActionReplayId); }
+    else if (cd32_fmv_bound()) {
+        currprefs.cs_cd32fmv = true;
+        currprefs.cart_internal = 0;
+        _tcscpy(currprefs.cartfile, kFmvCartridgeId);
+        set_device_rom(&currprefs, kFmvCartridgeId, ROMTYPE_CD32CART, 0);
+    }
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
 }
@@ -772,7 +826,7 @@ p6_result check_preset(p6_error *error)
     else if (is_a4000(preset_config.machine) && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";
     else if (!no_gayle && !is_a4000(preset_config.machine) && p.cs_ide) drifted = "gayle";
     else if (preset_config.machine == kCd32Machine && (!p.cs_cd32cd || !p.cs_cd32c2p || !p.cs_cd32nvram || p.cs_cd32nvram_size != 1024 ||
-             p.cs_ciaoverlay || p.cs_cd32fmv || p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.cs_ksmirror_e0 || !p.cs_ksmirror_a8)) drifted = "CD32 motherboard";
+             p.cs_ciaoverlay || p.cs_cd32fmv != cd32_fmv_bound() || p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.cs_ksmirror_e0 || !p.cs_ksmirror_a8)) drifted = "CD32 motherboard";
     else if (preset_config.machine == kCdtvMachine && (!p.cs_cdtvcd || !p.cs_cdtvram || p.cs_cdtvcr || p.cs_rtc != 1 ||
              p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.romextfile2[0] || p.cs_ksmirror_e0)) drifted = "CDTV motherboard";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
@@ -867,5 +921,7 @@ p6_result check_loaded_firmware(p6_error *error)
 extern "C" p6_result p6_cartridge_bind(uint32_t model,p6_buffer image,p6_error *error)
 {
     // Each owner takes exactly one Guard. Route before the A500-only validator.
-    return model==P6_CARTRIDGE_AR1200 ? p6_bridge::bind_ar1200(image,error) : p6_bridge::bind_action_replay(model,image,error);
+    if (model == P6_CARTRIDGE_AR1200) return p6_bridge::bind_ar1200(image,error);
+    if (model == P6_CARTRIDGE_CD32_FMV) return p6_bridge::bind_cd32_fmv(image,error);
+    return p6_bridge::bind_action_replay(model,image,error);
 }

@@ -20,8 +20,10 @@ from tests.media.test_cd_image import global_etnf_identity
 class Cd32Session(lr.LibretroHarness):
     @classmethod
     def setUpClass(cls):
-        main, ext = os.environ.get('P6_CD32_ROM_MAIN'), os.environ.get('P6_CD32_ROM_EXT')
-        if not main or not ext:
+        downloads = Path.home() / 'Downloads'
+        main = Path(os.environ.get('P6_CD32_ROM_MAIN', downloads / 'kick40060.CD32'))
+        ext = Path(os.environ.get('P6_CD32_ROM_EXT', downloads / 'kick40060.CD32.ext'))
+        if not main.is_file() or not ext.is_file():
             raise unittest.SkipTest('BLOCKED: authorized P6_CD32_ROM_MAIN and P6_CD32_ROM_EXT required')
         built = build_targets(ROOT / 'build/state-opt', ['p6_libretro_host', 'puae6_libretro', 'p6_headless'], optimized=True)
         cls.host, cls.core = built['p6_libretro_host'], built['puae6_libretro']
@@ -30,8 +32,8 @@ class Cd32Session(lr.LibretroHarness):
         cls.counter = 0
         cls.directory = Path(cls.tmp.name)
         cls.system_dir = cls.directory / 'system'; cls.system_dir.mkdir()
-        (cls.system_dir / 'kick40060.CD32').symlink_to(Path(main).resolve())
-        (cls.system_dir / 'kick40060.CD32.ext').symlink_to(Path(ext).resolve())
+        (cls.system_dir / 'kick40060.CD32').symlink_to(main.resolve())
+        (cls.system_dir / 'kick40060.CD32.ext').symlink_to(ext.resolve())
         cls.iso = cls.directory / 'public.iso'; cls.iso.write_bytes(bytes(512 * 2048))
         cls.other = cls.directory / 'other.iso'; cls.other.write_bytes(b'x' * (512 * 2048))
 

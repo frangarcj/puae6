@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task": "T43",
-  "scope": "study_only_no_profile_changes",
+  "scope": "implemented_public_cd32_fmv_profile_via_subbacklog",
   "upstream": {
     "source_id": "winuae",
     "tag": "6030",
@@ -23,7 +23,7 @@
       ]
     ],
     "audio": "MPEG1_LayerII_44100Hz_stereo",
-    "runtime_support": "not_implemented",
+    "runtime_support": "public_CD32_FMV_profile_exact_scalar_decoder_distinct_PCM_owners_complete_P6FM_state_and_frontend_acceptance",
     "firmware": {
       "canonical_bytes": 262144,
       "version": "40.30",
@@ -34,8 +34,25 @@
     },
     "scheduler": "p6_run_frame_and_existing_emulated_hsync_only",
     "media": "existing_cooperative_Disc_Akiko_path_no_direct_host_drive",
-    "native_decoder_codec": "undecided_blocks_implementation",
+    "native_decoder_codec": "bounded_operation_journal_and_complete_P6FM_value_codec_T43d2",
     "output": "one_bounded_software_composed_frame_and_existing_PCM_ABI"
+  },
+  "pcm_runtime": {
+    "status": "FMV-D2_native_ASan_UBSan_and_fresh_Waterbox_snapshot_passed",
+    "cdda_frames": 588,
+    "fmv_max_frames": 4608,
+    "ownership": "distinct_cd_audio_state_identity_per_stream",
+    "scheduler": "existing_audio_stream_cda_evt_only",
+    "state_codec": "P6FM_value_codec_T43d2"
+  },
+  "decoder_state": {
+    "status": "FMV-D2_complete_native_and_fresh_Waterbox_future_exact",
+    "codec": "bounded_address_free_operation_journal",
+    "max_serialized_bytes": 1320984,
+    "max_input_bytes": 1222660,
+    "max_operations": 8192,
+    "checkpoint": "sequence_header_through_completed_I_then_consumed_input",
+    "full_device_chunk": "P6FM_complete_T43d2"
   },
   "reference": {
     "source_id": "bizhawk_uae_reference",
@@ -49,6 +66,47 @@
     "kjmp2_version": "1.1",
     "kjmp2_license": "zlib-style_notice_in_source"
   },
+  "decoder_closure": {
+    "status": "exact_scalar_native_arm64_x86_64_sanitized_and_waterbox_linked_FMV-B2",
+    "version": "libmpeg2-0.4.1",
+    "source_manifest": "references/machawk-uae.manifest.json",
+    "derived_tree": "build/libmpeg2",
+    "patch_series": "patches/libmpeg2/series.json",
+    "license_record": "machawk-uae-libmpeg2",
+    "execution": "generic_C_scalar_only_no_runtime_CPU_detection_or_SIMD_units",
+    "include_paths": [
+      "build/libmpeg2/include/attributes.h",
+      "build/libmpeg2/include/config.h",
+      "build/libmpeg2/include/mpeg2.h",
+      "build/libmpeg2/include/mpeg2convert.h",
+      "build/libmpeg2/src/mpeg2_internal.h",
+      "build/libmpeg2/src/vlc.h",
+      "build/libmpeg2/src/convert/convert_internal.h"
+    ],
+    "source_paths": [
+      "build/libmpeg2/src/alloc.c",
+      "build/libmpeg2/src/cpu_accel.c",
+      "build/libmpeg2/src/cpu_state.c",
+      "build/libmpeg2/src/decode.c",
+      "build/libmpeg2/src/header.c",
+      "build/libmpeg2/src/idct.c",
+      "build/libmpeg2/src/motion_comp.c",
+      "build/libmpeg2/src/slice.c",
+      "build/libmpeg2/src/convert/rgb.c",
+      "upstream/winuae/archivers/mp2/kjmp2.cpp"
+    ],
+    "excluded_isa_sources": [
+      "idct_alpha.c",
+      "idct_altivec.c",
+      "idct_mmx.c",
+      "motion_comp_alpha.c",
+      "motion_comp_altivec.c",
+      "motion_comp_mmx.c",
+      "motion_comp_vis.c",
+      "convert/rgb_mmx.c",
+      "convert/rgb_vis.c"
+    ]
+  },
   "bounds_inventory": {
     "fmv_ram_bytes": 524288,
     "audio_ram_bytes": 262144,
@@ -60,9 +118,51 @@
     "pcm_output_buffers_bytes": 36864,
     "known_mutable_payload_bytes": 5062656,
     "libmpeg2_chunk_buffer_bytes": 1222660,
+    "libmpeg2_peak_live_requested_bytes": 2793536,
+    "libmpeg2_context_requested_bytes": 18312,
+    "libmpeg2_yuv_requested_bytes": 321024,
+    "libmpeg2_convert_id_requested_bytes": 15028,
+    "libmpeg2_converted_frames_requested_bytes": 1216512,
+    "kjmp2_context_bytes": 8200,
+    "measured_peak_allocations_plus_owned_payload_and_mp2_context_bytes": 7864392,
     "newpacket_entries": 32,
-    "state_bound_status": "unknown_until_decoder_allocator_and_codec_probe",
-    "measurement_status": "not_run"
+    "max_native_state_bound_bytes": 17599236,
+    "observed_complete_state_bytes": 5364407,
+    "state_bound_status": "complete_P6FM_bounded_and_transactional_FMV-D2",
+    "measurement_status": "FMV-D2_exact_native_ASan_UBSan_fresh_owner_and_Waterbox_AArch64_fresh_sandbox"
+  },
+  "compositor": {
+    "status": "FMV-E2_exact_composed_handover_native_and_Waterbox_allocations",
+    "pixel_formats": [
+      "RGB565",
+      "XRGB8888"
+    ],
+    "integer_scales": [
+      1,
+      2,
+      4
+    ],
+    "allocation_per_pass": 0,
+    "layout_validation": "complete_before_first_output_write",
+    "public_handover": "single_XRGB8888_composed_frame_T43e2"
+  },
+  "frontend": {
+    "status": "FMV-F2_Cannon_Fodder_libretro_and_Waterbox_fresh_owner_acceptance_passed",
+    "selection": "shared_fmv_value_7_native_model_32",
+    "firmware": "known_40.22_or_40.30_raw_256KiB_or_identical_doubled_512KiB",
+    "controls": "no_freeze_CD32_with_direct_CD_only",
+    "support_gate": "T43f2_real_Cannon_Fodder_acceptance_passed",
+    "real_title": "Cannon Fodder Europe CD32 authorized local image",
+    "arbitrary_save_units": [
+      350,
+      400,
+      426,
+      430,
+      440
+    ],
+    "waterbox_fmv_committed_bytes": 17481728,
+    "waterbox_fmv_mmap_budget_bytes": 37748736,
+    "waterbox_budget_margin": "committed_times_2_not_greater_than_budget"
   },
   "source_paths": [
     "upstream/winuae/cd32_fmv.cpp",
@@ -94,11 +194,12 @@
   "subbacklog": [
     {
       "id": "FMV-A",
+      "task": "T43a",
       "depends": [
         "T66",
         "T43"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "source_media_firmware_contract",
       "deliverable": "Pin selected decoder closure/licenses; explicit cartridge sync identity and preseal ROM owner; verify raw sector view/demux/ports without extra CD reader",
       "oracle": "Own sector/packet fixture with exact offsets, existing catalog identity/eject/error semantics, preload failures/session firmware changes; authorized private firmware is never a public asset",
@@ -110,10 +211,14 @@
     },
     {
       "id": "FMV-B",
+      "subtasks": [
+        "T43b1",
+        "T43b2"
+      ],
       "depends": [
         "FMV-A"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "bounded_decoder_determinism_probe",
       "deliverable": "Bound dimensions, FIFO/packets and allocations before parse/copy; fix and verify libmpeg2 scalar path, kjmp2 cos-generated tables/global state and SCR float behaviour without silent tolerance changes",
       "oracle": "Independent own I/P/B pixel and LayerII vectors with source/expected samples; malformed/oversize/truncated streams reject safely; cross-ISA/compiler outputs/ticks exactly equal, actual memory bounds measured",
@@ -126,10 +231,11 @@
     },
     {
       "id": "FMV-C",
+      "task": "T43c",
       "depends": [
         "FMV-B"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "PCM_owner_phase_contract",
       "deliverable": "Explicit coexistence/arbitration for4608-frame FMV blocks versus existing588-frame slot0 CDA codec; causal PCM queues/callbacks/Paula phase and reset/pause/mute",
       "oracle": "Independent PCM sample/count expectations and next-event ticks with FMV/CDDA transitions, mute consumes without dropping state, no owner replacement or duplicated callback",
@@ -140,11 +246,15 @@
     },
     {
       "id": "FMV-D",
+      "subtasks": [
+        "T43d1",
+        "T43d2"
+      ],
       "depends": [
         "FMV-B",
         "FMV-C"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "decoder_state_decision_and_probe",
       "deliverable": "Choose and prove bounded native context codec or bounded captured-input reconstruction; enumerate prediction/parse/function IDs/pointers/PTS/SCR plus complete cartridge/PCM state; Waterbox captures mutable decoder allocations",
       "oracle": "Restore partial header/frame/I/P/B and pending delivery/IRQ in fresh process/sandbox with rebased owners, no I/O or unbounded replay; full state/RAM/PCM/pixels/ticks future equal; foreign/corrupt states reject transactionally",
@@ -158,10 +268,14 @@
     },
     {
       "id": "FMV-E",
+      "subtasks": [
+        "T43e1",
+        "T43e2"
+      ],
       "depends": [
         "FMV-D"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "software_composition_probe",
       "deliverable": "Bounded genlock/auxbuffer ownership/layout and IRQ cadence, preserving AGA and render/audio-off future; keep current rejection guards until real contract passes",
       "oracle": "Analytic color/border/scale/stride/canary expectations plus pinned primary genlock evidence for any hardware claim; PAL/NTSC transitions and compositor state restore, no libmpeg2 borrowed frontend pointers",
@@ -174,10 +288,14 @@
     },
     {
       "id": "FMV-F",
+      "subtasks": [
+        "T43f1",
+        "T43f2"
+      ],
       "depends": [
         "FMV-E"
       ],
-      "status": "proposed",
+      "status": "done",
       "kind": "frontend_acceptance",
       "deliverable": "Expose only complete cartridge profile through shared schema, libretro and Waterbox; measure full heap/state budget, preserve all stockCD32 regression coverage",
       "oracle": "Actual authorized firmware/own media boot+decode and BK2/TAS replay/seek/fresh owner/process; native/LR/WB AV/PCM/ticks/state exact, cross-ISA/sanitizers and real memory limits; absent legal assets or runner staysBLOCKED",
@@ -196,13 +314,20 @@
       ]
     }
   ],
+  "runtime_acceptance": {
+    "status": "passed",
+    "implemented_by": "T43a_through_T43f2",
+    "terminal_task": "T43f2",
+    "gate_registry": "tools/check.py:TASK_SUITES",
+    "root_task_note": "T43 remains the original study and stock-CD32 baseline owner; runtime support is proved by every declared gate of T43a through T43f2, including real Cannon Fodder libretro and Waterbox acceptance."
+  },
   "current_checks": {
     "AV01": {
       "selectors": [
         "tests.step.test_aga.PictureTests",
         "tests.step.test_resolution.RasterTests"
       ],
-      "covers": "Current AGA/raster coverage accumulated without FMV; not decoder or cartridge execution"
+      "covers": "Original T43 study baseline retained to protect pre-FMV AGA/raster behavior; implemented FMV pixel, decoder and compositor acceptance is owned by T43b1, T43b2, T43e1, T43e2 and T43f2."
     },
     "DET02": {
       "selectors": [
@@ -211,9 +336,9 @@
         "tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore",
         "tests.waterbox-media.test_cd_source.Cd32GameCoreTests"
       ],
-      "covers": "Current native/libretro/Waterbox CD32 game, state and fresh-owner coverage without FMV; no decoder restore claim"
+      "covers": "Original T43 stock-CD32 baseline retained as a regression guard; implemented FMV state and fresh-owner claims are owned by T43d1, T43d2, T43e2 and T43f2."
     }
   },
-  "support_announced": false,
-  "future_fmv_checks_status": "not_executed_by_study"
+  "support_announced": true,
+  "future_fmv_checks_status": "FMV-A_through_F_passed"
 }

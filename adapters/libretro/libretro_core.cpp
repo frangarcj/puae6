@@ -1128,8 +1128,9 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
     const auto *cartridge = cartridge_choice(core.settings.cartridge);
     std::vector<uint8_t> cart; std::string cart_name;
     if (cartridge) {
-        for (const char *name : cartridge->names) {
-            const auto read = core.files.read(join_path(directory, name), cartridge->bytes, &cart);
+        for (size_t alias = 0; alias < cartridge->name_count; ++alias) {
+            const char *const name = cartridge->names[alias];
+            const auto read = core.files.read(join_path(directory, name), cartridge->max_bytes, &cart);
             if (read == ReadResult::CannotOpen) {
                 // VFS1/2 cannot distinguish absent from unreadable. Never escape
                 // its namespace through FileReader's POSIX directory fallback.
@@ -1145,7 +1146,7 @@ bool load_firmware(std::vector<p6_media> manifest, const p6_libretro::FirmwareNa
                 }
                 continue; // Only demonstrated absence permits the next alias.
             }
-            if (read != ReadResult::Ok || cart.size() != cartridge->bytes) {
+            if (read != ReadResult::Ok || (cart.size() != cartridge->min_bytes && cart.size() != cartridge->max_bytes)) {
                 notify_error("cartridge %s is not usable: %s", name, read == ReadResult::Ok ? "wrong raw ROM size" : describe(read)); return false;
             }
             cart_name = name; break; // First present file decides; do not hide corruption behind an alias.
@@ -1832,7 +1833,8 @@ RETRO_API bool retro_serialize(void *data, size_t size)
     p6_error error = make_error();
     const p6_result result = p6_state_save(out + at, total - at, &written, &error);
     if (result != P6_OK) {
-        if (result != P6_ERROR_BAD_STATE) report("p6_state_save", result, error);       // before the first run there is no machine to describe: not a fault
+        if (result != P6_ERROR_BAD_STATE)
+            report("p6_state_save", result, error);
         return false;
     }
     memcpy(out + p6_libretro::kStateHeaderBytes, core.section.data(), core.section.size());
@@ -2022,9 +2024,14 @@ RETRO_API bool retro_load_game(const struct retro_game_info *game)
             if (matches) initial = core.initial_index;
             else log(RETRO_LOG_WARN, "the remembered disk %u (%s) is not in the content: starting with the first", core.initial_index, core.initial_path.c_str());
         }
-        if (p6_libretro::cartridge_choice(core.settings.cartridge) &&
-            (core.cd || core.settings.machine == P6_MACHINE_CD32 || core.settings.machine == P6_MACHINE_CDTV)) {
-            notify_error("Action Replay requires A500 or A1200 without a CD catalog"); stop_image(); return false;
+        if (const auto *cartridge = p6_libretro::cartridge_choice(core.settings.cartridge)) {
+            const bool fmv = cartridge->model == P6_CARTRIDGE_CD32_FMV;
+            if (fmv && (!core.cd || core.settings.machine != P6_MACHINE_CD32)) {
+                notify_error("CD32 FMV requires CD32 machine with direct CD content"); stop_image(); return false;
+            }
+            if (!fmv && (core.cd || core.settings.machine == P6_MACHINE_CD32 || core.settings.machine == P6_MACHINE_CDTV)) {
+                notify_error("Action Replay requires A500 or A1200 without a CD catalog"); stop_image(); return false;
+            }
         }
         if (core.cd && !core.cd->open(core.settings.machine, cd_entries, initial, core.cd_vfs, &images, &why)) {
             notify_error("%s", why.c_str()); stop_image(); return false;

@@ -16572,6 +16572,7 @@
         "ports/portable/hostfs_unsupported.cpp",
         "ports/portable/media/cd_utilities.cpp",
         "patches/winuae/0362-cd32-without-fmv.patch",
+        "patches/winuae/0417-cd32-fmv-portable-graph.patch",
         "patches/winuae/series.json",
         "tests/reference/patch-classes.json",
         "tests/media/akiko_link_probe.cpp",
@@ -22375,6 +22376,549 @@
       "stop": "No permitir lectura directa de una unidad fisica en deterministic como atajo."
     },
     {
+      "id": "T43a",
+      "title": "FMV-A: propietario de firmware y cierre de fuentes del cartucho CD32",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43",
+        "T66"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "bridge/config.cpp",
+        "bridge/lifecycle.cpp",
+        "adapters/waterbox/puae6_guest.cpp",
+        "upstream/winuae/expansion.cpp",
+        "upstream/winuae/cd32_fmv.cpp",
+        "upstream/winuae/cd32_fmv_genlock.cpp"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/lifecycle.cpp",
+        "bridge/include/p6.h",
+        "adapters/waterbox/p6w.h",
+        "adapters/waterbox/puae6_guest.cpp",
+        "tests/fmv/**",
+        "CMakeLists.txt",
+        "manifests/licenses.json",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Aceptar exclusivamente las ROM FMV 40.22/40.30 conocidas por WinUAE, normalizando el contenedor de 512 KiB con dos mitades iguales a su ROM canonica de 256 KiB; no distribuir ni registrar el activo privado.",
+        "Copiar la ROM en un propietario de sesion previo a p6_load, exclusivo con HRTMon/Action Replay, limitado a CD32 y liberado al cerrar o fallar. La identidad se deriva de los bytes canonicos y nunca sobrevive a otra sesion.",
+        "Transportar el propietario por la entrada aditiva Waterbox antes de Seal. Mientras FMV-B no enlace el decoder, una carga con FMV debe devolver UNSUPPORTED de forma explicita, no arrancar silenciosamente sin la placa.",
+        "Fijar la clausura scalar de libmpeg2 0.4.1 capturada y su licencia para FMV-B, sin compilarla ni ampliar aun el perfil publicado. Probar rechazos con bytes sinteticos y exito/copia/vida de sesion con una ROM privada opt-in."
+      ],
+      "checks": [
+        "SRC01",
+        "HOST01",
+        "MED01"
+      ],
+      "acceptance": [
+        "El propietario canonico acepta ambas revisiones y el contenedor duplicado, copia antes de devolver y entra en la identidad; tamanos, hashes, mitades distintas, maquina, segundo bind y vida de sesion incorrectos se rechazan transaccionalmente.",
+        "La entrada Waterbox entrega el mismo error UNSUPPORTED anterior al Seal mientras falta FMV-B, sin retener punteros host ni fingir una placa funcional.",
+        "La seleccion y licencia del decoder quedan fijadas a archivos capturados concretos y a ruta scalar, sin dependencia de ISA ni instalacion host."
+      ],
+      "stop": "No exponer la opcion en EmuHawk ni declarar reproduccion FMV hasta que FMV-B enlace y pruebe decoder/puertos reales."
+    },
+    {
+      "id": "T43b1",
+      "title": "FMV-B1: enlazar cartucho CL450/L64111 y decoder MPEG escalar",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43a"
+      ],
+      "read": [
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "upstream/winuae/cd32_fmv.cpp",
+        "upstream/winuae/cd32_fmv_genlock.cpp",
+        "upstream/winuae/expansion.cpp",
+        "references/machawk-uae/deps/libmpeg2/README",
+        "references/machawk-uae/deps/libmpeg2/COPYING",
+        "references/machawk/waterbox/uae/uae-waterbox.patch",
+        "bridge/config.cpp",
+        "ports/portable/video_present.cpp"
+      ],
+      "touch": [
+        "patches/winuae/0322-gayle-machine-hooks.patch",
+        "patches/winuae/0362-cd32-without-fmv.patch",
+        "patches/winuae/0417-cd32-fmv-portable-graph.patch",
+        "patches/winuae/0418-cd32-fmv-fixed-mp2-table.patch",
+        "patches/winuae/series.json",
+        "manifests/source-manifest.json",
+        "CMakeLists.txt",
+        "ports/waterbox/Makefile",
+        "tools/build_waterbox.py",
+        "ports/portable/cda_play.h",
+        "ports/portable/fmv_audio_buffer.cpp",
+        "ports/portable/kjmp2_n.inc",
+        "ports/portable/video_present.cpp",
+        "bridge/config.cpp",
+        "bridge/lifecycle.cpp",
+        "tests/fmv/**",
+        "tests/host/video_present_probe.cpp",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Compilar cd32_fmv, genlock, kjmp2 y la clausura generic-C de libmpeg2 fijada por FMV-A; no compilar SIMD, deteccion ISA, hilos ni el reproductor Win32.",
+        "Incluir la placa FMV en el catalogo portable solo cuando existe su propietario validado, conectar su ROM blob a romconfig y permitir expansion_init en CD32 FMV.",
+        "Sustituir exclusivamente el buffer cda_audio Win32 y el semaforo host por almacenamiento/callback sincronos del sandbox; conservar el decoder y registros WinUAE, no devolver exitos desde stubs.",
+        "Acotar la secuencia antes de convertir/copiar a 352x288x4 y probar Autoconfig/MMIO real con ROM privada, incluido reinicio y ausencia total sin propietario. FMV-B2 conserva vectores MPEG/LayerII, cross-ISA y estado interno."
+      ],
+      "checks": [
+        "SRC01",
+        "HOST01",
+        "MED01",
+        "AV01"
+      ],
+      "acceptance": [
+        "El grafo nativo y Waterbox enlazan el decoder scalar sin imports de hilo/host/ISA y la placa autentica aparece por Autoconfig en 0x200000 con sus bancos/puertos reales.",
+        "Una secuencia que excede 352x288 no puede copiar fuera del anillo; sin propietario el CD32 mantiene exactamente el perfil previo.",
+        "El decoder aun no se anuncia al frontend: FMV-B2/D/E conservan determinismo, audio, estado y composicion como puertas."
+      ],
+      "stop": "No exponer FMV en EmuHawk ni llamar funcional a Cannon Fodder hasta cerrar decoder/audio/estado/compositor y una prueba de juego autorizada."
+    },
+    {
+      "id": "T43b2",
+      "title": "FMV-B2: probar MPEG/LayerII y fijar determinismo escalar",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43b1"
+      ],
+      "read": [
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "upstream/winuae/cd32_fmv.cpp",
+        "upstream/winuae/archivers/mp2/kjmp2.cpp",
+        "references/machawk-uae/deps/libmpeg2/src/decode.c",
+        "references/machawk-uae/deps/libmpeg2/src/header.c",
+        "references/machawk-uae/deps/libmpeg2/src/slice.c",
+        "references/machawk-uae/deps/libmpeg2/src/convert/rgb.c"
+      ],
+      "touch": [
+        "patches/winuae/0362-cd32-without-fmv.patch",
+        "patches/winuae/0418-cd32-fmv-fixed-mp2-table.patch",
+        "patches/libmpeg2/**",
+        "patches/winuae/series.json",
+        "CMakeLists.txt",
+        "ports/waterbox/Makefile",
+        "ports/portable/kjmp2_n.inc",
+        "tests/fmv/**",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py",
+        "tools/build_waterbox.py",
+        "tools/materialize_libmpeg2.py"
+      ],
+      "steps": [
+        "Añadir vectores propios mínimos de MPEG-1 con I/P/B y Layer II estéreo, con pixels y muestras esperados independientes del decoder integrado.",
+        "Ejecutar la clausura scalar a O0/O2 y en los toolchains disponibles, sin detección ISA ni tolerancias; exigir bytes, muestras, consumo y ticks idénticos.",
+        "Someter cabeceras truncadas, dimensiones excesivas, longitudes y secuencias malformadas a sanitizers; rechazar antes de copiar o indexar fuera de los buffers acotados.",
+        "Medir y fijar el máximo mutable real del decoder y sus colas. Mantener estado, PCM, composición y anuncio frontend en FMV-C/D/E/F."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "SAFE01",
+        "PERF01"
+      ],
+      "acceptance": [
+        "Los vectores propios de MPEG-1 I/P/B y Layer II producen exactamente los pixels, muestras, consumo y orden esperados en cada compilación disponible.",
+        "Streams truncados, sobredimensionados y malformados terminan de forma acotada bajo sanitizers, sin escritura fuera de buffers ni bucles no acotados.",
+        "El máximo mutable queda medido y documentado; no se anuncia FMV ni se atribuye todavía audio, estado o composición funcionales."
+      ],
+      "stop": "No usar datos comerciales como fixtures ni exponer FMV al frontend; si falta un runner cross-ISA, conservar el vector y bloquear sólo esa puerta."
+    },
+    {
+      "id": "T43c",
+      "title": "FMV-C: propietario PCM y convivencia causal con CDDA",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43b2"
+      ],
+      "read": [
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "upstream/winuae/audio.cpp",
+        "upstream/winuae/cd32_fmv.cpp",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/fmv_audio_buffer.cpp",
+        "tests/audio/cd_audio_probe.cpp"
+      ],
+      "touch": [
+        "patches/winuae/0419-cd32-fmv-pcm-owner.patch",
+        "patches/winuae/series.json",
+        "ports/portable/audio_cda_state.h",
+        "tests/audio/cd_audio_probe.cpp",
+        "tests/audio/test_cd_audio.py",
+        "tests/fmv/test_fmv_audio.py",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Distinguir por identidad el stream CDDA de 588 frames y el stream FMV de hasta 4608 frames; una copia o id obsoleto no puede detener ni rellenar el propietario real.",
+        "Probar ambos streams simultaneos sobre audio.cpp y su reloj emulado: consumo exacto, callback unico, mute que consume, pausa que conserva cursor y parada que no reemplaza al otro propietario.",
+        "Mantener codec de estado, composicion y anuncio frontend en FMV-D/E/F; no introducir hilos, reloj host ni otro mezclador."
+      ],
+      "checks": [
+        "AV02",
+        "DET02"
+      ],
+      "acceptance": [
+        "CDDA y FMV ocupan propietarios distintos y avanzan por el scheduler existente sin reemplazo, callback duplicado ni acceso fuera de los bloques acotados.",
+        "Mute y supresion de entrega siguen consumiendo; pausa conserva cursor/fase; reset o stop de FMV no detiene CDDA y viceversa.",
+        "La salida y los ticks son exactos bajo ASan/UBSan; no se atribuye aun estado restaurable, composicion ni soporte frontend."
+      ],
+      "stop": "No ampliar p6_cda::State a FMV ni anunciar Cannon Fodder: el codec completo pertenece a FMV-D y la salida visible a FMV-E/F."
+    },
+    {
+      "id": "T43d1",
+      "title": "FMV-D1: reconstruccion acotada del decodificador MPEG",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43c"
+      ],
+      "read": [
+        "docs/adr/future-cd.md",
+        "plan/extensions/cd.json",
+        "upstream/winuae/cd32_fmv.cpp",
+        "references/machawk-uae/deps/libmpeg2/src/mpeg2_internal.h",
+        "tests/fmv/fmv_decoder_probe.cpp"
+      ],
+      "touch": [
+        "patches/winuae/0420-cd32-fmv-decoder-journal.patch",
+        "patches/winuae/series.json",
+        "ports/portable/fmv_decoder_journal.h",
+        "ports/portable/fmv_decoder_journal.cpp",
+        "tests/fmv/fmv_state_probe.cpp",
+        "tests/fmv/test_fmv_state.py",
+        "tests/fmv/test_fmv_audio.py",
+        "CMakeLists.txt",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Registrar de forma acotada las entregas y resultados de parseo que llevan al estado escalar de libmpeg2; conservar un punto seguro desde cabecera de secuencia hasta imagen I y no guardar direcciones ni identificadores de funcion.",
+        "Reconstruir un decodificador limpio con el diario persistente y rechazar transaccionalmente longitudes, operaciones o resultados alterados; la reproduccion no toca RAM del cartucho, IRQ, cola visible ni reloj.",
+        "Comparar pixels y futuro I/P/B exactos tras cortes en cabecera, imagen y entrega parcial bajo ASan/UBSan; medir el limite y dejar la integracion del cuerpo completo P6FM en T43d2."
+      ],
+      "checks": [
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Un decodificador nuevo reconstruido desde el diario produce los mismos estados, pixels y consumo futuro que el original en cortes de cabecera e I/P/B.",
+        "El diario tiene limites constantes de bytes y operaciones, compacta solo en un punto demostrado seguro y los candidatos truncados, sobredimensionados o corruptos no modifican el destino.",
+        "No se serializan punteros, reloj host ni estado opaco crudo de libmpeg2; aun no se anuncia estado FMV completo ni soporte frontend."
+      ],
+      "stop": "No incorporar aun RAM/MMIO/PCM/genlock al estado nativo ni habilitar P6_CAP_STATE para FMV; eso requiere la integracion transaccional T43d2."
+    },
+    {
+      "id": "T43d2",
+      "title": "FMV-D2: cuerpo nativo transaccional y restauracion Waterbox",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43d1"
+      ],
+      "read": [
+        "docs/adr/0009-state-format.md",
+        "plan/extensions/cd.json",
+        "bridge/state.cpp",
+        "bridge/state_akiko.cpp",
+        "upstream/winuae/cd32_fmv.cpp"
+      ],
+      "touch": [
+        "patches/winuae/0421-cd32-fmv-state-owner.patch",
+        "patches/winuae/series.json",
+        "ports/portable/fmv_state.h",
+        "ports/portable/fmv_decoder_journal.cpp",
+        "ports/portable/fmv_decoder_journal.h",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/video_present.cpp",
+        "ports/portable/video_present.h",
+        "bridge/state.h",
+        "bridge/state.cpp",
+        "bridge/state_fmv.cpp",
+        "bridge/config.cpp",
+        "CMakeLists.txt",
+        "tests/fmv/fmv_state_probe.cpp",
+        "tests/fmv/fmv_machine_state_probe.cpp",
+        "tests/fmv/test_fmv_state.py",
+        "tests/ffi/Cartridges.cs",
+        "tests/ffi/Program.cs",
+        "tests/audio/cd_audio_probe.cpp",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Definir el cuerpo P6FM con RAM, registros, FIFO, MP2, PCM, colas, fase y diario MPEG por valores; validarlo entero y comprobar propietario/bancos antes de aplicar.",
+        "Rebasar buffers y callbacks al propietario vivo, coordinar P6SC/P6AU/P6AK y restaurar sin I/O ni avance; estados corruptos o de otra configuracion se rechazan antes de tocar la maquina.",
+        "Probar futuro exacto de RAM, IRQ, PCM, pixels y ticks en instancia/proceso fresco y snapshot Waterbox, manteniendo la presentacion publica cerrada hasta FMV-E/F."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "STATE02",
+        "WB03",
+        "WB04"
+      ],
+      "acceptance": [
+        "Los cortes parciales de cabecera, I/P/B, audio pendiente e IRQ vuelven en instancia fresca con el mismo futuro de RAM, PCM, pixels y ticks.",
+        "El cuerpo es acotado, sin direcciones ni I/O al restaurar, y toda corrupcion probada se rechaza transaccionalmente sin cambiar el destino.",
+        "El snapshot Waterbox conserva las asignaciones mutables del decodificador; native y Waterbox no prometen compatibilidad entre builds."
+      ],
+      "stop": "No componer ni publicar video FMV hasta FMV-E/F; sin runner Waterbox la puerta WB queda bloqueada, no sustituida por un build."
+    },
+    {
+      "id": "T43e1",
+      "title": "FMV-E1: compositor software acotado y seguro",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43d2"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "plan/extensions/cd.json",
+        "ports/portable/video_present.cpp",
+        "upstream/winuae/drawing.cpp",
+        "upstream/winuae/cd32_fmv_genlock.cpp"
+      ],
+      "touch": [
+        "patches/winuae/0422-cd32-fmv-compositor.patch",
+        "patches/winuae/series.json",
+        "ports/portable/fmv_state.h",
+        "CMakeLists.txt",
+        "tests/fmv/fmv_compositor_probe.cpp",
+        "tests/fmv/test_fmv_compositor.py",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Separar el calculo de composicion del ciclo de dibujo y definir por valores el layout de entrada/salida XRGB8888/RGB565, dimensiones, stride, centrado y escalas enteras 1/2/4.",
+        "Validar toda geometria antes de escribir y conservar canarios alrededor de ambos buffers; el umbral de genlock elige exactamente entre pixel Amiga, MPEG o borde sin tomar punteros prestados del frontend.",
+        "Probar vectores analiticos PAL/NTSC, 352x240/288, profundidades 16/32 y entradas hostiles bajo ASan/UBSan, sin cambiar scheduler, audio ni presentacion publica."
+      ],
+      "checks": [
+        "AV01",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Los vectores propios producen pixels exactos para pixel Amiga, MPEG y borde con centrado y escalas 1/2/4 en 16 y 32 bits.",
+        "Dimensiones, profundidades y strides invalidos se rechazan antes de escribir; los canarios y sanitizers no detectan lecturas ni escrituras fuera de rango.",
+        "El compositor es una funcion acotada sin reloj, I/O, heap por frame ni cambios de ticks/PCM; aun no publica el pase auxiliar."
+      ],
+      "stop": "No habilitar todavia el frame FMV visible ni opciones frontend; ownership, restauracion activa y hand-over pertenecen a T43e2."
+    },
+    {
+      "id": "T43e2",
+      "title": "FMV-E2: ownership del pase auxiliar y futuro exacto",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43e1"
+      ],
+      "read": [
+        "docs/adr/0009-state-format.md",
+        "plan/extensions/cd.json",
+        "ports/portable/video_present.cpp",
+        "bridge/state_upstream.cpp",
+        "upstream/winuae/drawing.cpp"
+      ],
+      "touch": [
+        "patches/winuae/series.json",
+        "ports/portable/video_present.cpp",
+        "ports/portable/video_present.h",
+        "ports/portable/fmv_state.h",
+        "bridge/state_fmv.cpp",
+        "tests/fmv/fmv_compositor_probe.cpp",
+        "tests/fmv/fmv_machine_state_probe.cpp",
+        "tests/fmv/test_fmv_compositor.py",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Dar ownership explicito al tempbuffer y al drawbuffer durante el pase FMV, publicar solo el resultado compuesto y eliminar el estado AUX_BUFFER para un pase valido.",
+        "Capturar o derivar todo estado causal del compositor y restaurarlo antes del siguiente pase sin dibujar, I/O ni avance, manteniendo P6VD como propietario del drawbuffer y P6FM del auxiliar.",
+        "Activar genlock en el reproducer D2 y comparar pixels, RAM, PCM, IRQ y ticks en misma instancia y propietario fresco; verificar por separado que Waterbox conserva las asignaciones mutables en sandbox fresco."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "SAFE01",
+        "WB03",
+        "WB04"
+      ],
+      "acceptance": [
+        "Un pase FMV activo entrega un unico frame XRGB8888 compuesto con geometria valida y sin exponer el tempbuffer ni rechazarlo como auxiliar.",
+        "Un corte durante composicion restaura el mismo futuro de pixels, RAM, PCM, IRQ y ticks en propietario fresco; el snapshot Waterbox conserva por separado todas las asignaciones mutables en sandbox fresco.",
+        "Desactivar render o audio no altera el futuro de hardware; AGA sin FMV conserva sus regresiones y no se anuncia soporte frontend antes de FMV-F."
+      ],
+      "stop": "No exponer aun schema/libretro/BizHawk ni declarar compatibilidad de estados entre builds; esas puertas pertenecen a FMV-F."
+    },
+    {
+      "id": "T43f1",
+      "title": "FMV-F1: opcion publica y transporte de firmware en frontends",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43e2"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "plan/extensions/cd.json",
+        "config/schema/options.json",
+        "adapters/libretro/firmware.h",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs"
+      ],
+      "touch": [
+        "config/schema/options.json",
+        "config/schema/options_table.generated.json",
+        "adapters/libretro/options_generated.h",
+        "adapters/libretro/firmware.h",
+        "adapters/libretro/libretro_core.cpp",
+        "adapters/libretro/mapper.h",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/config/test_parity.py",
+        "tests/libretro-ui/mapper_probe.cpp",
+        "tests/libretro-ui/test_hrtmon.py",
+        "tests/ffi/Cartridges.cs",
+        "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
+        "tests/fmv/test_fmv_frontend.py",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Anadir FMV al schema compartido y generar sus derivados; cargar ROM conocida 40.22/40.30 de 256 KiB o contenedor duplicado de 512 KiB y transportarla como modelo 32 sin convertirla en cartucho freezer.",
+        "Permitir la opcion exclusivamente con maquina CD32 y catalogo CD directo, con diagnosticos claros para firmware ausente, tamano/contenido invalido o combinacion incompatible; conservar Action Replay y HRTMon sin cambios.",
+        "Exponer la misma SyncSetting en el wrapper BizHawk y pedir el FirmwareID CD32FMV ya catalogado por MacHawk, manteniendo el checkout hermano de solo lectura y la identidad sincronizada del cartucho."
+      ],
+      "checks": [
+        "GEN01",
+        "LR01",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Schema, libretro y BizHawk ofrecen una unica opcion FMV estable; seleccionarla carga el firmware conocido y llega a p6_cartridge_bind con modelo 32 solo en CD32.",
+        "FMV no publica Freeze ni reutiliza restricciones de Action Replay; errores de firmware y maquina fallan antes de crear una maquina parcial.",
+        "Los probes dirigidos de opciones, mapper y wrapper pasan sin cambiar el comportamiento de HRTMon/Action Replay ni el checkout MacHawk."
+      ],
+      "stop": "No anunciar soporte ni usar un simple transporte como prueba de decodificacion; el juego real, estados y Waterbox pertenecen a T43f2."
+    },
+    {
+      "id": "T43f2",
+      "title": "FMV-F2: aceptacion real Cannon Fodder y cierre frontend",
+      "milestone": "FUTURE",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T43f1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "plan/extensions/cd.json",
+        "tests/libretro-host/test_cd32_load.py",
+        "tests/waterbox-media/test_cd_source.py"
+      ],
+      "touch": [
+        "adapters/libretro/libretro_core.cpp",
+        "bridge/state_fmv.cpp",
+        "bridge/state.cpp",
+        "bridge/state_upstream.cpp",
+        "ports/portable/audio_cda_state.h",
+        "ports/portable/fmv_state.h",
+        "ports/portable/fmv_decoder_journal.cpp",
+        "ports/portable/fmv_decoder_journal.h",
+        "ports/portable/media/cd_audio.cpp",
+        "ports/portable/media/cd_audio_state.h",
+        "ports/portable/state_io/akiko.h",
+        "patches/winuae/0423-cd32-fmv-live-state.patch",
+        "patches/winuae/series.json",
+        "manifests/source-manifest.json",
+        "manifests/waterbox-memory.json",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/patches/build_tree.py",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/media/test_cd32_state.py",
+        "tests/media/cd_audio_state_probe.cpp",
+        "tests/media/akiko_state_probe.cpp",
+        "tests/fmv/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-media/**",
+        "plan/extensions/cd.json",
+        "tests/test_future_extensions.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Ampliacion explicita tras el reproducer real: corregir el rechazo intermitente de p6_state_save durante la secuencia FMV sin relajar la validacion ni omitir estado vivo; conservar el corte causal como regresion.",
+        "Ampliacion explicita tras el reproducer Waterbox real: el cartucho FMV anade videoram, RAM de placa y buffers tardios de libmpeg2 al heap mmap; declarar el presupuesto adicional en Puae6Core.Heaps y manifests/waterbox-memory.json, medirlo y conservar un fallo controlado de capacidad en vez de aceptar un buffer RGB nulo.",
+        "Arrancar la imagen autorizada local de Cannon Fodder con la ROM FMV local sin copiarlas ni distribuirlas; alcanzar reproduccion FMV y registrar oraculos causales de video, PCM, IRQ y ticks en vez de una mera pantalla de arranque.",
+        "Repetir corte/restauracion y avance en propietario fresco para native, libretro y Waterbox, incluyendo seek/replay y render/audio desactivados; conservar las regresiones CD32 sin cartucho.",
+        "Ejecutar los gates dirigidos de frontend, estado, ISA y presupuesto existentes, declarar soporte solo si todos pasan y mantener cualquier ausencia de runner o activo legal como bloqueo explicito."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "DET02",
+        "LR01",
+        "WB03",
+        "WB04",
+        "WB13",
+        "WB14",
+        "WB15",
+        "WB16",
+        "PERF01"
+      ],
+      "acceptance": [
+        "Cannon Fodder alcanza y reproduce su secuencia FMV con pixels y PCM no vacios, geometria compuesta valida y el mismo futuro tras restaurar en propietario fresco.",
+        "Native, libretro y Waterbox transportan firmware/media y conservan video, PCM, IRQ y ticks exactos; stock CD32 y los modos sin render/audio mantienen sus regresiones.",
+        "Los limites medidos siguen dentro del presupuesto declarado y solo entonces FMV-F y support_announced pasan a done/true."
+      ],
+      "stop": "Tras dos fallos razonados conservar el reproducer y dos hipotesis verificables; no cambiar goldens/tolerancias ni afirmar soporte por compilar o mostrar una pantalla."
+    },
+    {
       "id": "T44",
       "title": "MMU 68030/040/060 (opcional, al final)",
       "milestone": "FUTURE",
@@ -24949,11 +25493,50 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
     },
     {
+      "id": "T82l",
+      "title": "Persistir SyncSettings de la preview EmuHawk y acotar las opciones de disquete",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T82c"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Reporte de la preview de 2026-10-26: ControllerPort=Cd32 y FloppyDrives vuelven al valor anterior. Reproducir el contrato ISettable real sin ROM comercial ni modificar MacHawk.",
+        "PutSyncSettings debe conservar un clon de la configuracion pendiente para que GetSyncSettings y el cierre/reinicio de EmuHawk guarden el valor nuevo; la instancia viva no aplica el hardware hasta el reinicio.",
+        "Distinguir en el PropertyGrid las unidades fisicas de los discos montados al arrancar. Estos ultimos son 1..4; CD32/CDTV desconectan las disqueteras automaticamente. No cambiar la ABI donde cero conserva el perfil historico de dos unidades.",
+        "El check dirigido compila el wrapper real con las fuentes BizHawk fijadas y comprueba bit de reinicio, copia defensiva, persistencia pendiente y etiquetas/cota del PropertyGrid. FMV y volumen CDDA quedan fuera: no estan implementados en esta preview."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Cambiar Cd32 y el numero de discos mediante ISettable sobrevive GetSyncSettings y el reinicio que hace EmuHawk, sin mutar la maquina viva antes de reiniciar.",
+        "La UI no ofrece cero discos de arranque como valor valido y explica que CD32/CDTV no conectan disqueteras; el volumen mecanico se nombra como tal."
+      ],
+      "stop": "Tras dos fallos razonados, conservar el probe y dos hipotesis; no implementar FMV, CDDA host volume ni una nueva codificacion ABI de cero unidades dentro de esta correccion."
+    },
+    {
       "id": "T82",
       "title": "PUAE6 en el EmuHawk de los probadores y carril Darwin ARM64",
       "milestone": "M4",
       "required": false,
-      "status": "done",
+      "status": "pending",
       "depends": [
         "T82a",
         "T82b",
@@ -24962,7 +25545,8 @@
         "T82e",
         "T82e1",
         "T82f",
-        "T82g"
+        "T82g",
+        "T82l"
       ],
       "read": [
         "README.md",

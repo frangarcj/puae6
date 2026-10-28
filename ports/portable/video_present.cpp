@@ -2,11 +2,11 @@
  *
  * Defines the presentation symbols that drawing.cpp, custom.cpp, devices.cpp,
  * gfxutil.cpp, inputdevice.cpp and main.cpp import from the host graphics layer
- * (od-win32/win32gfx.cpp upstream). One statically allocated XRGB8888 buffer is
- * the drawbuffer; the renderer writes it in place (the auxiliary tempbuffer stays
- * unallocated because the profile forbids every feature that needs it, and that
- * is checked, not assumed). No window, texture, display size, refresh rate,
- * clock or thread exists here.
+ * (od-win32/win32gfx.cpp upstream). The normal drawbuffer and the CD32 FMV
+ * staging tempbuffer are fixed-size XRGB8888 guest allocations. A CD32 FMV pass
+ * is drawn into the staging buffer and composed into the normal buffer before
+ * hand-over; unsupported auxiliary consumers remain refused. No window, texture,
+ * display size, refresh rate, clock or thread exists here.
  *
  * Engine expectations this file satisfies (file:line in build/upstream):
  *  - drawing.cpp:264,5415  lockscr(drawbuffer,...) must return non-zero or the
@@ -41,6 +41,7 @@
 #include "xwin.h"
 #include "drawing.h"
 #include "video_present.h"
+#include "fmv_state.h"
 
 /* Capacity against the engine's own limits. */
 static_assert(sizeof(xcolnr) == P6_VIDEO_PIXEL_BYTES, "XRGB8888 pixel is one 32-bit word");
@@ -65,6 +66,7 @@ bool gfx_hdr = false;
 /* The frame buffer is ordinary guest storage: a Waterbox snapshot carries it and
  * its address never changes; it is not moved to invisible memory. */
 alignas(64) static uae_u32 pixels[(P6_VIDEO_BUFFER_BYTES) / P6_VIDEO_PIXEL_BYTES];
+alignas(64) static uae_u32 aux_pixels[(P6_VIDEO_BUFFER_BYTES) / P6_VIDEO_PIXEL_BYTES];
 
 namespace {
 
@@ -93,7 +95,7 @@ struct State {
  bool ready = false;
  bool mode_valid = false;      // an accepted mode exists (mode_w x mode_h)
  bool mode_too_large = false;  // the last requested mode exceeded the capacity
- bool aux_buffer = false;      // the last pass was drawn into the auxiliary buffer
+ bool aux_buffer = false;      // the last pass used an unsupported, uncomposed auxiliary buffer
  bool reset_pending = false;   // graphics_reset() asked for a drawing reset
  bool render_ok = false;       // render_screen() succeeded, show_screen() may commit
  bool have_pass = false, have_frame = false;
@@ -117,8 +119,12 @@ vidbuffer &draw()
 /* The buffer address and layout the engine expects while (and after) locking. */
 void bind(vidbuffer &vb)
 {
- vb.bufmem = reinterpret_cast<uae_u8 *>(pixels);
+ const bool auxiliary = &vb == &info().tempbuffer;
+ vb.bufmem = reinterpret_cast<uae_u8 *>(auxiliary ? aux_pixels : pixels);
  vb.bufmemend = vb.bufmem + P6_VIDEO_BUFFER_BYTES - P6_VIDEO_STRIDE_BYTES;
+ // drawing.cpp uses this field as the capability bit for its auxiliary pass.
+ // Keep the normal drawbuffer's historical contract (static bufmem only).
+ vb.bufmem_allocated = auxiliary ? vb.bufmem : nullptr;
  vb.rowbytes = P6_VIDEO_STRIDE_BYTES;
  vb.pixbytes = P6_VIDEO_PIXEL_BYTES;
  vb.monitor_id = 0;
@@ -186,10 +192,10 @@ int p6_video_validate_config(const struct uae_prefs *p)
  if (p->gfx_autoresolution || p->gfx_autoresolution_vga) return P6_VIDEO_CFG_AUTORESOLUTION;
  // count_frame(): framecnt != 0 units are not drawn at all.
  if (p->gfx_framerate > 1) return P6_VIDEO_CFG_FRAMESKIP;
- // drawing_can_lineoptimizations() false => inbuffer = tempbuffer; its consumers
- // (emulate_grayscale/genlock/specialmonitors, CD32 FMV) are not in this profile.
+ // CD32 FMV owns and composes its bounded tempbuffer. Other auxiliary consumers
+ // remain outside this profile.
  if (p->cs_color_burst || p->gfx_grayscale || p->genlock || p->genlock_effects
-     || p->monitoremu || p->monitoremu_mon || p->cs_cd32fmv)
+     || p->monitoremu || p->monitoremu_mon)
   return P6_VIDEO_CFG_AUX_BUFFER;
  if (p->gfx_luminance || p->gfx_contrast || p->gfx_gamma || p->gfx_gamma_ch[0]
      || p->gfx_gamma_ch[1] || p->gfx_gamma_ch[2])
@@ -205,6 +211,7 @@ int p6_video_init(void)
  if (cfg) return cfg;
  teardown();
  memset(pixels, 0, sizeof pixels);
+ memset(aux_pixels, 0, sizeof aux_pixels);
 
  vidbuf_description &vi = info();
  vidbuffer &vb = draw();
@@ -214,6 +221,13 @@ int p6_video_init(void)
  vb.width_allocated = P6_VIDEO_MAX_WIDTH;
  vb.height_allocated = P6_VIDEO_MAX_HEIGHT;
  vb.hardwiredpositioning = false;
+ if (currprefs.cs_cd32fmv) {
+  vidbuffer &aux = vi.tempbuffer;
+  bind(aux);
+  aux.width_allocated = P6_VIDEO_MAX_WIDTH;
+  aux.height_allocated = P6_VIDEO_MAX_HEIGHT;
+  aux.hardwiredpositioning = false;
+ }
  vi.inbuffer = vi.outbuffer = &vb;
  // v6 upstream: the maximum is always available. drawing.cpp reads these only in the
  // autoresolution paths, which the config check excludes.
@@ -232,6 +246,7 @@ int p6_video_init(void)
 void p6_video_clear(void)
 {
  memset(pixels, 0, sizeof pixels);
+ memset(aux_pixels, 0, sizeof aux_pixels);
  g.have_pass = g.have_frame = g.render_ok = false;
  g.pass = g.shown = Pass();
 }
@@ -244,6 +259,7 @@ void p6_video_rebind(void)
 {
  if (!g.ready) return;
  bind(draw());
+ if (currprefs.cs_cd32fmv) bind(info().tempbuffer);
  g.have_pass = g.have_frame = g.render_ok = false;
  g.pass = g.shown = Pass();
 }
@@ -255,6 +271,65 @@ uint32_t p6_video_status(void)
  if (g.mode_too_large) s |= P6_VIDEO_ST_MODE_TOO_LARGE;
  if (g.aux_buffer) s |= P6_VIDEO_ST_AUX_BUFFER;
  return s;
+}
+
+bool p6_fmv_aux_validate(const p6_fmv_aux_state *s)
+{
+ if (!s || s->selected > 1 || s->initialized > 1 || s->locked > 1 || s->hardwired > 1)
+  return false;
+ if (s->width_allocated < 1 || s->width_allocated > P6_VIDEO_MAX_WIDTH ||
+     s->height_allocated < 1 || s->height_allocated > P6_VIDEO_MAX_HEIGHT ||
+     s->pixel_width < 1 || s->pixel_width > P6_VIDEO_MAX_WIDTH ||
+     s->pixel_height < 1 || s->pixel_height > P6_VIDEO_MAX_HEIGHT)
+  return false;
+ for (int32_t v : {s->outwidth, s->inwidth, s->inwidth2}) if (v < 0 || v > P6_VIDEO_MAX_WIDTH) return false;
+ for (int32_t v : {s->outheight, s->inheight, s->inheight2}) if (v < 0 || v > P6_VIDEO_MAX_HEIGHT) return false;
+ for (int32_t v : {s->extrawidth, s->extraheight, s->xoffset, s->yoffset, s->inxoffset, s->inyoffset})
+  if (v < -0xffff || v > 0xffff) return false;
+ return s->monitor_id == 0 && s->last_drawn_line >= -1;
+}
+
+bool p6_fmv_aux_get(p6_fmv_aux_state *out)
+{
+ if (!out || !g.ready || !currprefs.cs_cd32fmv) return false;
+ const vidbuf_description &vi = info(); const vidbuffer &aux = vi.tempbuffer, &output = vi.drawbuffer;
+ p6_fmv_aux_state s{};
+ s.selected = vi.inbuffer == &vi.tempbuffer; s.initialized = aux.initialized; s.locked = aux.locked;
+ s.hardwired = aux.hardwiredpositioning; s.width_allocated = aux.width_allocated; s.height_allocated = aux.height_allocated;
+ s.outwidth = aux.outwidth; s.outheight = aux.outheight; s.inwidth = aux.inwidth; s.inheight = aux.inheight;
+ s.inwidth2 = aux.inwidth2; s.inheight2 = aux.inheight2; s.extrawidth = aux.extrawidth; s.extraheight = aux.extraheight;
+ s.xoffset = aux.xoffset; s.yoffset = aux.yoffset; s.inxoffset = aux.inxoffset; s.inyoffset = aux.inyoffset;
+ s.monitor_id = aux.monitor_id; s.last_drawn_line = aux.last_drawn_line;
+ s.pixel_width = uint32_t(output.width_allocated); s.pixel_height = uint32_t(output.height_allocated);
+ if (!p6_fmv_aux_validate(&s) || !aux.bufmem || aux.rowbytes != P6_VIDEO_STRIDE_BYTES || aux.pixbytes != 4) return false;
+ for (uint32_t y = 0; y < s.pixel_height; ++y)
+  memcpy(s.pixels + size_t(y) * s.pixel_width, aux.bufmem + size_t(y) * aux.rowbytes, size_t(s.pixel_width) * 4);
+ *out = s; return true;
+}
+
+bool p6_fmv_aux_can_apply(const p6_fmv_aux_state *s)
+{
+ if (!p6_fmv_aux_validate(s) || !g.ready || !currprefs.cs_cd32fmv) return false;
+ const vidbuf_description &vi = info();
+ return vi.drawbuffer.width_allocated == int(s->pixel_width) && vi.drawbuffer.height_allocated == int(s->pixel_height) &&
+        vi.tempbuffer.bufmem && vi.tempbuffer.rowbytes == P6_VIDEO_STRIDE_BYTES && vi.tempbuffer.pixbytes == 4;
+}
+
+bool p6_fmv_aux_apply(const p6_fmv_aux_state *s)
+{
+ if (!p6_fmv_aux_can_apply(s)) return false;
+ vidbuf_description &vi = info(); vidbuffer &aux = vi.tempbuffer;
+ aux.initialized = s->initialized; aux.locked = s->locked; aux.hardwiredpositioning = s->hardwired;
+ aux.width_allocated = s->width_allocated; aux.height_allocated = s->height_allocated;
+ aux.outwidth = s->outwidth; aux.outheight = s->outheight; aux.inwidth = s->inwidth; aux.inheight = s->inheight;
+ aux.inwidth2 = s->inwidth2; aux.inheight2 = s->inheight2; aux.extrawidth = s->extrawidth; aux.extraheight = s->extraheight;
+ aux.xoffset = s->xoffset; aux.yoffset = s->yoffset; aux.inxoffset = s->inxoffset; aux.inyoffset = s->inyoffset;
+ aux.monitor_id = s->monitor_id; aux.last_drawn_line = s->last_drawn_line;
+ memset(aux_pixels, 0, sizeof aux_pixels);
+ for (uint32_t y = 0; y < s->pixel_height; ++y)
+  memcpy(aux.bufmem + size_t(y) * aux.rowbytes, s->pixels + size_t(y) * s->pixel_width, size_t(s->pixel_width) * 4);
+ vi.inbuffer = s->selected ? &aux : &vi.drawbuffer; vi.outbuffer = &vi.drawbuffer;
+ return true;
 }
 
 int p6_video_present(void)
@@ -330,7 +405,9 @@ void unlockscr(struct vidbuffer *vb, int y_start, int y_end)
 
  vidbuf_description &vi = info();
  const vidbuffer &src = vi.inbuffer ? *vi.inbuffer : *vb;
- g.aux_buffer = vi.inbuffer && vi.inbuffer != vb;
+ const bool auxiliary_input = vi.inbuffer && vi.inbuffer != vb;
+ const bool composed_fmv = auxiliary_input && currprefs.cs_cd32fmv && vi.outbuffer == vb;
+ g.aux_buffer = auxiliary_input && !composed_fmv;
  int w = src.outwidth < vb->width_allocated ? src.outwidth : vb->width_allocated;
  int h = src.outheight < vb->height_allocated ? src.outheight : vb->height_allocated;
  if (w < 0) w = 0;

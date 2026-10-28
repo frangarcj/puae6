@@ -1,0 +1,92 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -2033,8 +2033,8 @@ static bool audio_state_channel2 (int nr, bool perfin)
+ 
+ static void audio_state_channel (int nr, bool perfin)
+ {
+-	struct audio_channel_data *cdp = audio_channel + nr;
+ 	if (nr < AUDIO_CHANNELS_PAULA) {
++		struct audio_channel_data *cdp = audio_channel + nr;
+ 		if (audio_state_channel2(nr, perfin)) {
+ 			cdp->dat_written = false;
+ 		}
+@@ -3059,13 +3059,17 @@ int audio_enable_stream(bool enable, int streamid, int ch, SOUND_STREAM_CALLBACK
+ 	if (streamid == 0)
+ 		return 0;
+ 	if (!enable) {
+-		if (streamid <= 0)
++		if (streamid <= 0 || streamid > AUDIO_CHANNEL_STREAMS)
+ 			return 0;
+ 		streamid--;
+ 		struct audio_stream_data *asd = audio_stream + streamid;
++		if (cb_data && asd->cb_data != cb_data)
++			return 0;
+ 		audio_extra_streams[streamid] = 0;
+ 		asd->evtime = MAX_EV;
+ 	} else {
++		if (streamid >= AUDIO_CHANNEL_STREAMS)
++			return 0;
+ 		if (streamid < 0) {
+ 			for (int i = 0; i < AUDIO_CHANNEL_STREAMS; i++) {
+ 				if (!audio_extra_streams[i]) {
+@@ -3132,7 +3136,7 @@ static bool audio_state_cda(int streamid, void *state)
+ {
+ 	struct cd_audio_state *cas = (struct cd_audio_state*)state;
+ 	if (cas->cda_bufptr == dummy_buffer || cas->cda_length <= 0) {
+-		audio_enable_stream(false, cas->cda_streamid, 0, NULL, NULL);
++		audio_enable_stream(false, cas->cda_streamid, 0, NULL, cas);
+ 		cas->cda_streamid = 0;
+ 		return false;
+ 	}
+@@ -3157,10 +3161,28 @@ static bool audio_state_cda(int streamid, void *state)
+ 	return true;
+ }
+ 
++static bool audio_cda_owned(const struct cd_audio_state *cas)
++{
++	if (!cas || cas->cda_streamid <= 0 || cas->cda_streamid > AUDIO_CHANNEL_STREAMS)
++		return false;
++	const int slot = cas->cda_streamid - 1;
++	return audio_extra_streams[slot] == 2 && audio_stream[slot].cb == audio_state_cda
++		&& audio_stream[slot].cb_data == cas;
++}
++
+ void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int length, int userdata, CDA_CALLBACK next_cd_audio_buffer_callback, void *cb_data)
+ {
++	if (!cas)
++		return;
++#ifdef P6_PORTABLE
++	if (length > (int)p6_cda::kMaxRuntimeFrames)
++		return;
++#endif
++	if (cas->cda_streamid > 0 && !audio_cda_owned(cas))
++		return;
+ 	if (length < 0 && cas->cda_streamid > 0) {
+-		audio_enable_stream(false, cas->cda_streamid, 0, NULL, cas);
++		if (!audio_enable_stream(false, cas->cda_streamid, 0, NULL, cas))
++			return;
+ 		cas->cda_streamid = 0;
+ #ifdef P6_PORTABLE
+ 		cas->cda_paused = false;
+@@ -3197,10 +3219,9 @@ void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int lengt
+ namespace p6_cda {
+ static bool available(const cd_audio_state &cas)
+ {
+     if (currprefs.sound_interpol == 2 || currprefs.sound_volcnt || currprefs.sound_mixed_stereo_delay) return false;
+     if (!audio_total_extra_streams) return cas.cda_streamid <= 0;
+-    return audio_total_extra_streams == 1 && cas.cda_streamid == 1 && audio_extra_streams[0] == 2
+-        && audio_stream[0].cb == audio_state_cda && audio_stream[0].cb_data == &cas;
++    return audio_total_extra_streams == 1 && cas.cda_streamid == 1 && audio_cda_owned(&cas);
+ }
+ static bool geometry(const int16_t *base, uint32_t frames)
+ {
+@@ -3273,7 +3294,7 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
+ }
+ bool pause(cd_audio_state &cas, bool paused)
+ {
+-    if (!available(cas) || cas.cda_streamid != 1) return false;
++    if (!audio_cda_owned(&cas)) return false;
+     cas.cda_paused = paused; return true;
+ }
+ }

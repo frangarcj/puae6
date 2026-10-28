@@ -1,4 +1,4 @@
-"""Study consistency only: no future feature or runtime is executed or enabled."""
+"""Extension-plan consistency, including the implemented CD32 FMV subbacklog."""
 import ast
 import hashlib
 import json
@@ -15,7 +15,9 @@ import generate_options
 class PostReleaseStudyTests(unittest.TestCase):
     def validate_study(self, task_id, name, adr):
         study = json.loads((ROOT / f"plan/extensions/{name}.json").read_text())
-        self.assertEqual((1, task_id, "study_only_no_profile_changes"),
+        expected_scope = ("implemented_public_cd32_fmv_profile_via_subbacklog"
+                          if task_id == "T43" else "study_only_no_profile_changes")
+        self.assertEqual((1, task_id, expected_scope),
                          (study["schema_version"], study["task"], study["scope"]))
         tasks = json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]
         task = next(t for t in tasks if t["id"] == task_id)
@@ -35,8 +37,17 @@ class PostReleaseStudyTests(unittest.TestCase):
         self.assertTrue(proposals)
         paths = [p["path"] if isinstance(p, dict) else p for p in study["source_paths"]]
         task_ids = {t["id"] for t in tasks}
+        by_id = {t["id"]: t for t in tasks}
         for item in proposals.values():
-            self.assertEqual("proposed", item["status"])
+            if task_id == "T43" and item.get("task"):
+                self.assertEqual(by_id[item["task"]]["status"], item["status"])
+            elif task_id == "T43" and item.get("subtasks"):
+                states = [by_id[subtask]["status"] for subtask in item["subtasks"]]
+                expected = "done" if all(state == "done" for state in states) else (
+                    "in_progress" if any(state in ("done", "in_progress") for state in states) else "proposed")
+                self.assertEqual(expected, item["status"])
+            else:
+                self.assertEqual("proposed", item["status"])
             self.assertTrue(item["deliverable"].strip() and item["oracle"].strip())
             self.assertTrue(set(item["depends"]) <= proposals.keys() | task_ids)
             self.assertNotIn(item["id"], item["depends"])
@@ -121,8 +132,82 @@ class PostReleaseStudyTests(unittest.TestCase):
 
     def test_fmv(self):
         study = self.validate_study("T43", "cd", "docs/adr/future-cd.md")
-        self.assertFalse(study["support_announced"])
+        self.assertEqual("implemented_public_cd32_fmv_profile_via_subbacklog", study["scope"])
+        self.assertTrue(study["support_announced"])
         self.assertEqual({"AV01", "DET02"}, set(study["current_checks"]))
+        self.assertEqual("exact_scalar_native_arm64_x86_64_sanitized_and_waterbox_linked_FMV-B2",
+                         study["decoder_closure"]["status"])
+        self.assertEqual("build/libmpeg2", study["decoder_closure"]["derived_tree"])
+        self.assertTrue((ROOT / study["decoder_closure"]["patch_series"]).is_file())
+        bounds = study["bounds_inventory"]
+        self.assertEqual(bounds["known_mutable_payload_bytes"]
+                         + bounds["libmpeg2_peak_live_requested_bytes"]
+                         + bounds["kjmp2_context_bytes"],
+                         bounds["measured_peak_allocations_plus_owned_payload_and_mp2_context_bytes"])
+        self.assertEqual("complete_P6FM_bounded_and_transactional_FMV-D2",
+                         bounds["state_bound_status"])
+        self.assertEqual(17599236, bounds["max_native_state_bound_bytes"])
+        self.assertLessEqual(bounds["observed_complete_state_bytes"],
+                             bounds["max_native_state_bound_bytes"])
+        fmv_c = next(item for item in study["subbacklog"] if item["id"] == "FMV-C")
+        self.assertEqual("T43c", fmv_c["task"])
+        self.assertEqual("done", fmv_c["status"])
+        self.assertEqual({"AV02", "DET02"}, set(fmv_c["gates"]))
+        self.assertEqual(4608, study["pcm_runtime"]["fmv_max_frames"])
+        self.assertEqual("P6FM_value_codec_T43d2", study["pcm_runtime"]["state_codec"])
+        fmv_d = next(item for item in study["subbacklog"] if item["id"] == "FMV-D")
+        self.assertEqual(["T43d1", "T43d2"], fmv_d["subtasks"])
+        self.assertEqual("done", fmv_d["status"])
+        fmv_e = next(item for item in study["subbacklog"] if item["id"] == "FMV-E")
+        self.assertEqual(["T43e1", "T43e2"], fmv_e["subtasks"])
+        self.assertEqual("done", fmv_e["status"])
+        fmv_f = next(item for item in study["subbacklog"] if item["id"] == "FMV-F")
+        self.assertEqual(["T43f1", "T43f2"], fmv_f["subtasks"])
+        self.assertEqual("done", fmv_f["status"])
+        self.assertEqual("FMV-E2_exact_composed_handover_native_and_Waterbox_allocations",
+                         study["compositor"]["status"])
+        self.assertEqual([1, 2, 4], study["compositor"]["integer_scales"])
+        self.assertEqual(0, study["compositor"]["allocation_per_pass"])
+        self.assertEqual("single_XRGB8888_composed_frame_T43e2",
+                         study["compositor"]["public_handover"])
+        self.assertEqual(1320984, study["decoder_state"]["max_serialized_bytes"])
+        self.assertEqual("P6FM_complete_T43d2", study["decoder_state"]["full_device_chunk"])
+        self.assertEqual("FMV-F2_Cannon_Fodder_libretro_and_Waterbox_fresh_owner_acceptance_passed", study["frontend"]["status"])
+        self.assertLessEqual(study["frontend"]["waterbox_fmv_committed_bytes"] * 2,
+                             study["frontend"]["waterbox_fmv_mmap_budget_bytes"])
+        source_policy = json.loads((ROOT / "manifests/source-manifest.json").read_text())[
+            "exclusions"]["JIT/PPC/FPU/MMU/RTG/CD32/CDTV"]
+        self.assertIn("la opcion FMV se expone publicamente desde T43f2", source_policy)
+        self.assertNotIn("la opcion FMV sigue sin exponerse", source_policy)
+        acceptance = study["runtime_acceptance"]
+        self.assertEqual({
+            "status": "passed",
+            "implemented_by": "T43a_through_T43f2",
+            "terminal_task": "T43f2",
+            "gate_registry": "tools/check.py:TASK_SUITES",
+            "root_task_note": acceptance["root_task_note"],
+        }, acceptance)
+        self.assertIn("real Cannon Fodder", acceptance["root_task_note"])
+        tasks = {task["id"]: task for task in
+                 json.loads((ROOT / "plan/tasks.json").read_text())["tasks"]}
+        runtime_tasks = set()
+        for item in study["subbacklog"]:
+            runtime_tasks.update(item.get("subtasks", []))
+            if item.get("task"):
+                runtime_tasks.add(item["task"])
+        self.assertEqual({"T43a", "T43b1", "T43b2", "T43c", "T43d1", "T43d2",
+                          "T43e1", "T43e2", "T43f1", "T43f2"}, runtime_tasks)
+        for task_id in runtime_tasks:
+            self.assertEqual("done", tasks[task_id]["status"], task_id)
+            for gate in tasks[task_id]["checks"]:
+                selectors = check.TASK_SUITES[(gate, task_id)]
+                self.assertTrue(selectors, (task_id, gate))
+                for selector in selectors.values():
+                    loader = unittest.TestLoader()
+                    suite = loader.loadTestsFromName(selector)
+                    self.assertFalse(loader.errors, (task_id, gate, selector))
+                    self.assertGreater(suite.countTestCases(), 0, (task_id, gate, selector))
+        self.assertTrue(study["support_announced"])
         self.assertIn("!defined(P6_PORTABLE)",
                       (ROOT / "patches/winuae/0362-cd32-without-fmv.patch").read_text())
 

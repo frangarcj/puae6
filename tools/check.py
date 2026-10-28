@@ -941,6 +941,140 @@ TASK_SUITES[('DET02', 'T43')] = {
     'current_cd32_game_restore': 'tests.libretro-host.test_cd32_load.Cd32GameTests.test_brian_gameplay_and_restore',
     'current_waterbox_cd32_game_restore': 'tests.waterbox-media.test_cd_source.Cd32GameCoreTests',
 }
+TASK_SUITES[('SRC01', 'T43a')] = {
+    'pinned_scalar_decoder_closure': 'tests.fmv.test_fmv_firmware.FmvFirmwareTests.test_selected_decoder_closure_is_captured_scalar_and_licensed',
+}
+TASK_SUITES[('HOST01', 'T43a')] = {
+    'preseal_waterbox_transport': 'tests.fmv.test_fmv_firmware.FmvFirmwareTests.test_waterbox_additive_transport_binds_before_load_and_rolls_back_failure',
+}
+TASK_SUITES[('MED01', 'T43a')] = {
+    'private_firmware_owner': 'tests.fmv.test_fmv_firmware.FmvFirmwareTests.test_private_known_rom_copy_identity_refusals_and_lifetime',
+}
+TASK_SUITES[('SRC01', 'T43b1')] = {
+    'scalar_decoder_graph_and_bounds': 'tests.fmv.test_fmv_device.FmvDeviceTests.test_scalar_graph_and_bounds_are_selected_without_host_player_or_simd',
+}
+TASK_SUITES[('HOST01', 'T43b1')] = {
+    'waterbox_decoder_closure': 'tests.fmv.test_fmv_device.FmvDeviceTests.test_waterbox_recipe_captures_decoder_headers_and_sources',
+}
+TASK_SUITES[('MED01', 'T43b1')] = {
+    'real_cd32_fmv_board': 'tests.fmv.test_fmv_device.FmvDeviceTests.test_private_cd32_firmware_enumerates_real_board_and_reset',
+}
+TASK_SUITES[('AV01', 'T43b1')] = {
+    'bounded_private_fmv_staging': 'tests.fmv.test_fmv_device.FmvDeviceTests.test_fmv_staging_is_bounded_and_only_presented_after_composition',
+}
+TASK_SUITES[('AV01', 'T43b2')] = {
+    'exact_scalar_ipb_pixels': 'tests.fmv.test_fmv_decoder.FmvDecoderTests.test_o0_sanitized_and_o2_outputs_are_exactly_equal',
+}
+TASK_SUITES[('AV02', 'T43b2')] = {
+    'exact_scalar_layer2_pcm': 'tests.fmv.test_fmv_decoder.FmvDecoderTests.test_o0_sanitized_and_o2_outputs_are_exactly_equal',
+}
+TASK_SUITES[('SAFE01', 'T43b2')] = {
+    'hash_closed_decoder_patches': 'tests.fmv.test_fmv_decoder.FmvDecoderTests.test_scalar_decoder_patches_are_hash_closed_and_materialized',
+    'malformed_decoder_sanitizers': 'tests.fmv.test_fmv_decoder.FmvDecoderTests.test_o0_sanitized_and_o2_outputs_are_exactly_equal',
+}
+TASK_SUITES[('PERF01', 'T43b2')] = {
+    'measured_decoder_allocation_bound': 'tests.fmv.test_fmv_decoder.FmvDecoderTests.test_o0_sanitized_and_o2_outputs_are_exactly_equal',
+}
+TASK_SUITES[('AV02', 'T43c')] = {
+    'simultaneous_cdda_fmv_pcm': 'tests.audio.test_cd_audio.CdAudioTests.test_pcm_pause_semantic_restore_and_bounds',
+    'bounded_pcm_owner_contract': 'tests.fmv.test_fmv_audio.FmvAudioTests.test_pcm_owner_patch_is_hash_closed_and_bounded',
+}
+TASK_SUITES[('DET02', 'T43c')] = {
+    'simultaneous_cdda_fmv_ticks': 'tests.audio.test_cd_audio.CdAudioTests.test_pcm_pause_semantic_restore_and_bounds',
+    'no_second_clock_or_state_claim': 'tests.fmv.test_fmv_audio.FmvAudioTests.test_pcm_path_has_no_second_clock_mixer_or_frontend_claim',
+}
+TASK_SUITES[('DET02', 'T43d1')] = {
+    'fresh_decoder_header_ipb_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_fresh_decoder_future_is_exact_at_header_and_ipb_cuts',
+}
+TASK_SUITES[('SAFE01', 'T43d1')] = {
+    'bounded_hostile_decoder_journal': 'tests.fmv.test_fmv_state.FmvStateTests.test_fresh_decoder_future_is_exact_at_header_and_ipb_cuts',
+    'address_free_runtime_patch': 'tests.fmv.test_fmv_state.FmvStateTests.test_journal_and_runtime_patch_are_hash_closed_and_address_free',
+}
+TASK_SUITES[('DET02', 'T43d2')] = {
+    'complete_fmv_fresh_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+}
+TASK_SUITES[('STATE01', 'T43d2')] = {
+    'bounded_value_only_p6fm': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_patch_is_hash_closed_and_value_only',
+    'complete_fmv_fresh_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+}
+TASK_SUITES[('STATE02', 'T43d2')] = {
+    'transactional_hostile_p6fm': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+}
+for _gate in ('WB03', 'WB04'):
+    TASK_SUITES[(_gate, 'T43d2')] = {
+        'fresh_waterbox_fmv_snapshot': 'tests.fmv.test_fmv_state.FmvStateTests.test_waterbox_snapshot_restores_mutable_fmv_allocations_in_a_fresh_sandbox',
+    }
+TASK_SUITES[('AV01', 'T43e1')] = {
+    'exact_scalar_fmv_composition': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_scalar_compositor_is_exact_guarded_and_transactional',
+}
+TASK_SUITES[('SAFE01', 'T43e1')] = {
+    'guarded_hostile_fmv_composition': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_scalar_compositor_is_exact_guarded_and_transactional',
+    'hash_closed_allocation_free_compositor': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_compositor_patch_is_hash_closed_and_allocation_free',
+}
+TASK_SUITES[('AV01', 'T43e2')] = {
+    'composed_fmv_public_handover': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_scalar_compositor_is_exact_guarded_and_transactional',
+    'single_public_buffer_owner': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_composed_pass_owns_the_public_handover',
+}
+TASK_SUITES[('AV02', 'T43e2')] = {
+    'active_fmv_output_independent_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+    'cdda_fmv_pcm_regression': 'tests.audio.test_cd_audio.CdAudioTests.test_pcm_pause_semantic_restore_and_bounds',
+}
+TASK_SUITES[('DET02', 'T43e2')] = {
+    'active_compositor_fresh_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+}
+TASK_SUITES[('SAFE01', 'T43e2')] = {
+    'guarded_composed_handover': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_scalar_compositor_is_exact_guarded_and_transactional',
+    'bounded_compositor_patch': 'tests.fmv.test_fmv_compositor.FmvCompositorTests.test_compositor_patch_is_hash_closed_and_allocation_free',
+}
+for _gate in ('WB03', 'WB04'):
+    TASK_SUITES[(_gate, 'T43e2')] = {
+        'fresh_waterbox_fmv_allocations': 'tests.fmv.test_fmv_state.FmvStateTests.test_waterbox_snapshot_restores_mutable_fmv_allocations_in_a_fresh_sandbox',
+    }
+TASK_SUITES[('GEN01', 'T43f1')] = {
+    'shared_fmv_frontend_contract': 'tests.fmv.test_fmv_frontend.FmvFrontendContractTests',
+    'schema_and_generated_options': 'tests.config.test_schema',
+    'frontend_parity': 'tests.config.test_parity',
+}
+TASK_SUITES[('LR01', 'T43f1')] = {
+    'fmv_libretro_transport': 'tests.fmv.test_fmv_frontend.FmvLibretroTests',
+    'non_freezer_mapper': 'tests.libretro-ui.test_mapper.MapperProbeTests',
+}
+TASK_SUITES[('BUILD01', 'T43f1')] = {
+    'bizhawk_fmv_sync_setting': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'shared_fmv_frontend_contract': 'tests.fmv.test_fmv_frontend.FmvFrontendContractTests',
+}
+_fmv_real_libretro = ('tests.fmv.test_fmv_frontend.FmvLibretroTests.'
+                      'test_cannon_fodder_live_fmv_saves_at_arbitrary_cuts_and_replays_in_place_and_fresh')
+_fmv_real_waterbox = 'tests.waterbox-media.test_cd_source.Cd32FmvCoreTests'
+TASK_SUITES[('AV01', 'T43f2')] = {'cannon_fodder_live_fmv_pixels': _fmv_real_libretro}
+TASK_SUITES[('AV02', 'T43f2')] = {'cannon_fodder_live_fmv_pcm': _fmv_real_libretro}
+TASK_SUITES[('DET02', 'T43f2')] = {
+    'cannon_fodder_arbitrary_cuts_and_fresh_process': _fmv_real_libretro,
+    'complete_fmv_device_future': 'tests.fmv.test_fmv_state.FmvStateTests.test_complete_device_state_is_exact_fresh_bounded_and_transactional',
+    'stock_cd32_native_state_regression': 'tests.media.test_cd32_state.Cd32StateTests',
+}
+TASK_SUITES[('LR01', 'T43f2')] = {
+    'fmv_public_libretro': 'tests.fmv.test_fmv_frontend.FmvLibretroTests',
+    'stock_cd32_libretro_regression': 'tests.libretro-host.test_cd32_load.Cd32LoadTests.test_real_reads_replay_runahead_and_fresh_owner',
+}
+TASK_SUITES[('WB03', 'T43f2')] = {
+    'cannon_fodder_fresh_sandbox_and_process': _fmv_real_waterbox,
+    'mutable_fmv_allocation_snapshot': 'tests.fmv.test_fmv_state.FmvStateTests.test_waterbox_snapshot_restores_mutable_fmv_allocations_in_a_fresh_sandbox',
+    'stock_cd32_waterbox_regression': 'tests.waterbox-media.test_cd_source.Cd32PublicCoreTests',
+    'render_and_audio_suppressed_regression': 'tests.waterbox-smoke.test_puae6_units.WaterboxUnitTests.test_render_and_audio_switched_off_for_stretches_change_nothing_of_the_units_that_follow',
+}
+TASK_SUITES[('WB04', 'T43f2')] = {'cannon_fodder_alternating_owner_restore': _fmv_real_waterbox}
+TASK_SUITES[('WB13', 'T43f2')] = {
+    'current_guest_callback_registers_and_tls': 'tests.waterbox-smoke.test_puae6_wb.RealGuestTests.test_host_callbacks_cross_the_guest_between_units_without_disturbing_x18_x28_the_thread_state_or_the_machine',
+}
+TASK_SUITES[('WB14', 'T43f2')] = {
+    'current_guest_physical_groups_and_restore': 'tests.waterbox-smoke.test_puae6_wb.RealGuestTests',
+}
+TASK_SUITES[('WB15', 'T43f2')] = {'cannon_fodder_pinned_guest_cold_restore': _fmv_real_waterbox}
+TASK_SUITES[('WB16', 'T43f2')] = {
+    'current_guest_artifact_has_no_compiler_tls': 'tests.waterbox-smoke.test_build.RuntimeSmokeTests',
+}
+TASK_SUITES[('PERF01', 'T43f2')] = {'measured_fmv_mmap_two_times_margin': _fmv_real_waterbox}
 # T44 is a matrix/subbacklog study. Runtime selectors preserve MMU0 only.
 TASK_SUITES[('GEN01', 'T44')] = {
     'study_contract': 'tests.test_future_extensions.MmuStudyTests',
@@ -1194,6 +1328,7 @@ TASK_SUITES[('BUILD01', 'T82c')] = {'real_product_gui': 'tests.test_machawk_wind
 TASK_SUITES[('BUILD01', 'T82')] = dict(TASK_SUITES[('BUILD01', 'T82c')])
 TASK_SUITES[('BUILD01', 'T82k')] = {'gui_diagnosis': 'tests.test_machawk_windows.WindowsGuiDiagnosticsTests'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
+TASK_SUITES[('BUILD01', 'T82l')] = {'puae6_sync_settings': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
 TASK_SUITES[('WB09', 'T41')] = {

@@ -25,7 +25,7 @@ static void equal(const AudioPlayerState &a, const AudioPlayerState &b)
 static void rejects(AudioPlayer &p, const Disc &disc, const AudioPlayerState &saved)
 {
     const auto before = snapshot(p); const auto cycles = get_cycles();
-    for (int which = 0; which < 24; ++which) {
+    for (int which = 0; which < 26; ++which) {
         auto s = saved;
         switch (which) {
         case 0: s.bound = 2; break; case 1: s.running = 2; break;
@@ -42,6 +42,8 @@ static void rejects(AudioPlayer &p, const Disc &disc, const AudioPlayerState &sa
         case 19: s.stream.userdata = 1; break; case 20: s.sector = 0; break;
         case 21: s.running = 0; break; case 22: s.position = s.end + 1; break;
         case 23: s.position = 3; s.end = 4; break;
+        case 24: s.streamid = p6_cda::kMaxStreams + 1; break;
+        case 25: s.streamid = s.stream.active ? 0 : 1; break;
         }
         assert(!p.can_restore(s, &disc, status_callback, record_sub));
         assert(!p.restore(s, &disc, status_callback, record_sub)); equal(snapshot(p), before);
@@ -104,9 +106,11 @@ static void bindings()
     const auto before = snapshot(rebound);
     assert(!rebound.restore(saved, &alien, nullptr, nullptr)); equal(snapshot(rebound), before);
     assert(rebound.restore(saved, &a.disc, nullptr, nullptr));
-    assert(!p.can_restore(stopped, nullptr, nullptr, nullptr)); // Foreign real stream owns slot0.
-    AudioPlayerState canary; memset(&canary, 0xA5, sizeof canary); const auto unchanged = canary;
-    assert(!p.capture(&canary)); equal(canary, unchanged);
+    // An inactive Akiko player is still an exact, restorable owner while FMV
+    // occupies another Paula stream. Capturing it must not claim that slot.
+    assert(p.can_restore(stopped, nullptr, nullptr, nullptr));
+    const auto alongside = snapshot(p); assert(!alongside.stream.active && !alongside.streamid);
+    assert(p.restore(stopped, nullptr, nullptr, nullptr)); equal(snapshot(p), stopped);
     rebound.stop();
     ms_delay = sector_delay = 1;
     assert(p.play(a.disc, 3, 4, status_callback, record_sub) == Result::Unsupported);

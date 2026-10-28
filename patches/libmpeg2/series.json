@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "source_manifest": "references/machawk-uae.manifest.json",
+  "source_prefix": "deps/libmpeg2/",
+  "patches": [
+    {
+      "id": "0001-defined-signed-arithmetic",
+      "file": "patches/libmpeg2/0001-defined-signed-arithmetic.patch",
+      "sha256": "ce1de063fd7190210b2a235ff382db5a96041190a480803615a849c2ccce4006",
+      "files": [
+        {
+          "path": "src/slice.c",
+          "before_sha256": "3920706d6872cc561f22321a263bab69b90986efc626f6f735ea25992b3bbe84",
+          "after_sha256": "7bd832e57479f8d3ab9241925dc39b733682f507da5628c65960f803a3212e20"
+        }
+      ]
+    },
+    {
+      "id": "0002-defined-idct-access",
+      "file": "patches/libmpeg2/0002-defined-idct-access.patch",
+      "sha256": "2ba8a3a4659601e5908fd2625162f8dfa95b5e3cca1902999d2650854307b371",
+      "files": [
+        {
+          "path": "src/idct.c",
+          "before_sha256": "feabf50ebc0a14a8f38305033d7513ab5a79d095aff747d43ee7b71075e3c0db",
+          "after_sha256": "870ec51faa6389e6c09a92e168ef9b1eadd9651d3c2894dbbd8c4a9154701af1"
+        }
+      ]
+    },
+    {
+      "id": "0003-defined-motion-arithmetic",
+      "file": "patches/libmpeg2/0003-defined-motion-arithmetic.patch",
+      "sha256": "c1b832427dff662b46f139f219a438d92669097c62a0d77b53b5d7e3ec4377bf",
+      "files": [
+        {
+          "path": "src/slice.c",
+          "before_sha256": "7bd832e57479f8d3ab9241925dc39b733682f507da5628c65960f803a3212e20",
+          "after_sha256": "a5b6ac183c3294b41cea78fa6ccdee6274dd278ea9797b7c83a29dc2ffbaebaa"
+        }
+      ]
+    }
+  ]
+}

@@ -124,7 +124,8 @@ struct InputConfig {
 inline InputConfig input_config(const p6_options::Settings &s)
 {
     InputConfig c;
-    c.freeze = s.cartridge == P6_CONFIG_HRTMON || cartridge_choice(s.cartridge);
+    const CartridgeChoice *const cartridge = cartridge_choice(s.cartridge);
+    c.freeze = s.cartridge == P6_CONFIG_HRTMON || (cartridge && cartridge->freeze);
     const uint32_t mapper[kMapperInputs] = {s.mapper_b, s.mapper_y, s.mapper_select, s.mapper_start, s.mapper_up, s.mapper_down, s.mapper_left, s.mapper_right,
                                             s.mapper_a, s.mapper_x, s.mapper_l, s.mapper_r, s.mapper_l2, s.mapper_r2, s.mapper_l3, s.mapper_r3,
                                             s.mapper_lu, s.mapper_ld, s.mapper_ll, s.mapper_lr, s.mapper_ru, s.mapper_rd, s.mapper_rl, s.mapper_rr};

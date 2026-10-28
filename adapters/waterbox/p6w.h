@@ -45,6 +45,8 @@ typedef struct p6w_init {
 
 /* Additive cartridge init: same layout and lifecycle as legacy init. raw is borrowed only
  * during this call; the public binder copies it into the blob mmap heap, never sealed.
+ * This also transports P6_CARTRIDGE_CD32_FMV before Seal; while FMV-B is absent
+ * the call returns UNSUPPORTED after validating/copying it and then rolls the session back.
  * model0/null are invalid cartridge requests, not a request for legacy initialization. */
 int32_t p6w_init_machine_cartridge(p6w_init *args, uint32_t model, const void *raw, uint64_t bytes);
 

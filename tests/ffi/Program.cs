@@ -9,10 +9,12 @@
 //   Ffi.dll open --runtime libwaterboxhost.dylib --guest puae6.wbx --sha HASH --manifest waterbox-memory.json --firmware boot.rom --units N
 // Every check prints a line "ok ..." and any failure ends the process with a nonzero exit code and the reason on stderr.
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
 using BizHawk.Common;
+using BizHawk.Emulation.Common;
 using BizHawk.Emulation.Cores.Waterbox;
 
 using Puae6;
@@ -33,6 +35,7 @@ internal static unsafe partial class Program
 			switch (args.FirstOrDefault())
 			{
 				case "layout": Layout(); break;
+				case "settings": Settings(); break;
                 case "cdlayout": Require(sizeof(P6CdInfo) == 2432 && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Bytes)).ToInt64() == 40
                     && Marshal.OffsetOf<P6CdInfo>(nameof(P6CdInfo.Tracks)).ToInt64() == 56, "private CD layout");
                     Require(sizeof(P6CdInfoV2) == 4808 && sizeof(P6CdTrackV2) == 48
@@ -53,6 +56,7 @@ internal static unsafe partial class Program
 				case "identity": Identity(options["guest"], options["sha"]); break;
 				case "open": Open(options, int.Parse(options["units"])); break;
 				case "cartridges": Cartridges(options); break;
+				case "fmvstate": FmvState(options); break;
 				case "heaps":
 				{
 					// heaps [--machine A500|A600|A1200] [--chip Auto|KB512|MB1|MB2] [--slow ...] [--fast ...] [--writes]: the heaps of the core for those settings (T49: the mmap heap follows the memory).
@@ -134,6 +138,46 @@ internal static unsafe partial class Program
 			Console.Error.WriteLine(e is GuestRejectedException or InvalidOperationException ? e.Message : e.ToString());
 			return 1;
 		}
+	}
+
+	static void Settings()
+	{
+		var active = new Puae6SyncSettings();
+		var core = (Puae6Core)RuntimeHelpers.GetUninitializedObject(typeof(Puae6Core));
+		var fields = typeof(Puae6Core).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+		fields.Single(f => f.Name == "_syncSettings").SetValue(core, active);
+		fields.Single(f => f.Name == "_parameters").SetValue(core, new Puae6Parameters { SyncSettings = active.Clone() });
+
+		var requested = core.GetSyncSettings();
+		requested.ControllerPort2 = Puae6Port2.Cd32;
+		requested.FloppyDrives = 2;
+		Require(core.PutSyncSettings(requested) == PutSettingsDirtyBits.RebootCore, "changed sync settings request a core reboot");
+		var pending = core.GetSyncSettings();
+		Require(pending.ControllerPort2 == Puae6Port2.Cd32 && pending.FloppyDrives == 2, "controller and boot-disk settings remain pending for EmuHawk");
+		requested.ControllerPort2 = Puae6Port2.Joystick;
+		requested.FloppyDrives = 4;
+		Require(core.GetSyncSettings().ControllerPort2 == Puae6Port2.Cd32 && core.GetSyncSettings().FloppyDrives == 2, "pending sync settings are a defensive copy");
+		var stillActive = (Puae6SyncSettings)fields.Single(f => f.Name == "_syncSettings").GetValue(core)!;
+		Require(stillActive.ControllerPort2 == Puae6Port2.Joystick && stillActive.FloppyDrives == 1, "the live machine does not change before reboot");
+		Require(core.PutSyncSettings(active.Clone()) == PutSettingsDirtyBits.None, "restoring the live settings cancels the pending reboot difference");
+
+		var presentation = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6Settings));
+		Require(presentation[nameof(Puae6Settings.DriveSoundVolume)]!.DisplayName == "Floppy drive sound volume", "the live volume says it is mechanical floppy sound");
+		var sync = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6SyncSettings));
+		var bootDisks = sync[nameof(Puae6SyncSettings.FloppyDrives)]!;
+		var range = (System.ComponentModel.DataAnnotations.RangeAttribute)bootDisks.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
+		Require(bootDisks.DisplayName == "Boot disks in floppy drives" && (int)range.Minimum == 1 && (int)range.Maximum == 4
+			&& bootDisks.Converter is ConstrainedIntConverter, "boot disks are labelled and bounded from one to four");
+		var physicalDrives = sync[nameof(Puae6SyncSettings.PhysicalFloppyDrives)]!;
+		Require(physicalDrives.DisplayName == "Physical floppy drives", "physical drives are distinct from boot disks");
+		Require(physicalDrives.Description.Contains("CD32 and CDTV always connect no floppy drives"), "physical drives explain the CD machines' automatic zero");
+		Require(Puae6Core.CartridgeModel(Puae6Cartridge.Fmv) == 32 && Puae6Core.ConfigFlags(Puae6Cartridge.Fmv, false, Puae6Machine.CD32) == 0,
+			"FMV is transported as native cartridge model 32 without consuming a config flag");
+		Require(!Puae6Core.IsFreezerCartridge(Puae6Cartridge.Fmv) && Puae6Core.IsFreezerCartridge(Puae6Cartridge.Ar3),
+			"FMV is not a freezer while Action Replay remains one");
+		var fmvSettings = new Puae6SyncSettings { Machine = Puae6Machine.CD32, Cartridge = Puae6Cartridge.Fmv };
+		var fmvController = Controllers.Define(fmvSettings, 1);
+		Require(!fmvController.BoolButtons.Contains(Controllers.Freeze), "the FMV controller definition does not publish Freeze");
 	}
 
 	/// <summary>Every instance field of the core and every field of its saved state, by reflection: tests/waterbox-state compares them with manifests/state-inventory.json.</summary>

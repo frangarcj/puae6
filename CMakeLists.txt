@@ -68,7 +68,26 @@ endif()
 include(cmake/HostTools.cmake)
 p6_add_host_codegen(p6_codegen)
 add_library(p6_engine OBJECT ${P6_UPSTREAM_SOURCES} ${P6_GENERATED_SOURCES})
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/materialize_libmpeg2.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+    RESULT_VARIABLE _libmpeg2_materialize_result
+    OUTPUT_VARIABLE _libmpeg2_materialize_output
+    ERROR_VARIABLE _libmpeg2_materialize_error)
+if(NOT _libmpeg2_materialize_result EQUAL 0)
+    message(FATAL_ERROR "No se pudo materializar libmpeg2:\n${_libmpeg2_materialize_output}${_libmpeg2_materialize_error}")
+endif()
 add_library(p6_portable STATIC
+    build/libmpeg2/src/alloc.c
+    build/libmpeg2/src/cpu_accel.c
+    build/libmpeg2/src/cpu_state.c
+    build/libmpeg2/src/decode.c
+    build/libmpeg2/src/header.c
+    build/libmpeg2/src/idct.c
+    build/libmpeg2/src/motion_comp.c
+    build/libmpeg2/src/slice.c
+    build/libmpeg2/src/convert/rgb.c
     ports/portable/media/cd_source.cpp
     ports/portable/media/cd_disc.cpp
     ports/portable/media/cd_akiko.cpp
@@ -78,6 +97,8 @@ add_library(p6_portable STATIC
     ports/portable/media/cd_audio.cpp
     ports/portable/media/cd_utilities.cpp
     ports/portable/drive_sound.cpp
+    ports/portable/fmv_audio_buffer.cpp
+    ports/portable/fmv_decoder_journal.cpp
     ports/portable/atomic.cpp
     ports/portable/text_services.cpp
     ports/portable/input_devices.cpp
@@ -106,6 +127,10 @@ foreach(_target IN ITEMS p6_engine p6_portable)
     add_dependencies(${_target} p6_codegen)
     target_include_directories(${_target} PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+    target_include_directories(${_target} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/src/convert")
 endforeach()
 
 enable_testing()
@@ -132,7 +157,6 @@ file(READ "${_series_file}" _series)
 string(JSON _series_patches GET "${_series}" patches)
 string(JSON _patch_count LENGTH "${_series_patches}")
 file(SHA256 "${_series_file}" _series_sha256)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/build/assets/hrtmon_builtin.cpp"
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_hrtmon.py" --root "${CMAKE_CURRENT_SOURCE_DIR}"
     DEPENDS tools/prepare_hrtmon.py upstream/winuae/hrtmon.rom.cpp
@@ -171,7 +195,12 @@ file(GLOB_RECURSE _core_files CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/bridge/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/*.inc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.h")      # the IPF decoder (T58) is compiled into p6_portable
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mame-ipf/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/src/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/include/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/patches/libmpeg2/*"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/materialize_libmpeg2.py")      # linked portable decoders and their closed derivation are part of the build identity
 list(FILTER _core_files EXCLUDE REGEX "/bridge/state_probe\\.cpp$")      # a test tool that lives in the bridge directory
 list(SORT _core_files)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_core_files})
@@ -182,7 +211,7 @@ foreach(_file IN LISTS _core_files)
     string(APPEND _core_lines "${_relative}:${_file_sha256}\n")
 endforeach()
 string(SHA256 _sources_sha256 "${_core_lines}")
-add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp bridge/state_upstream.cpp bridge/state_hdf.cpp bridge/state_akiko.cpp bridge/state_cdtv.cpp)
+add_library(p6_state STATIC bridge/state.cpp bridge/build_identity.cpp bridge/state_cpu.cpp bridge/state_devices.cpp bridge/state_upstream.cpp bridge/state_hdf.cpp bridge/state_akiko.cpp bridge/state_fmv.cpp bridge/state_cdtv.cpp)
 add_dependencies(p6_state p6_codegen)
 target_include_directories(p6_state PUBLIC bridge)
 target_include_directories(p6_state PRIVATE
@@ -213,6 +242,52 @@ target_include_directories(p6_lifecycle_probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
 target_compile_options(p6_lifecycle_probe PRIVATE -UNDEBUG)
 target_link_libraries(p6_lifecycle_probe PRIVATE p6_bridge p6_portable)
+
+# FMV firmware and device probes use authorized local ROMs supplied at run
+# time; no firmware byte enters the source tree or the build output.
+add_executable(p6_fmv_firmware_probe tests/fmv/fmv_firmware_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_fmv_firmware_probe p6_codegen)
+target_include_directories(p6_fmv_firmware_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_fmv_firmware_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_firmware_probe PRIVATE p6_bridge p6_portable)
+add_executable(p6_fmv_device_probe tests/fmv/fmv_device_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_fmv_device_probe p6_codegen)
+target_include_directories(p6_fmv_device_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_fmv_device_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_device_probe PRIVATE p6_bridge p6_portable)
+add_executable(p6_fmv_decoder_probe
+    tests/fmv/fmv_decoder_probe.cpp
+    "${P6_UPSTREAM_DIR}/archivers/mp2/kjmp2.cpp")
+add_dependencies(p6_fmv_decoder_probe p6_codegen)
+target_include_directories(p6_fmv_decoder_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS}
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/include")
+target_compile_options(p6_fmv_decoder_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_decoder_probe PRIVATE p6_portable)
+add_executable(p6_fmv_state_probe tests/fmv/fmv_state_probe.cpp)
+add_dependencies(p6_fmv_state_probe p6_codegen)
+target_include_directories(p6_fmv_state_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS}
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/libmpeg2/include")
+target_compile_options(p6_fmv_state_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_state_probe PRIVATE p6_portable)
+add_executable(p6_fmv_machine_state_probe tests/fmv/fmv_machine_state_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_fmv_machine_state_probe p6_codegen)
+target_include_directories(p6_fmv_machine_state_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/bridge" "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable/media" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_fmv_machine_state_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_machine_state_probe PRIVATE p6_state p6_bridge p6_portable)
+add_executable(p6_fmv_compositor_probe tests/fmv/fmv_compositor_probe.cpp $<TARGET_OBJECTS:p6_engine>)
+add_dependencies(p6_fmv_compositor_probe p6_codegen)
+target_include_directories(p6_fmv_compositor_probe PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ports/portable" ${P6_INCLUDE_DIRS})
+target_compile_options(p6_fmv_compositor_probe PRIVATE -UNDEBUG)
+target_link_libraries(p6_fmv_compositor_probe PRIVATE p6_bridge p6_portable)
 # T66k1: real Akiko bank and C2P, linked with the complete engine, no fixtures.
 add_executable(p6_akiko_link_probe tests/media/akiko_link_probe.cpp $<TARGET_OBJECTS:p6_engine>)
 add_dependencies(p6_akiko_link_probe p6_codegen)

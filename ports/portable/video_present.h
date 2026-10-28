@@ -2,11 +2,13 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Replaces the Direct3D/GDI half of od-win32 (win32gfx.cpp) for the deterministic
- * A500 profile. The renderer (drawing.cpp, custom.cpp) draws into ONE statically
- * allocated XRGB8888 buffer through the upstream presentation calls (lockscr,
+ * A500/CD32 profiles. The renderer draws into a statically allocated XRGB8888
+ * buffer through the upstream presentation calls (lockscr,
  * unlockscr, render_screen, show_screen, target_graphics_buffer_update, ...); this
  * header is the small accessor surface the bridge uses to hand the result to a
- * frontend. Nothing here reads a display, a refresh rate or a clock.
+ * frontend. CD32 FMV additionally owns one staging buffer which is never exposed:
+ * drawing.cpp composes it into the normal buffer before unlock. Nothing here reads
+ * a display, a refresh rate or a clock.
  *
  * Bridge call order (the counterpart of graphics_setup + graphics_init):
  *   1. effective prefs final (currprefs) and custom_init()/init_m68k() done;
@@ -56,7 +58,7 @@ enum {
  P6_VIDEO_CFG_RESOLUTION = 2,     /* gfx_resolution lores..superhires, gfx_vresolution 0..1 */
  P6_VIDEO_CFG_AUTORESOLUTION = 3, /* engine would rewrite gfx_resolution / call graphics_reset */
  P6_VIDEO_CFG_FRAMESKIP = 4,      /* gfx_framerate > 1 skips the drawing of whole units */
- P6_VIDEO_CFG_AUX_BUFFER = 5,     /* colour burst, grayscale, genlock, monitor emulation, CD32 FMV */
+ P6_VIDEO_CFG_AUX_BUFFER = 5,     /* colour burst, grayscale, generic genlock or monitor emulation */
  P6_VIDEO_CFG_COLOR_MATH = 6,     /* luminance/contrast/gamma reach libm pow(): not portable-exact */
  P6_VIDEO_CFG_INDICATOR = 7       /* refresh indicator overlay */
 };
@@ -67,7 +69,7 @@ enum {
 enum {
  P6_VIDEO_ST_NOT_READY = 1u << 0,      /* before p6_video_init / after graphics_leave */
  P6_VIDEO_ST_MODE_TOO_LARGE = 1u << 1, /* engine asked for more than MAX_WIDTH x MAX_HEIGHT */
- P6_VIDEO_ST_AUX_BUFFER = 1u << 2      /* engine drew into the unallocated auxiliary buffer */
+ P6_VIDEO_ST_AUX_BUFFER = 1u << 2      /* engine selected an unsupported, uncomposed auxiliary pass */
 };
 
 /* p6_video_frame_info.flags: facts captured when the drawing pass ended. */

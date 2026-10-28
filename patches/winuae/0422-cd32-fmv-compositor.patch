@@ -1,0 +1,183 @@
+diff --git a/cd32_fmv_genlock.cpp b/cd32_fmv_genlock.cpp
+index b93e88d9..774d3a1e 100644
+--- a/cd32_fmv_genlock.cpp
++++ b/cd32_fmv_genlock.cpp
+@@ -102,97 +102,102 @@ bool p6_fmv_genlock_apply(const p6_fmv_genlock_state *s)
+ }
+ #endif
+ 
+-// slow software method but who cares.
+-
+-
+-static void genlock_32(struct vidbuffer *vbin, struct vidbuffer *vbout, int w, int h, int d, int hoffset, int voffset, int mult)
++// Slow bounded software composition. The renderer and presentation own distinct
++// buffers; this routine never allocates and validates the complete layout before
++// writing the first output byte.
++enum {
++	COMPOSE_OK = 0,
++	COMPOSE_ARGUMENT = 1,
++	COMPOSE_GEOMETRY = 2,
++	COMPOSE_DEPTH = 3,
++	COMPOSE_CAPACITY = 4
++};
++static int compose(const uae_u8 *amiga, uae_u64 amiga_bytes, uae_u8 *output, uae_u64 output_bytes,
++	int w, int h, int pixelbytes, int amiga_stride, int output_stride,
++	const uae_u8 *mpeg, int mw, int mh, int mdepth, uae_u32 border32, uae_u16 border16)
+ {
+-	for (int hh = 0, sh = -voffset; hh < h; sh++, hh += mult) {
+-		for (int h2 = 0; h2 < mult; h2++) {
+-			uae_u8 *d8 = vbout->bufmem + vbout->rowbytes * (hh + h2 + voffset);
+-			uae_u32 *d32 = (uae_u32*)d8;
+-			uae_u8 *s8 = vbin->bufmem + vbin->rowbytes * (hh + h2 + voffset) ;
+-			uae_u32 *srcp = NULL;
+-			if (sh >= 0 && sh < mpeg_height)
+-				srcp = (uae_u32*)(mpeg_out_buffer + sh * mpeg_width * MPEG_PIXBYTES_32);
+-			for (int ww = 0, sw = -hoffset; ww < w; sw++, ww += mult) {
+-				uae_u32 sv = fmv_border_color;
+-				if (sw >= 0 && sw < mpeg_width && srcp)
+-					sv = srcp[sw];
+-				for (int w2 = 0; w2 < mult; w2++) {
+-					uae_u32 v;
+-					if (s8[0] >= GENLOCK_VAL_32) {
+-						v = *((uae_u32*)s8);
+-					} else {
+-						v = sv;
+-					}
+-					*d32++ = v;
+-					s8 += d;
+-				}
++	if (!amiga || !output || !mpeg)
++		return COMPOSE_ARGUMENT;
++	if (w <= 0 || h <= 0 || mw <= 0 || mw > MAX_MPEG_WIDTH || mh <= 0 || mh > MAX_MPEG_HEIGHT)
++		return COMPOSE_GEOMETRY;
++	if ((pixelbytes != MPEG_PIXBYTES_16 && pixelbytes != MPEG_PIXBYTES_32) || mdepth != pixelbytes)
++		return COMPOSE_DEPTH;
++	const uae_u64 row = (uae_u64)w * (uae_u64)pixelbytes;
++	if (amiga_stride < 0 || output_stride < 0 || (uae_u64)amiga_stride < row || (uae_u64)output_stride < row)
++		return COMPOSE_GEOMETRY;
++	const uae_u64 amiga_need = (uae_u64)(h - 1) * (uae_u64)amiga_stride + row;
++	const uae_u64 output_need = (uae_u64)(h - 1) * (uae_u64)output_stride + row;
++	if (amiga_bytes < amiga_need || output_bytes < output_need)
++		return COMPOSE_CAPACITY;
++
++	int mult = 1;
++	while (mult < 4 && (uae_u64)mw * (uae_u64)(mult << 1) <= (uae_u64)w + 8
++		&& (uae_u64)mh * (uae_u64)(mult << 1) <= (uae_u64)h + 8)
++		mult <<= 1;
++	int hoffset = (w / mult - mw) / 2;
++	int voffset = (h / mult - mh) / 2;
++	if (hoffset < 0) hoffset = 0;
++	if (voffset < 0) voffset = 0;
++
++	for (int y = 0; y < h; ++y) {
++		const int sy = y / mult - voffset;
++		const uae_u8 *arow = amiga + (uae_u64)y * (uae_u64)amiga_stride;
++		uae_u8 *drow = output + (uae_u64)y * (uae_u64)output_stride;
++		for (int x = 0; x < w; ++x) {
++			const int sx = x / mult - hoffset;
++			if (pixelbytes == MPEG_PIXBYTES_32) {
++				uae_u32 av, value = border32;
++				memcpy(&av, arow + (uae_u64)x * MPEG_PIXBYTES_32, sizeof av);
++				if (sy >= 0 && sy < mh && sx >= 0 && sx < mw)
++					memcpy(&value, mpeg + ((uae_u64)sy * (uae_u64)mw + (uae_u64)sx) * MPEG_PIXBYTES_32, sizeof value);
++				if (arow[(uae_u64)x * MPEG_PIXBYTES_32] >= GENLOCK_VAL_32)
++					value = av;
++				memcpy(drow + (uae_u64)x * MPEG_PIXBYTES_32, &value, sizeof value);
++			} else {
++				uae_u16 av, value = border16;
++				memcpy(&av, arow + (uae_u64)x * MPEG_PIXBYTES_16, sizeof av);
++				if (sy >= 0 && sy < mh && sx >= 0 && sx < mw)
++					memcpy(&value, mpeg + ((uae_u64)sy * (uae_u64)mw + (uae_u64)sx) * MPEG_PIXBYTES_16, sizeof value);
++				if ((av >> 11) >= GENLOCK_VAL_16)
++					value = av;
++				memcpy(drow + (uae_u64)x * MPEG_PIXBYTES_16, &value, sizeof value);
+ 			}
+ 		}
+ 	}
++	return COMPOSE_OK;
+ }
+ 
+-static void genlock_16(struct vidbuffer *vbin, struct vidbuffer *vbout, int w, int h, int d, int hoffset, int voffset, int mult)
++#ifdef P6_PORTABLE
++static_assert(P6_FMV_COMPOSE_OK == COMPOSE_OK && P6_FMV_COMPOSE_ARGUMENT == COMPOSE_ARGUMENT
++	&& P6_FMV_COMPOSE_GEOMETRY == COMPOSE_GEOMETRY && P6_FMV_COMPOSE_DEPTH == COMPOSE_DEPTH
++	&& P6_FMV_COMPOSE_CAPACITY == COMPOSE_CAPACITY, "public FMV compositor result values");
++int p6_fmv_compose(const p6_fmv_composite_layout *layout, const p6_fmv_genlock_state *image,
++	const void *amiga, uint64_t amiga_bytes, void *output, uint64_t output_bytes)
+ {
+-	for (int hh = 0, sh = -voffset; hh < h; sh++, hh += mult) {
+-		for (int h2 = 0; h2 < mult; h2++) {
+-			uae_u8 *d8 = vbout->bufmem + vbout->rowbytes * (hh + h2 + voffset);
+-			uae_u16 *d16 = (uae_u16*)d8;
+-			uae_u8 *s8 = vbin->bufmem + vbin->rowbytes * (hh + h2 + voffset) ;
+-			uae_u16 *srcp = NULL;
+-			if (sh >= 0 && sh < mpeg_height)
+-				srcp = (uae_u16*)(mpeg_out_buffer + sh * mpeg_width * MPEG_PIXBYTES_16);
+-			for (int ww = 0, sw = -hoffset; ww < w; sw++, ww += mult) {
+-				uae_u16 sv = fmv_border_color_16;
+-				if (sw >= 0 && sw < mpeg_width && srcp)
+-					sv = srcp[sw];
+-				for (int w2 = 0; w2 < mult; w2++) {
+-					uae_u32 v;
+-					if ((((uae_u16*)s8)[0] >> 11) >= GENLOCK_VAL_16) {
+-						v = *((uae_u16*)s8);
+-					} else {
+-						v = sv;
+-					}
+-					*d16++ = v;
+-					s8 += d;
+-				}
+-			}
+-		}
+-	}
++	if (!layout || !image || !p6_fmv_genlock_validate(image) || !image->allocated)
++		return COMPOSE_ARGUMENT;
++	if (layout->width > P6_FMV_AUX_WIDTH || layout->height > P6_FMV_AUX_HEIGHT)
++		return COMPOSE_GEOMETRY;
++	return compose((const uae_u8*)amiga, amiga_bytes, (uae_u8*)output, output_bytes,
++		(int)layout->width, (int)layout->height, (int)layout->pixel_bytes,
++		(int)layout->amiga_stride_bytes, (int)layout->output_stride_bytes,
++		image->pixels, (int)image->width, (int)image->height, (int)image->depth,
++		image->border32, (uae_u16)image->border16);
+ }
++#endif
+ 
+ void cd32_fmv_genlock(struct vidbuffer *vbin, struct vidbuffer *vbout)
+ {
+-	int hoffset, voffset, mult;
+ 	int w = vbin->outwidth;
+ 	int h = vbin->outheight;
+ 	int d = vbin->pixbytes;
+ 
+ 	if (!mpeg_out_buffer)
+ 		return;
+-
+-	mult = 1;
+-	for (;;) {
+-		if (mult < 4 && mpeg_width * (mult << 1) <= w + 8 && mpeg_height * (mult << 1) <= h + 8) {
+-			mult <<= 1;
+-		}
+-		else {
+-			break;
+-		}
+-	}
+-
+-	hoffset = (w / mult - mpeg_width) / 2;
+-	voffset = (h / mult - mpeg_height) / 2;
+-
+-	if (hoffset < 0)
+-		hoffset = 0;
+-	if (voffset < 0)
+-		voffset = 0;
+-
+-	if (mpeg_depth == 2)
+-		genlock_16(vbin, vbout, w, h, d, hoffset, voffset, mult);
+-	else
+-		genlock_32(vbin, vbout, w, h, d, hoffset, voffset, mult);
++	if (vbin->width_allocated < w || vbin->height_allocated < h || vbout->width_allocated < w || vbout->height_allocated < h)
++		return;
++	const uae_u64 inbytes = (uae_u64)vbin->rowbytes * (uae_u64)vbin->height_allocated;
++	const uae_u64 outbytes = (uae_u64)vbout->rowbytes * (uae_u64)vbout->height_allocated;
++	compose(vbin->bufmem, inbytes, vbout->bufmem, outbytes, w, h, d, vbin->rowbytes, vbout->rowbytes,
++		mpeg_out_buffer, mpeg_width, mpeg_height, mpeg_depth, fmv_border_color, fmv_border_color_16);
+ }

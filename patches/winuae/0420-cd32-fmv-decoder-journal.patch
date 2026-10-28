@@ -1,0 +1,97 @@
+diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
+--- a/cd32_fmv.cpp
++++ b/cd32_fmv.cpp
+@@ -24,6 +24,9 @@
+ #endif
+ 
+ #include "cda_play.h"
++#ifdef P6_PORTABLE
++#include "fmv_decoder_journal.h"
++#endif
+ #include "archivers/mp2/kjmp2.h"
+ 
+ #ifdef __cplusplus
+@@ -276,6 +279,9 @@ static uae_u16 mpeg_io_reg;
+ 
+ static mpeg2dec_t *mpeg_decoder;
+ static const mpeg2_info_t *mpeg_info;
++#ifdef P6_PORTABLE
++static p6_fmv::Journal *mpeg_journal;
++#endif
+ 
+ #if FMV_DEBUG
+ static int isdebug(uaecptr addr)
+@@ -807,6 +813,13 @@ static void cl450_parse_frame(void)
+ {
+ 	for (;;) {
+ 		mpeg2_state_t mpeg_state = mpeg2_parse(mpeg_decoder);
++#ifdef P6_PORTABLE
++		const bool picture = mpeg_state == STATE_SLICE || mpeg_state == STATE_END;
++		const bool intra = picture && mpeg_info->current_picture &&
++			(mpeg_info->current_picture->flags & PIC_MASK_CODING_TYPE) == PIC_FLAG_CODING_TYPE_I;
++		p6_fmv::record_parse(mpeg_journal, mpeg_state, mpeg_state == STATE_SEQUENCE,
++			intra, mpeg_state == STATE_BUFFER);
++#endif
+ 		switch (mpeg_state)
+ 		{
+ 			case STATE_BUFFER:
+@@ -839,7 +852,13 @@ static void cl450_parse_frame(void)
+ 				zfile_fwrite(&ram[CL450_MPEG_BUFFER], 1, cl450_buffer_offset, videodump);
+ #endif
+ 				memcpy(&fmv_ram_bank.baseaddr[CL450_MPEG_DECODE_BUFFER] + libmpeg_offset, &fmv_ram_bank.baseaddr[CL450_MPEG_BUFFER], cl450_buffer_offset);
+-				mpeg2_buffer(mpeg_decoder, &fmv_ram_bank.baseaddr[CL450_MPEG_DECODE_BUFFER] + libmpeg_offset, &fmv_ram_bank.baseaddr[CL450_MPEG_DECODE_BUFFER] + libmpeg_offset + cl450_buffer_offset);
++				uae_u8 *decode = &fmv_ram_bank.baseaddr[CL450_MPEG_DECODE_BUFFER] + libmpeg_offset;
++#ifdef P6_PORTABLE
++				const uae_u8 *stable = p6_fmv::record_feed(mpeg_journal, decode, cl450_buffer_offset);
++				if (stable)
++					decode = const_cast<uae_u8*>(stable);
++#endif
++				mpeg2_buffer(mpeg_decoder, decode, decode + cl450_buffer_offset);
+ 				libmpeg_offset += cl450_buffer_offset;
+ 				if (libmpeg_offset >= CL450_MPEG_DECODE_BUFFER_SIZE - CL450_MPEG_BUFFER_SIZE)
+ 					libmpeg_offset = 0;
+@@ -853,6 +872,9 @@ static void cl450_parse_frame(void)
+ 					write_log(_T("CL450 rejected MPEG dimensions %ux%u\n"),
+ 						mpeg_info->sequence->width, mpeg_info->sequence->height);
+ 					mpeg2_reset(mpeg_decoder, 1);
++#ifdef P6_PORTABLE
++					p6_fmv::reset(mpeg_journal);
++#endif
+ 					cl450_frame_width = cl450_frame_height = 0;
+ 					cl450_buffer_offset = libmpeg_offset = 0;
+ 					cl450_set_status(CL_INT_UND);
+@@ -912,6 +934,9 @@ static void cl450_reset(void)
+ 	memset(cl450_regs, 0, sizeof cl450_regs);
+ 	if (mpeg_decoder)
+ 		mpeg2_reset(mpeg_decoder, 1);
++#ifdef P6_PORTABLE
++	p6_fmv::reset(mpeg_journal);
++#endif
+ 	if (fmv_ram_bank.baseaddr) {
+ 		memset(fmv_ram_bank.baseaddr, 0, 0x100);
+ 		write_log(_T("CL450 reset\n"));
+@@ -1561,6 +1586,10 @@ static void cd32_fmv_free(void)
+ 	if (mpeg_decoder)
+ 		mpeg2_close(mpeg_decoder);
+ 	mpeg_decoder = NULL;
++#ifdef P6_PORTABLE
++	xfree(mpeg_journal);
++	mpeg_journal = NULL;
++#endif
+ 	cl450_reset();
+ 	l64111_reset();
+ }
+@@ -1603,7 +1632,13 @@ addrbank *cd32_fmv_init (struct autoconfig_info *aci)
+ 	if (!mpeg_decoder) {
+ 		mpeg_decoder = mpeg2_init();
+ 		mpeg_info = mpeg2_info(mpeg_decoder);
+ 	}
++#ifdef P6_PORTABLE
++	if (!mpeg_journal)
++		mpeg_journal = xcalloc(p6_fmv::Journal, 1);
++	if (mpeg_journal)
++		p6_fmv::reset(mpeg_journal);
++#endif
+ 	memset(&cas, 0, sizeof(cas));
+ 	fmv_bank.mask = fmv_board_size - 1;
+ 	map_banks(&fmv_rom_bank, (fmv_start + ROM_BASE) >> 16, fmv_rom_size >> 16, 0);

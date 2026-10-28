@@ -103,7 +103,10 @@ public sealed partial class Puae6Core
 			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
 		ConfigFlags(result.SyncSettings.Cartridge, result.SyncSettings.FloppyWrites, result.SyncSettings.Machine);
 		uint cartridge = CartridgeModel(result.SyncSettings.Cartridge);
-		if (cartridge != 0) result.CartridgeFirmware = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "AR" + cartridge), $"Action Replay {cartridge} firmware is required");
+		if (cartridge != 0)
+			result.CartridgeFirmware = cartridge == 32
+				? lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "CD32FMV"), "CD32 Full Motion Video Cartridge ROM is required")
+				: lp.Comm.CoreFileProvider.GetFirmwareOrThrow(new(VSystemID.Raw.Amiga, "AR" + cartridge), $"Action Replay {cartridge} firmware is required");
 		return result;
 	}
 

@@ -1,0 +1,81 @@
+diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
+--- a/cd32_fmv.cpp
++++ b/cd32_fmv.cpp
+@@ -26,8 +26,14 @@
+ #include "cda_play.h"
+ #include "archivers/mp2/kjmp2.h"
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
+ #include "mpeg2.h"
+ #include "mpeg2convert.h"
++#ifdef __cplusplus
++}
++#endif
+ 
+ #define FMV_DEBUG 0
+ static int fmv_audio_debug = 0;
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7203,9 +7203,9 @@
+ 	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
+ 	// T29a: and while a hard file is mounted
+ 	// T56: and while Gayle has its IDE port (a card of the chain that is not autoconfig: it resets the drives and registers the hooks of the chip)
+-	if (currprefs.fastmem[0].size || currprefs.mountitems || currprefs.cs_ide || currprefs.cs_cdtvcd)
++	if (currprefs.fastmem[0].size || currprefs.mountitems || currprefs.cs_ide || currprefs.cs_cdtvcd || currprefs.cs_cd32fmv)
+ 		expamem_reset(hardreset);
+ 	else
+ 		devices_reset_ext(hardreset); // Registered devices also reset when no expansion chain exists.
+ #endif
+ }
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -377,7 +377,7 @@
+ 
+ void devices_update_sync(float svpos, float syncadjust)
+ {
+-#if defined(CD32) && !defined(P6_PORTABLE) // FMV is a separate, excluded device.
++#ifdef CD32
+ 	cd32_fmv_set_sync(svpos, syncadjust);
+ #endif
+ }
+@@ -515,7 +515,7 @@
+ #elif defined(P6_PORTABLE)
+ 	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
+ 	// T56: and the IDE port of Gayle
+-	if (currprefs.fastmem[0].size || P6_WITH_HDF || currprefs.cs_ide || currprefs.cs_cdtvcd)
++	if (currprefs.fastmem[0].size || P6_WITH_HDF || currprefs.cs_ide || currprefs.cs_cdtvcd || currprefs.cs_cd32fmv)
+ 		expansion_init ();
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -2119,7 +2119,7 @@
+ 	}
+ #endif
+ 
+-#if defined(CD32) && !defined(P6_PORTABLE)
++#ifdef CD32
+ 	// cd32 fmv
+ 	if (!currprefs.monitoremu && vidinfo->tempbuffer.bufmem_allocated && currprefs.cs_cd32fmv) {
+ 		if (!denise_lock()) {
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -4586,6 +4586,12 @@
+ 		false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_IDE,
+ 		0, 0, 0, false, NULL, false, 1
+ 	},
++	{
++		_T("cd32fmv"), _T("CD32 FMV"), _T("Commodore"),
++		NULL, expamem_init_cd32fmv, NULL, NULL, ROMTYPE_CD32CART, 0, 0, BOARD_AUTOCONFIG_Z2, true,
++		NULL, 0,
++		false, EXPANSIONTYPE_INTERNAL
++	},
+ 	{
+ 		_T("cdtvdmac"), _T("CDTV DMAC"), _T("Commodore"),
+ 		NULL, cdtv_init, NULL, NULL, ROMTYPE_CDTVDMAC | ROMTYPE_NOT, 0, 0, BOARD_AUTOCONFIG_Z2, true,

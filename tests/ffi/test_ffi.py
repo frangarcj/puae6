@@ -83,6 +83,25 @@ unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(name
             self.assertEqual('72 69 70 71', result.stdout.strip())
 
 
+class SyncSettingsPersistenceTests(unittest.TestCase):
+    def test_emuhawk_keeps_pending_sync_settings_without_changing_the_live_machine(self):
+        dotnet = shutil.which('dotnet')
+        self.assertIsNotNone(dotnet, 'C# compiler required for the EmuHawk settings regression')
+        env = {**build_waterbox.managed_env(), 'NUGET_PACKAGES': str(ROOT / 'build/bizhawk-core/nuget')}
+        sources = build_waterbox.managed_restore_sources(Path.home() / '.nuget/packages')
+        build = subprocess.run([
+            dotnet, 'build', str(ROOT / 'tests/ffi/Ffi.csproj'), '--nologo',
+            '-p:Puae6GuestSha256=' + '0' * 64, *sources,
+        ], cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+        self.assertEqual(0, build.returncode, (build.stdout + build.stderr)[-7000:])
+        result = subprocess.run([
+            dotnet, str(ROOT / 'build/ffi/bin/Debug/net8.0/Ffi.dll'), 'settings',
+        ], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn('FAIL', result.stdout)
+        self.assertEqual(12, result.stdout.count('ok '), result.stdout)
+
+
 @unittest.skipUnless(runtime_available(), "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")
 class FfiTests(unittest.TestCase):
     @classmethod

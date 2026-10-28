@@ -394,9 +394,9 @@ static void freeze_levels()
             s.floppy_writes=writes; p6_config config{};
             to_config(p6_libretro::canonical_settings(s),&config); CHECK(config.flags==writes && s.cartridge==choice.selection);
         }
-        CHECK(read_input_v2(freeze_key,device,input_config(s),&keys).commands==1);
+        CHECK(read_input_v2(freeze_key,device,input_config(s),&keys).commands==(choice.freeze ? 1u : 0u));
         auto cfg=input_config(s); cfg.mapper[0]=kMapperTargetFreeze;
-        CHECK(step(pressing(1),cfg,&m).commands==1 && !step(pressing(0),cfg,&m).commands);
+        CHECK(step(pressing(1),cfg,&m).commands==(choice.freeze ? 1u : 0u) && !step(pressing(0),cfg,&m).commands);
     }
     s.cartridge=0; CHECK(!read_input_v2(freeze_key,device,input_config(s),&keys).commands);
     for(unsigned flags=0;flags<4;++flags) {

@@ -266,7 +266,7 @@
     {
       "id": "puae-libchdr",
       "source_id": "puae_libretro_reference",
-      "scope": "embedded_dependency_in_reference",
+      "scope": "selected_fmv_decoder_dependency_not_yet_compiled",
       "declared_license": "BSD-style terms in dependency notice",
       "notice_files": [
         {
@@ -392,8 +392,8 @@
           "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
         }
       ],
-      "handling": "Retain applicable source notices if reused.",
-      "build_eligibility": "excluded_from_PUAE6_build_reference_only"
+      "handling": "T43a pins the generic C scalar closure from the captured 0.4.1 tree. Retain COPYING and the source notices when FMV-B links it; do not compile the ISA-specific units or use runtime host CPU detection.",
+      "build_eligibility": "eligible_under_GPL-2.0_for_FMV-B; selected closure is recorded in plan/extensions/cd.json but remains uncompiled in T43a"
     },
     {
       "id": "machawk-uae-slirp",

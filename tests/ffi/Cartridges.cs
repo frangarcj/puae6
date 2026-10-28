@@ -14,14 +14,15 @@ internal static unsafe partial class Program
 		internal CartridgeSandbox(Dictionary<string, string> options)
 		{
 			model = uint.Parse(options["model"]); firmware = File.ReadAllBytes(options["firmware"]); cartridge = File.ReadAllBytes(options["cartridge"]);
-			legacyFirmware = File.ReadAllBytes(options["legacy"]);
+			if (options.TryGetValue("firmware-ext", out var extension)) firmware = File.ReadAllBytes(extension).Concat(firmware).ToArray();
+			legacyFirmware = options.TryGetValue("legacy", out var legacy) ? File.ReadAllBytes(legacy) : firmware;
 			var path = Path.GetFullPath(options["guest"]);
 			Guest = Puae6Guest.Open(Path.GetDirectoryName(path)!, Path.GetFileName(path), options["sha"], Puae6Core.Heaps());
 		}
 		internal int Init(int expected = 0, uint? selected = null, bool missing = false, int trim = 0, uint abi = 1, uint? machine = null, bool badHeader = false, bool legacy = false, bool shortArgs = false)
 		{
 			using var args = new Guarded(sizeof(P6wInit));
-			var c = new P6Config { AbiVersion = 1, StructSize = (uint)sizeof(P6Config), Machine = machine ?? (model == 1200 ? 3u : 1u),
+			var c = new P6Config { AbiVersion = 1, StructSize = (uint)sizeof(P6Config), Machine = machine ?? (model == 32 ? P6.MachineCd32 : model == 1200 ? 3u : 1u),
 				VideoStandard = 1, AudioRateHz = 48000, RandomSeed = 1, RtcEpochSeconds = 946684800 };
 			var copy = (byte[])cartridge.Clone(); if (badHeader) Array.Clear(copy);
 			var boot = legacy ? legacyFirmware : firmware;
@@ -150,5 +151,32 @@ internal static unsafe partial class Program
 		using (owner.Guest.Host.EnterExit()) Require(owner.Guest.Lib.p6w_shutdown() == 0, "loaded cartridge cleanup removes the machine");
 		owner.NoMachine();
 		Console.WriteLine("cartridge transport PASS");
+	}
+
+	static void FmvState(Dictionary<string, string> options)
+	{
+		LoadRuntime(options["runtime"]);
+		using var owner = new CartridgeSandbox(options);
+		owner.Init(); owner.Guest.Seal();
+		var cold = owner.Save();
+		for (int i = 0; i < 300; ++i) owner.Step();
+		var cut = owner.Save();
+		Require(cut.Length > cold.Length, "FMV mapping adds mutable sandbox state");
+		string Future(CartridgeSandbox sandbox)
+		{
+			var lines = new List<string>();
+			for (int i = 0; i < 8; ++i) lines.Add(sandbox.Step());
+			lines.Add(Convert.ToHexString(SHA256.HashData(sandbox.Save())));
+			return string.Join("\n", lines);
+		}
+		var expected = Future(owner);
+		owner.Load(cut); Require(expected == Future(owner), "FMV snapshot repeats its exact future");
+		using (var fresh = new CartridgeSandbox(options))
+		{
+			fresh.Init(); fresh.Guest.Seal(); fresh.Load(cut);
+			Require(fresh.Save().AsSpan().SequenceEqual(cut), "fresh FMV sandbox restores every captured allocation");
+			Require(expected == Future(fresh), "fresh FMV sandbox has the same ticks, pixels, PCM and final snapshot");
+		}
+		Console.WriteLine($"FMV Waterbox mutable-allocation snapshot/fresh future PASS cold={cold.Length} mapped={cut.Length}");
 	}
 }

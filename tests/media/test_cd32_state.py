@@ -9,11 +9,13 @@ from tests.build_support import ROOT, build_targets
 
 class Cd32StateTests(unittest.TestCase):
     def test_public_machine_restore_and_refusal(self):
-        main=os.environ.get('P6_CD32_ROM_MAIN'); ext=os.environ.get('P6_CD32_ROM_EXT')
-        if not main or not ext:
-            self.skipTest('BLOCKED: set P6_CD32_ROM_MAIN and P6_CD32_ROM_EXT to authorized ROMs')
+        downloads=Path.home()/'Downloads'
+        main=Path(os.environ.get('P6_CD32_ROM_MAIN',downloads/'kick40060.CD32'))
+        ext=Path(os.environ.get('P6_CD32_ROM_EXT',downloads/'kick40060.CD32.ext'))
+        if not main.is_file() or not ext.is_file():
+            self.skipTest('BLOCKED: authorized CD32 main/ext ROMs required')
         exe=build_targets(ROOT/'build/state-opt',['p6_cd32_state_probe'],optimized=True)['p6_cd32_state_probe']
-        result=subprocess.run([str(exe),main,ext],capture_output=True,text=True,timeout=180)
+        result=subprocess.run([str(exe),str(main),str(ext)],capture_output=True,text=True,timeout=180)
         self.assertEqual(0,result.returncode,result.stdout[-2000:]+result.stderr[-4000:])
         for mode in range(5):
             self.assertIn(f'native CD32 mode{mode} exact restore/new owner/identity/corrupt/map PASS',result.stdout)

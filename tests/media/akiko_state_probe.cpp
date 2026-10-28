@@ -43,6 +43,7 @@ static void equal_fields(const Whole &a, const Whole &b)
         E(device.audio.stream.channel[i].current); E(device.audio.stream.channel[i].previous);
         E(device.audio.stream.channel[i].accumulator); E(device.audio.stream.channel[i].cycles);
     }
+    E(device.audio.streamid);
     E(device.audio.bound); E(device.audio.running); E(device.audio.sector); E(device.audio.callbacks);
     E(device.audio.position); E(device.audio.end); E(device.audio.left); E(device.audio.right);
     E(device.audio.status); E(device.audio.error); A(device.disc_id); E(device.bound); E(device.inserted); E(device.opens);
