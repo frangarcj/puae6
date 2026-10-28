@@ -109,19 +109,28 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6 FMV](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-fbb55ac5)
-es la descarga para los probadores. El PR #14 esta fusionado en main. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-1fa55c99)
+es la descarga para los probadores. El [PR #15](https://github.com/frangarcj/BizHawk/pull/15)
+esta fusionado en `main`. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
 y autorizada y abrir el contenido. UAE conserva la seleccion predeterminada.
+
+Los ajustes de PUAE6 vuelven a presentar, como el core UAE antiguo, una sola
+opcion `Floppy disk drives` de 0 a 4. Cero desconecta DF0..DF3; los demas valores
+conectan ese numero de unidades y montan como maximo ese numero de imagenes
+iniciales. El ajuste separado de la primera preview queda oculto solo para poder
+leer configuraciones guardadas. El wrapper entrega audio sincronico a 44100 Hz
+desde el primer frame, tambien al reiniciar la salida de sonido tras mover o
+redimensionar la ventana de EmuHawk.
 
 Para CD32 FMV, seleccionar maquina `CD32` y cartucho `Fmv`, y aportar en el
 gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
 formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
 juegos. El ZIP Windows tiene SHA-256
-`839159d9f935880de93d6f546debc7c1817733fe15f5ebc7ed8249709061df73`.
+`e0956b87bd6b03aebfb78c9073b63d9f3be930eb7abfc51061b44655f955be5a`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
@@ -137,9 +146,15 @@ ventana visible y la cierra normalmente. Solo esa configuracion temporal usa el
 fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
 cambia la configuracion distribuida ni elimina la comparacion del PCM emulado.
 La ejecucion dirigida
-[40782278865](https://github.com/frangarcj/BizHawk/actions/runs/40782278865)
-supera todas esas etapas sobre el commit probado `8c31d60c`; la release apunta
-al merge `fbb55ac5` con el mismo contenido.
+[40789768142](https://github.com/frangarcj/BizHawk/actions/runs/40789768142)
+supera todas esas etapas y comprueba ademas el contrato visible 0..4 y los
+44100 Hz sobre el commit probado `fad11d6d`; la release apunta al merge
+`1fa55c99` con el mismo contenido. El guest x64 es
+`c77944dca179e44ee57143e1815b2271cf28024fc1946e94486250aeabc3f8bf`.
+El paquete Darwin ARM64 separado `48c1693c` fija el guest
+`56116efe8098f1d91a446760672636304a8e9d79e8b0362c8e39f441119d2859`
+y supera su comprobacion instalada; sigue siendo un paquete FFI, no un frontend
+WinForms para macOS.
 
 Estados y peliculas dependen del build, configuracion y medios; no son
 intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
