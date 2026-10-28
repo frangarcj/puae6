@@ -150,7 +150,8 @@ bool oracle_accepts(const p6_config &c)
            (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON)) == 0 &&
            (!(c.flags & P6_CONFIG_HRTMON) || c.machine == P6_MACHINE_A1200) && fpu_accepted(c) && audio_accepted(c) &&
            !c.reserved7[0] && !c.reserved8[0] && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
-           (c.machine != P6_MACHINE_CD32 || (!c.flags && !c.floppy_drives)) && c.collision_level <= 4 && c.floppy_drives <= 4 &&
+           (c.machine != P6_MACHINE_CD32 || (!c.flags && !c.floppy_drives)) && c.collision_level <= 4 &&
+           (c.floppy_drives <= 4 || c.floppy_drives == P6_FLOPPY_DRIVES_NONE) &&
            (c.machine != P6_MACHINE_CDTV || (!c.flags && !c.floppy_drives)) &&
            c.cpu_compatibility <= P6_CPU_NORMAL && hdf_controller_accepted(c) && c.rtc_epoch_seconds >= INT64_C(-62135596800) &&
            c.rtc_epoch_seconds <= INT64_C(253402300799) && memory_accepted(c);

@@ -842,14 +842,21 @@ sesion; se validan al encolar y se aplican en el siguiente borde, tras la cabece
 primer `p6_run_frame` fijan los discos del arranque; los posteriores usan el cambio retardado del motor (unas 100 unidades) y un EJECT
 cancela uno pendiente. Detalle y errores: docs/adr/0008-media-identity.md.
 
-Unidades (T61): `p6_config.floppy_drives`, byte 67 antes reservado de ABI v1, conecta 1..4 unidades DD; cero y dos conservan la maquina y el hash del preset de dos unidades.
-Otro numero deriva `config_hash` con el dominio `p6/config/floppy-drives/v1` y un byte con el numero resuelto; no cambia los perfiles de serie. Los eventos a una unidad desconectada
+Unidades (T61, T82m): `p6_config.floppy_drives`, byte 67 antes reservado de ABI v1, conecta 1..4 unidades DD; cero y dos conservan la maquina y el hash del preset de dos unidades.
+Como cero ya tenia ese significado publico, `P6_FLOPPY_DRIVES_NONE` (255) expresa de forma aditiva una maquina sin DF0..DF3. Otro numero resuelto, incluido cero explicito,
+deriva `config_hash` con el dominio `p6/config/floppy-drives/v1` y un byte con el numero resuelto; no cambia los perfiles de serie. Los eventos a una unidad desconectada
 son `UNSUPPORTED`. El estado conserva las cuatro mecanicas, su medio y cambios pendientes; cargar reinserta tambien DF2/DF3 antes de aplicar sus cabezas y buffers.
 Libretro ofrece `puae6_floppy_drives=auto|1|2|3|4` y `puae6_floppy_multidrive=disabled|enabled`, ambos de reinicio. MultiDrive (o `(MD)` en un nombre con File Name Tags activo)
 inserta los discos sucesivos en unidades distintas al arrancar: Auto conecta cuatro, un numero explicito limita el montaje. DF0 conserva la seleccion inicial y Disk Control;
 los discos `#SAVEDISK` adicionales siguen en la lista y no se montan en unidades extra, como en PUAE5. Sin MultiDrive solo arranca el disco elegido en DF0. No hay otro scheduler ni I/O durante el avance.
-Headless ofrece `--floppy-drives auto|1|2|3|4`. El wrapper conserva `FloppyDrives` (discos montados al arrancar, 1 por defecto) y añade `PhysicalFloppyDrives` (Auto o 1..4 unidades);
-Auto conecta al menos dos y crece para esos discos. Sus mensajes, seleccion y estado guardan DF0..DF3; los defaults mantienen su identidad.
+Headless ofrece `--floppy-drives auto|1|2|3|4`. El wrapper BizHawk vuelve a la superficie del UAE antiguo: una sola opcion visible `Floppy disk drives`, 0..4 y 1 por defecto,
+conecta ese numero y monta como maximo los primeros tantos discos. Cero se transporta como `P6_FLOPPY_DRIVES_NONE`; CD32/CDTV siempre resuelven cero. La propiedad
+`PhysicalFloppyDrives` de la primera preview queda no visible solo para deserializar configuraciones antiguas; cuando no es `Auto` conserva sus dos decisiones anteriores
+(unidades conectadas y cuantos de `FloppyDrives` montar). Sus mensajes, seleccion y estado guardan DF0..DF3.
+
+El wrapper BizHawk solicita 44100 Hz al guest, la frecuencia del contrato sincrono de `SoundOutputProvider`; libretro conserva los 48000 Hz de su esquema. Asi el reinicio de
+sonido que EmuHawk hace en `ResizeBegin`/`ResizeEnd` no necesita volver a inferir durante sesenta frames una conversion 48000-a-44100 ni cambia temporalmente el tono. La frecuencia
+real forma parte de la identidad de estados y peliculas.
 
 Manifiesto append-only (T17e, `P6_CAP_MEDIA_APPEND`): `p6_media_append` registra un ADF despues de `p6_load`, siempre al final, con la misma validacion
 que `p6_load` (tipo, flags, 901120 bytes, content id = SHA-256) antes de tocar nada; un content id ya registrado devuelve su indice; con `P6_MAX_MEDIA`

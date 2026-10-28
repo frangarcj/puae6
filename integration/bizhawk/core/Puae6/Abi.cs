@@ -35,6 +35,7 @@ public static class P6
 	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5, RegionNvram = 6;
 	public const int Cd32NvramBytes = 1024;
 	public const uint MemoryNone = uint.MaxValue;
+	public const byte FloppyDrivesNone = byte.MaxValue;           // ABI zero is the historical two-drive profile; 255 explicitly disconnects DF0..DF3
 	public const uint ConfigFloppyWrites = 1, ConfigHrtMon = 2, CommandFreeze = 1;
 	public const string HrtMonRawSha256 = "15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5";
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
@@ -68,7 +69,7 @@ public unsafe struct P6Config
 	public byte CpuMultiplier;                                   // T52: 0 the machine's own, else 1, 2, 4, 8, 10, 12 or 16 (the schema's numbers)
 	public byte HdfController;                                   // T56: 0 the UAE controller (uaehf.device), 1 the IDE port of Gayle (A600 and A1200 only; the schema's numbers)
 	public byte CpuCompatibility;                               // T53: 0 exact, 1 compatible, 2 normal
-	public byte FloppyDrives;                                   // T61: 0 the two-drive profile, otherwise 1..4 connected DD drives
+	public byte FloppyDrives;                                   // T61/T82m: 0 the two-drive profile, 1..4 connected DD drives, 255 none
 	public byte CollisionLevel;                                  // T77a: 0 Auto/Full, 1 None, 2 Sprites, 3 Playfields, 4 Full
 	public fixed byte Reserved7[1];                              // byte 69, zero in ABI v1
 	public byte Z3Memory;                                        // byte 70: none=0, 16MiB=1, 1/2/4/8MiB=2..5, 32/64/128/256/512MiB=6..10

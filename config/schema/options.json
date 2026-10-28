@@ -2219,7 +2219,7 @@
   "reserved": [
     {"id": "whdload", "for": "content preparation", "wrapper_setting": "WhdLoad", "why": "Select the three WHDLoad media before firmware; the generated media bytes and resolved machine bind states, without a p6_config field."},
     {"id": "whdload_buttonwait", "for": "content preparation", "wrapper_setting": "WhdLoadButtonWait", "why": "ButtonWait changes RASystem preferences before loading; the media identity binds that selection, without a p6_config field."},
-    {"id": "floppy_drives", "for": "boot media placement", "wrapper_setting": "FloppyDrives", "why": "How many given disks start mounted (1..4) is a media placement through events; PhysicalFloppyDrives selects the connected hardware. Libretro uses MultiDrive for placement and Disk Control for DF0."}
+    {"id": "floppy_drives", "for": "BizHawk combined drive count and boot media placement", "wrapper_setting": "FloppyDrives", "why": "The old UAE-compatible visible setting connects 0..4 drives and mounts at most that many given disks through events. PhysicalFloppyDrives is hidden legacy-preview deserialization; libretro keeps its separate MultiDrive placement and Disk Control for DF0."}
   ],
   "unsupported": [
     {"key": "z3fastmem_size", "why": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet."},

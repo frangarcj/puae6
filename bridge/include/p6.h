@@ -115,7 +115,8 @@ typedef struct p6_config {
      * The level is part of state identity. Every supported 68000/68010/68020 machine can select each level at load.
      * No level reads a host clock. */
     uint8_t cpu_compatibility;
-    /* T61: connected DD floppy drives, 0 = the unchanged two-drive profile; otherwise 1..4. Restart and state identity option. */
+    /* T61/T82m: connected DD floppy drives, 0 = the unchanged two-drive profile, 1..4 explicit drives,
+     * P6_FLOPPY_DRIVES_NONE = explicitly no drives. Restart and state identity option. */
     uint8_t floppy_drives;
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
@@ -128,6 +129,8 @@ typedef struct p6_config {
 #define P6_CPU_NORMAL 2u
 #define P6_HDF_CONTROLLER_UAE 0u
 #define P6_HDF_CONTROLLER_IDE 1u
+/* Zero predates an explicit no-drive configuration and means the two-drive profile. Keep that ABI spelling stable; this additive value names no DF0..DF3. */
+#define P6_FLOPPY_DRIVES_NONE UINT8_C(255)
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
  * (sector granularity, one fixed pool of P6_OVERLAY_SECTORS shared by every disk) that is part of the machine state and of p6_state_bound, so a state
  * load or a rewind takes the writes back and the base is never touched. Without the flag every disk is write protected, as in ABI v1. The flag is
@@ -464,7 +467,8 @@ p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capacity,
                             uint32_t *count, p6_error *error);
 /* Enqueue for the next boundary. EJECT requires media_index to be
  * P6_MEDIA_INDEX_EJECT; MOUNT requires an index of the manifest (passed to p6_load or returned by p6_media_append). Only DF0 and
- * DF1 exist in the default config; floppy_drives enables up to DF3 (a disconnected drive is UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
+ * DF1 exist in the default config; floppy_drives enables up to DF3 or P6_FLOPPY_DRIVES_NONE disconnects all four
+ * (a disconnected drive is UNSUPPORTED, above 3 BAD_ARGUMENT); at most 16
  * events wait for a boundary (CAPACITY) and sequence must exceed the last accepted
  * one for the whole session. A refused event queues nothing and uses no sequence.
  * Events queued before the first p6_run_frame set the power-on disks (the last one

@@ -150,13 +150,13 @@ internal static unsafe partial class Program
 
 		var requested = core.GetSyncSettings();
 		requested.ControllerPort2 = Puae6Port2.Cd32;
-		requested.FloppyDrives = 2;
+		requested.FloppyDrives = 0;
 		Require(core.PutSyncSettings(requested) == PutSettingsDirtyBits.RebootCore, "changed sync settings request a core reboot");
 		var pending = core.GetSyncSettings();
-		Require(pending.ControllerPort2 == Puae6Port2.Cd32 && pending.FloppyDrives == 2, "controller and boot-disk settings remain pending for EmuHawk");
+		Require(pending.ControllerPort2 == Puae6Port2.Cd32 && pending.FloppyDrives == 0, "controller and zero-drive settings remain pending for EmuHawk");
 		requested.ControllerPort2 = Puae6Port2.Joystick;
 		requested.FloppyDrives = 4;
-		Require(core.GetSyncSettings().ControllerPort2 == Puae6Port2.Cd32 && core.GetSyncSettings().FloppyDrives == 2, "pending sync settings are a defensive copy");
+		Require(core.GetSyncSettings().ControllerPort2 == Puae6Port2.Cd32 && core.GetSyncSettings().FloppyDrives == 0, "pending sync settings are a defensive copy");
 		var stillActive = (Puae6SyncSettings)fields.Single(f => f.Name == "_syncSettings").GetValue(core)!;
 		Require(stillActive.ControllerPort2 == Puae6Port2.Joystick && stillActive.FloppyDrives == 1, "the live machine does not change before reboot");
 		Require(core.PutSyncSettings(active.Clone()) == PutSettingsDirtyBits.None, "restoring the live settings cancels the pending reboot difference");
@@ -164,13 +164,14 @@ internal static unsafe partial class Program
 		var presentation = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6Settings));
 		Require(presentation[nameof(Puae6Settings.DriveSoundVolume)]!.DisplayName == "Floppy drive sound volume", "the live volume says it is mechanical floppy sound");
 		var sync = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6SyncSettings));
-		var bootDisks = sync[nameof(Puae6SyncSettings.FloppyDrives)]!;
-		var range = (System.ComponentModel.DataAnnotations.RangeAttribute)bootDisks.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
-		Require(bootDisks.DisplayName == "Boot disks in floppy drives" && (int)range.Minimum == 1 && (int)range.Maximum == 4
-			&& bootDisks.Converter is ConstrainedIntConverter, "boot disks are labelled and bounded from one to four");
+		var floppyDrives = sync[nameof(Puae6SyncSettings.FloppyDrives)]!;
+		var range = (System.ComponentModel.DataAnnotations.RangeAttribute)floppyDrives.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
+		Require(floppyDrives.DisplayName == "Floppy disk drives" && (int)range.Minimum == 0 && (int)range.Maximum == 4
+			&& floppyDrives.Converter is ConstrainedIntConverter, "the old UAE-compatible drive count is labelled and bounded from zero to four");
 		var physicalDrives = sync[nameof(Puae6SyncSettings.PhysicalFloppyDrives)]!;
-		Require(physicalDrives.DisplayName == "Physical floppy drives", "physical drives are distinct from boot disks");
-		Require(physicalDrives.Description.Contains("CD32 and CDTV always connect no floppy drives"), "physical drives explain the CD machines' automatic zero");
+		Require(!physicalDrives.IsBrowsable, "the obsolete split physical-drive setting is hidden from the PropertyGrid");
+		Require(P6.FloppyDrivesNone == byte.MaxValue, "the explicit no-drive ABI value does not change historical zero-as-two callers");
+		Require(Puae6Core.AudioRateHz == 44100, "the core produces BizHawk's synchronous 44.1 kHz rate without a transient frontend inference");
 		Require(Puae6Core.CartridgeModel(Puae6Cartridge.Fmv) == 32 && Puae6Core.ConfigFlags(Puae6Cartridge.Fmv, false, Puae6Machine.CD32) == 0,
 			"FMV is transported as native cartridge model 32 without consuming a config flag");
 		Require(!Puae6Core.IsFreezerCartridge(Puae6Cartridge.Fmv) && Puae6Core.IsFreezerCartridge(Puae6Cartridge.Ar3),

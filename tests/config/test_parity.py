@@ -256,22 +256,25 @@ class WrapperParity(Schema):
         self.assertEqual([v["value"] for v in machine["values"] if v.get("wrapper") is False], [])
         self.assertIn("puae6-config-1;machine={machine};", self.core)
 
-    def test_the_wrapper_fixes_the_audio_rate_at_the_schema_default_in_the_machine_and_in_the_identity(self):
-        default = self.default_of("audio_rate_hz")
+    def test_the_wrapper_fixes_the_audio_rate_at_the_bizhawk_synchronous_contract_in_the_machine_and_identity(self):
+        # Libretro keeps the schema default (48 kHz). BizHawk's ISoundProvider contract is 44.1 kHz; emitting that rate from frame one avoids
+        # its 60-frame rate inference producing a temporary pitch error whenever ResizeBegin/ResizeEnd restarts sound.
+        self.assertEqual(self.default_of("audio_rate_hz"), 48000)
         self.assertEqual(self.reboot["audio_rate_hz"]["wrapper"], {"how": "fixed", "where": "audio"})
-        found = re.search(r"init\.Config\.AudioRateHz = (\d+);", self.core)
-        self.assertIsNotNone(found)
-        self.assertEqual(int(found[1]), default, f"the wrapper fixes the audio rate at {found[1]}, the schema default is {default}")
-        identity = re.search(r";audio=(\d+)\"", self.core)
-        self.assertIsNotNone(identity)
-        self.assertEqual(int(identity[1]), default, f"the state identity says audio={identity[1]}, the schema default is {default}")
+        self.assertIn("public const uint AudioRateHz = 44100;", self.core)
+        self.assertIn("init.Config.AudioRateHz = AudioRateHz;", self.core)
+        self.assertIn(";audio={AudioRateHz}", self.core)
 
     def test_the_settings_reach_the_config_and_the_identity(self):
         for name, option in self.reboot.items():
             how = option["wrapper"]
             if how["how"] == "setting":
                 field = camel(option["maps_to"].partition(".")[2])
-                self.assertRegex(self.core, rf"init\.Config\.{field} = [^;]*_syncSettings\.{how['setting']}", f"{how['setting']} does not reach the config")
+                if name == "floppy_drive_count":
+                    self.assertIn("init.Config.FloppyDrives = ConnectedFloppyDrives", self.core)
+                    self.assertIn("_syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? _syncSettings.FloppyDrives", self.core)
+                else:
+                    self.assertRegex(self.core, rf"init\.Config\.{field} = [^;]*_syncSettings\.{how['setting']}", f"{how['setting']} does not reach the config")
         sets = set(re.findall(r"init\.Config\.(\w+) = ", self.core))
         expected = {"AbiVersion", "StructSize", "Machine"} | {camel(o["maps_to"].partition(".")[2]) for o in self.reboot.values() if o["wrapper"]["how"] != "profile"}
         self.assertEqual(sets, expected, "the wrapper sets a config field that the schema does not have, or misses one")

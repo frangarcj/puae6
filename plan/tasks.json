@@ -25578,6 +25578,61 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar reproducer e hipotesis; no presentar CLI como GUI ni una preview sin probar como utilizable."
     },
     {
+      "id": "T82m",
+      "title": "Paridad UAE antigua de disqueteras y audio estable al mover EmuHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T82"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
+        "tests/config/test_parity.py",
+        "tests/fuzz/fuzz_probe.cpp",
+        "tests/libretro-host/test_multidrive.py",
+        "tests/media/csharp-disc/CdtvPublic.cs",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "config/schema/options.json",
+        "config/schema/options_table.generated.json",
+        "tools/check.py",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/**",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml"
+      ],
+      "steps": [
+        "Usar UAE.ISettable.cs del MacHawk fijado como referencia de producto: una sola opcion Floppy disk drives, entera de cero a cuatro y persistente; CD32/CDTV siguen sin unidades.",
+        "Conservar el cero historico de p6_config como perfil de dos unidades para llamantes existentes y reservar un valor ABI aditivo para cero unidades explicitas; probar preferencias, identidad y rechazo de eventos en unidades inexistentes.",
+        "Fijar el wrapper BizHawk a 44100 Hz, la frecuencia que consume SoundOutputProvider. Asi StopSound/StartSound durante ResizeBegin/ResizeEnd no reinicia durante sesenta frames una inferencia 48000-a-44100 que altera temporalmente el tono.",
+        "Compilar los guests x64 y Darwin ARM64 desde el commit exacto, sincronizar el worktree MacHawk aislado, ejecutar el gate Windows real, fusionar y publicar una preview nueva con fuentes y hashes."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "El PropertyGrid muestra una sola opcion Floppy disk drives 0..4 como UAE antiguo; cero inicia una maquina sin DF0..DF3 y los demas valores conectan y montan como maximo ese numero de los medios iniciales.",
+        "EmuHawk recibe PCM sincronico a 44100 Hz desde el primer frame, tambien despues de mover o redimensionar la ventana; estados y peliculas nombran la frecuencia real.",
+        "La nueva preview Windows x64 pasa el workflow real, queda fusionada y publicada; el paquete Darwin ARM64 y las fuentes correspondientes quedan fijados al mismo cambio sin tocar el checkout hermano."
+      ],
+      "stop": "Tras dos intentos razonados del mismo fallo, conservar el reproducer y dos hipotesis; no falsear cero como dos unidades ni declarar corregido el audio solo porque compila."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

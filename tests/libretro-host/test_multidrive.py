@@ -134,9 +134,9 @@ class MultiDriveTests(lr.LibretroHarness):
         self.assertIn("DF1: medium 2 inserted (MultiDrive)", text)
         self.assertIn("DF3: medium 4 inserted (MultiDrive)", text)
 
-    def test_two_drive_spellings_keep_the_profile_identity_and_four_derives_from_it(self):
+    def test_two_drive_spellings_keep_the_profile_identity_and_explicit_four_or_none_derive_from_it(self):
         root, hashes, states = self.work(), {}, {}
-        for count in (0, 2, 4):
+        for count in (0, 2, 4, 255):
             path = root / f"count{count}.state"
             result = subprocess.run([str(self.probe), str(self.roms["boot"]), "--units", "3", "--floppy-drives", str(count),
                                      "--public-save-at", "3", str(path)], capture_output=True, text=True, timeout=120)
@@ -147,6 +147,8 @@ class MultiDriveTests(lr.LibretroHarness):
         self.assertEqual(hashes[0], profile)
         self.assertEqual(states[0], states[2])
         self.assertEqual(hashes[4], domain_hash("p6/config/floppy-drives/v1", profile, bytes([4])))
+        self.assertEqual(hashes[255], domain_hash("p6/config/floppy-drives/v1", profile, bytes([0])))
+        self.assertNotEqual(states[255], states[0], "an explicit machine without DF0..DF3 is not the historical two-drive profile")
 
 
 if __name__ == "__main__":

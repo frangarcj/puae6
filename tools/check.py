@@ -1329,6 +1329,10 @@ TASK_SUITES[('BUILD01', 'T82')] = dict(TASK_SUITES[('BUILD01', 'T82c')])
 TASK_SUITES[('BUILD01', 'T82k')] = {'gui_diagnosis': 'tests.test_machawk_windows.WindowsGuiDiagnosticsTests'}
 TASK_SUITES[('BUILD01', 'T82d')] = {'machawk_real_menu_build': 'tests.test_machawk_menus'}
 TASK_SUITES[('BUILD01', 'T82l')] = {'puae6_sync_settings': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('BUILD01', 'T82m')] = {
+    'puae6_uae_settings_and_audio': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'wrapper_contract': 'tests.config.test_parity.WrapperParity',
+    'native_explicit_no_drives': 'tests.libretro-host.test_multidrive.MultiDriveTests.test_two_drive_spellings_keep_the_profile_identity_and_explicit_four_or_none_derive_from_it'}
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
 TASK_SUITES[('WB09', 'T41')] = {

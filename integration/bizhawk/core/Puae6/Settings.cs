@@ -180,14 +180,14 @@ public sealed class Puae6SyncSettings
 	public Puae6ParallelPort ControllerPort3 { get; set; } = Puae6ParallelPort.None;
 	public Puae6ParallelPort ControllerPort4 { get; set; } = Puae6ParallelPort.None;
 
-	[DisplayName("Physical floppy drives")]
-	[Description("Auto connects at least two drives and grows to fit the boot disks. CD32 and CDTV always connect no floppy drives.")]
+	/// <summary>Legacy deserialization surface from the first preview. The old UAE-compatible setting below now controls both connected and initially mounted drives.</summary>
+	[Browsable(false)]
 	public Puae6FloppyDrives PhysicalFloppyDrives { get; set; } = Puae6FloppyDrives.Auto;
 
-	/// <summary>How many disks are in drives at power-on (1..4). Auto connects at least two drives, growing to fit this number; the rest are slots for Insert.</summary>
-	[DisplayName("Boot disks in floppy drives")]
-	[Description("Number of loaded floppy images mounted at power-on (1 to 4). CD32 and CDTV ignore this and connect no floppy drives.")]
-	[Range(1, 4)]
+	/// <summary>How many DD floppy drives are connected (0..4); that many of the supplied images are mounted at power-on. CD32 and CDTV always connect none.</summary>
+	[DisplayName("Floppy disk drives")]
+	[Description("How many floppy disk drives to emulate (0 - 4). The first supplied images are mounted in them at power-on; CD32 and CDTV always use zero.")]
+	[Range(0, 4)]
 	[TypeConverter(typeof(ConstrainedIntConverter))]
 	public int FloppyDrives { get; set; } = 1;
 

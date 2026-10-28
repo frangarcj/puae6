@@ -437,7 +437,8 @@ int resolve_floppy_speed(const p6_config &c)
 
 uint32_t resolve_floppy_drives(const p6_config &c)
 {
-    return c.machine == kCd32Machine || c.machine == kCdtvMachine ? 0 : c.floppy_drives ? c.floppy_drives : 2;
+    if (c.machine == kCd32Machine || c.machine == kCdtvMachine || c.floppy_drives == P6_FLOPPY_DRIVES_NONE) return 0;
+    return c.floppy_drives ? c.floppy_drives : 2;
 }
 
 int resolve_collision_level(const p6_config &c) { return c.collision_level ? int(c.collision_level) - 1 : 3; }
@@ -603,8 +604,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video line mode must be 0 (the profile's), 1 (single) or 2 (double)");
     if (c.floppy_speed > 5)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy speed must be 0 (the profile's), 1 (100 %), 2 (200 %), 3 (400 %), 4 (800 %) or 5 (turbo)");
-    if (c.floppy_drives > 4)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy drives must be 0 (the two-drive profile) or 1 to 4");
+    if (c.floppy_drives > 4 && c.floppy_drives != P6_FLOPPY_DRIVES_NONE)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "floppy drives must be 0 (the two-drive profile), 1 to 4, or P6_FLOPPY_DRIVES_NONE");
     if (c.sound_separation > 11)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "stereo separation must be 0 (the profile's) or 1 to 11 (0 to 100 %)");
     if (c.sound_interpolation == 3)

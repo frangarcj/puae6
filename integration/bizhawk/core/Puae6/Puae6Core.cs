@@ -148,6 +148,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
 	/// <summary>The largest picture any raster option can deliver (super-hires, 1520 columns; 576 rows); the buffer of one machine is <see cref="RasterWidth"/> x <see cref="RasterHeight"/>.</summary>
 	public const int MaxWidth = 1520, MaxHeight = 576, MaxAudioFrames = 8192;
+	/// <summary>BizHawk's synchronous sound contract. Matching it from the first frame avoids a transient pitch change when the frontend restarts audio during a window move.</summary>
+	public const uint AudioRateHz = 44100;
 
 	// The heaps are part of what a snapshot is compatible with; they are the budgets of manifests/waterbox-memory.json (a test compares them). The mmap heap holds
 	// Chip, Slow and Fast RAM among other large blocks, so it grows with the memory the settings ask for beyond the machine's own (T49: twice the extra memory, which
@@ -281,7 +283,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The floppy speed (T62): the numbers of config/schema/options.json (0 is the profile's own, the real drive).
 	static byte FloppySpeedNumber(Puae6FloppySpeed speed) => speed switch { Puae6FloppySpeed.P200 => (byte)2, Puae6FloppySpeed.P400 => (byte)3, Puae6FloppySpeed.P800 => (byte)4, Puae6FloppySpeed.Turbo => (byte)5, _ => (byte)0 };
 	static byte FloppyDrivesNumber(Puae6FloppyDrives drives) => drives switch { Puae6FloppyDrives.One => (byte)1, Puae6FloppyDrives.Two => (byte)2, Puae6FloppyDrives.Three => (byte)3, Puae6FloppyDrives.Four => (byte)4, _ => (byte)0 };
-	int ConnectedFloppyDrives => _syncSettings.Machine is Puae6Machine.CD32 or Puae6Machine.CDTV ? 0 : _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? Math.Max(2, _syncSettings.FloppyDrives) : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
+	// PhysicalFloppyDrives is accepted only to migrate settings saved by the first preview. New UI and defaults use the single UAE-compatible 0..4 field.
+	int ConnectedFloppyDrives => _syncSettings.Machine is Puae6Machine.CD32 or Puae6Machine.CDTV ? 0
+		: _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? _syncSettings.FloppyDrives : FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
+	int BootFloppyDisks => _syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? ConnectedFloppyDrives : Math.Min(_syncSettings.FloppyDrives, ConnectedFloppyDrives);
 
 	// The raster (T72): the numbers of config/schema/options.json (0 is the profile's own, hires and double lines).
 	static byte VideoResolutionNumber(Puae6VideoResolution resolution) => resolution switch { Puae6VideoResolution.Lores => (byte)1, Puae6VideoResolution.SuperHires => (byte)3, _ => (byte)0 };
@@ -380,7 +385,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		ValidateCartridge(_syncSettings, parameters.CartridgeFirmware, parameters.CdCount != 0);
 		_settings = parameters.Settings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
-		if (_syncSettings.FloppyDrives is < 1 or > Drives) throw new ArgumentException($"the Amiga has {Drives} floppy drives at most", nameof(parameters));
+		if (_syncSettings.FloppyDrives is < 0 or > Drives) throw new ArgumentException($"the Amiga has between zero and {Drives} floppy drives", nameof(parameters));
 		if (!Enum.IsDefined(typeof(Puae6FloppyDrives), _syncSettings.PhysicalFloppyDrives)) throw new ArgumentException("unknown physical floppy drive setting", nameof(parameters));
 		if (ConnectedFloppyDrives != 0 && _syncSettings.FloppyDrives > ConnectedFloppyDrives) throw new ArgumentException("more boot disks than connected floppy drives", nameof(parameters));
 		if (parameters.Media.Count > P6.MaxMedia) throw new ArgumentException($"at most {P6.MaxMedia} disks are supported", nameof(parameters));
@@ -484,7 +489,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.StructSize = (uint)sizeof(P6Config);
 		init.Config.Machine = MachineNumber(_syncSettings.Machine);
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
-		init.Config.AudioRateHz = 48000;
+		init.Config.AudioRateHz = AudioRateHz;
 		init.Config.Flags = ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.Machine);
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
@@ -503,8 +508,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
 		init.Config.SoundFilterType = SoundFilterTypeNumber(_syncSettings.SoundFilterType);
 		init.Config.FloppySpeed = FloppySpeedNumber(_syncSettings.FloppySpeed);
-		init.Config.FloppyDrives = FloppyDrivesNumber(_syncSettings.PhysicalFloppyDrives);
-		if (ConnectedFloppyDrives != 0 && init.Config.FloppyDrives == 0 && _syncSettings.FloppyDrives > 2) init.Config.FloppyDrives = (byte)_syncSettings.FloppyDrives;
+		init.Config.FloppyDrives = ConnectedFloppyDrives == 0 && _syncSettings.Machine is not (Puae6Machine.CD32 or Puae6Machine.CDTV)
+			? P6.FloppyDrivesNone : (byte)ConnectedFloppyDrives;
 		init.Config.VideoResolution = VideoResolutionNumber(_syncSettings.VideoResolution);
 		init.Config.VideoLineMode = VideoLineModeNumber(_syncSettings.VideoLineMode);
 		fixed (byte* rom = firmware)
@@ -531,7 +536,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	void MountBootDisks()
 	{
 		using var _ = _guest.Host.EnterExit();
-		for (int drive = 0; drive < Math.Min(_syncSettings.FloppyDrives, _media.Count); ++drive)
+		for (int drive = 0; drive < Math.Min(BootFloppyDisks, _media.Count); ++drive)
 		{
 			EnqueueMedia(P6.MediaEventMount, (uint)drive, (uint)drive);
 			_driveDisk[drive] = drive;
@@ -563,12 +568,12 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	void ApplyDiskButtons(IController controller)
 	{
 		if (_parameters.CdSlotCount != 0) { ApplyCdButtons(controller); return; }
-		if (_media.Count == 0) return;
+		if (_media.Count == 0 || ConnectedFloppyDrives == 0) return;
 		bool drive = controller.IsPressed(Controllers.NextDrive), slot = controller.IsPressed(Controllers.NextSlot);
 		bool eject = controller.IsPressed(Controllers.EjectDisk), insert = controller.IsPressed(Controllers.InsertDisk);
 		if (drive && !_driveHeld)
 		{
-			_currentDrive = (_currentDrive + 1) % (_syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? _syncSettings.FloppyDrives : ConnectedFloppyDrives);
+			_currentDrive = (_currentDrive + 1) % ConnectedFloppyDrives;
 			CoreComm.Notify($"Selected drive DF{_currentDrive}: {(_driveDisk[_currentDrive] < 0 ? "empty" : DiskName(_driveDisk[_currentDrive]))}", 4);
 		}
 		if (slot && !_slotHeld)
@@ -657,7 +662,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
 		// And for the floppy speed (T62): the native config hash carries it off the real drive's speed, and when every transfer ends depends on it.
 		if (_syncSettings.FloppySpeed != Puae6FloppySpeed.P100) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;
-		if (ConnectedFloppyDrives != 2) memory += ";physicaldrives=" + ConnectedFloppyDrives;
+		if (_syncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto) memory += ";legacyphysicaldrives=" + ConnectedFloppyDrives;
 		// And for the raster (T72): the resolution and the line mode are the engine's own and change the picture the machine draws and the state it goes on from; a core at the profile's raster keeps its identity.
 		if (_syncSettings.VideoResolution != Puae6VideoResolution.Hires) memory += ";resolution=" + _syncSettings.VideoResolution;
 		if (_syncSettings.VideoLineMode != Puae6VideoLineMode.Double) memory += ";linemode=" + _syncSettings.VideoLineMode;
@@ -666,7 +671,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.Machine == Puae6Machine.CD32) memory += ";nvram=" + BitConverter.ToString(initialNvramHash ?? _nvramInitialHash).Replace("-", "").ToLowerInvariant();
 		if (saveRamHash is not null) memory += ";saveram=" + BitConverter.ToString(saveRamHash).Replace("-", "").ToLowerInvariant();
 		string Config(Puae6Machine machine) => $"puae6-config-1;machine={machine};region={_syncSettings.Region};seed={_syncSettings.RandomSeed};epoch={_syncSettings.RtcEpochSeconds};" +
-			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio=48000" + memory;
+			$"port1={_syncSettings.ControllerPort1};port2={_syncSettings.ControllerPort2};drives={_syncSettings.FloppyDrives};audio={AudioRateHz}" + memory;
 		byte[] ConfigHash(Puae6Machine machine) => StateEnvelope.Sha256(Encoding.UTF8.GetBytes(Config(machine)));
 		// The same settings on each of the other machines: a state or a movie that carries one of these hashes was made on that Amiga, and the refusal can say so.
 		var others = new Dictionary<string, byte[]>();
@@ -905,7 +910,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public int VsyncDenominator { get; private set; }
 	public int BackgroundColor => unchecked((int)0xFF000000);
 
-	// ISoundProvider: synchronous, interleaved stereo, 48000 Hz
+	// ISoundProvider: synchronous, interleaved stereo, AudioRateHz (BizHawk's 44.1 kHz contract)
 	public bool CanProvideAsync => false;
 	public SyncSoundMode SyncMode => SyncSoundMode.Sync;
 	public void SetSyncMode(SyncSoundMode mode)
