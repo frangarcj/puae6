@@ -63,7 +63,7 @@ def c_expression(struct, field):
 
 
 class ConfigLayoutTests(unittest.TestCase):
-    def test_csharp_config_size_and_reserved_tail_match_the_native_contract(self):
+    def test_csharp_config_size_and_rtg_tail_match_the_native_contract(self):
         dotnet = shutil.which('dotnet')
         self.assertIsNotNone(dotnet, 'C# compiler required for ABI01')
         (ROOT / 'build').mkdir(exist_ok=True)
@@ -76,7 +76,7 @@ class ConfigLayoutTests(unittest.TestCase):
 <ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup>
 <Compile Include="{ROOT / 'integration/bizhawk/core/Puae6/Abi.cs'}" /></ItemGroup></Project>''')
             (work / 'Program.cs').write_text('''using Puae6; using System.Runtime.InteropServices;
-unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved7))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Z3Memory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.CdController))}"); }''')
+unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(nameof(P6Config.RtgMemory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Z3Memory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.CdController))}"); }''')
             result = subprocess.run([dotnet, 'run', '--project', str(work / 'Layout.csproj'), '--verbosity', 'quiet',
                                      f'-p:RestoreSources={Path.home() / ".nuget/packages"}'], capture_output=True, text=True, timeout=120)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)

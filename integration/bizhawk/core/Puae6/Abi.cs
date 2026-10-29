@@ -25,6 +25,7 @@ public static class P6
 	public const uint VideoPal = 1, VideoNtsc = 2;
 	public const uint MediaAdf = 1, MediaHdf = 2;
 	public const byte CdControllerAuto = 0, CdControllerNone = 1, CdControllerCd32 = 2, CdControllerIde = 4;
+	public const byte RtgMemoryNone = 0, RtgMemory4MiB = 1;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2, PortCd32 = 3, PortLightgun = 4, PortLightpen = 5;
 	public const uint Button1 = 1u << 0, Button2 = 1u << 1, Button3 = 1u << 2, ButtonUp = 1u << 3, ButtonDown = 1u << 4, ButtonLeft = 1u << 5, ButtonRight = 1u << 6;
 	public const uint Cd32Yellow = 1u << 7, Cd32Rewind = 1u << 8, Cd32Forward = 1u << 9, Cd32Play = 1u << 10;
@@ -74,7 +75,7 @@ public unsafe struct P6Config
 	public byte CpuCompatibility;                               // T53: 0 exact, 1 compatible, 2 normal
 	public byte FloppyDrives;                                   // T61/T82m: 0 the two-drive profile, 1..4 connected DD drives, 255 none
 	public byte CollisionLevel;                                  // T77a: 0 Auto/Full, 1 None, 2 Sprites, 3 Playfields, 4 Full
-	public fixed byte Reserved7[1];                              // byte 69, zero in ABI v1
+	public byte RtgMemory;                                       // byte 69: none=0, one bounded UAE Z3 board with 4MiB=1
 	public byte Z3Memory;                                        // byte 70: none=0, 16MiB=1, 1/2/4/8MiB=2..5, 32/64/128/256/512MiB=6..10
 	public byte CdController;                                    // byte 71: Auto/None/CD32/IDE; zero keeps the historical machine profile
 }

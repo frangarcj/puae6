@@ -20,6 +20,7 @@
 #include "newcpu.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -107,6 +108,31 @@ static void cd_controller_topologies()
     const p6_config before = p6_session::session.config;
     assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && p6_session::session.state == p6_session::State::Uninitialized &&
            !memcmp(&before, &p6_session::session.config, sizeof before));
+}
+
+// RTG-A reserves one old zero byte without pretending the graphics board is already linked.
+// Every nonzero request fails transactionally before firmware or engine ownership begins.
+static void rtg_contract()
+{
+    static_assert(sizeof(p6_config) == 72 && offsetof(p6_config, rtg_memory) == 69);
+    p6_error e = make_error();
+    const p6_config untouched = p6_session::session.config;
+    auto rejected = [&](p6_config c, const char *message) {
+        e.message[0] = 0;
+        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, message));
+        assert(p6_session::session.state == p6_session::State::Uninitialized);
+        assert(!memcmp(&untouched, &p6_session::session.config, sizeof untouched));
+    };
+
+    p6_config c = machine_config(P6_MACHINE_A4030);
+    c.rtg_memory = uint8_t(P6_RTG_MEMORY_4_MIB + 1);
+    rejected(c, "off or the bounded 4 MiB");
+    c = machine_config(P6_MACHINE_A500); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+    rejected(c, "requires A4030/Normal");
+    c = machine_config(P6_MACHINE_A4040); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+    rejected(c, "requires A4030/Normal");
+    c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+    rejected(c, "RTG runtime is not linked yet");
 }
 
 static std::vector<uint8_t> read_file(const char *path)
@@ -866,6 +892,7 @@ int main(int argc, char **argv)
     }
     identity_names();
     cd_controller_topologies();
+    rtg_contract();
 
     p6_error e = make_error();
     p6_config c = make_config();

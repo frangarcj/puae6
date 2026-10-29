@@ -120,7 +120,13 @@ typedef struct p6_config {
     uint8_t floppy_drives;
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
-    uint8_t reserved7[1];           /* Zero; byte 69 is reserved for waiting_blits. */
+    /* T85c/RTG-A: bounded future RTG hardware in the byte formerly named reserved7[0]. Zero preserves every ABI v1 caller.
+     * The only nonzero contract is one UAE Zorro III board with 4 MiB populated in its 16 MiB aperture, on A4030/Normal.
+     * Until the device vertical is linked, validate_config rejects that value explicitly before touching the engine. */
+    union {
+        uint8_t rtg_memory;
+        uint8_t reserved7[1];       /* Source-compatible spelling before RTG-A; nonzero now requests bounded RTG hardware. */
+    };
     uint8_t z3_memory;              /* Z3 board on A4030/A4040: 0 none, 1 16MiB; 2..10 = 1,2,4,8,32,64,128,256,512MiB. Restart. */
     /* T84e1: CD controller topology in the byte formerly named reserved8[0]. Zero is the historical machine profile, so every ABI v1 caller keeps its exact preferences and identity:
      * integrated CD32 on CD32, integrated CDTV on CDTV, no CD controller elsewhere. Explicit None removes only the CD controller; IDE selects the supported A600/A1200/A4000 port but
@@ -140,6 +146,8 @@ typedef struct p6_config {
 #define P6_CD_CONTROLLER_CD32 UINT8_C(2)
 #define P6_CD_CONTROLLER_CDTV UINT8_C(3)
 #define P6_CD_CONTROLLER_IDE  UINT8_C(4)
+#define P6_RTG_MEMORY_NONE    UINT8_C(0)
+#define P6_RTG_MEMORY_4_MIB   UINT8_C(1)
 /* Zero predates an explicit no-drive configuration and means the two-drive profile. Keep that ABI spelling stable; this additive value names no DF0..DF3. */
 #define P6_FLOPPY_DRIVES_NONE UINT8_C(255)
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay

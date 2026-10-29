@@ -1407,6 +1407,11 @@ TASK_SUITES[('WB03', 'T85a')] = {
     'cannon_fodder_fresh_sandbox_and_process': _fmv_real_waterbox,
     **TASK_SUITES[('WB03', 'T84f')]}
 TASK_SUITES[('BUILD01', 'T85a')] = dict(TASK_SUITES[('BUILD01', 'T84f')])
+TASK_SUITES[('GEN01', 'T85c')] = {
+    'native_c_cpp_layout': 'tests.contracts.test_api',
+    'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
+TASK_SUITES[('MED01', 'T85c')] = {
+    'rtg_contract_and_transactional_rejection': 'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
