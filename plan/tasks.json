@@ -26303,6 +26303,48 @@
       "stop": "No anunciar RTG ni retirar el rechazo de configuracion: esta ficha prueba el dispositivo software aislado, no Autoconfig, traps, estado ni guest driver."
     },
     {
+      "id": "T85e",
+      "title": "RTG-B2: banco de VRAM portable para el bus WinUAE",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85d"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "plan/extensions/rtg.json",
+        "upstream/winuae/include/memory.h",
+        "upstream/winuae/od-win32/picasso96_win.cpp",
+        "ports/portable/rtg_device.h"
+      ],
+      "touch": [
+        "ports/portable/rtg_memory.h",
+        "ports/portable/rtg_memory.cpp",
+        "tests/host/rtg_memory_probe.cpp",
+        "tests/host/test_rtg_memory.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Definir gfxmem_bank/gfxmem_banks con las funciones addrbank reales de WinUAE sobre la VRAM estatica de RTG-B1, sin mapped_malloc, puntero natmem ni backing de16MiB.",
+        "Separar enlace, base Z3 y apagado con metadatos comprobados; rechazar bases no alineadas o fuera del bus antes de cambiar el banco y no liberar memoria estatica.",
+        "Probar lecturas/escrituras byte/word/long big-endian, xlate/check en ambos bordes, mapeo/rebind y ausencia de allocator/reloj/hilos en el objeto."
+      ],
+      "checks": [
+        "GEN01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "El addrbank expone exactamente4MiB poblados con funciones y acceso directo coherentes; el resto de la apertura fisica no tiene backing ni alias.",
+        "Reconfigurar o apagar el banco no llama free ni conserva direcciones de otra imagen; entradas invalidas dejan metadatos y VRAM intactos."
+      ],
+      "stop": "No parchear aun expansion.cpp ni presentar la placa al invitado: la siguiente ficha conecta este banco a la cadena Autoconfig real."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

@@ -1415,6 +1415,9 @@ TASK_SUITES[('MED01', 'T85c')] = {
 for _gate in ('AV01', 'AV02', 'DET02'):
     TASK_SUITES[(_gate, 'T85d')] = {
         'bounded_rtg_software_device': 'tests.host.test_rtg_device'}
+for _gate in ('GEN01', 'DET02', 'SAFE01'):
+    TASK_SUITES[(_gate, 'T85e')] = {
+        'static_rtg_winuae_memory_bank': 'tests.host.test_rtg_memory'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
