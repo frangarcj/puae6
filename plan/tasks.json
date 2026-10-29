@@ -26262,6 +26262,47 @@
       "stop": "No exponer una opcion que cargue con exito antes de enlazar Autoconfig, VRAM, traps, video y estado reales."
     },
     {
+      "id": "T85d",
+      "title": "RTG-B1: dispositivo software acotado y comprobable",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85c"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "plan/extensions/rtg.json",
+        "ports/portable/video_present.h",
+        "ports/portable/video_present.cpp"
+      ],
+      "touch": [
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_device.cpp",
+        "tests/host/rtg_device_probe.cpp",
+        "tests/host/test_rtg_device.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Implementar una instancia software sin asignacion dinamica con4MiB de VRAM, CLUT8/RGB565PC/ARGB32 y exactamente640x480,800x600,1024x768; validar modo, base, stride y panning antes de mutar estado.",
+        "Implementar paleta, fill y blit con solape memmove, y convertir la vista activa a XRGB8888 con aritmetica comprobada, sin hilos, reloj host, GPU, WriteWatch ni callbacks por acceso RAM.",
+        "Probar los9 modos, endian, solapes, limites, overflow, base ajena, stride, panning y guardas ocultas con un probe independiente que compile solo la frontera portable."
+      ],
+      "checks": [
+        "AV01",
+        "AV02",
+        "DET02"
+      ],
+      "acceptance": [
+        "Los9 modos producen pixeles XRGB8888 esperados y operaciones de rectangulo deterministas sin tocar bytes fuera de VRAM ni del destino declarado.",
+        "Entradas invalidas o desbordadas fallan antes de mutar VRAM, paleta, modo o vista; reinicio y rebind no dependen de direcciones host."
+      ],
+      "stop": "No anunciar RTG ni retirar el rechazo de configuracion: esta ficha prueba el dispositivo software aislado, no Autoconfig, traps, estado ni guest driver."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

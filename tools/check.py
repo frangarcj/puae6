@@ -1412,6 +1412,9 @@ TASK_SUITES[('GEN01', 'T85c')] = {
     'standalone_csharp_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
 TASK_SUITES[('MED01', 'T85c')] = {
     'rtg_contract_and_transactional_rejection': 'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
+for _gate in ('AV01', 'AV02', 'DET02'):
+    TASK_SUITES[(_gate, 'T85d')] = {
+        'bounded_rtg_software_device': 'tests.host.test_rtg_device'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
