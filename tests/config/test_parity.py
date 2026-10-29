@@ -189,7 +189,7 @@ class WrapperParity(Schema):
         for name, function in (("sound_separation", "SoundSeparationNumber"), ("sound_interpolation", "SoundInterpolationNumber"), ("sound_filter", "SoundFilterNumber"),
                                ("sound_filter_type", "SoundFilterTypeNumber"), ("floppy_speed", "FloppySpeedNumber"),
                                ("video_resolution", "VideoResolutionNumber"), ("video_line_mode", "VideoLineModeNumber"), ("cpu_model", "CpuModelNumber"), ("cpu_multiplier", "CpuMultiplierNumber"),
-                               ("hdf_controller", "HdfControllerNumber")):
+                               ("hdf_controller", "HdfControllerNumber"), ("cd_controller", "CdControllerNumber")):
             with self.subTest(option=name):
                 option = self.reboot[name]
                 kind = option["wrapper"]["type"]
@@ -217,7 +217,7 @@ class WrapperParity(Schema):
         self.assertIn(f'if (_syncSettings.FloppySpeed != {floppy["wrapper"]["type"]}.{default_name}) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;', self.core)
         # T72: and so are the resolution and the line mode, each by the name of its member
         for name, member, key in (("video_resolution", "VideoResolution", "resolution"), ("video_line_mode", "VideoLineMode", "linemode"), ("cpu_model", "CpuModel", "cpu"), ("cpu_multiplier", "CpuMultiplier", "cpuclock"),
-                                  ("hdf_controller", "HdfController", "hdfcontroller")):
+                                  ("hdf_controller", "HdfController", "hdfcontroller"), ("cd_controller", "CdController", "cdcontroller")):
             option = self.reboot[name]
             default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
             self.assertIn(f'if (_syncSettings.{member} != {option["wrapper"]["type"]}.{default_name}) memory += ";{key}=" + _syncSettings.{member};', self.core)
@@ -447,7 +447,7 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "collision_level": 0, "z3_memory": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "collision_level": 0, "z3_memory": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "cd_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         for field, value in defaults.items():
             entry = self.table["p6_config"][field]

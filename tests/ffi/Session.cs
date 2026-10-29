@@ -10,12 +10,14 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [writes]
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [mousespeed=1..1000] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [drivevolume=0..100] [cdvolume=0..100] [writes]
 ///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies. volume: LHA archives or ZIP files of files, T64b,
 ///    built into hard files in memory after the hdf ones)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
 ///       "record" keeps each unit's input as BizHawk's own BK2 log entry
 ///   run NAME UNITS movie=FILE [silent=A-B]                       the input of each unit is read from a .bk2 by the core's frame number (after a load, from the frame of the state)
+///   callbacks NAME                                                number of completed non-lag units observed through IInputPollable
+///   drivevolume NAME [0..100] | cdvolume NAME [0..100]            read or change a live presentation preference without rebooting
 ///   moviefinish NAME FILE                                         the play ended where the movie does and its CycleCount and lag count are the header's, or the program fails ("desync: ...")
 ///   buffer NAME                                                   BufferWidth x BufferHeight of the core now (right after the load: the buffer announced for the settings)
 ///   digest NAME [LABEL [machine]]                                 SHA-256 of the whole state; with "machine", of the sandbox's snapshot alone
@@ -51,6 +53,7 @@ internal static unsafe partial class Program
 		internal List<string> Recorded = [];
 		internal Dictionary<string, MovieFile.Movie> Movies = [];
 		internal Dictionary<string, Bk2Controller> MovieControllers = [];
+		internal int InputPolls;
 	}
 
 	static void RunSession(Dictionary<string, string> options)
@@ -80,6 +83,7 @@ internal static unsafe partial class Program
 						FloppyDrives = int.Parse(arguments.GetValueOrDefault("drives", "1")),
 						ControllerPort1 = Enum.Parse<Puae6Port1>(arguments.GetValueOrDefault("port1", "mouse"), true),
 						ControllerPort2 = Enum.Parse<Puae6Port2>(arguments.GetValueOrDefault("port2", "joystick"), true),
+						MouseSpeed = int.Parse(arguments.GetValueOrDefault("mousespeed", "100")),
                         ControllerPort3 = Enum.Parse<Puae6ParallelPort>(arguments.GetValueOrDefault("port3", "none"), true),
                         ControllerPort4 = Enum.Parse<Puae6ParallelPort>(arguments.GetValueOrDefault("port4", "none"), true),
 						ChipMemory = Enum.Parse<Puae6Chip>(arguments.GetValueOrDefault("chip", "Auto")),
@@ -92,6 +96,7 @@ internal static unsafe partial class Program
 						CollisionLevel = Enum.Parse<Puae6CollisionLevel>(arguments.GetValueOrDefault("collisions", "Auto")),
 						CpuMultiplier = Enum.Parse<Puae6CpuClock>(arguments.GetValueOrDefault("clock", "Auto")),
 						HdfController = Enum.Parse<Puae6HdfController>(arguments.GetValueOrDefault("hdfc", "Uae")),
+						CdController = Enum.Parse<Puae6CdController>(arguments.GetValueOrDefault("cdc", "Auto")),
 						SoundSeparation = Enum.Parse<Puae6SoundSeparation>(arguments.GetValueOrDefault("sep", "P70")),
 						SoundInterpolation = Enum.Parse<Puae6SoundInterpolation>(arguments.GetValueOrDefault("interp", "Anti")),
 						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),
@@ -108,6 +113,7 @@ internal static unsafe partial class Program
 					if (arguments.TryGetValue("firmware", out var firmware)) make["firmware"] = firmware;
 					if (arguments.TryGetValue("seed", out var seed)) make["seed"] = seed;
 					if (arguments.TryGetValue("drivevolume", out var volume)) make["drivevolume"] = volume;
+					if (arguments.TryGetValue("cdvolume", out var cdVolume)) make["cdvolume"] = cdVolume;
 					if (arguments.TryGetValue("whdprovider", out var whdProvider)) make["whdprovider"] = whdProvider;
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
@@ -116,11 +122,13 @@ internal static unsafe partial class Program
 					machine.Core = MakeCore(make, settings, adfs, hdfs, volumes);
 					machine.Core.ControllerDefinition.BuildMnemonicsCache("Amiga");        // what EmuHawk does when it records
 					machine.Controller = new ScriptedController(machine.Core.ControllerDefinition);
+					machine.Core.InputCallbacks.Add(() => ++machine.InputPolls);
 					machines[words[1]] = machine;
 					Console.WriteLine($"core {words[1]} ready");
 					break;
 				}
 				case "buffer": Console.WriteLine($"buffer {words[1]} {machines[words[1]].Core.BufferWidth}x{machines[words[1]].Core.BufferHeight}"); break;     // the buffer announced at the load, or the last picture's
+				case "callbacks": Console.WriteLine($"callbacks {words[1]} {machines[words[1]].InputPolls}"); break;
 				case "picture":
 				{
 					var core = machines[words[1]].Core;
@@ -148,6 +156,24 @@ internal static unsafe partial class Program
 					}
 					catch (ArgumentOutOfRangeException) { Console.WriteLine($"rejected volume {words[1]}"); }
 					Console.WriteLine($"volume {words[1]} {(int)core.GetSettings().DriveSoundVolume}");
+					break;
+				}
+				case "cdvolume":
+				{
+					var core = machines[words[1]].Core;
+					var settings = core.GetSettings();
+					var before = settings.CdVolume;
+					try
+					{
+						if (words.Length > 2)
+						{
+							settings.CdVolume = int.Parse(words[2]);
+							Require(core.GetSettings().CdVolume == before, "presentation GetSettings returns a copy");
+							Require(core.PutSettings(settings) == PutSettingsDirtyBits.None, "CD volume does not reboot");
+						}
+					}
+					catch (ArgumentOutOfRangeException) { Console.WriteLine($"rejected cdvolume {words[1]}"); }
+					Console.WriteLine($"cdvolume {words[1]} {core.GetSettings().CdVolume}");
 					break;
 				}
 				case "endmovie": EndMovie(machines[words[1]], words[2]); Console.WriteLine($"movie {words[2]} frames={machines[words[1]].Recorded.Count}"); break;

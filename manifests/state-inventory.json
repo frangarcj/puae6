@@ -379,18 +379,23 @@
       "id": "waterbox-cd-source",
       "subsystem": "media",
       "symbols": [
-        "cd_disc",
-        "cd_source",
+        "entries[16].disc",
+        "entries[16].source",
+        "cd_count",
+        "cd_version",
+        "cd_indexed",
         "cd_callback",
+        "cd_catalog_callback",
         "cd_bound",
         "cd_activated"
       ],
       "owner": "adapters/waterbox/cd_source.cpp",
-      "at_load": "Created after Puae6Guest.Seal captures the common empty-CD baseline. Source/Disc metadata and cd_activated are ordinary dirty snapshot state. The backend borrows the permanent cd_disc. A private pre-frame activation reopens real Akiko after binding. Restore checks identity/geometry, preserves captured immutable metadata bytes and backend opens/head/CDA, and updates only slot0 thunk. p6w_shutdown closes the engine before unbinding and clearing metadata. No CD image or host context pointer is stored.",
+      "at_load": "The fixed ordered catalog owns up to 16 permanent Source/Disc objects and no image bytes. CD32/CDTV may bind after the empty-CD seal; IDE binds before p6_load because Gayle must create a real ATAPI unit, so its immutable descriptors are part of the sandbox baseline. Activation never runs a reset or scheduler: IDE is opened by the ordinary first reset head, while the legacy CD32 path reopens Akiko before its first frame. A Waterbox restore captures ordinal, presence, opens, ATAPI/CDDA and every other guest byte, then rebind validates catalog version/order/identity/geometry and replaces only the current sandbox callback/context before any read. p6w_shutdown closes the engine before unbinding and clearing every entry. No host media pointer, callback address, CD image or HDF/ADF index is treated as an ordinal.",
       "survives_unload": false,
       "status": "reset",
       "evidence": [
-        "tests/waterbox-media/test_cd_source.py"
+        "tests/waterbox-media/test_cd_source.py::IdeMixedWaterboxTests",
+        "tests/waterbox-media/test_cd_source.py::Cd32CatalogWaterboxTests"
       ]
     }
   ],
@@ -398,7 +403,7 @@
     "purpose": "Every causal component of the A500 profile with its owner, what upstream saves of it, what upstream omits, what must never be serialized, how it is rebuilt, and which test proves its restore. Written from a read of the materialized upstream tree (audit of T14a); the save/restore functions are a catalogue of what upstream considers state, not code that is compiled in.",
     "audited": {
       "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
-      "series_sha256": "c76f98dd48be0772224b5db5032d9cc42069f42c0e24602f5a25ca990b61e7bd",
+      "series_sha256": "a5c9964f2174e22e5afbe3d52f298f25577a568c35a7d931c9e9cf41fa16c27b",
       "profile": "A500: 68000 cycle-exact, OCS/ECS chipset, Chip and Slow RAM, Kickstart or micro-ROM, DF0/DF1 read-only ADF, joystick, mouse, keyboard, emulated RTC",
       "evidence_lines": "path:line in evidence are lines of the materialized tree of that series; lines move with every patch, so the tests check that the files exist and the lines fit in them, not what is on them"
     },
@@ -2396,7 +2401,7 @@
         "upstream_compiled": false,
         "policy": "rebuild",
         "saved_fields": "None. save_cram/save_bram save contents only.",
-        "omitted": "mem_banks is a pure function of (profile, overlay_state): the presets have no A3000 banks, Gayle banks ($D80000-$DEFFFF) only with a hard file on the IDE (T56: cs_ide, a function of the config) and no autoconfig unless a Fast RAM board is configured (its mapping is restored by the P6RM apply) and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
+        "omitted": "mem_banks is a pure function of (profile, overlay_state): the presets have no A3000 banks, Gayle banks ($D80000-$DEFFFF) only with a hard file on the IDE or the selected IDE CD topology (T56/T84e1: cs_ide, a function of the config) and no autoconfig unless a Fast RAM board is configured (its mapping is restored by the P6RM apply) and map_banks is called after boot only by map_overlay. ce_banktype depends on overlay_state: with ROM at 0, get_mem_bank(0) is not CHIPRAM so chip-RAM banks and (chipramtiming) the Slow RAM banks get FAST16 instead of CHIP16. baseaddr[] exists only for JIT (put_mem_bank does not write it), ce_cachable is read only by 020+/MMU code; highram_temp_bank is written only for banks >= 0x100 (none).",
         "pointers": "mem_banks[] is an array of addrbank* (static objects with function pointers, host baseaddr, ABFLAG_MAPPED flag); ce_banktype/ce_cachable are derived bytes; chipmem_full_mask/chipmem_full_size and last_address_space_24 are derived from prefs. None may be serialized.",
         "rebuild": "memory_reset() with mem_hardreset == 0 re-creates the map without clearing RAM (memory_clear runs only if mem_hardreset != 0, reallocation only if sizes changed), then map_overlay(saved OVL). Keep mem_hardreset == 0 so RAM is not cleared.",
         "evidence": [
@@ -4946,7 +4951,7 @@
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_audio",
           "proves": "tests/state/test_state_upstream.py: AUDP (patch 0099, the last sub-body of P6AU, 340 bytes (356 since patch 0250, T15m: mixvol): the resampler phase, the cycles not yet integrated, the activation counter, the LED filter, the five RC stages of the four output filters and 15 words per channel: DMA latches, the exact period with its PERIOD_MAX - 1 sentinel, dat2, the fast-CPU latches, the interpolation integrator and the ADKCON mask) is saved without changing the machine, validated by structure before anything is applied (finite floats, the phase between two samples, flags, latch widths, the period AUDn rounds) and applied as values after restore_audio_finish; a new image saves again the Paula it loaded. tests/state/test_det02.py: the PCM after the load is the original's sample for sample in every scenario and mode, tone-modulated (ADKCON USE0V1 with the LED filter on) included",
-          "notes": "CD32 retains this same P6AU/AUDP phase through p6_cd::device_phase_get/set, checked against the owned slot0 stereo CDA stream (ports/portable/audio_cda_state.h). P6AK owns the CDA stream itself, its PCM and callback-presence values; P6SC owns the scheduler. Legacy profiles use the strict non-extra-stream phase accessor. tests/media/test_cd32_state.py covers active/pause/delay/terminal continuation and foreign-owner refusal."
+          "notes": "CD32 and IDE CD retain this same P6AU/AUDP phase through p6_cd::device_phase_get/set, checked against the owned slot0 stereo CDA stream (ports/portable/audio_cda_state.h). P6AK owns the CD32 stream; the IDE section of P6DK owns the IDE stream, its PCM and callback-presence values; P6SC owns the scheduler. Profiles without a CD stream use the strict non-extra-stream phase accessor. tests/media/test_cd32_state.py and tests/state/test_ide_cd_state.py cover active continuation and foreign-owner/identity refusal."
         }
       },
       {
@@ -4962,7 +4967,7 @@
         "upstream_compiled": false,
         "policy": "out_of_profile",
         "saved_fields": "None.",
-        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); foreign extra-stream owners and AHI; supported private CDTV stream belongs to P6CT/P6SC with shared phase in P6AU; the supported CD32 slot0 stereo stream, cda_evt and audio_state_cda belong to the separate cd32-akiko-controller-transport-audio component; sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
+        "omitted": "Sinc/BLEP interpolator state (audio_channel_data2.sinc_queue[256], sinc_queue_time/head, sinc_output_state, only with sound_interpol == 2, audio.cpp:95-107, 616-640; the profile keeps the default 1 = anti, cfgfile.cpp:8565); rh/crux handlers that need last_sample (interpol 3/4); volcnt and FIR path (volcnt, volcntbuf[4096] floats per channel, volcntbufcnt, firmem[1025], previous_volcnt_update, update_audio_volcnt 2355-2400; sound_volcnt is false); foreign extra-stream owners and AHI; supported private CDTV stream belongs to P6CT/P6SC with shared phase in P6AU; the supported CD32 and IDE CD slot0 stereo streams, cda_evt and audio_state_cda belong to their controller/device components; sample ripper (excluded by P6_PORTABLE, audio.cpp:171); SOUNDSTUFF > 1 statics (samplecounter, extrasamples/outputsample/doublesample logic). Delayed crossfeed buffers right_word_saved/left_word_saved/right2_word_saved/left2_word_saved/saved_ptr/saved_ptr2 are transient here: separation 7 turns mixed_on on but the delay is pinned to 0 (bridge/config.cpp:135-136), so mixed_stereo_size is 0 and each cell is written and read inside one sample (audio.cpp:521-560, 2262-2263). They become causal if sound_mixed_stereo_delay is ever non-zero.",
         "pointers": null,
         "rebuild": null,
         "evidence": [
@@ -4997,10 +5002,10 @@
         "in_profile": true,
         "upstream_compiled": true,
         "policy": "serialize_extended",
-        "saved_fields": "CD32 only: semantic controller registers, C2P, command/result queues, TOC/subcode and emulated clock; EEPROM/NVRAM; transport rings and service state; selected disc ID within the immutable ordered catalog, open-unit count, medium presence and device position; CDA delay, PCM, callback presence, stereo stream position/volume/accumulators. ports/portable/state_io/akiko.h writes each value explicitly, without padding.",
-        "omitted": "Shared Paula phase is owned by P6AU/AUDP (89 words), scheduler cycles by P6SC and emulated RAM by P6RM. The optional P6AK follows those owners; all non-CD32 profiles retain their eleven base chunks.",
-        "pointers": "Disc pointers, PCM buffer pointers, callback addresses and service owners are never serialized. Staging uses ordinary caller-owned heap; no alloc_invisible.",
-        "rebuild": "The envelope verifies the complete ordered CD catalog. Resolve the saved device disc ID without changing the live selection, then validate the candidate scheduler cycle and physical PAL/NTSC CDA period using that resolved Disc. Rebind canonical Akiko callbacks and the exact slot0 stereo owner only after complete preflight; reject foreign owners before mutating the machine.",
+        "saved_fields": "CD32 only: semantic controller registers, C2P, command/result queues, TOC/subcode and emulated clock; EEPROM/NVRAM; transport rings and service state; selected disc ID within the immutable ordered catalog, open-unit count, medium presence and device position; CDA delay, PCM, callback presence, hardware stereo volume and raw stream position/accumulators. ports/portable/state_io/akiko.h writes each value explicitly, without padding.",
+        "omitted": "Shared Paula phase is owned by P6AU/AUDP (89 words), scheduler cycles by P6SC and emulated RAM by P6RM. T84b's CDDA presentation owner/percent are deliberately outside p6_cda::State and P6AK: gain is applied only after the raw stream integrator, so 0, 1, 50 and 100 produce identical semantic CDA state from the same cut. P6AK remains for CD32 C2P/NVRAM when T84e1 selects NONE, but the CD device and extra audio owner are absent; all non-CD32 profiles retain their eleven base chunks.",
+        "pointers": "Disc pointers, PCM buffer pointers, callback addresses, service owners and the transient CDDA presentation-owner pointer are never serialized by the semantic codec. Staging uses ordinary caller-owned heap; no alloc_invisible.",
+        "rebuild": "The envelope verifies the complete ordered CD catalog. Resolve the saved device disc ID without changing the live selection, then validate the candidate scheduler cycle and physical PAL/NTSC CDA period using that resolved Disc. Rebind canonical Akiko callbacks and the exact slot0 stereo owner only after complete preflight; reject foreign owners before mutating the machine. The next p6_run_frame reapplies the current host CDDA volume before RUN, so a state load never replaces that preference.",
         "evidence": [
           "bridge/state.cpp:224",
           "bridge/state.cpp:232",
@@ -5009,6 +5014,8 @@
           "build/upstream/akiko.cpp:2416",
           "build/upstream/akiko.cpp:2443",
           "ports/portable/audio_cda_state.h:1",
+          "patches/winuae/0424-cdda-presentation-gain.patch",
+          "tests/audio/cd_audio_probe.cpp:49",
           "tests/media/cd32_state_probe.cpp:131"
         ],
         "proof": {
@@ -5032,6 +5039,56 @@
           "file": "bridge/state_akiko.cpp",
           "visitor": "visit_akiko",
           "proves": "tests/media/test_cd32_state.py: public complete native snapshot and exact continuation with active/pause/delay/terminal CDA and a new owner; tests/libretro-host/test_cd32_load.py: Cd32GameTests.test_brian_gameplay_and_restore compares full state after an interactive real-game cut."
+        }
+      },
+      {
+        "id": "ide-atapi-cd-transport-audio",
+        "subsystem": "disk",
+        "component": "Gayle IDE ATAPI packet transport, selected immutable CD device and owned CDA stream",
+        "owner": "build/upstream/ide.cpp; ports/portable/media/cd_device.cpp; bridge/state_hdf.cpp",
+        "chunk": "P6DK",
+        "save": "p6_gayle_drive_state_get; p6_cd::device_capture",
+        "restore": "p6_gayle_drive_state_set; p6_cd::device_restore",
+        "reset": "gayle_reset attaches UAEDEV_CD to primary master; p6_cd::device_unbind on session unload",
+        "in_profile": true,
+        "upstream_compiled": true,
+        "policy": "extension",
+        "saved_fields": "P6DK/T84e3: four Gayle words; 54 semantic words per physical IDE slot (ATA registers/transfer and geometry, slot kind, ATAPI ready state, packet phase, command/data sizes and cursors, sense, medium presence and content ID); exactly the causal prefix of each transfer buffer, at most 128 * 2048 bytes; ordered-catalog ordinal; DeviceState and AudioPlayerState including head, delay, PCM, pause, raw-stream cursor, stereo accumulators and stream ID. P6AU owns the shared Paula phase through the exact IDE CD CDA owner.",
+        "omitted": "The immutable CD sectors and HDF bases are header/catalog identity, not duplicated state. Presentation CDDA gain is live host policy and is reapplied on the next unit. No raw ide_hdf, host SCSI layer, thread/pipe, route, path, padding, Disc pointer, callback address, PCM pointer or sector-buffer address is serialized.",
+        "pointers": "Disc and source contexts remain borrowed from the verified ordered catalog. Validate resolves the saved ordinal and IDs without changing selection; Apply rebinds only the canonical device/stream owner after complete preflight.",
+        "rebuild": "The envelope first verifies config and ordered catalog. P6DK then validates topology, slot kinds, all cursors/ranges, causal buffer length, ordinal, device/CDDA geometry and the ATAPI/device medium IDs. Apply restores Gayle/slots and derives Disc and audio callback ownership; it advances neither command, DMA, CDA nor emulated clock.",
+        "evidence": [
+          "patches/winuae/0426-portable-ide-atapi-state.patch",
+          "bridge/state_hdf.cpp",
+          "bridge/state_upstream.cpp",
+          "bridge/ide_units.h",
+          "ports/portable/media/cd_device.cpp",
+          "tests/state/test_ide_cd_state.py"
+        ],
+        "proof": {
+          "task": "T84e3",
+          "checks": [
+            "DET02"
+          ],
+          "status": "done",
+          "what": "tests/state/test_ide_cd_state.py cuts a partial six-word CDB, the maximum 256 KiB READ(12) data phase and active CDDA beside an HDF; local and cold-process future, state and PCM match. Selection/absence restore, another catalog/topology and re-sealed hostile transport/catalog fields are checked transactionally."
+        },
+        "probe": {
+          "probe": "ram",
+          "status": "implemented",
+          "task": "T84e3",
+          "covers": [
+            "visit_hdf"
+          ]
+        },
+        "waterbox": "The native state is complete, but the Waterbox guest does not expose an IDE CD source until T84f; no mixed-CD Waterbox claim is made here.",
+        "native_state": {
+          "task": "T84e3",
+          "chunk": "P6DK",
+          "file": "bridge/state_upstream.cpp",
+          "visitor": "visit_disk",
+          "proves": "tests/state/test_ide_cd_state.py",
+          "notes": "visit_disk calls visit_hdf in bridge/state_hdf.cpp; that section is present for an IDE CD even with zero HDFs."
         }
       },
       {
@@ -7713,7 +7770,7 @@
       {
         "id": "bridge-identity-inputs",
         "subsystem": "bridge",
-        "component": "Identity inputs for config_hash, media_manifest_hash and the core build id (what the bridge can hash today)",
+        "component": "Identity inputs for config_hash, including the resolved CD topology, media_manifest_hash and the core build id",
         "owner": "bridge/config.cpp, bridge/media.cpp, adapters/headless/main.cpp, CMakeLists.txt",
         "chunk": null,
         "save": null,
@@ -7725,7 +7782,7 @@
         "saved_fields": "config_hash (from bridge/config.cpp): p6_config fields as given: abi_version (1), struct_size (72), machine (A500 = 1), video_standard (PAL 1 / NTSC 2: sets ntscmode, the chipset clock, FLOPPY_WRITE_LEN and the clock rate), audio_rate_hz (44100 | 48000 -> sound_freq), flags (0), random_seed (u64; folded to 32 bits into currprefs.seed, config.cpp:56-59), rtc_epoch_seconds (i64, years 1..9999), reserved[4] (0). The rest of the preset is a function of the build and the profile: profile_id 'deterministic-a500' (P6_PROFILE, manifests/source-manifest.json 'profile') and the field list of config/profiles/a500-ocs.json (upstream/pin/override values), verified at load by check_preset. Do NOT hash: render flags, input packets, host paths, callbacks, unit_index, mounted-disk state. | media_manifest_hash (from bridge/media.cpp and session.h): firmware_sha256 (SHA-256 of the firmware buffer exactly as passed to p6_load, not of the decoded ROM), media_count, and media_content_id[0..count-1] in p6_load order (32 bytes each; order is semantic because events and drive_media use indexes); media type (ADF only) and size 901120 are implied. The 'media-<hex>' blob ids and 'p6-firmware.rom' are derived. | core build id (from the identity macros printed by the headless adapter and the codegen manifest): P6_UPSTREAM_COMMIT (857f48fcb09399d4d95527e29a2fdeaedb41f827, from manifests/source-manifest.json 'commit'), P6_PATCH_COUNT (74) and P6_PATCH_SERIES_SHA256 (SHA-256 of patches/winuae/series.json, which embeds every patch sha256 and before/after file hashes: this is the patchset_hash), P6_PROFILE, P6_ABI_VERSION (1), plus the excluded-feature list (source-manifest selection.features_off) and the state format_version of the ADR.",
         "omitted": "Gaps found: (1) no codegen_hash exists: manifests/codegen.json lists generators, flags and environment but no output hashes and CMake defines no macro; the generated sources (cpuemu_13.cpp, cpustbl.cpp, cpudefs.cpp, blit*.cpp) need a file(SHA256) fold or a hash of codegen.json plus the upstream/patch hashes. (2) P6_UPSTREAM_COMMIT, P6_PATCH_COUNT, P6_PATCH_SERIES_SHA256 and P6_PROFILE are compile definitions of the p6_headless target only (CMakeLists.txt:101-105); p6_bridge and the libretro core do not receive them (libretro has its own P6_LIBRETRO_VERSION, cmake/Libretro.cmake:8), so the serializer needs them on p6_bridge or a generated header. (3) Compiler id/version, target ISA and the float flags (-fno-fast-math -ffp-contract=off, CMakeLists.txt:42) change Paula's float results and are not in any identity yet: a native state is 'exact build', so they belong in the build id. (4) random_seed folding: two 64-bit seeds with the same fold give the same machine, hashing the 64-bit value is stricter than needed but safe. (5) cs_eclockphase travels inside CIAx chunks and must be checked against the config, not applied.",
         "pointers": "Nothing is a pointer; all inputs are fixed-width values or byte strings (SHA-256 over canonical little-endian encodings, with explicit field tags and lengths).",
-        "rebuild": "At state_load: recompute the three identities from the loaded session and compare before touching the engine; a mismatch returns INCOMPATIBLE without side effects. Pending tests: STATE02 (other build, ROM, media, seed, epoch, standard).",
+        "rebuild": "At state_load: recompute the three identities from the loaded session and compare before touching the engine; a mismatch returns INCOMPATIBLE without side effects. T84e1 resolves cd_controller before engine mutation and derives p6/config/cd-controller/v1 only when the effective None/CD32/CDTV/IDE topology differs from the historical machine profile; zero/AUTO and an explicit historical spelling remain byte exact. Pending tests: STATE02 (other build, ROM, media, seed, epoch, standard).",
         "evidence": [
           "bridge/config.cpp:97",
           "bridge/config.cpp:56",
@@ -7919,10 +7976,10 @@
           "status": "done",
           "what": "DET02 with a micro-ROM that keeps the controller busy (a write across a chunk boundary, a read back, a read of the base and one step of the EXTER interrupt at every vertical blank), in this process and in a new one, and with the owner's Kickstart 1.3 and 3.1 mounting and validating an RDB volume; each component was checked by skipping its apply, which makes the tests fail; DET03 across processes; STATE01 by hard file size"
         },
-        "waterbox": "the base is allocated by p6_load before the seal (blob store, mmap heap) and is the baseline of the snapshot; the overlay's room is reserved there too and only its dirty pages travel (measured: 9.8 MB at unit 60 with a 2 MiB or a 32 MiB hard file, manifests/waterbox-memory.json); WB10 for hard files is tests/waterbox-smoke/test_puae6_hdf.py",
+        "waterbox": "the base is allocated by p6_load before the seal (blob store, mmap heap) and is the baseline of the snapshot; the overlay's room is reserved there too and only its dirty pages travel (measured: 9.8 MB at unit 60 with a 2 MiB or a 32 MiB hard file, manifests/waterbox-memory.json); WB10 for hard files is tests/waterbox-smoke/test_puae6_hdf.py. Since T84d each BizHawk Hard Disk n byte domain is a function hook into this same overlay, so a tool poke is carried by the same snapshot and SaveRAM and never changes the base.",
         "id": "hdf-write-overlay",
         "component": "The write overlay of each hard file: the 4 KiB chunks the guest wrote, over the immutable base",
-        "owner": "ports/portable/blob_io.c (T29b), bridge/state_hdf.cpp",
+        "owner": "ports/portable/blob_io.c (T29b), bridge/state_hdf.cpp; bridge/media.cpp and adapters/waterbox/puae6_guest.cpp expose the same overlay to debugger domains (T84d)",
         "save": "p6_blob_hdf_next_dirty, p6_blob_hdf_chunk_data (ports/portable/blob_io.c)",
         "restore": "p6_blob_hdf_state_clear, p6_blob_hdf_state_put (ports/portable/blob_io.c)",
         "reset": "p6_blob_register reserves the room and an empty bitmap at load, p6_blob_clear gives them back at unload; a p6_reset keeps the disk as the guest left it",
@@ -7933,7 +7990,11 @@
         "evidence": [
           "ports/portable/blob_io.c",
           "ports/portable/blob_io.h",
-          "bridge/state_hdf.cpp"
+          "bridge/state_hdf.cpp",
+          "bridge/media.cpp",
+          "adapters/waterbox/puae6_guest.cpp",
+          "tests/media/media_probe.cpp",
+          "tests/waterbox-state/test_wrapper_state.py"
         ],
         "probe": {
           "probe": "ram",
@@ -7948,8 +8009,8 @@
           "chunk": "P6DK",
           "file": "bridge/state_upstream.cpp",
           "visitor": "visit_disk",
-          "proves": "tests/state/test_state_hdf.py: the bound by size, an all-dirty image, the dirty list in ascending order, no base in the state, another base or none refused untouched; tests/state/test_det02_hdf.py",
-          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted"
+          "proves": "tests/state/test_state_hdf.py: the bound by size, an all-dirty image, the dirty list in ascending order, no base in the state, another base or none refused untouched; tests/state/test_det02_hdf.py; T84d tests/media/media_probe.cpp and the HDF-domain case of tests/waterbox-state/test_wrapper_state.py prove that debugger writes enter this same overlay and restore through snapshot, SaveRAM, a new sandbox and a new process",
+          "notes": "the hard-file section is visit_hdf in bridge/state_hdf.cpp, called by visit_disk after the bodies of the disks when a hard file is mounted; p6_hdf_read/write are bounded between-unit views, not another state store"
         }
       },
       {
@@ -8217,7 +8278,7 @@
         "reset": "cdtv_init through original expansion card (legacy private_start only for A500 fixture); registered cdtv_free closes the unit",
         "in_profile": true, "upstream_compiled": true, "policy": "serialize_extended",
         "saved_fields": "All typed controller fields, parser/response, ordered pending FIFO, cached TOC/Q, 32768-byte volatile NVRAM, SUB ring/transfer and counters, SEEK/DMA timing; DeviceState with disc ID/opens/presence and complete CDA delay/PCM/stream/callback selector.",
-        "omitted": "P6SC owns cycles and secondary slots including handler14; P6AU owns shared Paula phase; P6RM owns Chip/Slow and the CDTV expansion chain, PROM and current-bank discriminator. P6CT configured owns pending/shut-up/dynamic assigned base. Public CDTV profile, CD boot and Waterbox remain separate gates.",
+        "omitted": "P6SC owns cycles and secondary slots including handler14; P6AU owns shared Paula phase; P6RM owns Chip/Slow and the CDTV expansion chain, PROM and current-bank discriminator. P6CT exists only for effective integrated CDTV; T84e1 NONE removes the CD controller while retaining CDTV RAM/RTC. P6CT configured owns pending/shut-up/dynamic assigned base. Public CDTV profile, CD boot and Waterbox remain separate gates.",
         "pointers": "No Disc/bank/PCM/callback pointer or padding is persisted; candidate resolves a verified catalog Disc and binds canonical callbacks.",
         "rebuild": "After pure cross-chunk phase validation and runtime destination preflight before reset, apply reconstructs the assigned DMAC base from dmac_bank and CDA owner without I/O, IRQ, scheduling or advancement. Empty unit keeps unitnum=-1/bound=0/opens=0; pending E8 and shut-up belong to the original expansion chain.",
         "evidence": ["bridge/state_cdtv.cpp:20", "bridge/state_cpu.cpp:87", "bridge/state_upstream.cpp:434", "ports/portable/cdtv_state.h:1"],
@@ -8280,7 +8341,7 @@
           "SCS3",
           "SCS4"
         ],
-        "reason": "no SCSI controller in any profile; Gayle and its IDE (GAYL, IDE ) exist only with p6_config.hdf_controller = IDE and a hard file (T56): upstream's save_gayle and save_gayle_ide write the registers of a drive and nothing of the transfer in hand, the UAE controller (T29a) keeps host paths, so neither is written: the hard files, on either controller, are saved by the hard-file section of P6DK (visit_hdf: the UAE controller, or visit_ide: the registers of Gayle, the four IDE slots with the values of their transfer and the bytes of their sector buffer, patches 0320 and 0321)",
+        "reason": "no SCSI controller in any profile; Gayle and its IDE (GAYL, IDE ) exist with an IDE HDF or the selected IDE CD topology. Upstream's save_gayle/save_gayle_ide omit causal transfer state and the UAE controller keeps host paths, so neither legacy body is written. P6DK visit_hdf carries the UAE HDF controller or the semantic Gayle graph: four IDE slots with 54 value words, causal buffers and, for CD, ordered-catalog ordinal plus DeviceState/CDDA (patches 0320, 0321 and 0426).",
         "evidence": [
           "bridge/media.cpp",
           "bridge/config.cpp",
@@ -8398,7 +8459,7 @@
       },
       "_settings": {
         "policy": "presentation",
-        "what": "host drive volume; not serialized or rewound, reapplied as render flags each unit"
+        "what": "host mechanical-drive and CDDA volumes; not serialized or rewound, reapplied as render flags each unit"
       },
       "_serviceProvider": {
         "policy": "construction",
@@ -8406,7 +8467,7 @@
       },
       "_domains": {
         "policy": "construction",
-        "what": "BizHawk's wrappers of the guest's memory areas; function hooks, they hold no address of the machine's memory"
+        "what": "BizHawk's wrappers of the guest's machine areas and, since T84d, one byte domain per HDF; all are function hooks and hold no address of machine RAM or a hard-file blob"
       },
       "_media": {
         "policy": "construction",
@@ -8564,6 +8625,22 @@
           "MouseY"
         ]
       },
+      "_mouseRemainderX": {
+        "policy": "saved",
+        "proof": "IN01/WB03 T84c integer mouse scaling, restore and BK2 replay",
+        "what": "the signed integer numerator left by horizontal MouseSpeed scaling; together with the absolute reference it preserves fractional movement and capped movement without host velocity or floating point",
+        "state": [
+          "MouseRemainderX"
+        ]
+      },
+      "_mouseRemainderY": {
+        "policy": "saved",
+        "proof": "IN01/WB03 T84c integer mouse scaling, restore and BK2 replay",
+        "what": "same scaling remainder, vertical and independent from the horizontal axis",
+        "state": [
+          "MouseRemainderY"
+        ]
+      },
       "_capsLatched": {
         "policy": "saved",
         "proof": "WB06 caps",
@@ -8653,7 +8730,7 @@
       },
       "InputCallbacks": {
         "policy": "construction",
-        "what": "BizHawk's input callback list; the machine has no callback per input read, so nothing ever calls it"
+        "what": "BizHawk's input callback list; invoked once at the completed host boundary of every non-lag unit, never from the guest's individual input-register reads"
       },
       "_parameters": {
         "policy": "construction",
@@ -8697,6 +8774,22 @@
         "what": "the last applied absolute second-pointer Y, including movement still owed",
         "state": [
           "Mouse2Y"
+        ]
+      },
+      "_mouse2RemainderX": {
+        "policy": "saved",
+        "proof": "IN01/WB03 T84c integer mouse scaling, restore and BK2 replay",
+        "what": "the second mouse's independent horizontal scaling remainder; no fraction crosses ports or new instances",
+        "state": [
+          "Mouse2RemainderX"
+        ]
+      },
+      "_mouse2RemainderY": {
+        "policy": "saved",
+        "proof": "IN01/WB03 T84c integer mouse scaling, restore and BK2 replay",
+        "what": "the second mouse's independent vertical scaling remainder",
+        "state": [
+          "Mouse2RemainderY"
         ]
       },
       "_nvramInitialHash": {

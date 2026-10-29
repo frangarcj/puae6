@@ -24,7 +24,7 @@ public static class Puae6WhdLoad
 	/// <summary>Resolve before requesting firmware. Callbacks run only during frontend initialization, never in the guest or its MMIO path.</summary>
 	public static Puae6Parameters Resolve(Puae6Parameters p, Func<Puae6Machine, byte[]>? firmware = null, Func<byte[]>? provider = null)
 	{
-		p.ValidateCd();
+		p.ValidateCdBinding();
 		var settings = p.SyncSettings.Clone();
 		if (!Enum.IsDefined(typeof(Puae6WhdLoadMode), settings.WhdLoad)) throw new VolumeException("unknown WHDLoad mode");
 		var trees = settings.WhdLoad == Puae6WhdLoadMode.Disabled ? new List<List<VolumeFile>>() : p.Volumes.Select(Puae6Volumes.ReadArchive).ToList();
@@ -36,8 +36,9 @@ public static class Puae6WhdLoad
 		{
 			if (p.Volumes.Count != 1 || p.Media.Count != 0 || p.HardFiles.Count != 0) throw new VolumeException("WHDLoad Auto cannot be mixed with other media; use Disabled for generic volumes");
 			settings.Machine = Puae6Machine.A1200;
-			tool = ReadProvider(p.WhdLoadProvider ?? provider?.Invoke() ?? throw new VolumeException($"WHDLoad Auto needs the user's {ProviderFileName}"));
 		}
+		settings = p.ResolveCdSettings(settings);
+		if (pack) tool = ReadProvider(p.WhdLoadProvider ?? provider?.Invoke() ?? throw new VolumeException($"WHDLoad Auto needs the user's {ProviderFileName}"));
 		var rom = Puae6RomKey.Resolve(firmware?.Invoke(settings.Machine) ?? p.Firmware, p.RomKey);
 		var result = new Puae6Parameters
 		{
@@ -48,13 +49,16 @@ public static class Puae6WhdLoad
 			ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
 			HardFiles = p.HardFiles, HardFileNames = p.HardFileNames, Volumes = p.Volumes, VolumeNames = p.VolumeNames,
 		};
-		if (!pack) return result;
-		var kickstarts = p.WhdLoadKickstarts.ToDictionary(e => e.Key, e => e.Value);
-		using (var sha = SHA1.Create())
-			if (WhdLoadData.KickstartNames.TryGetValue(BitConverter.ToString(sha.ComputeHash(rom)).Replace("-", "").ToLowerInvariant(), out var name)) kickstarts[name] = rom;
-		var images = Build(trees[0], tool.Program, tool.Vfs, settings.WhdLoadButtonWait, kickstarts);
-		result.HardFiles = WhdLoadData.Names.Select(n => images[n]).ToList(); result.HardFileNames = WhdLoadData.Names.ToArray();
-		result.Volumes = new List<byte[]>(); result.VolumeNames = new List<string>();
+		if (pack)
+		{
+			var kickstarts = p.WhdLoadKickstarts.ToDictionary(e => e.Key, e => e.Value);
+			using (var sha = SHA1.Create())
+				if (WhdLoadData.KickstartNames.TryGetValue(BitConverter.ToString(sha.ComputeHash(rom)).Replace("-", "").ToLowerInvariant(), out var name)) kickstarts[name] = rom;
+			var images = Build(trees[0], tool.Program!, tool.Vfs!, settings.WhdLoadButtonWait, kickstarts);
+			result.HardFiles = WhdLoadData.Names.Select(n => images[n]).ToList(); result.HardFileNames = WhdLoadData.Names.ToArray();
+			result.Volumes = new List<byte[]>(); result.VolumeNames = new List<string>();
+		}
+		result.SyncSettings = result.ResolveCdSettings(result.SyncSettings);
 		return result;
 	}
 

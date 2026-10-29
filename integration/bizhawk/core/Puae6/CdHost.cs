@@ -147,7 +147,7 @@ public unsafe sealed class P6CdHost
  public int Bind(Puae6Guest guest, bool rebind, P6CdInfo? candidate = null)
  {
   if (!ReferenceEquals(host, guest.Host)) return P6.BadArgument;
-  if (!guest.IsSealed) return P6.BadState;
+  if (rebind && !guest.IsSealed) return P6.BadState;
   using var active = guest.Host.EnterExit();
   if (sessioned) return candidate.HasValue ? P6.BadArgument : BindV3(guest,rebind);
   if (regional) return candidate.HasValue ? P6.BadArgument : BindV2(guest,rebind);
@@ -157,7 +157,7 @@ public unsafe sealed class P6CdHost
  public int BindCatalog(Puae6Guest guest, bool rebind, P6CdInfo[] candidate = null)
  {
   if (!ReferenceEquals(host, guest.Host)) return P6.BadArgument;
-  if (!guest.IsSealed || catalog is null) return P6.BadState;
+  if ((rebind && !guest.IsSealed) || catalog is null) return P6.BadState;
   using var active = guest.Host.EnterExit();
   var descriptors = candidate ?? catalog;
   fixed (P6CdInfo* p = descriptors) return guest.Lib.p6w_cd_catalog_bind((IntPtr)p, (uint)descriptors.Length, catalogCallback, rebind ? 1u : 0u);
@@ -165,7 +165,7 @@ public unsafe sealed class P6CdHost
  public int BindV2(Puae6Guest guest, bool rebind, P6CdInfoV2? candidate = null)
  {
   if (!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
-  if (!guest.IsSealed || !regional) return P6.BadState;
+  if ((rebind && !guest.IsSealed) || !regional) return P6.BadState;
   using var active=guest.Host.EnterExit();
   if (catalogV2 is not null) return candidate.HasValue ? P6.BadArgument : BindCatalogV2(guest,rebind);
   var descriptor=candidate ?? infoV2;
@@ -174,14 +174,14 @@ public unsafe sealed class P6CdHost
  public int BindCatalogV2(Puae6Guest guest, bool rebind, P6CdInfoV2[] candidate = null)
  {
   if (!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
-  if (!guest.IsSealed || catalogV2 is null) return P6.BadState;
+  if ((rebind && !guest.IsSealed) || catalogV2 is null) return P6.BadState;
   using var active=guest.Host.EnterExit(); var descriptors=candidate ?? catalogV2;
   fixed(P6CdInfoV2* p=descriptors) return guest.Lib.p6w_cd_catalog_bind_v2((IntPtr)p,(uint)descriptors.Length,catalogCallback,rebind ? 1u : 0u);
  }
  public int BindV3(Puae6Guest guest,bool rebind,P6CdInfoV3? candidate=null)
  {
   if(!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
-  if(!guest.IsSealed || !sessioned) return P6.BadState;
+  if((rebind&&!guest.IsSealed)||!sessioned) return P6.BadState;
   using var active=guest.Host.EnterExit();
   if(catalogV3 is not null) return candidate.HasValue?P6.BadArgument:BindCatalogV3(guest,rebind);
   var descriptor=candidate ?? infoV3;
@@ -190,7 +190,7 @@ public unsafe sealed class P6CdHost
  public int BindCatalogV3(Puae6Guest guest,bool rebind,P6CdInfoV3[] candidate=null)
  {
   if(!ReferenceEquals(host,guest.Host)) return P6.BadArgument;
-  if(!guest.IsSealed || catalogV3 is null) return P6.BadState;
+  if((rebind&&!guest.IsSealed)||catalogV3 is null) return P6.BadState;
   using var active=guest.Host.EnterExit(); var descriptors=candidate ?? catalogV3;
   fixed(P6CdInfoV3* p=descriptors) return guest.Lib.p6w_cd_catalog_bind_v3((IntPtr)p,(uint)descriptors.Length,catalogCallback,rebind?1u:0u);
  }

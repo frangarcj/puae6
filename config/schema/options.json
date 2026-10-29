@@ -469,6 +469,23 @@
       "wrapper": {"how": "setting", "setting": "HdfController", "type": "Puae6HdfController"}
     },
     {
+      "id": "cd_controller",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.cd_controller",
+      "default": "auto",
+      "values": [
+        {"value": "auto", "abi": 0, "label": "Automatic", "wrapper_name": "Auto"},
+        {"value": "none", "abi": 1, "label": "None", "wrapper_name": "None"},
+        {"value": "cd32", "abi": 2, "label": "Integrated CD32", "wrapper_name": "Cd32"},
+        {"value": "ide", "abi": 4, "label": "IDE / ATAPI", "wrapper_name": "Ide"}
+      ],
+      "libretro": null,
+      "libretro_policy": "Libretro keeps its content-driven integrated CD32 path. BizHawk needs the explicit selector because its loader can combine a fixed CD catalog with ADF, HDF and prepared WHDLoad volumes.",
+      "headless": {"how": "named", "flag": "--cd-controller", "names": {"auto": "auto", "none": "none", "cd32": "cd32", "ide": "ide"}},
+      "wrapper": {"how": "setting", "setting": "CdController", "type": "Puae6CdController"}
+    },
+    {
       "id": "audio_rate_hz",
       "class": "reboot",
       "type": "enum",
@@ -2090,6 +2107,14 @@
         "info": "Mechanical drive sound, 0 (silent) to 100 percent. Applies immediately, with continuous phase even while silent; does not change the Amiga or state/movie identity."},
       "headless": {"how": "named", "flag": "--drive-sound-volume", "names": {"0": "0", "10": "10", "25": "25", "50": "50", "75": "75", "100": "100"}},
       "wrapper": {"how": "setting", "setting": "DriveSoundVolume", "type": "Puae6DriveSoundVolume"}
+    },
+    {
+      "id": "cd_audio_volume", "class": "presentation", "type": "i64",
+      "maps_to": "presentation.cd_audio_volume", "default": 100, "min": 0, "max": 100,
+      "libretro": null,
+      "libretro_policy": "The libretro menu has enumerated choices only; omitted presentation flags retain full CDDA volume. BizHawk exposes UAE5's exact live integer field from 0 through 100.",
+      "headless": {"how": "none"},
+      "wrapper": {"how": "setting", "setting": "CdVolume", "type": "int"}
     }
   ],
   "presets": [
@@ -2219,7 +2244,8 @@
   "reserved": [
     {"id": "whdload", "for": "content preparation", "wrapper_setting": "WhdLoad", "why": "Select the three WHDLoad media before firmware; the generated media bytes and resolved machine bind states, without a p6_config field."},
     {"id": "whdload_buttonwait", "for": "content preparation", "wrapper_setting": "WhdLoadButtonWait", "why": "ButtonWait changes RASystem preferences before loading; the media identity binds that selection, without a p6_config field."},
-    {"id": "floppy_drives", "for": "BizHawk combined drive count and boot media placement", "wrapper_setting": "FloppyDrives", "why": "The old UAE-compatible visible setting connects 0..4 drives and mounts at most that many given disks through events. PhysicalFloppyDrives is hidden legacy-preview deserialization; libretro keeps its separate MultiDrive placement and Disk Control for DF0."}
+    {"id": "floppy_drives", "for": "BizHawk combined drive count and boot media placement", "wrapper_setting": "FloppyDrives", "why": "The old UAE-compatible visible setting connects 0..4 drives and mounts at most that many given disks through events. PhysicalFloppyDrives is hidden legacy-preview deserialization; libretro keeps its separate MultiDrive placement and Disk Control for DF0."},
+    {"id": "bizhawk_mouse_speed", "for": "BizHawk absolute mouse conversion", "wrapper_setting": "MouseSpeed", "why": "BizHawk supplies absolute axes, so its 1..1000 percent sync setting scales wrapper deltas with saved integer remainders before the 120-count boundary cap. Libretro keeps its separate live 10..300 percent relative-mouse option."}
   ],
   "unsupported": [
     {"key": "z3fastmem_size", "why": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet."},

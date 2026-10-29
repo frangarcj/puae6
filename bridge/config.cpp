@@ -268,7 +268,7 @@ namespace {
 // The config of the last build_preferences: check_preset (called by the lifecycle right after it) judges the result by its machine and memory.
 p6_config preset_config = {};
 bool preset_floppy_writes = false;     // P6_CONFIG_FLOPPY_WRITES of that build: the master switch floppy_read_only is its opposite
-bool preset_ide = false;               // T56: that build has the IDE port of Gayle
+bool preset_ide = false;               // T56/T84e1: that build has the IDE port of Gayle
 
 // A Kickstart is 256 or 512 KiB; the 880 KiB "KICK" disk image is the largest accepted container.
 constexpr uint64_t kFirmwareMaxBytes = 1760u * 512u;
@@ -381,6 +381,24 @@ bool has_gayle(uint32_t machine) { return machine == P6_MACHINE_A600 || machine 
 bool ide_attached(const p6_config &c, uint32_t hard_files)
 {
     return c.hdf_controller == P6_HDF_CONTROLLER_IDE && has_gayle(c.machine) && hard_files > 0;
+}
+
+static uint8_t historical_cd_controller(uint32_t machine)
+{
+    if (machine == kCd32Machine) return P6_CD_CONTROLLER_CD32;
+    if (machine == kCdtvMachine) return P6_CD_CONTROLLER_CDTV;
+    return P6_CD_CONTROLLER_NONE;
+}
+
+uint8_t resolve_cd_controller(const p6_config &c)
+{
+    return c.cd_controller == P6_CD_CONTROLLER_AUTO ? historical_cd_controller(c.machine) : c.cd_controller;
+}
+
+bool cd_controller_identity(const p6_config &c, uint8_t *out)
+{
+    *out = resolve_cd_controller(c);
+    return *out != historical_cd_controller(c.machine);
 }
 
 bool machine_has_ecs_agnus(uint32_t machine)
@@ -588,7 +606,6 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "collision level must be auto, none, sprites, playfields or full");
     if (c.z3_memory >= kZ3Choices || (c.z3_memory && !is_a4000(c.machine)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "Zorro III supports one 1/2/4/8/16/32/64/128/256/512 MiB board on A4000 only");
-    if (c.reserved8[0]) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     for (uint8_t byte : c.reserved7)
         if (byte) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "reserved config fields are not zero");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
@@ -596,6 +613,15 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the controller of the hard files must be 0 (UAE) or 1 (IDE)");
     if (c.hdf_controller == P6_HDF_CONTROLLER_IDE && !has_gayle(c.machine))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "this machine has no supported IDE port");
+    if (c.cd_controller > P6_CD_CONTROLLER_IDE)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD controller must be auto, none, integrated CD32, integrated CDTV or IDE");
+    const uint8_t cd = resolve_cd_controller(c);
+    if (cd == P6_CD_CONTROLLER_CD32 && c.machine != kCd32Machine)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the integrated CD32 controller requires the CD32 motherboard");
+    if (cd == P6_CD_CONTROLLER_CDTV && c.machine != kCdtvMachine)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the integrated CDTV controller requires the CDTV motherboard");
+    if (cd == P6_CD_CONTROLLER_IDE && !has_gayle(c.machine))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the IDE CD controller requires the supported A600, A1200 or A4000 port");
     if (!one_of(c.cpu_multiplier, {0, 1, 2, 4, 8, 10, 12, 16}))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu multiplier must be 0 (the machine's own), 1, 2, 4, 8, 10, 12 or 16");
     if (!resolution_option_valid(c.video_resolution))
@@ -653,14 +679,14 @@ p6_result validate_firmware(const p6_buffer &firmware, uint32_t machine, p6_erro
     return P6_OK;
 }
 
-void build_preferences(const p6_config &c, bool ide)
+void build_preferences(const p6_config &c, bool ide_port)
 {
     default_prefs(&currprefs, true, 0);
     // The preset names its Kickstart by id through the ROM list, which has no entries here; the
     // firmware is the buffer given to p6_load, so the result of configure_rom() is not needed.
     preset_config = c;
     preset_floppy_writes = (c.flags & P6_CONFIG_FLOPPY_WRITES) != 0;
-    preset_ide = ide;
+    preset_ide = ide_port;
     p6_gayle_units_clear();
     const MachineInfo &machine = machine_info(c.machine);
     // The chipset tables read the video standard (the mains-driven CIA TOD of the A1000 and the A2000 counts 50 or 60 Hz): WinUAE has it chosen before the model.
@@ -696,7 +722,7 @@ void build_preferences(const p6_config &c, bool ide)
         currprefs.cs_1mchipjumper = true;   // what fixup_prefs sets for 1 MiB Chip; upstream's trailing CP_A600 table would clear it again
         // T56: with a hard file on the IDE the machine has Gayle's IDE port (cs_ide, as the A600 and the A1200 tables have it) and still no PCMCIA slot; the CIA keeps the ROM overlay
         // (the real machines leave it to Gayle's reset, which the state bridge does not know). Nothing attached: nothing of Gayle, as before.
-        if (ide)
+        if (ide_port)
             currprefs.cs_ide = IDE_A600A1200;
         else
             clear_device_rom(&currprefs, ROMTYPE_MB_IDE, 0, true);      // upstream's table lists Gayle's IDE among the boards of the motherboard (currprefs.expansionboard): not without a hard file
@@ -805,6 +831,11 @@ void build_preferences(const p6_config &c, bool ide)
     }
     _tcscpy(currprefs.romfile, kFirmwareId);
     fixup_prefs(&currprefs, true);
+    // AUTO preserves the historical integrated bits. NONE removes the CD controller without removing the other board hardware (CD32 C2P/NVRAM or CDTV RAM/RTC); IDE only names a port
+    // here and T84e2 will attach an ATAPI unit to it. This is after fixup_prefs because the CD32 compatibility table otherwise restores cs_cd32cd.
+    const uint8_t cd = resolve_cd_controller(c);
+    currprefs.cs_cd32cd = cd == P6_CD_CONTROLLER_CD32;
+    currprefs.cs_cdtvcd = cd == P6_CD_CONTROLLER_CDTV;
 }
 
 p6_result check_preset(p6_error *error)
@@ -826,9 +857,9 @@ p6_result check_preset(p6_error *error)
     else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (is_a4000(preset_config.machine) && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";
     else if (!no_gayle && !is_a4000(preset_config.machine) && p.cs_ide) drifted = "gayle";
-    else if (preset_config.machine == kCd32Machine && (!p.cs_cd32cd || !p.cs_cd32c2p || !p.cs_cd32nvram || p.cs_cd32nvram_size != 1024 ||
+    else if (preset_config.machine == kCd32Machine && (p.cs_cd32cd != (resolve_cd_controller(preset_config) == P6_CD_CONTROLLER_CD32) || !p.cs_cd32c2p || !p.cs_cd32nvram || p.cs_cd32nvram_size != 1024 ||
              p.cs_ciaoverlay || p.cs_cd32fmv != cd32_fmv_bound() || p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.cs_ksmirror_e0 || !p.cs_ksmirror_a8)) drifted = "CD32 motherboard";
-    else if (preset_config.machine == kCdtvMachine && (!p.cs_cdtvcd || !p.cs_cdtvram || p.cs_cdtvcr || p.cs_rtc != 1 ||
+    else if (preset_config.machine == kCdtvMachine && (p.cs_cdtvcd != (resolve_cd_controller(preset_config) == P6_CD_CONTROLLER_CDTV) || !p.cs_cdtvram || p.cs_cdtvcr || p.cs_rtc != 1 ||
              p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.romextfile2[0] || p.cs_ksmirror_e0)) drifted = "CDTV motherboard";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
     else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||

@@ -60,8 +60,12 @@ public static class Puae6Volumes
 	/// <summary>The parameters with each <see cref="Puae6Parameters.Volumes"/> archive built into a hard file and added after the hard files (the same parameters when there are none).</summary>
 	public static Puae6Parameters Resolve(Puae6Parameters parameters)
 	{
-		parameters.ValidateCd();
-		if (parameters.Volumes.Count == 0) return parameters;
+		parameters.ValidateCdBinding();
+		if (parameters.Volumes.Count == 0)
+		{
+			parameters.ResolveCdSettings(parameters.SyncSettings); // Validate without changing the caller's spelling.
+			return parameters;
+		}
 		var images = parameters.HardFiles.ToList();
 		var names = parameters.HardFileNames.ToList();
 		while (names.Count < images.Count) names.Add("");
@@ -72,11 +76,19 @@ public static class Puae6Volumes
 			catch (VolumeException e) { throw new ArgumentException($"{name} cannot be a volume: {e.Message}", nameof(parameters)); }
 			names.Add(name);
 		}
-		return new Puae6Parameters
+		var result = new Puae6Parameters
 		{
-			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256, Firmware = parameters.Firmware, CartridgeFirmware = parameters.CartridgeFirmware,
-			SyncSettings = parameters.SyncSettings, Settings = parameters.Settings, Media = parameters.Media, MediaNames = parameters.MediaNames, HardFiles = images, HardFileNames = names,
+			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
+			Firmware = parameters.Firmware, CartridgeFirmware = parameters.CartridgeFirmware, RomKey = parameters.RomKey,
+			CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3, ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
+			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
+			CdSlots = (int[])parameters.CdSlots.Clone(), CdNames = (string[])parameters.CdNames.Clone(),
+			SyncSettings = parameters.SyncSettings.Clone(), Settings = parameters.Settings, Media = parameters.Media, MediaNames = parameters.MediaNames,
+			HardFiles = images, HardFileNames = names, Volumes = new List<byte[]>(), VolumeNames = new List<string>(),
+			WhdLoadProvider = parameters.WhdLoadProvider, WhdLoadKickstarts = parameters.WhdLoadKickstarts,
 		};
+		result.SyncSettings = result.ResolveCdSettings(result.SyncSettings);
+		return result;
 	}
 
 	/// <summary>The hard file of an LHA archive or of a ZIP file of files. Throws <see cref="VolumeException"/> for anything else, damaged, unsafe or over a limit.</summary>

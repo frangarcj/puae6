@@ -3,7 +3,7 @@
 // firmware image for a number of video units, printing what p6_run_frame delivered for each.
 //   p6_headless [--identity]
 //   p6_headless --run ROM [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000|a4030|a4040|cd32] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--fpu 0|68881|68882|68040|68060]
-//                         [--hdf-controller uae|ide]
+//                         [--hdf-controller uae|ide] [--cd-controller auto|none|cd32|ide]
 //                         [--cpu auto|68000|68010|68020|68030|68040|68060] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--cpu-multiplier auto|1|2|4|8|10|12|16]
 //                         [--drive-sound-volume 0|10|25|50|75|100] [--sound-sep 0..100] [--sound-interp none|anti|rh|crux] [--sound-filter emulated|off|on] [--sound-type auto|a500|a1200]
 //                         [--floppy-drives auto|1|2|3|4] [--floppy-speed 100|200|400|800|turbo] [--resolution lores|hires|superhires] [--line-mode single|double]
@@ -125,6 +125,7 @@ static const Named cpu_compatibility_names[] = {{"exact", 0}, {"compatible", 1},
 static const Named cpu_multiplier_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"4", 4}, {"8", 8}, {"10", 10}, {"12", 12}, {"16", 16}};
 // The controller of the hard files (T56), after --hdf-controller: the UAE controller (uaehf.device, the default) or the IDE port of Gayle (A600 and A1200 only, and only with a --hdf).
 static const Named hdf_controller_names[] = {{"uae", 0}, {"ide", 1}};      // P6_HDF_CONTROLLER_UAE, P6_HDF_CONTROLLER_IDE
+static const Named cd_controller_names[] = {{"auto", 0}, {"none", 1}, {"cd32", 2}, {"ide", 4}}; // P6_CD_CONTROLLER_*
 
 template <size_t N>
 static bool pick_named(const Named (&table)[N], const char *spelling, uint8_t *abi)
@@ -179,6 +180,7 @@ static int run(int argc, char **argv)
     uint8_t drive_sound_volume = 0;
     uint8_t cpu_model = 0, cpu_multiplier = 0;                                                          // 0: the machine's own CPU and clock (T52)
     uint8_t hdf_controller = 0;                                                                         // T56: 0 the UAE controller, 1 the IDE port of Gayle (P6_HDF_CONTROLLER_*)
+    uint8_t cd_controller = 0;                                                                          // T84f: explicit optical controller, or profile auto
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
@@ -223,6 +225,7 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--cpu-compatibility") && i + 1 < argc) { if (!pick_named(cpu_compatibility_names, argv[++i], &cpu_compatibility)) return -1; }
         else if (!strcmp(argv[i], "--cpu-multiplier") && i + 1 < argc) { if (!pick_named(cpu_multiplier_names, argv[++i], &cpu_multiplier)) return -1; }
         else if (!strcmp(argv[i], "--hdf-controller") && i + 1 < argc) { if (!pick_named(hdf_controller_names, argv[++i], &hdf_controller)) return -1; }
+        else if (!strcmp(argv[i], "--cd-controller") && i + 1 < argc) { if (!pick_named(cd_controller_names, argv[++i], &cd_controller)) return -1; }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -254,6 +257,7 @@ static int run(int argc, char **argv)
     config.floppy_speed = floppy_speed;
     config.floppy_drives = floppy_drives;
     config.hdf_controller = hdf_controller;
+    config.cd_controller = cd_controller;
     config.video_resolution = video_resolution;
     config.video_line_mode = video_line_mode;
     config.cpu_model = cpu_model;

@@ -141,7 +141,11 @@ internal static unsafe partial class Program
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
 			Firmware = File.ReadAllBytes(options["firmware"]), RomKey = options.TryGetValue("romkey", out var key) ? File.ReadAllBytes(key) : null, SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
-			Settings = new Puae6Settings { DriveSoundVolume = (Puae6DriveSoundVolume)int.Parse(options.GetValueOrDefault("drivevolume", "0")) },
+			Settings = new Puae6Settings
+			{
+				DriveSoundVolume = (Puae6DriveSoundVolume)int.Parse(options.GetValueOrDefault("drivevolume", "0")),
+				CdVolume = int.Parse(options.GetValueOrDefault("cdvolume", "100")),
+			},
 			WhdLoadProvider = options.TryGetValue("whdprovider", out var provider) ? File.ReadAllBytes(provider) : null,
 		});
 	}
@@ -162,6 +166,7 @@ internal static unsafe partial class Program
 		{
 			Region = options.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL,
 			ControllerPort1 = mouse ? Puae6Port1.Mouse : Puae6Port1.Joystick,
+			MouseSpeed = int.Parse(options.GetValueOrDefault("mousespeed", "100")),
 		};
 		using var core = MakeCore(options, settings);
 		var controller = new ScriptedController(core.ControllerDefinition);
@@ -198,6 +203,8 @@ internal static unsafe partial class Program
 		};
 		using var core = MakeCore(options, settings);
 		var controller = new ScriptedController(core.ControllerDefinition);
+		int callbacks = 0;
+		core.InputCallbacks.Add(() => ++callbacks);
 		(int From, int To)? silent = options.TryGetValue("silent", out var range) ? (int.Parse(range.Split('-')[0]), int.Parse(range.Split('-')[1])) : null;
 		Require(core.GetVideoBuffer().Length == Puae6Core.MaxWidth * Puae6Core.MaxHeight, "the picture buffer is the profile's");
 		ulong pcm = FnvBasis, totalFrames = 0;
@@ -229,7 +236,8 @@ internal static unsafe partial class Program
 			totalFrames += (ulong)frames;
 			Require(core.BufferWidth <= Puae6Core.MaxWidth && core.BufferHeight <= Puae6Core.MaxHeight, $"unit {unit}: the picture fits the profile's buffer");
 			Console.WriteLine($"av {unit} ticks={core.CycleCount} size={core.BufferWidth}x{core.BufferHeight} virtual={core.VirtualWidth}x{core.VirtualHeight} " +
-				$"vsync={core.VsyncNumerator}/{core.VsyncDenominator} hash={hash:x16} audio={frames} pcm={unitPcm:x16} lag={(core.IsLagFrame ? 1 : 0)} light={(core.DriveLightOn ? 1 : 0)} lagcount={core.LagCount} opaque={(opaque ? 1 : 0)}");
+				$"vsync={core.VsyncNumerator}/{core.VsyncDenominator} hash={hash:x16} audio={frames} pcm={unitPcm:x16} lag={(core.IsLagFrame ? 1 : 0)} light={(core.DriveLightOn ? 1 : 0)} " +
+				$"lightenabled={(core.DriveLightEnabled ? 1 : 0)} callbacks={callbacks} lagcount={core.LagCount} opaque={(opaque ? 1 : 0)}");
 		}
 		Console.WriteLine($"audio frames={totalFrames} hash={pcm:x16}");
 		Console.WriteLine($"region={core.Region} system={core.SystemId} deterministic={core.DeterministicEmulation}");
@@ -248,7 +256,8 @@ internal static unsafe partial class Program
 			SlowMemory = Enum.Parse<Puae6Slow>(options.GetValueOrDefault("slow", "Auto")),
 			FastMemory = Enum.Parse<Puae6Fast>(options.GetValueOrDefault("fast", "Auto")),
 		};
-		using var core = MakeCore(options, settings);
+		var hardFiles = options.TryGetValue("hdf", out var hard) ? hard.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
+		using var core = MakeCore(options, settings, hardFiles: hardFiles);
 		var domains = core.ServiceProvider.GetService<IMemoryDomains>()!;
 		var names = domains.Select(d => d.Name).ToList();
 		Console.WriteLine("domains " + string.Join(',', names));
@@ -256,8 +265,10 @@ internal static unsafe partial class Program
 		foreach (var d in domains.Where(d => d.Name != "Waterbox PageData"))
 		{
 			Require(d.Size > 0, $"{d.Name}: not empty ({d.Size} bytes)");
-			Require(d.EndianType == MemoryDomain.Endian.Big && d.WordSize == 2, $"{d.Name}: big endian, 16-bit words");
-			Require(d.Writable == (d.Name != "ROM"), $"{d.Name}: writable only if it is RAM");
+			bool hdf = d.Name.StartsWith("Hard Disk ", StringComparison.Ordinal);
+			Require(hdf ? d.WordSize == 1 : d.EndianType == MemoryDomain.Endian.Big && d.WordSize == 2,
+				$"{d.Name}: hard files are bytes and machine areas are big endian 16-bit words");
+			Require(d.Writable == (d.Name != "ROM"), $"{d.Name}: writable unless it is ROM");
 			Console.WriteLine($"domain {d.Name} size={d.Size} writable={d.Writable}");
 		}
 		var chip = domains["Chip RAM"]!;

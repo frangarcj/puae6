@@ -100,7 +100,7 @@ class CoreTests(unittest.TestCase):
         self.assertNotIn("FAIL", result.stdout)
         return result.stdout
 
-    def play(self, script, units, rom="input_all", standard="pal", port1="mouse", power_at=(), seed=None):
+    def play(self, script, units, rom="input_all", standard="pal", port1="mouse", power_at=(), seed=None, mouse_speed=100):
         path = self.dir / "script.txt"
         path.write_text("\n".join(script) + "\n")
         args = ["--firmware", str(self.dir / f"{rom}.rom"), "--script", str(path), "--units", str(units), "--port1", port1]
@@ -110,6 +110,8 @@ class CoreTests(unittest.TestCase):
             args += ["--power-at", ",".join(map(str, power_at))]
         if seed is not None:
             args += ["--seed", str(seed)]
+        if mouse_speed != 100:
+            args += ["--mousespeed", str(mouse_speed)]
         out = self.core("play", *args)
         words = [int(w, 16) for w in re.search(r"^log (.*)$", out, re.M)[1].split()]
         ticks = [int(m) for m in re.findall(r"^unit \d+ ticks=(\d+)", out, re.M)]
@@ -118,8 +120,8 @@ class CoreTests(unittest.TestCase):
     def native(self, script, units, standard="pal", resets=()):
         return Run(self.trace, self.dir / "input_all.rom", script, units, list(resets), standard=standard)
 
-    def assertSameMachine(self, script, units, standard="pal", port1="mouse", native_script=None, resets=(), power_at=()):
-        words, ticks = self.play(script, units, standard=standard, port1=port1, power_at=power_at)
+    def assertSameMachine(self, script, units, standard="pal", port1="mouse", native_script=None, resets=(), power_at=(), mouse_speed=100):
+        words, ticks = self.play(script, units, standard=standard, port1=port1, power_at=power_at, mouse_speed=mouse_speed)
         run = self.native(native_script or script, units, standard, resets)
         expected = image_of(run, units, resets)
         self.assertGreater(len(expected), 40)
@@ -152,6 +154,19 @@ class CoreTests(unittest.TestCase):
         wide = [line(p0=(MOUSE, 0, 300 if u == 5 else 0, -150 if u == 5 else 0), p1=(JOYSTICK, 0, 0, 0)) for u in range(1, 15)]
         spread = [line(p0=(MOUSE, 0, {5: 120, 6: 120, 7: 60}.get(u, 0), {5: -120, 6: -30}.get(u, 0)), p1=(JOYSTICK, 0, 0, 0)) for u in range(1, 15)]
         self.assertSameMachine(wide, 14, native_script=spread)
+
+    def test_mouse_speed_uses_integer_remainders_before_the_120_count_cap(self):
+        cases = {
+            50: ([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0]),
+            150: ([0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0], [0, 0, 0, 1, 2, 1, 2, 1, 2, 0, 0]),
+            333: ([0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 120, 46, 0, 0, 0, 0, 0, 0]),
+            1000: ([0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 120, 120, 60, 0, 0, 0, 0, 0]),
+        }
+        for speed, (raw, scaled) in cases.items():
+            with self.subTest(speed=speed):
+                host = [line(p0=(MOUSE, 0, dx, -dx), p1=(JOYSTICK, 0, 0, 0)) for dx in raw]
+                native = [line(p0=(MOUSE, 0, dx, -dx), p1=(JOYSTICK, 0, 0, 0)) for dx in scaled]
+                self.assertSameMachine(host, len(host), native_script=native, mouse_speed=speed)
 
     def test_power_is_a_hard_reset_that_keeps_the_counters_going(self):
         script = [line(**IDLE)] * 20
@@ -290,10 +305,19 @@ class CoreTests(unittest.TestCase):
     def test_lag_follows_the_guests_reads_and_the_drive_light_follows_the_motor(self):
         rows, _ = self.av("lace", 6)                         # reads no input register and has no motor on
         self.assertTrue(all(r["lag"] == "1" and r["light"] == "0" for r in rows))
+        self.assertTrue(all(r["callbacks"] == "0" and r["lightenabled"] == "1" for r in rows))
         self.assertEqual(["1", "2", "3", "4", "5", "6"], [r["lagcount"] for r in rows])
         rows, _ = self.av("disk", 6)                         # reads PRA at every vertical blank and switches the motor on
         self.assertTrue(all(r["lag"] == "0" and r["light"] == "1" for r in rows[1:]))
         self.assertEqual("0", rows[-1]["lagcount"])
+        callbacks = 0
+        for row in rows:
+            callbacks += row["lag"] == "0"
+            self.assertEqual(str(callbacks), row["callbacks"], "one host callback follows each unit that read input")
+        quiet, _ = self.av("disk", 6, "--silent", "2-5")
+        self.assertEqual([(r["ticks"], r["lag"], r["light"], r["callbacks"]) for r in rows],
+                         [(r["ticks"], r["lag"], r["light"], r["callbacks"]) for r in quiet],
+                         "suppressing output does not change polling notifications or the machine")
 
     # --- WB04 ---------------------------------------------------------------------------------------------------------------------------
 

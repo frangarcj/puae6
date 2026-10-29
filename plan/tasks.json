@@ -7478,6 +7478,7 @@
         "docs/07-machawk.md"
       ],
       "touch": [
+        "adapters/libretro/options_generated.h",
         "integration/bizhawk/core/**",
         "integration/bizhawk/patches/**",
         "tests/ffi/**",
@@ -21080,6 +21081,7 @@
         "config/schema/**",
         "tests/config/**",
         "tests/ffi/**",
+        "tests/hdf/ide_rom.py",
         "tests/waterbox-state/**",
         "tests/waterbox-smoke/**",
         "manifests/waterbox-memory.json",
@@ -25633,6 +25635,588 @@
         "La nueva preview Windows x64 pasa el workflow real, queda fusionada y publicada; el paquete Darwin ARM64 y las fuentes correspondientes quedan fijados al mismo cambio sin tocar el checkout hermano."
       ],
       "stop": "Tras dos intentos razonados del mismo fallo, conservar el reproducer y dos hipotesis; no falsear cero como dos unidades ni declarar corregido el audio solo porque compila."
+    },
+    {
+      "id": "T84",
+      "title": "Cerrar la paridad de interfaz PUAE6 frente al UAE5 de MacHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84a",
+        "T84b",
+        "T84c",
+        "T84d",
+        "T84e",
+        "T84f"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "ports/portable/**",
+        "adapters/waterbox/**",
+        "integration/bizhawk/**",
+        "config/**",
+        "tests/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/user/waterbox-preview.md",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "tests/reference/patch-classes.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Peticion del usuario de 2026-10-29: completar todos los huecos clasificados como nos falta y hacemos mal frente al UAE5 del MacHawk fijado: CD mezclado y controlador seleccionable, volumen CDDA, sensibilidad de raton, dominio HDF, callbacks de entrada, luz de unidad y validacion de sensores opticos.",
+        "Dividir en verticales con estado y pruebas propios. No presentar una opcion de UI antes de que su backend, identidad, snapshots y peliculas esten cerrados; conservar UAE y PUAE6 como cores distintos.",
+        "T84a corrige el contrato del wrapper; T84b volumen CDDA; T84c raton; T84d dominio HDF; T84e backend CD mixto/IDE; T84f loader, ajustes y peliculas BizHawk. El cierre ejecuta solo la union acumulada que cambie respecto a las hojas.",
+        "No recuperar globals ni callbacks por acceso del UAE5: las notificaciones al host se emiten despues de p6_run_frame y el CD mixto usa el scheduler, estado y transporte comunes de PUAE6.",
+        "Al integrar, clasificar de forma acumulada los parches 0417 en adelante que estas verticales añadieron y ejecutar REF01; ninguna hoja puede dejar la serie fuera del contrato de referencia.",
+        "Cierre 2026-10-29: IN01, AV02, MED02, DET02, WB03, BUILD01 y REF01 pasan con todas sus aserciones ejecutadas. Los parches 0417-0426 quedan clasificados; el compositor FMV se ablate como comportamiento inerte y los contratos de ownership/gain compartidos se retienen por dependencias explicitas. El lifecycle prueba el alias ABI CdController y su primer valor fuera de rango."
+      ],
+      "checks": [
+        "IN01",
+        "AV02",
+        "MED02",
+        "DET02",
+        "WB03",
+        "BUILD01",
+        "REF01"
+      ],
+      "acceptance": [
+        "La interfaz BizHawk ofrece las capacidades enumeradas con comportamiento determinista, estados y peliculas coherentes y errores tempranos; luz y callbacks describen lo que la maquina hizo.",
+        "La paridad no reintroduce CAPSImg, punteros persistentes al guest, acceso host por MMIO ni compatibilidad falsa de estados con UAE5."
+      ],
+      "stop": "Tras dos intentos razonados de un mismo fallo, conservar el reproducer y dos hipotesis en la vertical correspondiente; no ocultar una capacidad incompleta en la UI."
+    },
+    {
+      "id": "T84a",
+      "title": "Corregir luz, callbacks de entrada y conflicto optico en el wrapper BizHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T20",
+        "T70",
+        "T82m"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "P6_FRAME_DRIVE_LIGHT solo acredita actividad de disquete: DriveLightEnabled es true unicamente si la maquina tiene disqueteras y DriveLightIconDescription conserva esa etiqueta; CD32/CDTV no anuncian una luz hasta disponer de una señal CD causal.",
+        "Despues de una unidad sin P6_FRAME_LAG, que indica que el invitado consulto entrada, disparar InputCallbacks una sola vez desde C#, nunca desde MMIO ni desde dentro del guest. Render/audio off no cambian el resultado.",
+        "Rechazar al aplicar SyncSettings dos sensores opticos simultaneos, con un mensaje previo al reinicio y sin reemplazar la configuracion pendiente; describir la restriccion en ambas propiedades. El constructor conserva la defensa.",
+        "Probar el contrato ISettable/IInputPollable/IDriveLight real, estados y dos sandboxes; las mutaciones de callback en cada frame, callback en lag, icono incorrecto o settings parcialmente aplicados deben fallar."
+      ],
+      "checks": [
+        "IN01",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Las herramientas reciben exactamente una notificacion por unidad que consulto entrada, sin cambiar lag, ticks ni futuro; la luz se anuncia solo con disqueteras y su etiqueta describe la señal acreditada.",
+        "El PropertyGrid no puede dejar pendiente una configuracion con dos sensores opticos y explica la restriccion."
+      ],
+      "stop": "No callback host por lectura ni inferir actividad desde el input enviado; usar solo el resultado causal de la unidad."
+    },
+    {
+      "id": "T84b",
+      "title": "Volumen CDDA de presentacion en PUAE6 y BizHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T66",
+        "T84a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/frame_step.cpp",
+        "patches/winuae/**",
+        "ports/portable/**",
+        "adapters/waterbox/**",
+        "adapters/libretro/options_generated.h",
+        "integration/bizhawk/core/**",
+        "config/**",
+        "tests/audio/**",
+        "tests/config/**",
+        "tests/host/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tests/media/csharp-disc/**",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Modificar el mezclador WinUAE exclusivamente mediante patches/winuae: el aporte CDDA debe distinguirse de Paula y de FMV antes de la mezcla comun.",
+        "Añadir volumen CDDA 0..100 como ajuste de presentacion en vivo, separado de Paula y del volumen mecanico. Silenciar no detiene ni altera fase, DMA, subcanal o estado del reproductor.",
+        "Aplicar ganancia determinista al aporte CDDA antes de la mezcla final con redondeo definido; cambiar el ajuste no entra en identidad ni en estado y una carga conserva el valor actual del usuario.",
+        "Exponerlo en p6_run_frame/p6w sin romper ABI y en Puae6Settings con la misma UX que UAE5; probar 0, 1, 50 y 100, cambio en vivo, restore y ausencia de CD."
+      ],
+      "checks": [
+        "AV02",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "BizHawk controla CDDA de 0 a 100 sin cambiar Paula ni el futuro emulado; 100 conserva el PCM anterior y 0 conserva fase con aporte CDDA nulo."
+      ],
+      "stop": "No guardar una preferencia de presentacion dentro del snapshot ni cambiar hashes hardware para aceptar una ganancia incorrecta."
+    },
+    {
+      "id": "T84c",
+      "title": "Sensibilidad de raton BizHawk con resto causal y peliculas",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T70b",
+        "T84a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/Controllers.cs",
+        "integration/bizhawk/core/Puae6/StateEnvelope.cs",
+        "config/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "tests/bizhawk-movies/**",
+        "docs/02-contracts.md",
+        "manifests/state-inventory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Ofrecer Mouse speed 1..1000 por ciento como sync setting BizHawk, 100 por defecto. Escalar deltas con enteros y resto por raton antes del limite de 120, sin perder movimiento.",
+        "Guardar referencias y restos de ambos ratones en el wrapper, identidad y peliculas; restore, cambio de puerto y dos sandboxes no heredan fracciones ajenas.",
+        "Reutilizar la semantica ya probada del mapper libretro sin convertir posiciones absolutas en velocidad dependiente del host."
+      ],
+      "checks": [
+        "IN01",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Una trayectoria y porcentaje dados producen los mismos deltas, estado y pelicula en procesos nuevos; 100 conserva exactamente la salida actual."
+      ],
+      "stop": "No usar floats ni descartar el resto o movimiento que excede 120 cuentas por unidad."
+    },
+    {
+      "id": "T84d",
+      "title": "Dominios HDF editables y restaurables en BizHawk",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T29",
+        "T63b"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/media.cpp",
+        "bridge/state_hdf.cpp",
+        "adapters/waterbox/**",
+        "integration/bizhawk/core/**",
+        "tests/media/**",
+        "tests/ffi/**",
+        "tests/waterbox-state/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Exponer cada HDF como dominio BizHawk de bytes mediante function hooks: lecturas ven base mas overlay y escrituras crean el mismo overlay causal que el dispositivo, nunca mutan el fichero/base.",
+        "Validar rango, indice y overflow dentro del guest; no conservar punteros managed o al blob entre llamadas. Las escrituras de herramientas viajan en snapshots, SaveRAM y restauracion en sandbox nuevo.",
+        "Probar dominios multiples, imagen no multiplo de pagina, poke mientras el disco esta montado, rollback y aislamiento."
+      ],
+      "checks": [
+        "MED02",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Hex Editor y herramientas BizHawk leen y escriben el contenido HDF actual sin tocar la base; estados, SaveRAM y procesos nuevos observan exactamente esos bytes."
+      ],
+      "stop": "No presentar el HDF como RAM Amiga ni escribir el fichero host desde el sandbox."
+    },
+    {
+      "id": "T84e",
+      "title": "Backend CD seleccionable y convivencia con disquete HDF y volumen",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84e1",
+        "T84e2",
+        "T84e3",
+        "T84e4"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "ports/portable/**",
+        "adapters/waterbox/**",
+        "patches/winuae/**",
+        "tests/media/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-media/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "manifests/host-surface.json",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Añadir seleccion neutral de controlador CD: ninguno, integrado CD32, integrado CDTV o IDE en maquinas con Gayle/A4000, sin convertir un CD en la identidad de otra maquina por atajo.",
+        "Permitir un catalogo CD junto a ADF, HDF y volumen: todos los medios conservan indices, identidad, ownership, eventos y overlays; el servicio CD sigue cooperativo dentro del scheduler.",
+        "IDE CD convive con HDF y restaura comandos, DMA, CDDA, presencia y seleccion en proceso nuevo. Combinaciones imposibles fallan antes de cargar y no hacen fallback a otro modelo.",
+        "Verticales T84e1..T84e4: selector/topologia, transporte ATAPI, estado nativo y convivencia Waterbox. No copiar la capa de argumentos de UAE5."
+      ],
+      "checks": [
+        "MED02",
+        "DET02",
+        "WB03"
+      ],
+      "acceptance": [
+        "CD32/CDTV/IDE/None tienen semantica explicita y un CD puede convivir con los otros medios soportados sin perder determinismo, estados, escritura ni cambio de disco."
+      ],
+      "stop": "Sin hilos, callbacks host por sector, filesystem host ni stubs de IDE/CD que devuelvan exito."
+    },
+    {
+      "id": "T84e1",
+      "title": "Selector neutral de controlador CD y topologias validas",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T56",
+        "T66",
+        "T67",
+        "T84b"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "tests/media/**",
+        "tests/state/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "manifests/host-surface.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Consumir un byte reservado de p6_config sin cambiar su tamaño para Auto legado, None, CD32 integrado, CDTV integrado e IDE; resolverlo a una topologia concreta antes de tocar el motor.",
+        "Aceptar cada integrado solo en su placa y IDE solo donde existe el puerto soportado (Gayle A600/A1200 o A4000); None desactiva el controlador sin fingir una unidad. Rechazar valores y combinaciones imposibles con mensaje, sin fallback.",
+        "Incluir la topologia efectiva en identidad/config hash solo cuando difiere del perfil historico; los ceros de clientes antiguos conservan exactamente identidad y preferencias.",
+        "Exponer al resto del backend una consulta unica de topologia; no añadir aun UI, ATAPI ni un dispositivo que devuelva exito."
+      ],
+      "checks": [
+        "MED02",
+        "DET02"
+      ],
+      "acceptance": [
+        "La misma configuracion siempre resuelve el mismo controlador, None carece de hardware CD y toda topologia incompatible falla antes de load sin mutar la sesion.",
+        "Una configuracion ABI anterior llena de ceros conserva hashes, preferencias, estados y futuros existentes."
+      ],
+      "stop": "No elegir otra maquina/controlador para hacer valida una peticion ni habilitar ATAPI con un stub."
+    },
+    {
+      "id": "T84e2",
+      "title": "Transporte IDE ATAPI cooperativo para CD",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84e1"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/ide_units.h",
+        "bridge/media.cpp",
+        "ports/portable/media/**",
+        "patches/winuae/**",
+        "tests/media/**",
+        "docs/02-contracts.md",
+        "manifests/host-surface.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Añadir una unidad UAEDEV_CD al puerto IDE seleccionado y un subconjunto ATAPI explicito que cubra identidad, TUR, sense, capacidad, TOC/subcanal, lectura y play/pause/stop sobre p6_cd::Disc/CDA; comandos no soportados devuelven CHECK CONDITION.",
+        "Servir PACKET y datos de forma cooperativa en fronteras/ciclos emulados, sin hilo, sleep, filesystem ni callback host por sector; usar la fuente ya enlazada y sus lecturas acotadas.",
+        "Conservar hasta cuatro HDF en slots restantes y el orden master/slave/splitter; conflictos de slot y falta de fuente se rechazan antes de arrancar.",
+        "Probar comandos cortos/largos, errores, cambio de medio, HDF simultaneo y CDDA con el reloj comun."
+      ],
+      "checks": [
+        "MED02"
+      ],
+      "acceptance": [
+        "Un invitado por IDE identifica, lee y reproduce el mismo CD que CD32/CDTV y un HDF simultaneo conserva sus bytes; ninguna respuesta depende de un hilo o reloj host."
+      ],
+      "stop": "No compilar el SCSI host completo ni devolver GOOD para opcodes que el backend no implementa."
+    },
+    {
+      "id": "T84e3",
+      "title": "Estado nativo e identidad de CD IDE",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84e2"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/state_hdf.cpp",
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "bridge/state_upstream.cpp",
+        "bridge/ide_units.h",
+        "patches/winuae/**",
+        "tests/state/**",
+        "tests/media/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Serializar semanticamente registros ATA/ATAPI, packet y data cursors, buffer causal, sense, comando pendiente y enlace al ordinal CD; nunca punteros, rutas ni padding.",
+        "Cruzar la topologia y el catalogo inmutable con la identidad antes del commit; rebind derivado tras restore no adelanta comando, DMA, CDDA ni reloj.",
+        "Probar cortes durante command/data/CDDA, presencia y seleccion, junto a HDF, en mismo proceso y proceso nuevo; candidatos corruptos se rechazan transaccionalmente."
+      ],
+      "checks": [
+        "DET02"
+      ],
+      "acceptance": [
+        "Cada corte ATAPI produce futuro, PCM, medio y estado identicos tras restore local y frio; otro catalogo/topologia se rechaza intacto."
+      ],
+      "stop": "No guardar struct ide_hdf cruda ni punteros a Disc/callback/sector buffer."
+    },
+    {
+      "id": "T84e4",
+      "title": "Catalogo CD mixto y restore en Waterbox",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84e3"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "bridge/**",
+        "adapters/waterbox/**",
+        "tests/media/**",
+        "tests/waterbox-state/**",
+        "tests/waterbox-media/**",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "manifests/state-inventory.json",
+        "manifests/host-surface.json",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Permitir que el catalogo CD fijo se enlace junto al manifiesto ADF/HDF/volumen y activarlo segun la topologia efectiva, manteniendo separados indices de disquete, HDF y ordinales CD.",
+        "Aplicar cambio de CD en la frontera comun sin cancelar transferencias; todos los medios conservan ownership, overlays, SaveRAM y eventos independientes.",
+        "Probar CD+ADF, CD+dos HDF y CD+volumen, cambio/presencia, snapshot local, sandbox nuevo y proceso nuevo; bases host y callbacks quedan inmutables/acotados.",
+        "Regrabar las 16 medidas Waterbox como una unidad si cambia el guest."
+      ],
+      "checks": [
+        "MED02",
+        "WB03"
+      ],
+      "acceptance": [
+        "Waterbox restaura exactamente una maquina con catalogo CD y otros medios simultaneos; indices, overlays, presencia, CDDA y futuros no se contaminan ni escriben el host."
+      ],
+      "stop": "No usar un segundo scheduler, callbacks por sector ni mezclar ordinales CD con indices p6_media."
+    },
+    {
+      "id": "T84f",
+      "title": "Ajustes y loader BizHawk para CD mixto y controlador explicito",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T84c",
+        "T84d",
+        "T84e"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md"
+      ],
+      "touch": [
+        "adapters/headless/main.cpp",
+        "adapters/libretro/options_generated.h",
+        "integration/bizhawk/core/**",
+        "integration/bizhawk/patches/**",
+        "config/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/hdf/ide_rom.py",
+        "tests/waterbox-state/**",
+        "tests/bizhawk-movies/**",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Ofrecer CdController Auto/CD32/IDE/None en SyncSettings. Auto conserva CD32 para CD solo y usa IDE al mezclar con HDF/WHDLoad en una maquina compatible; una seleccion explicita nunca cambia silenciosamente de maquina.",
+        "Quitar el rechazo lp.Discs+lp.Roms y construir un manifiesto combinado con nombres/identidades estables. La UI y el cargador explican combinaciones no soportadas antes de crear el sandbox.",
+        "Grabar settings, cambios de CD, SaveRAM y estado inicial en BK2/TAS; probar mezcla CD+ADF, CD+HDF y CD+WHDLoad, reapertura con preferencia de core contraria y dos sandboxes.",
+        "Actualizar la preview solo despues del gate EmuHawk real; UAE5 sigue siendo core separado y no se convierten sus peliculas.",
+        "Cierre 2026-10-29: MED02, WB03 y BUILD01 pasan con el guest Waterbox 639509037aa0 y el arbol EmuHawk final 4bc2fcd3d7dd; BK2/TAS y estado inicial cubren CD+ADF+HDF+volumen, cambios de bandeja, SaveRAM, overlays, sandbox/proceso nuevos y rechazo transaccional de cada medio."
+      ],
+      "checks": [
+        "MED02",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "El usuario puede elegir controlador y abrir combinaciones CD+ADF/HDF/WHDLoad; estados y peliculas reabren la misma topologia y rechazan otra con un motivo concreto."
+      ],
+      "stop": "No auto-cambiar a CD32 cuando el usuario eligio otra maquina/controlador ni publicar una opcion cuyo backend no haya pasado Waterbox real."
+    },
+    {
+      "id": "T85a",
+      "title": "Regresion CD32 FMV tras el selector de controlador CD",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T43f2",
+        "T84f"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/waterbox-media/test_cd_source.py"
+      ],
+      "touch": [
+        "tests/media/csharp-disc/Cd32Loader.cs",
+        "tests/waterbox-media/test_cd_source.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Conservar el preflight CD32 que rechaza mas de16 discos y una mezcla CD+disquete imposible antes de pedir firmware, pero aceptar el tipo de error concreto del nuevo resolver Auto/IDE.",
+        "Ejecutar el FMV real de Cannon Fodder por el loader publico BizHawk sin bypass ni copia modificada, con save/load, sandbox y proceso nuevos.",
+        "Repetir las regresiones publicas CD32 y del selector mixto afectadas; no cambiar la politica de maquina/controlador para hacer pasar el harness."
+      ],
+      "checks": [
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "WB03/T43f2 alcanza el FMV real y conserva pixels, PCM, ticks y snapshot exactos en sandbox y proceso nuevos sin abortar en su preflight negativo.",
+        "El rechazo de una topologia imposible sigue comprobando el error esperado antes de pedir firmware y las combinaciones validas de T84f no retroceden."
+      ],
+      "stop": "No relajar el rechazo de topologias ni capturar cualquier excepcion; comprobar clase y mensaje del fallo esperado."
+    },
+    {
+      "id": "T85b",
+      "title": "Aceptacion IPF real independiente del contenido del juego",
+      "milestone": "M4",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T58",
+        "T85a"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "tests/media/ipf_boot.py",
+        "tests/waterbox-media/test_ipf_boot.py"
+      ],
+      "touch": [
+        "tests/waterbox-media/test_ipf_boot.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Reemplazar el umbral de colores dependiente de un juego por un oraculo que compare el framebuffer final del IPF real con el mismo Kickstart sin disco en la misma unidad temporal.",
+        "Conservar para el IPF sintetico el marcador de boot block y su raster controlado; ambos caminos deben restaurar exactamente en sandbox y proceso nuevos.",
+        "Ejecutar decoder/engine, restore libretro, fuzz IPF/trackdisk y Waterbox real con activos externos de solo lectura."
+      ],
+      "checks": [
+        "MED01",
+        "DET02",
+        "FUZZ01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Qwak y Superfrog pueden mostrar cualquier paleta valida: el test acredita que el IPF cambia la pantalla respecto al arranque sin disco y que su futuro restaurado es exacto.",
+        "El IPF sintetico sigue demostrando ejecucion del boot block, raster propio y restore exacto; decoder y engine conservan fuzzing y formatos invalidos."
+      ],
+      "stop": "No bajar una tolerancia ni fijar hashes de un juego para hacer pasar el gate; usar una comparacion causal independiente del contenido comercial."
     },
     {
       "id": "T55c12",

@@ -76,7 +76,7 @@ public sealed class Puae6Parameters
 		return id;
 	}
 
-	internal void ValidateCd()
+	internal void ValidateCdBinding()
 	{
 		int single = (CdInfo.HasValue ? 1 : 0) + (CdInfoV2.HasValue ? 1 : 0) + (CdInfoV3.HasValue ? 1 : 0);
 		int catalog = (CdCatalog is not null ? 1 : 0) + (CdCatalogV2 is not null ? 1 : 0) + (CdCatalogV3 is not null ? 1 : 0);
@@ -94,9 +94,40 @@ public sealed class Puae6Parameters
 			if (Enumerable.Range(0, CdCount).Select(n => BitConverter.ToString(CatalogId(n))).Distinct().ToArray().Length != CdCount)
 				throw new InvalidOperationException("CD catalog IDs must be unique");
 		}
-		if (SyncSettings.Machine == Puae6Machine.CDTV)
+	}
+
+	static bool IdeCdMachine(Puae6Machine machine) => machine is Puae6Machine.A600 or Puae6Machine.A1200 or Puae6Machine.A4030 or Puae6Machine.A4040;
+
+	/// <summary>Resolve the public Auto policy and reject impossible media/topology combinations before a sandbox is created.</summary>
+	internal Puae6SyncSettings ResolveCdSettings(Puae6SyncSettings requested)
+	{
+		ValidateCdBinding();
+		var s = requested.Clone();
+		if (!Enum.IsDefined(typeof(Puae6CdController), s.CdController))
+			throw new InvalidOperationException("unknown CD controller");
+		bool cd = CdCount != 0;
+		bool mixed = Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0;
+		switch (s.CdController)
 		{
-			var s = SyncSettings;
+			case Puae6CdController.Auto when cd && mixed:
+				if (!IdeCdMachine(s.Machine))
+					throw new InvalidOperationException("Automatic mixed CD media requires A600, A1200, A4030 or A4040 so the CD can use IDE");
+				s.CdController = Puae6CdController.Ide;
+				break;
+			case Puae6CdController.Auto when cd && s.Machine != Puae6Machine.CDTV:
+				s.Machine = Puae6Machine.CD32;
+				break;
+			case Puae6CdController.None when cd:
+				throw new InvalidOperationException("CD content cannot be loaded while the CD controller is None");
+			case Puae6CdController.Cd32 when s.Machine != Puae6Machine.CD32:
+				throw new InvalidOperationException("the explicit CD32 controller requires the CD32 machine; the selected machine is not changed");
+			case Puae6CdController.Ide when !cd:
+				throw new InvalidOperationException("the IDE CD controller requires a fixed CD source at load");
+			case Puae6CdController.Ide when !IdeCdMachine(s.Machine):
+				throw new InvalidOperationException("the explicit IDE CD controller requires A600, A1200, A4030 or A4040; the selected machine is not changed");
+		}
+		if (s.Machine == Puae6Machine.CDTV)
+		{
 			if (Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || s.PhysicalFloppyDrives != Puae6FloppyDrives.Auto
 				|| s.FloppyWrites || s.Cartridge != Puae6Cartridge.Disabled || s.CpuCompatibility != Puae6CpuCompatibility.Exact
 				|| s.CpuModel is not (Puae6Cpu.Auto or Puae6Cpu.M68000) || s.CpuMultiplier is not (Puae6CpuClock.Auto or Puae6CpuClock.X2)
@@ -104,11 +135,13 @@ public sealed class Puae6Parameters
 				|| s.FastMemory is not (Puae6Fast.Auto or Puae6Fast.None) || s.FpuModel != Puae6Fpu.None || s.Z3Memory != Puae6Z3Memory.None
 				|| s.HdfController != Puae6HdfController.Uae)
 				throw new InvalidOperationException("CDTV requires stock exact 68000, 1 MiB Chip, no expansions or floppy drives");
-			return;
 		}
-		if ((cd || SyncSettings.Machine == Puae6Machine.CD32) && (SyncSettings.Machine != Puae6Machine.CD32
-			|| Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || SyncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
+		if (s.Machine == Puae6Machine.CD32
+			&& (Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0 || s.PhysicalFloppyDrives != Puae6FloppyDrives.Auto))
 			throw new InvalidOperationException("CD32 requires its own model with no floppy drives, hard files or volumes");
+		if (s.CdController == Puae6CdController.Ide && s.HdfController == Puae6HdfController.Ide && HardFiles.Count + Volumes.Count > 3)
+			throw new InvalidOperationException("an IDE CD and four IDE hard files exceed the four physical IDE slots");
+		return s;
 	}
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
 	public Puae6Settings Settings { get; set; } = new();
@@ -268,6 +301,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 
 	// The controller of the hard files (T56): the numbers of config/schema/options.json (0 the UAE controller, 1 the IDE port of Gayle).
 	static byte HdfControllerNumber(Puae6HdfController controller) => controller switch { Puae6HdfController.Ide => (byte)1, _ => (byte)0 };
+	static byte CdControllerNumber(Puae6CdController controller) => controller switch { Puae6CdController.None => (byte)1, Puae6CdController.Cd32 => (byte)2, Puae6CdController.Ide => (byte)4, _ => (byte)0 };
 
 	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, Puae6Fpu.M68040 => 68040u, Puae6Fpu.M68060 => 68060u, _ => 0u };
 
@@ -341,8 +375,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// What the wrapper knows that the machine does not: all of it is causal (it decides what the next p6_input holds) and is saved with the state.
 	bool _mouseKnown;
 	int _mouseReferenceX, _mouseReferenceY;     // the position the machine was last told about
+	int _mouseRemainderX, _mouseRemainderY;     // hundredths of a scaled count not yet sent
 	bool _mouse2Known;
 	int _mouse2ReferenceX, _mouse2ReferenceY;
+	int _mouse2RemainderX, _mouse2RemainderY;
 	bool _capsLatched, _capsHeld;               // the Caps Lock latch, and whether the button was down in the previous frame
 	// Media: the disk in each drive (an index into the media, -1 empty), what Next Drive and Next Slot selected, whether each disk button was down in the
 	// previous frame (a press is an edge: a held button does not repeat) and the last sequence number given to the machine, which only ever grows.
@@ -381,6 +417,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		CoreComm = comm;
 		parameters = Puae6WhdLoad.Resolve(parameters);
 		parameters = Puae6Volumes.Resolve(parameters);
+		parameters.SyncSettings = parameters.ResolveCdSettings(parameters.SyncSettings);
 		_syncSettings = parameters.SyncSettings.Clone();
 		ValidateCartridge(_syncSettings, parameters.CartridgeFirmware, parameters.CdCount != 0);
 		_settings = parameters.Settings.Clone();
@@ -442,6 +479,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			_mediaSequence = 0;
 			for (int i = 0; i < Drives; ++i) _driveDisk[i] = -1;
 			_imported = imported;
+			if (cd is not null && _syncSettings.CdController == Puae6CdController.Ide) guest.BindCdBeforeLoad();
 			InitializeMachine(_parameters.Firmware, guestMedia, guestHardFiles);
 			MountBootDisks();
 			var identity = MakeIdentity(_parameters.Firmware);
@@ -503,6 +541,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.CollisionLevel = CollisionLevelNumber(_syncSettings.CollisionLevel);
 		init.Config.CpuMultiplier = CpuMultiplierNumber(_syncSettings.CpuMultiplier);
 		init.Config.HdfController = HdfControllerNumber(_syncSettings.HdfController);
+		init.Config.CdController = CdControllerNumber(_syncSettings.CdController);
 		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
 		init.Config.SoundInterpolation = SoundInterpolationNumber(_syncSettings.SoundInterpolation);
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
@@ -653,6 +692,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// And for the controller of the hard files (T56): the native config hash derives from it only while a hard file is behind the IDE (Gayle is never emulated with nothing attached); the text names
 		// the setting whenever it is off Uae, which is stricter (it also tells Ide with no hard file from the default) and never looser.
 		if (_syncSettings.HdfController != Puae6HdfController.Uae) memory += ";hdfcontroller=" + _syncSettings.HdfController;
+		if (_syncSettings.CdController != Puae6CdController.Auto) memory += ";cdcontroller=" + _syncSettings.CdController;
 		// And for Paula's output (T73a): the native state's config hash carries the four options when one is off the profile's setting, and the samples a state goes on to produce depend on them. A core at the
 		// profile's settings keeps the identity it always had; the text names only what differs, so it is stricter than the native hash (which also equates A500 with Auto on an A500) and never looser.
 		string sound = (_syncSettings.SoundSeparation != Puae6SoundSeparation.P70 ? ",separation=" + _syncSettings.SoundSeparation : "") +
@@ -662,6 +702,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (sound.Length != 0) memory += ";sound=" + sound.Substring(1);
 		// And for the floppy speed (T62): the native config hash carries it off the real drive's speed, and when every transfer ends depends on it.
 		if (_syncSettings.FloppySpeed != Puae6FloppySpeed.P100) memory += ";floppyspeed=" + _syncSettings.FloppySpeed;
+		if (_syncSettings.MouseSpeed != 100) memory += ";mousespeed=" + _syncSettings.MouseSpeed;
 		if (_syncSettings.PhysicalFloppyDrives != Puae6FloppyDrives.Auto) memory += ";legacyphysicaldrives=" + ConnectedFloppyDrives;
 		// And for the raster (T72): the resolution and the line mode are the engine's own and change the picture the machine draws and the state it goes on from; a core at the profile's raster keeps its identity.
 		if (_syncSettings.VideoResolution != Puae6VideoResolution.Hires) memory += ";resolution=" + _syncSettings.VideoResolution;
@@ -694,8 +735,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			ConfigHash(_syncSettings.Machine), StateEnvelope.Sha256(firmware), StateEnvelope.Sha256(media.ToArray()), _syncSettings.Machine.ToString(), others);
 	}
 
-	// The areas of the machine (Chip RAM primary, Slow RAM, the ROM), as function hooks that run in the sandbox: the same objects BizHawk makes for
-	// its own cores, over the guest's accesses, so a poke is made by the guest and never by managed code.
+	// Machine memory followed by one byte domain per HDF, as function hooks that run in the sandbox: the same objects BizHawk makes for
+	// its own cores, over the guest's accesses, so a poke is made by the guest and never by managed code. MainMemory remains Chip RAM.
 	MemoryDomainList CreateMemoryDomains()
 	{
 		using var _ = _guest.Host.EnterExit();
@@ -710,7 +751,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		return list;
 	}
 
-	const int P6wAreaCapacity = 6;
+	const int P6wAreaCapacity = 6 + P6.MaxHardFiles;
 
 	// ----- IEmulator -----------------------------------------------------------------------------------------------------------------
 
@@ -754,7 +795,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
         if (packet.Port2.Type != 0 || packet.Port3.Type != 0 || packet.Commands != 0) { packet.Base.AbiVersion = 2; packet.Base.StructSize = (uint)sizeof(P6InputV2); }
 		_started = true;
 		var frame = new P6wFrame { AbiVersion = P6.AbiVersion, StructSize = (uint)sizeof(P6wFrame) };
-		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0) | ((uint)_settings.DriveSoundVolume << P6.RenderDriveVolumeShift);
+		uint flags = (render ? P6.RenderVideo : 0) | (renderSound ? P6.RenderAudio : 0)
+			| ((uint)_settings.DriveSoundVolume << P6.RenderDriveVolumeShift)
+			| P6.RenderCdAudioVolumeValid | ((uint)_settings.CdVolume << P6.RenderCdAudioVolumeShift);
 		using (_guest.Host.EnterExit())
 		{
 			ApplyDiskButtons(controller);
@@ -773,7 +816,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		++Frame;
 		CycleCount = (long)frame.Frame.MasterTicks;
 		if (IsLagFrame = (frame.Frame.Flags & P6.FrameLag) != 0) ++LagCount;
-		DriveLightOn = (frame.Frame.Flags & P6.FrameDriveLight) != 0;
+		DriveLightOn = DriveLightEnabled && (frame.Frame.Flags & P6.FrameDriveLight) != 0;
+		// The engine reports whether input was observed during the completed unit. Notify tools once at this safe host boundary,
+		// never from an MMIO read inside the guest; callbacks are observation only and do not affect lag or emulated time.
+		if (!IsLagFrame && InputCallbacks.Count != 0) InputCallbacks.Call();
 		return true;
 	}
 
@@ -829,9 +875,18 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		return packet;
 	}
 
-	// The mouse of BizHawk is a position; the machine takes movement. The first frame only learns where the pointer is. At most 120 counts per axis and
-	// unit reach the guest (docs/02-contracts.md): what does not fit is not lost, the reference moves only by what was sent and the rest follows.
+	// The mouse of BizHawk is a position; the machine takes movement. The first frame only learns where the pointer is. Scale with integers before the
+	// 120-count limit. Both a fractional scaled count and motion over the limit remain causal: the former in remainder, the latter in position-reference.
 	static int Clamp(int value, int low, int high) => value < low ? low : value > high ? high : value;
+	static int ScaleMouseAxis(int position, int speed, ref int reference, ref int remainder)
+	{
+		long scaled = (long)(position - reference) * speed + remainder;
+		int sent = Clamp((int)(scaled / 100), -120, 120);
+		int consumed = (int)(((long)sent * 100 - remainder) / speed);
+		reference += consumed;
+		remainder = (int)((long)remainder - (long)sent * 100 + (long)consumed * speed);
+		return sent;
+	}
 
 	P6PortInput MousePacket(IController controller, int port = 1)
 	{
@@ -846,17 +901,17 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		ref bool known = ref (port == 1 ? ref _mouseKnown : ref _mouse2Known);
 		ref int referenceX = ref (port == 1 ? ref _mouseReferenceX : ref _mouse2ReferenceX);
 		ref int referenceY = ref (port == 1 ? ref _mouseReferenceY : ref _mouse2ReferenceY);
+		ref int remainderX = ref (port == 1 ? ref _mouseRemainderX : ref _mouse2RemainderX);
+		ref int remainderY = ref (port == 1 ? ref _mouseRemainderY : ref _mouse2RemainderY);
 		if (!known)
 		{
 			known = true;
 			referenceX = x;
 			referenceY = y;
+			remainderX = remainderY = 0;
 		}
-		int dx = Clamp(x - referenceX, -120, 120), dy = Clamp(y - referenceY, -120, 120);
-		referenceX += dx;
-		referenceY += dy;
-		packet.Dx = (short)dx;
-		packet.Dy = (short)dy;
+		packet.Dx = (short)ScaleMouseAxis(x, _syncSettings.MouseSpeed, ref referenceX, ref remainderX);
+		packet.Dy = (short)ScaleMouseAxis(y, _syncSettings.MouseSpeed, ref referenceY, ref remainderY);
 		return packet;
 	}
 
@@ -926,8 +981,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public void GetSamplesAsync(short[] samples) => throw new InvalidOperationException("Async mode is not supported.");
 	public void DiscardSamples() => _soundFrames = 0;
 
-	// IInputPollable: the lag comes from the machine (the guest read no input register during the unit); there is no callback per read
-	// (docs/02-contracts.md: no callback from inside the engine), so InputCallbacks is part of the interface and never fires.
+	// IInputPollable: the lag comes from the machine (the guest read no input register during the unit). A non-lag unit emits one
+	// host-side notification after the guest returns; there is deliberately no callback per MMIO read inside the engine.
 	public int LagCount { get; set; }
 	public bool IsLagFrame { get; set; }
 	public IInputCallbackSystem InputCallbacks { get; } = new InputCallbackSystem();
@@ -936,7 +991,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public DisplayType Region => _syncSettings.Region == Puae6Region.NTSC ? DisplayType.NTSC : DisplayType.PAL;
 
 	// IDriveLight
-	public bool DriveLightEnabled => true;
+	// P6_FRAME_DRIVE_LIGHT is the OR of the floppy LEDs. CD activity has no corresponding causal output yet.
+	public bool DriveLightEnabled => ConnectedFloppyDrives > 0;
 	public bool DriveLightOn { get; private set; }
 	public string DriveLightIconDescription => "Floppy drive activity";
 
@@ -948,6 +1004,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public PutSettingsDirtyBits PutSettings(Puae6Settings settings) { _settings = settings.Clone(); return PutSettingsDirtyBits.None; }
 	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings)
 	{
+		Controllers.Validate(settings);
 		var result = Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 		_parameters.SyncSettings = settings.Clone();
 		return result;
@@ -980,6 +1037,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		public int Mouse2X, Mouse2Y;
 		public int CdPending = -1, CdOrdinal;
 		public bool CdPresent;
+		public int MouseRemainderX, MouseRemainderY, Mouse2RemainderX, Mouse2RemainderY;
 	}
 
 	WrapperState Capture() => new()
@@ -990,6 +1048,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		Disk0 = _driveDisk[0], Disk1 = _driveDisk[1], Disk2 = _driveDisk[2], Disk3 = _driveDisk[3], CurrentDrive = _currentDrive, CurrentSlot = _currentSlot,
 		EjectHeld = _ejectHeld, InsertHeld = _insertHeld, SlotHeld = _slotHeld, DriveHeld = _driveHeld, MediaSequence = _mediaSequence,
 		Mouse2Known = _mouse2Known, Mouse2X = _mouse2ReferenceX, Mouse2Y = _mouse2ReferenceY, CdPending = _cdPending, CdOrdinal = _cdOrdinal, CdPresent = _cdPresent,
+		MouseRemainderX = _mouseRemainderX, MouseRemainderY = _mouseRemainderY, Mouse2RemainderX = _mouse2RemainderX, Mouse2RemainderY = _mouse2RemainderY,
 	};
 
 	static void Write(BinaryWriter w, WrapperState s)
@@ -999,7 +1058,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		w.Write(s.MouseKnown); w.Write(s.MouseX); w.Write(s.MouseY); w.Write(s.CapsLatched); w.Write(s.CapsHeld);
 		w.Write(s.Disk0); w.Write(s.Disk1); w.Write(s.Disk2); w.Write(s.Disk3); w.Write(s.CurrentDrive); w.Write(s.CurrentSlot);
 		w.Write(s.EjectHeld); w.Write(s.InsertHeld); w.Write(s.SlotHeld); w.Write(s.DriveHeld); w.Write(s.MediaSequence);
-		w.Write(s.Mouse2Known); w.Write(s.Mouse2X); w.Write(s.Mouse2Y); w.Write(s.CdPending); w.Write(s.CdOrdinal); w.Write(s.CdPresent);
+		w.Write(s.Mouse2Known); w.Write(s.Mouse2X); w.Write(s.Mouse2Y);
+		w.Write(s.MouseRemainderX); w.Write(s.MouseRemainderY); w.Write(s.Mouse2RemainderX); w.Write(s.Mouse2RemainderY);
+		w.Write(s.CdPending); w.Write(s.CdOrdinal); w.Write(s.CdPresent);
 	}
 
 	WrapperState Parse(BinaryReader r)
@@ -1014,7 +1075,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 				AspectDen = r.ReadInt32(), DriveLightOn = r.ReadBoolean(), MouseKnown = r.ReadBoolean(), MouseX = r.ReadInt32(), MouseY = r.ReadInt32(),
 				CapsLatched = r.ReadBoolean(), CapsHeld = r.ReadBoolean(), Disk0 = r.ReadInt32(), Disk1 = r.ReadInt32(), Disk2 = r.ReadInt32(), Disk3 = r.ReadInt32(), CurrentDrive = r.ReadInt32(), CurrentSlot = r.ReadInt32(),
 				EjectHeld = r.ReadBoolean(), InsertHeld = r.ReadBoolean(), SlotHeld = r.ReadBoolean(), DriveHeld = r.ReadBoolean(), MediaSequence = r.ReadUInt64(),
-				Mouse2Known = r.ReadBoolean(), Mouse2X = r.ReadInt32(), Mouse2Y = r.ReadInt32(), CdPending = r.ReadInt32(), CdOrdinal = r.ReadInt32(), CdPresent = r.ReadBoolean(),
+				Mouse2Known = r.ReadBoolean(), Mouse2X = r.ReadInt32(), Mouse2Y = r.ReadInt32(),
+				MouseRemainderX = r.ReadInt32(), MouseRemainderY = r.ReadInt32(), Mouse2RemainderX = r.ReadInt32(), Mouse2RemainderY = r.ReadInt32(),
+				CdPending = r.ReadInt32(), CdOrdinal = r.ReadInt32(), CdPresent = r.ReadBoolean(),
 			};
 		}
 		catch (EndOfStreamException)
@@ -1029,8 +1092,14 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			&& s.CurrentDrive >= 0 && s.CurrentDrive < Math.Max(1, ConnectedFloppyDrives) && s.CurrentSlot >= 0 && s.CurrentSlot < Math.Max(1, Math.Max(_media.Count, _parameters.CdSlotCount))
 			&& s.CdOrdinal >= 0 && s.CdOrdinal < Math.Max(1, _parameters.CdCount) && (_parameters.CdCount != 0 || !s.CdPresent)
 			&& s.CdPending >= -1 && (s.CdPending == -1 || _syncSettings.Machine == Puae6Machine.CDTV && !s.CdPresent && s.CdPending < _parameters.CdCount)
+			&& s.MouseX is >= 0 and <= Controllers.MouseFieldWidth && s.MouseY is >= 0 and <= Controllers.MouseFieldHeight
 			&& s.Mouse2X is >= 0 and <= Controllers.MouseFieldWidth && s.Mouse2Y is >= 0 and <= Controllers.MouseFieldHeight
-			&& (s.Mouse2Known || (s.Mouse2X == 0 && s.Mouse2Y == 0));
+			&& (s.MouseKnown || (s.MouseX == 0 && s.MouseY == 0 && s.MouseRemainderX == 0 && s.MouseRemainderY == 0))
+			&& (s.Mouse2Known || (s.Mouse2X == 0 && s.Mouse2Y == 0 && s.Mouse2RemainderX == 0 && s.Mouse2RemainderY == 0))
+			&& s.MouseRemainderX > -_syncSettings.MouseSpeed && s.MouseRemainderX < _syncSettings.MouseSpeed
+			&& s.MouseRemainderY > -_syncSettings.MouseSpeed && s.MouseRemainderY < _syncSettings.MouseSpeed
+			&& s.Mouse2RemainderX > -_syncSettings.MouseSpeed && s.Mouse2RemainderX < _syncSettings.MouseSpeed
+			&& s.Mouse2RemainderY > -_syncSettings.MouseSpeed && s.Mouse2RemainderY < _syncSettings.MouseSpeed;
 		if (!ok) throw new StateRejectedException(StateRejection.BadFields, "the state has a field that this machine cannot have");
 		return s;
 	}
@@ -1039,9 +1108,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		Frame = s.Frame; LagCount = s.LagCount; IsLagFrame = s.IsLagFrame; CycleCount = s.CycleCount;
 		BufferWidth = s.BufferWidth; BufferHeight = s.BufferHeight; VsyncNumerator = s.VsyncNumerator; VsyncDenominator = s.VsyncDenominator;
-		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = s.DriveLightOn;
+		_aspectNum = s.AspectNum; _aspectDen = s.AspectDen; DriveLightOn = DriveLightEnabled && s.DriveLightOn;
 		_mouseKnown = s.MouseKnown; _mouseReferenceX = s.MouseX; _mouseReferenceY = s.MouseY; _capsLatched = s.CapsLatched; _capsHeld = s.CapsHeld;
-		_mouse2Known = s.Mouse2Known; _mouse2ReferenceX = s.Mouse2X; _mouse2ReferenceY = s.Mouse2Y; _cdPending = s.CdPending; _cdOrdinal = s.CdOrdinal; _cdPresent = s.CdPresent;
+		_mouseRemainderX = s.MouseRemainderX; _mouseRemainderY = s.MouseRemainderY;
+		_mouse2Known = s.Mouse2Known; _mouse2ReferenceX = s.Mouse2X; _mouse2ReferenceY = s.Mouse2Y;
+		_mouse2RemainderX = s.Mouse2RemainderX; _mouse2RemainderY = s.Mouse2RemainderY; _cdPending = s.CdPending; _cdOrdinal = s.CdOrdinal; _cdPresent = s.CdPresent;
 		_driveDisk[0] = s.Disk0; _driveDisk[1] = s.Disk1; _driveDisk[2] = s.Disk2; _driveDisk[3] = s.Disk3; _currentDrive = s.CurrentDrive; _currentSlot = s.CurrentSlot;
 		_ejectHeld = s.EjectHeld; _insertHeld = s.InsertHeld; _slotHeld = s.SlotHeld; _driveHeld = s.DriveHeld; _mediaSequence = s.MediaSequence;
 		_soundFrames = 0;                          // pending output of the timeline that was left is not part of this one

@@ -12,7 +12,7 @@
 // says, per component, whether a probe covers it or waits for an accessor (T15).
 //
 //   p6_state_probe ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--rate HZ] [--port N:type:buttons:dx:dy]... [--dump SUBSYSTEM] [--list]
-//                      [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
+//                      [--seed S] [--adf FILE]... [--hdf FILE]... [--ide-cd-fixture [--ide-cd-selected 0|1] [--ide-cd-ejected] [--ide-cd-swap-catalog]] [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]...
 //                      [--load-fault-at UNIT FILE]... [--load-fault-head-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT WHAT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]...
 // --save-at / --load-at (T15a) run after unit UNIT (0 = right after p6_load) through the native state container with placeholders for the
 // chunks that do not exist yet, so a state made here restores only what the registry implements. They print "save UNIT BYTES SHA256",
@@ -42,6 +42,7 @@
 // units), so that a boundary can find the keyboard in the middle of a handshake or the mouse in flight; both are applied right before the unit they name.
 // --hdf mounts a hard file at p6_load (T29c; after the --adf images, in the order given), so that the controller and the overlay of its writes are part of the "ram" digest.
 // --adf mounts a disk image at p6_load (its content id is the SHA-256 of its bytes), so that the media identity of a state can be tested.
+// --ide-cd-fixture binds T84e3's deterministic two-disc catalog. The other three switches select its starting ordinal, absence and deliberately reversed catalog identity.
 // --event-at UNIT DRIVE INDEX SEQUENCE (T15h) calls p6_media_event_enqueue after UNIT (INDEX -1 ejects; at UNIT 0 the event is a boot medium) and prints "event UNIT CODE MESSAGE";
 // --append-at UNIT FILE (T17e) calls p6_media_append with the image in FILE and prints "append UNIT CODE INDEX MESSAGE"; the medium is not mounted (use --event-at with the index).
 // --reset-at UNIT calls p6_reset and prints "reset UNIT CODE MESSAGE". Both only queue: the next unit applies them, as a host's call would.
@@ -61,6 +62,7 @@
 #include "config.h"
 #include "p6_state_access.h"
 #include "cdtv_state.h"
+#include "cd_device.h"
 #include "sha256.h"
 #include "media.h"
 #include "blob_io.h"
@@ -246,7 +248,8 @@ void ram(Canon &c)
     if (p6_bridge::motherboard_ide(p6_session::session.config)) {
         uint8_t r[4]; p6_mbres_get(r); c.raw(r, sizeof r);
     }
-    if (p6_bridge::hard_file_count() || p6_bridge::motherboard_ide(p6_session::session.config)) {
+    if (p6_bridge::hard_file_count() || p6_bridge::motherboard_ide(p6_session::session.config) ||
+        p6_bridge::resolve_cd_controller(p6_session::session.config) == P6_CD_CONTROLLER_IDE) {
         p6_state::Archive measure = p6_state::Archive::measurer();
         p6_state::visit_hdf(measure);
         std::vector<uint8_t> section(size_t(measure.position()));
@@ -472,6 +475,61 @@ bool read_file(const char *path, std::vector<uint8_t> *data);
 std::vector<uint8_t> g_rom;          // what p6_load was given, for the operations that load again
 std::vector<p6_media> g_media;
 std::vector<std::vector<uint8_t>> g_appended;      // the images --append-at registered: borrowed by the bridge until p6_unload
+
+// T84e3's private immutable two-disc catalog. It deliberately is not a public
+// media format: the state probe needs a stable owner in a new process so it can
+// prove the catalog ordinal, absence and ATAPI/CDDA phases of the native graph.
+struct IdeCdFixtureSource {
+    uint32_t stride, sectors;
+    uint8_t seed;
+};
+struct IdeCdFixtureDisc {
+    IdeCdFixtureSource source[2];
+    p6_cd::Binding binding[2];
+    p6_cd::Layout layout;
+    p6_cd::Disc disc;
+};
+IdeCdFixtureDisc g_ide_cd[2];
+
+bool ide_cd_fixture_read(const void *context, uint64_t offset, void *out, size_t bytes, size_t *read)
+{
+    const auto &source = *static_cast<const IdeCdFixtureSource *>(context);
+    const uint64_t total = uint64_t(source.stride) * source.sectors;
+    if (!out || !read || offset > total || bytes > total - offset) return false;
+    for (size_t i = 0; i < bytes; ++i)
+        static_cast<uint8_t *>(out)[i] = uint8_t(source.seed + (offset + i) * 13 + (offset + i) / 251);
+    *read = bytes;
+    return true;
+}
+
+bool bind_ide_cd_fixture(uint32_t selected, bool inserted, bool swap)
+{
+    using namespace p6_cd;
+    if (selected >= 2) return false;
+    for (uint32_t n = 0; n < 2; ++n) {
+        IdeCdFixtureDisc &f = g_ide_cd[n];
+        f.source[0] = {2048, 132, uint8_t(0x21 + n * 0x30)};
+        f.source[1] = {2352, 128, uint8_t(0x71 + n * 0x20)};
+        for (uint32_t source = 0; source < 2; ++source) {
+            p6_cd::Binding &b = f.binding[source];
+            b.identity.bytes = uint64_t(f.source[source].stride) * f.source[source].sectors;
+            b.identity.sector_bytes = f.source[source].stride == 2048 ? 2048 : 1;
+            for (uint32_t i = 0; i < 32; ++i) b.identity.content_id[i] = uint8_t(0x30 + n * 0x40 + source * 7 + i * 11);
+            b.read = ide_cd_fixture_read;
+            b.context = &f.source[source];
+        }
+        f.layout = {};
+        for (uint32_t i = 0; i < 32; ++i) f.layout.content_id[i] = uint8_t(0xa0 + n * 0x31 + i * 5);
+        f.layout.tracks = 2;
+        f.layout.leadout = 260;
+        f.layout.track[0] = {0, 0, 132, 0, 2048, 0, Mode::Mode1_2048, 1, 4, false};
+        f.layout.track[1] = {132, 132, 260, 1, 2352, 0, Mode::Audio, 1, 0, false};
+        if (f.disc.bind(f.layout, f.binding, 2) != Result::Ok) return false;
+    }
+    const Disc *catalog[2] = {&g_ide_cd[swap ? 1 : 0].disc, &g_ide_cd[swap ? 0 : 1].disc};
+    if (device_catalog_bind(catalog, 2, selected) != Result::Ok) return false;
+    return inserted || device_set_inserted(false) == Result::Ok;
+}
 
 enum class OpKind { InputCheck, Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, SoftReset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
 
@@ -1037,6 +1095,7 @@ int main(int argc, char **argv)
     uint32_t cpu_model = 0;                                  // T52: p6_config cpu_model as the ABI number (--cpu 68000|68010|68020; 0 the machine's own)
     uint32_t fpu_model = 0;                                  // T54: 0 = none, 68881 or 68882 (--fpu 68882)
     uint32_t hdf_controller = 0;                             // T56: p6_config hdf_controller as the ABI number (--hdf-controller uae|ide: 0 the UAE controller, 1 the IDE port of Gayle)
+    uint32_t cd_controller = P6_CD_CONTROLLER_AUTO;          // T84e1: --cd-controller auto|none|cd32|cdtv|ide; resolved before the engine is touched
     uint32_t collision_level = 0;
     uint32_t floppy_drives = 0;
     uint32_t drive_sound = 0;
@@ -1046,6 +1105,8 @@ int main(int argc, char **argv)
     uint8_t z3_memory = 0;
     uint64_t seed = 1;
     bool floppy_writes = false;
+    bool ide_cd_fixture = false, ide_cd_inserted = true, ide_cd_swap_catalog = false;
+    uint32_t ide_cd_selected = 0;
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
     std::vector<const char *> hdf_paths;
@@ -1102,6 +1163,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--cpu-multiplier") && i + 1 < argc) cpu_multiplier = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--fpu") && i + 1 < argc) fpu_model = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--hdf-controller") && i + 1 < argc) { const char *v = argv[++i]; hdf_controller = !strcmp(v, "ide") ? P6_HDF_CONTROLLER_IDE : P6_HDF_CONTROLLER_UAE; }
+        else if (!strcmp(argv[i], "--cd-controller") && i + 1 < argc) {
+            const char *v = argv[++i];
+            const char *names[] = {"auto", "none", "cd32", "cdtv", "ide"};
+            for (cd_controller = 0; cd_controller < 5 && strcmp(v, names[cd_controller]); ++cd_controller) {}
+            if (cd_controller == 5) return 64;
+        }
         else if (!strcmp(argv[i], "--sound-sep") && i + 1 < argc) sound[0] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-interp") && i + 1 < argc) sound[1] = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--sound-filter") && i + 1 < argc) sound[2] = uint32_t(strtoul(argv[++i], nullptr, 10));
@@ -1174,6 +1241,14 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
         else if (!strcmp(argv[i], "--adf") && i + 1 < argc) adf_paths.push_back(argv[++i]);
         else if (!strcmp(argv[i], "--hdf") && i + 1 < argc) hdf_paths.push_back(argv[++i]);
+        else if (!strcmp(argv[i], "--ide-cd-fixture")) ide_cd_fixture = true;
+        else if (!strcmp(argv[i], "--ide-cd-selected") && i + 1 < argc) {
+            ide_cd_fixture = true;
+            ide_cd_selected = uint32_t(strtoul(argv[++i], nullptr, 10));
+            if (ide_cd_selected >= 2) return 64;
+        }
+        else if (!strcmp(argv[i], "--ide-cd-ejected")) { ide_cd_fixture = true; ide_cd_inserted = false; }
+        else if (!strcmp(argv[i], "--ide-cd-swap-catalog")) { ide_cd_fixture = true; ide_cd_swap_catalog = true; }
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
             unsigned port, type, buttons;
             int dx, dy;
@@ -1196,7 +1271,7 @@ int main(int argc, char **argv)
             i += 2;
         } else if (!strcmp(argv[i], "--input-v1-at") && i + 1 < argc) input_v1_at = strtoull(argv[++i], nullptr, 10);
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
-        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
+        else { fprintf(stderr, "usage: %s ROM [--units N] [--every K] [--loads L] [--ntsc] [--machine a500|a500og|a500plus|a600|a1000|a1200|a2000og|a2000] [--chip KIB] [--slow KIB|none] [--fast KIB] [--z3 none|1|2|4|8|16|32|64|128|256|512] [--cpu 68000|68010] [--cpu-multiplier N] [--cpu-compatibility exact|compatible|normal] [--collisions auto|none|sprites|playfields|full] [--fpu 68881|68882] [--hdf-controller uae|ide] [--cd-controller auto|none|cd32|cdtv|ide] [--ide-cd-fixture] [--ide-cd-selected 0|1] [--ide-cd-ejected] [--ide-cd-swap-catalog] [--rate HZ] [--port N:type:buttons:dx:dy]... [--port-at UNIT N:type:buttons:dx:dy]... [--input-v1-at UNIT] [--key UNIT CODE down|up]... [--seed S] [--adf FILE]... [--hdf FILE]... [--event-at UNIT DRIVE INDEX SEQUENCE]... [--reset-at UNIT]... [--append-at UNIT FILE]... [--only CHUNK]... [--save-at UNIT FILE]... [--save-fields-at UNIT FILE]... [--load-at UNIT FILE]... [--load-fault-at UNIT FILE]... [--mutate-at UNIT CHUNK FILE]... [--poke-at UNIT exception|spc-int|lastipl|bltnasty|trace|dotrace|ev2:ID|ev2-foreign|ev2-stale|start-cycles|pissoff|rtc-fault|cs-rtc|cia-tod2|cia-tod2-event|cia-ovl|kbmode|keyinject|ignorerelease|turbo|mousespeed|resetwarning|released|engine-key|engine-button|engine-axis|engine-mouse|clear]... [--handler-table] [--digest-at UNIT]... [--rtc-at UNIT]... [--public-at UNIT]... [--public-save-at UNIT FILE]... [--public-load-at UNIT FILE]... | --list\n", argv[0]); return 64; }
     }
     if (!rom_path || !every || !loads) return 64;
     std::vector<uint8_t> &rom = g_rom;
@@ -1240,13 +1315,18 @@ int main(int argc, char **argv)
     config.cpu_compatibility = uint8_t(cpu_compatibility);
     config.cpu_multiplier = uint8_t(cpu_multiplier);
     config.hdf_controller = uint8_t(hdf_controller);
+    config.cd_controller = uint8_t(cd_controller);
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);
     config.floppy_drives = uint8_t(floppy_drives);
     config.collision_level = uint8_t(collision_level);
+    if (ide_cd_fixture && !bind_ide_cd_fixture(ide_cd_selected, ide_cd_inserted, ide_cd_swap_catalog)) {
+        fprintf(stderr, "cannot bind IDE CD fixture\n");
+        return 1;
+    }
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
-    if (result != P6_OK) return fail("p6_init", result, error);
+    if (result != P6_OK) { if (ide_cd_fixture) p6_cd::device_unbind(); return fail("p6_init", result, error); }
     for (uint64_t pass = 1; pass <= loads; ++pass) {
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
@@ -1302,5 +1382,6 @@ int main(int argc, char **argv)
         if (result != P6_OK) return fail("p6_unload", result, error);
     }
     p6_shutdown(nullptr);
+    if (ide_cd_fixture) p6_cd::device_unbind();
     return 0;
 }

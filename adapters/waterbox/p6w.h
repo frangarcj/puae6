@@ -116,7 +116,8 @@ typedef struct p6w_memory_area {
 #define P6W_AREA_WORD_SIZE_1   INT64_C(32)
 #define P6W_AREA_WORD_SIZE_2   INT64_C(64)
 #define P6W_AREA_FUNCTION_HOOK INT64_C(1024)
-#define P6W_MAX_AREAS 6
+#define P6W_MAX_MACHINE_AREAS 6
+#define P6W_MAX_AREAS (P6W_MAX_MACHINE_AREAS + P6_MAX_HDF)
 
 /* Sizes and offsets the guest was compiled with, for the host to check its own layout against: {sizeof(p6w_init), offsetof(result),
  * offsetof(error), sizeof(p6w_frame), offsetof(frame), offsetof(result), sizeof(p6_frame), sizeof(p6_input), sizeof(p6_config),

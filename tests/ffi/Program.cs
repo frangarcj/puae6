@@ -160,16 +160,82 @@ internal static unsafe partial class Program
 		var stillActive = (Puae6SyncSettings)fields.Single(f => f.Name == "_syncSettings").GetValue(core)!;
 		Require(stillActive.ControllerPort2 == Puae6Port2.Joystick && stillActive.FloppyDrives == 1, "the live machine does not change before reboot");
 		Require(core.PutSyncSettings(active.Clone()) == PutSettingsDirtyBits.None, "restoring the live settings cancels the pending reboot difference");
+		var beforeInvalid = core.GetSyncSettings();
+		var invalid = beforeInvalid.Clone();
+		invalid.ControllerPort1 = Puae6Port1.Lightgun;
+		invalid.ControllerPort2 = Puae6Port2.Lightpen;
+		bool rejected = false;
+		try { core.PutSyncSettings(invalid); }
+		catch (ArgumentException e) { rejected = e.Message.Contains("Only one optical sensor"); }
+		Require(rejected, "pending sync settings reject two optical sensors with their reason");
+		Require(!Puae6SyncSettings.NeedsReboot(beforeInvalid, core.GetSyncSettings()), "a rejected optical setting does not replace the pending configuration");
+		rejected = false;
+		try { Controllers.Define(invalid, 0); }
+		catch (ArgumentException) { rejected = true; }
+		Require(rejected, "controller construction keeps the two-sensor defense");
+		invalid = beforeInvalid.Clone();
+		invalid.MouseSpeed = 0;
+		rejected = false;
+		try { core.PutSyncSettings(invalid); }
+		catch (ArgumentOutOfRangeException e) { rejected = e.Message.Contains("Mouse speed"); }
+		Require(rejected, "pending sync settings reject a mouse speed outside 1..1000 with its reason");
+		Require(!Puae6SyncSettings.NeedsReboot(beforeInvalid, core.GetSyncSettings()), "a rejected mouse speed does not replace the pending configuration");
 
 		var presentation = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6Settings));
 		Require(presentation[nameof(Puae6Settings.DriveSoundVolume)]!.DisplayName == "Floppy drive sound volume", "the live volume says it is mechanical floppy sound");
+		var cdVolume = presentation[nameof(Puae6Settings.CdVolume)]!;
+		var cdRange = (System.ComponentModel.DataAnnotations.RangeAttribute)cdVolume.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
+		Require(new Puae6Settings().CdVolume == 100 && cdVolume.DisplayName == "CD audio volume"
+			&& (int)cdRange.Minimum == 0 && (int)cdRange.Maximum == 100 && cdVolume.Converter is ConstrainedIntConverter,
+			"CD audio uses UAE5's live integer control from zero to 100, defaulting to full volume");
+		var invalidPresentation = new Puae6Settings();
+		bool invalidCdVolume = false;
+		try { invalidPresentation.CdVolume = 101; } catch (ArgumentOutOfRangeException) { invalidCdVolume = true; }
+		Require(invalidCdVolume && invalidPresentation.CdVolume == 100, "invalid CD audio volume is rejected atomically");
 		var sync = System.ComponentModel.TypeDescriptor.GetProperties(typeof(Puae6SyncSettings));
+		var mouseSpeed = sync[nameof(Puae6SyncSettings.MouseSpeed)]!;
+		var mouseRange = (System.ComponentModel.DataAnnotations.RangeAttribute)mouseSpeed.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
+		Require(new Puae6SyncSettings().MouseSpeed == 100 && mouseSpeed.DisplayName == "Mouse speed"
+			&& (int)mouseRange.Minimum == 1 && (int)mouseRange.Maximum == 1000 && mouseSpeed.Converter is ConstrainedIntConverter
+			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { MouseSpeed = 101 }),
+			"mouse speed uses UAE5's integer control from 1 to 1000, defaults to 100 and is a sync setting");
 		var floppyDrives = sync[nameof(Puae6SyncSettings.FloppyDrives)]!;
 		var range = (System.ComponentModel.DataAnnotations.RangeAttribute)floppyDrives.Attributes[typeof(System.ComponentModel.DataAnnotations.RangeAttribute)]!;
 		Require(floppyDrives.DisplayName == "Floppy disk drives" && (int)range.Minimum == 0 && (int)range.Maximum == 4
 			&& floppyDrives.Converter is ConstrainedIntConverter, "the old UAE-compatible drive count is labelled and bounded from zero to four");
 		var physicalDrives = sync[nameof(Puae6SyncSettings.PhysicalFloppyDrives)]!;
 		Require(!physicalDrives.IsBrowsable, "the obsolete split physical-drive setting is hidden from the PropertyGrid");
+		var cdController = sync[nameof(Puae6SyncSettings.CdController)]!;
+		Require(new Puae6SyncSettings().CdController == Puae6CdController.Auto && cdController.DisplayName == "CD controller"
+			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { CdController = Puae6CdController.Ide }),
+			"CD controller is an Auto/CD32/IDE/None sync setting");
+		Puae6Parameters WithCd(Puae6SyncSettings settings, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hard = null) => new()
+		{
+			Firmware = [1], SyncSettings = settings, Media = media ?? [], HardFiles = hard ?? [],
+			CdInfo = new P6CdInfo { Version = 1, Size = (uint)sizeof(P6CdInfo) }, ReadCd = (_, _, _) => false,
+		};
+		var cdOnly = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings()));
+		Require(cdOnly.SyncSettings.Machine == Puae6Machine.CD32 && cdOnly.SyncSettings.CdController == Puae6CdController.Auto,
+			"Auto preserves the historical CD32 topology for CD-only content");
+		var mixed = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A600 }, [new byte[P6.AdfBytes]]));
+		Require(mixed.SyncSettings.Machine == Puae6Machine.A600 && mixed.SyncSettings.CdController == Puae6CdController.Ide,
+			"Auto resolves mixed CD and ADF to IDE without changing a compatible machine");
+		var explicitIde = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A1200, CdController = Puae6CdController.Ide }, hard: [new byte[512]]));
+		Require(explicitIde.SyncSettings.Machine == Puae6Machine.A1200 && explicitIde.SyncSettings.CdController == Puae6CdController.Ide,
+			"explicit IDE keeps the selected machine and hard file");
+		bool Refused(Puae6SyncSettings settings, IReadOnlyList<byte[]>? hard = null)
+		{
+			try { Puae6WhdLoad.Resolve(WithCd(settings, hard: hard)); return false; }
+			catch (InvalidOperationException) { return true; }
+		}
+		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.Cd32 }),
+			"explicit CD32 refuses another machine instead of changing it");
+		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.None }),
+			"None refuses supplied CD content before opening a sandbox");
+		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.Ide, HdfController = Puae6HdfController.Ide },
+			Enumerable.Range(0, 4).Select(_ => new byte[512]).ToArray()), "IDE CD plus four IDE hard files is rejected before opening a sandbox");
+		Require(sync[nameof(Puae6SyncSettings.ControllerPort1)]!.Description.Contains("Only one")
+			&& sync[nameof(Puae6SyncSettings.ControllerPort2)]!.Description.Contains("Only one"), "both controller properties explain the single optical-sensor restriction");
 		Require(P6.FloppyDrivesNone == byte.MaxValue, "the explicit no-drive ABI value does not change historical zero-as-two callers");
 		Require(Puae6Core.AudioRateHz == 44100, "the core produces BizHawk's synchronous 44.1 kHz rate without a transient frontend inference");
 		Require(Puae6Core.CartridgeModel(Puae6Cartridge.Fmv) == 32 && Puae6Core.ConfigFlags(Puae6Cartridge.Fmv, false, Puae6Machine.CD32) == 0,
@@ -179,6 +245,12 @@ internal static unsafe partial class Program
 		var fmvSettings = new Puae6SyncSettings { Machine = Puae6Machine.CD32, Cartridge = Puae6Cartridge.Fmv };
 		var fmvController = Controllers.Define(fmvSettings, 1);
 		Require(!fmvController.BoolButtons.Contains(Controllers.Freeze), "the FMV controller definition does not publish Freeze");
+		fields.Single(f => f.Name == "_syncSettings").SetValue(core, active);
+		Require(core.DriveLightEnabled && core.DriveLightIconDescription == "Floppy drive activity", "a connected floppy drive publishes the causal floppy light");
+		fields.Single(f => f.Name == "_syncSettings").SetValue(core, new Puae6SyncSettings { FloppyDrives = 0 });
+		Require(!core.DriveLightEnabled, "an Amiga without a floppy drive does not publish a drive light");
+		fields.Single(f => f.Name == "_syncSettings").SetValue(core, new Puae6SyncSettings { Machine = Puae6Machine.CD32, FloppyDrives = 4 });
+		Require(!core.DriveLightEnabled, "CD32 does not relabel the unavailable CD activity as a floppy light");
 	}
 
 	/// <summary>Every instance field of the core and every field of its saved state, by reflection: tests/waterbox-state compares them with manifests/state-inventory.json.</summary>
@@ -200,7 +272,7 @@ internal static unsafe partial class Program
 			Console.WriteLine($"size {name} {sizeof(T)}");
 			foreach (string field in fields) Console.WriteLine($"field {name}.{field} {Marshal.OffsetOf<T>(field)}");
 		}
-		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "Reserved8");
+		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "CdController");
 		Dump<P6PortInput>("P6PortInput", "Type", "Buttons", "Dx", "Dy", "Reserved");
 		Dump<P6Input>("P6Input", "AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved");
 		Dump<P6Rect>("P6Rect", "X", "Y", "Width", "Height");

@@ -23,8 +23,9 @@
 // On Gayle's IDE (T56, p6_config.hdf_controller = IDE: bridge/config.h ide_attached) the controller is another one and so is the middle of the section; the identity and the overlay are the same:
 //   u32 N and the content ids as above
 //   the controller: 4 words of Gayle (gayle.cpp, patch 0321: IDE interrupt status and enable, the ID sequence, the splitter), then for each of the four IDE slots (master and slave of the
-//     channel, then the pair behind the splitter; a slot without a drive has its registers all the same) 43 words of the drive (ide.cpp, patch 0320: registers, the state of the
-//     transfer in hand, the geometry the guest set), u32 count of the bytes of its sector buffer that are in hand (at most 131584) and the bytes;
+//     channel, then the pair behind the splitter; a slot without a drive has its registers all the same) 54 semantic words of the drive (ide.cpp, patches 0320/0426: registers,
+//     ATA/ATAPI command and data cursors, sense/medium identity and geometry), u32 count of causal transfer bytes (at most 128 * 2048) and those bytes;
+//     with an IDE CD, its catalog ordinal and semantic device/CDDA state (PCM and stream phase included), never a Disc/callback/buffer pointer;
 //     the autoconfig chain (visit_expansion with no Fast RAM board) when the machine has no Fast RAM: with one, P6RM carries it. No UAEFS board, no trap area, no EXTER queue: they do not exist.
 //   the overlay, for each hard file, as above.
 #include "state.h"
@@ -38,6 +39,8 @@
 #include "media.h"
 #include "session.h"
 #include "blob_io.h"
+#include "media/cd_device.h"
+#include "media/cd_device_state.h"
 
 extern bool p6_n2a_state_get(uint32_t *values, unsigned capacity, unsigned *count);          // native2amiga.cpp 0180
 extern bool p6_n2a_state_set(const uint32_t *values, unsigned count);
@@ -82,6 +85,41 @@ int hdf_index(uint32_t j)
 void word_run(Archive &a, uint32_t *w, uint32_t n, const char *name)
 {
     for (uint32_t i = 0; i < n; ++i) w[i] = a.val<uint32_t>(w[i], name);
+}
+
+template<class T> void cd_field(Archive &a, T &value, const char *name)
+{
+    const T next = a.val<T>(a.mode() == Mode::Save ? value : T{}, name);
+    if (a.reading() && a.ok()) value = next;
+}
+template<class T, size_t N> void cd_field(Archive &a, T (&values)[N], const char *name)
+{
+    for (T &value : values) cd_field(a, value, name);
+}
+
+void visit_ide_cd_fields(Archive &a, p6_cd::DeviceState &d, uint32_t &ordinal)
+{
+    auto &audio = d.audio; auto &stream = audio.stream;
+    cd_field(a, ordinal, "ide.cd.ordinal"); cd_field(a, d.disc_id, "ide.cd.disc_id");
+    cd_field(a, d.bound, "ide.cd.bound"); cd_field(a, d.inserted, "ide.cd.inserted"); cd_field(a, d.opens, "ide.cd.opens");
+    cd_field(a, d.position, "ide.cd.position"); cd_field(a, d.audio_head, "ide.cd.audio_head");
+    cd_field(a, d.terminal_ack, "ide.cd.terminal_ack"); cd_field(a, d.error, "ide.cd.error");
+    cd_field(a, audio.delay, "ide.cd.audio.delay"); cd_field(a, audio.pcm, "ide.cd.audio.pcm");
+    cd_field(a, audio.disc_id, "ide.cd.audio.disc_id"); cd_field(a, audio.streamid, "ide.cd.audio.streamid");
+    cd_field(a, audio.bound, "ide.cd.audio.bound"); cd_field(a, audio.running, "ide.cd.audio.running");
+    cd_field(a, audio.sector, "ide.cd.audio.sector"); cd_field(a, audio.callbacks, "ide.cd.audio.callbacks");
+    cd_field(a, audio.position, "ide.cd.audio.position"); cd_field(a, audio.end, "ide.cd.audio.end");
+    cd_field(a, audio.left, "ide.cd.audio.left"); cd_field(a, audio.right, "ide.cd.audio.right");
+    cd_field(a, audio.status, "ide.cd.audio.status"); cd_field(a, audio.error, "ide.cd.audio.error");
+    cd_field(a, stream.active, "ide.cd.stream.active"); cd_field(a, stream.paused, "ide.cd.stream.paused");
+    cd_field(a, stream.frames, "ide.cd.stream.frames"); cd_field(a, stream.offset, "ide.cd.stream.offset");
+    cd_field(a, stream.remaining, "ide.cd.stream.remaining"); cd_field(a, stream.event_cycles, "ide.cd.stream.event_cycles");
+    cd_field(a, stream.period, "ide.cd.stream.period"); cd_field(a, stream.userdata, "ide.cd.stream.userdata");
+    cd_field(a, stream.volume, "ide.cd.stream.volume");
+    for (auto &channel : stream.channel) {
+        cd_field(a, channel.current, "ide.cd.channel.current"); cd_field(a, channel.previous, "ide.cd.channel.previous");
+        cd_field(a, channel.accumulator, "ide.cd.channel.accumulator"); cd_field(a, channel.cycles, "ide.cd.channel.cycles");
+    }
 }
 
 // Values of the EXTER queue come in messages: the first value of each says how many follow (the same table as native2amiga.cpp, patch 0180).
@@ -270,11 +308,27 @@ void visit_ide(Archive &a)
     static uint32_t drive[4][kIdeWords];
     static uint8_t buffer[4][kIdeSecbufMax];
     uint32_t chip[kGayleWords] = {}, length[4] = {};
+    const bool cd = p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE;
+    const uint32_t files = p6_bridge::hard_file_count();
+    const bool hdf_ide = p6_bridge::ide_attached(session.config, files);
+    uint32_t kind[4] = {};
+    unsigned slot = 0;
+    if (cd) kind[slot++] = kIdeSlotCd;
+    if (hdf_ide) for (uint32_t n = 0; n < files && slot < 4; ++n) kind[slot++] = kIdeSlotHdf;
+    p6_cd::DeviceState device{};
+    uint32_t ordinal = 0;
     memset(drive, 0, sizeof drive);
     if (a.mode() == Mode::Save) {
         a.require(p6_gayle_state_get(chip, kGayleWords), "Gayle is not in a state that can be saved");
         for (unsigned unit = 0; unit < 4 && a.ok(); ++unit)
             a.require(p6_gayle_drive_state_get(unit, drive[unit], kIdeWords, buffer[unit], &length[unit]), "an IDE drive is not in a state that can be saved");
+        if (cd && a.ok()) {
+            a.require(p6_cd::device_capture(&device), "the IDE CD device is not in a state that can be saved");
+            bool found = false;
+            for (uint32_t n = 0; n < p6_cd::device_catalog_size(); ++n)
+                if (p6_cd::device_catalog_disc(n) == p6_cd::device_bound_disc()) { ordinal = n; found = true; break; }
+            a.require(found, "the IDE CD selection is outside its catalog");
+        }
     }
     word_run(a, chip, kGayleWords, "ide.gayle_word");
     for (unsigned unit = 0; unit < 4 && a.ok(); ++unit) {
@@ -282,14 +336,21 @@ void visit_ide(Archive &a)
         length[unit] = a.val<uint32_t>(length[unit], 0, kIdeSecbufMax, "ide.buffer_length");
         a.bytes(buffer[unit], measuring(a) ? kIdeSecbufMax : length[unit], "ide.buffer");
     }
+    if (cd && a.ok()) visit_ide_cd_fields(a, device, ordinal);
     if (measuring(a) || !a.ok()) return;
-    // What the machine can have, from the number of hard files alone (unit j is slot j): the engine's own pure functions judge the values, so that applying cannot fail.
-    const uint32_t files = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count()) ? p6_bridge::hard_file_count() : 0;
-    a.require(p6_gayle_words_valid(chip, kGayleWords, files > 2), "ide: the registers of Gayle are outside what the chip can have");
+    a.require(p6_gayle_words_valid(chip, kGayleWords, kind[2] != kIdeSlotEmpty || kind[3] != kIdeSlotEmpty), "ide: the registers of Gayle are outside what the chip can have");
     for (unsigned unit = 0; unit < 4 && a.ok(); ++unit) {
-        const bool present = unit < files;
-        a.require(p6_ide_words_valid(drive[unit], kIdeWords, present), "ide: a drive is outside what a drive can have");
-        a.require(length[unit] == p6_ide_live_bytes(drive[unit], present), "ide: the sector buffer is not the one the transfer in hand says");
+        a.require(p6_ide_words_valid(drive[unit], kIdeWords, kind[unit]), "ide: a drive is outside what a drive can have");
+        a.require(length[unit] == p6_ide_live_bytes(drive[unit], kind[unit]), "ide: the transfer buffer is not the one the transfer in hand says");
+    }
+    const p6_cd::Disc *disc = nullptr;
+    if (cd && a.ok()) {
+        a.require(ordinal < p6_cd::device_catalog_size(), "ide: the CD ordinal is outside its catalog");
+        if (a.ok()) disc = p6_cd::device_catalog_disc(ordinal);
+        const uint32_t period = session.config.video_standard == P6_VIDEO_NTSC ? 41558u : 41179u;
+        a.require(device.bound == 1 && device.opens == 1 && !device.audio.callbacks && disc &&
+                  p6_cd::device_validate(device, disc, period), "ide: the CD device state or catalog selection is invalid");
+        a.require(a.ok() && p6_ide_atapi_disc_matches(drive[0], kIdeWords, device.disc_id), "ide: the ATAPI medium is not the selected catalog disc");
     }
     // The two drives of a channel are selected together.
     a.require(drive[0][30] == drive[1][30] && drive[2][30] == drive[3][30], "ide: the drives of a channel are not on the same select line");
@@ -297,6 +358,8 @@ void visit_ide(Archive &a)
         a.require(p6_gayle_state_set(chip, kGayleWords), "ide: the registers of Gayle do not fit the machine");
         for (unsigned unit = 0; unit < 4 && a.ok(); ++unit)
             a.require(p6_gayle_drive_state_set(unit, drive[unit], kIdeWords, buffer[unit], length[unit]), "ide: a drive does not fit the machine");
+        if (cd && a.ok())
+            a.require(p6_cd::device_restore(device, disc, nullptr, nullptr), "ide: the CD device does not fit the machine");
     }
 }
 
@@ -306,7 +369,8 @@ void visit_hdf(Archive &a)
 {
     const uint32_t files = p6_bridge::hard_file_count();
     const bool motherboard = p6_bridge::motherboard_ide(session.config);
-    if (!files && !motherboard) return;
+    const bool cd_ide = p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE;
+    if (!files && !motherboard && !cd_ide) return;
     visit_identity(a, files);
     if (!a.ok()) return;
     if (p6_bridge::ide_attached(session.config, files)) {
@@ -315,7 +379,7 @@ void visit_hdf(Archive &a)
         for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
         return;
     }
-    if (motherboard) {
+    if (motherboard || cd_ide) {
         visit_ide(a);
         if (!files) {
             if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);

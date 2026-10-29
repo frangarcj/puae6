@@ -32,8 +32,8 @@ public sealed partial class Puae6Core
 		string guestDirectory = PathUtils.DllDirectoryPath;
 		Puae6Guest.VerifyForCurrentHost(guestDirectory, "puae6.wbx");
 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
-		if (lp.Discs.Count > 16 || lp.Discs.Count != 0 && lp.Roms.Count != 0)
-			throw new NotSupportedException("CD32/CDTV load 1..16 CD slots without other media");
+		if (lp.Discs.Count > 16)
+			throw new NotSupportedException("PUAE6 loads at most 16 fixed CD slots");
 		var sources = new List<Puae6DiscSource>();
 		var owners = new List<IOwnedDiscAsset?>();
 		var slots = new List<int>();
@@ -48,10 +48,6 @@ public sealed partial class Puae6Core
 		bool catalog = lp.Discs.Count > 1, regional = lp.Discs.Exists(a => a.DiscData.Regions.Count != 0);
 		bool sessioned = sources.Exists(s => s.SessionCount >= 2);
 		Puae6DiscSource? cd = lp.Discs.Count == 1 ? sources[0] : null;
-		if (lp.Discs.Count != 0 && settings.Machine != Puae6Machine.CDTV)
-		{
-			settings.Machine = Puae6Machine.CD32;
-		}
 		byte[] Firmware(Puae6Machine machine)
 		{
 			var main = lp.Comm.CoreFileProvider.GetFirmwareOrThrow(FirmwareOf(machine), $"A Kickstart for the Amiga {machine} is required");

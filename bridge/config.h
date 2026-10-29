@@ -60,7 +60,14 @@ bool audio_is_profile(const p6_config &config);
 // When the config is not the profile's: the four resolved settings as the bytes config_hash is derived from (state.cpp: domain p6/config/audio/v1, over the hash of the flags word and these bytes).
 bool audio_identity(const p6_config &config, uint8_t out[4]);
 
-// The IDE port of Gayle (T56, p6_config.hdf_controller): the A600 and the A1200 have it, and it is switched on only while a hard file is behind it (Gayle with nothing attached is never
+// The one resolved CD topology used by every backend component (T84e1). AUTO is never returned: it means the integrated controller on a CD32/CDTV and NONE on every other historical
+// profile. validate_config has already rejected an explicit integrated controller on the wrong board and IDE without a supported A600/A1200/A4000 port. cd_controller_identity writes
+// the resolved byte and is true only when it differs from that historical profile (state.cpp: domain p6/config/cd-controller/v1).
+uint8_t resolve_cd_controller(const p6_config &config);
+bool cd_controller_identity(const p6_config &config, uint8_t *out);
+
+// The IDE port used by hard files (T56, p6_config.hdf_controller): Gayle on A600/A1200 and the A4000 motherboard. On A600/A1200 it is switched on only while an IDE hard file is behind it
+// or resolve_cd_controller selects IDE (Gayle with nothing attached is never
 // emulated). True when the config asks for IDE on a machine that has Gayle and the list given to p6_load holds `hard_files` hard files (at least one). A config for which this is false
 // is the machine the default config is, in every identity; one for which it is true derives config_hash from the one above and a byte (state.cpp: domain p6/config/ide/v1).
 bool ide_attached(const p6_config &config, uint32_t hard_files);
@@ -101,8 +108,9 @@ bool request_hrtmon_freeze();
 bool request_cartridge_freeze();
 
 // Fills currprefs with the preset for `config` (upstream built_in_prefs config 0 of model 0 = A500, 2 = A600 or 4 = A1200, the
-// overrides of the profile file, then upstream fixup_prefs). Touches only preference globals. `ide` is ide_attached(config, hard files of the list): the preset then has Gayle's IDE port.
-void build_preferences(const p6_config &config, bool ide);
+// overrides of the profile file, then upstream fixup_prefs). Touches only preference globals. `ide_port` says that the A600/A1200 preset has Gayle's IDE port; mounting HDFs remains a
+// separate decision, so selecting an IDE CD topology cannot silently move a UAE-controller HDF.
+void build_preferences(const p6_config &config, bool ide_port);
 
 // Frees the device names and configuration names that the engine's input matching (matchdevices) gives to the preference
 // globals on every load and never releases. currprefs and changed_prefs share them (copy_prefs copies the pointers), so each

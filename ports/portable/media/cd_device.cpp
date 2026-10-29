@@ -66,6 +66,7 @@ const Disc *device_resolve_disc(const uint8_t id[32])
     return nullptr;
 }
 const Disc *device_bound_disc() { return disc; }
+bool device_presentation_volume(uint32_t percent) { return audio.presentation(percent); }
 uint32_t device_open_count() { return uint32_t(opens); }
 Result device_select(uint32_t n)
 {
@@ -248,3 +249,213 @@ uae_u32 sys_command_cd_volume(int unit, uae_u16 left, uae_u16 right)
     const auto old = audio.volume(left, right); error = p6_cd::Result::Ok;
     return old;
 }
+
+namespace {
+
+uint16_t be16(const uint8_t *p) { return uint16_t(uint16_t(p[0]) << 8 | p[1]); }
+uint32_t be32(const uint8_t *p)
+{
+    return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+}
+void put16(uint8_t *p, uint32_t v) { p[0] = uint8_t(v >> 8); p[1] = uint8_t(v); }
+void put32(uint8_t *p, uint32_t v)
+{
+    p[0] = uint8_t(v >> 24); p[1] = uint8_t(v >> 16); p[2] = uint8_t(v >> 8); p[3] = uint8_t(v);
+}
+uint8_t unbcd(uint8_t v) { return uint8_t((v >> 4) * 10 + (v & 15)); }
+uint32_t msf_frames(const uint8_t *p)
+{
+    return uint32_t(p[0]) * 60 * 75 + uint32_t(p[1]) * 75 + p[2];
+}
+void lba_address(uint8_t *out, uint32_t lba, bool msf)
+{
+    if (!msf) { put32(out, lba); return; }
+    const uint32_t frames = lba + 150;
+    out[0] = 0; out[1] = uint8_t(frames / (60 * 75));
+    out[2] = uint8_t((frames / 75) % 60); out[3] = uint8_t(frames % 75);
+}
+void relative_address(uint8_t *out, const uint8_t *q, bool msf)
+{
+    const uint32_t frames = uint32_t(unbcd(q[7])) * 60 * 75 + uint32_t(unbcd(q[8])) * 75 + unbcd(q[9]);
+    if (msf) { out[0] = 0; out[1] = uint8_t(frames / (60 * 75)); out[2] = uint8_t((frames / 75) % 60); out[3] = uint8_t(frames % 75); }
+    else put32(out, frames);
+}
+uint32_t bounded(uint32_t bytes, uint32_t allocation, size_t capacity)
+{
+    if (bytes > allocation) bytes = allocation;
+    return bytes > capacity ? uint32_t(capacity) : bytes;
+}
+
+void set_sense(p6_cd::AtapiState *s, uint8_t key, uint8_t asc, uint8_t ascq = 0)
+{
+    s->sense_key = key; s->asc = asc; s->ascq = ascq;
+}
+p6_cd::AtapiReply check(p6_cd::AtapiState *s, uint8_t key, uint8_t asc, uint8_t ascq = 0)
+{
+    set_sense(s, key, asc, ascq);
+    return {0, true};
+}
+p6_cd::AtapiReply good(uint32_t bytes = 0) { return {bytes, false}; }
+
+bool sync_medium(p6_cd::AtapiState *s)
+{
+    const p6_cd::Disc *d = p6_cd::device_bound_disc();
+    const bool present = d && p6_cd::device_inserted();
+    uint8_t id[32]{};
+    if (d) memcpy(id, d->layout().content_id, sizeof id);
+    if (!s->known) {
+        memcpy(s->medium_id, id, sizeof id); s->present = present; s->known = 1;
+        return false;
+    }
+    if (s->present == present && !memcmp(s->medium_id, id, sizeof id)) return false;
+    memcpy(s->medium_id, id, sizeof id); s->present = present;
+    set_sense(s, 6, 0x28); // UNIT ATTENTION: medium may have changed.
+    return true;
+}
+
+p6_cd::AtapiReply medium_error(p6_cd::AtapiState *s)
+{
+    using p6_cd::Result;
+    switch (p6_cd::device_last_error()) {
+    case Result::Range: return check(s, 5, 0x21);       // LBA out of range
+    case Result::Unsupported: return check(s, 5, 0x64); // illegal mode for this track
+    case Result::ReadError: return check(s, 3, 0x11);   // unrecovered read error
+    default: return check(s, 2, 0x3a);                  // medium not present/not ready
+    }
+}
+
+} // namespace
+
+namespace p6_cd {
+
+void atapi_reset(AtapiState *s)
+{
+    if (!s) return;
+    memset(s, 0, sizeof *s);
+    sync_medium(s); // Power-on sees the bound medium, not a fabricated change event.
+}
+
+AtapiReply atapi_execute(AtapiState *s, const uint8_t packet[12], uint8_t *out, size_t capacity)
+{
+    if (!s || !packet || (!out && capacity)) return s ? check(s, 5, 0x24) : AtapiReply{0, true};
+    if (capacity > kAtapiMaxData) capacity = kAtapiMaxData;
+    const uint8_t opcode = packet[0];
+    const bool changed = sync_medium(s);
+
+    // REQUEST SENSE reports and acknowledges the pending reason, including a
+    // media change discovered by this very command. INQUIRY is always legal;
+    // every other command first observes UNIT ATTENTION.
+    if (opcode == 0x03) {
+        uint8_t reply[18]{};
+        reply[0] = 0x70; reply[2] = s->sense_key; reply[7] = 10;
+        reply[12] = s->asc; reply[13] = s->ascq;
+        const uint32_t bytes = bounded(sizeof reply, packet[4], capacity);
+        if (bytes) memcpy(out, reply, bytes);
+        set_sense(s, 0, 0);
+        return good(bytes);
+    }
+    if (opcode != 0x12 && (changed || s->sense_key == 6)) return {0, true};
+
+    if (opcode == 0x12) { // INQUIRY
+        if (packet[1] & 1) return check(s, 5, 0x24);
+        uint8_t reply[36]{};
+        reply[0] = 5; reply[1] = 0x80; reply[2] = 0; reply[3] = 0x21; reply[4] = 31;
+        memcpy(reply + 8, "PUAE6   ", 8); memcpy(reply + 16, "IMMUTABLE CD-ROM", 16); memcpy(reply + 32, "1.0 ", 4);
+        const uint32_t bytes = bounded(sizeof reply, packet[4], capacity);
+        if (bytes) memcpy(out, reply, bytes);
+        return good(bytes);
+    }
+
+    if (!device_bound_disc() || !device_inserted()) return check(s, 2, 0x3a);
+    const Disc &disc = *device_bound_disc();
+
+    switch (opcode) {
+    case 0x00: // TEST UNIT READY
+        return good();
+
+    case 0x25: { // READ CAPACITY (10)
+        if (capacity < 8) return check(s, 5, 0x24);
+        const uint32_t blocks = disc.layout().leadout;
+        if (!blocks) return check(s, 2, 0x3a);
+        put32(out, blocks - 1); put32(out + 4, 2048);
+        return good(8);
+    }
+
+    case 0x28:
+    case 0xa8: { // READ (10)/(12), canonical user data only
+        const uint32_t lba = be32(packet + 2);
+        const uint32_t count = opcode == 0x28 ? be16(packet + 7) : be32(packet + 6);
+        if (!count) return good();
+        if (count > kDeviceMaxBurst || size_t(count) * 2048 > capacity) return check(s, 5, 0x24);
+        if (lba > disc.layout().leadout || count > disc.layout().leadout - lba) return check(s, 5, 0x21);
+        if (!sys_command_cd_read(0, out, int(lba), int(count))) return medium_error(s);
+        return good(count * 2048);
+    }
+
+    case 0x43: { // READ TOC/PMA/ATIP: formatted TOC, tracks plus lead-out
+        if ((packet[2] & 15) != 0) return check(s, 5, 0x24);
+        const bool msf = (packet[1] & 2) != 0;
+        const uint8_t start = packet[6];
+        const auto &layout = disc.layout();
+        if (start != 0 && start != 0xaa && (start < 1 || start > layout.tracks)) return check(s, 5, 0x24);
+        uint8_t reply[4 + 8 * (kMaxTracks + 1)]{};
+        reply[2] = 1; reply[3] = uint8_t(layout.tracks);
+        uint32_t at = 4;
+        if (start != 0xaa) for (uint32_t n = start ? start : 1; n <= layout.tracks; ++n) {
+            const Track &track = layout.track[n - 1];
+            reply[at + 1] = uint8_t((track.adr << 4) | track.control);
+            reply[at + 2] = uint8_t(n); lba_address(reply + at + 4, track.index1, msf); at += 8;
+        }
+        reply[at + 1] = 0x14; reply[at + 2] = 0xaa;
+        lba_address(reply + at + 4, layout.leadout, msf); at += 8;
+        put16(reply, at - 2);
+        const uint32_t bytes = bounded(at, be16(packet + 7), capacity);
+        if (bytes) memcpy(out, reply, bytes);
+        return good(bytes);
+    }
+
+    case 0x42: { // READ SUB-CHANNEL, current position data (format 1)
+        if (!(packet[2] & 0x40) || packet[3] != 1) return check(s, 5, 0x24);
+        uint8_t q[SUBQ_SIZE];
+        if (!sys_command_cd_qcode(0, q, -1, false)) return medium_error(s);
+        uint8_t reply[16]{};
+        reply[1] = q[1]; reply[2] = 0; reply[3] = 12; reply[4] = 1; reply[5] = q[4];
+        reply[6] = unbcd(q[5]); reply[7] = q[6];
+        const bool msf = (packet[1] & 2) != 0;
+        const uint32_t absolute = uint32_t(unbcd(q[11])) * 60 * 75 + uint32_t(unbcd(q[12])) * 75 + unbcd(q[13]);
+        lba_address(reply + 8, absolute >= 150 ? absolute - 150 : 0, msf);
+        relative_address(reply + 12, q, msf);
+        const uint32_t bytes = bounded(sizeof reply, be16(packet + 7), capacity);
+        if (bytes) memcpy(out, reply, bytes);
+        return good(bytes);
+    }
+
+    case 0x45: { // PLAY AUDIO (10)
+        const uint32_t start = be32(packet + 2), count = be16(packet + 7);
+        if (start > disc.layout().leadout || count > disc.layout().leadout - start)
+            return check(s, 5, 0x21);
+        if (!sys_command_cd_play(0, int(start), int(start + count), 0)) return medium_error(s);
+        return good();
+    }
+
+    case 0x47: { // PLAY AUDIO MSF, binary minute/second/frame fields
+        const uint32_t start_frames = msf_frames(packet + 3), end_frames = msf_frames(packet + 6);
+        if (start_frames < 150 || end_frames < 150 || end_frames < start_frames
+            || !sys_command_cd_play(0, int(start_frames - 150), int(end_frames - 150), 0)) return medium_error(s);
+        return good();
+    }
+
+    case 0x4b: // PAUSE/RESUME
+        if (sys_command_cd_pause(0, !(packet[8] & 1)) < 0) return medium_error(s);
+        return good();
+
+    case 0x4e: // STOP PLAY/SCAN
+        sys_command_cd_stop(0);
+        return device_last_error() == Result::Ok ? good() : medium_error(s);
+
+    default:
+        return check(s, 5, 0x20); // Unsupported opcode, never a successful stub.
+    }
+}
+
+} // namespace p6_cd

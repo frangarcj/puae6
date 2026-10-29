@@ -6396,6 +6396,86 @@
           "after_sha256": "200cc2ec49e6152946b67375d25296f5cb611a0b2400de9a8126f7297539d13d"
         }
       ]
+    },
+    {
+      "id": "0424-cdda-presentation-gain",
+      "file": "patches/winuae/0424-cdda-presentation-gain.patch",
+      "sha256": "1e9cc2fd420270f67c83a51ab89622b133a11edc46e2530d4fbde854a0dcdb72",
+      "title": "Apply a transient presentation gain to the CDDA owner",
+      "reason": "T84b needs a live frontend CD-audio volume after the hardware CD mixer but before the common Paula/extra-stream mix. Bind the gain to the portable CDDA owner, leave simultaneous FMV untouched, consume samples while muted, and keep the preference outside the semantic CDA state codec.",
+      "category": "portable audio presentation",
+      "order": 239,
+      "symbols": [
+        "p6_cda::presentation"
+      ],
+      "test": "tests/audio/test_cd_audio.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "audio.cpp",
+          "before_sha256": "8afb4a956611677a2e1e3f6b77712bd276dc4743902e192aadfadf26c4655692",
+          "after_sha256": "0a46bcb7a8496363907035dd9f7e1f36154ee674009d5fa4fe379bdf55edcfae"
+        }
+      ]
+    },
+    {
+      "id": "0425-portable-ide-atapi",
+      "file": "patches/winuae/0425-portable-ide-atapi.patch",
+      "sha256": "24809561db4319a7c41e6a71eca755f46a673b7f5f4ccdef939bb0b208d5971f",
+      "title": "Serve the portable IDE CD through a bounded cooperative ATAPI subset",
+      "reason": "T84e2 attaches the already authenticated immutable Disc owner to Gayle without the full host SCSI graph. PACKET commands execute synchronously at emulated register boundaries, use the common CDDA clock and return CHECK CONDITION for every unsupported or invalid request.",
+      "category": "portable IDE CD transport",
+      "order": 240,
+      "symbols": [
+        "p6_cd::atapi_execute",
+        "process_packet_command",
+        "add_ide_unit"
+      ],
+      "test": "tests/media/test_ide_cd.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "gayle.cpp",
+          "before_sha256": "8ae4578995c76a37135bdbfffb90be6be37dad3e4d54eaeac643e030ff8df3a1",
+          "after_sha256": "789c0faf2142bb91edbb42417471312a1256be23df5d52f8acd3c0a6b4617660"
+        },
+        {
+          "path": "ide.cpp",
+          "before_sha256": "12d3e57a95e9e5e29c066efb4aaaaf2fcfbb5c41342c86d91b13f364e446c79e",
+          "after_sha256": "e69980523675a397ef4f478beafa58c3f5046514982070be52656f136a1cda79"
+        },
+        {
+          "path": "include/ide.h",
+          "before_sha256": "fa957d37e4a3d6c306ff22e64839756dc9e9825286cfc8ebfd900dfa79cf7986",
+          "after_sha256": "8586857d12423a417928c699cdfb571fe73ad928bc365566f7f63831b12f3ffd"
+        }
+      ]
+    },
+    {
+      "id": "0426-portable-ide-atapi-state",
+      "file": "patches/winuae/0426-portable-ide-atapi-state.patch",
+      "sha256": "f5c1e93a68e88975531722c2b75022010fcb71083490a36fd26be2af7eb98ced",
+      "title": "Serialize the portable IDE ATAPI drive semantically",
+      "reason": "T84e3 restores an IDE CD at command, data and CDDA boundaries without copying ide_hdf or any pointer. The accessor validates ATA/ATAPI cursors, bounded causal buffer, sense and medium identity before applying them to the already-open drive.",
+      "category": "portable IDE CD state",
+      "order": 241,
+      "symbols": [
+        "p6_ide_atapi_disc_matches",
+        "p6_ide_state_get",
+        "p6_ide_state_set"
+      ],
+      "test": "tests/state/test_ide_cd_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "ide.cpp",
+          "before_sha256": "e69980523675a397ef4f478beafa58c3f5046514982070be52656f136a1cda79",
+          "after_sha256": "90cac009d6caef402743f28a99f8329814679a926fd5ede079c9f817e903bea7"
+        }
+      ]
     }
   ]
 }

@@ -1,0 +1,214 @@
+diff --git a/gayle.cpp b/gayle.cpp
+index 900b570d..4ce2c3fe 100644
+--- a/gayle.cpp
++++ b/gayle.cpp
+@@ -2012,9 +2012,9 @@ void gayle_add_ide_unit (int ch, struct uaedev_config_info *ci, struct romconfig
+ }
+ 
+ #ifdef P6_PORTABLE
+-/* The hard files of the session, given by the bridge once, before the reset head (the way bridge/media.cpp adds a mount configuration for the UAE controller): unit 0 and 1
+- * are the master and the slave of the Gayle channel, 2 and 3 those of the second channel behind the IDE splitter. initide opens them on every reset, as filesys_reset
+- * does with the units of its mount list. */
++/* Session-owned hard files and the optional ATAPI CD are given by the bridge
++ * before the reset head. Units 0/1 are primary master/slave and 2/3 the pair
++ * behind the deterministic IDE splitter; initide reopens the same owners. */
+ static struct uaedev_config_info p6_ide_unit[TOTAL_IDE * 2];
+ 
+ void p6_gayle_units_clear(void)
+@@ -2249,7 +2249,7 @@ static void gayle_hsync(void)
+ static void initide (void)
+ {
+ #ifdef P6_PORTABLE
+-	// every reset opens the hard files again (their content is the same: a write overlay lives in the block backend, not in the drive)
++	// Every reset opens the same session-owned HDF overlays and immutable CD source.
+ 	for (int i = 0; i < TOTAL_IDE * 2; i++)
+ 		remove_ide_unit(idedrive, i);
+ 	alloc_ide_mem (idedrive, TOTAL_IDE * 2, NULL);
+diff --git a/ide.cpp b/ide.cpp
+index 6b507eab..48ca2c87 100644
+--- a/ide.cpp
++++ b/ide.cpp
+@@ -26,12 +26,14 @@
+ #include "ini.h"
+ 
+ #ifdef P6_PORTABLE
+-/* T56: the IDE of the A600 and the A1200 (Gayle) with hard disks only. A drive is a hard file on the block backend of the session (hardfile.cpp): there is no ATAPI
+- * device (CD-ROM, tape: no scsi.cpp), no .ini file that overrides its identity (no ini.cpp) and no thread (a request is served at once, as the hard files of the UAE
+- * controller are), so the interrupt follows the command by the irq_delay of the drive, in lines of emulated time, and never by a scheduling decision of the host. */
++/* T56/T84e2: Gayle's IDE has session-owned hard files and one bounded ATAPI CD.
++ * Neither path uses the host SCSI layer or a worker thread: commands complete
++ * cooperatively and their interrupt is delayed only by emulated hsyncs. */
+ #define P6_NO_ATAPI 1
+-#define P6_IDE_SECBUF_MAX (256 * 512 + 512)     /* the most a transfer of 256 sectors can have in hand, and the bound of the native state (p6_ide_state_get) */
++#define P6_IDE_SECBUF_MAX (128 * 2048)          /* one bounded canonical CD burst; HDF transfers are smaller */
+ static void do_process_rw_command (struct ide_hdf *ide);
++static void do_process_packet_command (struct ide_hdf *ide);
++#undef P6_NO_ATAPI                              /* enable the ATA PACKET state machine, with the portable command backend below */
+ #endif
+ 
+ /* STATUS bits */
+@@ -885,7 +887,11 @@ static void process_rw_command (struct ide_hdf *ide)
+ static void process_packet_command (struct ide_hdf *ide)
+ {
+ 	setbsy (ide);
++#ifdef P6_PORTABLE
++	do_process_packet_command (ide);
++#else
+ 	write_comm_pipe_u32 (&ide->its->requests, ide->num | 0x8000, 1);
++#endif
+ }
+ #endif
+ 
+@@ -929,7 +935,7 @@ static void atapi_packet (struct ide_hdf *ide)
+ {
+ 	ide->packet_data_offset = 0;
+ 	ide->packet_data_size = (ide->regs.ide_hcyl << 8) | ide->regs.ide_lcyl;
+-	if (ide->packet_data_size == 65535)
++	if (ide->packet_data_size == 0 || ide->packet_data_size == 65535)
+ 		ide->packet_data_size = 65534;
+ 	ide->data_size = 12;
+ 	if (IDE_LOG > 0)
+@@ -945,6 +951,28 @@ static void atapi_packet (struct ide_hdf *ide)
+ 
+ static void do_packet_command (struct ide_hdf *ide)
+ {
++#ifdef P6_PORTABLE
++	ide_grow_buffer (ide, P6_IDE_SECBUF_MAX);
++	p6_cd::AtapiReply reply = p6_cd::atapi_execute (&ide->p6_atapi, ide->secbuf, ide->secbuf, P6_IDE_SECBUF_MAX);
++	ide->direction = 0;                // the explicit portable subset has no data-out command
++	ide->regs.ide_status = 0;
++	if (reply.check_condition) {
++		ide->regs.ide_error = (ide->p6_atapi.sense_key << 4) | IDE_ERR_ABRT;
++		atapi_data_done (ide);
++		ide->regs.ide_status |= ATAPI_STATUS_CHK;
++		return;
++	}
++	ide->data_size = reply.bytes;
++	if (reply.bytes) {
++		ide->regs.ide_nsector = ATAPI_IO;
++	} else {
++		atapi_data_done (ide);
++	}
++	ide->packet_state = 2;
++	if (atapi_set_size (ide))
++		ide->intdrq = true;
++	return;
++#else
+ 	memcpy (ide->scsi->cmd, ide->secbuf, 12);
+ 	ide->scsi->cmd_len = 12;
+ 	if (IDE_LOG > 0) {
+@@ -984,6 +1012,7 @@ static void do_packet_command (struct ide_hdf *ide)
+ 	ide->packet_state = 2; // data phase
+ 	if (atapi_set_size (ide))
+ 		ide->intdrq = true;
++#endif
+ }
+ 
+ static void do_process_packet_command (struct ide_hdf *ide)
+@@ -997,6 +1026,9 @@ static void do_process_packet_command (struct ide_hdf *ide)
+ 			if (atapi_set_size (ide))
+ 				ide->intdrq = true;
+ 		} else {
++#ifdef P6_PORTABLE
++			atapi_data_done (ide);        // unreachable: portable commands never request data out
++#else
+ 			if (atapi_set_size (ide)) {
+ 				ide->intdrq = true;
+ 			} else {
+@@ -1006,6 +1038,7 @@ static void do_process_packet_command (struct ide_hdf *ide)
+ 				ide->scsi->data_len = ide->packet_data_size;
+ 				scsi_emulate_cmd (ide->scsi);
+ 			}
++#endif
+ 		}
+ 	}
+ 	ide_fast_interrupt (ide);
+@@ -1722,7 +1755,10 @@ void remove_ide_unit(struct ide_hdf **idetable, int ch)
+ 	if (ide) {
+ 		struct ide_thread_state *its;
+ 		hdf_hd_close(&ide->hdhfd);
+-#ifndef P6_NO_ATAPI
++#ifdef P6_PORTABLE
++		if (ide->atapi)
++			sys_command_close (ide->cd_unit_num);
++#else
+ 		scsi_free(ide->scsi);
+ #endif
+ 		xfree(ide->secbuf);
+@@ -1745,14 +1781,22 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+ 	ide = idetable[ch];
+ 	if (ci)
+ 		memcpy (&ide->hdhfd.hfd.ci, ci, sizeof (struct uaedev_config_info));
+-#ifdef P6_NO_ATAPI
+-	if (ci->type != UAEDEV_HDF) {
+-		write_log(_T("IDE%d: only hard files can be attached\n"), ch);
+-		return NULL;
+-	}
+-#else
+ 	if (ci->type == UAEDEV_CD && ci->device_emu_unit >= 0) {
+ 
++#ifdef P6_PORTABLE
++		if (!sys_command_open (ci->device_emu_unit)) {
++			write_log(_T("IDE: portable CD unit %d failed to open\n"), ci->device_emu_unit);
++			return NULL;
++		}
++		ide->cd_unit_num = ci->device_emu_unit;
++		ide->atapi = true;
++		ide->atapi_device_type = 5;
++		ide->blocksize = 512;
++		ide->uae_unitnum = ci->uae_unitnum;
++		p6_cd::atapi_reset (&ide->p6_atapi);
++		ide_identity_buffer(ide);
++		gui_flicker_led(LED_CD, ci->uae_unitnum, -1);
++#else
+ 		device_func_init(0);
+ 		ide->scsi = scsi_alloc_cd(ch, ci->device_emu_unit, true, ci->uae_unitnum);
+ 		if (!ide->scsi) {
+@@ -1767,9 +1811,11 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+ 		ide->blocksize = 512;
+ 		ide->uae_unitnum = ci->uae_unitnum;
+ 		gui_flicker_led(LED_CD, ci->uae_unitnum, -1);
++#endif
+ 
+ 		write_log(_T("IDE%d CD %d\n"), ch, ide->cd_unit_num);
+ 
++#ifndef P6_PORTABLE
+ 	} else if (ci->type == UAEDEV_TAPE) {
+ 
+ 		ide->scsi = scsi_alloc_tape(ch, ci->rootdir, ci->readonly, ci->uae_unitnum);
+@@ -1787,9 +1833,8 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+ 
+ 		write_log(_T("IDE%d TAPE %d\n"), ch, ide->cd_unit_num);
+ 
+-
+-	} else
+ #endif
++	} else
+ 	if (ci->type == UAEDEV_HDF) {
+ 
+ 		if (!hdf_hd_open (&ide->hdhfd))
+diff --git a/include/ide.h b/include/ide.h
+index 7dc09387..e654cc03 100644
+--- a/include/ide.h
++++ b/include/ide.h
+@@ -3,6 +3,9 @@
+ 
+ #include "commpipe.h"
+ #include "uae/types.h"
++#ifdef P6_PORTABLE
++#include "media/cd_device.h"
++#endif
+ 
+ /* IDE drive registers */
+ #define IDE_DATA	0x00
+@@ -117,6 +120,9 @@ struct ide_hdf
+ 	int packet_data_offset;
+ 	int packet_transfer_size;
+ 	struct scsi_data *scsi;
++#ifdef P6_PORTABLE
++	p6_cd::AtapiState p6_atapi;
++#endif
+ };
+ 
+ struct ide_thread_state
+

@@ -79,12 +79,22 @@ public static class Controllers
 
 	public static string Joystick(int port, string name) => $"P{port} Joystick {name}";
 
+	/// <summary>Validates restrictions shared by the controller definition and the pending sync settings.</summary>
+	internal static void Validate(Puae6SyncSettings settings)
+	{
+		if (settings is null) throw new System.ArgumentNullException(nameof(settings));
+		if (settings.MouseSpeed is < 1 or > 1000) throw new System.ArgumentOutOfRangeException(nameof(settings), "Mouse speed must be from 1 to 1000 percent");
+		bool pointer0 = settings.ControllerPort1 is Puae6Port1.Lightgun or Puae6Port1.Lightpen;
+		bool pointer1 = settings.ControllerPort2 is Puae6Port2.Lightgun or Puae6Port2.Lightpen;
+		if (pointer0 && pointer1) throw new System.ArgumentException("Only one optical sensor is supported across both controller ports", nameof(settings));
+	}
+
 	public static ControllerDefinition Define(Puae6SyncSettings settings, int mediaCount)
 	{
+		Validate(settings);
 		var controller = new ControllerDefinition("Amiga Controller");
 		bool pointer0 = settings.ControllerPort1 is Puae6Port1.Lightgun or Puae6Port1.Lightpen;
 		bool pointer1 = settings.ControllerPort2 is Puae6Port2.Lightgun or Puae6Port2.Lightpen;
-		if (pointer0 && pointer1) throw new System.ArgumentException("only one optical sensor is supported", nameof(settings));
 		for (int p = 0; p < 2; ++p)
 			if (p == 0 ? pointer0 : pointer1)
 			{

@@ -473,6 +473,7 @@ internal static unsafe partial class Program
  }
  static void Main(string[] args) {
   if(args.Length>5&&args[5].StartsWith("cdtv")) { CdtvWaterbox(args); return; }
+  if(args.Length>5&&args[5].StartsWith("idemixed")) { IdeMixedWaterbox(args); return; }
   if(args.Length>=3&&args[0]=="nrg-metadata") { NrgMetadata(args); return; }
   if(args.Length>=2&&args[0].StartsWith("nrg-sbi")) { NrgSbi(args); return; }
 

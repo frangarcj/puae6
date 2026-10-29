@@ -24,6 +24,7 @@ public static class P6
 	public const uint MachineA500 = 1, MachineA600 = 2, MachineA1200 = 3, MachineA500OG = 4, MachineA500Plus = 5, MachineA1000 = 6, MachineA2000OG = 7, MachineA2000 = 8, MachineA4030 = 11, MachineA4040 = 12, MachineCd32 = 9, MachineCdtv = 10;
 	public const uint VideoPal = 1, VideoNtsc = 2;
 	public const uint MediaAdf = 1, MediaHdf = 2;
+	public const byte CdControllerAuto = 0, CdControllerNone = 1, CdControllerCd32 = 2, CdControllerIde = 4;
 	public const uint PortNone = 0, PortJoystick = 1, PortMouse = 2, PortCd32 = 3, PortLightgun = 4, PortLightpen = 5;
 	public const uint Button1 = 1u << 0, Button2 = 1u << 1, Button3 = 1u << 2, ButtonUp = 1u << 3, ButtonDown = 1u << 4, ButtonLeft = 1u << 5, ButtonRight = 1u << 6;
 	public const uint Cd32Yellow = 1u << 7, Cd32Rewind = 1u << 8, Cd32Forward = 1u << 9, Cd32Play = 1u << 10;
@@ -32,6 +33,8 @@ public static class P6
 	public const uint FrameLag = 1u << 0, FrameNoVideo = 1u << 1, FrameDriveLight = 1u << 2;
 	public const uint RenderVideo = 1u << 0, RenderAudio = 1u << 1;
 	public const int RenderDriveVolumeShift = 8;
+	public const int RenderCdAudioVolumeShift = 16;
+	public const uint RenderCdAudioVolumeValid = 1u << 23;
 	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5, RegionNvram = 6;
 	public const int Cd32NvramBytes = 1024;
 	public const uint MemoryNone = uint.MaxValue;
@@ -43,7 +46,7 @@ public static class P6
 	public const int MaxTrackDiskBytes = 3 * 1024 * 1024;        // the largest extended ADF, FDI or IPF the bridge reads (T57, T58); a floppy image is read only unless it is a plain ADF
 
 	// p6w_memory_area.flags: the values of LibWaterboxCore.MemoryDomainFlags.
-	public const long AreaWritable = 1, AreaPrimary = 8, AreaBigEndian = 16, AreaWordSize2 = 64, AreaFunctionHook = 1024;
+	public const long AreaWritable = 1, AreaPrimary = 8, AreaBigEndian = 16, AreaWordSize1 = 32, AreaWordSize2 = 64, AreaFunctionHook = 1024;
 
 	public static string ResultName(int result) => result switch
 	{
@@ -73,7 +76,7 @@ public unsafe struct P6Config
 	public byte CollisionLevel;                                  // T77a: 0 Auto/Full, 1 None, 2 Sprites, 3 Playfields, 4 Full
 	public fixed byte Reserved7[1];                              // byte 69, zero in ABI v1
 	public byte Z3Memory;                                        // byte 70: none=0, 16MiB=1, 1/2/4/8MiB=2..5, 32/64/128/256/512MiB=6..10
-	public fixed byte Reserved8[1];                              // byte 71, zero in ABI v1
+	public byte CdController;                                    // byte 71: Auto/None/CD32/IDE; zero keeps the historical machine profile
 }
 
 [StructLayout(LayoutKind.Sequential)]

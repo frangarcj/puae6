@@ -108,6 +108,40 @@ class Cd32SessionWaterboxTests(unittest.TestCase):
                         self.assertIn('Private V3 sessions single/catalog cold snapshot/full future/identity/rebind PASS',stdout)
                 self.assertNotEqual(*pids)
 
+@unittest.skipUnless(GUEST.is_file() and wb.runtime_receipt_path().is_file() and shutil.which("dotnet"), "built guest/runtime and dotnet required")
+class IdeMixedWaterboxTests(unittest.TestCase):
+    def test_catalog_with_adf_two_hdfs_and_prepared_volume_restores_everywhere(self):
+        from tests.hdf import hdf_image
+        from tests.media import ide_cd_rom
+        with tempfile.TemporaryDirectory(prefix="ide-mixed-wbx-", dir=ROOT / "build") as tmp:
+            work = Path(tmp)
+            assembly, env = build_disc_source(work)
+            runtime = wb.read_runtime_receipt(wb.runtime_receipt_path())["runtime_dylib"]["path"]
+            sha = json.loads(RECEIPT.read_text())["guest"]["sha256"]
+            files = {
+                "ide-mixed.rom": ide_cd_rom.state_rom(),
+                "alongside.adf": bytes(901120),
+                "first.hdf": hdf_image.rdb_image(cylinders=2),
+                "second.hdf": bytes(b"DOS\0") + bytes(12 * 512 - 4),
+                # A frontend-prepared volume reaches p6w as an HDF image. Its
+                # own archive conversion is already covered by T64b.
+                "volume.hdf": bytes(b"DOS\1") + bytes(16 * 512 - 4),
+            }
+            for name, data in files.items():
+                (work / name).write_bytes(data)
+            before = {name: (work / name).read_bytes() for name in files}
+            base = ["dotnet", str(assembly), str(work), str(work / "ide-mixed-a.iso"), runtime, str(GUEST), sha]
+            extra = [str(work / name) for name in ("ide-mixed.rom", "alongside.adf", "first.hdf", "second.hdf", "volume.hdf")]
+            pids = []
+            for mode in ("idemixedsave", "idemixedload"):
+                with subprocess.Popen([*base, mode, *extra], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+                    pids.append(process.pid)
+                    stdout, stderr = process.communicate(timeout=300)
+                    self.assertEqual(process.returncode, 0, stdout[-4000:] + stderr[-6000:])
+                    self.assertIn("Waterbox IDE mixed CD+ADF+2HDF+volume local/new-sandbox/new-process restore PASS", stdout)
+            self.assertNotEqual(*pids)
+            self.assertEqual(before, {name: (work / name).read_bytes() for name in files})
+
 class Cd32PublicCoreTests(Cd32WaterboxTests):
     public_modes = ('publicsave', 'publicload')
     def test_iso_cue_callback_abi_restore_and_rebind_across_processes(self):

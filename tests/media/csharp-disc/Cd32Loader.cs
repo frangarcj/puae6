@@ -454,7 +454,10 @@ internal static unsafe partial class Program
    lp.Discs.RemoveRange(1, 16);
    lp.Roms.Add(new MixedRom());
    try { Resolve(); throw new Exception("CD/floppy mixture accepted"); }
-   catch (TargetInvocationException e) when (e.InnerException is NotSupportedException) { Require(firmware.Asked.Count == 0); }
+   catch (TargetInvocationException e) when (e.InnerException is InvalidOperationException) {
+    Require(e.InnerException.Message == "Automatic mixed CD media requires A600, A1200, A4030 or A4040 so the CD can use IDE");
+    Require(firmware.Asked.Count == 0);
+   }
    lp.Roms.Clear();
    var p = Resolve();
    Require(original.Machine == Puae6Machine.A500 && p.SyncSettings.Machine == Puae6Machine.CD32);

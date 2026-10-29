@@ -63,6 +63,7 @@ class MovieFormatTests(unittest.TestCase):
         self.assertEqual(int(self.recorded_units[-1][2]), int(h["CycleCount"]), "the cycle count at the end of the movie is the master ticks of its last unit")
         self.assertEqual(512.0 * 3546895.0, float(h["ClockRate"]))
         self.assertIn('"Region"', h["SyncSettings"])
+        self.assertIn('"MouseSpeed":100', h["SyncSettings"])
 
     def test_every_button_and_axis_of_every_frame_decodes_to_what_was_recorded(self):
         out = self.h.session([self.h.core("V"), f"movieverify V {self.movie} {self.units} script={self.script} press={self.press}"]).stdout
@@ -96,6 +97,7 @@ class MovieFormatTests(unittest.TestCase):
         # the movie of the same core with another setup: other region, seed, drives, ports, firmware and disks
         for what, core_line, reason in (("NTSC", h.core("P", ntsc=True), "OtherConfig"), ("another seed", h.core("P", seed=2), "OtherConfig"),
                                         ("two drives", h.core("P", drives=2), "OtherConfig"), ("a joystick in port 1", h.core("P", port1="joystick"), "OtherConfig"),
+                                        ("another mouse speed", h.core("P", mousespeed=101), "OtherConfig"),
                                         ("other disks", h.core("P", adf="B,A"), "OtherMedia"), ("no disks", h.core("P", adf=""), "OtherMedia"),
                                         ("another firmware", h.core("P", firmware="input_all"), "OtherFirmware")):
             with self.subTest(core=what):

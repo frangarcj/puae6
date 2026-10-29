@@ -164,14 +164,14 @@ def rom(channel=0, drive=0):
     return builder.build(program(channel, drive))
 
 
-def loop_program():
+def loop_program(channel=0, drive=0):
     """What DET02 runs; see the module text."""
-    a = _Ide()
+    a = _Ide(channel, drive)
     _start(a)
     a.move_l_imm_abs(0, RES + R_INTCOUNT)
     a.move_l_imm_abs(0, RES + R_COUNT)
     a.move_l_label_abs("handler", 0x68)               # the level 2 autovector: Gayle's IDE interrupt
-    a.put(a.select, 0xA0)
+    a.put(a.select, 0xA0 | (drive << 4))
     a.put(GAYLE_INT, 0x80)                            # the IDE interrupt of Gayle is enabled
     a.move_w_imm_abs(0xC008, 0xDFF09A)                # INTENA: SET | INTEN | PORTS
     a.op("MOVE.W #$2000,SR", 0x46FC, 0x2000)
@@ -194,7 +194,7 @@ def loop_program():
     a.op32("MOVE.B block+2,D1", 0x1239, RES + 0x102)
     a.op32("MOVE.B D1,LCYL", 0x13C1, a.lcyl)
     a.put(a.hcyl, 0)
-    a.put(a.select, 0xE0)
+    a.put(a.select, 0xE0 | (drive << 4))
     a.put(a.status, CMD_WRITE)
     for sector in range(2):
         a.wait_ready()
@@ -207,7 +207,7 @@ def loop_program():
     a.op32("MOVE.B block+2,D1", 0x1239, RES + 0x102)
     a.op32("MOVE.B D1,LCYL", 0x13C1, a.lcyl)
     a.put(a.hcyl, 0)
-    a.put(a.select, 0xE0)
+    a.put(a.select, 0xE0 | (drive << 4))
     a.put(a.status, CMD_READ)
     for sector in range(2):
         a.wait_ready()
@@ -226,8 +226,8 @@ def loop_program():
     return a.source()
 
 
-def loop_rom():
-    return builder.build(loop_program())
+def loop_rom(channel=0, drive=0):
+    return builder.build(loop_program(channel, drive))
 
 
 COMMANDS = (0x20, 0x30, 0xEC, 0x91, 0xC6, 0xC4, 0xC5, 0x10, 0xEF, 0x50, 0x70, 0xE7, 0x90, 0x40, 0x21, 0x31)     # read, write, identify, initialize, multiple mode, read and write multiple, ...

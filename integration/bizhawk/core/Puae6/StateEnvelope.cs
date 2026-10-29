@@ -24,7 +24,7 @@ public enum StateRejection
 	OtherGuest,
 	/// <summary>Written with other heap sizes.</summary>
 	OtherHeaps,
-	/// <summary>Written with other sync settings (machine, standard, seed, clock, ports, drives, memory, floppy writes, stored SaveRam).</summary>
+	/// <summary>Written with other sync settings (machine, standard, seed, clock, ports, mouse speed, drives, memory, floppy writes, stored SaveRam).</summary>
 	OtherConfig,
 	/// <summary>Written with another firmware (the Kickstart is in the sandbox, not in the snapshot).</summary>
 	OtherFirmware,
@@ -61,7 +61,7 @@ public sealed class StateIdentity
 	{
 		foreach (var other in ConfigHashOfOtherMachines)
 			if (other.Value.SequenceEqual(have)) return $"the {verb} was made for the {other.Key}, this core is the {Machine}: the machine is a sync setting and a {verb} of one Amiga does not run on another";
-		return $"the {verb} was made with other sync settings (machine, standard, seed, clock, ports, drives, memory, floppy writes, stored SaveRam); this core is the {Machine}";
+		return $"the {verb} was made with other sync settings (machine, standard, seed, clock, ports, mouse speed, drives, memory, floppy writes, stored SaveRam); this core is the {Machine}";
 	}
 
 	public StateIdentity(string guestSha256, uint[] heapsKB, byte[] configHash, byte[] firmwareSha256, byte[] mediaHash, string machine = "",
@@ -85,11 +85,11 @@ public sealed class StateIdentity
 /// </summary>
 public static class StateEnvelope
 {
-	public const uint Version = 2; // Wrapper layout adds the causal pending CD insertion ordinal.
+	public const uint Version = 3; // Wrapper layout adds the four causal mouse-scaling remainders.
 	/// <summary>A state is the dirty pages of a 40 MiB image: nothing near this; it only keeps a crafted length from allocating gigabytes.</summary>
 	public const long MaxPayloadBytes = 256L * 1024 * 1024;
 	static readonly byte[] Magic = Encoding.ASCII.GetBytes("P6WS");
-	static readonly byte[] ChecksumDomain = Encoding.ASCII.GetBytes("puae6-waterbox-state-v2\0");
+	static readonly byte[] ChecksumDomain = Encoding.ASCII.GetBytes("puae6-waterbox-state-v3\0");
 
 	public static byte[] Sha256(params byte[][] parts)
 	{

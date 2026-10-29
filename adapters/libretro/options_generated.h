@@ -24,6 +24,7 @@ struct Settings {
     uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
     uint32_t cpu_multiplier = 0u;  // reboot, p6_config.cpu_multiplier = auto
     uint32_t hdf_controller = 0u;  // reboot, p6_config.hdf_controller = uae
+    uint32_t cd_controller = 0u;  // reboot, p6_config.cd_controller = auto
     uint32_t audio_rate_hz = 48000u;  // reboot, p6_config.audio_rate_hz = 48000
     uint32_t sound_separation = 0u;  // reboot, p6_config.sound_separation = 70
     uint32_t sound_interpolation = 0u;  // reboot, p6_config.sound_interpolation = anti
@@ -98,6 +99,7 @@ struct Settings {
     uint32_t vkbd_transparency = 25u;  // presentation, presentation.vkbd_transparency = 25%
     uint32_t vkbd_dimming = 25u;  // presentation, presentation.vkbd_dimming = 25%
     uint32_t drive_sound_volume = 0u;  // presentation, presentation.drive_sound_volume = 0
+    int64_t cd_audio_volume = INT64_C(100);  // presentation, presentation.cd_audio_volume
     uint32_t preset = 0u;  // reboot, a bundle of the options above (the schema's presets, apply_preset); 0 = none. Not a p6_config field
     uint32_t model_fd = 1u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A500
     uint32_t model_hd = 3u;  // reboot, a libretro choice that is no p6_config field (the schema's selectors) = A1200
@@ -122,6 +124,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->cpu_compatibility = settings.cpu_compatibility;
     config->cpu_multiplier = settings.cpu_multiplier;
     config->hdf_controller = settings.hdf_controller;
+    config->cd_controller = settings.cd_controller;
     config->audio_rate_hz = settings.audio_rate_hz;
     config->sound_separation = settings.sound_separation;
     config->sound_interpolation = settings.sound_interpolation;

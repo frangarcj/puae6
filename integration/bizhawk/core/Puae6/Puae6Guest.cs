@@ -76,6 +76,7 @@ public sealed class Puae6Guest : IDisposable
 	public GuestIdentity.VerifiedGuest Identity { get; }
 	public P6CdHost? Cd { get; }
 	public bool IsSealed { get; private set; }
+	bool _cdBound;
 
 	Puae6Guest(WaterboxHost host, LibPuae6 lib, GuestIdentity.VerifiedGuest identity, P6CdHost? cd)
 	{
@@ -137,15 +138,26 @@ public sealed class Puae6Guest : IDisposable
 				throw new GuestLayoutException($"{AbiLayout.Names[i]} is {reported[i]} in the guest and {expected[i]} in the wrapper");
 	}
 
-	/// <summary>Seal the common empty-CD baseline before binding external CD metadata.
-	/// The binding must be dirty snapshot state, never part of an instance's baseline.</summary>
+	/// <summary>IDE needs its immutable catalog before p6_load so the ATAPI unit can be registered in the baseline.</summary>
+	internal void BindCdBeforeLoad()
+	{
+		if (IsSealed || Cd is null || _cdBound) throw new InvalidOperationException("CD pre-load binding is not available");
+		if (Cd.Bind(this, false) != P6.Ok) throw new InvalidDataException("CD descriptor refused before machine load");
+		_cdBound = true;
+	}
+
+	/// <summary>Seal the baseline; integrated CD32/CDTV bind after it, while IDE was bound before p6_load.</summary>
 	public void Seal()
 	{
 		if (IsSealed) throw new InvalidOperationException("The guest is already sealed");
 		using var active = Host.EnterExit();
 		Host.Seal();
 		IsSealed = true;
-		if (Cd is not null && Cd.Bind(this, false) != P6.Ok) throw new InvalidDataException("CD descriptor refused");
+		if (Cd is not null && !_cdBound)
+		{
+			if (Cd.Bind(this, false) != P6.Ok) throw new InvalidDataException("CD descriptor refused");
+			_cdBound = true;
+		}
 	}
 
 	public void Dispose() => Host.Dispose();

@@ -107,6 +107,25 @@ void access_z3_ram(void *buffer, int64_t address, int64_t count, bool write) { m
 void access_nvram(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_NVRAM, buffer, address, count, write); }
 void access_rom(void *buffer, int64_t address, int64_t count, bool write) { memory_access(P6_REGION_ROM, buffer, address, count, write); }
 
+// HDF domains are byte images, not Amiga RAM. Each call resolves the ordinal and reaches the same causal COW overlay as the block device.
+void hard_file_access(uint32_t index, void *buffer, int64_t address, int64_t count, bool write)
+{
+    const bool usable = buffer && count >= 0 && address >= 0;
+    p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+    const p6_result result = usable
+        ? (write ? p6_hdf_write(index, uint64_t(address), buffer, uint64_t(count), &error)
+                 : p6_hdf_read(index, uint64_t(address), buffer, uint64_t(count), &error))
+        : P6_ERROR_BAD_ARGUMENT;
+    if (result == P6_OK) return;
+    ++memory_refused;
+    if (!write && usable) memset(buffer, 0, size_t(count));
+}
+
+void access_hdf0(void *buffer, int64_t address, int64_t count, bool write) { hard_file_access(0, buffer, address, count, write); }
+void access_hdf1(void *buffer, int64_t address, int64_t count, bool write) { hard_file_access(1, buffer, address, count, write); }
+void access_hdf2(void *buffer, int64_t address, int64_t count, bool write) { hard_file_access(2, buffer, address, count, write); }
+void access_hdf3(void *buffer, int64_t address, int64_t count, bool write) { hard_file_access(3, buffer, address, count, write); }
+
 struct AreaSpec {
     uint32_t type;
     const char *name;
@@ -121,18 +140,33 @@ const AreaSpec area_specs[] = {
     {P6_REGION_ROM, "ROM", 0, access_rom},
     {P6_REGION_NVRAM, "CD32 NVRAM", 0, access_nvram},
 };
+const AreaSpec hard_file_specs[] = {
+    {0, "Hard Disk 1", 0, access_hdf0}, {1, "Hard Disk 2", 0, access_hdf1},
+    {2, "Hard Disk 3", 0, access_hdf2}, {3, "Hard Disk 4", 0, access_hdf3},
+};
 
 }  // namespace
 
-// The memory areas of the loaded machine (see p6w_memory_area): Chip RAM first and primary, Slow RAM, Fast RAM and the ROM when the machine has
-// them, all big endian with 16-bit words. Returns how many were written; zero (and nothing written) when no machine is loaded or
-// `capacity` is too small. Call it after p6w_init_machine and before the seal: the areas are function hooks and stay valid for the life of the sandbox.
+// The memory areas of the loaded machine (see p6w_memory_area): machine RAM/ROM first, then one byte domain per HDF when the caller reserved room
+// for all of them. A legacy six-entry caller still receives the machine areas. Returns zero when no machine is loaded or capacity is below the
+// historical machine-area minimum. The areas are function hooks and stay valid for the life of the sandbox.
 ECL_EXPORT size_t p6w_memory_areas(p6w_memory_area *out, size_t capacity)
 {
-    if (!out || capacity < P6W_MAX_AREAS) return 0;
+    if (!out) return 0;
     p6_memory_region regions[P6W_MAX_AREAS];
     uint32_t n = 0;
     if (p6_memory_regions(regions, P6W_MAX_AREAS, &n, nullptr) != P6_OK) return 0;
+    uint64_t hdf_bytes[P6_MAX_HDF] = {};
+    size_t hdf_count = 0;
+    for (; hdf_count < P6_MAX_HDF; ++hdf_count) {
+        p6_error error = {P6_ABI_VERSION, sizeof error, {}};
+        if (p6_hdf_size(uint32_t(hdf_count), &hdf_bytes[hdf_count], &error) != P6_OK) break;
+        if (hdf_bytes[hdf_count] > uint64_t(INT64_MAX)) return 0;
+    }
+    // Preserve the original ABI rule: callers reserve the six possible machine areas even when this model has fewer. A legacy caller gets exactly
+    // that old view; a current caller reserves P6W_MAX_AREAS and gets every HDF atomically (never a prefix that depends on spare machine slots).
+    if (capacity < P6W_MAX_MACHINE_AREAS) return 0;
+    const bool include_hard_files = capacity >= P6W_MAX_MACHINE_AREAS + hdf_count;
     size_t written = 0;
     for (const AreaSpec &spec : area_specs)
         for (uint32_t i = 0; i < n; ++i)
@@ -142,6 +176,11 @@ ECL_EXPORT size_t p6w_memory_areas(p6w_memory_area *out, size_t capacity)
                 out[written++] = p6w_memory_area{reinterpret_cast<const void *>(spec.access), spec.name, int64_t(regions[i].bytes),
                                                  spec.flags | writable | P6W_AREA_BIG_ENDIAN | word | P6W_AREA_FUNCTION_HOOK};
             }
+    for (size_t i = 0; include_hard_files && i < hdf_count; ++i) {
+        const AreaSpec &spec = hard_file_specs[i];
+        out[written++] = p6w_memory_area{reinterpret_cast<const void *>(spec.access), spec.name, int64_t(hdf_bytes[i]),
+                                         P6W_AREA_WRITABLE | P6W_AREA_WORD_SIZE_1 | P6W_AREA_FUNCTION_HOOK};
+    }
     return written;
 }
 

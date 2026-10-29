@@ -635,6 +635,50 @@
         "contract": "Guard devices_free parameter-list cleanup and main.fixup_prefs export-cache creation because their private desktop state/producers are excluded. Remove calc/ini only from selected units after preprocessed API-use audit; keep pristine and audit_sources. No substitute successful parser/cleanup providers.",
         "test": "tests.host.test_devices full lifecycle/imports; tests.host.test_main_source; tests.codegen.test_native_cmake graph and all selected preprocessed API references.",
         "remaining": "Media path resolution, input commands/exporters and savestate callers remain pending before full link; configuration and machine state gates remain open."
+      },
+      "cd_topology_implementation": {
+        "task": "T84e1",
+        "files": [
+          "bridge/include/p6.h",
+          "bridge/config.cpp",
+          "bridge/lifecycle.cpp",
+          "bridge/state.cpp"
+        ],
+        "contract": "One reserved ABI byte selects Auto/None/integrated CD32/integrated CDTV/IDE. A pure resolver runs during p6_init validation; incompatible boards and values fail before session mutation, without fallback. None disables the integrated CD controller; IDE only enables a supported A600/A1200/A4000 port and does not invent a unit or move UAE HDFs.",
+        "test": "tests.media.test_media for resolution/preferences/atomic rejection; tests.state.test_cd_controller for byte-exact legacy identity and DET02 local/new-process IDE topology.",
+        "remaining": "The public BizHawk setting/loader is T84f; no successful ATAPI stub is present."
+      },
+      "ide_atapi_implementation": {
+        "task": "T84e2",
+        "files": [
+          "patches/winuae/0425-portable-ide-atapi.patch",
+          "ports/portable/media/cd_device.cpp",
+          "bridge/media.cpp"
+        ],
+        "contract": "A resolved IDE CD registers the already-bound immutable p6_cd::Disc as Gayle primary master. The portable ATA PACKET path is cooperative and bounded to 128 canonical sectors, with an explicit MMC identity/TUR/sense/capacity/TOC/subchannel/read/play/pause/stop subset; unsupported commands return CHECK CONDITION. No host SCSI, worker thread, filesystem or host clock participates. Four UAE-controller HDFs remain independent; overcommitting the four physical IDE slots fails before reset.",
+        "test": "tests.media.test_cd_device covers the MMC codec, bounded transfers, sense, media change and CDDA; tests.media.test_ide_cd runs IDENTIFY/PACKET from a 68000 guest through Gayle while checking four simultaneous HDF byte domains and atomic slot/source failures.",
+        "remaining": "The public BizHawk setting/loader remains T84f."
+      },
+      "ide_atapi_state_implementation": {
+        "task": "T84e3",
+        "files": [
+          "patches/winuae/0426-portable-ide-atapi-state.patch",
+          "bridge/state_hdf.cpp",
+          "bridge/state_upstream.cpp"
+        ],
+        "contract": "P6DK stores semantic ATA/ATAPI words, only the causal transfer prefix, catalog ordinal and portable device/CDDA state. It validates topology, catalog identity, cursors, sense, presence and transfer bounds before Apply, then rebuilds derived pointers from the already-bound catalog. P6AU recognizes IDE ownership of the shared Paula phase. No engine, Disc, callback or PCM pointer is serialized.",
+        "test": "tests.state.test_ide_cd_state cuts an incomplete packet, the maximum READ(12) response and active CDDA; it compares local/new-process futures and atomically refuses another catalog/topology or hostile fields.",
+        "remaining": "Waterbox transport is T84e4; the public BizHawk setting/loader remains T84f."
+      },
+      "mixed_waterbox_cd_catalog": {
+        "task": "T84e4",
+        "files": [
+          "adapters/waterbox/cd_source.cpp",
+          "bridge/state.cpp"
+        ],
+        "contract": "The fixed CD catalog may bind before p6_load alongside the independent p6_media manifest. IDE activation waits for the normal first reset head and never creates another scheduler or reopens the unit. CD change dispatches through the resolved controller: Akiko for CD32, portable device presence for CDTV/IDE. Snapshot restore rebinds only the current callback after validating the same ordered catalog; CD ordinals never alias floppy/HDF indices, overlays or host files.",
+        "test": "tests.waterbox-media.test_cd_source.IdeMixedWaterboxTests uses real Waterbox with CD+ADF+two HDF+prepared volume, active CDDA and changed absence/ordinal; it compares same/new sandbox and new process, bounds callbacks, and checks every host base byte.",
+        "remaining": "T84f exposes CdController and mixed loading through the public BizHawk core."
       }
     },
     "vfs": {

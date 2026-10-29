@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using BizHawk.Client.Common;
 using BizHawk.Common;
 using BizHawk.Emulation.Cores.Waterbox;
+using BizHawk.Emulation.Cores;
+using BizHawk.Emulation.DiscSystem;
 using System.Runtime.InteropServices;
 using BizHawk.Emulation.Common;
 using Puae6;
@@ -14,6 +16,37 @@ internal static unsafe partial class Program
  static byte[] Read(string directory, string name) => File.ReadAllBytes(Path.Combine(directory, name));
  static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
  static byte[][] Bases(string directory) => [Read(directory, "A.adf"), Read(directory, "H.hdf"), Read(directory, "V.ffs")];
+ sealed class MixedDiscAsset(Disc disc) : IOwnedDiscAsset
+ {
+  public Disc DiscData => disc;
+  public DiscType DiscType => default;
+  public string DiscName { get; set; } = "mixed CD";
+  public bool IsDisposed { get; private set; }
+  public void Dispose() { if (IsDisposed) return; IsDisposed = true; disc.Dispose(); }
+ }
+ sealed class MixedRomAsset(byte[] data, string extension, string path) : IRomAsset
+ {
+  public byte[] FileData => data;
+  public byte[] RomData => data;
+  public string Extension => extension;
+  public string RomPath => path;
+  public GameInfo Game => null!;
+ }
+ sealed class MixedFirmware(byte[] firmware, string userPath) : ICoreFileProvider
+ {
+  public string GetRetroSaveRAMDirectory(string system) => throw new NotSupportedException();
+  public string GetRetroSystemPath(string system) => throw new NotSupportedException();
+  public string GetUserPath(string system, bool temp) => userPath;
+  public string GetPalettesPath(string system) => throw new NotSupportedException();
+  public byte[] GetFirmware(FirmwareID id, string message = null!) => GetFirmwareOrThrow(id, message);
+  public (byte[], GameInfo) GetFirmwareWithGameInfoOrThrow(FirmwareID id, string message = null!) => (GetFirmwareOrThrow(id, message), null!);
+  public byte[] GetFirmwareOrThrow(FirmwareID id, string message = null!) => firmware.ToArray();
+ }
+ static MixedDiscAsset MountMixed(string path)
+ {
+  var job = new DiscMountJob(path); job.Run();
+  return new MixedDiscAsset(job.OUT_Disc ?? throw new Exception("mixed CD did not mount"));
+ }
  static void Identity(string directory)
  {
   var bases = Bases(directory); var raw = Read(directory, "B.sram"); var original = bases.Select(Hash).ToArray();
@@ -39,21 +72,79 @@ internal static unsafe partial class Program
   Require(bases.Select(Hash).SequenceEqual(original) && raw.SequenceEqual(Read(directory, "B.sram")));
   Console.WriteLine("media movie host canonical/padding/three bases/ZIP-LHA/flags/rejection PASS");
  }
+ sealed class WhdProviderReached : Exception { }
+ static Puae6Parameters MixedParameters(string directory, Puae6Machine machine, Puae6CdController controller)
+ {
+  var cd = new P6CdInfo { Version = 1, Size = (uint)sizeof(P6CdInfo), Bytes = 2448, Count = 1, Leadout = 1 };
+  return new Puae6Parameters { Firmware = [1], CdInfo = cd, ReadCd = (_, data, count) => count == 2448 && data.Length >= count,
+   SyncSettings = new Puae6SyncSettings { Machine = machine, CdController = controller, WhdLoad = Puae6WhdLoadMode.Disabled } };
+ }
+ static void MixedConfig(string directory)
+ {
+  Phase = "mixed controller policy";
+  var cdOnly = Puae6WhdLoad.Resolve(MixedParameters(directory, Puae6Machine.A500, Puae6CdController.Auto));
+  Require(cdOnly.SyncSettings.Machine == Puae6Machine.CD32 && cdOnly.SyncSettings.CdController == Puae6CdController.Auto, "CD-only Auto policy");
+  var adf = MixedParameters(directory, Puae6Machine.A600, Puae6CdController.Auto); adf.Media = [Read(directory, "A.adf")];
+  var mixed = Puae6WhdLoad.Resolve(adf);
+  Require(mixed.SyncSettings.Machine == Puae6Machine.A600 && mixed.SyncSettings.CdController == Puae6CdController.Ide, "CD+ADF Auto policy");
+  var hdf = MixedParameters(directory, Puae6Machine.A1200, Puae6CdController.Ide); hdf.HardFiles = [Read(directory, "H.hdf")];
+  mixed = Puae6WhdLoad.Resolve(hdf);
+  Require(mixed.SyncSettings.Machine == Puae6Machine.A1200 && mixed.SyncSettings.CdController == Puae6CdController.Ide, "explicit CD+HDF policy");
+
+  var files = Puae6Volumes.ReadArchive(Read(directory, "volume.zip"));
+  var whdImages = Puae6WhdLoad.Build(files, [1], [2]);
+  string[] whdNames = ["WHDLoad.hdf", "RASystem.hdf", "WHDSaves.hdf"];
+  var whdBackend = MixedParameters(directory, Puae6Machine.A1200, Puae6CdController.Auto);
+  whdBackend.HardFiles = whdNames.Select(name => whdImages[name]).ToArray();
+  whdBackend.HardFileNames = whdNames;
+  mixed = Puae6WhdLoad.Resolve(whdBackend);
+  Require(mixed.HardFiles.Count == 3 && mixed.SyncSettings.Machine == Puae6Machine.A1200
+   && mixed.SyncSettings.CdController == Puae6CdController.Ide, "CD+three-HDF WHDLoad backend");
+
+  var whdPublic = MixedParameters(directory, Puae6Machine.A500, Puae6CdController.Auto);
+  whdPublic.SyncSettings.WhdLoad = Puae6WhdLoadMode.Auto; whdPublic.Volumes = [Read(directory, "volume.zip")];
+  int providers = 0;
+  try { Puae6WhdLoad.Resolve(whdPublic, _ => [1], () => { ++providers; throw new WhdProviderReached(); }); throw new Exception("WHDLoad provider was not requested"); }
+  catch (WhdProviderReached) { }
+  Require(providers == 1, "CD+WHDLoad must reach the user provider after selecting A1200/IDE");
+
+  var explicitCd32 = MixedParameters(directory, Puae6Machine.A600, Puae6CdController.Cd32);
+  explicitCd32.SyncSettings.WhdLoad = Puae6WhdLoadMode.Auto; explicitCd32.Volumes = [Read(directory, "volume.zip")]; providers = 0;
+  try { Puae6WhdLoad.Resolve(explicitCd32, _ => [1], () => { ++providers; return [1]; }); throw new Exception("explicit CD32 changed machine"); }
+  catch (InvalidOperationException e) { Require(e.Message.Contains("selected machine is not changed"), e.Message); }
+  Require(providers == 0, "invalid explicit controller must fail before provider");
+  Console.WriteLine("mixed CD controller/CD+ADF/CD+HDF/CD+WHDLoad preflight and backend PASS");
+ }
  static Puae6Core Open(string[] args, int changed = -1)
  {
   var bases = Bases(args[1]); if (changed is 0 or 1) bases[changed][^1] ^= 1;
-  var comm = new CoreComm(_ => { }, (_, _) => { }, null, CoreComm.CorePreferencesFlags.None, null);
-  return new Puae6Core(comm, new Puae6Parameters {
-   Firmware = Read(args[1], "loop.rom"), GuestDirectory = Path.GetDirectoryName(args[3])!, GuestFileName = Path.GetFileName(args[3]), PinnedGuestSha256 = args[4],
-   Media = [bases[0]], HardFiles = [bases[1]], Volumes = [Read(args[1], changed == 2 ? "other.zip" : "volume.zip")],
-   SyncSettings = new Puae6SyncSettings { FloppyWrites = true, WhdLoad = Puae6WhdLoadMode.Disabled }
-  });
+  var disc = MountMixed(Path.Combine(args[1], changed == 3 ? "mixed-other.iso" : "mixed.iso"));
+  var provider = new MixedFirmware(Read(args[1], "loop.rom"), args[1]);
+  var comm = new CoreComm(_ => { }, (_, _) => { }, provider, CoreComm.CorePreferencesFlags.None, null);
+  var lp = new CoreLoadParameters<Puae6Settings, Puae6SyncSettings> { Comm = comm,
+   SyncSettings = new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.Auto,
+    HdfController = Puae6HdfController.Ide, FloppyWrites = true, WhdLoad = Puae6WhdLoadMode.Disabled } };
+  lp.Discs.Add(disc);
+  lp.Roms.Add(new MixedRomAsset(bases[0], ".adf", "A.adf"));
+  lp.Roms.Add(new MixedRomAsset(bases[1], ".hdf", "H.hdf"));
+  lp.Roms.Add(new MixedRomAsset(Read(args[1], changed == 2 ? "other.zip" : "volume.zip"), ".zip", "V.zip"));
+  try
+  {
+   var core = new Puae6Core(lp);
+   Require(core.GetSyncSettings().Machine == Puae6Machine.A600 && core.GetSyncSettings().CdController == Puae6CdController.Ide,
+    "public mixed loader must preserve A600 and resolve Auto to IDE");
+   return core;
+  }
+  catch { disc.Dispose(); throw; }
  }
  sealed class Buttons(ControllerDefinition definition) : IController
  {
   public int Frame;
   public ControllerDefinition Definition => definition;
-  public bool IsPressed(string name) => name == Definition.BoolButtons.First(n => n.StartsWith("P2 ")) && Frame % 3 == 1;
+  public bool IsPressed(string name) =>
+   (name == Definition.BoolButtons.First(n => n.StartsWith("P2 ")) && Frame % 3 == 1)
+   || (name == Controllers.EjectDisk && Frame == 2)
+   || (name == Controllers.InsertDisk && Frame == 4);
   public int AxisValue(string name) => Definition.Axes[name].Neutral;
   public IReadOnlyCollection<(string Name, int Strength)> GetHapticsSnapshot() => Array.Empty<(string, int)>();
   public void SetHapticChannelStrength(string name, int strength) { }
@@ -150,7 +241,7 @@ internal static unsafe partial class Program
    movie.HeaderEntries[key] = "bad"; Refused(); movie.HeaderEntries[key] = header[key];
   }
   movie.SaveRam = blob[..20]; Refused(); movie.SaveRam = blob.ToArray(); movie.SaveRam[^38] ^= 1; Refused(); movie.SaveRam = blob;
-  for (int changed = 0; changed < 3; changed++) {
+  for (int changed = 0; changed < 4; changed++) {
    using var other = Open(args, changed); var otherSession = Session(args[1], other); var foreign = otherSession.Get(movie.Filename, true); var pristine = Save(other);
    try { Start(otherSession, foreign, other, false); throw new Exception("foreign medium accepted"); }
    catch (Exception e) when (e is MovieRejectedException or SaveRamRejectedException) { }
@@ -173,9 +264,12 @@ internal static unsafe partial class Program
    Require(original.CloneMovieStateSaveRam()!.SequenceEqual(canonical), "base must be an owned clone");
    Require(Hash(canonical) == File.ReadAllText(Path.Combine(args[1], "B.sha")), "base excludes padding");
    var buttons = new Buttons(original.ControllerDefinition);
-   for (int i = 0; i < 3; i++) { buttons.Frame = i; Require(original.FrameAdvance(buttons,true,true)); }
+   for (int i = 0; i < 60 && original.GetHardFileWriteStatus(0).MediumSectors == 0; i++)
+   { buttons.Frame = i; Require(original.FrameAdvance(buttons,true,true)); }
    for (int n = 0; n < 32; n++) HrtRam(original).PokeByte(0x70000+n,(byte)(0x80+n));
-   Require(original.GetHardFileWriteStatus(0).MediumSectors > 0 && !original.CloneSaveRam(false)!.SequenceEqual(canonical), "guest wrote after the base was imported");
+   var written = original.GetHardFileWriteStatus(0); var durable = original.CloneSaveRam(false)!;
+   Require(written.MediumSectors > 0 && !durable.SequenceEqual(canonical),
+    $"guest wrote after the base was imported: sectors={written.MediumSectors} saveRam={durable.Length} canonical={canonical.Length} equal={durable.SequenceEqual(canonical)}");
    Require(original.CloneMovieStateSaveRam()!.SequenceEqual(canonical), "later writes cannot replace the base");
    File.WriteAllBytes(initial,Save(original)); File.WriteAllBytes(initial+".base",canonical);
    File.WriteAllText(initial+".header",System.Text.Json.JsonSerializer.Serialize(Puae6Movie.HeaderForStart(original,true,null)));
@@ -248,7 +342,7 @@ internal static unsafe partial class Program
   movie.BinarySavestate = null; Refused();
   movie.BinarySavestate = state.ToArray(); movie.BinarySavestate[^1] ^= 1; Refused();
   movie.BinarySavestate = File.ReadAllBytes(initial+".badfields"); Refused(); movie.BinarySavestate = state;
-  for (int changed = 0; changed < 3; changed++) {
+  for (int changed = 0; changed < 4; changed++) {
    using var other = Open(args,changed); var foreignSession = Session(args[1],other); var foreign = foreignSession.Get(path,true); var pristine = Save(other);
    try { Start(foreignSession,foreign,other,false); throw new Exception("foreign base accepted"); }
    catch (Exception e) when (e is MovieRejectedException or SaveRamRejectedException) { }
@@ -409,7 +503,7 @@ internal static unsafe partial class Program
    Console.WriteLine($"HRTMon real {extension}/{args[0]} commands/held/rearm/replay/seek/cold/off PASS");
   }
  }
- static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else if (args[0] == "hrtconfig") HrtConfig(args[1]);
+ static void Main(string[] args) { if (args[0] == "identity") Identity(args[1]); else if (args[0] == "mixedconfig") MixedConfig(args[1]); else if (args[0] == "hrtconfig") HrtConfig(args[1]);
   else if(args[0] == "arconfig") CartridgeConfig(args);
   else { LoadRuntime(args[2]); if (args[0].StartsWith("state")) StateMovies(args); else if (args[0].StartsWith("hrt")) HrtMovies(args); else if(args[0].StartsWith("arreal-")) CommercialMovies(args); else if(args[0].StartsWith("ar")) CartridgeWrapper(args); else Movies(args); } }
 }

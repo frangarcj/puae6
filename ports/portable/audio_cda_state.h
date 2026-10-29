@@ -38,6 +38,10 @@ bool can_restore_runtime(const cd_audio_state &, const int16_t *, uint32_t frame
                          const State &, uint32_t streamid);
 bool restore_runtime(cd_audio_state &, int16_t *, uint32_t frames, const State &,
                      uint32_t streamid, void (*next)(int, void *), void *context);
+// Host presentation gain for one exact owner. It is deliberately absent from
+// State: the frontend reapplies its current preference before every run.
+// Muting changes samples only; the stream still consumes every deadline.
+bool presentation(cd_audio_state &, uint32_t percent);
 // Caller first brings audio to the command's emulated cycle with update_audio.
 bool pause(cd_audio_state &, bool);
 }

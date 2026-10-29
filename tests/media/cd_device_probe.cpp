@@ -24,6 +24,60 @@ static bool filled(const uint8_t *p, size_t count, uint8_t v)
 }
 static int reported_status, status_count;
 static int status(int s, int) { reported_status = s; ++status_count; return 0; }
+static int atapi_subset(uint8_t *out, size_t capacity)
+{
+    AtapiState state{}; atapi_reset(&state);
+    uint8_t c[12]{};
+    auto run = [&] { return atapi_execute(&state, c, out, capacity); };
+    auto command = [&](uint8_t opcode) { memset(c, 0, sizeof c); c[0] = opcode; };
+
+    command(0x12); c[4] = 36; auto r = run();
+    CHECK(!r.check_condition && r.bytes == 36 && out[0] == 5 && out[1] == 0x80);
+    CHECK(!memcmp(out + 8, "PUAE6   IMMUTABLE CD-ROM", 24));
+    command(0x00); r = run(); CHECK(!r.check_condition && !r.bytes);
+    command(0x25); r = run(); CHECK(!r.check_condition && r.bytes == 8);
+    CHECK(out[0] == 0 && out[1] == 0 && out[2] == 0 && out[3] == 135 && out[6] == 8 && out[7] == 0);
+
+    command(0x43); c[7] = 0; c[8] = 12; r = run();
+    CHECK(!r.check_condition && r.bytes == 12 && out[2] == 1 && out[3] == 3 && out[6] == 1);
+    command(0x43); c[1] = 2; c[6] = 0xaa; c[7] = 0; c[8] = 12; r = run();
+    CHECK(!r.check_condition && r.bytes == 12 && out[6] == 0xaa && out[9] == 0 && out[10] == 3 && out[11] == 61);
+    command(0x42); c[2] = 0x40; c[3] = 1; c[8] = 16; r = run();
+    CHECK(!r.check_condition && r.bytes == 16 && out[4] == 1);
+
+    command(0x28); c[7] = 0; c[8] = 1; r = run();
+    CHECK(!r.check_condition && r.bytes == 2048 && out[0] == 0 && out[1] == 17);
+    command(0xa8); c[5] = 132; c[9] = 2; r = run();
+    CHECK(!r.check_condition && r.bytes == 4096);
+    command(0x28); c[7] = 0; c[8] = 128; r = run();
+    CHECK(!r.check_condition && r.bytes == 128 * 2048u);
+
+    command(0xff); r = run(); CHECK(r.check_condition && !r.bytes);
+    command(0x03); c[4] = 18; r = run();
+    CHECK(!r.check_condition && r.bytes == 18 && out[2] == 5 && out[12] == 0x20);
+    command(0x03); c[4] = 4; r = run(); CHECK(!r.check_condition && r.bytes == 4 && out[2] == 0);
+
+    CHECK(device_set_inserted(false) == Result::Ok);
+    command(0x00); r = run(); CHECK(r.check_condition); // first observation is UNIT ATTENTION
+    command(0x03); c[4] = 18; r = run(); CHECK(!r.check_condition && out[2] == 6 && out[12] == 0x28);
+    command(0x00); r = run(); CHECK(r.check_condition);
+    command(0x03); c[4] = 18; r = run(); CHECK(!r.check_condition && out[2] == 2 && out[12] == 0x3a);
+    CHECK(device_set_inserted(true) == Result::Ok);
+    command(0x25); r = run(); CHECK(r.check_condition);
+    command(0x03); c[4] = 18; r = run(); CHECK(!r.check_condition && out[2] == 6 && out[12] == 0x28);
+
+    command(0x45); c[5] = 130; c[8] = 2; r = run(); CHECK(!r.check_condition && !r.bytes);
+    command(0x42); c[2] = 0x40; c[3] = 1; c[8] = 16; r = run();
+    CHECK(!r.check_condition && r.bytes == 16 && out[1] == AUDIO_STATUS_IN_PROGRESS);
+    command(0x4b); r = run(); CHECK(!r.check_condition);
+    command(0x4b); c[8] = 1; r = run(); CHECK(!r.check_condition);
+    command(0x4e); r = run(); CHECK(!r.check_condition);
+
+    command(0x28); c[2] = 0xff; c[3] = c[4] = c[5] = 0xff; c[8] = 1; r = run();
+    CHECK(r.check_condition);
+    command(0x03); c[4] = 18; r = run(); CHECK(!r.check_condition && out[2] == 5 && out[12] == 0x21);
+    return 0;
+}
 static int sessions()
 {
     Provider p[]={{2048,3},{2352,2},{2448,4,0,true}};
@@ -121,6 +175,8 @@ int main()
     CHECK(blkdev_get_info(nullptr, 0, &info) && !sys_command_info(0, nullptr, 0));
     cd_toc_head toc; CHECK(sys_command_cd_toc(0, &toc) == 1 && toc.tracks == 3);
     uint8_t out[kDeviceMaxBurst * kMaxReadBytes + 16]; memset(out, 0xa5, sizeof out);
+    CHECK(atapi_subset(out, sizeof out) == 0);
+    memset(out, 0xa5, sizeof out);
     CHECK(sys_command_cd_read(0, out + 8, 0, 128) == 1 && device_position() == 128);
     for (size_t n = 0; n < 128 * 2048; ++n) CHECK(out[8 + n] == value(providers[0], n));
     CHECK(filled(out, 8, 0xa5) && filled(out + 8 + 128 * 2048, sizeof out - 8 - 128 * 2048, 0xa5));

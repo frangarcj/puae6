@@ -3,6 +3,7 @@
 #include <cassert>
 int config_changed, config_changed_flags;
 #include "upstream_audio_config.h"
+#include <algorithm>
 #include <vector>
 uae_prefs currprefs{}, changed_prefs{};
 ev eventtab[ev_max]{};
@@ -46,6 +47,73 @@ static void start(int rate, bool ntsc, cd_audio_state &cas, int16_t *buffer)
     audio_cda_new_buffer(&cas, buffer, 588, 7, ended, nullptr);
 }
 #ifndef P6_CDA_FIXTURE_ONLY
+static void presentation_case()
+{
+    int16_t source[588 * 2];
+    for (int n = 0; n < 588; ++n) {
+        source[n * 2] = int16_t(10000 + n * 2);
+        source[n * 2 + 1] = int16_t(-10000 - n * 2);
+    }
+    cd_audio_state cdda{};
+
+    // An explicit 100 is bit-for-bit the old stream, including the common
+    // Paula integration and host PCM queue rather than just the source sample.
+    start(44100, false, cdda, source);
+    advance(int(CYCLE_UNIT + cda_evt * 7)); const auto baseline = pcm();
+    audio_cda_new_buffer(&cdda, nullptr, -1, 0, nullptr, nullptr);
+    start(44100, false, cdda, source); assert(p6_cda::presentation(cdda, 100));
+    advance(int(CYCLE_UNIT + cda_evt * 7)); assert(pcm() == baseline);
+
+    // Render the exact same semantic cut under four host preferences. Gain is
+    // applied only after the stream integrator, so every resulting CDA state is
+    // identical even though the delivered PCM differs.
+    p6_cda::State saved{};
+    assert(p6_cda::capture(cdda, source, 588, &saved));
+    int32_t phase[p6_cda::kPhaseWords]; assert(p6_cda::phase_get(cdda, phase, p6_cda::kPhaseWords));
+    const auto cut_cycle = get_cycles();
+    auto render = [&](unsigned percent, p6_cda::State *future) {
+        set_cycles(cut_cycle); assert(p6_cda::phase_set(cdda, phase, p6_cda::kPhaseWords));
+        assert(p6_cda::restore(cdda, source, 588, saved, ended, nullptr)); p6_pcm_reset();
+        assert(p6_cda::presentation(cdda, percent));
+        advance(int(cda_evt * 19 + 53)); auto output = pcm();
+        assert(p6_cda::capture(cdda, source, 588, future)); return output;
+    };
+    p6_cda::State future100{}, future50{}, future1{}, future0{};
+    const auto at100 = render(100, &future100), at50 = render(50, &future50);
+    const auto at1 = render(1, &future1), at0 = render(0, &future0);
+    assert(!at100.empty() && at50.size() == at100.size() && at1.size() == at100.size() && at0.size() == at100.size());
+    for (size_t i = 0; i < at100.size(); ++i) {
+        assert(at50[i] == at100[i] * 50 / 100);
+        assert(at1[i] == at100[i] / 100);
+        assert(at0[i] == 0);
+    }
+    assert(memcmp(&future100, &future50, sizeof future100) == 0);
+    assert(memcmp(&future100, &future1, sizeof future100) == 0);
+    assert(memcmp(&future100, &future0, sizeof future100) == 0);
+    assert(future0.offset > saved.offset && future0.remaining < saved.remaining);
+    assert(!p6_cda::presentation(cdda, 101));
+    audio_cda_new_buffer(&cdda, nullptr, -1, 0, nullptr, nullptr);
+
+    // The gain names one owner: a simultaneous FMV stream remains untouched.
+    int16_t fmv_pcm[p6_cda::kMaxRuntimeFrames * 2];
+    for (uint32_t n = 0; n < p6_cda::kMaxRuntimeFrames; ++n) {
+        fmv_pcm[n * 2] = int16_t(2000 + n); fmv_pcm[n * 2 + 1] = int16_t(3000 + n);
+    }
+    cd_audio_state fmv{}; start(44100, false, cdda, source);
+    audio_cda_volume(&fmv, 32768, 32768);
+    audio_cda_new_buffer(&fmv, fmv_pcm, p6_cda::kMaxRuntimeFrames, 9, fmv_ended, nullptr);
+    assert(p6_cda::presentation(cdda, 0)); advance(int(CYCLE_UNIT + cda_evt * 4));
+    const auto fmv_only = pcm(); assert(std::any_of(fmv_only.begin(), fmv_only.end(), [](int16_t v) { return v != 0; }));
+    const auto cdda_at = size_t(cdda.cda_bufptr - source) / 2 - 1;
+    const auto fmv_at = size_t(fmv.cda_bufptr - fmv_pcm) / 2 - 1;
+    assert(audio_stream[cdda.cda_streamid - 1].data[0].current_sample == source[cdda_at * 2]);
+    assert(audio_stream[fmv.cda_streamid - 1].data[0].current_sample == fmv_pcm[fmv_at * 2]);
+    assert(audio_stream[fmv.cda_streamid - 1].data[1].current_sample == fmv_pcm[fmv_at * 2 + 1]);
+    assert(p6_cda::presentation(cdda, 100));
+    audio_cda_new_buffer(&fmv, nullptr, -1, 0, nullptr, nullptr);
+    audio_cda_new_buffer(&cdda, nullptr, -1, 0, nullptr, nullptr);
+}
+
 static void coexist_case()
 {
     int16_t cdda_pcm[588 * 2], fmv_pcm[p6_cda::kMaxRuntimeFrames * 2];
@@ -253,6 +321,7 @@ static void restore_case(int rate, bool ntsc)
 int main()
 {
     for (int rate : {44100, 48000}) for (bool ntsc : {false, true}) restore_case(rate, ntsc);
+    presentation_case();
     coexist_case();
 }
 

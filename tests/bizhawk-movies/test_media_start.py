@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from tests.hdf import hdf_image, hdf_rom
+from tests.hdf import hdf_image, ide_rom
 from tests.hdf.volume_support import CONTENT, oracle, lha_archive, zip_file
 from tests.scenarios.disk import disk
 
@@ -59,8 +59,12 @@ def setUpModule():
     bases = [disk.make_adf(0x41), hdf_image.rdb_image(), oracle(CONTENT)]
     for name, data in zip(('A.adf', 'H.hdf', 'V.ffs'), bases):
         (WORK / name).write_bytes(data)
-    (WORK / 'loop.rom').write_bytes(hdf_rom.loop_rom()); (WORK / 'volume.lha').write_bytes(lha_archive(CONTENT))
+    # The IDE CD is Gayle's primary master; this guest writes HDF0 on the slave.
+    (WORK / 'loop.rom').write_bytes(ide_rom.loop_rom(drive=1)); (WORK / 'volume.lha').write_bytes(lha_archive(CONTENT))
     zip_file(WORK / 'volume.zip', CONTENT); zip_file(WORK / 'other.zip', {**CONTENT, 'Game/readme': b'other'})
+    iso = bytes((n * 29 + n // 2048) & 255 for n in range(520 * 2048))
+    (WORK / 'mixed.iso').write_bytes(iso); changed_iso = bytearray(iso); changed_iso[-1] ^= 1
+    (WORK / 'mixed-other.iso').write_bytes(changed_iso)
     for seed in ('A', 'B'):
         current = [bytearray(b) for b in bases]
         for i, offset in enumerate((512 * 5 + 5, 4096 * 5 + 11, 4096 * 7 + 23)):
@@ -87,6 +91,12 @@ class MediaMovieIdentityTests(unittest.TestCase):
         output = run(['dotnet', str(EXE), 'identity', str(WORK)])
         self.assertEqual(1, output.count(' PASS'), output); print(output, end='')
         self.assertEqual(BEFORE, (build_tree.git('rev-parse', 'HEAD').stdout, build_tree.git('diff', '--no-ext-diff').stdout))
+
+
+class MixedCdManagedTests(unittest.TestCase):
+    def test_controller_preflight_and_whdload_backend(self):
+        output = run(['dotnet', str(EXE), 'mixedconfig', str(WORK)])
+        self.assertEqual(1, output.count(' PASS'), output); print(output, end='')
 
 
 @unittest.skipUnless(os.environ.get('P6_MEDIA_MOVIE_GUEST_RECEIPT'), 'BLOCKED: falta guest coordinado actual')

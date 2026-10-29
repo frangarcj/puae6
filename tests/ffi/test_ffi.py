@@ -33,7 +33,7 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 # C# struct -> (C struct, {C# field: C field}); the C name is the C# name in snake case except where it says otherwise.
 STRUCTS = {
-    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "Reserved8"]),
+    "P6Config": ("p6_config", ["AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "CdController"]),
     "P6PortInput": ("p6_port_input", ["Type", "Buttons", "Dx", "Dy", "Reserved"]),
     "P6Input": ("p6_input", ["AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved"]),
     "P6Rect": ("p6_rect", ["X", "Y", "Width", "Height"]),
@@ -76,7 +76,7 @@ class ConfigLayoutTests(unittest.TestCase):
 <ImplicitUsings>enable</ImplicitUsings></PropertyGroup><ItemGroup>
 <Compile Include="{ROOT / 'integration/bizhawk/core/Puae6/Abi.cs'}" /></ItemGroup></Project>''')
             (work / 'Program.cs').write_text('''using Puae6; using System.Runtime.InteropServices;
-unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved7))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Z3Memory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved8))}"); }''')
+unsafe { Console.WriteLine($"{sizeof(P6Config)} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Reserved7))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.Z3Memory))} {Marshal.OffsetOf<P6Config>(nameof(P6Config.CdController))}"); }''')
             result = subprocess.run([dotnet, 'run', '--project', str(work / 'Layout.csproj'), '--verbosity', 'quiet',
                                      f'-p:RestoreSources={Path.home() / ".nuget/packages"}'], capture_output=True, text=True, timeout=120)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
@@ -99,7 +99,7 @@ class SyncSettingsPersistenceTests(unittest.TestCase):
         ], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertNotIn('FAIL', result.stdout)
-        self.assertEqual(13, result.stdout.count('ok '), result.stdout)
+        self.assertEqual(32, result.stdout.count('ok '), result.stdout)
 
 
 @unittest.skipUnless(runtime_available(), "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")

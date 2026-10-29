@@ -268,6 +268,19 @@ BizHawk ofrece `ControllerPort2=Mouse`, tres botones y dos ejes absolutos `P2 Mo
 con el mismo limite de 120 cuentas/unidad. Su referencia conocida/X/Y ocupa nueve bytes propios al final del estado del wrapper.
 Los botones y ejes de ambos ratones se graban y leen con el codec BK2 real; la identidad incluye el tipo de ambos puertos.
 
+T84c anade a los SyncSettings de BizHawk `Mouse speed`, el mismo control entero visible de UAE5: 1..1000 %, 100 por defecto.
+BizHawk entrega posicion absoluta, asi que el wrapper escala cada delta antes del limite de 120 con aritmetica entera y un resto
+independiente por eje y por raton. Para posicion `p`, referencia `r`, porcentaje `s` y resto `f`, calcula
+`n=(p-r)*s+f`, envia `clamp(n/100,-120,120)`, consume de la referencia `(enviado*100-f)/s` y conserva el numerador
+que queda; las divisiones truncadas hacia cero mantienen `-s < f < s`. Por eso ni una fraccion ni el movimiento que no cabe
+se pierden. Con 100 % y resto cero la referencia, el paquete y la salida son exactamente los anteriores; no hay `float`, reloj,
+velocidad del host ni consulta adicional al frontend. Los cuatro restos viajan en `WrapperState` junto con las referencias
+(123 bytes en total, P6WS version 3 y checksum domain v3), se validan antes de tocar el sandbox y vuelven con el snapshot en el
+mismo sandbox, en otro y en otro proceso. Una instancia nueva empieza sin referencias ni fracciones; cambiar puerto o porcentaje
+requiere reconstruir el core. El porcentaje no entra en `p6_config`: entra en la identidad de estados y peliculas y en el
+`SyncSettings` del BK2, mientras el log conserva los ejes absolutos. El `mouse_speed` relativo y vivo de libretro sigue siendo
+su opcion de presentacion 10..300 % y conserva su propio arrastre; no se mezclan ambas superficies.
+
 T70c: `P6_PORT_LIGHTGUN=4` y `P6_PORT_LIGHTPEN=5` conservan la ABI v1 y los tamaños anteriores.
 Reutilizan dx/dy como coordenadas absolutas del raster completo: -32767 izquierda/arriba, +32767 derecha/abajo;
 -32768 se rechaza. `P6_POINTER_TRIGGER` (bit0) lleva el gatillo al tercer boton/POT del puerto elegido.
@@ -504,7 +517,7 @@ preferencias que construye `bridge/config.cpp`, campo a campo, y cada campo que 
 | Slow (Bogo) RAM | 512 KiB | ninguna | ninguna |
 | Fast RAM | ninguna de serie; opcional una placa Zorro II autoconfig de 1, 2, 4 u 8 MiB (`p6_config.fast_kib`, T49) | igual | igual |
 | RTC | MSM6242B (epoca de la config) | ninguno de serie (el cuerpo `P6RT` del estado va vacio) | ninguno de serie (igual) |
-| Gayle / IDE / PCMCIA | no existe | de serie NO: `cs_ide = cs_pcmcia = cs_compatible = 0`; con `p6_config.hdf_controller = IDE` y un HDF, Gayle con su puerto IDE (T56, ver "Gayle con IDE"); sin PCMCIA | igual; sin Gayle, `$DE1000` cae en el espejo de custom |
+| Gayle / IDE / PCMCIA | no existe | de serie NO: `cs_ide = cs_pcmcia = cs_compatible = 0`; con `p6_config.hdf_controller = IDE` y un HDF, o con `p6_config.cd_controller = IDE`, Gayle con su puerto IDE (T56/T84e1); sin PCMCIA | igual; sin Gayle, `$DE1000` cae en el espejo de custom |
 | Kickstart probado | 1.3 (r34.5) | 2.05 (r37.350), con Workbench 2.05 r37.71 de disco | 3.1 (r40.68), hasta la pantalla de insertar disco y con una demo AGA gratuita (Catabasis) cargada de disco |
 | Selector | libretro `puae6_machine` = `A500` (defecto) / `A600` / `A1200` (reinicio; el `A1200` es el A1200OG de PUAE5); headless `--machine`; BizHawk sync setting `Machine` | igual | igual |
 | FirmwareID BizHawk | Amiga/A500 | Amiga/A600 | Amiga/A1200 |
@@ -794,12 +807,12 @@ y el 3.1 r40.063 (no hay copia autorizada), cualquier ROM cifrado real de Amiga 
 
 Decision (2026-10-13, la del orquestador; el usuario puede cambiarla): el A600 y el A1200 de serie NO cambian: Gayle sigue apagado (`cs_ide = cs_pcmcia = cs_compatible = 0`), con los mismos hashes, `config_hash` y estados.
 El IDE de Gayle es una opcion de reinicio, `p6_config.hdf_controller` (un byte, offset 65, en lo que era `reserved7`): `P6_HDF_CONTROLLER_UAE` (0, por defecto: `uaehf.device` y la placa UAEFS, como PUAE5) o
-`P6_HDF_CONTROLLER_IDE` (1). Solo el A600 y el A1200 tienen Gayle: IDE en otra maquina, o un valor mayor que 1, es `P6_ERROR_UNSUPPORTED` con el motivo en `p6_init`. **Gayle se enciende solo si hay un HDF detras**: una
-config con IDE y sin HDF en `p6_load` es la maquina por defecto (mismo preset, mismos bytes, mismo `config_hash`, mismos estados y peliculas), nunca un Gayle vacio (`bridge/config.cpp ide_attached`). Con IDE y al menos un HDF,
+`P6_HDF_CONTROLLER_IDE` (1). El puerto soportado es Gayle en A600/A1200 y el IDE de placa en A4030/A4040; IDE en otra maquina, o un valor mayor que 1, es `P6_ERROR_UNSUPPORTED` con el motivo en `p6_init`. **Por HDF, Gayle se enciende solo si hay un HDF detras**: una
+config HDF IDE sin HDF y con topologia CD historica es la maquina por defecto (mismo preset, mismos bytes, mismo `config_hash`, mismos estados y peliculas; `bridge/config.cpp ide_attached`). La seleccion CD IDE de T84e1 tambien enciende el puerto, pero no mueve alli los HDF del controlador UAE ni finge un medio. En el contrato integrado T84e2/T84e4, la unidad ATAPI solo se carga con una fuente inmutable enlazada; la bandeja vacia es esa fuente expulsada. Con IDE y al menos un HDF,
 `config_hash` es el de siempre derivado con un byte (dominio `p6/config/ide/v1`), igual que la CPU y el audio: un estado del IDE no carga en la maquina del controlador UAE (ni al reves) y los dos son INCOMPATIBLE por `config_hash`.
 
 Motor (parches 0320-0322): `gayle.cpp` e `ide.cpp` se compilan SOLO para el puerto IDE de Gayle (los registros de la interrupcion IDE, el ID de Gayle y los discos duros): quedan fuera la ranura PCMCIA y todas sus tarjetas
-(PCMCIA NO es necesaria para el IDE de Gayle: `cs_pcmcia` sigue en 0, `$DA8000` y la ventana de $A00000 leen lo que leian), Fat Gary/Ramsey, el SCSI del A4000T, el Dataflyer, los dispositivos ATAPI (CD-ROM, cinta), los `.ini`
+(PCMCIA NO es necesaria para el IDE de Gayle: `cs_pcmcia` sigue en 0, `$DA8000` y la ventana de $A00000 leen lo que leian), Fat Gary/Ramsey, el SCSI del A4000T, el Dataflyer, las cintas ATAPI y los `.ini`
 de identidad y el hilo del IDE: cada orden de lectura o escritura se sirve al escribirla (`process_rw_command`), y la interrupcion llega por el `irq_delay` del disco, en lineas de tiempo emulado, nunca por una decision de
 planificacion. Los HDF son las unidades 0 a 3 del IDE (maestro y esclavo del canal de Gayle en `$DA2000`, el par detras del IDE splitter en `$DA3000`), en el orden de la lista de `p6_load` y hasta `P6_MAX_HDF` = 4, sobre el
 mismo backend de bloques de T29 (lectura de la base inmutable, overlay de trozos de 4 KiB, `p6_media_export`): el mismo `content_id`, el mismo presupuesto, la misma exportacion, los mismos limites. Una imagen sin RDB lleva el
@@ -807,12 +820,12 @@ RDB virtual del motor (como en el controlador UAE) y la geometria que el disco a
 direcciona por CHS, daba "read error on disk block 1163"). Con IDE no hay lista de montaje, ni placa UAEFS, ni zona de traps, ni cola EXTER (no existen): el Kickstart minimo es el que lleve el scsi.device de la maquina (el
 1.3 no lo trae; 2.05 y 3.1 si). Cada reset reabre los discos (`gayle_reset`), como `filesys_reset` con sus unidades.
 
-Estado (`bridge/state_hdf.cpp visit_ide`, la seccion de P6DK que solo existe con un HDF; un estado sin HDF no cambia ni de bytes): despues de la identidad (numero de HDF y content id de cada base) lleva 4 palabras de Gayle (estado y
-habilitacion de la interrupcion IDE, el contador del ID y el splitter), las cuatro ranuras IDE con 35 palabras cada una (registros, estado de la transferencia en curso, geometria que fijo el invitado) y los bytes del buffer de sector que
-la transferencia tiene en la mano (hasta 131584 por ranura; `p6_ide_live_bytes`; el buffer nace en ceros y cada transferencia lo pone a cero antes de empezar, de modo que un invitado que lee el puerto de datos mientras se escribe, o mas alla de lo que una lectura cargo, ve ceros y no lo que dejo el monton o una transferencia anterior: lo que el invitado puede leer es funcion de sus ordenes), la cadena autoconfig (con una tarjeta mas, el propio puerto IDE, que no es autoconfig) si no hay Fast RAM, y el overlay de cada HDF como hasta ahora. Las
+Estado (`bridge/state_hdf.cpp visit_ide`, la seccion de P6DK que existe con un HDF fisico o un CD IDE; sin ninguno conserva los bytes historicos): despues de la identidad de los HDF lleva 4 palabras de Gayle (estado y
+habilitacion de la interrupcion IDE, el contador del ID y el splitter), las cuatro ranuras IDE con 54 palabras semanticas cada una (registros, estado y cursores ATA/ATAPI, sense, identidad/presencia del medio y geometria) y los bytes causales de la transferencia
+en curso (hasta 128 * 2048 por ranura; `p6_ide_live_bytes`; el buffer nace en ceros y cada transferencia lo pone a cero antes de empezar, de modo que un invitado que lee el puerto de datos mientras se escribe, o mas alla de lo que una lectura cargo, ve ceros y no lo que dejo el monton o una transferencia anterior: lo que el invitado puede leer es funcion de sus ordenes). Con CD añade el ordinal del catalogo y el estado semantico del dispositivo/CDDA; despues siguen la cadena autoconfig si no hay Fast RAM y el overlay de cada HDF como hasta ahora. Las
 funciones `p6_gayle_words_valid` y `p6_ide_words_valid` son puras: el puente las pregunta al validar, antes de que el reset head haya corrido, para que aplicar un estado validado no pueda fallar; un cuerpo fuera de lo que
 Gayle o un disco pueden tener (un byte mayor que 255, una transferencia mas larga que el buffer, una transferencia en una ranura sin disco, un buffer de otra longitud, los dos discos de un canal en lineas de seleccion
-distintas) es `CORRUPT_STATE` y no toca nada. La cota `p6_state_bound` sigue la misma regla que con el controlador UAE (todos los trozos de cada HDF como sucios, mas 4 buffers de sector).
+distintas) es `CORRUPT_STATE` y no toca nada. La cota `p6_state_bound` sigue la misma regla que con el controlador UAE (todos los trozos de cada HDF como sucios, mas 4 buffers causales de transferencia).
 
 Superficies: headless `--hdf-controller uae|ide`, el probe de estado, la opcion `hdf_controller` del esquema (`config/schema/options.json`) y con ella `puae6_hdf_controller` de libretro (reboot; la clave nativa tambien vale en un `.uae`),
 la sync setting `HdfController` de BizHawk (`Puae6HdfController`, campo `HdfController` de `P6Config`; la identidad del estado y de la pelicula la nombra solo fuera de `Uae`: `;hdfcontroller=Ide`) y el guest Waterbox, que cambia con los
@@ -824,6 +837,47 @@ interrupcion a una linea, en otro con la interrupcion pendiente; y, opt-in, los 
 `tests/state/test_state_ide.py` (STATE01 por tamaño, identidad del controlador y de la base, cuerpos hostiles, DET03 y re-guardado byte a byte) y `tests/step/test_kickstart_ide.py` (opt-in con `P6_KICKSTART_A600_ZIP`,
 `P6_KICKSTART_A1200_ROM` y `P6_WB205_ZIP`: el Workbench 2.05, ADF leido en memoria como HDF por IDE, llega pixel por pixel a la pantalla a la que llega por el controlador UAE en ambos Kickstart). Sin los ficheros del usuario
 esas pruebas quedan BLOCKED; no se copia ni se calcula el hash de ninguno.
+
+### Selector nativo de controlador CD (T84e1)
+
+`p6_config.cd_controller` consume el byte 71 antes llamado `reserved8[0]`; la union conserva ese nombre para compatibilidad de fuentes y `p6_config` sigue midiendo 72 bytes. Los valores son `AUTO` (0), `NONE` (1),
+`CD32` integrado (2), `CDTV` integrado (3) e `IDE` (4). `AUTO` resuelve exactamente el perfil historico: CD32 integrado en la placa CD32, CDTV integrado en la placa CDTV y ningun controlador CD en el resto. La consulta unica
+`p6_bridge::resolve_cd_controller` entrega siempre esa topologia concreta antes de tocar el motor. CD32/CDTV integrados solo se aceptan en su placa; IDE solo en A600/A1200/A4030/A4040; cualquier valor o combinacion imposible
+falla en `p6_init`, antes de copiar la configuracion a la sesion, con un motivo y sin fallback.
+
+`NONE` apaga `cs_cd32cd`/`cs_cdtvcd`, pero conserva el resto de la placa (C2P/NVRAM de CD32 y RAM/RTC de CDTV). `IDE` habilita el puerto fisico y no cambia el controlador de un HDF. La vertical T84e1 lo probo inicialmente sin ATAPI; el contrato final exige el catalogo fijo antes de `p6_load` y representa ausencia mediante presencia falsa. Solo una topologia efectiva
+distinta del perfil historico deriva `config_hash` con el dominio `p6/config/cd-controller/v1`; cero, `AUTO` y una escritura explicita equivalente conservan hashes, estados y futuros byte a byte. `tests/media/test_media.py` cubre
+resolucion, preferencias y rechazos atomicos; `tests/state/test_cd_controller.py` cubre identidad y DET02 local/frio de un A600 con puerto IDE. No hay opcion de frontend ni ATAPI en esta vertical: son T84f y T84e2 respectivamente.
+
+### CD IDE/ATAPI cooperativo (T84e2)
+
+Cuando la topologia resuelta es `IDE`, `p6_load` exige que el mismo `p6_cd::Disc` inmutable usado por CD32/CDTV ya este enlazado y registra `UAEDEV_CD` como maestro primario de Gayle. No se inventa una unidad sin fuente. Los HDF del controlador UAE conservan sus cuatro unidades y sus nombres; si el usuario fuerza tambien los HDF al IDE fisico, estos ocupan en orden esclavo primario, maestro secundario y esclavo secundario. Un cuarto HDF en esa combinacion se rechaza antes del reset porque CD mas cuatro HDF no caben en los cuatro slots reales.
+
+El parche 0425 conserva la maquina de estados ATA PACKET de `ide.cpp`, pero en el perfil portable ejecuta cada paquete de forma cooperativa y termina la interrupcion por los `hsync` emulados ya existentes: no crea hilo, pipe de trabajo, `sleep`, reloj host, acceso al filesystem ni capa SCSI host. El backend recibe la fuente ya enlazada y limita cada respuesta a 128 sectores canonicos de 2048 bytes. El subconjunto MMC explicito es INQUIRY, TEST UNIT READY, REQUEST SENSE, READ CAPACITY(10), READ(10/12), READ TOC formato 0, READ SUB-CHANNEL formato 1, PLAY AUDIO(10/MSF), PAUSE/RESUME y STOP PLAY/SCAN. Un opcode o variante fuera de ese contrato responde `CHECK CONDITION`, con sense estable hasta REQUEST SENSE; cambio de medio, ausencia, rango, modo de pista y fallo de lectura tambien tienen sense concreto. Nunca se devuelve GOOD como stub.
+
+`tests/media/test_cd_device.py` cubre el codec directamente, incluidas respuestas cortas/largas, el maximo de 128 sectores, cambio/ausencia de medio, errores y CDDA. `tests/media/test_ide_cd.py` ejecuta un micro-ROM 68000 que atraviesa Gayle: IDENTIFY PACKET, INQUIRY, capacidad, lectura, opcode no soportado/sense y PLAY; a la vez verifica que cuatro HDF en el controlador UAE conservan exactamente sus bytes y que el conflicto de cinco dispositivos IDE se rechaza sin abrir la unidad.
+
+### Estado e identidad del CD IDE (T84e3)
+
+El parche 0426 amplia cada ranura a 54 palabras de valores: las 35 de ATA mas tipo de ranura, `atapi_drdy`, fase del paquete, tamaños y cursores, sense, presencia y el `content_id` del medio. P6DK guarda solo la parte causal del buffer (12 bytes durante el CDB, hasta 256 KiB durante READ), seguida del ordinal del catalogo y de `DeviceState`/`AudioPlayerState`: cabeza, retardo, PCM, pausa, cursores y acumuladores de la ranura estereo. No guarda `ide_hdf`, padding, rutas, punteros a `Disc`, callbacks ni punteros de PCM. P6AU reconoce al propietario CD IDE para capturar y restaurar la fase compartida de Paula sin mezclarla con el stream, que sigue siendo de P6DK.
+
+La validacion cruza antes de aplicar la topologia, el catalogo ordenado de la cabecera, el ordinal, el ID del dispositivo y el ID que conoce el transporte ATAPI. Un catalogo o controlador distinto es `INCOMPATIBLE`; una fase, cursor, sense, presencia, buffer u ordinal imposible es `CORRUPT_STATE`, y ambos dejan la imagen intacta. Solo tras ese preflight se vuelven a enlazar los propietarios derivados. `tests/state/test_ide_cd_state.py` corta un CDB incompleto, la respuesta READ(12) maxima y CDDA activo junto a un HDF, y compara estado, futuro y PCM en el proceso local y en uno nuevo; tambien prueba seleccion, ausencia, identidades ajenas y cuerpos re-sellados hostiles.
+
+### Catalogo CD mixto dentro de Waterbox (T84e4)
+
+El catalogo CD ordenado y el manifiesto `p6_media` son dos espacios de nombres independientes. Para IDE, Waterbox enlaza los `Disc`/`Source` permanentes antes de `p6_load`; asi Gayle registra una unidad ATAPI real junto a los ADF, HDF o imagenes de volumen ya preparadas por el host. Un ordinal CD nunca se suma al indice de un disquete o HDF, ni consume su overlay, su SaveRAM o su cola de eventos. CD32/CDTV conservan su ciclo anterior hasta que T84f unifique el loader publico.
+
+`p6w_cd_activate` no avanza la maquina: con IDE solo autoriza los cambios despues del sello y la apertura ocurre en el reset head ordinario de la primera unidad. `p6w_cd_change` consulta la topologia resuelta: CD32 usa Akiko; CDTV e IDE cambian la presencia del dispositivo portable. Seleccionar otro ordinal exige ausencia previa y no desmonta ni reabre los otros medios. Un snapshot Waterbox captura presencia, ordinal, ATAPI/CDDA, overlays y eventos; al cargarlo, el host valida el mismo catalogo y repone exclusivamente el callback/contexto de la sandbox actual antes de cualquier lectura.
+
+`IdeMixedWaterboxTests` ejecuta el guest real con CD + ADF escribible + dos HDF + un volumen convertido a HDF, guarda CDDA activo y tambien el segundo ordinal ausente, y restaura en la misma sandbox, otra sandbox y otro proceso. Compara futuro A/V, presencia, lectura del segundo CD y las cuatro bases/overlays; los callbacks no superan 2448 bytes y ningun fichero host cambia. La seleccion visible `CdController` y la construccion del manifiesto mixto del core publico se completan en T84f.
+
+### Loader BizHawk y controlador CD visible (T84f)
+
+BizHawk expone la sync setting de reinicio `CdController`: `Auto`, `None`, `Cd32` e `Ide`. Es parte de la configuracion de estados y peliculas; la identidad solo añade `;cdcontroller=...` cuando la eleccion efectiva no es la historica. `None` rechaza una carga que contenga CD. `Cd32` exige la maquina CD32 y no cambia la maquina seleccionada. `Ide` exige A600, A1200, A4030 o A4040 y una fuente CD enlazada. Las combinaciones imposibles y el exceso de los cuatro slots IDE se rechazan antes de solicitar firmware, construir WHDLoad o leer el proveedor del CD, con un motivo concreto.
+
+`Auto` mantiene CD32 para una carga que solo contiene CD, como hacia el loader anterior. Si el CD se combina con ADF, HDF, un volumen o WHDLoad en una maquina con IDE, conserva esa maquina y selecciona IDE; no convierte silenciosamente el contenido mixto en CD32. EmuHawk ya no rechaza `Discs + Roms`: entrega juntos el catalogo CD ordenado y los otros medios al constructor publico. El CD se enlaza al guest antes de `p6_load`; sus nombres e identidades permanecen separados de los ADF/HDF/volumenes y el backend WHDLoad sigue produciendo exactamente sus tres HDF.
+
+BK2/TAS y los estados iniciales guardan la configuracion efectiva y las identidades de CD, ADF, HDF y volumen. Reabrirlos con la misma topologia reproduce input, A/V, PCM, reloj, SaveRAM, overlays y cambios de bandeja en la misma sandbox, otra sandbox y otro proceso; cambiar cualquiera de los cuatro medios se rechaza antes de `Attach` y no muta la sesion. Esto no convierte peliculas de UAE: UAE conserva su identidad, su preferencia predeterminada y su sandbox independiente. Los gates reales ejecutan ambos cores y ambos formatos dentro del mismo proceso EmuHawk.
 
 ## ROMs, discos y persistencia
 
@@ -1377,6 +1431,17 @@ trozos encima (como para los disquetes: el overlay del guest empieza vacio y el 
 nucleo con otros medios (`BadFields`), a un nucleo sin nada escribible (`WritesDisabled`) o despues de la primera unidad (`TooLate`) se rechaza sin cambiar nada. EmuHawk la carga entera por el parche
 `0001-register-puae6.patch` (T28b); el menu "Export Hard Disk" de MacHawk no se porta (el API es `GetHardDiskContents`, `GetHardDiskName`, `HasHardDisk`).
 
+Dominios HDF de BizHawk (T84d; extension posterior a T63b): `p6_hdf_size/read/write` direccionan el ordinal de disco duro (`0` = DH0, sin contar ADF) solo con una imagen cargada y entre unidades. Una lectura devuelve la
+base mas el overlay actual y una escritura entra por `p6_blob_hdf_write`, el mismo overlay causal de trozos de 4 KiB que usa el dispositivo; por ello un poke de Hex Editor se ve inmediatamente desde DHn y viaja en el
+estado nativo, el snapshot Waterbox y la SaveRAM P6SR v2, sin modificar el array/fichero base. El guest valida antes de transferir el indice, puntero, conversion a `size_t`, suma/rango y final de imagen: la peticion entera
+cabe o devuelve `BAD_ARGUMENT` sin escritura parcial; longitud cero en el final es valida. Los buffers son prestados durante una llamada y no se conserva ningun puntero managed, al blob o a RAM entre llamadas.
+`p6w_memory_areas` conserva primero las areas de la maquina y añade `Hard Disk 1` ... `Hard Disk 4` solo para los HDF presentes: son dominios escribibles de bytes (`WordSize1`, no big endian), mediante function hooks que
+resuelven el ordinal en cada acceso dentro del sandbox. `MainMemory` sigue siendo Chip RAM; un HDF no se presenta como RAM Amiga ni se incluye en su mapa de direcciones. Un acceso rechazado se cuenta en
+`p6w_memory_refused` (las lecturas rechazadas se ponen a cero). El fichero del host nunca se abre desde el sandbox ni se escribe implicitamente: exportar o persistir sigue siendo una accion explicita del host. Pruebas:
+`tests/media/test_media.py` (rangos, overflow, dos HDF, ultimo trozo corto y base inmutable) y
+`tests/waterbox-state/test_wrapper_state.py::WrapperStateTests::test_hdf_domains_share_the_device_overlay_and_restore_through_state_saveram_sandbox_and_process` (dominios reales, poke montado, rollback, SaveRAM,
+aislamiento y proceso nuevo).
+
 Cierre de T63 (HDF con Workbench, opt-in con `P6_KICKSTART_A600_ZIP` + `P6_WB205_ZIP`, sin cambios de produccion): los bytes del ADF de Workbench 2.05 (901120 = 1760 bloques = 55 cilindros de 32, `DOS\0`,
 bloque raiz 880) SON una particion plana valida (T29a: 32 sectores, 1 cabeza, 2 reservados, DosType = primer long del bloque 0), asi que "el HDF con Workbench" es el ADF leido en memoria del zip del usuario y dado
 como `P6_MEDIA_HDF` sin disquete: el A600 con Kickstart 2.05 arranca desde DH0 (unidad ~510) a la misma ultima imagen, pixel por pixel, que el mismo disco desde DF0 (unidad ~2370), en el motor nativo
@@ -1564,6 +1629,34 @@ la preferencia actual del host, que se reaplica en cada unidad. DCLK restaura
 las fases; un snapshot bruto Waterbox tambien puede contener ganancia
 transitoria y buffers PCM. La comprobacion de volumen compara el futuro de
 hardware y la continuidad PCM al volver al mismo volumen.
+
+### Volumen CDDA de presentacion (T84b)
+
+`p6_run_frame` acepta el volumen CD-DA vivo en los bits 16..22 de
+`render_flags`; el bit 23 (`P6_RENDER_CDDA_VOLUME_VALID`) distingue un cero
+explicito de un cliente anterior, que al omitir ambos campos conserva 100 %.
+Con VALID, solo 0..100 es valido; bits de valor sin VALID, 101..127 o cualquier
+bit desconocido se rechazan antes de tocar la maquina. El wrapper manda siempre
+VALID y el valor actual, aunque no solicite entregar audio o no haya CD.
+
+La ganancia se liga al owner CDDA de `AudioPlayer`, no a todos los streams
+extra: FMV simultaneo conserva su PCM. Se aplica con enteros y division hacia
+cero al aporte ya integrado del stream, justo antes de sumarlo a la salida
+Paula; 100 evita la multiplicacion y conserva los bytes anteriores. Por ello 0
+silencia la presentacion, pero el scheduler, el cursor, los callbacks, el
+subcanal y los acumuladores del stream avanzan exactamente igual. El porcentaje
+y el puntero de presentacion no entran en `p6_cda::State`, P6AK, config hash ni
+identidad. Un snapshot Waterbox bruto puede capturar sus escalares transitorios,
+pero el siguiente `p6_run_frame` reaplica la preferencia host despues de APPLY y
+antes de RUN.
+
+BizHawk expone `Settings.CdVolume` con la misma UX que UAE5: entero 0..100,
+100 por defecto, `ConstrainedIntConverter` y cambio sin reinicio. Queda fuera de
+SyncSettings, WrapperState y BK2; cargar un estado conserva el valor actual de
+cada core/sandbox. `tests/audio/test_cd_audio.py` compara 0, 1, 50 y 100 desde el
+mismo corte semantico, exige estado CDA identico y verifica que FMV no cambia;
+el lifecycle prueba flags invalidos y el caso sin CD, y WB03 prueba preferencia,
+restore, sandbox nuevo e identidad de pelicula.
 
 ### Niveles de colisiones (T77a)
 
@@ -1864,8 +1957,8 @@ valida encabezado, modo, SaveRAM o envelope y campos del snapshot antes de Attac
 (TAS puede importar SaveRAM dentro de Attach). Solo el LOAD inicial validado puede
 adoptar esa identidad; un LOAD normal mantiene su rechazo estricto. El contexto
 se retira al cargar o salir por excepcion, sin leer la copia durable del usuario.
-El envelope P6WS se versiona aparte del protocolo de pelicula (version 2 desde
-T67d4). La compilacion EmuHawk no acredita ejecucion de su UI.
+El envelope P6WS se versiona aparte del protocolo de pelicula (version 3 desde
+T84c; T67d4 introdujo la version 2). La compilacion EmuHawk no acredita ejecucion de su UI.
 
 ## CD32FR (T66r6)
 
@@ -2519,8 +2612,9 @@ un nuevo Insert lo sustituye y Eject lo cancela. Solo OK actualiza el estado apl
 El campo pertenece al snapshot C#, con validacion previa: -1 o un ordinal valido,
 exclusivamente CDTV con contenido y medio ausente.
 
-El envelope Waterbox pasa a version 2 y checksum domain v2 por el nuevo layout;
+En T67d4 el envelope Waterbox paso a version 2 y checksum domain v2 por aquel layout;
 un estado version 1 se rechaza antes de interpretar el payload o tocar el sandbox.
+T84c lo lleva a version/domain 3 por los restos causales de escala del raton; versiones 1 y 2 se rechazan del mismo modo.
 El ABI del guest y las peliculas conservan sus contratos propios. Esta hoja
 prueba cambio pendiente, cancelacion y nuevo destino con restauracion local,
 en otro sandbox y proceso frio, 120 unidades completas y datos exclusivos de B.

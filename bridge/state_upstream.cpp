@@ -431,7 +431,8 @@ int32_t g_audio_phase[kAudioWords];     // read by apply_audp, put in the engine
 uint8_t *produce_audp(int, size_t *len, uint8_t *w)
 {
     int32_t words[kAudioWords];
-    const bool owned = currprefs.cs_cdtvcd || p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    const uint8_t cd = p6_bridge::resolve_cd_controller(p6_session::session.config);
+    const bool owned = cd == P6_CD_CONTROLLER_CDTV || cd == P6_CD_CONTROLLER_CD32 || cd == P6_CD_CONTROLLER_IDE;
     const bool captured = currprefs.cs_cd32fmv ? p6_fmv_audio_phase_get(words, kAudioWords)
         : owned ? p6_cd::device_phase_get(words, kAudioWords) : p6_audio_phase_get(words, kAudioWords);
     if (!captured) return nullptr;
@@ -1313,7 +1314,8 @@ bool finish_chipset()
 bool finish_audio()
 {
     restore_audio_finish();
-    const bool owned = currprefs.cs_cdtvcd || p6_session::session.config.machine == p6_bridge::kCd32Machine;
+    const uint8_t cd = p6_bridge::resolve_cd_controller(p6_session::session.config);
+    const bool owned = cd == P6_CD_CONTROLLER_CDTV || cd == P6_CD_CONTROLLER_CD32 || cd == P6_CD_CONTROLLER_IDE;
     const bool restored = currprefs.cs_cd32fmv ? p6_fmv_audio_phase_set(g_audio_phase, kAudioWords)
         : owned ? p6_cd::device_phase_set(g_audio_phase, kAudioWords) : p6_audio_phase_set(g_audio_phase, kAudioWords);
     p6_drive_sound::set(g_drive_sound, p6_drive_sound::kWords);

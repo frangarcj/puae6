@@ -3,11 +3,13 @@
 // The guest-visible disk scenario (registers, MFM, replay) is T12c's; here the drives are looked at from the engine.
 #include "p6.h"
 #include "media.h"
+#include "config.h"
 #include "trackdisk.h"
 #include "overlay.h"
 #include "session.h"
 #include "sha256.h"
 #include "blob_io.h"
+#include "cd_device.h"
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include "options.h"
@@ -48,6 +50,65 @@ static p6_config make_config()
     return c;
 }
 
+static p6_config machine_config(uint32_t machine)
+{
+    p6_config c = make_config();
+    c.machine = machine;
+    if (machine == P6_MACHINE_A4030 || machine == P6_MACHINE_A4040) c.cpu_compatibility = P6_CPU_NORMAL;
+    return c;
+}
+
+// T84e1: one pure resolver, exact historical zero and no fallback. Preference checks deliberately stop before firmware/load: no CD unit is invented here.
+static void cd_controller_topologies()
+{
+    p6_error e = make_error();
+    p6_config c = machine_config(P6_MACHINE_A500);
+    assert(sizeof c == 72 && p6_bridge::resolve_cd_controller(c) == P6_CD_CONTROLLER_NONE);
+    c.cd_controller = P6_CD_CONTROLLER_NONE;
+    assert(p6_bridge::validate_config(c, &e) == P6_OK && p6_bridge::resolve_cd_controller(c) == P6_CD_CONTROLLER_NONE);
+
+    for (uint32_t machine : {P6_MACHINE_A600, P6_MACHINE_A1200, P6_MACHINE_A4030, P6_MACHINE_A4040}) {
+        c = machine_config(machine); c.cd_controller = P6_CD_CONTROLLER_IDE;
+        assert(p6_bridge::validate_config(c, &e) == P6_OK && p6_bridge::resolve_cd_controller(c) == P6_CD_CONTROLLER_IDE);
+    }
+    c = machine_config(P6_MACHINE_CD32);
+    assert(p6_bridge::resolve_cd_controller(c) == P6_CD_CONTROLLER_CD32);
+    c.cd_controller = P6_CD_CONTROLLER_CD32; assert(p6_bridge::validate_config(c, &e) == P6_OK);
+    c.cd_controller = P6_CD_CONTROLLER_NONE; assert(p6_bridge::validate_config(c, &e) == P6_OK);
+    p6_bridge::build_preferences(c, false);
+    assert(!currprefs.cs_cd32cd && currprefs.cs_cd32c2p && currprefs.cs_cd32nvram && p6_bridge::check_preset(&e) == P6_OK);
+
+    c = machine_config(P6_MACHINE_CDTV);
+    assert(p6_bridge::resolve_cd_controller(c) == P6_CD_CONTROLLER_CDTV);
+    c.cd_controller = P6_CD_CONTROLLER_CDTV; assert(p6_bridge::validate_config(c, &e) == P6_OK);
+    c.cd_controller = P6_CD_CONTROLLER_NONE; assert(p6_bridge::validate_config(c, &e) == P6_OK);
+    p6_bridge::build_preferences(c, false);
+    assert(!currprefs.cs_cdtvcd && currprefs.cs_cdtvram && p6_bridge::check_preset(&e) == P6_OK);
+
+    c = machine_config(P6_MACHINE_A600); c.cd_controller = P6_CD_CONTROLLER_IDE;
+    p6_bridge::build_preferences(c, true);
+    assert(currprefs.cs_ide == IDE_A600A1200 && p6_bridge::check_preset(&e) == P6_OK);
+
+    const struct { uint32_t machine; uint8_t controller; const char *message; } invalid[] = {
+        {P6_MACHINE_A500, P6_CD_CONTROLLER_CD32, "CD32 motherboard"},
+        {P6_MACHINE_A1200, P6_CD_CONTROLLER_CDTV, "CDTV motherboard"},
+        {P6_MACHINE_A500, P6_CD_CONTROLLER_IDE, "A600, A1200 or A4000"},
+        {P6_MACHINE_CD32, P6_CD_CONTROLLER_CDTV, "CDTV motherboard"},
+        {P6_MACHINE_A600, uint8_t(P6_CD_CONTROLLER_IDE + 1), "auto, none"},
+    };
+    for (const auto &bad : invalid) {
+        c = machine_config(bad.machine); c.cd_controller = bad.controller; e.message[0] = 0;
+        assert(p6_bridge::validate_config(c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, bad.message));
+    }
+
+    // The public lifecycle performs that same pure check before assigning session.config or changing its state.
+    c = machine_config(P6_MACHINE_A500); c.cd_controller = P6_CD_CONTROLLER_IDE;
+    assert(p6_session::session.state == p6_session::State::Uninitialized);
+    const p6_config before = p6_session::session.config;
+    assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && p6_session::session.state == p6_session::State::Uninitialized &&
+           !memcmp(&before, &p6_session::session.config, sizeof before));
+}
+
 static std::vector<uint8_t> read_file(const char *path)
 {
     FILE *f = fopen(path, "rb");
@@ -79,6 +140,31 @@ static p6_media medium_of(const std::vector<uint8_t> &adf)
     p6_sha256_hash(adf.data(), adf.size(), m.content_id);
     m.image = p6_buffer{adf.data(), adf.size()};
     return m;
+}
+
+static p6_media hdf_of(const std::vector<uint8_t> &hdf)
+{
+    p6_media m{};
+    m.type = P6_MEDIA_HDF;
+    p6_sha256_hash(hdf.data(), hdf.size(), m.content_id);
+    m.image = p6_buffer{hdf.data(), hdf.size()};
+    return m;
+}
+
+struct IdeCdSource {
+    uint32_t stride, sectors;
+    uint8_t seed;
+};
+
+static bool ide_cd_read(const void *context, uint64_t offset, void *out, size_t bytes, size_t *read)
+{
+    const auto &source = *static_cast<const IdeCdSource *>(context);
+    if (!out || !read || offset > uint64_t(source.stride) * source.sectors
+        || bytes > uint64_t(source.stride) * source.sectors - offset) return false;
+    for (size_t i = 0; i < bytes; ++i)
+        static_cast<uint8_t *>(out)[i] = uint8_t(source.seed + (offset + i) * 13 + (offset + i) / 251);
+    *read = bytes;
+    return true;
 }
 
 static std::string id_of(const p6_media &m)
@@ -615,12 +701,171 @@ static void extended_adf(const std::vector<uint8_t> &rom)
     assert(p6_unload(&e) == P6_OK);
 }
 
+// The debugger-facing byte API is another view of the mounted block device: it addresses HDF ordinals (not manifest indices),
+// reads base plus overlay, and uses the exact same COW chunks as device writes without ever changing the caller's bytes.
+static void hdf_byte_access(const std::vector<uint8_t> &rom)
+{
+    p6_error e = make_error();
+    uint64_t bytes = 0xfeedu;
+    assert(p6_hdf_size(0, &bytes, &e) == P6_ERROR_BAD_STATE && bytes == 0xfeedu);
+
+    const std::vector<uint8_t> floppy = make_adf(99);
+    std::vector<uint8_t> hdf0(9 * 512), hdf1(10 * 512);
+    for (size_t i = 0; i < hdf0.size(); ++i) hdf0[i] = uint8_t((i * 29 + 7) & 255);
+    for (size_t i = 0; i < hdf1.size(); ++i) hdf1[i] = uint8_t((i * 17 + 0xa3) & 255);
+    memcpy(hdf0.data(), "DOS\0", 4); memcpy(hdf1.data(), "DOS\0", 4);
+    const std::vector<uint8_t> base0 = hdf0, base1 = hdf1;
+    const p6_media media[] = {medium_of(floppy), hdf_of(hdf0), hdf_of(hdf1)};
+    assert(load(rom, media, 3, &e) == P6_OK);
+
+    assert(p6_hdf_size(0, &bytes, &e) == P6_OK && bytes == hdf0.size());
+    assert(p6_hdf_size(1, &bytes, &e) == P6_OK && bytes == hdf1.size());
+    bytes = 0xfeedu;
+    assert(p6_hdf_size(2, &bytes, &e) == P6_ERROR_BAD_ARGUMENT && bytes == 0xfeedu);
+    assert(p6_hdf_size(0, nullptr, &e) == P6_ERROR_BAD_ARGUMENT);
+
+    std::vector<uint8_t> cross(8);
+    assert(p6_hdf_read(0, 4093, cross.data(), cross.size(), &e) == P6_OK);
+    assert(!memcmp(cross.data(), base0.data() + 4093, cross.size()));
+    const uint8_t patch0[] = {0xde, 0xad, 0xbe, 0xef, 0x01, 0x23, 0x45, 0x67};
+    assert(p6_hdf_write(0, 4093, patch0, sizeof patch0, &e) == P6_OK);
+    memset(cross.data(), 0, cross.size());
+    assert(p6_hdf_read(0, 4093, cross.data(), cross.size(), &e) == P6_OK && !memcmp(cross.data(), patch0, sizeof patch0));
+    assert(hdf0 == base0 && hdf1 == base1);                         // caller-owned bases are immutable
+
+    const uint8_t patch1[] = {0x91, 0x82, 0x73};
+    assert(p6_hdf_write(1, 17, patch1, sizeof patch1, &e) == P6_OK);
+    uint8_t one = 0;
+    assert(p6_hdf_read(0, 17, &one, 1, &e) == P6_OK && one == base0[17]);
+
+    std::vector<uint8_t> expected0 = base0, expected1 = base1;
+    memcpy(expected0.data() + 4093, patch0, sizeof patch0);
+    memcpy(expected1.data() + 17, patch1, sizeof patch1);
+    std::vector<uint8_t> exported0(hdf0.size()), exported1(hdf1.size());
+    uint64_t written = 0;
+    assert(p6_media_export(1, exported0.data(), exported0.size(), &written, &e) == P6_OK && written == exported0.size() && exported0 == expected0);
+    assert(p6_media_export(2, exported1.data(), exported1.size(), &written, &e) == P6_OK && written == exported1.size() && exported1 == expected1);
+
+    p6_media_write_status status{};
+    status.abi_version = P6_ABI_VERSION; status.struct_size = sizeof status; status.media_index = 1;
+    assert(p6_media_write_status_get(&status, &e) == P6_OK && status.overlay_capacity == 2 && status.overlay_used == 2 && status.medium_sectors == 2);
+    status.media_index = 2;
+    assert(p6_media_write_status_get(&status, &e) == P6_OK && status.overlay_capacity == 2 && status.overlay_used == 1 && status.medium_sectors == 1);
+
+    // Every invalid request is rejected before the overlay is touched, including arithmetic overflow. Empty access at end is valid.
+    assert(p6_hdf_write(0, hdf0.size() - 2, patch0, 3, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(p6_hdf_write(0, UINT64_MAX, patch0, 1, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(p6_hdf_write(0, 0, nullptr, 1, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(p6_hdf_read(0, hdf0.size() - 1, cross.data(), 2, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(p6_hdf_read(2, 0, cross.data(), 1, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(p6_hdf_read(0, hdf0.size(), nullptr, 0, &e) == P6_OK);
+    assert(p6_hdf_write(0, hdf0.size(), nullptr, 0, &e) == P6_OK);
+    assert(p6_media_export(1, exported0.data(), exported0.size(), &written, &e) == P6_OK && exported0 == expected0);
+
+    assert(p6_unload(&e) == P6_OK);
+    assert(p6_hdf_size(0, &bytes, &e) == P6_ERROR_BAD_STATE);
+}
+
+// A real 68000 guest issues ATA IDENTIFY PACKET and MMC packets through Gayle
+// while four independent HDFs remain on their normal controller. The Python
+// side supplies the purpose-built 256 KiB micro-ROM.
+static void ide_cd_guest(const std::vector<uint8_t> &rom)
+{
+    using namespace p6_cd;
+    p6_error e = make_error();
+    p6_config c = machine_config(P6_MACHINE_A600);
+    c.cd_controller = P6_CD_CONTROLLER_IDE;
+
+    // Missing media is rejected before an engine/device owner is started.
+    assert(p6_init(&c, &e) == P6_OK);
+    assert(load(rom, nullptr, 0, &e) == P6_ERROR_WRONG_MEDIA && strstr(e.message, "no bound disc source"));
+    assert(p6_shutdown(&e) == P6_OK);
+
+    IdeCdSource sources[] = {{2048, 4, 0x21}, {2352, 16, 0x71}};
+    Binding bindings[2]{};
+    for (unsigned i = 0; i < 2; ++i) {
+        bindings[i].identity.bytes = uint64_t(sources[i].stride) * sources[i].sectors;
+        bindings[i].identity.sector_bytes = sources[i].stride == 2048 ? 2048 : 1;
+        bindings[i].identity.content_id[0] = uint8_t(0x30 + i);
+        bindings[i].read = ide_cd_read;
+        bindings[i].context = &sources[i];
+    }
+    Layout layout{};
+    layout.content_id[0] = 0xa7; layout.content_id[31] = 0x5c;
+    layout.tracks = 2; layout.leadout = 20;
+    layout.track[0] = {0, 0, 4, 0, 2048, 0, Mode::Mode1_2048, 1, 4, false};
+    layout.track[1] = {4, 4, 20, 1, 2352, 0, Mode::Audio, 1, 0, false};
+    Disc disc;
+    assert(disc.bind(layout, bindings, 2) == Result::Ok && device_bind(&disc) == Result::Ok);
+
+    std::vector<std::vector<uint8_t>> hdfs(P6_MAX_HDF);
+    std::vector<p6_media> media(P6_MAX_HDF);
+    for (uint32_t n = 0; n < P6_MAX_HDF; ++n) {
+        hdfs[n].resize((12 + n) * 512);
+        for (size_t i = 0; i < hdfs[n].size(); ++i) hdfs[n][i] = uint8_t(0x40 + n * 19 + i * 7);
+        memcpy(hdfs[n].data(), "DOS\0", 4);
+        media[n] = hdf_of(hdfs[n]);
+    }
+    const auto bases = hdfs;
+
+    // Five devices do not fit the two real master/slave channels. Refuse this
+    // only when the user also forces all four HDFs onto Gayle.
+    p6_config conflict = c; conflict.hdf_controller = P6_HDF_CONTROLLER_IDE;
+    assert(p6_init(&conflict, &e) == P6_OK);
+    assert(load(rom, media.data(), uint32_t(media.size()), &e) == P6_ERROR_CAPACITY && strstr(e.message, "four physical IDE slots"));
+    assert(!device_open_count() && p6_shutdown(&e) == P6_OK);
+
+    // Normal HDF placement remains independent from the selected CD topology.
+    assert(p6_init(&c, &e) == P6_OK);
+    assert(load(rom, media.data(), uint32_t(media.size()), &e) == P6_OK);
+    p6_input input{}; input.abi_version = P6_ABI_VERSION; input.struct_size = sizeof input;
+    for (unsigned unit = 0; unit < 24; ++unit) {
+        p6_frame frame{}; frame.abi_version = P6_ABI_VERSION; frame.struct_size = sizeof frame;
+        assert(p6_run_frame(&input, 0, &frame, &e) == P6_OK);
+    }
+
+    constexpr uint32_t res = 0x5000, idbuf = 0x7000, inquiry = 0x7200;
+    constexpr uint32_t capacity = 0x7240, sense = 0x7280, sector = 0x8000;
+    const uint8_t *ram = chipmem_bank.baseaddr;
+    assert(ram && !memcmp(ram + res + 4, "ATAP", 4));
+    assert((ram[res] & 0xd1) == 0x50 && (ram[res] & 8));
+    // Gayle exposes ATA words byte-swapped to the big-endian 68000 bus.
+    assert(ram[idbuf] == 0xc0 && ram[idbuf + 1] == 0x85);
+    char model[10]{};
+    for (unsigned i = 0; i < 9; ++i) model[i] = char(ram[idbuf + 54 + (i ^ 1)]);
+    assert(!strcmp(model, "UAE-ATAPI"));
+    assert(!memcmp(ram + inquiry + 8, "PUAE6   IMMUTABLE CD-ROM", 24));
+    assert(ram[capacity + 3] == 19 && ram[capacity + 6] == 8 && ram[capacity + 7] == 0);
+    for (size_t i = 0; i < 2048; ++i)
+        assert(ram[sector + i] == uint8_t(sources[0].seed + i * 13 + i / 251));
+    assert((ram[res + 1] & 1) && (ram[res + 2] & 4));
+    assert(ram[sense + 2] == 5 && ram[sense + 12] == 0x20);
+    assert(!(ram[res + 3] & 1));
+    assert(device_position() > 4 && device_position() <= 16); // common emulated CDDA clock
+
+    for (uint32_t n = 0; n < P6_MAX_HDF; ++n) {
+        std::vector<uint8_t> copy(hdfs[n].size());
+        assert(p6_hdf_read(n, 0, copy.data(), copy.size(), &e) == P6_OK && copy == bases[n] && hdfs[n] == bases[n]);
+    }
+    assert(p6_unload(&e) == P6_OK && !device_open_count());
+    assert(p6_shutdown(&e) == P6_OK);
+    device_unbind();
+}
+
 int main(int argc, char **argv)
 {
-    if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
+    if (argc != 2 && !(argc == 3 && !strcmp(argv[2], "--ide-cd"))) {
+        fprintf(stderr, "usage: %s boot.rom [--ide-cd]\n", argv[0]); return 64;
+    }
     const std::vector<uint8_t> rom = read_file(argv[1]);
     assert(rom.size() == 256 * 1024);
+    if (argc == 3) {
+        ide_cd_guest(rom);
+        puts("ide cd ok");
+        return 0;
+    }
     identity_names();
+    cd_controller_topologies();
 
     p6_error e = make_error();
     p6_config c = make_config();
@@ -635,6 +880,7 @@ int main(int argc, char **argv)
     reset_keeps_the_media(rom, media, disks);
     media_append(rom);
     extended_adf(rom);                                 // leaves the instance initialized with writes on
+    hdf_byte_access(rom);
     assert(disks == before);                           // no swap, eject or frame wrote to the caller's images
     assert(p6_shutdown(&e) == P6_OK);
     puts("media ok");

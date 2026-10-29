@@ -13,6 +13,7 @@
 #include "overlay.h"
 #include "trackdisk.h"
 #include "ipf_track.h"
+#include "cd_device.h"
 
 #include "sysconfig.h"
 #include "sysdeps.h"
@@ -152,7 +153,30 @@ uint32_t hard_files_in(const p6_media *media, uint32_t count)
 
 p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_error *error)
 {
-    uint32_t unit = 0;
+    const bool ide_cd = resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE;
+    const uint32_t hdf_count = hard_files_in(media, count);
+    if (ide_cd && !p6_cd::device_bound_disc())
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "the IDE CD controller has no bound disc source");
+    // Gayle exposes two master/slave channels. A CD is the primary master; a
+    // user who also explicitly places HDFs on Gayle therefore has three HDF
+    // slots. HDFs on the normal UAE controller remain four and do not compete.
+    if (ide_cd && ide && hdf_count > 3)
+        return p6_fail(error, P6_ERROR_CAPACITY, "the IDE CD and four IDE hard files exceed the four physical IDE slots");
+
+    uint32_t slot = 0, hdf_unit = 0;
+    if (ide_cd) {
+        uaedev_config_info ci;
+        uci_set_defaults(&ci, false);
+        ci.type = UAEDEV_CD;
+        ci.controller_type = HD_CONTROLLER_TYPE_IDE_AUTO;
+        ci.controller_unit = int(slot);
+        ci.device_emu_unit = 0;
+        ci.uae_unitnum = 0;
+        strcpy(ci.devname, "CD0");
+        if (!p6_gayle_unit(int(slot), &ci))
+            return p6_fail(error, P6_ERROR_CAPACITY, "the CD could not be attached to the IDE");
+        ++slot;
+    }
     for (uint32_t i = 0; i < count; ++i) {
         if (media[i].type != P6_MEDIA_HDF)
             continue;
@@ -164,14 +188,14 @@ p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_e
         ci.readonly = false;                                             // writes go to the overlay of the image (P6_BLOB_HDF), never to the base
         ci.blocksize = int(kHdfBlock);
         media_blob_id(media[i].content_id, ci.rootdir);                  // hdf_open_target looks the image up by this id
-        snprintf(ci.devname, sizeof ci.devname, "DH%u", unit);
-        ci.controller_unit = int(unit);
+        snprintf(ci.devname, sizeof ci.devname, "DH%u", hdf_unit);
+        ci.controller_unit = int(slot);
         if (ide) {
             // T56: the drives of Gayle's IDE (unit j = master, slave, then the pair behind the splitter) are opened by gayle.cpp on every reset; there is no mount list, no UAEFS board and
             // no trap area behind them.
-            if (!p6_gayle_unit(int(unit), &ci))
+            if (!p6_gayle_unit(int(slot), &ci))
                 return p6_fail(error, P6_ERROR_CAPACITY, "a hard file could not be attached to the IDE");
-            ++unit;
+            ++slot; ++hdf_unit;
             continue;
         }
         // What add_filesys_config does for a unit of the UAE controller, which cfgfile.cpp excludes together with the text configuration around it.
@@ -181,7 +205,7 @@ p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_e
         mount.configoffset = -1;
         mount.unitnum = -1;
         memcpy(&mount.ci, &ci, sizeof ci);
-        ++unit;
+        ++hdf_unit;
     }
     return P6_OK;
 }
@@ -505,4 +529,70 @@ extern "C" p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_
         return p6_fail(error, P6_ERROR_INTERNAL, "the disk could not be exported");
     *written = bytes;
     return P6_OK;
+}
+
+namespace {
+
+p6_result hard_file_blob(uint32_t hdf_index, char id[p6_bridge::kMediaBlobIdBytes], uint64_t *bytes, p6_error *error)
+{
+    uint32_t ordinal = 0;
+    for (uint32_t i = 0; i < session.media_count; ++i) {
+        if (session.media_type[i] != P6_MEDIA_HDF) continue;
+        if (ordinal++ != hdf_index) continue;
+        p6_bridge::media_blob_id(session.media_content_id[i], id);
+        uint32_t kind = 0;
+        if (p6_blob_size(id, bytes, &kind) != P6_BLOB_OK || kind != P6_BLOB_HDF)
+            return p6_fail(error, P6_ERROR_INTERNAL, "the hard file is not registered");
+        return P6_OK;
+    }
+    return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the hard file index is out of range");
+}
+
+p6_result hard_file_call(uint32_t hdf_index, uint64_t offset, void *buffer, uint64_t length, bool write, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
+    if (session.state != State::Loaded)
+        return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    char id[p6_bridge::kMediaBlobIdBytes];
+    uint64_t size = 0;
+    if (const p6_result found = hard_file_blob(hdf_index, id, &size, error)) return found;
+    if ((length && !buffer) || length > SIZE_MAX || offset > size || length > size - offset)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the hard file byte range is out of bounds");
+    size_t transferred = 0;
+    const int result = write ? p6_blob_hdf_write(id, offset, buffer, size_t(length), &transferred)
+                             : p6_blob_hdf_read(id, offset, buffer, size_t(length), &transferred);
+    if (result != P6_BLOB_OK || transferred != length)
+        return p6_fail(error, P6_ERROR_INTERNAL, write ? "the hard file bytes could not be written" : "the hard file bytes could not be read");
+    return P6_OK;
+}
+
+}  // namespace
+
+extern "C" p6_result p6_hdf_size(uint32_t hdf_index, uint64_t *bytes, p6_error *error)
+{
+    if (!p6_error_usable(error)) return P6_ERROR_BAD_ARGUMENT;
+    p6_error_clear(error);
+    Guard guard;
+    if (!guard.ok) return p6_fail(error, P6_ERROR_BUSY, "another call is in progress");
+    if (session.state != State::Loaded)
+        return p6_fail(error, P6_ERROR_BAD_STATE, session.state == State::Faulted ? "the image faulted; unload it" : "no image is loaded");
+    if (!bytes) return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the hard file size output is null");
+    char id[p6_bridge::kMediaBlobIdBytes];
+    uint64_t size = 0;
+    if (const p6_result found = hard_file_blob(hdf_index, id, &size, error)) return found;
+    *bytes = size;
+    return P6_OK;
+}
+
+extern "C" p6_result p6_hdf_read(uint32_t hdf_index, uint64_t offset, void *buffer, uint64_t bytes, p6_error *error)
+{
+    return hard_file_call(hdf_index, offset, buffer, bytes, false, error);
+}
+
+extern "C" p6_result p6_hdf_write(uint32_t hdf_index, uint64_t offset, const void *buffer, uint64_t bytes, p6_error *error)
+{
+    return hard_file_call(hdf_index, offset, const_cast<void *>(buffer), bytes, true, error);
 }

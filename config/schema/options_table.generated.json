@@ -251,6 +251,23 @@
       "option": "hdf_controller",
       "class": "reboot"
     },
+    "cd_controller": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "names": {
+        "auto": 0,
+        "none": 1,
+        "cd32": 2,
+        "ide": 4
+      },
+      "option": "cd_controller",
+      "class": "reboot"
+    },
     "audio_rate_hz": {
       "default": 48000,
       "allowed": [
@@ -1542,6 +1559,13 @@
       },
       "option": "drive_sound_volume",
       "class": "presentation"
+    },
+    "cd_audio_volume": {
+      "default": 100,
+      "min": 0,
+      "max": 100,
+      "option": "cd_audio_volume",
+      "class": "presentation"
     }
   },
   "value_sets": {
@@ -1895,6 +1919,24 @@
         "type": "Puae6HdfController"
       },
       "libretro": "puae6_hdf_controller"
+    },
+    "cd_controller": {
+      "headless": {
+        "how": "named",
+        "flag": "--cd-controller",
+        "names": {
+          "auto": "auto",
+          "none": "none",
+          "cd32": "cd32",
+          "ide": "ide"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CdController",
+        "type": "Puae6CdController"
+      },
+      "libretro": null
     },
     "audio_rate_hz": {
       "headless": {
@@ -2672,6 +2714,17 @@
         "type": "Puae6DriveSoundVolume"
       },
       "libretro": "puae6_drive_sound_volume"
+    },
+    "cd_audio_volume": {
+      "headless": {
+        "how": "none"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "CdVolume",
+        "type": "int"
+      },
+      "libretro": null
     }
   },
   "presets": {
@@ -2802,7 +2855,8 @@
   "reserved": {
     "whdload": "WhdLoad",
     "whdload_buttonwait": "WhdLoadButtonWait",
-    "floppy_drives": "FloppyDrives"
+    "floppy_drives": "FloppyDrives",
+    "bizhawk_mouse_speed": "MouseSpeed"
   },
   "unsupported": {
     "z3fastmem_size": "Zorro III uses the Z3 Memory option; the configuration-file importer does not expose z3fastmem_size yet.",

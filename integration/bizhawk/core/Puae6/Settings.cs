@@ -50,6 +50,9 @@ public enum Puae6CpuClock { Auto, X1, X2, X4, X8, X10, X12, X16 }
 /// Gayle is switched on only while a hard file is behind it: Ide with no hard file is the machine without it.</summary>
 public enum Puae6HdfController { Uae, Ide }
 
+/// <summary>The CD hardware selected at restart. Auto keeps the historical CD32/CDTV profile for CD-only loads and resolves to IDE for supported mixed-media machines.</summary>
+public enum Puae6CdController { Auto, None, Cd32, Ide }
+
 /// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
 public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
 
@@ -87,6 +90,7 @@ public enum Puae6DriveSoundVolume { P0 = 0, P10 = 10, P25 = 25, P50 = 50, P75 = 
 public sealed class Puae6Settings
 {
 	Puae6DriveSoundVolume _driveSoundVolume;
+	int _cdVolume = 100;
 	/// <summary>Mechanical drive volume, 0 (silent) to 100 percent. The phase advances even when silent.</summary>
 	[DisplayName("Floppy drive sound volume")]
 	[Description("Mechanical floppy-drive sound, from silent to 100 percent. This does not control CD audio.")]
@@ -94,6 +98,17 @@ public sealed class Puae6Settings
 	{
 		get => _driveSoundVolume;
 		set => _driveSoundVolume = Enum.IsDefined(typeof(Puae6DriveSoundVolume), value) ? value : throw new ArgumentOutOfRangeException(nameof(value), "Unknown drive sound volume");
+	}
+	/// <summary>CD-DA presentation volume. It applies live to CD32/CDTV audio tracks and is not part of state or movie identity.</summary>
+	[DisplayName("CD audio volume")]
+	[Description("CD-DA volume in percent (0 - 100). Applies to CD32/CDTV audio tracks only.")]
+	[Range(0, 100)]
+	[DefaultValue(100)]
+	[TypeConverter(typeof(ConstrainedIntConverter))]
+	public int CdVolume
+	{
+		get => _cdVolume;
+		set => _cdVolume = value is >= 0 and <= 100 ? value : throw new ArgumentOutOfRangeException(nameof(value), "CD audio volume must be from 0 to 100");
 	}
 	public Puae6Settings Clone() => (Puae6Settings)MemberwiseClone();
 }
@@ -143,6 +158,11 @@ public sealed class Puae6SyncSettings
 	/// <summary>The controller of the hard files. It is part of the machine (the registers of Gayle and its drives against the UAE controller's board), so it enters the identity of states and movies when it is not <c>Uae</c>.</summary>
 	public Puae6HdfController HdfController { get; set; } = Puae6HdfController.Uae;
 
+	/// <summary>CD controller topology. Auto preserves CD32/CDTV for a CD-only load and becomes IDE for CD mixed with ADF/HDF/WHDLoad on a compatible machine; explicit choices never change the selected machine.</summary>
+	[DisplayName("CD controller")]
+	[Description("Automatic uses CD32 for CD-only content and IDE for mixed media on A600, A1200 or A4000. Explicit choices never change the machine.")]
+	public Puae6CdController CdController { get; set; } = Puae6CdController.Auto;
+
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;
 
@@ -173,8 +193,20 @@ public sealed class Puae6SyncSettings
 	/// <summary>The real-time clock's epoch, UTC seconds: 2000-01-01 by default. The host clock is never read.</summary>
 	public long RtcEpochSeconds { get; set; } = 946684800;
 
+	/// <summary>Scales BizHawk's absolute mouse movement before the per-unit hardware limit. Integer remainders are part of wrapper state.</summary>
+	[DisplayName("Mouse speed")]
+	[Description("Mouse speed in percents (1% - 1000%). Adjust if there's mismatch between emulated and host mouse movement. Note that maximum mouse movement is still 120 pixels per unit due to Amiga hardware limitations.")]
+	[Range(1, 1000)]
+	[DefaultValue(100)]
+	[TypeConverter(typeof(ConstrainedIntConverter))]
+	public int MouseSpeed { get; set; } = 100;
+
+	[DisplayName("Controller port 1")]
+	[Description("Device connected to the first Amiga controller port. Only one of the two ports may use a Lightgun or Lightpen at a time.")]
 	public Puae6Port1 ControllerPort1 { get; set; } = Puae6Port1.Mouse;
 
+	[DisplayName("Controller port 2")]
+	[Description("Device connected to the second Amiga controller port. Only one of the two ports may use a Lightgun or Lightpen at a time.")]
 	public Puae6Port2 ControllerPort2 { get; set; } = Puae6Port2.Joystick;
 
 	public Puae6ParallelPort ControllerPort3 { get; set; } = Puae6ParallelPort.None;

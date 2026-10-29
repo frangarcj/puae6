@@ -125,6 +125,16 @@ leer configuraciones guardadas. El wrapper entrega audio sincronico a 44100 Hz
 desde el primer frame, tambien al reiniciar la salida de sonido tras mover o
 redimensionar la ventana de EmuHawk.
 
+El ajuste de reinicio `CD controller` ofrece `Auto`, `None`, `Cd32` e `Ide`.
+`Auto` conserva CD32 al abrir solo un CD, pero al combinar CD con ADF, HDF,
+un volumen ZIP/directorio o WHDLoad conserva una maquina A600, A1200 o A4000
+y usa su IDE. `None` rechaza contenidos con CD; `Cd32` exige la maquina CD32;
+`Ide` exige una maquina compatible. Una eleccion incompatible se detiene antes
+de abrir el medio y muestra el motivo, sin cambiar silenciosamente de maquina.
+Estados, BK2 y TAS vuelven a abrir la misma topologia; si cambia el CD, ADF,
+HDF o volumen se rechaza la carga sin tocar la sesion. UAE sigue siendo el core
+predeterminado y sus estados y peliculas no se convierten a PUAE6.
+
 Para CD32 FMV, seleccionar maquina `CD32` y cartucho `Fmv`, y aportar en el
 gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB

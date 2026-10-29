@@ -561,6 +561,12 @@ TASK_SUITES[('FUZZ01', 'T58')] = TASK_SUITES[('FUZZ01', 'T58b')]
 TASK_SUITES[('WB03', 'T58')] = {'ipf_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_ipf', 'trackdisk_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_trackdisk',
                                 'core_state_save_advance_restore': 'tests.waterbox-state.test_wrapper_state',
                                 'ipf_boot_restore_in_the_bizhawk_core': 'tests.waterbox-media.test_ipf_boot'}
+TASK_SUITES[('MED01', 'T85b')] = dict(TASK_SUITES[('MED01', 'T58')])
+TASK_SUITES[('DET02', 'T85b')] = dict(TASK_SUITES[('DET02', 'T58')])
+TASK_SUITES[('FUZZ01', 'T85b')] = dict(TASK_SUITES[('FUZZ01', 'T58c')])
+TASK_SUITES[('WB03', 'T85b')] = {
+    'ipf_snapshot_in_the_sandbox': 'tests.waterbox-media.test_media_ipf',
+    'ipf_boot_restore_in_the_bizhawk_core': 'tests.waterbox-media.test_ipf_boot'}
 # T37, the upstream update tool: a mini upstream with two versions (broken patch, shifted or rewritten patch zone, a new
 # relevant file, a generator that changed), the repeatability of the report, a pristine that stays untouched, and the real
 # pinned snapshot against itself (no changes, the series byte for byte). It runs the tool; it does not update WinUAE (T38).
@@ -1333,7 +1339,89 @@ TASK_SUITES[('BUILD01', 'T82m')] = {
     'puae6_uae_settings_and_audio': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'wrapper_contract': 'tests.config.test_parity.WrapperParity',
     'native_explicit_no_drives': 'tests.libretro-host.test_multidrive.MultiDriveTests.test_two_drive_spellings_keep_the_profile_identity_and_explicit_four_or_none_derive_from_it'}
+TASK_SUITES[('IN01', 'T84a')] = {
+    'wrapper_input_callbacks_and_drive_light': 'tests.ffi.test_core.CoreTests.test_lag_follows_the_guests_reads_and_the_drive_light_follows_the_motor'}
+TASK_SUITES[('WB03', 'T84a')] = {
+    'callback_boundary_after_restore': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_input_callbacks_follow_non_lag_units_across_restore_and_new_sandboxes'}
+TASK_SUITES[('BUILD01', 'T84a')] = {
+    'sync_settings_validation_and_interface': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('AV02', 'T84b')] = {
+    'cdda_presentation_gain_and_semantic_future': 'tests.audio.test_cd_audio.CdAudioTests.test_pcm_pause_semantic_restore_and_bounds'}
+TASK_SUITES[('WB03', 'T84b')] = {
+    'live_cdda_preference_restore_and_movie_identity': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_cd_audio_volume_is_live_presentation_outside_state_and_movie_identity_without_a_cd'}
+TASK_SUITES[('BUILD01', 'T84b')] = {
+    'sync_settings_validation_and_interface': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'schema_default_and_presentation_mapping': 'tests.config.test_schema.NormalizationTests.test_nothing_requested_gives_the_defaults',
+    'render_flag_validation_on_the_real_engine': 'tests.host.test_bridge_lifecycle.BridgeLifecycleTests.test_init_load_apply_unload_and_reload_on_the_real_engine',
+    'coherent_waterbox_memory_manifest': 'tests.waterbox-smoke.test_memory_manifest'}
+TASK_SUITES[('IN01', 'T84c')] = {
+    'integer_mouse_speed_and_capped_remainders': 'tests.ffi.test_core.CoreTests.test_mouse_speed_uses_integer_remainders_before_the_120_count_cap'}
+TASK_SUITES[('WB03', 'T84c')] = {
+    'mouse_speed_snapshot_and_movie': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_two_mouse_references_motion_and_bk2_restore_in_same_and_new_sandbox_and_process'}
+TASK_SUITES[('BUILD01', 'T84c')] = {
+    'mouse_speed_interface_and_atomic_validation': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'wrapper_schema_parity': 'tests.config.test_parity.WrapperParity'}
+TASK_SUITES[('MED02', 'T84d')] = {
+    'native_hdf_byte_domain_and_atomic_ranges': 'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
+TASK_SUITES[('WB03', 'T84d')] = {
+    'hdf_domains_state_saveram_sandbox_and_process': 'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_hdf_domains_share_the_device_overlay_and_restore_through_state_saveram_sandbox_and_process'}
+TASK_SUITES[('BUILD01', 'T84d')] = {
+    'managed_and_native_area_layout': 'tests.ffi.test_ffi.FfiTests.test_every_csharp_size_and_offset_is_what_a_c_compiler_makes_of_the_headers',
+    'coherent_waterbox_memory_manifest': 'tests.waterbox-smoke.test_memory_manifest'}
+TASK_SUITES[('MED02', 'T84e1')] = {
+    'controller_resolution_validation_and_no_hardware_none': 'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
+TASK_SUITES[('DET02', 'T84e1')] = {
+    'legacy_identity_and_ide_topology_futures': 'tests.state.test_cd_controller'}
+TASK_SUITES[('MED02', 'T84e2')] = {
+    'portable_mmc_subset_bounds_errors_and_cdda': 'tests.media.test_cd_device.CdDeviceTests.test_pcm_pause_semantic_restore_and_bounds',
+    'guest_gayle_atapi_and_four_independent_hdfs': 'tests.media.test_ide_cd'}
+TASK_SUITES[('DET02', 'T84e3')] = {
+    'ide_atapi_state_catalog_and_cdda_future': 'tests.state.test_ide_cd_state'}
+TASK_SUITES[('MED02', 'T84e4')] = {
+    'mixed_cd_catalog_keeps_all_host_media_immutable': 'tests.waterbox-media.test_cd_source.IdeMixedWaterboxTests'}
+TASK_SUITES[('WB03', 'T84e4')] = {
+    'mixed_cd_catalog_local_sandbox_and_process_restore': 'tests.waterbox-media.test_cd_source.IdeMixedWaterboxTests'}
+for _gate, _children in {
+    'MED02': ('T84e1', 'T84e2', 'T84e4'),
+    'DET02': ('T84e1', 'T84e3'),
+    'WB03': ('T84e4',),
+}.items():
+    TASK_SUITES[(_gate, 'T84e')] = {
+        f'{_child}:{_name}': _suite
+        for _child in _children
+        for _name, _suite in TASK_SUITES[(_gate, _child)].items()
+    }
+TASK_SUITES[('MED02', 'T84f')] = {
+    'controller_preflight_and_whdload_backend': 'tests.bizhawk-movies.test_media_start.MixedCdManagedTests',
+    'controller_schema_and_defaults': 'tests.config.test_schema',
+    'wrapper_and_frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('WB03', 'T84f')] = {
+    'mixed_cd_adf_hdf_volume_movies': 'tests.bizhawk-movies.test_media_start.MediaMovieStartTests',
+    'mixed_initial_state_and_cold_restore': 'tests.bizhawk-movies.test_media_start.MediaMovieStateStartTests'}
+TASK_SUITES[('BUILD01', 'T84f')] = {
+    'sync_settings_and_managed_abi': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'controller_preflight_and_whdload_backend': 'tests.bizhawk-movies.test_media_start.MixedCdManagedTests',
+    'real_emuhawk_bootstrap': 'tests.packages.test_emuhawk_selfcheck.RealBootstrapTests',
+    'real_uae_puae6_coexistence': 'tests.packages.test_emuhawk_coexistence.RealCoexistenceTests'}
+TASK_SUITES[('WB03', 'T85a')] = {
+    'cannon_fodder_fresh_sandbox_and_process': _fmv_real_waterbox,
+    **TASK_SUITES[('WB03', 'T84f')]}
+TASK_SUITES[('BUILD01', 'T85a')] = dict(TASK_SUITES[('BUILD01', 'T84f')])
+for _gate, _children in {
+    'IN01': ('T84a', 'T84c'),
+    'AV02': ('T84b',),
+    'MED02': ('T84d', 'T84e', 'T84f'),
+    'DET02': ('T84e',),
+    'WB03': ('T84a', 'T84b', 'T84c', 'T84d', 'T84e', 'T84f'),
+    'BUILD01': ('T84a', 'T84b', 'T84c', 'T84d', 'T84f'),
+}.items():
+    TASK_SUITES[(_gate, 'T84')] = {
+        f'{_child}:{_name}': _suite
+        for _child in _children
+        for _name, _suite in TASK_SUITES[(_gate, _child)].items()
+    }
 TASK_SUITES[('REF01', 'T41')] = dict(TASK_SUITES[('REF01', 'T32')])
+TASK_SUITES[('REF01', 'T84')] = dict(TASK_SUITES[('REF01', 'T41')])
 TASK_SUITES[('LR02', 'T41')] = dict(TASK_SUITES[('LR02', 'T60')])
 TASK_SUITES[('WB09', 'T41')] = {
     'movies': 'tests.bizhawk-movies.test_movie_playback',

@@ -257,7 +257,8 @@ Lo que aun no cubre: no hay restauracion ni excepciones cruzando callbacks con e
 
 `python3 -m unittest discover -s tests/waterbox-smoke -p test_puae6_memory.py` y `tests/host/test_bridge_memory.py`. El guest informa Chip RAM
 (primaria), Slow RAM y la ROM como funciones de acceso (flags de `MemoryDomainFlags`: big endian, palabra de 2 bytes, `FunctionHook`, escribible la
-RAM). Medido: a la unidad 15 Chip y Slow RAM ya estan sucias (2733 paginas, y escribir en Slow RAM no cambia la cuenta), de modo que el caso
+RAM). Desde T84d, si hay HDF añade despues un dominio `Hard Disk n` por imagen: bytes escribibles, no big endian, sobre el mismo overlay del dispositivo;
+no cambia `MainMemory`. Medido: a la unidad 15 Chip y Slow RAM ya estan sucias (2733 paginas, y escribir en Slow RAM no cambia la cuenta), de modo que el caso
 peligroso para un poke managed es el de antes de la primera unidad (un cheat o un valor inicial): justo despues del seal las escrituras de la prueba
 caen en paginas que nadie ha escrito y el runtime las registra como del guest (al menos 12 paginas sucias nuevas); un restore las deshace. La luz de
 unidad (`P6_FRAME_DRIVE_LIGHT`) llega en el `flags` de `p6w_frame`.
@@ -300,9 +301,12 @@ exactamente una llamada a `p6w_frame_advance` y el reset, si lo hay, se encola j
   ticks y el contador de unidades siguen creciendo. Todo esto (referencia del raton, pestillo) es estado causal del wrapper y se guarda en el estado.
 - A/V: tamano activo, aspecto, cadencia, hash de la imagen y frames de audio por unidad son los de p6_headless en las dos normas; el PCM entero es
   el del arnes de Waterbox; pedir nada de imagen y sonido durante un tramo no cambia lo que sigue; el alfa de cada pixel es opaco. La cadencia que
-  informa `VsyncNumerator/Denominator` es la de la unidad (cambia con los campos entrelazados). El audio es sincrono, 48000 Hz, estereo intercalado.
+  informa `VsyncNumerator/Denominator` es la de la unidad (cambia con los campos entrelazados). El audio es sincrono, 44100 Hz, estereo intercalado.
   Lag y luz de unidad salen de la maquina (`P6_FRAME_LAG`, `P6_FRAME_DRIVE_LIGHT`): con el motor encendido y sin disco la luz esta encendida.
-  `InputCallbacks` existe y nunca se dispara: el motor no llama al host en cada lectura de entrada.
+  La señal de luz acredita solo los LED de disquete; `IDriveLight` se anuncia unicamente si la maquina tiene alguna disquetera, y CD32/CDTV no
+  se etiquetan como actividad CD mientras no exista una salida causal para ella. Al volver del guest, cada unidad sin `P6_FRAME_LAG` dispara
+  `InputCallbacks` exactamente una vez desde C#; una unidad lag no lo hace. No hay callback host por cada lectura MMIO ni reentrada dentro del motor,
+  y suprimir video/audio no cambia la notificacion.
 - Dominios (WB07): Chip RAM (principal), Slow RAM y ROM (512 KiB: lo que el motor asigna, la imagen de 256 KiB espejada), big endian, palabras de
   16 bits, funciones del guest; ningun puntero temporal ni region vacia. Un poke antes de la primera unidad (paginas que nadie ha escrito desde
   el seal) lo hace el guest, la ROM no lo acepta y fuera de rango lanza.
@@ -406,6 +410,11 @@ el texto del wrapper, que nombra el ajuste siempre, es mas estricto y nunca mas 
 0320-0322 (Gayle, su IDE y el estado de ambos): `guest_sha256` de las 16 claves `measured*` de `manifests/waterbox-memory.json` se registra de nuevo con la receta de arriba y `runtime_sha256` queda como estaba.
 `tests/waterbox-media/test_media_ide.py` (MOUNT: el HDF que exporta el core tras N unidades es, byte a byte, el que exporta el motor nativo en A600 y A1200, con el guest ordenado y con el que toca al azar; WB03 con la
 controladora ocupada; el estado en un sandbox nuevo; el rechazo de un estado de otro controlador o sin HDF antes de tocar el sandbox; y IDE en una maquina sin Gayle que falla al arrancar con la razon).
+
+### Topologia CD nativa antes del wrapper (T84e1)
+
+El byte 71 del `p6_config` del guest ya es `cd_controller`: `Auto`, `None`, integrado CD32, integrado CDTV o IDE, sin cambiar los 72 bytes del ABI. `Auto` conserva la topologia historica y no cambia un solo hash; una topologia efectiva
+distinta deriva `config_hash` con `p6/config/cd-controller/v1`. La validacion ocurre en `p6_init`, antes de mutar la sesion. `None` apaga el hardware CD integrado y `IDE` solo habilita el puerto soportado en A600/A1200/A4000, sin cambiar el controlador de ningun HDF. T84e2/T84e3 ya registran en el motor nativo el CD ATAPI cooperativo y guardan su transporte, catalogo, presencia y CDDA semanticamente; **el guest Waterbox aun no expone esa fuente ni un sync setting de BizHawk y no se afirma CD mixto Waterbox**. El loader/ABI de T84f debe regrabar y probar el guest antes de hacer esa afirmacion.
 
 ADF extendido y FDI (T57): el guest cambia con los parches 0330 a 0335 (la escala de la cabeza y la cola de una pista cruda, el decodificador `fdi2raw` acotado y determinista, el estado de la lectura de varias vueltas,
 la temporizacion por byte); `guest_sha256` de las 16 claves `measured*` se registra de nuevo con la receta de arriba (`runtime_sha256` queda como estaba: `cf45f96e`, el runtime Release reproducible). El heap sellado no
@@ -568,13 +577,24 @@ duro al de la unidad 12 (no el de las escrituras posteriores) y las unidades que
 presupuesto y el snapshot crece con los trozos escritos, no con la imagen. El crash de libwaterboxhost (T28a) no aparecio en estas ejecuciones. Limites: aqui se prueba el guest y el ABI `p6w`, no el wrapper (el nucleo C# monta HDF desde T63b, parrafo siguiente).
 
 Discos duros en el nucleo de BizHawk (T63b, `tests/waterbox-media/test_media_hdf.py`, en el sandbox real; formato de la SaveRam y de la identidad en docs/02-contracts.md, "HDF en el nucleo BizHawk/Waterbox"):
-`Puae6Parameters.HardFiles` (y los `.hdf` del cargador de EmuHawk) se montan tras los disquetes con el heap `Heaps(settings, tamaños)` (twice `HardFileHeapKiB` por imagen) sin tocar el guest ni su ABI. Lo medido: el HDF que
+`Puae6Parameters.HardFiles` (y los `.hdf` del cargador de EmuHawk) se montan tras los disquetes con el heap `Heaps(settings, tamaños)` (twice `HardFileHeapKiB` por imagen). T63b no tocaba el guest ni su ABI; T84d los
+extiende con los dominios de herramientas descritos abajo. Lo medido: el HDF que
 exporta el nucleo tras 40 unidades del micro-ROM de lazo es, byte a byte, el que exporta `p6_headless`; el overlay cuenta los 42 trozos que escribio el invitado; la SaveRam de un HDF de 32 MiB con esos 42 trozos ocupa 172 328 bytes; un nucleo nuevo la
 recibe antes de su primera unidad y exporta la misma imagen, devuelve la misma SaveRam byte a byte y, ejecutando mas, acaba donde un nucleo que nunca recargo; WB03/WB04/WB15 con HDF (guardar, seguir, cargar, repetir:
 mismas unidades y digest; sandbox nuevo; otro proceso; el overlay vuelve atras con la carga); un estado o una pelicula de otro HDF o de ninguno se rechaza sin cambiar la instancia; los ficheros dados al nucleo no cambian
 (MED02). Limites: la SaveRam se calcula exportando la imagen entera y comparandola con la base (`CloneSaveRam` y `SaveRamModified` cuestan el tamaño de la imagen cuando el invitado escribio algo; no hay API que
-enumere los trozos sucios y se prefirio no tocar el guest ni el ABI), el menu "Export Hard Disk" de EmuHawk y el arranque desde RDB con un Kickstart real quedan fuera (el montaje desde RDB de un Kickstart 1.3/3.1 lo prueba
+enumere los trozos sucios y se prefirio no añadir esa API), el menu "Export Hard Disk" de EmuHawk y el arranque desde RDB con un Kickstart real quedan fuera (el montaje desde RDB de un Kickstart 1.3/3.1 lo prueba
 T29a/c con micro-ROM y Kickstart del propietario en el motor nativo; ningun EmuHawk real se ha ejecutado aqui).
+
+Dominios HDF (T84d, `tests/waterbox-state/test_wrapper_state.py`): el API nativo `p6_hdf_size/read/write` y los function hooks del guest ofrecen `Hard Disk 1` ... `Hard Disk 4` al `IMemoryDomains` que usan Hex Editor, RAM
+Watch y cheats. Cada acceso vuelve a resolver el ordinal dentro del sandbox; el wrapper solo conserva el descriptor de la funcion y nunca un puntero al HDF. Son dominios de palabra de un byte y tamaño exacto de la imagen,
+incluido un ultimo trozo menor que 4 KiB; Chip RAM sigue siendo la memoria principal. Un poke mientras el disco esta montado usa `p6_blob_hdf_write`, por lo que el dispositivo, `p6_media_export`, estado y SaveRAM ven los
+mismos bytes. La prueba usa dos imagenes no multiplos de pagina (4608 y 5120 bytes), escribe cruzando 4096, comprueba los contadores 2/1, restaura la rama limpia y la escrita, carga estado y SaveRAM en sandboxes y procesos
+nuevos, y verifica bytes y `mtime` de los ficheros base. No es una via de escritura al host ni RAM direccionable por el 68000.
+
+Catalogo CD mixto (T84e4, `tests/waterbox-media/test_cd_source.py::IdeMixedWaterboxTests`): el transporte Waterbox puede fijar el catalogo antes de `p6_load`, que es cuando un controlador IDE necesita crear su unidad ATAPI. Los descriptores y objetos `Disc` quedan dentro de la baseline de la sandbox; solo los callbacks leen al host, con peticiones de hasta 2448 bytes, y se vuelven a enlazar inmediatamente despues de cada `LoadStateBinary`. La activacion posterior al sello no ejecuta el reset head: la primera unidad abre el IDE por el ciclo normal del motor.
+
+La prueba combina dos ordinales CD con un ADF escribible, dos HDF y una imagen de volumen preparada como HDF. Guarda un corte con CDDA activo y otro con el segundo CD seleccionado pero ausente; ambos continuan igual tras restore local, sandbox nueva y proceso nuevo. Los indices 0..3 del manifiesto siguen siendo ADF/HDF, mientras los ordinales 0..1 pertenecen solo al catalogo CD. Exportaciones y hashes comprueban overlays/bases independientes, y tamaño/mtime/contenido de los ficheros host no cambian. El guest de T84e4 obligo a regrabar juntas las 16 filas `measured*`; no cambio el presupuesto porque las fixtures de memoria no enlazan CD.
 
 ## Suite de aceptacion Waterbox
 

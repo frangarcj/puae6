@@ -116,7 +116,10 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = 4;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // FloppyWrites=1 and HRTMon=2 are known; 0x4 is unknown.
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
-    c = make_config(); c.reserved8[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.reserved8[0] = P6_CD_CONTROLLER_NONE;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.cd_controller = P6_CD_CONTROLLER_IDE + 1;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "CD controller"));
     c = make_config(); c.z3_memory = 1;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
     c = make_config(); c.machine = P6_MACHINE_A4030; c.cpu_compatibility = P6_CPU_NORMAL;
     for (uint8_t value : {11, 255}) { c.z3_memory = value; assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED); }
@@ -298,13 +301,22 @@ static void rejects_invalid_input_without_touching_the_machine(const std::vector
         assert(p6_run_frame(&valid, volume << P6_RENDER_DRIVE_VOLUME_SHIFT, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
         assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
     }
+    for (unsigned volume = 101; volume <= 127; ++volume) {
+        assert(p6_run_frame(&valid, P6_RENDER_CDDA_VOLUME_VALID | (volume << P6_RENDER_CDDA_VOLUME_SHIFT), &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+        assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
+    }
+    assert(p6_run_frame(&valid, UINT32_C(1) << P6_RENDER_CDDA_VOLUME_SHIFT, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
+    assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
     assert(p6_run_frame(&valid, UINT32_C(1) << 7, &frame, &e) == P6_ERROR_BAD_ARGUMENT);
     assert(get_cycles() == before && regs.pc == pc_before && in_m68k_go == 1);
+    // An explicit mute is valid without a CD and has no hidden device action.
+    assert(p6_run_frame(&valid, P6_RENDER_CDDA_VOLUME_VALID, &frame, &e) == P6_OK && frame.unit_index == 1);
     p6_input full = good();
     full.ports[0].type = P6_PORT_MOUSE; full.ports[0].buttons = P6_BUTTON_1 | P6_BUTTON_3; full.ports[0].dx = -5;
     full.ports[1].type = P6_PORT_JOYSTICK; full.ports[1].buttons = P6_BUTTON_LEFT | P6_BUTTON_RIGHT | P6_BUTTON_UP;  // left+right: neutral
     full.keys[0] = 1u << 0x10;
-    assert(p6_run_frame(&full, P6_RENDER_VIDEO, &frame, &e) == P6_OK && frame.unit_index == 1);
+    assert(p6_run_frame(&full, P6_RENDER_VIDEO | P6_RENDER_CDDA_VOLUME_VALID
+        | (UINT32_C(100) << P6_RENDER_CDDA_VOLUME_SHIFT), &frame, &e) == P6_OK && frame.unit_index == 2);
     assert(p6_unload(&e) == P6_OK && p6_shutdown(&e) == P6_OK);
 }
 

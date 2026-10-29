@@ -106,8 +106,8 @@ typedef struct p6_config {
      * the machine's own clock only, together with the CPU model (bridge/config.cpp cpu_identity, domain p6/config/cpu/v1). */
     uint8_t cpu_multiplier;
     /* The controller the hard files (P6_MEDIA_HDF) are on (T56), in the second byte of what was reserved[1]: P6_HDF_CONTROLLER_UAE (0, the default: uaehf.device and the UAEFS board, the
-     * way PUAE5 mounts them) or P6_HDF_CONTROLLER_IDE (1: the IDE port of Gayle, with the drives the real A600 and A1200 have, master and slave of its channel and the pair behind an
-     * IDE splitter). Only the A600 and the A1200 have Gayle: IDE on another machine is P6_ERROR_UNSUPPORTED. Gayle is switched on only while there is a hard file behind it: an IDE
+     * way PUAE5 mounts them) or P6_HDF_CONTROLLER_IDE (1: the supported physical IDE port, Gayle on A600/A1200 or the A4000 motherboard). Gayle offers master/slave and the pair behind an
+     * IDE splitter. IDE on another machine is P6_ERROR_UNSUPPORTED. Gayle is switched on only while there is a hard file or the CD topology behind it: an IDE-HDF-only
      * config whose p6_load has no hard file is the machine the default config is, with its identity, its states and its movies. A restart option: it is part of config_hash while it
      * is in effect (derived hash, bridge/config.cpp ide_attached, domain p6/config/ide/v1). Anything above 1 is P6_ERROR_UNSUPPORTED. */
     uint8_t hdf_controller;
@@ -122,13 +122,24 @@ typedef struct p6_config {
     uint8_t collision_level;
     uint8_t reserved7[1];           /* Zero; byte 69 is reserved for waiting_blits. */
     uint8_t z3_memory;              /* Z3 board on A4030/A4040: 0 none, 1 16MiB; 2..10 = 1,2,4,8,32,64,128,256,512MiB. Restart. */
-    uint8_t reserved8[1];           /* Zero in ABI v1. */
+    /* T84e1: CD controller topology in the byte formerly named reserved8[0]. Zero is the historical machine profile, so every ABI v1 caller keeps its exact preferences and identity:
+     * integrated CD32 on CD32, integrated CDTV on CDTV, no CD controller elsewhere. Explicit None removes only the CD controller; IDE selects the supported A600/A1200/A4000 port but
+     * does not invent an attached device. Integrated selections are accepted only on their own motherboard. Restart/state identity option when its resolved value differs from history. */
+    union {
+        uint8_t cd_controller;
+        uint8_t reserved8[1];       /* Source-compatible spelling of this byte before T84e1; nonzero values now select a CD topology. */
+    };
 } p6_config;
 #define P6_CPU_EXACT 0u
 #define P6_CPU_COMPATIBLE 1u
 #define P6_CPU_NORMAL 2u
 #define P6_HDF_CONTROLLER_UAE 0u
 #define P6_HDF_CONTROLLER_IDE 1u
+#define P6_CD_CONTROLLER_AUTO UINT8_C(0)
+#define P6_CD_CONTROLLER_NONE UINT8_C(1)
+#define P6_CD_CONTROLLER_CD32 UINT8_C(2)
+#define P6_CD_CONTROLLER_CDTV UINT8_C(3)
+#define P6_CD_CONTROLLER_IDE  UINT8_C(4)
 /* Zero predates an explicit no-drive configuration and means the two-drive profile. Keep that ABI spelling stable; this additive value names no DF0..DF3. */
 #define P6_FLOPPY_DRIVES_NONE UINT8_C(255)
 /* P6_CONFIG_FLOPPY_WRITES: the floppies of this session are writable. The disk images stay immutable; what the guest writes goes to a write overlay
@@ -147,7 +158,7 @@ typedef struct p6_config {
  * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
  * (bridge/config.cpp audio_identity, domain p6/config/audio/v1); at the profile's setting the hash is the one it always was. */
 #define P6_MACHINE_A500 UINT32_C(1)
-#define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no PCMCIA; Gayle (IDE) only with p6_config.hdf_controller = P6_HDF_CONTROLLER_IDE and a hard file. */
+#define P6_MACHINE_A600 UINT32_C(2)   /* ECS, 1 MiB Chip, no Slow RAM, no PCMCIA; Gayle (IDE) only with an IDE HDF or p6_config.cd_controller = P6_CD_CONTROLLER_IDE. */
 #define P6_MACHINE_A1200 UINT32_C(3)  /* 68EC020 cycle exact (24-bit bus), AGA, 2 MiB Chip, no Slow/Fast RAM; Gayle (IDE) as the A600, no PCMCIA. */
 /* T50: more presets of the same 68000/68EC020 family, each built from upstream's built_in_prefs and listed in docs/02-contracts.md ("Maquinas y capacidades"). Their values were added
  * after the three above, which keep value, config_hash and state identity. */
@@ -326,6 +337,12 @@ typedef struct p6_frame {
  * Supply on every call, including muted delivery; not part of config/state identity. */
 #define P6_RENDER_DRIVE_VOLUME_SHIFT 8u
 #define P6_RENDER_DRIVE_VOLUME_MASK (UINT32_C(127) << P6_RENDER_DRIVE_VOLUME_SHIFT)
+/* Presentation-only CDDA volume, percent 0..100. VALID distinguishes an
+ * explicit mute from legacy callers, whose omitted value remains 100 percent.
+ * Supply VALID and the value on every call; neither enters config/state identity. */
+#define P6_RENDER_CDDA_VOLUME_SHIFT 16u
+#define P6_RENDER_CDDA_VOLUME_MASK (UINT32_C(127) << P6_RENDER_CDDA_VOLUME_SHIFT)
+#define P6_RENDER_CDDA_VOLUME_VALID (UINT32_C(1) << 23)
 
 /* Extensions use caller-owned bounded buffers. State format is native to the
  * exact compatible build/config/media; it is not a Waterbox snapshot or a
@@ -523,6 +540,15 @@ typedef struct p6_media_write_status {
 } p6_media_write_status;
 p6_result p6_media_write_status_get(p6_media_write_status *status, p6_error *error);
 p6_result p6_media_export(uint32_t media_index, void *buffer, uint64_t capacity, uint64_t *written, p6_error *error);
+
+/* Byte access to the hard files for debugger/tool domains. hdf_index is the hard-file ordinal (DH0 = 0), not the media-manifest index.
+ * Reads see the immutable base plus its current overlay; writes use the same 4 KiB copy-on-write overlay as the emulated block device, so
+ * snapshots and explicit persistence carry them while the caller's image stays unchanged. Calls are allowed only between units on a loaded
+ * image. The whole request must fit: an unknown index, a null pointer for a nonempty transfer, overflow or a byte beyond the image is
+ * BAD_ARGUMENT and stores nothing. Pointers are borrowed for the call and never retained; a zero-length access at size is valid. */
+p6_result p6_hdf_size(uint32_t hdf_index, uint64_t *bytes, p6_error *error);
+p6_result p6_hdf_read(uint32_t hdf_index, uint64_t offset, void *buffer, uint64_t bytes, p6_error *error);
+p6_result p6_hdf_write(uint32_t hdf_index, uint64_t offset, const void *buffer, uint64_t bytes, p6_error *error);
 
 #ifdef __cplusplus
 } /* extern "C" */

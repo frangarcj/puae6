@@ -104,10 +104,11 @@ p6_result start_engine(p6_buffer firmware, const p6_media *media, uint32_t media
 {
     if (const p6_result cartridge = p6_bridge::load_builtin_hrtmon(error))
         return cartridge;
-    // T56: Gayle's IDE port is there only while a hard file is behind it
-    const bool ide = p6_bridge::ide_attached(config, p6_bridge::hard_files_in(media, media_count));
-    p6_bridge::build_preferences(config, ide);
-    if (const p6_result mounted = p6_bridge::mount_hard_files(media, media_count, ide, error))
+    // HDF placement and the physical port are separate: an IDE CD topology enables Gayle without moving UAE-controller hard files onto it or inventing a medium.
+    const bool hdf_ide = p6_bridge::ide_attached(config, p6_bridge::hard_files_in(media, media_count));
+    const bool ide_port = hdf_ide || p6_bridge::resolve_cd_controller(config) == P6_CD_CONTROLLER_IDE;
+    p6_bridge::build_preferences(config, ide_port);
+    if (const p6_result mounted = p6_bridge::mount_hard_files(media, media_count, hdf_ide, error))
         return mounted;
     if (const p6_result preset = p6_bridge::check_preset(error))
         return preset;

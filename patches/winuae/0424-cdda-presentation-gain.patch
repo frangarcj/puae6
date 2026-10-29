@@ -1,0 +1,67 @@
+diff --git a/audio.cpp b/audio.cpp
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -361,6 +361,10 @@ static int cnt;
+ static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
+ static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
+ static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH + 1];
++#ifdef P6_PORTABLE
++static void *p6_cdda_presentation_owner;
++static unsigned p6_cdda_presentation_percent = 100;
++#endif
+ int sound_available = 0;
+ void (*sample_handler) (void);
+ static void(*sample_prehandler) (unsigned long best_evtime);
+@@ -706,12 +710,18 @@ static void get_extra_channels(int *data1, int *data2, int sample1, int sample2)
+ 	}
+ }
+ 
+-static void do_extra_channels(int idx, int ch, int *data1, int *data2, int *data3, int *data4, int *data5, int *data6)
++static void do_extra_channels(int stream_slot, int idx, int ch, int *data1, int *data2, int *data3, int *data4, int *data5, int *data6)
+ {
+ 	idx += AUDIO_CHANNELS_PAULA;
+ 	if (ch == 2) {
+ 		int datas[2];
+ 		samplexx_anti_handler(datas, idx, 2);
++#ifdef P6_PORTABLE
++		if (audio_stream[stream_slot].cb_data == p6_cdda_presentation_owner && p6_cdda_presentation_percent != 100) {
++			datas[0] = datas[0] * int(p6_cdda_presentation_percent) / 100;
++			datas[1] = datas[1] * int(p6_cdda_presentation_percent) / 100;
++		}
++#endif
+ 		get_extra_channels(data1, data2, datas[0], datas[1]);
+ 	} else if (ch == 1) {
+ 		int datas[1];
+@@ -743,7 +753,7 @@ static void get_extra_channels_sample2(int *data1, int *data2, int mode)
+ 	for (int i = 0; i < AUDIO_CHANNEL_STREAMS; i++) {
+ 		int ch = audio_extra_streams[i];
+ 		if (ch) {
+-			do_extra_channels(idx, ch, data1, data2, NULL, NULL, NULL, NULL);
++			do_extra_channels(i, idx, ch, data1, data2, NULL, NULL, NULL, NULL);
+ 			idx += ch;
+ 		}
+ 	}
+@@ -757,7 +767,7 @@ static void get_extra_channels_sample6(int *data1, int *data2, int *data3, int *
+ 	for (int i = 0; i < AUDIO_CHANNEL_STREAMS; i++) {
+ 		int ch = audio_extra_streams[i];
+ 		if (ch) {
+-			do_extra_channels(idx, ch, data1, data2, data3, data4, data5, data6);
++			do_extra_channels(i, idx, ch, data1, data2, data3, data4, data5, data6);
+ 			idx += ch;
+ 		}
+ 	}
+@@ -3174,6 +3184,14 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
+ #ifdef P6_PORTABLE
+ namespace p6_cda {
+ static_assert(kMaxStreams == AUDIO_CHANNEL_STREAMS, "portable CDA stream count");
++bool presentation(cd_audio_state &owner, uint32_t percent)
++{
++    if (percent > 100) return false;
++    if (p6_cdda_presentation_owner == &owner && p6_cdda_presentation_percent == percent) return true;
++    update_audio();
++    p6_cdda_presentation_owner = &owner; p6_cdda_presentation_percent = percent;
++    return true;
++}
+ static bool streams_supported()
+ {
+     unsigned owners = 0;

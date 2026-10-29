@@ -191,10 +191,16 @@ ECL_EXPORT int32_t p6w_cd_change(uint32_t index, uint32_t inserted)
  if (!guard.ok) return P6_ERROR_BUSY;
  if (inserted > 1 || index >= cd_count) return P6_ERROR_BAD_ARGUMENT;
  if (!cd_activated || p6_session::session.state != p6_session::State::Loaded) return P6_ERROR_BAD_STATE;
- const bool cdtv = p6_session::session.config.machine == p6_bridge::kCdtvMachine;
+ const uint8_t controller = p6_bridge::resolve_cd_controller(p6_session::session.config);
+ const bool cdtv = controller == P6_CD_CONTROLLER_CDTV;
+ if (controller != P6_CD_CONTROLLER_CD32 && !cdtv && controller != P6_CD_CONTROLLER_IDE)
+  return P6_ERROR_BAD_STATE;
  if (cdtv && inserted && !p6_cd::device_inserted() && !p6_cdtv_media_absent()) return P6_ERROR_BUSY;
  if (index != selected() && (p6_cd::device_inserted() || p6_cd::device_select(index) != p6_cd::Result::Ok)) return P6_ERROR_BAD_STATE;
- return (cdtv ? p6_cd::device_set_inserted(inserted != 0) == p6_cd::Result::Ok : p6_akiko_media_set(inserted != 0)) ? P6_OK : P6_ERROR_BAD_STATE;
+ const bool changed = controller == P6_CD_CONTROLLER_CD32
+  ? p6_akiko_media_set(inserted != 0)
+  : p6_cd::device_set_inserted(inserted != 0) == p6_cd::Result::Ok;
+ return changed ? P6_OK : P6_ERROR_BAD_STATE;
 }
 ECL_EXPORT int32_t p6w_cd_status(uint32_t *out, uint32_t capacity)
 {
@@ -210,11 +216,22 @@ ECL_EXPORT int32_t p6w_cd_activate(void)
  p6_session::Guard guard;
  if (!guard.ok) return P6_ERROR_BUSY;
  const auto &s = p6_session::session;
+ const uint8_t controller = p6_bridge::resolve_cd_controller(s.config);
  if (!cd_bound || cd_activated || s.state != p6_session::State::Loaded || s.started
-  || (s.config.machine != p6_bridge::kCd32Machine && s.config.machine != p6_bridge::kCdtvMachine)) return P6_ERROR_BAD_STATE;
- if (s.config.machine == p6_bridge::kCdtvMachine) {
+  || (controller != P6_CD_CONTROLLER_CD32 && controller != P6_CD_CONTROLLER_CDTV
+      && controller != P6_CD_CONTROLLER_IDE)) return P6_ERROR_BAD_STATE;
+ if (controller == P6_CD_CONTROLLER_CDTV) {
   // The first APPLY resets the original CDTV autoconfig card after the post-Seal
   // binding. Do not reset its service, demand an open unit, or initialize Akiko.
+  cd_activated = true; return P6_OK;
+ }
+ if (controller == P6_CD_CONTROLLER_IDE) {
+  // IDE is different from the integrated controllers: p6_load needs the
+  // immutable catalog already bound so that it can create the ATAPI unit. The
+  // unit is registered before Seal and opened by the ordinary reset head on
+  // the first frame. Activation only publishes that the host may now change
+  // presence/ordinal at a frame boundary; it must never force that reset,
+  // reopen the unit or create a second scheduler.
   cd_activated = true; return P6_OK;
  }
  // p6_load ran before Seal, without external CD metadata. Reopen through the

@@ -146,10 +146,16 @@ void visit_expansion(Archive &a, uint32_t fast)
 {
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
     const unsigned words = z3 ? kExpansionWords : 13;
-    // the hard file adds the UAEFS board and the UAE boot ROM (a card with no autoconfig, expamem_rtarea_init); on Gayle's IDE (T56) it adds one card instead, the IDE port itself (not autoconfig either)
-    const bool ide = p6_bridge::ide_attached(session.config, p6_bridge::hard_file_count());
+    // The physical IDE port and the UAEFS pair are independent: an IDE CD may
+    // coexist with HDFs left on the UAE controller.
+    const uint32_t hard_files = p6_bridge::hard_file_count();
+    const bool hdf_ide = p6_bridge::ide_attached(session.config, hard_files);
+    const bool physical_ide = hdf_ide || p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE ||
+                              p6_bridge::motherboard_ide(session.config);
+    const bool uae_hdf = hard_files && !hdf_ide;
     const bool cdtv = session.config.machine == p6_bridge::kCdtvMachine;
-    const uint32_t cards = (cdtv ? 1u : 0u) + (fast ? 1u : 0u) + (z3 ? 1u : 0u) + (ide ? 1u : (p6_bridge::hard_file_count() ? 2u : 0u) + (p6_bridge::motherboard_ide(session.config) ? 1u : 0u));
+    const uint32_t cards = (cdtv ? 1u : 0u) + (fast ? 1u : 0u) + (z3 ? 1u : 0u) +
+                           (physical_ide ? 1u : 0u) + (uae_hdf ? 2u : 0u);
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
@@ -436,6 +442,13 @@ Identity current_identity()
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/ide/v1", parts, lengths, 2, identity.config_hash);
     }
+    // T84e1: AUTO and every explicit spelling of the historical effective topology keep the previous hash. Only a genuinely different controller derives it.
+    uint8_t cd_controller = P6_CD_CONTROLLER_AUTO;
+    if (p6_bridge::cd_controller_identity(c, &cd_controller)) {
+        const uint8_t *parts[2] = {identity.config_hash, &cd_controller};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/cd-controller/v1", parts, lengths, 2, identity.config_hash);
+    }
     // Accuracy is a restart option. Exact adds nothing, preserving all default config hashes.
     if (c.cpu_compatibility != P6_CPU_EXACT) {
         const uint8_t *parts[2] = {identity.config_hash, &c.cpu_compatibility};
@@ -677,13 +690,15 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // Runtime ownership is separate from candidate validation. Refuse a foreign
     // stream before reset/Apply; the phase getter needs no initialized CDA owner
     // when there are no extra streams, including a cold destination.
-    if (currprefs.cs_cdtvcd || session.config.machine == p6_bridge::kCd32Machine) {
+    if (p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_CDTV ||
+        p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_CD32 ||
+        p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE) {
         int32_t phase[p6_cda::kPhaseWords];
         const bool phase_ok = currprefs.cs_cd32fmv
             ? p6_fmv_audio_phase_get(phase, p6_cda::kPhaseWords)
             : p6_cd::device_phase_get(phase, p6_cda::kPhaseWords);
         if (!phase_ok)
-            return p6_fail(error, P6_ERROR_BAD_STATE, "CD32 audio destination has an unsupported or foreign stream");
+            return p6_fail(error, P6_ERROR_BAD_STATE, "CD audio destination has an unsupported or foreign stream");
     }
     // (9) Nothing can refuse any more. An image that has not started has not run its reset head, which is what builds the CPU's dispatch
     // tables and the scheduler's handlers (build_cpufunctbl, init_eventtab): the head runs first, exactly as p6_run_frame runs it, and every

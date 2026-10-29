@@ -33,6 +33,17 @@ class IpfBootSandboxTests(unittest.TestCase):
         self.assertNotIn("rejected ", result.stdout)
         return result.stdout
 
+    def picture_pixels(self, picture, frame):
+        data = picture.read_bytes()
+        self.assertGreaterEqual(len(data), 16)
+        width, height, bytes_per_pixel, actual_frame = (int.from_bytes(data[i:i + 4], "little", signed=True) for i in range(0, 16, 4))
+        self.assertGreater(width, 0)
+        self.assertGreater(height, 0)
+        self.assertEqual(4, bytes_per_pixel)
+        self.assertEqual(frame, actual_frame)
+        self.assertEqual(16 + width * height * bytes_per_pixel, len(data))
+        return data[16:]
+
     def boot_restore(self, image, n, m, total, marker=False):
         state = self.directory / "disk.state"
         picture_dir = Path(os.environ.get("P6_IPF_PICTURE_DIR", self.directory))
@@ -57,10 +68,18 @@ class IpfBootSandboxTests(unittest.TestCase):
         self.assertEqual(first, [u[1:] for u in Sessions.units(other, "C")])
         self.assertEqual(digests["first"], Sessions.digests(other, "C")["new"])
         self.assertGreater(len({u[3] for u in units}), 3, "boot changes the display")
-        pixels = picture.read_bytes()[16:]
-        self.assertGreater(len({pixels[i:i + 4] for i in range(0, len(pixels), 4)}), 8, "the booted display has content")
+        pixels = self.picture_pixels(picture, total)
+        colours = len({pixels[i:i + 4] for i in range(0, len(pixels), 4)})
         if marker:
+            self.assertGreater(colours, 8, "the controlled boot block draws its raster")
             self.assertEqual([fixture.MAGIC], Sessions.peeks(out, "A"))
+        else:
+            self.assertGreater(colours, 1, "the owner IPF produces a non-uniform display")
+            no_disk = self.directory / "owner-no-disk.bin"
+            baseline = self.session(["core D", f"run D {total}", f"picture D {no_disk}"])
+            self.assertIn("picture D written", baseline)
+            self.assertNotEqual(pixels, self.picture_pixels(no_disk, total),
+                                "the owner IPF must leave a different display than the same Kickstart without a disk")
 
     def test_free_ipf_executes_its_boot_block_and_restores(self):
         image = self.directory / "free.ipf"

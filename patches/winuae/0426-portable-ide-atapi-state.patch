@@ -1,0 +1,172 @@
+diff --git a/ide.cpp b/ide.cpp
+index 48ca2c87..2bdd6128 100644
+--- a/ide.cpp
++++ b/ide.cpp
+@@ -959,6 +959,8 @@ static void do_packet_command (struct ide_hdf *ide)
+ 	if (reply.check_condition) {
+ 		ide->regs.ide_error = (ide->p6_atapi.sense_key << 4) | IDE_ERR_ABRT;
+ 		atapi_data_done (ide);
++		ide->packet_state = 0;
++		ide->packet_transfer_size = 0;
+ 		ide->regs.ide_status |= ATAPI_STATUS_CHK;
+ 		return;
+ 	}
+@@ -1966,18 +1968,32 @@ uae_u8 *ide_restore_state(uae_u8 *src, struct ide_hdf *ide)
+ #endif /* !P6_PORTABLE */
+ 
+ #ifdef P6_PORTABLE
+-/* Native state of one IDE slot (bridge/state_hdf.cpp, patch 0320): values and the bytes of the sector buffer the drive has in hand; no pointer, no path. The words, in this order:
++/* Native state of one IDE slot (bridge/state_hdf.cpp, patches 0320/0426): values and the causal bytes of the transfer buffer; no pointer, path or raw struct. The words, in this order:
+  * 0 to 13 the registers (select, nsector, sector, lcyl, hcyl, devcon, error, feat, nsector2, sector2, lcyl2, hcyl2, feat2, status), 14 buffer_offset, 15 data_offset, 16 data_size,
+  * 17 data_multi, 18 direction, 19 intdrq, 20 lba48cmd, 21 and 22 start_lba (low, high), 23 start_nsec, 24 multiple_mode, 25 irq_delay, 26 irq, 27 irq_inhibit, 28 irq_new,
+- * 29 maxtransferstate, 30 ide_drv, 31 mode_8bit, 32 cyls, 33 heads, 34 secspertrack (the INITIALIZE DRIVE PARAMETERS of the guest changes them). What the drive is (its size, its
+- * identity) is the hard file's, named by its content id in the envelope, and is not repeated here.
+- * The buffer: the bytes from its start to the end of what the drive can still hand over or has taken (p6_ide_live_bytes), none for a slot without a drive.
++ * 29 maxtransferstate, 30 ide_drv, 31 mode_8bit, 32 cyls, 33 heads, 34 secspertrack, 35 slot kind (empty/HDF/CD); for CD only: 36 atapi_drdy, 37 packet_state,
++ * 38 packet_data_size, 39 packet_data_offset, 40 packet_transfer_size, 41 sense key, 42 ASC, 43 ASCQ, 44 known, 45 present and 46..53 the medium content id packed little-endian.
++ * HDF identity is named by the envelope. CD identity is crossed by the bridge against the selected ordinal in the immutable catalog.
++ * The buffer is exactly what the current HDF/IDENTIFY/PACKET transfer can still expose, none for an idle CD or an empty slot.
+  * p6_ide_words_valid and p6_ide_live_bytes are pure: the bridge asks them while it validates a state, before the machine has run its reset head, so that applying one cannot fail. */
+-#define P6_IDE_WORDS 35
++#define P6_IDE_WORDS 54
++#define P6_IDE_EMPTY 0
++#define P6_IDE_HDF 1
++#define P6_IDE_CD 2
++
++static uint32_t p6_ide_kind (const struct ide_hdf *ide)
++{
++	return ide->atapi ? P6_IDE_CD : ide->hdhfd.size ? P6_IDE_HDF : P6_IDE_EMPTY;
++}
+ 
+-bool p6_ide_words_valid (const uint32_t *w, unsigned n, bool drive)
++static bool p6_atapi_sense_key (uint32_t key)
+ {
+-	if (!w || n != P6_IDE_WORDS)
++	return key == 0 || key == 2 || key == 3 || key == 5 || key == 6;
++}
++
++bool p6_ide_words_valid (const uint32_t *w, unsigned n, uint32_t kind)
++{
++	if (!w || n != P6_IDE_WORDS || kind > P6_IDE_CD || w[35] != kind)
+ 		return false;
+ 	for (int i = 0; i < 14; i++) {
+ 		if (w[i] > 0xff)
+@@ -1987,16 +2003,34 @@ bool p6_ide_words_valid (const uint32_t *w, unsigned n, bool drive)
+ 		w[19] > 1 || w[20] > 1 || w[23] > 256 || w[24] > 128 || w[25] > 2 || w[26] > 1 || w[27] > 1 || w[28] > 1 || w[29] > 2 || w[30] > 1 || w[31] > 1 || w[32] > 0x7fffffff || w[33] > 0xffff || w[34] > 0xffff)
+ 		return false;
+ 	// a slot without a drive keeps the registers (the two drives of a channel share them) and nothing of a transfer
+-	if (!drive && (w[14] || w[15] || w[16] || w[17] || w[18] || w[19] || w[20] || w[21] || w[22] || w[23] || w[24] || w[25] || w[26] || w[27] || w[28] || w[29] || w[31] || w[32] ||
++	if (kind == P6_IDE_EMPTY && (w[14] || w[15] || w[16] || w[17] || w[18] || w[19] || w[20] || w[21] || w[22] || w[23] || w[24] || w[25] || w[26] || w[27] || w[28] || w[29] || w[31] || w[32] ||
+ 		w[33] || w[34]))
+ 		return false;
++	if (kind != P6_IDE_CD) {
++		for (int i = 36; i < P6_IDE_WORDS; i++) if (w[i]) return false;
++		return true;
++	}
++	if (w[18] || w[20] || w[21] || w[22] || w[23] || w[24] || w[29] || w[32] || w[33] || w[34] || w[36] > 1 || w[37] > 2 || w[38] > 65534 ||
++		w[39] > P6_IDE_SECBUF_MAX || w[40] > ATAPI_MAX_TRANSFER || !p6_atapi_sense_key (w[41]) || w[42] > 0xff || w[43] > 0xff || w[44] != 1 || w[45] > 1)
++		return false;
++	if (!w[37]) {
++		if (w[38] || w[39] || w[40]) return false;
++	} else if (w[37] == 1) {
++		if (!w[38] || w[39] || w[40] != 12 || w[15] > 12 || w[16] > 12 || w[15] + w[16] != 12) return false;
++	} else {
++		if (!w[16] || !w[40] || (w[40] & 1) || w[15] > w[40] || w[40] > w[38] || (uint64_t)w[39] + w[15] + w[16] > P6_IDE_SECBUF_MAX) return false;
++	}
+ 	return true;
+ }
+ 
+-uint32_t p6_ide_live_bytes (const uint32_t *w, bool drive)
++uint32_t p6_ide_live_bytes (const uint32_t *w, uint32_t kind)
+ {
+-	if (!drive)
++	if (kind == P6_IDE_EMPTY)
+ 		return 0;
++	if (kind == P6_IDE_CD) {
++		if (w[37]) return (uint32_t)((uint64_t)w[39] + w[15] + w[16]);
++		return w[16] ? (uint32_t)((uint64_t)w[14] + w[15] + w[16]) : 0;
++	}
+ 	uint64_t live = 512;
+ 	const uint64_t position = (uint64_t)w[14] + w[15] + w[16];
+ 	if (position > live)
+@@ -2009,10 +2043,20 @@ uint32_t p6_ide_live_bytes (const uint32_t *w, bool drive)
+ 	return live > P6_IDE_SECBUF_MAX ? P6_IDE_SECBUF_MAX : (uint32_t)live;
+ }
+ 
++bool p6_ide_atapi_disc_matches (const uint32_t *w, unsigned n, const uint8_t *disc_id)
++{
++	if (!w || n != P6_IDE_WORDS || !disc_id || w[35] != P6_IDE_CD || w[44] != 1)
++		return false;
++	for (int i = 0; i < 32; i++)
++		if (uint8_t(w[46 + i / 4] >> (8 * (i & 3))) != disc_id[i]) return false;
++	return true;
++}
++
+ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *secbuf, uint32_t *secbuf_size)
+ {
+-	if (!ide || !w || n != P6_IDE_WORDS || !secbuf || !secbuf_size || ide->atapi || ide->scsi || ide->packet_state || ide->adide || ide->byteswap || ide->board)
++	if (!ide || !w || n != P6_IDE_WORDS || !secbuf || !secbuf_size || ide->scsi || ide->adide || ide->byteswap || ide->board)
+ 		return false;
++	memset (w, 0, n * sizeof *w);
+ 	const struct ide_registers &r = ide->regs;
+ 	const uint8_t regs[14] = { r.ide_select, r.ide_nsector, r.ide_sector, r.ide_lcyl, r.ide_hcyl, r.ide_devcon, r.ide_error, r.ide_feat, r.ide_nsector2, r.ide_sector2, r.ide_lcyl2,
+ 		r.ide_hcyl2, r.ide_feat2, r.ide_status };
+@@ -2039,10 +2083,23 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
+ 	w[32] = (uint32_t)ide->hdhfd.cyls;
+ 	w[33] = (uint32_t)ide->hdhfd.heads;
+ 	w[34] = (uint32_t)ide->hdhfd.secspertrack;
+-	const bool drive = ide->hdhfd.size != 0;
+-	if (!p6_ide_words_valid (w, n, drive))
++	const uint32_t kind = p6_ide_kind (ide);
++	w[35] = kind;
++	if (kind == P6_IDE_CD) {
++		w[36] = ide->atapi_drdy ? 1 : 0;
++		w[37] = (uint32_t)ide->packet_state;
++		if (ide->packet_state) {
++			w[38] = (uint32_t)ide->packet_data_size;
++			w[39] = (uint32_t)ide->packet_data_offset;
++			w[40] = (uint32_t)ide->packet_transfer_size;
++		}
++		w[41] = ide->p6_atapi.sense_key; w[42] = ide->p6_atapi.asc; w[43] = ide->p6_atapi.ascq;
++		w[44] = ide->p6_atapi.known; w[45] = ide->p6_atapi.present;
++		for (int i = 0; i < 32; i++) w[46 + i / 4] |= (uint32_t)ide->p6_atapi.medium_id[i] << (8 * (i & 3));
++	}
++	if (!p6_ide_words_valid (w, n, kind))
+ 		return false;
+-	const uint32_t live = p6_ide_live_bytes (w, drive);
++	const uint32_t live = p6_ide_live_bytes (w, kind);
+ 	if (live > (uint32_t)ide->secbuf_size || (live && !ide->secbuf))
+ 		return false;
+ 	if (live)
+@@ -2055,12 +2112,12 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
+  * bridge has validated with the two functions above never does. The sector buffer is made large enough for any position the values can name. */
+ bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const uint8_t *secbuf, uint32_t secbuf_size)
+ {
+-	if (!ide || !w || n != P6_IDE_WORDS || (!secbuf && secbuf_size) || ide->atapi || ide->scsi || ide->packet_state || ide->adide || ide->byteswap || ide->board)
++	if (!ide || !w || n != P6_IDE_WORDS || (!secbuf && secbuf_size) || ide->scsi || ide->adide || ide->byteswap || ide->board)
+ 		return false;
+-	const bool drive = ide->hdhfd.size != 0;
+-	if (!p6_ide_words_valid (w, n, drive) || secbuf_size != p6_ide_live_bytes (w, drive))
++	const uint32_t kind = p6_ide_kind (ide);
++	if (!p6_ide_words_valid (w, n, kind) || secbuf_size != p6_ide_live_bytes (w, kind))
+ 		return false;
+-	if (drive)
++	if (kind != P6_IDE_EMPTY)
+ 		ide_grow_buffer (ide, P6_IDE_SECBUF_MAX + 2);
+ 	if (ide->secbuf_size)
+ 		memset (ide->secbuf, 0, (size_t)ide->secbuf_size);
+@@ -2090,6 +2147,14 @@ bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const
+ 	ide->hdhfd.cyls = (int)w[32];
+ 	ide->hdhfd.heads = (int)w[33];
+ 	ide->hdhfd.secspertrack = (int)w[34];
++	if (kind == P6_IDE_CD) {
++		ide->atapi_drdy = w[36] != 0;
++		ide->packet_state = (int)w[37]; ide->packet_data_size = (int)w[38];
++		ide->packet_data_offset = (int)w[39]; ide->packet_transfer_size = (int)w[40];
++		ide->p6_atapi.sense_key = (uint8_t)w[41]; ide->p6_atapi.asc = (uint8_t)w[42]; ide->p6_atapi.ascq = (uint8_t)w[43];
++		ide->p6_atapi.known = (uint8_t)w[44]; ide->p6_atapi.present = (uint8_t)w[45];
++		for (int i = 0; i < 32; i++) ide->p6_atapi.medium_id[i] = (uint8_t)(w[46 + i / 4] >> (8 * (i & 3)));
++	}
+ 	return true;
+ }
+ #endif /* P6_PORTABLE */

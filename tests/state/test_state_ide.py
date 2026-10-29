@@ -24,7 +24,7 @@ from tests.state.harness import FieldTable, ProbeCase, parse_chunks, reforge, wi
 CORRUPT, INCOMPATIBLE = 9, 10
 DISK = 8                       # the index of P6DK in the payload
 CHUNK = 4096
-WORDS = 35                     # words of a drive slot (bridge/ide_units.h)
+WORDS = 54                     # semantic words of one HDF or CD slot (bridge/ide_units.h)
 
 
 class IdeCase(ProbeCase):
@@ -141,11 +141,11 @@ class BodyTests(IdeCase):
                 ("a splitter with no drive behind it", {"ide.gayle_word[3]": 1}, "Gayle"),
                 ("an interrupt status beyond a byte", {"ide.gayle_word[0]": 0x100}, "Gayle"),
                 ("a register beyond a byte", {"ide.drive_word[1]": 0x100}, "drive can have"),
-                ("a transfer longer than the buffer", {"ide.drive_word[16]": 140000}, "drive can have"),
+                ("a transfer longer than the buffer", {"ide.drive_word[16]": 300000}, "drive can have"),
                 ("an interrupt delay of 3", {"ide.drive_word[25]": 3}, "drive can have"),
                 ("a direction of 3", {"ide.drive_word[18]": 3}, "drive can have"),
                 ("a transfer in a slot without a drive", {f"ide.drive_word[{WORDS + 16}]": 512}, "drive can have"),
-                ("a transfer that says another length of buffer", {"ide.drive_word[16]": table.get("ide.drive_word[16]") + 1000}, "sector buffer"),
+                ("a transfer that says another length of buffer", {"ide.drive_word[16]": table.get("ide.drive_word[16]") + 1000}, "transfer buffer"),
                 ("the two drives of a channel on other select lines", {"ide.drive_word[30]": 1 - table.get("ide.drive_word[30]")}, "select line"),
                 ("a chunk beyond the image", {chunk_labels[-1]: 5000}, "range")):
             attempts.append((label, table.with_values(values), CORRUPT, text))

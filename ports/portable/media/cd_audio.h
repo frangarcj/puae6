@@ -22,6 +22,7 @@ public:
     Result pause(bool);
     void stop();
     uint32_t volume(uint16_t left, uint16_t right); // Previous logical L/R gains.
+    bool presentation(uint32_t percent) { return p6_cda::presentation(stream_, percent); }
     uint32_t position() const { return position_; }
     int status() const { return stream_.cda_paused && running_ ? AUDIO_STATUS_PAUSED : status_; }
     Result error() const { return error_; }

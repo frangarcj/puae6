@@ -68,6 +68,12 @@ class WrapperStateTests(unittest.TestCase):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(source))
         for name, label in (("A", 0x41), ("B", 0x42), ("C", 0x43), ("D", 0x44)):
             (cls.dir / f"{name}.adf").write_bytes(disk.make_adf(label))
+        cls.hdfs = {}
+        for name, blocks, multiplier, addend in (("H0", 9, 29, 7), ("H1", 10, 17, 0xA3)):
+            image = bytearray((i * multiplier + addend) & 0xFF for i in range(blocks * 512))
+            image[:4] = b"DOS\0"
+            cls.hdfs[name] = bytes(image)
+            (cls.dir / f"{name}.hdf").write_bytes(image)
         cls.count = 0
 
     @classmethod
@@ -109,6 +115,24 @@ class WrapperStateTests(unittest.TestCase):
         return f"core {name} adf={self.adfs(adf)}{extra}" if adf else f"core {name}{extra}"
 
     # --- WB03 and WB05 -------------------------------------------------------------------------------------------------------------
+
+    def test_input_callbacks_follow_non_lag_units_across_restore_and_new_sandboxes(self):
+        out = self.session([
+            self.core("A", adf=""), "run A 6", "callbacks A", "save A polled", "run A 4", "callbacks A",
+            "load A polled", "run A 4", "callbacks A",
+            self.core("B", adf=""), "load B polled", "run B 4", "callbacks B",
+            f"core L firmware={self.rom('chipcell')}", "run L 4", "callbacks L",
+        ])
+        a = self.units(out, "A")
+        b = self.units(out, "B")
+        l = self.units(out, "L")
+        self.assertEqual(a[6:10], a[10:14], "the callback observer does not alter the restored machine")
+        self.assertEqual(a[6:10], [("A", *row[1:]) for row in b], "a new sandbox observes the same restored units")
+        expected_a = [sum(row[6] == "0" for row in a[:end]) for end in (6, 10, 14)]
+        self.assertEqual(expected_a, [int(n) for n in re.findall(r"^callbacks A (\d+)$", out, re.M)])
+        self.assertEqual(sum(row[6] == "0" for row in b), int(re.search(r"^callbacks B (\d+)$", out, re.M)[1]))
+        self.assertTrue(all(row[6] == "1" for row in l))
+        self.assertIn("callbacks L 0", out, "lag units do not claim an input poll")
 
     def test_soft_reset_keeps_ram_and_replays_in_another_sandbox(self):
         out = self.session([
@@ -212,6 +236,20 @@ class WrapperStateTests(unittest.TestCase):
         digests = {**self.digests(out, "A"), **self.digests(out, "B")}
         self.assertEqual(4, len(digests))
         self.assertEqual(1, len(set(digests.values())), "same volume and phase give same complete state")
+
+    def test_cd_audio_volume_is_live_presentation_outside_state_and_movie_identity_without_a_cd(self):
+        movie = self.dir / "cd-volume.bk2"
+        out = self.session([
+            self.core("A", adf="", cdvolume=100), "run A 2 record", "save A cdcut", "cdvolume A 0", "run A 1",
+            "cdvolume A 1", "run A 1", "cdvolume A 50", "run A 1", f"endmovie A {movie}",
+            "cdvolume A 100", "load A cdcut", "cdvolume A", "cdvolume A 101", "cdvolume A -1", "cdvolume A",
+            self.core("B", adf="", cdvolume=1), "load B cdcut", "cdvolume B", f"moviecheck B {movie}", "run B 1",
+        ], firmware="chipcell")
+        self.assertEqual(["0", "1", "50", "100", "100", "100", "100", "100"], re.findall(r"^cdvolume A (\d+)$", out, re.M),
+                         "a load keeps the current CD presentation preference and invalid updates are atomic")
+        self.assertIn("cdvolume B 1", out, "a new sandbox keeps its own current CD presentation preference")
+        self.assertEqual(2, out.count("rejected cdvolume A"))
+        self.assertIn("movie accepted B", out, "CD presentation volume is outside BK2 identity")
 
     def test_four_distinct_boot_disks_restore_reads_and_the_complete_wrapper_in_a_new_sandbox(self):
         n, end = multidrive.SAVE, multidrive.UNITS
@@ -380,6 +418,55 @@ class WrapperStateTests(unittest.TestCase):
 
     # --- WB14 -----------------------------------------------------------------------------------------------------------------------
 
+    def test_hdf_domains_share_the_device_overlay_and_restore_through_state_saveram_sandbox_and_process(self):
+        hdfs = ",".join(str(self.dir / f"{name}.hdf") for name in ("H0", "H1"))
+        core = lambda name: self.core(name, adf="", hdf=hdfs)
+        state, saveram = self.dir / "hdf-domain.state", self.dir / "hdf-domain.saveram"
+        patch0, patch1 = "deadbeef01234567", "918273"
+        base0 = self.hdfs["H0"][0xFFD:0xFFD + 8].hex()
+        base1 = self.hdfs["H1"][0x11:0x11 + 3].hex()
+        mtimes = [(self.dir / f"{name}.hdf").stat().st_mtime_ns for name in ("H0", "H1")]
+
+        out = self.session([
+            core("A"), "domains A", "peek A Hard_Disk_1 ffd 8", "peek A Hard_Disk_2 11 3", "save A clean",
+            f"poke A Hard_Disk_1 ffd {patch0}", f"poke A Hard_Disk_2 11 {patch1}",
+            "peek A Hard_Disk_1 ffd 8", "peek A Hard_Disk_2 11 3", "status A 0", "status A 1",
+            "saveram A patched keep", f"writesaveram patched {saveram}", "save A patched", f"savefile A {state}",
+            "poke A Hard_Disk_1 ffd aaaaaaaaaaaaaaaa", "load A patched", "peek A Hard_Disk_1 ffd 8", "peek A Hard_Disk_2 11 3",
+            "load A clean", "peek A Hard_Disk_1 ffd 8", "peek A Hard_Disk_2 11 3",
+            "load A patched", "peek A Hard_Disk_1 ffd 8", "peek A Hard_Disk_2 11 3",
+            core("B"), "load B patched", "peek B Hard_Disk_1 ffd 8", "peek B Hard_Disk_2 11 3",
+            core("I"), "peek I Hard_Disk_1 ffd 8", "peek I Hard_Disk_2 11 3",
+            core("C"), "storesaveram C patched", "peek C Hard_Disk_1 ffd 8", "peek C Hard_Disk_2 11 3",
+        ], firmware="chipcell")
+
+        self.assertRegex(out, r"domain A Hard_Disk_1 bytes=4608 writable=True")
+        self.assertRegex(out, r"domain A Hard_Disk_2 bytes=5120 writable=True")
+        self.assertIn("status A 0 result=0 capacity=2 used=2 medium=2", out)
+        self.assertIn("status A 1 result=0 capacity=2 used=1 medium=1", out)
+        a0 = re.findall(r"^peek A Hard_Disk_1 ffd (\w+)$", out, re.M)
+        a1 = re.findall(r"^peek A Hard_Disk_2 11 (\w+)$", out, re.M)
+        self.assertEqual([base0, patch0, patch0, base0, patch0], a0)
+        self.assertEqual([base1, patch1, patch1, base1, patch1], a1)
+        for name in ("B", "C"):
+            self.assertIn(f"peek {name} Hard_Disk_1 ffd {patch0}", out)
+            self.assertIn(f"peek {name} Hard_Disk_2 11 {patch1}", out)
+        self.assertIn(f"peek I Hard_Disk_1 ffd {base0}", out)
+        self.assertIn(f"peek I Hard_Disk_2 11 {base1}", out)
+
+        other = self.session([
+            core("D"), f"loadfile D {state}", "peek D Hard_Disk_1 ffd 8", "peek D Hard_Disk_2 11 3",
+            core("E"), f"readsaveram imported {saveram}", "storesaveram E imported", "peek E Hard_Disk_1 ffd 8", "peek E Hard_Disk_2 11 3",
+        ], firmware="chipcell")
+        for name in ("D", "E"):
+            self.assertIn(f"peek {name} Hard_Disk_1 ffd {patch0}", other)
+            self.assertIn(f"peek {name} Hard_Disk_2 11 {patch1}", other)
+
+        for name, original, mtime in zip(("H0", "H1"), (self.hdfs["H0"], self.hdfs["H1"]), mtimes):
+            path = self.dir / f"{name}.hdf"
+            self.assertEqual(original, path.read_bytes(), "the sandbox never writes the caller's HDF")
+            self.assertEqual(mtime, path.stat().st_mtime_ns)
+
     def test_pokes_through_the_memory_domains_into_clean_and_dirty_pages_are_undone_by_a_restore(self):
         out = self.session([self.core("A", adf=""), "peek A Slow_RAM 0 16", "peek A Slow_RAM 1000 16", "peek A Slow_RAM 7fff0 16", "save A start",
                             "poke A Slow_RAM 0 deadbeefdeadbeef", "poke A Slow_RAM 1000 0123456789abcdef", "poke A Slow_RAM 7fff0 cafecafe",
@@ -443,13 +530,14 @@ class WrapperStateTests(unittest.TestCase):
         script = self.script("mouse2", [line(p0=(2, i % 8, 150 if i == 3 else 1 if i > 3 else 0, -2 if i > 3 else 0),
                                                p1=(2, 7 - i % 8, -180 if i == 3 else -3 if i > 3 else 0, 4 if i > 3 else 0)) for i in range(1, 12)])
         state, movie = self.dir / "mouse2.state", self.dir / "mouse2.bk2"
-        core = lambda name: self.core(name, adf="", port1="mouse", port2="mouse")
+        core = lambda name: self.core(name, adf="", port1="mouse", port2="mouse", mousespeed=333)
         out = self.session([core("A"), f"run A 3 script={script} record", "save A moving", f"savefile A {state}",
-                            # Wrapper: second reference appended at89, X at90; 98bytes in total.
-                            "repack moving bad offset=90 bytes=ffffffff", "load A bad",
-                            "repack moving cut offset=0 bytes=03 length=97", "load A cut",
+                            # Wrapper v3: four scaling remainders follow the previous 98-byte layout.
+                            "repack moving bad offset=98 bytes=ffffff7f", "load A bad",
+                            "repack moving cut offset=0 bytes=03 length=122", "load A cut",
                             f"run A 8 script={script} record", "digest A first", "peek A Chip_RAM 1000 80",
                             f"endmovie A {movie}", f"movieverify A {movie} 11 script={script}",
+                            self.core("E", adf="", port1="mouse", port2="mouse"), "load E moving", f"moviecheck E {movie}",
                             "load A moving", f"run A 8 script={script}", "digest A restored", "peek A Chip_RAM 1000 80",
                             core("B"), "load B moving", f"run B 8 script={script}", "digest B fresh", "peek B Chip_RAM 1000 80",
                             core("C"), f"run C 11 movie={movie}", f"moviefinish C {movie}", "digest C movie", "peek C Chip_RAM 1000 80"], firmware="mouse2")
@@ -468,6 +556,8 @@ class WrapperStateTests(unittest.TestCase):
         self.assertIn("movie finished ok frames=11 ", out)
         self.assertRegex(out, r"rejected A bad reason=BadFields message=")
         self.assertRegex(out, r"rejected A cut reason=BadFields message=")
+        self.assertRegex(out, r"rejected E moving reason=OtherConfig message=.*mouse speed")
+        self.assertRegex(out, r"movie rejected E reason=OtherConfig message=.*mouse speed")
         other = self.session([core("D"), f"loadfile D {state}", f"run D 8 script={script}", "digest D process", "peek D Chip_RAM 1000 80"], firmware="mouse2")
         self.assertEqual(a[3:11], [u[1:] for u in self.units(other, "D")])
         self.assertEqual(digests["first"], self.digests(other, "D")["process"])

@@ -237,7 +237,17 @@
     "0413-nrg-etnf-global-sessions": "required",
     "0414-frestore040-fe-normalized-exponent": "behavior",
     "0415-cdtv-media-presence-query": "required",
-    "0416-display-owner-interlace-power-on": "required"
+    "0416-display-owner-interlace-power-on": "required",
+    "0417-cd32-fmv-portable-graph": "required",
+    "0418-cd32-fmv-fixed-mp2-table": "required",
+    "0419-cd32-fmv-pcm-owner": "behavior",
+    "0420-cd32-fmv-decoder-journal": "instrumentation",
+    "0421-cd32-fmv-state-owner": "instrumentation",
+    "0422-cd32-fmv-compositor": "behavior",
+    "0423-cd32-fmv-live-state": "instrumentation",
+    "0424-cdda-presentation-gain": "behavior",
+    "0425-portable-ide-atapi": "required",
+    "0426-portable-ide-atapi-state": "instrumentation"
   },
   "ablate": {
     "0262-denise-sprite-mask-unsigned-shift": {
@@ -511,6 +521,13 @@
       "test": "tests/host/test_frestore040.py",
       "scenarios": [],
       "subsystems": []
+    },
+    "0422-cd32-fmv-compositor": {
+      "effect": "inert",
+      "why": "REF01 has no FMV board or MPEG raster. The directed compositor probe checks bounded geometry, depths, border/genlock selection, aliasing and sanitizer safety against its independent oracle.",
+      "test": "tests/fmv/test_fmv_compositor.py",
+      "scenarios": [],
+      "subsystems": []
     }
   },
   "keep": {
@@ -521,6 +538,8 @@
     "0357-ccd-metadata-only": "Required MDS/NRG metadata extensions depend on the nested CUE/CCD compile guards and parser branches introduced here. Retain this behavior dependency together with0361; REF01 does not independently ablate or validate these CD parsers. Standalone metadata/provider tests retain their own exact layout and malformed-input checks.",
     "0367-cd32-combined-firmware": "Required CDTV firmware patch0401 extends this combined-ROM branch. Retain the behavior patch as an explicit dependency; REF01 does not independently ablate or validate CD32/CDTV firmware loading. Directed firmware/profile tests retain exact pair, map and rejection checks; no corpus golden is changed.",
     "0350-z3-physical-autoconfig-state": "Required CDTV autoconfig patch0402 extends the shared expansion-state accessors and their Z3-aware signature/window reconstruction introduced here. Retain this behavior patch as an explicit dependency; REF01 has no Z3 board and does not independently ablate or validate Z3 mapping. Directed Z3 tests retain their own physical-board and restore gates; no corpus golden is changed.",
-    "0377-frestore040-busy-pending": "Required instrumentation0372 expands the shared P6_FPU_FRAME_SCALARS in its real FSAVE accessors; the BUSY fields and reset in0377 must remain paired with that header. Retain this behavior dependency explicitly so the reference compiles with the same observation endpoint. REF01 has no FRESTORE040 and does not independently ablate or validate BUSY040 completion; independent directed tests/host/test_frestore040.py remain its oracle. Other FRESTORE/CU06 behavior patches remain ablated, and no corpus golden changes."
+    "0377-frestore040-busy-pending": "Required instrumentation0372 expands the shared P6_FPU_FRAME_SCALARS in its real FSAVE accessors; the BUSY fields and reset in0377 must remain paired with that header. Retain this behavior dependency explicitly so the reference compiles with the same observation endpoint. REF01 has no FRESTORE040 and does not independently ablate or validate BUSY040 completion; independent directed tests/host/test_frestore040.py remain its oracle. Other FRESTORE/CU06 behavior patches remain ablated, and no corpus golden changes.",
+    "0419-cd32-fmv-pcm-owner": "Instrumentation0421 extends the exact extra-stream ownership checks and state accessors introduced here, so the reference must retain the paired owner contract. REF01 has no FMV/CDDA stream; directed CD audio and FMV state tests cover ownership, teardown and restoration.",
+    "0424-cdda-presentation-gain": "The required portable CD device calls the presentation endpoint introduced here even at the historical 100 percent default, so product and reference must retain the same linked surface. REF01 has no active CDDA stream; the directed audio probe covers exact integer gain and live updates outside state."
   }
 }
