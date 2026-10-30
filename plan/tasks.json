@@ -27248,7 +27248,7 @@
       "title": "Publicar la correccion FMV y LED optico de PUAE6 en MacHawk",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T90"
       ],
@@ -27263,13 +27263,15 @@
       "touch": [
         "build/machawk-puae6/.github/**",
         "build/machawk-puae6/waterbox/puae6/**",
+        "docs/user/waterbox-preview.md",
         "plan/tasks.json"
       ],
       "steps": [
         "Subir las ramas limpias de PUAE6 y MacHawk sin tocar el checkout hermano ../MacHawk ni incorporar sus medios o cambios locales.",
         "Ejecutar puae6_only sobre el SHA candidato y exigir el EmuHawk Windows real, ABI, restauracion, CHD, LED y GUI antes de fusionar.",
         "Fusionar mediante PR en fork/main solo tras la puerta dirigida y esperar la matriz de main que publica la preview conjunta.",
-        "Crear la prerelease PUAE6 desde el artefacto exacto probado, registrar SHA-256, guests, paquete ARM64 y workflow, y comprobar tag, target y descarga."
+        "Crear la prerelease PUAE6 desde el artefacto exacto probado, registrar SHA-256, guests, paquete ARM64 y workflow, y comprobar tag, target y descarga.",
+        "Cierre 2026-10-30: la puerta dirigida 41066539969 pasa sobre 28db8e8b y PR #17 fusiona ese candidato como c43bbe56. La matriz completa 41067827511 pasa en el intento 2 tras reintentar un HTTP 500 de GitHub al publicar, y crea su preview conjunta. La prerelease puae6-preview-c43bbe56 apunta al merge exacto; el ZIP descargado vuelve a dar 285ee71d3c1d, contiene fuentes/licencias, guest x64 b349a885684b y ningun firmware, ROM, juego ni medio comercial. La rama remota conserva el historial y ../MacHawk permanece intacto."
       ],
       "checks": [
         "BUILD01"
