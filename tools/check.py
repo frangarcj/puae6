@@ -1460,6 +1460,15 @@ for _gate in ('STATE01', 'DET02', 'SAFE01'):
 for _gate in ('AV01', 'DET02', 'SAFE01'):
     TASK_SUITES[(_gate, 'T85p')] = {
         'rtg_fixed_canvas_selection_and_padding': 'tests.state.test_rtg_video'}
+for _gate in ('BUILD01', 'MED01', 'SAFE01'):
+    TASK_SUITES[(_gate, 'T85q')] = {
+        'rtg_public_capability_validation_and_geometry':
+            'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
+TASK_SUITES[('AV01', 'T85q')] = {
+    'rtg_public_fixed_canvas': 'tests.state.test_rtg_video'}
+TASK_SUITES[('DET02', 'T85q')] = {
+    'rtg_public_fixed_canvas': 'tests.state.test_rtg_video',
+    'rtg_public_state_future': 'tests.state.test_rtg_state'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

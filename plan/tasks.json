@@ -26817,6 +26817,59 @@
       "stop": "No aceptar aun rtg_memory publicamente ni modificar MacHawk; la siguiente ficha expone contrato/caps y despues genera la adaptacion BizHawk."
     },
     {
+      "id": "T85q",
+      "title": "RTG-D4: contrato publico, capacidad y geometria fija",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85p"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0006-video-output.md",
+        "docs/adr/future-rtg.md",
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/caps.cpp",
+        "bridge/video.cpp",
+        "bridge/state_probe.cpp",
+        "tests/media/media_probe.cpp",
+        "tests/host/bridge_caps_probe.cpp"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/caps.cpp",
+        "bridge/video.cpp",
+        "bridge/state_probe.cpp",
+        "tests/contracts/layout_probe.c",
+        "tests/media/media_probe.cpp",
+        "tests/host/bridge_caps_probe.cpp",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Anunciar P6_CAP_RTG sin cambiar los limites historicos del perfil en p6_caps; p6_query_video es la autoridad de cada configuracion.",
+        "Aceptar una placa4MiB solo en A4030/Normal y rechazar super-hires, que no cabe en el lienzo fijo1024x768, antes de adquirir sesion.",
+        "Hacer que p6_query_video anuncie1024x768 y que p6_init/p6_load usen la ruta publica en las pruebas hasta video y estado.",
+        "Conservar RTG0 byte por byte y comprobar rechazos transaccionales, capacidad ABI, preferencias y ejecucion publica."
+      ],
+      "checks": [
+        "BUILD01",
+        "MED01",
+        "AV01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "P6_CAP_RTG esta anunciado; A4030/Normal/RTG4 inicializa y carga por la API publica con geometria1024x768, mientras maquina, tamaño o raster incompatibles se rechazan sin mutacion.",
+        "Las pruebas de lienzo y estado ya no mutan session.config despues de p6_init y RTG0 conserva caps, geometria, identidad y salida previas salvo el nuevo bit de capacidad global."
+      ],
+      "stop": "No modificar todavia el wrapper MacHawk ni cerrar la issue; la adaptacion BizHawk y su Sync Setting son la siguiente ficha."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

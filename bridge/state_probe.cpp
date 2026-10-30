@@ -1369,6 +1369,7 @@ int main(int argc, char **argv)
     config.floppy_speed = uint8_t(floppy_speed);
     config.floppy_drives = uint8_t(floppy_drives);
     config.collision_level = uint8_t(collision_level);
+    if (rtg_internal) config.rtg_memory = P6_RTG_MEMORY_4_MIB;
     if (ide_cd_fixture && !bind_ide_cd_fixture(ide_cd_selected, ide_cd_inserted, ide_cd_swap_catalog)) {
         fprintf(stderr, "cannot bind IDE CD fixture\n");
         return 1;
@@ -1376,8 +1377,6 @@ int main(int argc, char **argv)
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) { if (ide_cd_fixture) p6_cd::device_unbind(); return fail("p6_init", result, error); }
-    // Test-only path for the state vertical while the public validator remains closed until RTG presentation exists.
-    if (rtg_internal) p6_session::session.config.rtg_memory = P6_RTG_MEMORY_4_MIB;
     for (uint64_t pass = 1; pass <= loads; ++pass) {
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);

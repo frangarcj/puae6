@@ -111,8 +111,7 @@ static void cd_controller_topologies()
            !memcmp(&before, &p6_session::session.config, sizeof before));
 }
 
-// The public lifecycle still rejects RTG before ownership until the state envelope contains VRAM and metadata.
-// Internally the same reserved value already has one exact A4030 preference topology for the linked board.
+// The public contract owns one exact A4030 preference and presentation topology.
 static void rtg_contract()
 {
     static_assert(sizeof(p6_config) == 72 && offsetof(p6_config, rtg_memory) == 69);
@@ -133,7 +132,20 @@ static void rtg_contract()
     c = machine_config(P6_MACHINE_A4040); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
     rejected(c, "requires A4030/Normal");
     c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
-    rejected(c, "RTG runtime is not linked yet");
+    c.video_resolution = 3;
+    rejected(c, "not super-hires");
+
+    c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+    p6_video_geometry geometry{P6_ABI_VERSION, sizeof geometry};
+    assert(p6_query_video(&c, &geometry, &e) == P6_OK);
+    assert(geometry.buffer_width == 1024 && geometry.buffer_height == 768 &&
+           geometry.active_width == 756 && geometry.active_height == 574);
+    p6_caps caps{P6_ABI_VERSION, sizeof caps};
+    assert(p6_query_caps(&caps, &e) == P6_OK && (caps.flags & P6_CAP_RTG));
+    assert(caps.max_video_width == 760 && caps.max_video_height == 576);
+    assert(p6_init(&c, &e) == P6_OK && p6_session::session.state == p6_session::State::Initialized &&
+           p6_session::session.config.rtg_memory == P6_RTG_MEMORY_4_MIB);
+    assert(p6_shutdown(&e) == P6_OK && p6_session::session.state == p6_session::State::Uninitialized);
 
     p6_bridge::build_preferences(c, false);
     assert(currprefs.rtgboards[0].rtg_index == 0);

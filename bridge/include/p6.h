@@ -49,6 +49,7 @@ typedef struct p6_caps {
 #define P6_CAP_INPUT_V2         (UINT64_C(1) << 10)  /* p6_input_v2: two additional parallel-port joysticks */
 #define P6_CAP_HRTMON           (UINT64_C(1) << 11)  /* P6_CONFIG_HRTMON and restorable Freeze input level */
 #define P6_CAP_AR1200           (UINT64_C(1) << 14)  /* copied AR1200 owner and restorable Freeze input level */
+#define P6_CAP_RTG              (UINT64_C(1) << 15)  /* one bounded UAE Zorro III board: 4 MiB VRAM, fixed 1024x768 canvas */
 #define P6_CAP_AR1              (UINT64_C(1) << 13)  /* copied AR1 owner and restorable Freeze input level */
 #define P6_CAP_AR23             (UINT64_C(1) << 12)  /* copied AR2/3 owner and restorable Freeze input level */
 #define P6_CAP_STATE            (UINT64_C(1) << 0)
@@ -120,9 +121,9 @@ typedef struct p6_config {
     uint8_t floppy_drives;
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
-    /* T85c/RTG-A: bounded future RTG hardware in the byte formerly named reserved7[0]. Zero preserves every ABI v1 caller.
+    /* T85c/T85q: bounded RTG hardware in the byte formerly named reserved7[0]. Zero preserves every ABI v1 caller.
      * The only nonzero contract is one UAE Zorro III board with 4 MiB populated in its 16 MiB aperture, on A4030/Normal.
-     * Until the device vertical is linked, validate_config rejects that value explicitly before touching the engine. */
+     * Its display uses a fixed 1024x768 XRGB8888 canvas; chipset and RTG modes are centred with zero padding. */
     union {
         uint8_t rtg_memory;
         uint8_t reserved7[1];       /* Source-compatible spelling before RTG-A; nonzero now requests bounded RTG hardware. */
@@ -292,7 +293,9 @@ typedef struct p6_rect {
  *
  * Video. video_width x video_height is the delivered buffer and is constant for a
  * loaded image (760x576 PAL, 760x486 NTSC for the profile's raster, see p6_caps; the
- * resolution and line mode of p6_config scale it, see p6_query_video); video_stride_bytes is the
+ * resolution and line mode of p6_config scale it, see p6_query_video). An RTG configuration
+ * instead delivers one fixed 1024x768 canvas, centring both the chipset raster and the
+ * selected 640x480/800x600/1024x768 RTG mode. video_stride_bytes is the
  * row pitch, never width * 4. Rows and columns outside `active` are zero. `active`
  * is the raster the renderer drew for this unit and can be smaller than the buffer
  * (PAL 756x574 normally, 756x576 for a guest that leaves the long-field bit set).
@@ -429,9 +432,9 @@ typedef struct p6_media_event {
  * advertised capability return P6_ERROR_UNSUPPORTED. */
 uint32_t p6_abi_version(void);
 p6_result p6_query_caps(p6_caps *caps, p6_error *error);
-/* The raster of a configuration (T72), callable before p6_init: buffer_width x buffer_height is the video_width x video_height of every frame of an image loaded with it (constant,
+/* The raster of a configuration (T72/T85q), callable before p6_init: buffer_width x buffer_height is the video_width x video_height of every frame of an image loaded with it (constant,
  * never exceeded: a picture that does not fit is delivered as P6_FRAME_NO_VIDEO), active_width x active_height the nominal raster of a normal unit, and aspect_num : aspect_den the
- * pixel aspect of that configuration. The configuration is validated like p6_init does. */
+ * pixel aspect of that configuration. RTG announces a 1024x768 buffer and the initial chipset raster as active; SetSwitch selects RTG automatically while running. The configuration is validated like p6_init does. */
 typedef struct p6_video_geometry {
     uint32_t abi_version;
     uint32_t struct_size;

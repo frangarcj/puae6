@@ -192,8 +192,8 @@ extern "C" p6_result p6_query_video(const p6_config *config, p6_video_geometry *
     if (const p6_result checked = p6_bridge::validate_config(*config, error)) return checked;
     const int res = p6_bridge::engine_resolution(config->video_resolution), vres = p6_bridge::engine_line_mode(config->video_line_mode);
     const bool ntsc = config->video_standard == P6_VIDEO_NTSC;
-    geometry->buffer_width = p6_bridge::config_buffer_width(*config);
-    geometry->buffer_height = p6_bridge::config_buffer_height(*config);
+    geometry->buffer_width = config->rtg_memory ? P6_RTG_MAX_WIDTH : p6_bridge::config_buffer_width(*config);
+    geometry->buffer_height = config->rtg_memory ? P6_RTG_MAX_HEIGHT : p6_bridge::config_buffer_height(*config);
     geometry->active_width = p6_bridge::active_width(res);
     geometry->active_height = p6_bridge::active_height(ntsc, vres);
     p6_bridge::pixel_aspect(ntsc, res, vres, &geometry->aspect_num, &geometry->aspect_den);

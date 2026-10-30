@@ -611,8 +611,6 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "RTG memory must be off or the bounded 4 MiB UAE Zorro III board");
     if (c.rtg_memory && c.machine != P6_MACHINE_A4030)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the bounded RTG board requires A4030/Normal");
-    if (c.rtg_memory)
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the bounded RTG runtime is not linked yet");
     // The controller of the hard files (T56): the IDE port is Gayle's, and only the A600 and the A1200 have Gayle.
     if (c.hdf_controller > P6_HDF_CONTROLLER_IDE)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the controller of the hard files must be 0 (UAE) or 1 (IDE)");
@@ -631,6 +629,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "cpu multiplier must be 0 (the machine's own), 1, 2, 4, 8, 10, 12 or 16");
     if (!resolution_option_valid(c.video_resolution))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video resolution must be 0 (the profile's), 1 (lores), 2 (hires) or 3 (super-hires)");
+    if (c.rtg_memory && engine_resolution(c.video_resolution) > 1)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the fixed RTG canvas supports the lores or hires chipset raster, not super-hires");
     if (!line_mode_option_valid(c.video_line_mode))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "video line mode must be 0 (the profile's), 1 (single) or 2 (double)");
     if (c.floppy_speed > 5)
