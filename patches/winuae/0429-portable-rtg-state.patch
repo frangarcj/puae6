@@ -1,0 +1,109 @@
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -4257,6 +4257,22 @@ static bool p6_z3_mapped(void)
+ 	return b.allocated_size && b.start >= 0x10000000 && b.start < 0xf0000000 && &get_mem_bank(b.start) == &b;
+ }
+ 
++#ifdef P6_PORTABLE_RTG
++static bool p6_rtg_mapped(void)
++{
++	return gfxmem_bank.allocated_size == P6_RTG_VRAM_BYTES && (gfxmem_bank.flags & ABFLAG_MAPPED) != 0;
++}
++#endif
++
++static unsigned p6_expansion_state_words(void)
++{
++	unsigned words = P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u);
++#ifdef P6_PORTABLE_RTG
++	if (currprefs.rtgboards[0].rtgmem_size) words += 3;
++#endif
++	return words;
++}
++
+ static bool p6_cdtv_current_card(uint32_t index)
+ {
+ 	return currprefs.cs_cdtvcd && index < uint32_t(cardno) && cards[index]->initrc == cdtv_init;
+@@ -4264,7 +4280,7 @@ static bool p6_cdtv_current_card(uint32_t index)
+ 
+ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+ {
+-	if (!w || n != P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u) || !autoconfig)
++	if (!w || n != p6_expansion_state_words() || !autoconfig)
+ 		return false;
+ 	if (expamem_bank_current && expamem_bank_current != &expamem_bank &&
+ 		(!p6_cdtv_current_card(ecard) || expamem_bank_current != cards[ecard]->aci.addrbank)) return false;
+@@ -4281,11 +4297,20 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+ 	w[10] = fastmem_bank[0].start;
+ 	w[11] = fastmem_bank[0].allocated_size;
+ 	w[12] = p6_fast_mapped() ? 1 : 0;
+-	if (n > P6_EXPANSION_WORDS) {
++	unsigned extra = P6_EXPANSION_WORDS;
++	if (currprefs.z3fastmem[0].size) {
+ 		w[13] = z3fastmem_bank[0].start;
+ 		w[14] = z3fastmem_bank[0].allocated_size;
+ 		w[15] = p6_z3_mapped() ? 1 : 0;
++		extra += 3;
++	}
++#ifdef P6_PORTABLE_RTG
++	if (currprefs.rtgboards[0].rtgmem_size) {
++		w[extra] = gfxmem_bank.start;
++		w[extra + 1] = gfxmem_bank.allocated_size;
++		w[extra + 2] = p6_rtg_mapped() ? 1 : 0;
+ 	}
++#endif
+ 	memcpy(autoconfig, expamem, 256);
+ 	return true;
+ }
+@@ -4294,7 +4319,7 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+  * at $E80000 and the board's mapping are rebuilt as expamem_next and expamem_map_fastcard leave them. */
+ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig)
+ {
+-	if (!w || n != P6_EXPANSION_WORDS + (currprefs.z3fastmem[0].size ? 3u : 0u) || !autoconfig)
++	if (!w || n != p6_expansion_state_words() || !autoconfig)
+ 		return false;
+ 	const uint32_t size = fastmem_bank[0].allocated_size;
+ 	const uint32_t start = w[10];
+@@ -4317,6 +4342,21 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
+ 		if (w[15] && (w[13] < 0x10000000 || uint64_t(w[13]) + z3size > 0xf0000000))
+ 			return false;
+ 	}
++#ifdef P6_PORTABLE_RTG
++	const unsigned rtgword = P6_EXPANSION_WORDS + (z3size ? 3u : 0u);
++	const uint32_t rtgsize = currprefs.rtgboards[0].rtgmem_size;
++	if (rtgsize) {
++		const uint32_t rtgstart = w[rtgword];
++		if (rtgsize != P6_RTG_VRAM_BYTES || w[rtgword + 1] != rtgsize
++			|| w[rtgword + 2] > 1 || gfxmem_bank.allocated_size != rtgsize)
++			return false;
++		const bool assigned = rtgstart >= Z3BASE_UAE
++			&& uint64_t(rtgstart) + P6_RTG_APERTURE_BYTES <= 0xf0000000
++			&& !(rtgstart & (P6_RTG_APERTURE_BYTES - 1));
++		if ((rtgstart != 0 && !assigned) || bool(w[rtgword + 2]) != assigned)
++			return false;
++	}
++#endif
+ 	if (size) {
+ 		if (p6_fast_mapped())
+ 			map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
+@@ -4339,6 +4379,20 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
+ 		if (w[15])
+ 			map_banks_z3(&b, b.start >> 16, z3size >> 16);
+ 	}
++#ifdef P6_PORTABLE_RTG
++	if (rtgsize) {
++		if (p6_rtg_mapped())
++			map_banks(&dummy_bank, gfxmem_bank.start >> 16, rtgsize >> 16, 0);
++		gfxmem_bank.flags &= ~ABFLAG_MAPPED;
++		gfxmem_bank.start = w[rtgword];
++		gfxmem_bank.startmask = gfxmem_bank.start;
++		gfxmem_bank.startaccessmask = gfxmem_bank.start & gfxmem_bank.mask;
++		if (p6_rtg_memory_rebind() != P6_RTG_OK)
++			return false;
++		if (w[rtgword + 2])
++			map_banks_z3(&gfxmem_bank, gfxmem_bank.start >> 16, rtgsize >> 16);
++	}
++#endif
+ 	ecard = int(w[0]);
+ 	chipdone = w[2] != 0;
+ 	expamem_autoconfig_mode = int(w[5]);

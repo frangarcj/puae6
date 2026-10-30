@@ -27,19 +27,57 @@ int map_count;
 addrbank *mapped_bank;
 }
 
-void map_banks_z3(addrbank *bank, int first, int count)
+uae_prefs currprefs{}, changed_prefs{};
+addrbank dummy_bank{};
+addrbank *mem_banks[MEMORY_BANKS]{};
+regstruct regs{};
+
+uae_u32 REGPARAM3 dummy_lgeti(uaecptr) { return 0; }
+uae_u32 REGPARAM3 dummy_wgeti(uaecptr) { return 0; }
+int REGPARAM3 default_check(uaecptr, uae_u32) { return 0; }
+uae_u8 *REGPARAM3 default_xlate(uaecptr) { return nullptr; }
+uae_u32 memory_get_long(uaecptr) { return 0; }
+uae_u32 memory_get_word(uaecptr) { return 0; }
+int memory_valid_address(uaecptr, uae_u32) { return 0; }
+void memory_put_long(uaecptr, uae_u32) {}
+void memory_put_word(uaecptr, uae_u32) {}
+bool cdtv_init(autoconfig_info *) { return false; }
+void write_log(const TCHAR *, ...) {}
+
+void map_banks(addrbank *bank, int first, int count, int)
 {
-	++map_calls;
+	for (int i = 0; i < count; ++i) mem_banks[first + i] = bank;
+	if (bank == &dummy_bank) {
+		if (mapped_bank && first == int(mapped_bank->start >> 16)) {
+			mapped_bank->flags &= ~ABFLAG_MAPPED;
+			mapped_bank = nullptr;
+		}
+		map_first = first;
+		map_count = count;
+		return;
+	}
 	mapped_bank = bank;
 	map_first = first;
 	map_count = count;
 	bank->flags |= ABFLAG_MAPPED;
 }
 
+void map_banks_z2(addrbank *bank, int first, int count)
+{
+	map_banks(bank, first, count, 0);
+}
+
+void map_banks_z3(addrbank *bank, int first, int count)
+{
+	++map_calls;
+	map_banks(bank, first, count, 0);
+}
+
 int main()
 {
 	static_assert(P6_RTG_APERTURE_BYTES == 0x01000000, "Z3 physical aperture");
 	static_assert(P6_RTG_VRAM_BYTES == 0x00400000, "populated subsize");
+	for (addrbank *&bank : mem_banks) bank = &dummy_bank;
 
 	static uae_prefs prefs{};
 	/* Extra configured slots must never produce another portable board. */
@@ -52,6 +90,7 @@ int main()
 
 	prefs.rtgboards[0].rtgmem_size = P6_RTG_VRAM_BYTES;
 	prefs.rtgboards[0].rtgmem_type = GFXBOARD_UAE_Z3;
+	currprefs = prefs;
 	assert(p6_add_gfxcard_z3(&prefs));
 	assert(cardno == 1);
 	assert(cards_set[0].flags == (4 | CARD_FLAG_CAN_Z3));
@@ -97,6 +136,54 @@ int main()
 	assert(cards_set[0].map(&aci) == nullptr);
 	assert(map_calls == 1);
 	assert(std::memcmp(&before, &gfxmem_bank, sizeof before) == 0);
+
+	/* The semantic expansion tail restores RTG mapping without touching VRAM. */
+	ecard = cardno;
+	expamem_map = nullptr;
+	expamem_bank_current = nullptr;
+	expamem_autoconfig_mode = 0;
+	uint32_t words[16]{};
+	uint8_t autoconfig[256]{};
+	assert(p6_expansion_state_get(words, 16, autoconfig));
+	assert(words[13] == base && words[14] == P6_RTG_VRAM_BYTES && words[15] == 1);
+	const uint8_t first = gfxmem_bank.bget(base);
+	const uint8_t last = gfxmem_bank.bget(base + P6_RTG_VRAM_BYTES - 1);
+
+	constexpr uint32_t other_base = 0x24000000;
+	assert(p6_rtg_memory_set_bus_base(other_base) == P6_RTG_OK);
+	gfxmem_bank.flags |= ABFLAG_MAPPED;
+	assert(p6_expansion_state_set(words, 16, autoconfig));
+	assert(gfxmem_bank.start == base && (gfxmem_bank.flags & ABFLAG_MAPPED));
+	assert(map_calls == 2 && mapped_bank == &gfxmem_bank);
+	assert(gfxmem_bank.bget(base) == first);
+	assert(gfxmem_bank.bget(base + P6_RTG_VRAM_BYTES - 1) == last);
+
+	auto refused = [&](unsigned index, uint32_t value) {
+		uint32_t bad[16];
+		std::memcpy(bad, words, sizeof bad);
+		bad[index] = value;
+		const addrbank stable = gfxmem_bank;
+		const int calls = map_calls;
+		assert(!p6_expansion_state_set(bad, 16, autoconfig));
+		assert(std::memcmp(&stable, &gfxmem_bank, sizeof stable) == 0);
+		assert(map_calls == calls && mapped_bank == &gfxmem_bank);
+	};
+	refused(14, P6_RTG_VRAM_BYTES / 2);
+	refused(15, 2);
+	refused(13, base + 0x10000);
+	refused(15, 0);
+	uint32_t absent[16];
+	std::memcpy(absent, words, sizeof absent);
+	absent[13] = 0;
+	assert(!p6_expansion_state_set(absent, 16, autoconfig));
+	assert(!p6_expansion_state_set(words, 15, autoconfig));
+
+	/* RTG0 preserves the previous 13-word layout byte for byte. */
+	currprefs.rtgboards[0].rtgmem_size = 0;
+	uint32_t legacy[13]{};
+	assert(p6_expansion_state_get(legacy, 13, autoconfig));
+	assert(!p6_expansion_state_get(words, 16, autoconfig));
+	currprefs.rtgboards[0].rtgmem_size = P6_RTG_VRAM_BYTES;
 
 	uint8_t *storage = gfxmem_bank.baseaddr;
 	p6_rtg_reset();

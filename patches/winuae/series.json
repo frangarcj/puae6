@@ -6529,6 +6529,29 @@
           "after_sha256": "41738e65ea9ac5b6ab34ec52c305896324e35bf0fbac582bf4e593c147eca87d"
         }
       ]
+    },
+    {
+      "id": "0429-portable-rtg-state",
+      "file": "patches/winuae/0429-portable-rtg-state.patch",
+      "sha256": "d36d25e9871addce4723d077b8d5e3aca499136ec8d9330d2e898a79b9c1a488",
+      "title": "Extend semantic Autoconfig state with the bounded RTG bank",
+      "reason": "T85m appends the mapped base, fixed populated size and map bit only when the portable RTG board is configured. RTG0 keeps the previous expansion body, while restore validates the entire candidate before rebinding the static VRAM bank.",
+      "category": "portable RTG semantic state",
+      "order": 244,
+      "symbols": [
+        "p6_expansion_state_get",
+        "p6_expansion_state_set"
+      ],
+      "test": "tests/host/test_rtg_autoconfig.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "b06b10beb3780dd5e08746d946269361e41d8e1c43eab54673ab8f411ec9f0f2",
+          "after_sha256": "8ba4341fafdb7da59d231b380efeaadde0b63856a43e1e0aa350042d9432133f"
+        }
+      ]
     }
   ]
 }
