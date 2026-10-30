@@ -27244,6 +27244,44 @@
       "stop": "No suavizar audio con duplicacion, resampling o temporizacion host; si el coste real excede tiempo real, optimizar solo el cuello medido. No publicar una release ni modificar ../MacHawk."
     },
     {
+      "id": "T91",
+      "title": "Publicar la correccion FMV y LED optico de PUAE6 en MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T90"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/waterbox/puae6/README.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/.github/**",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Subir las ramas limpias de PUAE6 y MacHawk sin tocar el checkout hermano ../MacHawk ni incorporar sus medios o cambios locales.",
+        "Ejecutar puae6_only sobre el SHA candidato y exigir el EmuHawk Windows real, ABI, restauracion, CHD, LED y GUI antes de fusionar.",
+        "Fusionar mediante PR en fork/main solo tras la puerta dirigida y esperar la matriz de main que publica la preview conjunta.",
+        "Crear la prerelease PUAE6 desde el artefacto exacto probado, registrar SHA-256, guests, paquete ARM64 y workflow, y comprobar tag, target y descarga."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "fork/main contiene la correccion y las identidades x64/ARM64 probadas, y la rama PUAE6 remota conserva el historial revisable.",
+        "El workflow puae6_only y la matriz de main terminan correctamente sobre los SHA correspondientes antes de publicar.",
+        "La prerelease PUAE6 apunta al merge exacto y su ZIP coincide con el artefacto probado, incluye fuentes/licencias y no contiene firmware, ROMs, juegos ni medios comerciales."
+      ],
+      "stop": "No fusionar ni publicar si falla la puerta Windows o cambia main bajo la candidata; no reutilizar el ZIP anterior ni construir una release desde ../MacHawk."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
