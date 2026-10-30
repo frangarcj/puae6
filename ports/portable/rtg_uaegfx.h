@@ -6,6 +6,10 @@
 
 void p6_uaegfx_reset(void);
 int p6_uaegfx_selected(void);
+int p6_uaegfx_install_code(uaecptr start);
+uaecptr p6_uaegfx_alloc(TrapContext *ctx);
+uaecptr p6_uaegfx_library_base(void);
+uae_u32 REGPARAM2 p6_uaegfx_init_card(TrapContext *ctx);
 
 uae_u32 REGPARAM2 p6_uaegfx_find_card(TrapContext *ctx);
 uae_u32 REGPARAM2 p6_uaegfx_set_gc(TrapContext *ctx);

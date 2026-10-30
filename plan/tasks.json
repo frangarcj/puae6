@@ -26430,6 +26430,49 @@
       "stop": "No generar aun codigo68k, MakeLibrary ni listas LibResolution: la siguiente ficha instala el residente y los nueve ModeInfo usando estos handlers ya probados."
     },
     {
+      "id": "T85h",
+      "title": "RTG-B5: residente uaegfx.card y nueve ModeInfo",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85g"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "upstream/winuae/autoconf.cpp",
+        "upstream/winuae/filesys.cpp",
+        "upstream/winuae/od-win32/picasso96_win.cpp",
+        "upstream/winuae/od-win32/picasso96_win.h",
+        "upstream/winuae/include/autoconf.h",
+        "ports/portable/rtg_uaegfx.h"
+      ],
+      "touch": [
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Generar dentro de RTAREA_RTG la tabla de biblioteca uaegfx.card y los stubs de los handlers soportados, con fallback al Default de Picasso96 cuando fill/blit devuelve cero.",
+        "Crear la biblioteca con MakeLibrary/AddLibrary sin allocator host y materializar tres LibResolution con nueve ModeInfo exactos en el extra acotado de la biblioteca.",
+        "Inicializar BoardInfo con unicamente los formatos, limites y funciones implementados; resetear toda identidad host entre maquinas y rechazar RAM guest insuficiente antes de escrituras parciales."
+      ],
+      "checks": [
+        "SRC01",
+        "GEN01",
+        "DET02"
+      ],
+      "acceptance": [
+        "El residente3.4 cabe antes de RTAREA_TRAMPOLINE, MakeLibrary recibe un extra fijo y la lista guest contiene exactamente640x480,800x600 y1024x768 con CLUT8, RGB565PC y ARGB32.",
+        "Los punteros BoardInfo de operaciones soportadas apuntan a stubs RTAREA; fill/blit conservan fallback Default y ningun servicio excluido se publica como exito."
+      ],
+      "stop": "No definir aun P6_PORTABLE_RTG ni enlazar la build publica: T85i añadira el parche acotado a autoconf/filesys y la closure CMake."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

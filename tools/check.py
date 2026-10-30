@@ -1424,6 +1424,9 @@ for _gate in ('SRC01', 'GEN01', 'DET02'):
 for _gate in ('GEN01', 'AV01', 'DET02'):
     TASK_SUITES[(_gate, 'T85g')] = {
         'bounded_uaegfx_guest_traps': 'tests.host.test_rtg_uaegfx'}
+for _gate in ('SRC01', 'GEN01', 'DET02'):
+    TASK_SUITES[(_gate, 'T85h')] = {
+        'fixed_uaegfx_resident_and_modes': 'tests.host.test_rtg_uaegfx_install'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
