@@ -27284,6 +27284,60 @@
       "stop": "No fusionar ni publicar si falla la puerta Windows o cambia main bajo la candidata; no reutilizar el ZIP anterior ni construir una release desde ../MacHawk."
     },
     {
+      "id": "T92",
+      "title": "Añadir sync PAL/NTSC y Atari ST al Multi-Disk Bundler de MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T91"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/Hatari.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/LibHatari.cs",
+        "build/machawk-puae6/waterbox/hatari/bizhawk.c",
+        "build/machawk-puae6/waterbox/hatari/build-release.sh",
+        "build/machawk-puae6/waterbox/hatari/hatari-waterbox-sync.patch",
+        "build/machawk-puae6/waterbox/hatari/CONFIGURATION.md",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-hatari-boot-smoke/Program.cs",
+        "build/machawk-puae6/src/BizHawk.Client.Common/MultiDiskBundleModel.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/tools/MultiDiskBundler/MultiDiskBundler.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Client.Common/BizHawk.Tests.Client.Common.csproj"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/Hatari.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/LibHatari.cs",
+        "build/machawk-puae6/waterbox/hatari/bizhawk.c",
+        "build/machawk-puae6/waterbox/hatari/build-release.sh",
+        "build/machawk-puae6/waterbox/hatari/hatari-waterbox-sync.patch",
+        "build/machawk-puae6/waterbox/hatari/CONFIGURATION.md",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-hatari-boot-smoke/Program.cs",
+        "build/machawk-puae6/src/BizHawk.Client.Common/MultiDiskBundleModel.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/tools/MultiDiskBundler/MultiDiskBundler.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Client.Common/MultiDiskBundleModelTests.cs",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Exponer en Hatari un sync setting PAL/NTSC con NTSC como valor compatible, trasladarlo por la ABI y aplicarlo al arranque y reset sin fijar el registro durante cada frame.",
+        "Extender el smoke de timing para demostrar los cocientes exactos PAL y NTSC y su replay determinista tras savestate.",
+        "Centralizar los sistemas admitidos por Multi-Disk Bundler en el modelo, añadir Atari ST y probar tanto la seleccion como el XML resultante."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Hatari muestra Sync PAL/NTSC, reinicia al cambiarlo y arranca RGB con el timing exacto 50/60 Hz elegido sin impedir cambios posteriores del software emulado.",
+        "El smoke de timing cubre PAL y NTSC, incluidos save/load y futuro determinista, y conserva los perfiles monocromo y Falcon.",
+        "Multi-Disk Bundler ofrece Atari ST y genera un bundle con System AtariST que sigue la carga normal por RomLoader/Hatari; ../MacHawk permanece intacto."
+      ],
+      "stop": "No usar pacing, reloj o audio host para imponer 50/60 Hz; no escribir el registro de sync en cada frame ni modificar el checkout ../MacHawk; no publicar ni fusionar sin una peticion posterior."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
