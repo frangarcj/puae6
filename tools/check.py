@@ -1450,6 +1450,10 @@ for _gate in ('STATE01', 'DET02', 'SAFE01'):
 for _gate in ('SRC01', 'STATE01', 'DET02'):
     TASK_SUITES[(_gate, 'T85m')] = {
         'rtg_autoconfig_semantic_state': 'tests.host.test_rtg_autoconfig'}
+for _gate in ('BUILD01', 'MED01', 'DET02'):
+    TASK_SUITES[(_gate, 'T85n')] = {
+        'rtg_a4030_preferences_and_rejection':
+            'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

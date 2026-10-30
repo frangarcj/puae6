@@ -22,6 +22,7 @@
 #include "inputdevice.h"
 #include "gensound.h"
 #include "rommgr.h"
+#include "gfxboard.h"
 #include "crc32.h"
 #include "ar.h"
 #include "rom_status.h"
@@ -767,7 +768,10 @@ void build_preferences(const p6_config &c, bool ide_port)
     currprefs.bogomem.size = memory.slow_kib * 1024;
     currprefs.fastmem[0].size = memory.fast_kib * 1024;     // one Zorro II autoconfig board (patch 0110); fixup_prefs keeps board 0 only
     currprefs.z3fastmem[0].size = z3_bytes(c);
-    if (c.z3_memory) {
+    currprefs.rtgboards[0].rtg_index = 0;
+    currprefs.rtgboards[0].rtgmem_type = GFXBOARD_UAE_Z3;
+    currprefs.rtgboards[0].rtgmem_size = c.rtg_memory == P6_RTG_MEMORY_4_MIB ? 4u << 20 : 0;
+    if (c.z3_memory || c.rtg_memory) {
         currprefs.z3_mapping_mode = Z3MAPPING_REAL;
         currprefs.cs_z3autoconfig = true;
         currprefs.z3fastmem[0].no_reset_unmap = false;
@@ -856,7 +860,11 @@ p6_result check_preset(p6_error *error)
     else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
              p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size != z3_bytes(preset_config) || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
-    else if (preset_config.z3_memory && (p.z3_mapping_mode != Z3MAPPING_REAL || !p.cs_z3autoconfig || p.z3fastmem[0].no_reset_unmap)) drifted = "Z3 autoconfig";
+    else if (p.rtgboards[0].rtg_index || p.rtgboards[0].rtgmem_type != GFXBOARD_UAE_Z3 ||
+             p.rtgboards[0].rtgmem_size != (preset_config.rtg_memory == P6_RTG_MEMORY_4_MIB ? 4u << 20 : 0) ||
+             p.rtgboards[1].rtgmem_size || p.rtgboards[2].rtgmem_size || p.rtgboards[3].rtgmem_size) drifted = "RTG board";
+    else if ((preset_config.z3_memory || preset_config.rtg_memory) &&
+             (p.z3_mapping_mode != Z3MAPPING_REAL || !p.cs_z3autoconfig || p.z3fastmem[0].no_reset_unmap)) drifted = "Z3 autoconfig";
     else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
     else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (is_a4000(preset_config.machine) && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";

@@ -26680,6 +26680,48 @@
       "stop": "No aceptar aun rtg_memory por la API ni añadir VRAM/metadata a P6RM."
     },
     {
+      "id": "T85n",
+      "title": "RTG-D1: preferencias A4030 y cierre de preset",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85m"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "bridge/config.cpp",
+        "upstream/winuae/main.cpp",
+        "patches/winuae/0053-config-excluded-devices.patch",
+        "tests/media/media_probe.cpp"
+      ],
+      "touch": [
+        "bridge/config.cpp",
+        "patches/winuae/0430-portable-rtg-prefs.patch",
+        "patches/winuae/series.json",
+        "tests/media/media_probe.cpp",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Traducir el unico valor RTG reservado a una placa UAE Zorro III de 4 MiB en A4030, con mapeo Z3 fisico y sin alterar los perfiles RTG0; conservar solo esa ranura durante fixup_prefs portable.",
+        "Ampliar check_preset para comprobar tipo, tamaño, indice y unicidad de la placa, ademas de la configuracion Z3 que necesita Autoconfig.",
+        "Probar las preferencias reales y conservar el rechazo publico transaccional hasta que P6RM incluya VRAM y metadata RTG."
+      ],
+      "checks": [
+        "BUILD01",
+        "MED01",
+        "DET02"
+      ],
+      "acceptance": [
+        "A4030 con rtg_memory=4 MiB construye exactamente una placa GFXBOARD_UAE_Z3 de 4 MiB, indice cero, Z3MAPPING_REAL y cs_z3autoconfig.",
+        "RTG0 deja las cuatro ranuras sin VRAM y el ciclo publico sigue rechazando RTG antes de adquirir sesion o firmware."
+      ],
+      "stop": "No aceptar aun rtg_memory por la API ni serializar P6RM; esta vertical solo cierra preferencias y su oraculo."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

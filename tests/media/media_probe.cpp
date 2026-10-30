@@ -18,6 +18,7 @@
 #include "events.h"
 #include "memory.h"
 #include "newcpu.h"
+#include "gfxboard.h"
 
 #include <cassert>
 #include <cstddef>
@@ -110,8 +111,8 @@ static void cd_controller_topologies()
            !memcmp(&before, &p6_session::session.config, sizeof before));
 }
 
-// RTG-A reserves one old zero byte without pretending the graphics board is already linked.
-// Every nonzero request fails transactionally before firmware or engine ownership begins.
+// The public lifecycle still rejects RTG before ownership until the state envelope contains VRAM and metadata.
+// Internally the same reserved value already has one exact A4030 preference topology for the linked board.
 static void rtg_contract()
 {
     static_assert(sizeof(p6_config) == 72 && offsetof(p6_config, rtg_memory) == 69);
@@ -133,6 +134,19 @@ static void rtg_contract()
     rejected(c, "requires A4030/Normal");
     c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
     rejected(c, "RTG runtime is not linked yet");
+
+    p6_bridge::build_preferences(c, false);
+    assert(currprefs.rtgboards[0].rtg_index == 0);
+    assert(currprefs.rtgboards[0].rtgmem_type == GFXBOARD_UAE_Z3);
+    assert(currprefs.rtgboards[0].rtgmem_size == 4u << 20);
+    for (unsigned i = 1; i < MAX_RTG_BOARDS; ++i) assert(!currprefs.rtgboards[i].rtgmem_size);
+    assert(currprefs.z3_mapping_mode == Z3MAPPING_REAL && currprefs.cs_z3autoconfig);
+    assert(p6_bridge::check_preset(&e) == P6_OK);
+
+    c.rtg_memory = 0;
+    p6_bridge::build_preferences(c, false);
+    for (unsigned i = 0; i < MAX_RTG_BOARDS; ++i) assert(!currprefs.rtgboards[i].rtgmem_size);
+    assert(p6_bridge::check_preset(&e) == P6_OK);
 }
 
 static std::vector<uint8_t> read_file(const char *path)
