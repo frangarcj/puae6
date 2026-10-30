@@ -26722,6 +26722,54 @@
       "stop": "No aceptar aun rtg_memory por la API ni serializar P6RM; esta vertical solo cierra preferencias y su oraculo."
     },
     {
+      "id": "T85o",
+      "title": "RTG-D2: VRAM y metadata semantica en P6RM",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85n"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0009-state-format.md",
+        "docs/adr/future-rtg.md",
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "upstream/winuae/devices.cpp",
+        "upstream/winuae/expansion.cpp",
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_memory.h",
+        "ports/portable/rtg_uaegfx.h"
+      ],
+      "touch": [
+        "bridge/state.cpp",
+        "bridge/state_probe.cpp",
+        "patches/winuae/0431-portable-rtg-rtarea.patch",
+        "patches/winuae/series.json",
+        "tests/state/test_rtg_state.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Completar el bootstrap descubierto por la prueba: RTG, como HDF, posee RTAREA/traps/filesys resident pero no habilita threads ni dispositivos hardfile.",
+        "Anexar a P6RM solo para RTG4 la VRAM completa, el snapshot del dispositivo, traps y residente, campo por campo y antes de la cadena Autoconfig extendida.",
+        "Validar el cuerpo completo antes de aplicar, restaurar banco/base y descartar el cache XRGB derivado sin cambiar un byte de los cuerpos RTG0.",
+        "Probar identidad, layout, rechazo transaccional, save-load-save y futuro identico en la maquina A4030 interna del probe."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "P6RM RTG4 contiene exactamente 4 MiB de VRAM y los tres codecs semanticos versionados, ademas de base/tamaño/mapa Autoconfig; RTG0 conserva su cuerpo previo.",
+        "Un estado corrupto se rechaza sin mutacion y uno valido reproduce bytes y futuro en el mismo proceso y en otro proceso."
+      ],
+      "stop": "No aceptar aun rtg_memory en p6_init ni entregar video RTG; la opcion publica espera la vertical de presentacion."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

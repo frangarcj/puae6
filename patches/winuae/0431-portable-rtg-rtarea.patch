@@ -1,0 +1,124 @@
+diff --git a/devices.cpp b/devices.cpp
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -207,6 +207,13 @@
+ #else
+ #define P6_WITH_HDF 0
+ #endif
++#ifdef P6_PORTABLE_RTG
++// uaegfx uses the fixed RTAREA resident even when no hard file is mounted.
++#define P6_WITH_RTG (currprefs.rtgboards[0].rtgmem_size > 0)
++#else
++#define P6_WITH_RTG 0
++#endif
++#define P6_WITH_RTAREA (P6_WITH_HDF || P6_WITH_RTG)
+ 
+ void devices_reset_ext(int hardreset)
+ {
+@@ -235,7 +242,7 @@ void devices_reset(int hardreset)
+ #ifdef AUTOCONFIG
+ 	rtarea_reset();
+ #elif defined(P6_FILESYS)
+-	if (P6_WITH_HDF)
++	if (P6_WITH_RTAREA)
+ 		rtarea_reset();
+ #endif
+ 	DISK_reset();
+@@ -250,7 +257,7 @@ void devices_reset(int hardreset)
+ #ifndef P6_PORTABLE
+ 	native2amiga_reset();
+ #elif defined(P6_FILESYS)
+-	if (P6_WITH_HDF)
++	if (P6_WITH_RTAREA)
+ 		native2amiga_reset();
+ #endif
+ #ifdef SCSIEMU
+@@ -265,11 +272,11 @@ void devices_reset(int hardreset)
+ 	ethernet_reset();
+ 	reset_traps();
+ #elif defined(P6_FILESYS)
+-	if (P6_WITH_HDF)
++	if (P6_WITH_RTAREA)
+ 		reset_traps();
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
+-	if (P6_WITH_HDF) {
++	if (P6_WITH_RTAREA) {
+ 		filesys_prepare_reset();
+ 		filesys_reset();
+ 	}
+@@ -395,13 +402,13 @@ void virtualdevice_free(void)
+ 	reset_traps();
+ 	free_traps();
+ #elif defined(P6_FILESYS)
+-	if (P6_WITH_HDF) {
++	if (P6_WITH_RTAREA) {
+ 		reset_traps();
+ 		free_traps();
+ 	}
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
+-	if (P6_WITH_HDF)
++	if (P6_WITH_RTAREA)
+ 		filesys_cleanup();
+ #endif
+ #ifdef BSDSOCKET
+@@ -441,7 +448,7 @@ void virtualdevice_free(void)
+ 	ethernet_enumerate_free();
+ 	rtarea_free();
+ #elif defined(P6_FILESYS)
+-	if (P6_WITH_HDF) {
++	if (P6_WITH_RTAREA) {
+ 		native2amiga_free();
+ 		rtarea_free();
+ 	}
+@@ -485,15 +492,16 @@ void virtualdevice_init (void)
+ #ifdef AUTOCONFIG
+ 	rtarea_setup ();
+ #elif defined(P6_FILESYS)
+-	// T29a: the trap area, uaehf.device and the UAEFS board exist only when the session mounts a hard file; without one the machine is what it was before
+-	if (P6_WITH_HDF) {
++	// HDF and the bounded uaegfx resident are the two portable owners of RTAREA.
++	if (P6_WITH_RTAREA) {
+ 		rtarea_setup ();
+ 		native2amiga_install ();
+ 	}
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
++	if (P6_WITH_RTAREA)
++		rtarea_init ();
+ 	if (P6_WITH_HDF) {
+-		rtarea_init ();
+ 		uaeres_install ();
+ 		hardfile_install ();
+ 	}
+@@ -515,11 +523,11 @@ void virtualdevice_init (void)
+ #elif defined(P6_PORTABLE)
+ 	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
+-	// T56: and the IDE port of Gayle
+-	if (currprefs.fastmem[0].size || P6_WITH_HDF || currprefs.cs_ide || currprefs.cs_cdtvcd || currprefs.cs_cd32fmv)
++	// T56: and the IDE port of Gayle; the bounded RTG board is another member of the same chain.
++	if (currprefs.fastmem[0].size || P6_WITH_HDF || P6_WITH_RTG || currprefs.cs_ide || currprefs.cs_cdtvcd || currprefs.cs_cd32fmv)
+ 		expansion_init ();
+ #endif
+ #if defined(FILESYS) || defined(P6_FILESYS)
+-	if (P6_WITH_HDF)
++	if (P6_WITH_RTAREA)
+ 		filesys_install ();
+ #endif
+ #if defined (BSDSOCKET)
+diff --git a/expansion.cpp b/expansion.cpp
+--- a/expansion.cpp
++++ b/expansion.cpp
+@@ -3865,7 +3865,11 @@
+ 	}
+ 
+ #if defined(FILESYS) || defined(P6_FILESYS)
++#if defined(P6_PORTABLE)
++	if (do_mount && p->mountitems && p->uaeboard >= 0 && p->uaeboard < 2) {
++#else
+ 	if (do_mount && p->uaeboard >= 0 && p->uaeboard < 2) {
++#endif
+ 		cards_set[cardno].flags = CARD_FLAG_UAEROM;
+ 		cards_set[cardno].name = _T("UAEFS");
+ 		cards_set[cardno].zorro = 2;

@@ -17,6 +17,8 @@
 #include "media/cd_read.h"
 #include "audio_cda_state.h"
 #include "fmv_state.h"
+#include "rtg_device.h"
+#include "rtg_memory.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +32,7 @@
 #include "memory.h"
 #include "machdep/maccess.h"
 #include "newcpu.h"
+#include "rtg_uaegfx.h"
 #include "sounddep/sound.h"
 
 extern void p6_mbres_get(uae_u8 *r);
@@ -136,7 +139,7 @@ void visit_bridge(Archive &a)
 // listed in p6_expansion_state_get and the 256 bytes of the card's nibbles). A machine without one keeps the body it always had, so no state of the
 // three presets changes by a byte. The size is the configured one, not the allocated one: the board is allocated by the reset head, and the bound
 // (made before the first unit) and the validation of a load into an image that has not started it have to know it already.
-constexpr unsigned kExpansionWords = 16;  // final three words exist only with Z3 (0350); legacy bodies keep their layout
+constexpr unsigned kExpansionWords = 19;  // Z3 RAM and bounded RTG append three words each; legacy bodies keep their layout
 
 }  // namespace
 
@@ -145,7 +148,8 @@ constexpr unsigned kExpansionWords = 16;  // final three words exist only with Z
 void visit_expansion(Archive &a, uint32_t fast)
 {
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
-    const unsigned words = z3 ? kExpansionWords : 13;
+    const bool rtg = session.config.rtg_memory == P6_RTG_MEMORY_4_MIB;
+    const unsigned words = 13 + (z3 ? 3 : 0) + (rtg ? 3 : 0);
     // The physical IDE port and the UAEFS pair are independent: an IDE CD may
     // coexist with HDFs left on the UAE controller.
     const uint32_t hard_files = p6_bridge::hard_file_count();
@@ -154,12 +158,16 @@ void visit_expansion(Archive &a, uint32_t fast)
                               p6_bridge::motherboard_ide(session.config);
     const bool uae_hdf = hard_files && !hdf_ide;
     const bool cdtv = session.config.machine == p6_bridge::kCdtvMachine;
-    const uint32_t cards = (cdtv ? 1u : 0u) + (fast ? 1u : 0u) + (z3 ? 1u : 0u) +
-                           (physical_ide ? 1u : 0u) + (uae_hdf ? 2u : 0u);
+    // RTG needs the non-autoconfig UAEBOOTROM to expose its RTAREA resident,
+    // but it must not grow a UAEFS card unless an HDF is actually mounted.
+    const uint32_t cards = (cdtv ? 1u : 0u) + (fast ? 1u : 0u) + (z3 ? 1u : 0u) + (rtg ? 1u : 0u) +
+                           (physical_ide ? 1u : 0u) + ((rtg || uae_hdf) ? 1u : 0u) + (uae_hdf ? 1u : 0u);
     uint32_t w[kExpansionWords] = {};
     uint8_t ac[256] = {};
     if (a.mode() == Mode::Save)
-        a.require(fastmem_bank[0].allocated_size == fast && z3fastmem_bank[0].allocated_size == z3 && p6_expansion_state_get(w, words, ac), "the Fast RAM board or its autoconfig chain is not in a state that can be saved");
+        a.require(fastmem_bank[0].allocated_size == fast && z3fastmem_bank[0].allocated_size == z3 &&
+                  (!rtg || (gfxmem_bank.allocated_size == P6_RTG_VRAM_BYTES && gfxmem_bank.baseaddr == p6_rtg_vram_data())) &&
+                  p6_expansion_state_get(w, words, ac), "the RAM/RTG boards or their autoconfig chain are not in a state that can be saved");
     const uint8_t ecard = get<uint8_t>(a, w[0], 0, cards, "ram.fast_ecard");
     get<uint8_t>(a, w[1], cards, cards, "ram.fast_cardno");
     const uint8_t chipdone = get<uint8_t>(a, w[2], 0, 1, "ram.fast_chipdone");
@@ -170,7 +178,7 @@ void visit_expansion(Archive &a, uint32_t fast)
     const uint8_t lo = get<uint8_t>(a, w[7], 0, 0xff, "ram.fast_lo");
     const uint32_t pointer = a.val<uint32_t>(w[8], 0, 0xffffffffu, "ram.fast_board_pointer");
     // Z3 allocates a physical window of at least16MiB, with a smaller populated subsize.
-    const uint32_t board_limit = z3 ? (z3 < 0x1000000u ? 0x1000000u : z3) : 0x800000u;
+    const uint32_t board_limit = z3 || rtg ? (z3 > P6_RTG_APERTURE_BYTES ? z3 : P6_RTG_APERTURE_BYTES) : 0x800000u;
     const uint32_t size = a.val<uint32_t>(w[9], 0, board_limit, "ram.fast_board_size");
     const uint32_t start = a.val<uint32_t>(w[10], 0, fast ? 0xffffffffu : 0u, "ram.fast_start");
     const uint8_t mapped = get<uint8_t>(a, w[12], 0, fast ? 1 : 0, "ram.fast_mapped");
@@ -183,6 +191,15 @@ void visit_expansion(Archive &a, uint32_t fast)
         w[15] = get<uint8_t>(a, w[15], 0, 1, "ram.z3_mapped");
         a.require(w[13] == 0xffffffff || !(w[13] & 0xffff), "Z3: unaligned base");
         a.require(!w[15] || (w[13] >= 0x10000000 && uint64_t(w[13]) + z3 <= 0xf0000000), "Z3: mapped base outside the bus");
+    }
+    if (rtg) {
+        const unsigned at = 13 + (z3 ? 3 : 0);
+        w[at] = a.val<uint32_t>(w[at], "ram.rtg_start");
+        w[at + 1] = a.val<uint32_t>(w[at + 1], P6_RTG_VRAM_BYTES, P6_RTG_VRAM_BYTES, "ram.rtg_allocated");
+        w[at + 2] = get<uint8_t>(a, w[at + 2], 0, 1, "ram.rtg_mapped");
+        const bool assigned = w[at] >= 0x10000000u && uint64_t(w[at]) + P6_RTG_APERTURE_BYTES <= 0xf0000000u &&
+                              !(w[at] & (P6_RTG_APERTURE_BYTES - 1));
+        a.require((w[at] == 0 || assigned) && bool(w[at + 2]) == assigned, "RTG: base and mapped state disagree");
     }
     if (a.mode() == Mode::Measure) return;
     if (cdtv) {
@@ -255,6 +272,55 @@ void visit_ar(Archive &a)
     if (a.applying() && a.ok()) p6_ar_set(&h);
 }
 
+void visit_rtg(Archive &a)
+{
+    a.val<uint32_t>(P6_RTG_VRAM_BYTES, P6_RTG_VRAM_BYTES, P6_RTG_VRAM_BYTES, "ram.rtg_size");
+    uint8_t *const vram = p6_rtg_vram_data();
+    if (a.mode() == Mode::Save || a.applying())
+        a.require(p6_rtg_vram_size() == P6_RTG_VRAM_BYTES && gfxmem_bank.allocated_size == P6_RTG_VRAM_BYTES &&
+                  gfxmem_bank.baseaddr == vram, "the RTG VRAM bank is not allocated");
+    a.bytes(vram, P6_RTG_VRAM_BYTES, "ram.rtg_vram");
+
+    p6_rtg_snapshot device{};
+    if (a.mode() == Mode::Save) a.require(p6_rtg_snapshot_get(&device) == P6_RTG_OK, "the RTG device cannot be saved");
+    device.version = a.val<uint32_t>(device.version, P6_RTG_SNAPSHOT_VERSION, P6_RTG_SNAPSHOT_VERSION, "ram.rtg_device_version");
+    device.view.mode.width = a.val<uint32_t>(device.view.mode.width, "ram.rtg_mode_width");
+    device.view.mode.height = a.val<uint32_t>(device.view.mode.height, "ram.rtg_mode_height");
+    device.view.mode.format = a.val<uint32_t>(device.view.mode.format, "ram.rtg_mode_format");
+    device.view.mode.bytes_per_pixel = a.val<uint32_t>(device.view.mode.bytes_per_pixel, "ram.rtg_mode_bpp");
+    device.view.surface.offset = a.val<uint32_t>(device.view.surface.offset, "ram.rtg_surface_offset");
+    device.view.surface.stride_bytes = a.val<uint32_t>(device.view.surface.stride_bytes, "ram.rtg_surface_stride");
+    device.view.surface.width = a.val<uint32_t>(device.view.surface.width, "ram.rtg_surface_width");
+    device.view.surface.height = a.val<uint32_t>(device.view.surface.height, "ram.rtg_surface_height");
+    device.view.surface.format = a.val<uint32_t>(device.view.surface.format, "ram.rtg_surface_format");
+    device.view.x_offset = a.val<uint32_t>(device.view.x_offset, "ram.rtg_x_offset");
+    device.view.y_offset = a.val<uint32_t>(device.view.y_offset, "ram.rtg_y_offset");
+    device.view.display_enabled = a.val<uint32_t>(device.view.display_enabled, "ram.rtg_display_enabled");
+    device.view.active = a.val<uint32_t>(device.view.active, "ram.rtg_active");
+    for (uint32_t &color : device.palette) color = a.val<uint32_t>(color, "ram.rtg_palette");
+    device.frame_counter = a.val<uint64_t>(device.frame_counter, "ram.rtg_frame_counter");
+    if (a.reading()) a.require(p6_rtg_snapshot_validate(&device) == P6_RTG_OK, "the RTG device state is invalid");
+    if (a.applying() && a.ok()) a.require(p6_rtg_snapshot_apply(&device) == P6_RTG_OK, "the RTG device state could not be applied");
+
+    p6_uaegfx_snapshot traps{};
+    if (a.mode() == Mode::Save) a.require(p6_uaegfx_snapshot_get(&traps) == P6_RTG_OK, "the uaegfx trap state cannot be saved");
+    traps.version = a.val<uint32_t>(traps.version, P6_UAEGFX_SNAPSHOT_VERSION, P6_UAEGFX_SNAPSHOT_VERSION, "ram.uaegfx_version");
+    traps.width = a.val<uint32_t>(traps.width, "ram.uaegfx_width");
+    traps.height = a.val<uint32_t>(traps.height, "ram.uaegfx_height");
+    traps.depth = a.val<uint32_t>(traps.depth, "ram.uaegfx_depth");
+    traps.card_found = a.val<uint32_t>(traps.card_found, "ram.uaegfx_card_found");
+    traps.selected = a.val<uint32_t>(traps.selected, "ram.uaegfx_selected");
+    if (a.reading()) a.require(p6_uaegfx_snapshot_validate(&traps) == P6_RTG_OK, "the uaegfx trap state is invalid");
+    if (a.applying() && a.ok()) a.require(p6_uaegfx_snapshot_apply(&traps) == P6_RTG_OK, "the uaegfx trap state could not be applied");
+
+    p6_uaegfx_resident_snapshot resident{};
+    if (a.mode() == Mode::Save) a.require(p6_uaegfx_resident_snapshot_get(&resident) == P6_RTG_OK, "the uaegfx resident state cannot be saved");
+    resident.version = a.val<uint32_t>(resident.version, P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, "ram.uaegfx_resident_version");
+    resident.library_base = a.val<uint32_t>(resident.library_base, "ram.uaegfx_library_base");
+    if (a.reading()) a.require(p6_uaegfx_resident_snapshot_validate(&resident) == P6_RTG_OK, "the uaegfx resident state is invalid");
+    if (a.applying() && a.ok()) a.require(p6_uaegfx_resident_snapshot_apply(&resident) == P6_RTG_OK, "the uaegfx resident state could not be applied");
+}
+
 void visit_ram(Archive &a)
 {
     const uint32_t chip = chipmem_bank.allocated_size, slow = bogomem_bank.allocated_size;
@@ -275,7 +341,8 @@ void visit_ram(Archive &a)
     visit_hrtmon(a);
     visit_ar(a);
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
-    if (!fast && !z3 && session.config.machine != p6_bridge::kCdtvMachine) return;
+    const bool rtg = session.config.rtg_memory == P6_RTG_MEMORY_4_MIB;
+    if (!fast && !z3 && !rtg && session.config.machine != p6_bridge::kCdtvMachine) return;
     if (fast) {
         a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
         if (a.mode() == Mode::Save || a.applying())
@@ -288,6 +355,7 @@ void visit_ram(Archive &a)
             a.require(z3fastmem_bank[0].allocated_size == z3 && z3fastmem_bank[0].baseaddr, "the Z3 board is not allocated");
         a.bytes(z3fastmem_bank[0].baseaddr, z3, "ram.z3");
     }
+    if (rtg) visit_rtg(a);
     visit_expansion(a, fast);
 }
 
@@ -476,6 +544,11 @@ Identity current_identity()
         const uint8_t *parts[2] = {identity.config_hash, &c.z3_memory};
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/z3/v1", parts, lengths, 2, identity.config_hash);
+    }
+    if (c.rtg_memory) {
+        const uint8_t *parts[2] = {identity.config_hash, &c.rtg_memory};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/rtg/v1", parts, lengths, 2, identity.config_hash);
     }
     memcpy(identity.firmware_sha256, session.firmware_sha256, 32);
     return identity;

@@ -83,6 +83,9 @@
 #include "input.h"
 #include "keybuf.h"
 #include "savestate.h"
+#include "rtg_device.h"
+#include "rtg_memory.h"
+#include "rtg_uaegfx.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -94,6 +97,7 @@
 
 extern void p6_mbres_get(uae_u8 *r);
 extern bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig);    // expansion.cpp, patch 0111
+extern bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig);
 extern bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first);     // custom.cpp, patch 0103
 
 extern uae_u32 p6_rng_get(void);                                       // main.cpp, patch 0076: the live generator
@@ -232,11 +236,29 @@ void ram(Canon &c)
     c.put(uint32_t(bogomem_bank.allocated_size));
     if (bogomem_bank.baseaddr) c.raw(bogomem_bank.baseaddr, bogomem_bank.allocated_size);
     // T49: a Zorro II Fast RAM board adds itself and the autoconfig chain it is on (nothing for the machines without one, whose digest is what it was).
-    if (fastmem_bank[0].allocated_size || z3fastmem_bank[0].allocated_size) {
+    const bool rtg = p6_session::session.config.rtg_memory == P6_RTG_MEMORY_4_MIB;
+    if (fastmem_bank[0].allocated_size || z3fastmem_bank[0].allocated_size || rtg) {
         c.put(uint32_t(fastmem_bank[0].allocated_size)).raw(fastmem_bank[0].baseaddr, fastmem_bank[0].allocated_size);
-        const unsigned words = z3fastmem_bank[0].allocated_size ? 16 : 13;
+        const unsigned words = 13 + (z3fastmem_bank[0].allocated_size ? 3 : 0) + (rtg ? 3 : 0);
         if (z3fastmem_bank[0].allocated_size) c.put(uint32_t(z3fastmem_bank[0].allocated_size)).raw(z3fastmem_bank[0].baseaddr, z3fastmem_bank[0].allocated_size);
-        uint32_t w[16] = {};
+        if (rtg) {
+            uint8_t *buffer = p6_rtg_vram_data();
+            c.put(uint32_t(p6_rtg_vram_size())).raw(buffer, p6_rtg_vram_size());
+            p6_rtg_snapshot device{};
+            c.put(uint8_t(p6_rtg_snapshot_get(&device) == P6_RTG_OK));
+            c.put(device.version).put(device.view.mode.width).put(device.view.mode.height).put(device.view.mode.format).put(device.view.mode.bytes_per_pixel);
+            c.put(device.view.surface.offset).put(device.view.surface.stride_bytes).put(device.view.surface.width).put(device.view.surface.height).put(device.view.surface.format);
+            c.put(device.view.x_offset).put(device.view.y_offset).put(device.view.display_enabled).put(device.view.active);
+            for (uint32_t color : device.palette) c.put(color);
+            c.put(device.frame_counter);
+            p6_uaegfx_snapshot traps{};
+            c.put(uint8_t(p6_uaegfx_snapshot_get(&traps) == P6_RTG_OK));
+            c.put(traps.version).put(traps.width).put(traps.height).put(traps.depth).put(traps.card_found).put(traps.selected);
+            p6_uaegfx_resident_snapshot resident{};
+            c.put(uint8_t(p6_uaegfx_resident_snapshot_get(&resident) == P6_RTG_OK));
+            c.put(resident.version).put(resident.library_base);
+        }
+        uint32_t w[19] = {};
         uint8_t ac[256] = {};
         const bool got = p6_expansion_state_get(w, words, ac);
         c.put(uint8_t(got));
@@ -860,7 +882,26 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             mutate_chunk(op, unit, options);
         } else if (op.kind == OpKind::Poke) {
             // Puts the live CPU in a state that is not a unit boundary, to see that a save refuses it. Test only.
-            if (!strcmp(op.chunk, "exception")) regs.exception = 3;
+            if (!strcmp(op.chunk, "rtg-seed")) {
+                const unsigned words = 13 + (p6_bridge::z3_bytes(p6_session::session.config) ? 3 : 0) + 3;
+                uint32_t w[19] = {};
+                uint8_t ac[256] = {};
+                const unsigned at = 13 + (p6_bridge::z3_bytes(p6_session::session.config) ? 3 : 0);
+                if (!p6_expansion_state_get(w, words, ac)) abort();
+                w[0] = w[1]; w[2] = 1; w[3] = w[4] = w[5] = 0;
+                w[at] = 0x10000000u; w[at + 1] = P6_RTG_VRAM_BYTES; w[at + 2] = 1;
+                if (!p6_expansion_state_set(w, words, ac)) abort();
+                const uint32_t color = 0x00123456;
+                p6_rtg_surface surface{128, 800, 800, 600, P6_RTG_RGBFB_CLUT};
+                if (p6_rtg_set_mode(640, 480, P6_RTG_RGBFB_CLUT) != P6_RTG_OK ||
+                    p6_rtg_set_palette(7, 1, &color) != P6_RTG_OK ||
+                    p6_rtg_fill(&surface, 10, 20, 640, 480, 7) != P6_RTG_OK ||
+                    p6_rtg_set_panning(&surface, 10, 20) != P6_RTG_OK || p6_rtg_present() != P6_RTG_OK) abort();
+                const p6_uaegfx_snapshot traps{P6_UAEGFX_SNAPSHOT_VERSION, 640, 480, 8, 1, 1};
+                const p6_uaegfx_resident_snapshot resident{P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, 0x1000};
+                if (p6_uaegfx_snapshot_apply(&traps) != P6_RTG_OK || p6_uaegfx_resident_snapshot_apply(&resident) != P6_RTG_OK) abort();
+            }
+            else if (!strcmp(op.chunk, "exception")) regs.exception = 3;
             else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
             else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
             else if (!strncmp(op.chunk, "ev2:", 4)) {
@@ -1103,6 +1144,7 @@ int main(int argc, char **argv)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
     uint8_t z3_memory = 0;
+    bool rtg_internal = false;
     uint64_t seed = 1;
     bool floppy_writes = false;
     bool ide_cd_fixture = false, ide_cd_inserted = true, ide_cd_swap_catalog = false;
@@ -1151,6 +1193,7 @@ int main(int argc, char **argv)
                 z3_memory = uint8_t(choice);
             }
         }
+        else if (!strcmp(argv[i], "--rtg-internal")) rtg_internal = true;
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { const uint32_t model = uint32_t(strtoul(argv[++i], nullptr, 10)); cpu_model = model >= 68000 ? 1 + (model - 68000) / 10 : model; }
         else if (!strcmp(argv[i], "--cpu-compatibility") && i + 1 < argc) {
@@ -1327,6 +1370,8 @@ int main(int argc, char **argv)
     p6_error error{P6_ABI_VERSION, sizeof error, {}};
     p6_result result = p6_init(&config, &error);
     if (result != P6_OK) { if (ide_cd_fixture) p6_cd::device_unbind(); return fail("p6_init", result, error); }
+    // Test-only path for the state vertical while the public validator remains closed until RTG presentation exists.
+    if (rtg_internal) p6_session::session.config.rtg_memory = P6_RTG_MEMORY_4_MIB;
     for (uint64_t pass = 1; pass <= loads; ++pass) {
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
