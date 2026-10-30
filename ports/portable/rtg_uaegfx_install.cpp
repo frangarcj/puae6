@@ -312,6 +312,33 @@ uaecptr p6_uaegfx_alloc(TrapContext *ctx)
 
 uaecptr p6_uaegfx_library_base(void) { return library_base; }
 
+int p6_uaegfx_resident_snapshot_get(p6_uaegfx_resident_snapshot *out)
+{
+	if (!out) return P6_RTG_BAD_ARGUMENT;
+	*out = {P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, library_base};
+	return P6_RTG_OK;
+}
+
+int p6_uaegfx_resident_snapshot_validate(const p6_uaegfx_resident_snapshot *snapshot)
+{
+	if (!snapshot) return P6_RTG_BAD_ARGUMENT;
+	if (snapshot->version != P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION)
+		return P6_RTG_UNSUPPORTED;
+	if (snapshot->library_base && (snapshot->library_base < 0x100
+		|| (snapshot->library_base & 3)
+		|| snapshot->library_base > UINT32_MAX - LIBRARY_BYTES))
+		return P6_RTG_BAD_STATE;
+	return P6_RTG_OK;
+}
+
+int p6_uaegfx_resident_snapshot_apply(const p6_uaegfx_resident_snapshot *snapshot)
+{
+	const int valid = p6_uaegfx_resident_snapshot_validate(snapshot);
+	if (valid != P6_RTG_OK) return valid;
+	library_base = snapshot->library_base;
+	return P6_RTG_OK;
+}
+
 uae_u32 REGPARAM2 p6_uaegfx_init_card(TrapContext *ctx)
 {
 	if (!ctx || !code.ready || !library_base) return 0;

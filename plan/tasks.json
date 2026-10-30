@@ -26599,6 +26599,46 @@
       "stop": "No guardar aun library_base ni conectar P6RM; el residente Exec y Autoconfig se cierran despues."
     },
     {
+      "id": "T85l",
+      "title": "RTG-C3: estado de la libreria residente uaegfx",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85k"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "tests/host/test_rtg_uaegfx_install.py"
+      ],
+      "touch": [
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Versionar la unica direccion guest causal del residente, library_base, sin guardar tablas/callbacks RTAREA derivados.",
+        "Validar cero o un rango guest alineado y sin overflow antes de aplicar; el rebind conserva el codigo fijo instalado por reset.",
+        "Probar restore sin repetir MakeLibrary/AddLibrary y rechazo transaccional de direcciones corruptas bajo ASan/UBSan."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Tras reset y apply, Open/Alloc usan la misma library_base guest sin otra asignacion ni otra AddLibrary.",
+        "Version, alineacion, limite inferior y overflow invalidos no cambian library_base, RAM guest ni contadores; RTAREA/traps se reconstruyen y no viajan."
+      ],
+      "stop": "No conectar aun el codec a P6RM ni ampliar Autoconfig; esa union requiere una ficha propia."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

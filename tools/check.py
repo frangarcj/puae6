@@ -1444,6 +1444,9 @@ for _gate in ('STATE01', 'DET02', 'SAFE01'):
 for _gate in ('STATE01', 'DET02', 'SAFE01'):
     TASK_SUITES[(_gate, 'T85k')] = {
         'rtg_semantic_uaegfx_state': 'tests.host.test_rtg_uaegfx'}
+for _gate in ('STATE01', 'DET02', 'SAFE01'):
+    TASK_SUITES[(_gate, 'T85l')] = {
+        'rtg_uaegfx_resident_state': 'tests.host.test_rtg_uaegfx_install'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

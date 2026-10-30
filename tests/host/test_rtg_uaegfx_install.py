@@ -187,10 +187,26 @@ uint64_t guest_digest(const TrapContext &ctx)
 	for (uint8_t value : ctx.memory) { hash ^= value; hash *= UINT64_C(1099511628211); }
 	return hash;
 }
+
+void expect_resident_refused(const p6_uaegfx_resident_snapshot &bad, int result,
+	const TrapContext &ctx)
+{
+	p6_uaegfx_resident_snapshot before{}, after{};
+	assert(p6_uaegfx_resident_snapshot_get(&before) == P6_RTG_OK);
+	const uint64_t memory = guest_digest(ctx);
+	const int libraries = add_library_calls;
+	assert(p6_uaegfx_resident_snapshot_validate(&bad) == result);
+	assert(p6_uaegfx_resident_snapshot_apply(&bad) == result);
+	assert(p6_uaegfx_resident_snapshot_get(&after) == P6_RTG_OK);
+	assert(std::memcmp(&before, &after, sizeof before) == 0);
+	assert(guest_digest(ctx) == memory && add_library_calls == libraries);
+}
 }
 
 int main()
 {
+	static_assert(P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION == 1);
+	static_assert(sizeof(p6_uaegfx_resident_snapshot) == 8);
 	static_assert(PSSO_BoardInfo_ResolutionsList == 158);
 	static_assert(PSSO_BoardInfo_BoardType == 170 && PSSO_BoardInfo_BitsPerCannon == 184);
 	static_assert(PSSO_BoardInfo_Flags == 186 && PSSO_BoardInfo_RGBFormats == 200);
@@ -279,8 +295,37 @@ int main()
 	const uint64_t before = guest_digest(ctx);
 	ctx.a[0] = sizeof ctx.memory - 100;
 	assert(p6_uaegfx_init_card(&ctx) == 0 && guest_digest(ctx) == before);
+
+	p6_uaegfx_resident_snapshot resident{};
+	assert(p6_uaegfx_resident_snapshot_get(&resident) == P6_RTG_OK);
+	assert(resident.library_base == LIBBASE);
 	reset_callback(1);
 	assert(p6_uaegfx_library_base() == 0 && !p6_uaegfx_selected());
+	assert(p6_uaegfx_resident_snapshot_apply(&resident) == P6_RTG_OK);
+	assert(p6_uaegfx_library_base() == LIBBASE);
+	ctx.a[2] = 0x89abcdef;
+	assert(p6_uaegfx_alloc(&ctx) == LIBBASE && add_library_calls == 1);
+	assert(ctx.a[2] == 0x89abcdef); /* no second MakeLibrary/AddLibrary */
+	const uae_u16 opens = trap_get_word(&ctx, LIBBASE + 32);
+	assert(handlers[1](&ctx) == LIBBASE);
+	assert(trap_get_word(&ctx, LIBBASE + 32) == uae_u16(opens + 1));
+
+	p6_uaegfx_resident_snapshot bad = resident;
+	bad.version = 2;
+	expect_resident_refused(bad, P6_RTG_UNSUPPORTED, ctx);
+	bad = resident; bad.library_base = 0x101;
+	expect_resident_refused(bad, P6_RTG_BAD_STATE, ctx);
+	bad = resident; bad.library_base = 0xfc;
+	expect_resident_refused(bad, P6_RTG_BAD_STATE, ctx);
+	bad = resident; bad.library_base = 0xfffffffcu;
+	expect_resident_refused(bad, P6_RTG_BAD_STATE, ctx);
+	p6_uaegfx_resident_snapshot absent{P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, 0};
+	assert(p6_uaegfx_resident_snapshot_apply(&absent) == P6_RTG_OK);
+	assert(p6_uaegfx_library_base() == 0);
+	assert(p6_uaegfx_resident_snapshot_apply(&resident) == P6_RTG_OK);
+	assert(p6_uaegfx_resident_snapshot_get(nullptr) == P6_RTG_BAD_ARGUMENT);
+	assert(p6_uaegfx_resident_snapshot_validate(nullptr) == P6_RTG_BAD_ARGUMENT);
+	assert(p6_uaegfx_resident_snapshot_apply(nullptr) == P6_RTG_BAD_ARGUMENT);
 	return 0;
 }
 """

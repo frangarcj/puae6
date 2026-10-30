@@ -4,7 +4,10 @@
 
 #include "traps.h"
 
-enum { P6_UAEGFX_SNAPSHOT_VERSION = 1 };
+enum {
+	P6_UAEGFX_SNAPSHOT_VERSION = 1,
+	P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION = 1
+};
 
 typedef struct p6_uaegfx_snapshot {
 	uae_u32 version;
@@ -15,11 +18,19 @@ typedef struct p6_uaegfx_snapshot {
 	uae_u32 selected;
 } p6_uaegfx_snapshot;
 
+typedef struct p6_uaegfx_resident_snapshot {
+	uae_u32 version;
+	uaecptr library_base;
+} p6_uaegfx_resident_snapshot;
+
 void p6_uaegfx_reset(void);
 int p6_uaegfx_selected(void);
 int p6_uaegfx_snapshot_get(p6_uaegfx_snapshot *out);
 int p6_uaegfx_snapshot_validate(const p6_uaegfx_snapshot *snapshot);
 int p6_uaegfx_snapshot_apply(const p6_uaegfx_snapshot *snapshot);
+int p6_uaegfx_resident_snapshot_get(p6_uaegfx_resident_snapshot *out);
+int p6_uaegfx_resident_snapshot_validate(const p6_uaegfx_resident_snapshot *snapshot);
+int p6_uaegfx_resident_snapshot_apply(const p6_uaegfx_resident_snapshot *snapshot);
 int p6_uaegfx_install_code(uaecptr start);
 uaecptr p6_uaegfx_alloc(TrapContext *ctx);
 uaecptr p6_uaegfx_library_base(void);
