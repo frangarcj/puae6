@@ -27180,7 +27180,7 @@
       "title": "Corregir continuidad FMV e indicador CD de PUAE6 en MacHawk",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "depends": [
         "T89"
       ],
@@ -27227,7 +27227,8 @@
         "Medir con la secuencia FMV autorizada la continuidad de muestras y el coste por unidad, separando un hueco causal del PCM de un underrun de tiempo real del frontend.",
         "Corregir la vertical minima demostrada sin introducir reloj host, hilos ni un segundo mezclador, y conservar una regresion sintetica exacta para el contrato PCM.",
         "Hacer que P6_FRAME_DRIVE_LIGHT represente actividad de cualquier unidad emulada y que MacHawk publique el indicador para CD32/CDTV con medio optico, sin serializar estado de presentacion nuevo.",
-        "Reconstruir el guest y ejecutar las puertas dirigidas nativa, Waterbox y del wrapper sobre la rama aislada; no publicar ni fusionar sin una peticion posterior."
+        "Reconstruir el guest y ejecutar las puertas dirigidas nativa, Waterbox y del wrapper sobre la rama aislada; no publicar ni fusionar sin una peticion posterior.",
+        "Cierre 2026-10-30: el MP2 real pasa de una racha maxima de 317 muestras estereo nulas a 8 en la salida libretro, sin underrun, y el vector sintetico exacto queda en 1 tanto en O0, O2 como x86_64. Pasan las pruebas FMV/FFI/host, Cannon Fodder real, Waterbox ARM64 y el smoke instalado; EmuHawk Release compila con el guest x64 b349a885684b y el paquete ARM64 425faebc/guest 4a02d827a5f2. La rama MacHawk local 937b9560e no se ha publicado ni fusionado."
       ],
       "checks": [
         "AV02",
