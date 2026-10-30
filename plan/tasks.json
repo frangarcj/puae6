@@ -27394,8 +27394,8 @@
       "title": "Añadir MT-32 y SoundFont deterministas al DOSBox de MacHawk",
       "milestone": "M4",
       "required": false,
-      "status": "blocked",
-      "blocked_reason": "Reproducer conservado en DOSBoxMidiTests.SoundFontAudioRoundTripsThroughWaterboxState sobre Darwin ARM64: el guest AArch64 alineado a 16 KiB carga, entra en _start y cae siempre con Stack overflow del testhost en el primer co_switch de Init. Se probaron dos layouts razonados, primero preservando x18/x28 y despues dejandolos reservados por Waterbox, con el mismo resultado. H1: el cambio de contexto AArch64 aun viola una invariante ABI Waterbox (SP/FP/LR o registros reservados); verificarlo con un guest minimo de dos coroutines y canarios antes de DOSBox. H2: la pila mmap de 4 MiB y su guardia no tienen el contrato esperado bajo emulibc/16 KiB; instrumentar limites y probar una coroutine minima con y sin guardia antes de ampliar la pila. Firmware/configuracion compilan y el test captura PCM/save-load, pero AV02/DET02/BUILD01 y la aceptacion runtime no pasan; no publicar el dosbox.wbx generado.",
+      "status": "done",
+      "blocked_reason": "",
       "depends": [
         "T92"
       ],
