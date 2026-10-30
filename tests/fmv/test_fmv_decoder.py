@@ -42,6 +42,15 @@ class FmvDecoderTests(unittest.TestCase):
             self.assertEqual(item["sha256"], hashlib.sha256(encoded).hexdigest())
         self.assertEqual(hashlib.sha256(bytes(1152 * 2 * 2)).hexdigest(),
                          spec["audio"]["silence"]["pcm_s16le_sha256"])
+        quiet = spec["audio"]["quiet_multitone"]
+        encoded = self.decode(quiet["file"])
+        self.assertEqual(quiet["encoded_bytes"], len(encoded))
+        self.assertEqual(quiet["sha256"], hashlib.sha256(encoded).hexdigest())
+        self.assertEqual(quiet["frames"] * spec["audio"]["samples_per_channel"],
+                         quiet["samples_per_channel"])
+        self.assertEqual(1, quiet["body_max_stereo_zero_run"])
+        self.assertIn("incommensurate tones", quiet["source"])
+        self.assertRegex(quiet["ffmpeg_pcm_s16le_sha256"], r"^[0-9a-f]{64}$")
 
     def test_scalar_decoder_patches_are_hash_closed_and_materialized(self):
         result = subprocess.run(
@@ -83,6 +92,12 @@ class FmvDecoderTests(unittest.TestCase):
         for key in ("tone", "silence"):
             lines.append(f"audio {key} consumed={audio['encoded_bytes']} rate={audio['rate']} "
                          f"samples={audio['samples_per_channel']} hash={audio[key]['pcm_s16le_sha256']}")
+        quiet = audio["quiet_multitone"]
+        lines.append(f"audio quiet-multitone consumed={quiet['encoded_bytes']} "
+                     f"frames={quiet['frames']} rate={audio['rate']} "
+                     f"samples={quiet['samples_per_channel']} "
+                     f"body-max-stereo-zero-run={quiet['body_max_stereo_zero_run']} "
+                     f"hash={quiet['pcm_s16le_sha256']}")
         return "\n".join(lines) + "\n"
 
     def build_x86_64_probe(self, directory):
@@ -137,7 +152,8 @@ class FmvDecoderTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory(prefix="p6-fmv-vectors-") as directory:
             paths = []
-            for section, key in (("video", None), ("audio", "tone"), ("audio", "silence")):
+            for section, key in (("video", None), ("audio", "tone"), ("audio", "silence"),
+                                 ("audio", "quiet_multitone")):
                 item = self.manifest[section] if key is None else self.manifest[section][key]
                 path = Path(directory) / Path(item["file"]).stem
                 path.write_bytes(self.decode(item["file"]))

@@ -40,6 +40,20 @@ class FmvAudioTests(unittest.TestCase):
                          study["pcm_runtime"]["ownership"])
         self.assertEqual("P6FM_value_codec_T43d2", study["pcm_runtime"]["state_codec"])
 
+    def test_layer2_synthesis_preserves_quiet_samples_without_a_new_clock(self):
+        series = json.loads((ROOT / "patches/winuae/series.json").read_text())["patches"]
+        entry = next(item for item in series if item["id"] == "0432-cd32-fmv-mp2-precision")
+        patch_path = ROOT / entry["file"]
+        patch = patch_path.read_bytes()
+        self.assertEqual(entry["sha256"], hashlib.sha256(patch).hexdigest())
+        source = patch.decode()
+        self.assertIn("(sum + 32) >> 6", source)
+        self.assertIn("static_cast<long long>(U[i]) * D[i]", source)
+        self.assertIn("(windowed + 8192) >> 14", source)
+        self.assertNotRegex(source, r"PCM_SECTORS|cd32_fmv_audio_handler|sleep|clock_gettime|std::thread|pthread")
+        state = (ROOT / "ports/portable/fmv_state.h").read_text()
+        self.assertRegex(state, r"P6_FMV_CDA_SAMPLES\s*=\s*4\s*\*\s*1152\s*\*\s*2")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -109,8 +109,8 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-1fa55c99)
-es la descarga para los probadores. El [PR #15](https://github.com/frangarcj/BizHawk/pull/15)
+La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-af53e1dd)
+es la descarga para los probadores. El [PR #16](https://github.com/frangarcj/BizHawk/pull/16)
 esta fusionado en `main`. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
@@ -135,12 +135,18 @@ Estados, BK2 y TAS vuelven a abrir la misma topologia; si cambia el CD, ADF,
 HDF o volumen se rechaza la carga sin tocar la sesion. UAE sigue siendo el core
 predeterminado y sus estados y peliculas no se convierten a PUAE6.
 
+El ajuste de reinicio `RTG memory` ofrece `None` y `MB4`. Los 4 MiB habilitan
+una sola tarjeta UAE Zorro III, exclusivamente con maquina A4000/030 y exactitud
+de CPU `Normal`; la salida conserva un lienzo fijo 1024x768 al cambiar entre
+chipset y RTG. Otra capacidad, maquina o exactitud se rechaza antes de arrancar.
+`None` mantiene el raster normal del chipset.
+
 Para CD32 FMV, seleccionar maquina `CD32` y cartucho `Fmv`, y aportar en el
 gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
 formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
 juegos. El ZIP Windows tiene SHA-256
-`e0956b87bd6b03aebfb78c9073b63d9f3be930eb7abfc51061b44655f955be5a`.
+`279954c8ec9425dcc57d0ab3e9ca8339d5513bb73ab4f64ab303df2da9550be7`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
@@ -150,25 +156,27 @@ Los otros guests proceden de la release fijada hatari-preview-56ea1841 y conserv
 su aviso CAPSImg y el EmuTOS libre.
 
 La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
-restauracion exacta del estado completo en otro sandbox, comparacion A/V y cuatro
-pruebas CHD nativas. La prueba GUI abre contenido propio, reconoce PUAE6 en la
-ventana visible y la cierra normalmente. Solo esa configuracion temporal usa el
+restauracion exacta del estado completo en otro sandbox, comparacion A/V, cuatro
+pruebas CHD nativas y una tercera sandbox A4000/030 que avanza con RTG4 y lienzo
+1024x768. La prueba GUI abre contenido propio, reconoce PUAE6 en la ventana
+visible y la cierra normalmente. Solo esa configuracion temporal usa el
 fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
 cambia la configuracion distribuida ni elimina la comparacion del PCM emulado.
 La ejecucion dirigida
-[40789768142](https://github.com/frangarcj/BizHawk/actions/runs/40789768142)
+[41025635355](https://github.com/frangarcj/BizHawk/actions/runs/41025635355)
 supera todas esas etapas y comprueba ademas el contrato visible 0..4 y los
-44100 Hz sobre el commit probado `fad11d6d`; la release apunta al merge
-`1fa55c99` con el mismo contenido. El guest x64 es
-`c77944dca179e44ee57143e1815b2271cf28024fc1946e94486250aeabc3f8bf`.
-El paquete Darwin ARM64 separado `48c1693c` fija el guest
-`56116efe8098f1d91a446760672636304a8e9d79e8b0362c8e39f441119d2859`
+44100 Hz sobre el commit probado `4efd64f4c`; la release apunta al merge
+`af53e1dd` con el mismo contenido. El guest x64 es
+`09cfba465e4bd2dc529d9a88c7600725225335ef0e765e6a5ebc969c5180f6cd`.
+El paquete Darwin ARM64 separado `6c2029da`, SHA-256
+`9dfed4467eb9e582aeace74d877e791f0bf7d54d03cf64550f9c342fc6e0f305`,
+fija el guest `8be397c0552214481b4671a02a39f9a37d6ed1d9365bec61b05a2d32e1488fa1`
 y supera su comprobacion instalada; sigue siendo un paquete FFI, no un frontend
 WinForms para macOS.
 
 Estados y peliculas dependen del build, configuracion y medios; no son
 intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
-el caso CU06 pendiente siguen como extras. JIT, MMU y RTG no estan habilitados
-en esta preview. CD32 FMV si esta habilitado; Cannon Fodder supera las puertas
-reales nativa, libretro y Waterbox, sin generalizar compatibilidad a todo el
-catalogo ni prometer estados entre builds.
+el caso CU06 pendiente siguen como extras. JIT y MMU no estan habilitados; RTG
+queda limitado al perfil A4000/030 de 4 MiB descrito arriba. CD32 FMV si esta
+habilitado; Cannon Fodder supera las puertas reales nativa, libretro y Waterbox,
+sin generalizar compatibilidad a todo el catalogo ni prometer estados entre builds.

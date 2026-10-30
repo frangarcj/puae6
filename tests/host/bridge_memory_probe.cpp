@@ -212,6 +212,13 @@ void the_drive_light_follows_the_led(const std::vector<uint8_t> &chipcell, const
         const p6_frame f = run_unit();
         assert(!(f.flags & P6_FRAME_DRIVE_LIGHT) && !(gui_ledstate & (0xFu << LED_DF0)));
     }
+
+    // The ABI flag represents any emulated drive. Optical activity uses the
+    // engine's own LED_CD bit and is cleared independently of the floppies.
+    gui_led(LED_CD, 1, -1);
+    assert(run_unit().flags & P6_FRAME_DRIVE_LIGHT);
+    gui_led(LED_CD, 0, -1);
+    assert(!(run_unit().flags & P6_FRAME_DRIVE_LIGHT));
     unload();
 
     // The floppy guest switches its motor on right away and leaves it on: the light comes on and stays on, and at every unit the

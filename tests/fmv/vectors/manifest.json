@@ -27,13 +27,27 @@
       "file": "mp2_stereo_tone.b64",
       "sha256": "d5023e50a33ccf69c95702feb8beea303304ee63be661736d7d53c0a83cd38f9",
       "source": "left=0.60*sin(2*pi*440*t), right=0.40*sin(2*pi*660*t)",
-      "pcm_s16le_sha256": "80a9adf00863fb402f84fb9c2d527c214e75c0b52e58519f0e2775970bb63345"
+      "pcm_s16le_sha256": "2e7bad22bda290f2a64a9bbad36b75ca907ce499026a427629c3eb93f84b61e9"
     },
     "silence": {
       "file": "mp2_stereo_silence.b64",
       "sha256": "e8539cebb348cc5c3f90247cf6302eb96b1deb4ee1d05e6ef061707e16207d14",
       "source": "1152 exact zero samples per stereo channel",
       "pcm_s16le_sha256": "606f558e014930f9c1669f03c71c28945c4631568e39cd308c6c7f4077c7bfb9"
+    },
+    "quiet_multitone": {
+      "file": "mp2_stereo_quiet_multitone.b64",
+      "encoded_bytes": 6269,
+      "frames": 10,
+      "samples_per_channel": 11520,
+      "sha256": "2712587bfa10780b82711bf2c9cd941634758fd87a7e0496894d6f3d6bdf28ec",
+      "source": "stereo sums of six incommensurate tones per channel at amplitude 0.00025",
+      "command": "ffmpeg -f lavfi -i aevalsrc=<documented-source-expression>:s=44100:d=0.24 -ac 2 -ar 44100 -c:a mp2 -b:a 192k -f mp2",
+      "pcm_s16le_sha256": "5511a393114b2f346e785c6ffc8bec5b634d37bb8837d423b4fc3935c6502a72",
+      "ffmpeg_pcm_s16le_sha256": "e2dcd179c3f545237abcc29db8278ad75c74e57916d9264e8cbb5b6ad00a9633",
+      "body_first_sample": 1000,
+      "body_last_sample": 10520,
+      "body_max_stereo_zero_run": 1
     }
   },
   "libmpeg2_requested_bytes_at_352x288_rgb32": {

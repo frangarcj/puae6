@@ -339,8 +339,8 @@ typedef struct p6_frame {
 /* Lag: no CPU input-register read this unit (JOY/POT, CIA-A PRA/SDR and, with the parallel adapter, CIA-A PRB/CIA-B PRA). */
 #define P6_FRAME_LAG         (UINT32_C(1) << 0)
 #define P6_FRAME_NO_VIDEO    (UINT32_C(1) << 1)
-/* Drive light: at the end of the unit a floppy drive's LED is lit (motor on or writing). An output derived from the
- * drive state, it never feeds back into the machine. */
+/* Drive light: at the end of the unit a floppy or optical drive's LED is lit. An output derived from the drive state,
+ * it never feeds back into the machine. */
 #define P6_FRAME_DRIVE_LIGHT (UINT32_C(1) << 2)
 #define P6_RENDER_VIDEO      (UINT32_C(1) << 0)
 #define P6_RENDER_AUDIO      (UINT32_C(1) << 1)

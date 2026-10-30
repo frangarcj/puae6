@@ -1042,10 +1042,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public DisplayType Region => _syncSettings.Region == Puae6Region.NTSC ? DisplayType.NTSC : DisplayType.PAL;
 
 	// IDriveLight
-	// P6_FRAME_DRIVE_LIGHT is the OR of the floppy LEDs. CD activity has no corresponding causal output yet.
-	public bool DriveLightEnabled => ConnectedFloppyDrives > 0;
+	// P6_FRAME_DRIVE_LIGHT is the OR of the emulated floppy and optical activity LEDs.
+	bool HasOpticalDrive => _parameters?.CdCount > 0;
+	public bool DriveLightEnabled => ConnectedFloppyDrives > 0 || HasOpticalDrive;
 	public bool DriveLightOn { get; private set; }
-	public string DriveLightIconDescription => "Floppy drive activity";
+	public string DriveLightIconDescription => HasOpticalDrive ? "CD drive activity" : "Floppy drive activity";
 
 	// Presentation stays at the user's current choice when a state loads.
 	public Puae6Settings GetSettings() => _settings.Clone();

@@ -264,7 +264,8 @@ internal static unsafe partial class Program
 		fields.Single(f => f.Name == "_syncSettings").SetValue(core, new Puae6SyncSettings { FloppyDrives = 0 });
 		Require(!core.DriveLightEnabled, "an Amiga without a floppy drive does not publish a drive light");
 		fields.Single(f => f.Name == "_syncSettings").SetValue(core, new Puae6SyncSettings { Machine = Puae6Machine.CD32, FloppyDrives = 4 });
-		Require(!core.DriveLightEnabled, "CD32 does not relabel the unavailable CD activity as a floppy light");
+		fields.Single(f => f.Name == "_parameters").SetValue(core, new Puae6Parameters { CdInfo = new P6CdInfo() });
+		Require(core.DriveLightEnabled && core.DriveLightIconDescription == "CD drive activity", "CD32 publishes the optical activity light when it has a CD drive");
 	}
 
 	/// <summary>Every instance field of the core and every field of its saved state, by reflection: tests/waterbox-state compares them with manifests/state-inventory.json.</summary>
@@ -286,7 +287,7 @@ internal static unsafe partial class Program
 			Console.WriteLine($"size {name} {sizeof(T)}");
 			foreach (string field in fields) Console.WriteLine($"field {name}.{field} {Marshal.OffsetOf<T>(field)}");
 		}
-		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "Reserved7", "Z3Memory", "CdController");
+		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "RtgMemory", "Z3Memory", "CdController");
 		Dump<P6PortInput>("P6PortInput", "Type", "Buttons", "Dx", "Dy", "Reserved");
 		Dump<P6Input>("P6Input", "AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved");
 		Dump<P6Rect>("P6Rect", "X", "Y", "Width", "Height");

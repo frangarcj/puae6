@@ -215,14 +215,59 @@ void audio_probe(const char *label, const char *path, bool expect_silence)
     assert(kjmp2_decode_frame(&context, invalid.data(), pcm.data()) == 0);
 }
 
+void quiet_audio_probe(const char *path)
+{
+    auto encoded = read_file(path);
+    const size_t encoded_size = encoded.size();
+    encoded.resize(encoded_size + KJMP2_MAX_FRAME_SIZE + 4, 0);
+    std::array<signed short, KJMP2_SAMPLES_PER_FRAME * 2> frame{};
+    std::vector<signed short> pcm;
+    kjmp2_context_t context{};
+    kjmp2_init(&context);
+    size_t offset = 0;
+    unsigned frames = 0;
+    while (offset + 4 < encoded_size) {
+        const unsigned long consumed = kjmp2_decode_frame(&context, encoded.data() + offset,
+                                                          frame.data());
+        assert(consumed > 4 && offset + consumed <= encoded_size);
+        pcm.insert(pcm.end(), frame.begin(), frame.end());
+        offset += consumed;
+        ++frames;
+    }
+    assert(offset == encoded_size && frames == 10);
+    assert(pcm.size() == 11520 * 2);
+
+    unsigned run = 0;
+    unsigned maximum_run = 0;
+    for (size_t sample = 1000; sample < 10520; ++sample) {
+        const bool zero = pcm[sample * 2] == 0 && pcm[sample * 2 + 1] == 0;
+        run = zero ? run + 1 : 0;
+        if (run > maximum_run) maximum_run = run;
+    }
+    assert(maximum_run == 1);
+
+    std::vector<uint8_t> canonical(pcm.size() * 2);
+    for (size_t i = 0; i < pcm.size(); ++i) {
+        const uint16_t sample = static_cast<uint16_t>(pcm[i]);
+        canonical[i * 2] = static_cast<uint8_t>(sample);
+        canonical[i * 2 + 1] = static_cast<uint8_t>(sample >> 8);
+    }
+    std::printf("audio quiet-multitone consumed=%zu frames=%u rate=%d samples=%zu "
+                "body-max-stereo-zero-run=%u hash=", offset, frames,
+                kjmp2_get_sample_rate(encoded.data()), pcm.size() / 2, maximum_run);
+    print_sha256(canonical.data(), canonical.size());
+    std::putchar('\n');
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
-    assert(argc == 4);
+    assert(argc == 5);
     malformed_probe(argv[1]);
     video_probe(argv[1]);
     audio_probe("tone", argv[2], false);
     audio_probe("silence", argv[3], true);
+    quiet_audio_probe(argv[4]);
     return 0;
 }

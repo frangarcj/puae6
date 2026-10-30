@@ -6225,6 +6225,7 @@
       ],
       "touch": [
         "bridge/frame_step.cpp",
+        "ports/portable/fmv_state.h",
         "patches/winuae/**",
         "tests/step/**",
         "docs/adr/0002-frame-boundary.md",
@@ -26991,6 +26992,254 @@
         "Picasso96 autorizado abre la biblioteca y selecciona uno de los nueve modos acotados en Waterbox real; RTG0 y el camino UAEFS no cambian."
       ],
       "stop": "No volver a inyectar DiagArea en VRAM ni depender de un HDF UAE; no cerrar T85r o la issue hasta superar ambas topologias reales."
+    },
+    {
+      "id": "T86",
+      "title": "Publicar preview MacHawk con paridad de medios y RTG",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T84",
+        "T85r",
+        "T85s"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/waterbox/puae6/README.md",
+        "build/machawk-puae6/waterbox/puae6/prepare.py",
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py"
+      ],
+      "touch": [
+        "build/machawk-puae6/**",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Partir de fork/main en el clon aislado build/machawk-puae6, sin modificar ni empaquetar el checkout sucio ../MacHawk.",
+        "Importar exactamente PUAE6 6c2029da con wrapper, ABI, fuentes, licencias y recetas; reconstruir los guests x64 y Darwin ARM64 y actualizar sus identidades sin incluir firmware, ROMs, juegos ni medios comerciales.",
+        "Ejecutar las comprobaciones dirigidas locales y el workflow puae6_only de Windows sobre la rama candidata; fusionar solo si compila EmuHawk Release y pasan ABI, reentrada, restore entre sandboxes, medios, RTG, audio y GUI.",
+        "Publicar una prerelease puae6-preview-<merge> con el ZIP exacto probado, SHA-256, limites y procedencia; actualizar la guia y cerrar la ficha tras validar el plan."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La preview Windows x64 publicada corresponde al merge MacHawk probado e incluye la paridad acumulada de medios y el Sync Setting RTG Memory None/4 MiB con lienzo fijo 1024x768.",
+        "El workflow dirigido ejecuta el producto real y prueba configuracion, ABI/reentrada, restauracion en otro sandbox, medios, RTG y apertura/cierre GUI antes de publicar.",
+        "Los guests x64 y Darwin ARM64, el ZIP Windows y las fuentes/licencias tienen identidades registradas; ningun asset comercial ni cambio local de ../MacHawk entra en la rama o la release."
+      ],
+      "stop": "No publicar desde el checkout ../MacHawk ni ante un workflow fallido; no reutilizar guests anteriores tras cambios ABI y no incluir firmware o medios privados."
+    },
+    {
+      "id": "T87",
+      "title": "Resolver las regresiones Hatari de MacHawk #13",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T86"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/Hatari.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/Hatari.Input.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/IpfIdentifier.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "build/machawk-puae6/waterbox/hatari/CONFIGURATION.md",
+        "build/machawk-puae6/waterbox/hatari/bizhawk.c",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-hatari-boot-smoke/Program.cs"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/**",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/IpfIdentifier.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "build/machawk-puae6/waterbox/hatari/**",
+        "build/machawk-puae6/waterbox/waterboxhost/eto-hatari-boot-smoke/**",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Partir de fork/main en la worktree aislada build/machawk-puae6 y conservar intactos el checkout sucio ../machawk y sus medios locales.",
+        "Reproducir y corregir las cinco observaciones de #13: memoria ST de 8 MiB o mas, intercambio de A con B ocupada, seleccion de TOS compatibles, identificacion IPF Atari ST y opciones de puerto.",
+        "Ampliar el smoke Hatari con fixtures libres o sinteticos que cubran la regresion exacta y ejecutar los modos dirigidos en el Waterbox real disponible.",
+        "Mostrar el diff y los limites; no hacer push, cerrar la issue ni publicar una release sin peticion expresa."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Las memorias ST de 8, 10 y 14 MiB construyen y avanzan frames sin desbordar el heap Waterbox, con lectura efectiva y replay determinista.",
+        "Se puede expulsar e insertar otro disco en A con B habilitada y ocupada, sin reutilizar simultaneamente una imagen ni desincronizar slots o savestates.",
+        "La base de firmware acepta las familias TOS compatibles soportadas y los IPF con plataforma Atari ST se enrutan a AtariST sin confundirlos con Amiga, se montan mediante el lector MAME/BSD-3-Clause importado de PUAE6 (sin CAPSImage) y conservan replay determinista.",
+        "La configuracion de puertos de usuario queda expuesta de forma sincronizada y probada a traves de la topologia real de entrada Hatari."
+      ],
+      "stop": "No usar ROMs, TOS o discos comerciales; no declarar IPF ejecutable en Hatari si solo queda corregida su identificacion, ni ocultar una parte de #13 como resuelta sin su prueba dirigida."
+    },
+    {
+      "id": "T88",
+      "title": "Sustituir CAPSImg por el lector IPF libre en UAE5 de MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T87"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/waterbox/uae/Makefile",
+        "build/machawk-puae6/waterbox/uae/libretro-uae/sources/src/caps/caps.c",
+        "build/machawk-puae6/waterbox/ipf/ipf_track.h",
+        "build/machawk-puae6/waterbox/ipf/ipf_track.cpp",
+        "build/machawk-puae6/waterbox/waterboxhost/uae-cd32-headless/Program.cs"
+      ],
+      "touch": [
+        "build/machawk-puae6/.gitattributes",
+        "build/machawk-puae6/.gitmodules",
+        "build/machawk-puae6/.github/hatari-preview-release.md",
+        "build/machawk-puae6/.github/workflows/**",
+        "build/machawk-puae6/waterbox/ipf/**",
+        "build/machawk-puae6/waterbox/hatari/**",
+        "build/machawk-puae6/waterbox/uae/**",
+        "build/machawk-puae6/waterbox/waterboxhost/uae-cd32-headless/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Trabajar en la rama aislada de T87 y conservar intactos el checkout sucio ../MacHawk y sus medios locales.",
+        "Retirar CAPSImg de la receta UAE5 y adaptar el lector MAME/BSD-3-Clause importado de PUAE6 a la interfaz de pistas que consume el motor, conservando timing, weak bits y solo lectura.",
+        "Probar con un IPF sintetico libre la carga, avance y restauracion determinista en el Waterbox real, ademas de reconstruir el guest ARM64 sin la dependencia SPS.",
+        "Integrar T87 y T88 en un commit revisado y subir la rama al remoto fork solicitado, sin incluir firmware, ROMs, juegos ni medios comerciales."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "uae.wbx no enlaza ni compila CAPSImg y lee IPF mediante el decoder MAME/BSD-3-Clause fijado que ya usa PUAE6.",
+        "Un IPF sintetico libre se monta de solo lectura, avanza y repite la misma salida tras save/load dentro de Waterbox; las regresiones UAE cercanas siguen pasando.",
+        "La rama publicada contiene conjuntamente la correccion completa de MacHawk #13 y la migracion UAE5, sin assets comerciales ni cambios del checkout ../MacHawk."
+      ],
+      "stop": "No validar solo por compilacion ni conservar un fallback silencioso a CAPSImg; no publicar una release ni cerrar issues sin una peticion especifica."
+    },
+    {
+      "id": "T89",
+      "title": "Integrar y publicar la preview Hatari/UAE de MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T88"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/.github/hatari-preview-release.md"
+      ],
+      "touch": [
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Atari/ST/Hatari.cs",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Confirmar que fork/main es ancestro directo de la rama probada y que el checkout sucio ../MacHawk permanece intacto.",
+        "Corregir cualquier fallo reproducido por la matriz y limitar la publicacion automatica a pushes de main, para que una validacion de rama no genere una release prematura.",
+        "Integrar la rama publicada mediante fast-forward de fork/main para que exista una sola release desde el SHA exacto probado.",
+        "Esperar la matriz completa del workflow Hatari Waterbox preview en main y comprobar que su release contiene el ZIP Windows y los avisos MAME/BSD sin CAPSImg ni assets comerciales.",
+        "Registrar el tag, SHA y resultado, marcar la ficha done y validar el plan."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "fork/main contiene el commit conjunto de T87 y T88 sin incorporar cambios del checkout sucio ../MacHawk.",
+        "La matriz completa de GitHub Actions termina correctamente sobre el SHA integrado y publica una unica prerelease hatari-preview-<sha corto> dirigida a ese commit.",
+        "El ZIP publicado incluye los guests y avisos MAME IPF BSD-3-Clause esperados, no conserva CAPSImg ni incluye firmware, ROMs, juegos o medios comerciales."
+      ],
+      "stop": "No publicar desde una rama o SHA distinto al integrado, ni mantener una release cuya matriz falle o cuyo contenido no coincida con los artefactos verificados."
+    },
+    {
+      "id": "T90",
+      "title": "Corregir continuidad FMV e indicador CD de PUAE6 en MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "depends": [
+        "T89"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "upstream/winuae/audio.cpp",
+        "upstream/winuae/cd32_fmv.cpp",
+        "upstream/winuae/archivers/mp2/kjmp2.cpp",
+        "patches/winuae/0418-cd32-fmv-fixed-mp2-table.patch",
+        "patches/winuae/0419-cd32-fmv-pcm-owner.patch",
+        "bridge/frame_step.cpp",
+        "ports/portable/gui.cpp",
+        "ports/portable/fmv_audio_buffer.cpp",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/audio/cd_audio_probe.cpp",
+        "tests/fmv/test_fmv_audio.py",
+        "tests/fmv/test_fmv_frontend.py",
+        "tests/ffi/Program.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs"
+      ],
+      "touch": [
+        "patches/winuae/0432-cd32-fmv-mp2-precision.patch",
+        "patches/winuae/series.json",
+        "bridge/include/p6.h",
+        "bridge/frame_step.cpp",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/audio/**",
+        "tests/fmv/**",
+        "tests/ffi/**",
+        "tests/host/bridge_memory_probe.cpp",
+        "tests/waterbox-media/**",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "build/machawk-puae6/waterbox/puae6/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Medir con la secuencia FMV autorizada la continuidad de muestras y el coste por unidad, separando un hueco causal del PCM de un underrun de tiempo real del frontend.",
+        "Corregir la vertical minima demostrada sin introducir reloj host, hilos ni un segundo mezclador, y conservar una regresion sintetica exacta para el contrato PCM.",
+        "Hacer que P6_FRAME_DRIVE_LIGHT represente actividad de cualquier unidad emulada y que MacHawk publique el indicador para CD32/CDTV con medio optico, sin serializar estado de presentacion nuevo.",
+        "Reconstruir el guest y ejecutar las puertas dirigidas nativa, Waterbox y del wrapper sobre la rama aislada; no publicar ni fusionar sin una peticion posterior."
+      ],
+      "checks": [
+        "AV02",
+        "DET02",
+        "WB14",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La reproduccion FMV real no contiene huecos PCM por unidad ni underruns atribuibles al camino corregido, y la prueba sintetica fija la causa exacta sin tolerancias ni reloj de pared en la emulacion.",
+        "CD32 y CDTV con disco muestran actividad optica mediante el indicador de unidad; las maquinas con disquetera conservan el mismo LED y una maquina sin ninguna unidad no lo publica.",
+        "El guest Waterbox, el wrapper MacHawk y sus smokes usan la misma semantica, conservan determinismo de estado/futuro y no incluyen activos comerciales."
+      ],
+      "stop": "No suavizar audio con duplicacion, resampling o temporizacion host; si el coste real excede tiempo real, optimizar solo el cuello medido. No publicar una release ni modificar ../MacHawk."
     },
     {
       "id": "T55c12",
