@@ -27338,6 +27338,121 @@
       "stop": "No usar pacing, reloj o audio host para imponer 50/60 Hz; no escribir el registro de sync en cada frame ni modificar el checkout ../MacHawk; no publicar ni fusionar sin una peticion posterior."
     },
     {
+      "id": "T93",
+      "title": "Cerrar firmware y timing de Neo Geo CD en MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T92"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Consoles/SNK/NeoGeoCD/NeoCD.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Consoles/SNK/NeoGeoCD/LibNeoCD.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Consoles/SNK/NeoGeoCD/NeoCD.ISettable.cs",
+        "build/machawk-puae6/waterbox/neocd/neocd-waterbox.patch",
+        "build/machawk-puae6/waterbox/neocd/test/smoke_test.cpp",
+        "build/machawk-puae6/waterbox/waterboxhost/neocd-headless/Program.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Common/Database/FirmwareDatabaseTests.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Cores/BizHawk.Tests.Emulation.Cores.csproj"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Consoles/SNK/NeoGeoCD/NeoCD.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Consoles/SNK/NeoGeoCD/LibNeoCD.cs",
+        "build/machawk-puae6/waterbox/neocd/neocd-waterbox.patch",
+        "build/machawk-puae6/waterbox/neocd/test/**",
+        "build/machawk-puae6/waterbox/waterboxhost/neocd-headless/Program.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Common/Database/FirmwareDatabaseTests.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Cores/Consoles/SNK/NeoGeoCD/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Auditar las correcciones ya presentes frente a las incidencias 5 y 7 y conservar solo cambios que demuestren una carencia real.",
+        "Fijar mediante pruebas los BIOS y la tabla LO que debe mostrar Firmware Manager, y el cociente exacto de reloj de video usado por el host NeoCD.",
+        "Ejecutar las pruebas dirigidas de base de firmware y contrato del core; no usar ROMs o juegos comerciales para acreditar el cierre."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Firmware Manager enumera los tres BIOS Neo Geo CD conocidos y 000-lo.lo con hashes, tamaños, nombres y preferencias correctos.",
+        "El host usa 6042000/101376 Hz, coherente con el master clock del guest, y una regresión evita volver al timing MVS incorrecto.",
+        "Las rutas con BIOS real, HLE y tabla LO requerida conservan errores explícitos y deterministas sin incluir firmware en el repositorio."
+      ],
+      "stop": "No descargar firmware ni juegos; no cambiar el timing para ajustar audio o pacing host y no modificar ../MacHawk."
+    },
+    {
+      "id": "T94",
+      "title": "Añadir MT-32 y SoundFont deterministas al DOSBox de MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "blocked",
+      "blocked_reason": "Reproducer conservado en DOSBoxMidiTests.SoundFontAudioRoundTripsThroughWaterboxState sobre Darwin ARM64: el guest AArch64 alineado a 16 KiB carga, entra en _start y cae siempre con Stack overflow del testhost en el primer co_switch de Init. Se probaron dos layouts razonados, primero preservando x18/x28 y despues dejandolos reservados por Waterbox, con el mismo resultado. H1: el cambio de contexto AArch64 aun viola una invariante ABI Waterbox (SP/FP/LR o registros reservados); verificarlo con un guest minimo de dos coroutines y canarios antes de DOSBox. H2: la pila mmap de 4 MiB y su guardia no tienen el contrato esperado bajo emulibc/16 KiB; instrumentar limites y probar una coroutine minima con y sin guardia antes de ampliar la pila. Firmware/configuracion compilan y el test captura PCM/save-load, pero AV02/DET02/BUILD01 y la aceptacion runtime no pasan; no publicar el dosbox.wbx generado.",
+      "depends": [
+        "T92"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "build/machawk-puae6/.github/workflows/waterbox-cores.yml",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/DOSBox.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/DOSBox.ISettable.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/LibDOSBox.cs",
+        "build/machawk-puae6/waterbox/dosbox/Makefile",
+        "build/machawk-puae6/waterbox/dosbox/bizhawk.cpp",
+        "build/machawk-puae6/waterbox/dosbox/bizhawk.hpp",
+        "build/machawk-puae6/waterbox/dosbox/dosbox-x/config.h",
+        "build/machawk-puae6/waterbox/dosbox/dosbox-x/src/gui/midi.cpp",
+        "build/machawk-puae6/waterbox/dosbox/dosbox-x/src/gui/midi_mt32.h",
+        "build/machawk-puae6/waterbox/dosbox/dosbox-x/src/gui/midi_synth.h",
+        "build/machawk-puae6/waterbox/dosbox/dosbox-x/src/libs/mt32/ROMInfo.cpp"
+      ],
+      "touch": [
+        "build/machawk-puae6/.github/workflows/waterbox-cores.yml",
+        "build/machawk-puae6/Assets/dll/dosbox.wbx.zst",
+        "build/machawk-puae6/src/BizHawk.Emulation.Common/Database/FirmwareDatabase.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/DOSBox.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/DOSBox.ISettable.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/DOS/LibDOSBox.cs",
+        "build/machawk-puae6/waterbox/dosbox/Makefile",
+        "build/machawk-puae6/waterbox/dosbox/bizhawk.cpp",
+        "build/machawk-puae6/waterbox/dosbox/bizhawk.hpp",
+        "build/machawk-puae6/waterbox/dosbox/*midi*.patch",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Common/Database/FirmwareDatabaseTests.cs",
+        "build/machawk-puae6/src/BizHawk.Tests.Emulation.Cores/Computers/DOS/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Inventariar los sintetizadores MIDI realmente compilados en el guest fijado y sus contratos de ROM/SoundFont, sin asumir dependencias host.",
+        "Exponer opciones sync que copien solo los assets seleccionados al sandbox, generen la configuración exacta y fallen claramente cuando falte firmware requerido.",
+        "Añadir regresiones de firmware, configuración y replay de audio que cubran MT-32 y SoundFont sin distribuir ROMs ni bancos comerciales."
+      ],
+      "checks": [
+        "AV02",
+        "DET02",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Firmware Manager identifica las ROM de control y PCM de MT-32 admitidas y el core las consume solo al seleccionar MT-32.",
+        "El usuario puede seleccionar un SoundFont admitido sin acceso al sistema de ficheros host desde el guest; una selección incompleta falla con un mensaje preciso.",
+        "MIDI se mezcla en el audio emulado y save/load reproduce el mismo futuro PCM, sin reloj de pared, callbacks por instrucción ni estado fuera de Waterbox."
+      ],
+      "stop": "No incluir firmware/SoundFonts, no usar dispositivos MIDI host ni red, no fingir soporte con una opción que el guest no compile y no modificar ../MacHawk."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
