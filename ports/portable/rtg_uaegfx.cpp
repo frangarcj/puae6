@@ -63,6 +63,20 @@ bool fixed_geometry(uae_u32 width, uae_u32 height)
 		|| (width == 1024 && height == 768);
 }
 
+int validate_snapshot(const p6_uaegfx_snapshot &snapshot)
+{
+	if (snapshot.version != P6_UAEGFX_SNAPSHOT_VERSION) return P6_RTG_UNSUPPORTED;
+	if (snapshot.card_found > 1 || snapshot.selected > 1) return P6_RTG_BAD_STATE;
+	if (!snapshot.width) {
+		return snapshot.height || snapshot.depth || snapshot.selected
+			? P6_RTG_BAD_STATE : P6_RTG_OK;
+	}
+	if (!fixed_geometry(snapshot.width, snapshot.height)
+		|| (snapshot.depth != 8 && snapshot.depth != 16 && snapshot.depth != 32))
+		return P6_RTG_BAD_STATE;
+	return P6_RTG_OK;
+}
+
 bool depth_matches(uae_u32 format, uae_u32 depth)
 {
 	return (format == RGBFB_CLUT && depth == 8)
@@ -140,6 +154,32 @@ void p6_uaegfx_reset(void)
 int p6_uaegfx_selected(void)
 {
 	return state.selected ? 1 : 0;
+}
+
+int p6_uaegfx_snapshot_get(p6_uaegfx_snapshot *out)
+{
+	if (!out) return P6_RTG_BAD_ARGUMENT;
+	*out = {P6_UAEGFX_SNAPSHOT_VERSION, state.width, state.height, state.depth,
+		state.card_found ? 1u : 0u, state.selected ? 1u : 0u};
+	return P6_RTG_OK;
+}
+
+int p6_uaegfx_snapshot_validate(const p6_uaegfx_snapshot *snapshot)
+{
+	return snapshot ? validate_snapshot(*snapshot) : P6_RTG_BAD_ARGUMENT;
+}
+
+int p6_uaegfx_snapshot_apply(const p6_uaegfx_snapshot *snapshot)
+{
+	if (!snapshot) return P6_RTG_BAD_ARGUMENT;
+	const int valid = validate_snapshot(*snapshot);
+	if (valid != P6_RTG_OK) return valid;
+	state.width = snapshot->width;
+	state.height = snapshot->height;
+	state.depth = snapshot->depth;
+	state.card_found = snapshot->card_found != 0;
+	state.selected = snapshot->selected != 0;
+	return P6_RTG_OK;
 }
 
 uae_u32 REGPARAM2 p6_uaegfx_find_card(TrapContext *ctx)

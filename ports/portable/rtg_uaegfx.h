@@ -4,8 +4,22 @@
 
 #include "traps.h"
 
+enum { P6_UAEGFX_SNAPSHOT_VERSION = 1 };
+
+typedef struct p6_uaegfx_snapshot {
+	uae_u32 version;
+	uae_u32 width;
+	uae_u32 height;
+	uae_u32 depth;
+	uae_u32 card_found;
+	uae_u32 selected;
+} p6_uaegfx_snapshot;
+
 void p6_uaegfx_reset(void);
 int p6_uaegfx_selected(void);
+int p6_uaegfx_snapshot_get(p6_uaegfx_snapshot *out);
+int p6_uaegfx_snapshot_validate(const p6_uaegfx_snapshot *snapshot);
+int p6_uaegfx_snapshot_apply(const p6_uaegfx_snapshot *snapshot);
 int p6_uaegfx_install_code(uaecptr start);
 uaecptr p6_uaegfx_alloc(TrapContext *ctx);
 uaecptr p6_uaegfx_library_base(void);

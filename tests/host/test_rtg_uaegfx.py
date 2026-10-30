@@ -104,6 +104,22 @@ uint64_t digest()
 	return hash;
 }
 
+void expect_snapshot_refused(const p6_uaegfx_snapshot &bad, int result)
+{
+	p6_uaegfx_snapshot before{}, after{};
+	p6_rtg_snapshot device_before{}, device_after{};
+	assert(p6_uaegfx_snapshot_get(&before) == P6_RTG_OK);
+	assert(p6_rtg_snapshot_get(&device_before) == P6_RTG_OK);
+	const uint64_t memory = digest();
+	assert(p6_uaegfx_snapshot_validate(&bad) == result);
+	assert(p6_uaegfx_snapshot_apply(&bad) == result);
+	assert(p6_uaegfx_snapshot_get(&after) == P6_RTG_OK);
+	assert(p6_rtg_snapshot_get(&device_after) == P6_RTG_OK);
+	assert(std::memcmp(&before, &after, sizeof before) == 0);
+	assert(std::memcmp(&device_before, &device_after, sizeof device_before) == 0);
+	assert(digest() == memory);
+}
+
 void put_render_info(TrapContext &ctx, uaecptr at, uaecptr memory,
 	uae_u16 stride, uae_u32 format)
 {
@@ -154,6 +170,8 @@ void configure(TrapContext &ctx, const p6_rtg_mode &mode)
 
 int main()
 {
+	static_assert(P6_UAEGFX_SNAPSHOT_VERSION == 1);
+	static_assert(sizeof(p6_uaegfx_snapshot) == 6 * sizeof(uae_u32));
 	static_assert(PSSO_BoardInfo_MemoryBase == 4 && PSSO_BoardInfo_MemorySize == 12);
 	static_assert(PSSO_BoardInfo_ModeInfo == 558 && PSSO_BoardInfo_XOffset == 566);
 	static_assert(PSSO_BoardInfo_YOffset == 568 && PSSO_BoardInfo_Border == 572);
@@ -254,6 +272,58 @@ int main()
 	assert(p6_uaegfx_set_color_array(&ctx) == 0 && digest() == before);
 	ctx.d[7] = RGBFB_R8G8B8;
 	assert(p6_uaegfx_calculate_bytes_per_row(&ctx) == 0);
+
+	/* SetGC/FindCard/SetSwitch metadata is a separate transactional codec. */
+	p6_uaegfx_reset();
+	ctx.a[0] = BI;
+	assert(p6_uaegfx_find_card(&ctx) == uae_u32(-1));
+	assert(p6_rtg_mode_at(0, &mode) == P6_RTG_OK);
+	configure(ctx, mode);
+	ctx.d[0] = 1;
+	assert(p6_uaegfx_set_switch(&ctx) == 0);
+	p6_uaegfx_snapshot saved{};
+	assert(p6_uaegfx_snapshot_get(&saved) == P6_RTG_OK);
+	assert(p6_uaegfx_snapshot_validate(&saved) == P6_RTG_OK);
+	assert(saved.width == 640 && saved.height == 480 && saved.depth == 8);
+	assert(saved.card_found == 1 && saved.selected == 1);
+
+	p6_rtg_mode other{};
+	assert(p6_rtg_mode_at(8, &other) == P6_RTG_OK);
+	configure(ctx, other);
+	ctx.d[0] = 0;
+	assert(p6_uaegfx_set_switch(&ctx) == 1);
+	assert(p6_uaegfx_snapshot_apply(&saved) == P6_RTG_OK);
+	p6_uaegfx_snapshot restored{};
+	assert(p6_uaegfx_snapshot_get(&restored) == P6_RTG_OK);
+	assert(std::memcmp(&saved, &restored, sizeof saved) == 0);
+	assert(p6_uaegfx_find_card(&ctx) == 0); /* restored card_found */
+	trap_put_long(&ctx, BI + 1354, BME);
+	trap_put_word(&ctx, BME + 40, 640);
+	trap_put_word(&ctx, BME + 42, 480);
+	ctx.a[0] = BI; ctx.a[1] = BASE;
+	ctx.d[1] = 0; ctx.d[2] = 0; ctx.d[7] = P6_RTG_RGBFB_CLUT;
+	assert(p6_uaegfx_set_panning(&ctx) == 1); /* restored SetGC dimensions */
+	ctx.d[0] = 0;
+	assert(p6_uaegfx_set_switch(&ctx) == 1); /* restored selection */
+
+	p6_uaegfx_snapshot bad = saved;
+	bad.version = 2;
+	expect_snapshot_refused(bad, P6_RTG_UNSUPPORTED);
+	bad = saved; bad.width = 641;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	bad = saved; bad.height = 600;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	bad = saved; bad.depth = 24;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	bad = saved; bad.card_found = 2;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	bad = saved; bad.selected = 2;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	bad = saved; bad.width = 0; bad.height = 0; bad.depth = 0;
+	expect_snapshot_refused(bad, P6_RTG_BAD_STATE);
+	assert(p6_uaegfx_snapshot_get(nullptr) == P6_RTG_BAD_ARGUMENT);
+	assert(p6_uaegfx_snapshot_validate(nullptr) == P6_RTG_BAD_ARGUMENT);
+	assert(p6_uaegfx_snapshot_apply(nullptr) == P6_RTG_BAD_ARGUMENT);
 	return 0;
 }
 """

@@ -26559,6 +26559,46 @@
       "stop": "No integrar aun P6RM ni estado de Autoconfig/uaegfx; son verticales posteriores."
     },
     {
+      "id": "T85k",
+      "title": "RTG-C2: codec semantico de traps uaegfx",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85j"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx.cpp",
+        "tests/host/test_rtg_uaegfx.py"
+      ],
+      "touch": [
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx.cpp",
+        "tests/host/test_rtg_uaegfx.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Definir una instantanea fija para geometria SetGC, FindCard y seleccion chipset/RTG, separada de la base Exec del residente.",
+        "Validar version, geometria, profundidad y flags por completo antes de aplicar sin volver a ejecutar traps ni tocar VRAM.",
+        "Probar restore y cuerpos corruptos dentro del probe guest de los nueve modos bajo ASan/UBSan."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "FindCard, SetGC y SetSwitch vuelven exactamente al corte y los traps posteriores observan el mismo estado.",
+        "Una instantanea invalida no cambia metadata guest, VRAM ni la instantanea del dispositivo; no guarda TrapContext, punteros ni memoria Amiga."
+      ],
+      "stop": "No guardar aun library_base ni conectar P6RM; el residente Exec y Autoconfig se cierran despues."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
