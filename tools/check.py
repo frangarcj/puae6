@@ -1438,6 +1438,9 @@ TASK_SUITES[('DET02', 'T85i')] = {
         'tests.host.test_rtg_link.RtgLinkTests.test_default_profile_and_public_rtg_rejection',
     'default_profile_has_no_rtg_board':
         'tests.host.test_rtg_autoconfig.RtgAutoconfigTests.test_z3_identity_single_registration_and_mapping'}
+for _gate in ('STATE01', 'DET02', 'SAFE01'):
+    TASK_SUITES[(_gate, 'T85j')] = {
+        'rtg_semantic_device_state': 'tests.host.test_rtg_device_state'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

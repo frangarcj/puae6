@@ -24,7 +24,8 @@ enum {
 	P6_RTG_OUTPUT_STRIDE_BYTES = P6_RTG_MAX_WIDTH * 4,
 	P6_RTG_OUTPUT_BYTES = P6_RTG_OUTPUT_STRIDE_BYTES * P6_RTG_MAX_HEIGHT,
 	P6_RTG_MODE_COUNT = 9,
-	P6_RTG_PALETTE_SIZE = 256
+	P6_RTG_PALETTE_SIZE = 256,
+	P6_RTG_SNAPSHOT_VERSION = 1
 };
 
 /* Values deliberately match WinUAE 6.0.3 include/rtgmodes.h. */
@@ -76,6 +77,17 @@ typedef struct p6_rtg_frame {
 	uint64_t frame_counter;
 } p6_rtg_frame;
 
+/* Semantic device state only. VRAM is serialized separately through
+ * p6_rtg_vram_data(); the XRGB output and have-frame latch are derived and
+ * deliberately invalidated on apply. Every member is fixed-width and callers
+ * must still serialize fields individually rather than copying this C struct. */
+typedef struct p6_rtg_snapshot {
+	uint32_t version;
+	p6_rtg_view view;
+	uint32_t palette[P6_RTG_PALETTE_SIZE];
+	uint64_t frame_counter;
+} p6_rtg_snapshot;
+
 void p6_rtg_reset(void);
 int p6_rtg_rebind(void);
 int p6_rtg_mode_at(uint32_t index, p6_rtg_mode *out);
@@ -91,6 +103,9 @@ int p6_rtg_blit(const p6_rtg_surface *source, uint32_t source_x, uint32_t source
 int p6_rtg_present(void);
 int p6_rtg_frame_get(p6_rtg_frame *out);
 int p6_rtg_view_get(p6_rtg_view *out);
+int p6_rtg_snapshot_get(p6_rtg_snapshot *out);
+int p6_rtg_snapshot_validate(const p6_rtg_snapshot *snapshot);
+int p6_rtg_snapshot_apply(const p6_rtg_snapshot *snapshot);
 
 /* Engine memory-bank access. The storage has static lifetime and exactly the
  * populated size; callers must still enforce their own bus-width semantics. */

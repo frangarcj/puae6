@@ -26517,6 +26517,48 @@
       "stop": "No exponer aun la opcion ni publicar video RTG: faltan codec semantico, seleccion de presentacion y restauracion frontend."
     },
     {
+      "id": "T85j",
+      "title": "RTG-C1: codec semantico del dispositivo software",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85i"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_device.cpp",
+        "ports/portable/state_io/archive.h"
+      ],
+      "touch": [
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_device.cpp",
+        "tests/host/rtg_device_state_probe.cpp",
+        "tests/host/test_rtg_device_state.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Definir una instantanea versionada y sin padding opaco para vista, panning, paleta y contador de presentacion; VRAM sigue siendo el backing estatico que serializara P6RM.",
+        "Validar toda instantanea antes de aplicarla, sin mutacion parcial, y descartar/reconstruir el framebuffer XRGB derivado tras restore.",
+        "Probar futuros identicos despues de restaurar VRAM mas metadata y rechazos de cuerpos corruptos bajo ASan/UBSan."
+      ],
+      "checks": [
+        "STATE01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Una instantanea valida restaura modo, superficie virtual, offsets, display, paleta y contador; el siguiente present produce los mismos pixeles y contador que el futuro de control.",
+        "Version, geometria, formato, stride, limites, flags o paleta invalidos se rechazan antes de modificar estado o VRAM; no se serializan punteros ni el framebuffer de salida derivado."
+      ],
+      "stop": "No integrar aun P6RM ni estado de Autoconfig/uaegfx; son verticales posteriores."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

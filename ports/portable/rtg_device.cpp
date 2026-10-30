@@ -28,6 +28,9 @@ constexpr uint32_t formats[] = {
 static_assert(sizeof(vram) == P6_RTG_VRAM_BYTES, "the board has exactly 4 MiB populated");
 static_assert(sizeof(output) == P6_RTG_OUTPUT_BYTES, "one bounded XRGB8888 output");
 static_assert(sizeof(State) <= 16384, "RTG auxiliary state exceeds its one-group cap");
+static_assert(sizeof(p6_rtg_view) == 13 * sizeof(uint32_t), "RTG view has an opaque field");
+static_assert(offsetof(p6_rtg_snapshot, frame_counter) == 1080
+	&& sizeof(p6_rtg_snapshot) == 1088, "RTG snapshot has unexpected padding");
 static_assert(P6_RTG_OUTPUT_BYTES % 16384 == 0, "output occupies whole Darwin groups");
 static_assert(P6_RTG_VRAM_BYTES % 16384 == 0, "VRAM occupies whole Darwin groups");
 
@@ -138,6 +141,23 @@ int validate_live_view(const p6_rtg_view &view)
 		|| view.mode.height > view.surface.height - view.y_offset)
 		return P6_RTG_BAD_STATE;
 	return view.display_enabled <= 1 ? P6_RTG_OK : P6_RTG_BAD_STATE;
+}
+
+int validate_snapshot(const p6_rtg_snapshot &snapshot)
+{
+	if (snapshot.version != P6_RTG_SNAPSHOT_VERSION) return P6_RTG_UNSUPPORTED;
+	if (snapshot.view.active > 1 || snapshot.view.display_enabled > 1)
+		return P6_RTG_BAD_STATE;
+	if (snapshot.view.active) {
+		if (validate_live_view(snapshot.view) != P6_RTG_OK) return P6_RTG_BAD_STATE;
+	} else {
+		const p6_rtg_view empty{};
+		if (std::memcmp(&snapshot.view, &empty, sizeof empty) != 0)
+			return P6_RTG_BAD_STATE;
+	}
+	for (uint32_t color : snapshot.palette)
+		if (color & 0xff000000u) return P6_RTG_BAD_STATE;
+	return P6_RTG_OK;
 }
 
 } // namespace
@@ -319,6 +339,36 @@ int p6_rtg_view_get(p6_rtg_view *out)
 {
 	if (!out) return P6_RTG_BAD_ARGUMENT;
 	*out = state.view;
+	return P6_RTG_OK;
+}
+
+int p6_rtg_snapshot_get(p6_rtg_snapshot *out)
+{
+	if (!out) return P6_RTG_BAD_ARGUMENT;
+	p6_rtg_snapshot snapshot{};
+	snapshot.version = P6_RTG_SNAPSHOT_VERSION;
+	snapshot.view = state.view;
+	std::memcpy(snapshot.palette, state.palette, sizeof snapshot.palette);
+	snapshot.frame_counter = state.frames;
+	*out = snapshot;
+	return P6_RTG_OK;
+}
+
+int p6_rtg_snapshot_validate(const p6_rtg_snapshot *snapshot)
+{
+	return snapshot ? validate_snapshot(*snapshot) : P6_RTG_BAD_ARGUMENT;
+}
+
+int p6_rtg_snapshot_apply(const p6_rtg_snapshot *snapshot)
+{
+	if (!snapshot) return P6_RTG_BAD_ARGUMENT;
+	const int valid = validate_snapshot(*snapshot);
+	if (valid != P6_RTG_OK) return valid;
+	state.view = snapshot->view;
+	std::memcpy(state.palette, snapshot->palette, sizeof state.palette);
+	state.frames = snapshot->frame_counter;
+	state.have_frame = false;
+	std::memset(output, 0, sizeof output);
 	return P6_RTG_OK;
 }
 
