@@ -1,16 +1,22 @@
 diff --git a/archivers/mp2/kjmp2.cpp b/archivers/mp2/kjmp2.cpp
 --- a/archivers/mp2/kjmp2.cpp
 +++ b/archivers/mp2/kjmp2.cpp
-@@ -503,2 +503,3 @@
+@@ -502,4 +502,5 @@
+                             sum += N[i][j] * sample[ch][j][idx];  // 8b*15b=23b
 -                        // intermediate value is 28 bit (23 + 5), clamp to 14b
 -                        mp2->V[ch][table_idx + i] = (sum + 8192) >> 14;
 +                        // Preserve eight fractional bits in V. Deferring this
 +                        // quantization avoids gating quiet Layer II samples.
 +                        mp2->V[ch][table_idx + i] = (sum + 32) >> 6;
-@@ -515,2 +516,4 @@
+                     }
+@@ -514,5 +515,7 @@
+                     // apply window
 -                    for (i = 0;  i < 512;  ++i)
 -                        U[i] = (U[i] * D[i] + 32) >> 6;
+-
 +                    for (i = 0;  i < 512;  ++i) {
 +                        const long long windowed = static_cast<long long>(U[i]) * D[i];
 +                        U[i] = static_cast<int>((windowed + 8192) >> 14);
 +                    }
++
+                     // output samples

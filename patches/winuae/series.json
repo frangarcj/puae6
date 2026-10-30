@@ -6608,7 +6608,7 @@
     {
       "id": "0432-cd32-fmv-mp2-precision",
       "file": "patches/winuae/0432-cd32-fmv-mp2-precision.patch",
-      "sha256": "7eb146544a9dc5b2dee799aede7e7d020dabb2cef09bdcc8acee98a05b263bd1",
+      "sha256": "31d21e593ea611a986dcf452d896850253106f408b7c582ab0401af3acbd4435",
       "title": "Preserve quiet CD32 FMV samples through Layer II synthesis",
       "reason": "T90 isolates 40-326-sample zero runs inside kjmp2 output while the same real elementary stream has none in the independent FFmpeg decode; changing delivery cadence does not alter them. Retain eight fractional bits across the synthesis matrix and compensate in the window shift, using a 64-bit product to avoid overflow. The total fixed-point scale, decoder clock, PCM ownership and host scheduling remain unchanged.",
       "category": "deterministic decoder precision",
