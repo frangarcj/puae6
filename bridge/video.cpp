@@ -22,6 +22,8 @@
 #include "options.h"
 #include "custom.h"
 #include "video_present.h"
+#include "rtg_device.h"
+#include "rtg_uaegfx.h"
 
 namespace p6_bridge {
 
@@ -99,6 +101,11 @@ void present_unit()
     // The port hands a pass over once: asking again before the renderer finished another one returns 0.
     // So the STEP01 observer (at each boundary) and p6_run_frame (after the unit) can both call this.
     if (p6_video_present()) session.handed_over = true;
+    // SetSwitch is guest state.  Once it selects a valid RTG mode, convert it
+    // at the same emulated unit boundary as the chipset renderer.
+    if (session.config.rtg_memory == P6_RTG_MEMORY_4_MIB && p6_uaegfx_selected() &&
+        p6_rtg_present() == P6_RTG_OK)
+        session.handed_over = true;
 }
 
 p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
@@ -106,8 +113,10 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
     (void)error;
     // The buffer is the one promised at load (it never changes while running); aspect and cadence are those of the beam the unit ran on.
     const int res = session_resolution(), vres = session_line_mode();
-    const uint32_t width = config_buffer_width(session.config);
-    const uint32_t height = config_buffer_height(session.config);
+    const bool rtg_profile = session.config.rtg_memory == P6_RTG_MEMORY_4_MIB;
+    const bool rtg_selected = rtg_profile && p6_uaegfx_selected();
+    const uint32_t width = rtg_profile ? P6_RTG_MAX_WIDTH : config_buffer_width(session.config);
+    const uint32_t height = rtg_profile ? P6_RTG_MAX_HEIGHT : config_buffer_height(session.config);
     const bool ntsc = beam_is_ntsc();
 
     frame.video = nullptr;
@@ -115,13 +124,20 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
     frame.video_format = P6_PIXEL_XRGB8888;
     frame.video_width = width;
     frame.video_height = height;
-    frame.video_stride_bytes = P6_VIDEO_STRIDE_BYTES;
+    frame.video_stride_bytes = rtg_profile ? P6_RTG_OUTPUT_STRIDE_BYTES : P6_VIDEO_STRIDE_BYTES;
     frame.active = p6_rect{0, 0, 0, 0};
-    pixel_aspect(ntsc, res, vres, &frame.aspect_num, &frame.aspect_den);
+    if (rtg_selected) {
+        frame.aspect_num = 1;
+        frame.aspect_den = 1;
+    } else {
+        pixel_aspect(ntsc, res, vres, &frame.aspect_num, &frame.aspect_den);
+    }
     frame.field_parity = P6_FIELD_PROGRESSIVE;
 
-    p6_video_frame_info info;
-    const bool have = p6_video_frame_get(&info) == 0;
+    p6_video_frame_info info{};
+    p6_rtg_frame rtg_info{};
+    const bool have = rtg_selected ? p6_rtg_frame_get(&rtg_info) == P6_RTG_OK
+                                   : p6_video_frame_get(&info) == 0;
     const uint32_t flags = have ? info.flags : 0;
     const Rate rate = cadence(flags);
     frame.cadence_num = rate.num;
@@ -133,19 +149,33 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
 
     // A picture exists for this unit when the renderer handed a new one over, it was not marked as
     // discarded (mode being reset) and it fits the buffer that was promised.
-    const bool fresh = session.handed_over && have && !(info.flags & P6_VIDEO_FRAME_DISCARD) &&
-                       info.width <= width && info.height <= height;
+    const uint32_t active_width = rtg_selected ? rtg_info.width : info.width;
+    const uint32_t active_height = rtg_selected ? rtg_info.height : info.height;
+    const bool fresh = session.handed_over && have && (rtg_selected || !(info.flags & P6_VIDEO_FRAME_DISCARD)) &&
+                       active_width <= width && active_height <= height;
     if (!fresh) {
         frame.flags |= P6_FRAME_NO_VIDEO;
         return P6_OK;
     }
-    frame.active = p6_rect{0, 0, info.width, info.height};
+    frame.active = p6_rect{(width - active_width) / 2, (height - active_height) / 2,
+                           active_width, active_height};
     if (!deliver) {
         frame.flags |= P6_FRAME_NO_VIDEO;
         return P6_OK;
     }
-    frame.video = info.pixels;
-    frame.video_bytes = uint64_t(P6_VIDEO_STRIDE_BYTES) * height;
+    if (rtg_profile) {
+        if (!rtg_selected && p6_rtg_canvas_compose(static_cast<const uint32_t *>(info.pixels),
+                                                    info.width, info.height, info.stride_bytes) != P6_RTG_OK) {
+            frame.flags |= P6_FRAME_NO_VIDEO;
+            frame.active = p6_rect{0, 0, 0, 0};
+            return P6_OK;
+        }
+        frame.video = p6_rtg_canvas_data();
+        frame.video_bytes = uint64_t(P6_RTG_OUTPUT_STRIDE_BYTES) * P6_RTG_MAX_HEIGHT;
+    } else {
+        frame.video = info.pixels;
+        frame.video_bytes = uint64_t(P6_VIDEO_STRIDE_BYTES) * height;
+    }
     return P6_OK;
 }
 

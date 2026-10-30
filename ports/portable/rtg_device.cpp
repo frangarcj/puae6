@@ -313,10 +313,12 @@ int p6_rtg_present(void)
 	std::memset(output, 0, sizeof output);
 	if (state.view.display_enabled) {
 		const uint32_t bpp = state.view.mode.bytes_per_pixel;
+		const uint32_t left = (P6_RTG_MAX_WIDTH - state.view.mode.width) / 2;
+		const uint32_t top = (P6_RTG_MAX_HEIGHT - state.view.mode.height) / 2;
 		for (uint32_t y = 0; y < state.view.mode.height; ++y) {
 			const uint8_t *source = vram + pixel_address(state.view.surface,
 				state.view.x_offset, state.view.y_offset + y);
-			uint32_t *destination = output + uint64_t(y) * P6_RTG_MAX_WIDTH;
+			uint32_t *destination = output + uint64_t(top + y) * P6_RTG_MAX_WIDTH + left;
 			for (uint32_t x = 0; x < state.view.mode.width; ++x)
 				destination[x] = load_xrgb(source + uint64_t(x) * bpp, state.view.mode.format);
 		}
@@ -330,9 +332,35 @@ int p6_rtg_frame_get(p6_rtg_frame *out)
 {
 	if (!out) return P6_RTG_BAD_ARGUMENT;
 	if (!state.have_frame || !state.view.active) return P6_RTG_BAD_STATE;
-	*out = {output, state.view.mode.width, state.view.mode.height,
+	const uint32_t left = (P6_RTG_MAX_WIDTH - state.view.mode.width) / 2;
+	const uint32_t top = (P6_RTG_MAX_HEIGHT - state.view.mode.height) / 2;
+	*out = {output + uint64_t(top) * P6_RTG_MAX_WIDTH + left,
+		state.view.mode.width, state.view.mode.height,
 		P6_RTG_OUTPUT_STRIDE_BYTES, state.frames};
 	return P6_RTG_OK;
+}
+
+int p6_rtg_canvas_compose(const uint32_t *pixels, uint32_t width,
+	uint32_t height, uint32_t stride_bytes)
+{
+	if (!pixels) return P6_RTG_BAD_ARGUMENT;
+	if (!width || width > P6_RTG_MAX_WIDTH || !height || height > P6_RTG_MAX_HEIGHT
+		|| stride_bytes < width * sizeof(uint32_t) || stride_bytes % sizeof(uint32_t))
+		return P6_RTG_BOUNDS;
+	std::memset(output, 0, sizeof output);
+	const uint32_t left = (P6_RTG_MAX_WIDTH - width) / 2;
+	const uint32_t top = (P6_RTG_MAX_HEIGHT - height) / 2;
+	for (uint32_t y = 0; y < height; ++y) {
+		const auto *source = reinterpret_cast<const uint8_t *>(pixels) + uint64_t(y) * stride_bytes;
+		std::memcpy(output + uint64_t(top + y) * P6_RTG_MAX_WIDTH + left,
+			source, size_t(width) * sizeof(uint32_t));
+	}
+	return P6_RTG_OK;
+}
+
+const uint32_t *p6_rtg_canvas_data(void)
+{
+	return output;
 }
 
 int p6_rtg_view_get(p6_rtg_view *out)

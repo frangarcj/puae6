@@ -901,6 +901,12 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
                 const p6_uaegfx_resident_snapshot resident{P6_UAEGFX_RESIDENT_SNAPSHOT_VERSION, 0x1000};
                 if (p6_uaegfx_snapshot_apply(&traps) != P6_RTG_OK || p6_uaegfx_resident_snapshot_apply(&resident) != P6_RTG_OK) abort();
             }
+            else if (!strcmp(op.chunk, "rtg-chipset")) {
+                p6_uaegfx_snapshot traps{};
+                if (p6_uaegfx_snapshot_get(&traps) != P6_RTG_OK) abort();
+                traps.selected = 0;
+                if (p6_uaegfx_snapshot_apply(&traps) != P6_RTG_OK) abort();
+            }
             else if (!strcmp(op.chunk, "exception")) regs.exception = 3;
             else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
             else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
@@ -1412,13 +1418,38 @@ int main(int argc, char **argv)
             } else if (frame.video) {
                 std::vector<uint8_t> raster;
                 for (uint32_t y = 0; y < frame.active.height; ++y) {
-                    const uint8_t *row = static_cast<const uint8_t *>(frame.video) + size_t(y) * frame.video_stride_bytes;
+                    const uint8_t *row = static_cast<const uint8_t *>(frame.video)
+                        + size_t(frame.active.y + y) * frame.video_stride_bytes + size_t(frame.active.x) * 4;
                     raster.insert(raster.end(), row, row + size_t(frame.active.width) * 4);
                 }
                 uint8_t picture[32];
                 p6_sha256_hash(raster.data(), raster.size(), picture);
                 printf("picture %" PRIu64 " %ux%u p%d %u/%u %s\n", unit, frame.active.width, frame.active.height, int(frame.field_parity), frame.cadence_num, frame.cadence_den,
                        hex(picture, 32).c_str());
+            }
+            if (rtg_internal && !(frame.flags & P6_FRAME_NO_VIDEO) && frame.video) {
+                p6_sha256 canvas;
+                p6_sha256_init(&canvas);
+                uint64_t outside = 0;
+                for (uint32_t y = 0; y < frame.video_height; ++y) {
+                    const uint8_t *row = static_cast<const uint8_t *>(frame.video) + size_t(y) * frame.video_stride_bytes;
+                    p6_sha256_update(&canvas, row, size_t(frame.video_width) * 4);
+                    for (uint32_t x = 0; x < frame.video_width; ++x) {
+                        const bool active = x >= frame.active.x && x < frame.active.x + frame.active.width &&
+                                            y >= frame.active.y && y < frame.active.y + frame.active.height;
+                        if (!active) {
+                            uint32_t pixel;
+                            memcpy(&pixel, row + size_t(x) * 4, sizeof pixel);
+                            outside += pixel != 0;
+                        }
+                    }
+                }
+                uint8_t digest[32];
+                p6_sha256_final(&canvas, digest);
+                printf("canvas %" PRIu64 " %ux%u active=%u,%u,%u,%u stride=%u outside=%" PRIu64 " %s\n",
+                       unit, frame.video_width, frame.video_height, frame.active.x, frame.active.y,
+                       frame.active.width, frame.active.height, frame.video_stride_bytes, outside,
+                       hex(digest, sizeof digest).c_str());
             }
             if (unit % every == 0 || unit == units) print_digests(unit);
             run_state_ops(state_ops, unit);

@@ -26770,6 +26770,53 @@
       "stop": "No aceptar aun rtg_memory en p6_init ni entregar video RTG; la opcion publica espera la vertical de presentacion."
     },
     {
+      "id": "T85p",
+      "title": "RTG-D3: lienzo fijo y seleccion automatica de presentacion",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85o"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0006-video-output.md",
+        "docs/adr/future-rtg.md",
+        "bridge/video.cpp",
+        "bridge/state_probe.cpp",
+        "ports/portable/rtg_device.cpp",
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_uaegfx.cpp"
+      ],
+      "touch": [
+        "bridge/video.cpp",
+        "bridge/state_probe.cpp",
+        "ports/portable/rtg_device.cpp",
+        "ports/portable/rtg_device.h",
+        "tests/state/test_rtg_video.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Reutilizar el unico buffer XRGB RTG de 1024x768 como lienzo de presentacion, sin añadir otra reserva mutable ni cambiar el camino RTG0.",
+        "Centrar con padding negro los modos 640x480, 800x600 y 1024x768; cuando SetSwitch selecciona chipset, centrar tambien su raster dentro del mismo lienzo.",
+        "Publicar el display elegido al final de cada unidad sin callbacks ni scheduler adicional y conservar aspect/cadencia del origen.",
+        "Probar el patron RTG y el fallback chipset mediante la ruta interna A4030 antes de aceptar rtg_memory en la API."
+      ],
+      "checks": [
+        "AV01",
+        "DET02",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "La configuracion RTG interna entrega siempre 1024x768/stride4096: chipset 756x574 y RTG 640x480 quedan centrados, y todos los bytes fuera de active son cero.",
+        "SetSwitch decide automaticamente chipset o RTG; el patron visible, la cadencia y el futuro tras estado siguen siendo deterministas sin una segunda asignacion de salida."
+      ],
+      "stop": "No aceptar aun rtg_memory publicamente ni modificar MacHawk; la siguiente ficha expone contrato/caps y despues genera la adaptacion BizHawk."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

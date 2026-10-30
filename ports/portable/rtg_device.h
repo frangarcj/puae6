@@ -102,6 +102,12 @@ int p6_rtg_blit(const p6_rtg_surface *source, uint32_t source_x, uint32_t source
 	uint32_t width, uint32_t height);
 int p6_rtg_present(void);
 int p6_rtg_frame_get(p6_rtg_frame *out);
+/* The one 1024x768 conversion allocation is also the fixed frontend canvas.
+ * compose centres a chipset raster in it and clears every padding pixel; it is
+ * presentation-only and does not alter semantic RTG state or its frame count. */
+int p6_rtg_canvas_compose(const uint32_t *pixels, uint32_t width,
+	uint32_t height, uint32_t stride_bytes);
+const uint32_t *p6_rtg_canvas_data(void);
 int p6_rtg_view_get(p6_rtg_view *out);
 int p6_rtg_snapshot_get(p6_rtg_snapshot *out);
 int p6_rtg_snapshot_validate(const p6_rtg_snapshot *snapshot);

@@ -1457,6 +1457,9 @@ for _gate in ('BUILD01', 'MED01', 'DET02'):
 for _gate in ('STATE01', 'DET02', 'SAFE01'):
     TASK_SUITES[(_gate, 'T85o')] = {
         'rtg_p6rm_identity_rejection_and_future': 'tests.state.test_rtg_state'}
+for _gate in ('AV01', 'DET02', 'SAFE01'):
+    TASK_SUITES[(_gate, 'T85p')] = {
+        'rtg_fixed_canvas_selection_and_padding': 'tests.state.test_rtg_video'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
