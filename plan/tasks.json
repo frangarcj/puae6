@@ -26473,6 +26473,50 @@
       "stop": "No definir aun P6_PORTABLE_RTG ni enlazar la build publica: T85i añadira el parche acotado a autoconf/filesys y la closure CMake."
     },
     {
+      "id": "T85i",
+      "title": "RTG-B6: closure real de build y arranque uaegfx",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85h"
+      ],
+      "read": [
+        "README.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "CMakeLists.txt",
+        "upstream/winuae/autoconf.cpp",
+        "upstream/winuae/filesys.cpp",
+        "ports/portable/sysconfig.h",
+        "ports/portable/rtg_uaegfx.h"
+      ],
+      "touch": [
+        "CMakeLists.txt",
+        "patches/winuae/0428-portable-uaegfx-bootstrap.patch",
+        "patches/winuae/series.json",
+        "tests/host/test_rtg_link.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Definir P6_PORTABLE_RTG solo como feature interna del perfil y compilar device, banco, traps y residente dentro de p6_portable sin habilitar PICASSO96 ni fuentes Win32.",
+        "Instalar el residente desde RTAREA_RTG y crear uaegfx.card al alcanzar el hook AfterDOS existente de filesys; abortar si el layout fijo no cabe.",
+        "Construir y enlazar p6_headless con la closure real, auditar imports y ejecutar regresiones de perfil no RTG con rtg_memory0."
+      ],
+      "checks": [
+        "SRC01",
+        "BUILD01",
+        "DET02"
+      ],
+      "acceptance": [
+        "La build nativa completa resuelve Autoconfig, RTAREA, traps y uaegfx sin Win32/D3D/WriteWatch, y el perfil por defecto no registra placa ni cambia video, RAM o identidad salvo el nuevo build id.",
+        "El parche upstream solo añade los dos hooks P6_PORTABLE_RTG; PICASSO96 sigue en features_off y p6_config.rtg_memory no se acepta aun."
+      ],
+      "stop": "No exponer aun la opcion ni publicar video RTG: faltan codec semantico, seleccion de presentacion y restauracion frontend."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

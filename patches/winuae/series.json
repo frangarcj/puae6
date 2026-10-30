@@ -6501,6 +6501,34 @@
           "after_sha256": "b06b10beb3780dd5e08746d946269361e41d8e1c43eab54673ab8f411ec9f0f2"
         }
       ]
+    },
+    {
+      "id": "0428-portable-uaegfx-bootstrap",
+      "file": "patches/winuae/0428-portable-uaegfx-bootstrap.patch",
+      "sha256": "d0d825390b8e3fa433feb78f0be6775328dec3a050a4f68608581af7b88a4f92",
+      "title": "Bootstrap the bounded uaegfx resident through existing RTAREA and AfterDOS hooks",
+      "reason": "T85i compiles the portable RTG closure without enabling upstream PICASSO96 or its Win32 backend. The fixed resident is emitted into the reserved RTAREA slot, and the existing filesystem AfterDOS hook creates uaegfx.card only when the bounded Z3 bank has actually mapped.",
+      "category": "portable RTG guest bootstrap",
+      "order": 243,
+      "symbols": [
+        "p6_uaegfx_install_code",
+        "p6_uaegfx_alloc"
+      ],
+      "test": "tests/host/test_rtg_link.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "autoconf.cpp",
+          "before_sha256": "927960fc3e4ba04157a8d368d11958af6fa533874d95d1818a72642be4c1dd9d",
+          "after_sha256": "d29226c0f193c3b684128cdb78fba4444d23822dfe581146eefca8081827f760"
+        },
+        {
+          "path": "filesys.cpp",
+          "before_sha256": "9461942d28bbcc4520fbe40ef2627d77e65dd13efb5decbfd5f098d814b73aab",
+          "after_sha256": "41738e65ea9ac5b6ab34ec52c305896324e35bf0fbac582bf4e593c147eca87d"
+        }
+      ]
     }
   ]
 }

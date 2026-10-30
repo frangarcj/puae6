@@ -1,0 +1,34 @@
+diff --git a/autoconf.cpp b/autoconf.cpp
+--- a/autoconf.cpp
++++ b/autoconf.cpp
+@@ -26,3 +26,6 @@
+ #include "devices.h"
++#ifdef P6_PORTABLE_RTG
++#include "rtg_uaegfx.h"
++#endif
+ 
+ /* Commonly used autoconfig strings */
+@@ -682,3 +685,8 @@
+ #ifdef PICASSO96
+ 	uaegfx_install_code (rtarea_base + RTAREA_RTG);
++#elif defined(P6_PORTABLE_RTG)
++	if (!p6_uaegfx_install_code(rtarea_base + RTAREA_RTG)) {
++		write_log(_T("Portable uaegfx resident exceeds its fixed RTAREA slot.\n"));
++		abort();
++	}
+ #endif
+diff --git a/filesys.cpp b/filesys.cpp
+--- a/filesys.cpp
++++ b/filesys.cpp
+@@ -61,2 +61,5 @@
+ #include "picasso96.h"
++#ifdef P6_PORTABLE_RTG
++#include "rtg_uaegfx.h"
++#endif
+ #include "rommgr.h"
+@@ -8123,3 +8126,5 @@
+ #ifdef PICASSO96
+ 		picasso96_alloc(ctx);
++#elif defined(P6_PORTABLE_RTG)
++		p6_uaegfx_alloc(ctx);
+ #endif

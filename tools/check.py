@@ -1427,6 +1427,17 @@ for _gate in ('GEN01', 'AV01', 'DET02'):
 for _gate in ('SRC01', 'GEN01', 'DET02'):
     TASK_SUITES[(_gate, 'T85h')] = {
         'fixed_uaegfx_resident_and_modes': 'tests.host.test_rtg_uaegfx_install'}
+TASK_SUITES[('SRC01', 'T85i')] = {
+    'fixed_profile_and_materialized_hooks':
+        'tests.host.test_rtg_link.RtgLinkTests.test_fixed_profile_and_materialized_hooks'}
+TASK_SUITES[('BUILD01', 'T85i')] = {
+    'real_headless_link_and_imports':
+        'tests.host.test_rtg_link.RtgLinkTests.test_real_headless_link_and_imports'}
+TASK_SUITES[('DET02', 'T85i')] = {
+    'default_profile_and_public_rtg_rejection':
+        'tests.host.test_rtg_link.RtgLinkTests.test_default_profile_and_public_rtg_rejection',
+    'default_profile_has_no_rtg_board':
+        'tests.host.test_rtg_autoconfig.RtgAutoconfigTests.test_z3_identity_single_registration_and_mapping'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),
