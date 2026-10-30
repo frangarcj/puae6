@@ -27212,6 +27212,7 @@
         "bridge/include/p6.h",
         "bridge/frame_step.cpp",
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "docs/user/waterbox-preview.md",
         "tests/audio/**",
         "tests/fmv/**",
         "tests/ffi/**",

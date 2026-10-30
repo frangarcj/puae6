@@ -152,8 +152,8 @@ Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
 fuentes y licencias, incluida la captura musl source-x64.tar.gz que se extrae
 junto con source.tar.gz. El paquete no incluye Kickstart ni juegos comerciales.
-Los otros guests proceden de la release fijada hatari-preview-56ea1841 y conservan
-su aviso CAPSImg y el EmuTOS libre.
+Los lectores IPF de Hatari y UAE usan el decoder MAME/BSD-3-Clause incluido, no
+CAPSImg; el EmuTOS libre se conserva.
 
 La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
 restauracion exacta del estado completo en otro sandbox, comparacion A/V, cuatro
@@ -168,15 +168,18 @@ supera todas esas etapas y comprueba ademas el contrato visible 0..4 y los
 44100 Hz sobre el commit probado `4efd64f4c`; la release apunta al merge
 `af53e1dd` con el mismo contenido. El guest x64 es
 `09cfba465e4bd2dc529d9a88c7600725225335ef0e765e6a5ebc969c5180f6cd`.
-El paquete Darwin ARM64 separado `6c2029da`, SHA-256
-`9dfed4467eb9e582aeace74d877e791f0bf7d54d03cf64550f9c342fc6e0f305`,
-fija el guest `8be397c0552214481b4671a02a39f9a37d6ed1d9365bec61b05a2d32e1488fa1`
-y supera su comprobacion instalada; sigue siendo un paquete FFI, no un frontend
-WinForms para macOS.
+El paquete Darwin ARM64 separado de esta candidata fija el guest
+`4a02d827a5f296bf7b91efcc0ec015679aff04872d7058ca88280ea235eacc86`;
+su `manifest.json` registra revision, runtime y hashes exactos, y supera la
+comprobacion instalada. Sigue siendo un paquete FFI, no un frontend WinForms
+para macOS.
 
 Estados y peliculas dependen del build, configuracion y medios; no son
 intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
 el caso CU06 pendiente siguen como extras. JIT y MMU no estan habilitados; RTG
 queda limitado al perfil A4000/030 de 4 MiB descrito arriba. CD32 FMV si esta
-habilitado; Cannon Fodder supera las puertas reales nativa, libretro y Waterbox,
-sin generalizar compatibilidad a todo el catalogo ni prometer estados entre builds.
+habilitado; Cannon Fodder supera las puertas reales nativa, libretro y Waterbox.
+La sintesis Layer II conserva las muestras silenciosas de baja amplitud sin
+cambiar el reloj ni el buffer causal, y CD32/CDTV publican la actividad optica en
+el indicador de unidad. Esto no generaliza compatibilidad a todo el catalogo ni
+promete estados entre builds.
