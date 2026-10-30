@@ -26345,6 +26345,47 @@
       "stop": "No parchear aun expansion.cpp ni presentar la placa al invitado: la siguiente ficha conecta este banco a la cadena Autoconfig real."
     },
     {
+      "id": "T85f",
+      "title": "RTG-B3: Autoconfig Zorro III de16MiB/4MiB",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85e"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "plan/extensions/rtg.json",
+        "upstream/winuae/expansion.cpp",
+        "upstream/winuae/include/gfxboard.h",
+        "ports/portable/rtg_memory.h"
+      ],
+      "touch": [
+        "patches/winuae/0427-portable-rtg-autoconfig.patch",
+        "patches/winuae/series.json",
+        "tests/host/test_rtg_autoconfig.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Conservar la ruta UAE Z3 del expansion.cpp fijado y habilitarla bajo P6_PORTABLE_RTG sin compilar placas fisicas ni la ruta Z2; enlazar el banco estatico en vez de mapped_malloc/mapped_free.",
+        "Anunciar tipo fisico Z3 de16MiB con subsize4MiB, producto96 y fabricante UAE, aceptar solo una base de apertura alineada, mapear4MiB y limpiar/desenlazar sin liberar el backing.",
+        "Ejecutar un probe contra el expansion.cpp materializado que inspeccione bytes Autoconfig, registro de una sola placa, callback de mapeo, acceso a extremos y reset sin alias en la apertura vacia."
+      ],
+      "checks": [
+        "SRC01",
+        "GEN01",
+        "DET02"
+      ],
+      "acceptance": [
+        "La cadena real enumera una unica UAE Z3 RTG con tipo0x80, flags0x98 y4MiB poblados; no aparece ninguna RTG Z2 o placa fisica.",
+        "Al asignar una base valida map_banks_z3 recibe64 bancos de64KiB y los bytes primero/ultimo pertenecen a la VRAM estatica; una apertura invalida no se mapea ni cambia el banco."
+      ],
+      "stop": "No activar P6_PORTABLE_RTG en la build publica ni aceptar p6_config.rtg_memory: faltan uaegfx/traps, video y estado."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

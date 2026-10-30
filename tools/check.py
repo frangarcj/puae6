@@ -1418,6 +1418,9 @@ for _gate in ('AV01', 'AV02', 'DET02'):
 for _gate in ('GEN01', 'DET02', 'SAFE01'):
     TASK_SUITES[(_gate, 'T85e')] = {
         'static_rtg_winuae_memory_bank': 'tests.host.test_rtg_memory'}
+for _gate in ('SRC01', 'GEN01', 'DET02'):
+    TASK_SUITES[(_gate, 'T85f')] = {
+        'portable_rtg_z3_autoconfig': 'tests.host.test_rtg_autoconfig'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

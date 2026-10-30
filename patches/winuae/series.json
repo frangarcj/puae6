@@ -6476,6 +6476,31 @@
           "after_sha256": "90cac009d6caef402743f28a99f8329814679a926fd5ede079c9f817e903bea7"
         }
       ]
+    },
+    {
+      "id": "0427-portable-rtg-autoconfig",
+      "file": "patches/winuae/0427-portable-rtg-autoconfig.patch",
+      "sha256": "4bf9e05c38cce8f3425887523235fdccdbef3d1988a9dc48d1f8d8e7d8620133",
+      "title": "Bind bounded portable RTG memory to the UAE Zorro III Autoconfig chain",
+      "reason": "T85f reuses the pinned UAE Z3 RTG identity while replacing host allocation with the static 4 MiB device. The portable profile registers exactly board zero, advertises the required 16 MiB physical aperture with 4 MiB populated, maps only 64 banks after validating the assigned base, and never enables Z2 or physical graphics boards.",
+      "category": "portable RTG autoconfig",
+      "order": 242,
+      "symbols": [
+        "expamem_init_gfxcard_z3",
+        "expamem_map_gfxcard_z3",
+        "p6_rtg_memory_enable",
+        "p6_rtg_memory_set_bus_base"
+      ],
+      "test": "tests/host/test_rtg_autoconfig.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "expansion.cpp",
+          "before_sha256": "215b5b7f16becd1acb229736c5fb98cf87f66291c8bbfaf07839f286559c3110",
+          "after_sha256": "b06b10beb3780dd5e08746d946269361e41d8e1c43eab54673ab8f411ec9f0f2"
+        }
+      ]
     }
   ]
 }
