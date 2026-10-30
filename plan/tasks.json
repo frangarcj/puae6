@@ -26386,6 +26386,50 @@
       "stop": "No activar P6_PORTABLE_RTG en la build publica ni aceptar p6_config.rtg_memory: faltan uaegfx/traps, video y estado."
     },
     {
+      "id": "T85g",
+      "title": "RTG-B4: traps uaegfx acotados sobre el dispositivo software",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85f"
+      ],
+      "read": [
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "plan/extensions/rtg.json",
+        "upstream/winuae/od-win32/picasso96_win.cpp",
+        "upstream/winuae/od-win32/picasso96_win.h",
+        "upstream/winuae/include/rtgmodes.h",
+        "upstream/winuae/include/traps.h",
+        "ports/portable/rtg_device.h",
+        "ports/portable/rtg_memory.h"
+      ],
+      "touch": [
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx.cpp",
+        "tests/host/test_rtg_uaegfx.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Traducir el ABI guest fijado de FindCard, SetGC, SetPanning, SetSwitch, SetDisplay, SetColorArray y CalculateBytesPerRow al estado RTG acotado sin conservar punteros host.",
+        "Aceptar FillRect y BlitRect solo para los tres formatos, mascara completa y copia SRC; devolver fallo real para formatos, mascaras u opcodes excluidos antes de escribir VRAM.",
+        "Probar con TrapContext y RAM guest falsos todos los modos, bordes, base extranjera, stride, paleta, rectangulos solapados y continuidad chipset/RTG sin reloj, hilo ni allocator."
+      ],
+      "checks": [
+        "GEN01",
+        "AV01",
+        "DET02"
+      ],
+      "acceptance": [
+        "Los handlers publican solo CLUT8, RGB565PC y ARGB32, aceptan las tres geometrías y producen los mismos bytes que el dispositivo software en los extremos y solapes.",
+        "Toda direccion guest, formato, stride, mascara u opcode fuera del contrato devuelve no soportado sin cambiar BoardInfo, estado ni VRAM; el objeto no importa allocator, hilos, reloj ni graficos host."
+      ],
+      "stop": "No generar aun codigo68k, MakeLibrary ni listas LibResolution: la siguiente ficha instala el residente y los nueve ModeInfo usando estos handlers ya probados."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
