@@ -10,7 +10,7 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [mousespeed=1..1000] [machine=a500|a600|a1200] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [drivevolume=0..100] [cdvolume=0..100] [writes]
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [mousespeed=1..1000] [machine=a500|a600|a1200|a4030] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [z3=None|MB1..MB512] [rtg=None|MB4] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [drivevolume=0..100] [cdvolume=0..100] [writes]
 ///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies. volume: LHA archives or ZIP files of files, T64b,
 ///    built into hard files in memory after the hdf ones)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
@@ -90,6 +90,7 @@ internal static unsafe partial class Program
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "Auto")),
 						Z3Memory = Enum.Parse<Puae6Z3Memory>(arguments.GetValueOrDefault("z3", "None")),
+						RtgMemory = Enum.Parse<Puae6RtgMemory>(arguments.GetValueOrDefault("rtg", "None")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
 						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),
 						CpuCompatibility = Enum.Parse<Puae6CpuCompatibility>(arguments.GetValueOrDefault("accuracy", "Exact")),

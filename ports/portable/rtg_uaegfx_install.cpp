@@ -23,6 +23,7 @@ enum : uae_u32 {
 	RESOLUTION_BYTES = MODE_INFO_BYTES * 3 + LIB_RESOLUTION_BYTES,
 	RESOLUTION_STORAGE_BYTES = RESOLUTION_BYTES * 3,
 	LIBRARY_BYTES = CARD_PRIVATE_BYTES + RESOLUTION_STORAGE_BYTES,
+	BI_BOARD_NAME = 16,
 	BI_RESOLUTIONS_LIST = 158,
 	BI_BOARD_TYPE = 170,
 	BI_PALETTE_CHIP_TYPE = 174,
@@ -50,6 +51,10 @@ enum : uae_u32 {
 	BI_RESOLVE_PIXEL_CLOCK = 318,
 	BI_GET_PIXEL_CLOCK = 322,
 	BI_SET_CLOCK = 326,
+	BI_SET_MEMORY_MODE = 330,
+	BI_SET_WRITE_MASK = 334,
+	BI_SET_CLEAR_MASK = 338,
+	BI_SET_READ_PLANE = 342,
 	BI_WAIT_VERTICAL_SYNC = 346,
 	BI_WAIT_BLITTER = 354,
 	BI_FILL_RECT = 382,
@@ -86,8 +91,12 @@ enum : uae_u32 {
 
 struct ResidentCode {
 	uaecptr rts;
+	uaecptr resident;
+	uaecptr board_name;
+	uaecptr init_table;
 	uaecptr function_table;
 	uaecptr data_table;
+	uaecptr init;
 	uaecptr open;
 	uaecptr close;
 	uaecptr expunge;
@@ -128,6 +137,15 @@ uae_u32 REGPARAM2 library_close(TrapContext *ctx)
 }
 
 uae_u32 REGPARAM2 library_expunge(TrapContext *) { return 0; }
+
+uae_u32 REGPARAM2 library_autoinit(TrapContext *ctx)
+{
+	if (library_base) return 0;
+	const uaecptr candidate = trap_get_dreg(ctx, 0);
+	if (!candidate || !trap_valid_address(ctx, candidate, LIBRARY_BYTES)) return 0;
+	library_base = candidate;
+	return library_base;
+}
 
 uae_u32 REGPARAM2 set_dac(TrapContext *ctx)
 {
@@ -202,6 +220,7 @@ void fill_board_info(TrapContext *ctx, uaecptr board_info)
 	constexpr uae_u32 formats = RGBFF_CLUT | RGBFF_R5G6B5PC | RGBFF_A8R8G8B8;
 	constexpr uae_u32 flags = (1u << 1) | (1u << 15) | (1u << 20) | (1u << 26);
 	trap_put_long(ctx, board_info + BI_BOARD_TYPE, 14); // BT_uaegfx
+	trap_put_long(ctx, board_info + BI_BOARD_NAME, code.board_name);
 	trap_put_long(ctx, board_info + BI_PALETTE_CHIP_TYPE, 0);
 	trap_put_long(ctx, board_info + BI_GRAPHICS_CONTROLLER_TYPE, 0);
 	trap_put_word(ctx, board_info + BI_BITS_PER_CANNON, 8);
@@ -229,6 +248,10 @@ void fill_board_info(TrapContext *ctx, uaecptr board_info)
 	trap_put_long(ctx, board_info + BI_RESOLVE_PIXEL_CLOCK, code.resolve_pixel_clock);
 	trap_put_long(ctx, board_info + BI_GET_PIXEL_CLOCK, code.get_pixel_clock);
 	trap_put_long(ctx, board_info + BI_SET_CLOCK, code.rts);
+	trap_put_long(ctx, board_info + BI_SET_MEMORY_MODE, code.rts);
+	trap_put_long(ctx, board_info + BI_SET_WRITE_MASK, code.rts);
+	trap_put_long(ctx, board_info + BI_SET_CLEAR_MASK, code.rts);
+	trap_put_long(ctx, board_info + BI_SET_READ_PLANE, code.rts);
 	trap_put_long(ctx, board_info + BI_WAIT_VERTICAL_SYNC, code.rts);
 	trap_put_long(ctx, board_info + BI_WAIT_BLITTER, code.rts);
 	trap_put_long(ctx, board_info + BI_FILL_RECT, code.fill_rect);
@@ -252,6 +275,7 @@ int p6_uaegfx_install_code(uaecptr start)
 	code.open = emit(library_open);
 	code.close = emit(library_close);
 	code.expunge = emit(library_expunge);
+	code.init = emit(library_autoinit);
 	code.find_card = emit(p6_uaegfx_find_card);
 	code.init_card = emit(p6_uaegfx_init_card);
 	code.set_switch = emit(p6_uaegfx_set_switch);
@@ -277,7 +301,24 @@ int p6_uaegfx_install_code(uaecptr start)
 	dl(code.find_card); dl(code.init_card); dl(0xffffffffu);
 	const uaecptr resname = ds_ansi("uaegfx.card");
 	const uaecptr resid = ds_ansi("UAE Graphics Card 3.4");
+	code.board_name = ds_ansi("UAE");
 	code.data_table = makedatatable(resid, resname, 0x09, -50, 3, 4);
+	code.init_table = here();
+	dl(LIBRARY_BYTES);
+	dl(code.function_table);
+	dl(code.data_table);
+	dl(code.init);
+	code.resident = here();
+	dw(0x4afc);                         // RTC_MATCHWORD
+	dl(code.resident);                  // rt_MatchTag
+	dl(code.resident + 26);             // rt_EndSkip
+	db(0x81);                           // RTF_AUTOINIT | RTF_COLDSTART
+	db(3);                              // rt_Version
+	db(0x09);                           // NT_LIBRARY
+	db(uae_u8(-50));                    // rt_Pri
+	dl(resname);
+	dl(resid);
+	dl(code.init_table);
 	const uaecptr boundary = (start & 0xffff0000u) | RTAREA_TRAMPOLINE;
 	if (here() > boundary) {
 		code = ResidentCode{};
@@ -290,7 +331,7 @@ int p6_uaegfx_install_code(uaecptr start)
 
 uaecptr p6_uaegfx_alloc(TrapContext *ctx)
 {
-	if (!ctx || !code.ready || library_base || !(gfxmem_bank.flags & ABFLAG_MAPPED))
+	if (!code.ready || library_base || !(gfxmem_bank.flags & ABFLAG_MAPPED))
 		return library_base;
 	const uaecptr exec = trap_get_long(ctx, 4);
 	const uae_u32 saved_a2 = trap_get_areg(ctx, 2);
@@ -341,7 +382,7 @@ int p6_uaegfx_resident_snapshot_apply(const p6_uaegfx_resident_snapshot *snapsho
 
 uae_u32 REGPARAM2 p6_uaegfx_init_card(TrapContext *ctx)
 {
-	if (!ctx || !code.ready || !library_base) return 0;
+	if (!code.ready || !library_base) return 0;
 	const uaecptr board_info = trap_get_areg(ctx, 0);
 	const uaecptr list = board_info + BI_RESOLUTIONS_LIST;
 	const uaecptr storage = library_base + CARD_PRIVATE_BYTES;

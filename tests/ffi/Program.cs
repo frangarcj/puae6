@@ -66,6 +66,7 @@ internal static unsafe partial class Program
 					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
 					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
 					if (options.TryGetValue("z3", out var z3)) settings.Z3Memory = Enum.Parse<Puae6Z3Memory>(z3);
+					if (options.TryGetValue("rtg", out var rtg)) settings.RtgMemory = Enum.Parse<Puae6RtgMemory>(rtg);
 					settings.FloppyWrites = options.ContainsKey("writes");
 					// --hdf-bytes N[,N...] (T63b): the sizes of the hard files the core would be given.
 					var hard = options.TryGetValue("hdf-bytes", out var sizes) ? sizes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(long.Parse).ToArray() : [];
@@ -160,6 +161,15 @@ internal static unsafe partial class Program
 		var stillActive = (Puae6SyncSettings)fields.Single(f => f.Name == "_syncSettings").GetValue(core)!;
 		Require(stillActive.ControllerPort2 == Puae6Port2.Joystick && stillActive.FloppyDrives == 1, "the live machine does not change before reboot");
 		Require(core.PutSyncSettings(active.Clone()) == PutSettingsDirtyBits.None, "restoring the live settings cancels the pending reboot difference");
+		var rtgRequested = active.Clone();
+		rtgRequested.Machine = Puae6Machine.A4030; rtgRequested.CpuCompatibility = Puae6CpuCompatibility.Normal; rtgRequested.RtgMemory = Puae6RtgMemory.MB4;
+		Require(core.PutSyncSettings(rtgRequested) == PutSettingsDirtyBits.RebootCore && core.GetSyncSettings().RtgMemory == Puae6RtgMemory.MB4,
+			"RTG memory remains a pending restart setting for EmuHawk");
+		var invalidRtg = rtgRequested.Clone(); invalidRtg.Machine = Puae6Machine.A500;
+		bool rejectedRtg = false;
+		try { core.PutSyncSettings(invalidRtg); } catch (ArgumentException e) { rejectedRtg = e.Message.Contains("A4000/030"); }
+		Require(rejectedRtg && core.GetSyncSettings().RtgMemory == Puae6RtgMemory.MB4, "an incompatible pending RTG setting is rejected atomically");
+		core.PutSyncSettings(active.Clone());
 		var beforeInvalid = core.GetSyncSettings();
 		var invalid = beforeInvalid.Clone();
 		invalid.ControllerPort1 = Puae6Port1.Lightgun;
@@ -209,6 +219,10 @@ internal static unsafe partial class Program
 		Require(new Puae6SyncSettings().CdController == Puae6CdController.Auto && cdController.DisplayName == "CD controller"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { CdController = Puae6CdController.Ide }),
 			"CD controller is an Auto/CD32/IDE/None sync setting");
+		var rtgMemory = sync[nameof(Puae6SyncSettings.RtgMemory)]!;
+		Require(new Puae6SyncSettings().RtgMemory == Puae6RtgMemory.None && rtgMemory.DisplayName == "RTG memory"
+			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { RtgMemory = Puae6RtgMemory.MB4 }),
+			"RTG memory is a None/4 MiB sync setting");
 		Puae6Parameters WithCd(Puae6SyncSettings settings, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hard = null) => new()
 		{
 			Firmware = [1], SyncSettings = settings, Media = media ?? [], HardFiles = hard ?? [],

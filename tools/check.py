@@ -1469,6 +1469,35 @@ TASK_SUITES[('AV01', 'T85q')] = {
 TASK_SUITES[('DET02', 'T85q')] = {
     'rtg_public_fixed_canvas': 'tests.state.test_rtg_video',
     'rtg_public_state_future': 'tests.state.test_rtg_state'}
+TASK_SUITES[('BUILD01', 'T85r')] = {
+    'rtg_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'rtg_managed_abi_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}
+TASK_SUITES[('AV01', 'T85r')] = {
+    'rtg_fixed_canvas_and_padding_in_bizhawk':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_canvas_is_fixed_black_padded_and_restores_in_another_sandbox'}
+TASK_SUITES[('DET02', 'T85r')] = {
+    'rtg_wrapper_restore_and_identity': 'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests'}
+TASK_SUITES[('WB03', 'T85r')] = {
+    'rtg_wrapper_new_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_canvas_is_fixed_black_padded_and_restores_in_another_sandbox'}
+TASK_SUITES[('SAFE01', 'T85r')] = {
+    'rtg_wrapper_preflight':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_incompatible_machine_accuracy_and_raster_fail_before_a_unit'}
+TASK_SUITES[('BUILD01', 'T85s')] = {
+    'rtg_resident_object_surface':
+        'tests.host.test_rtg_uaegfx_install.RtgUaegfxInstallTests.test_installer_object_has_no_allocator_or_host_graphics'}
+TASK_SUITES[('AV01', 'T85s')] = {
+    'authorized_picasso96_mode':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_authorized_picasso96_selects_a_real_rtg_mode'}
+TASK_SUITES[('DET02', 'T85s')] = {
+    'resident_without_hardfile':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_resident_exists_without_a_hardfile_and_after_power_reset'}
+TASK_SUITES[('WB03', 'T85s')] = {
+    'rtg_wrapper_new_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_canvas_is_fixed_black_padded_and_restores_in_another_sandbox'}
+TASK_SUITES[('SAFE01', 'T85s')] = {
+    'sanitized_resident_and_boardinfo':
+        'tests.host.test_rtg_uaegfx_install.RtgUaegfxInstallTests.test_resident_library_vectors_and_exact_modes'}
 for _gate, _children in {
     'IN01': ('T84a', 'T84c'),
     'AV02': ('T84b',),

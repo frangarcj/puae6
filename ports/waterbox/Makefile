@@ -27,8 +27,11 @@ INC := -I$(REPO)/ports/portable -I$(REPO)/ports/portable/media -I$(REPO)/build/g
 	-I$(REPO)/build/upstream -I$(REPO)/bridge/include -I$(REPO)/adapters/waterbox \
 	-I$(REPO)/build/libmpeg2/include -I$(REPO)/build/libmpeg2/src \
 	-I$(REPO)/build/libmpeg2/src/convert
-CCFLAGS := -std=c11 $(FP) $(INC)
-CXXFLAGS := -std=c++17 $(FP) $(INC)
+# The native CMake target defines the bounded software RTG backend too. Keep the
+# same definition on every Waterbox unit so fixup_prefs preserves board zero.
+PORTABLE_FEATURES := -DP6_PORTABLE_RTG=1
+CCFLAGS := -std=c11 $(FP) $(PORTABLE_FEATURES) $(INC)
+CXXFLAGS := -std=c++17 $(FP) $(PORTABLE_FEATURES) $(INC)
 
 # T58: the IPF reader (ipf_track.cpp, with the decoder of MAME included in it) uses std::vector, whose throw sites import C++ runtime names that imports.json does not allow in the guest:
 # it is compiled without exceptions (a failed allocation is the sandbox's, as for any allocation in the guest; see ipf_track.cpp). The path is that of the source in SRCS.

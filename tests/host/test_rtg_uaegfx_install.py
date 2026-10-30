@@ -58,18 +58,23 @@ struct TrapContext {
 	uint8_t memory[0x40000]{};
 };
 
+TrapContext *active_ctx;
+TrapContext *context(TrapContext *ctx) { return ctx ? ctx : active_ctx; }
+
 uaecptr EXPANSION_nullfunc = RTBASE + 0x0100;
 
 bool trap_valid_address(TrapContext *ctx, uaecptr address, uae_u32 size)
 {
+	ctx = context(ctx);
 	return address <= sizeof ctx->memory && size <= sizeof ctx->memory - address;
 }
-uae_u32 trap_get_dreg(TrapContext *ctx, int reg) { return ctx->d[reg]; }
-uae_u32 trap_get_areg(TrapContext *ctx, int reg) { return ctx->a[reg]; }
-void trap_set_dreg(TrapContext *ctx, int reg, uae_u32 value) { ctx->d[reg] = value; }
-void trap_set_areg(TrapContext *ctx, int reg, uae_u32 value) { ctx->a[reg] = value; }
+uae_u32 trap_get_dreg(TrapContext *ctx, int reg) { return context(ctx)->d[reg]; }
+uae_u32 trap_get_areg(TrapContext *ctx, int reg) { return context(ctx)->a[reg]; }
+void trap_set_dreg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->d[reg] = value; }
+void trap_set_areg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->a[reg] = value; }
 void trap_put_long(TrapContext *ctx, uaecptr address, uae_u32 value)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 4));
 	ctx->memory[address] = uint8_t(value >> 24);
 	ctx->memory[address + 1] = uint8_t(value >> 16);
@@ -78,17 +83,20 @@ void trap_put_long(TrapContext *ctx, uaecptr address, uae_u32 value)
 }
 void trap_put_word(TrapContext *ctx, uaecptr address, uae_u16 value)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 2));
 	ctx->memory[address] = uint8_t(value >> 8);
 	ctx->memory[address + 1] = uint8_t(value);
 }
 void trap_put_byte(TrapContext *ctx, uaecptr address, uae_u8 value)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 1));
 	ctx->memory[address] = value;
 }
 uae_u32 trap_get_long(TrapContext *ctx, uaecptr address)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 4));
 	return (uae_u32(ctx->memory[address]) << 24)
 		| (uae_u32(ctx->memory[address + 1]) << 16)
@@ -96,34 +104,40 @@ uae_u32 trap_get_long(TrapContext *ctx, uaecptr address)
 }
 uae_u16 trap_get_word(TrapContext *ctx, uaecptr address)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 2));
 	return uae_u16((uae_u16(ctx->memory[address]) << 8) | ctx->memory[address + 1]);
 }
 uae_u8 trap_get_byte(TrapContext *ctx, uaecptr address)
 {
+	ctx = context(ctx);
 	assert(trap_valid_address(ctx, address, 1));
 	return ctx->memory[address];
 }
 void trap_put_bytes(TrapContext *ctx, const void *source, uaecptr address, int count)
 {
+	ctx = context(ctx);
 	assert(count >= 0 && trap_valid_address(ctx, address, uae_u32(count)));
 	std::memcpy(ctx->memory + address, source, size_t(count));
 }
 void trap_get_bytes(TrapContext *ctx, void *destination, uaecptr address, int count)
 {
+	ctx = context(ctx);
 	assert(count >= 0 && trap_valid_address(ctx, address, uae_u32(count)));
 	std::memcpy(destination, ctx->memory + address, size_t(count));
 }
 void trap_set_bytes(TrapContext *ctx, uaecptr address, uae_u8 value, int count)
 {
+	ctx = context(ctx);
 	assert(count >= 0 && trap_valid_address(ctx, address, uae_u32(count)));
 	std::memset(ctx->memory + address, value, size_t(count));
 }
 
-void trap_call_add_dreg(TrapContext *ctx, int reg, uae_u32 value) { ctx->d[reg] = value; }
-void trap_call_add_areg(TrapContext *ctx, int reg, uae_u32 value) { ctx->a[reg] = value; }
+void trap_call_add_dreg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->d[reg] = value; }
+void trap_call_add_areg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->a[reg] = value; }
 uae_u32 trap_call_lib(TrapContext *ctx, uaecptr, uae_s16 offset)
 {
+	ctx = context(ctx);
 	if (offset == -0x54) {
 		make_a0 = ctx->a[0]; make_a1 = ctx->a[1]; make_size = ctx->d[0];
 		std::memset(ctx->memory + LIBBASE, 0, make_size);
@@ -148,6 +162,11 @@ void device_add_reset(DEVICE_INT callback) { reset_callback = callback; }
 
 void org(uae_u32 address) { assert((address & 0xffff0000) == RTBASE); rtpos = address & 0xffff; }
 uae_u32 here(void) { return RTBASE + rtpos; }
+void db(uae_u8 value)
+{
+	assert(rtpos + 1 <= sizeof rtarea);
+	rtarea[rtpos++] = value;
+}
 void dw(uae_u16 value)
 {
 	assert(rtpos + 2 <= sizeof rtarea);
@@ -223,19 +242,43 @@ int main()
 	static_assert(PSSO_BoardInfo_BlitRectNoMaskCompleteDefault == 434);
 	static_assert(PSSO_LibResolution_sizeof == 80 && PSSO_ModeInfo_sizeof == 48);
 	static TrapContext ctx{};
+	active_ctx = &ctx;
 	assert(p6_rtg_memory_enable() == P6_RTG_OK);
 	assert(p6_rtg_memory_set_bus_base(0x22000000) == P6_RTG_OK);
 	gfxmem_bank.flags |= ABFLAG_MAPPED;
 	assert(p6_uaegfx_install_code(RTBASE + RTAREA_RTG) == 1);
 	assert(here() <= RTBASE + RTAREA_TRAMPOLINE);
-	assert(reset_callback && handler_count == 16);
+	assert(reset_callback && handler_count == 17);
 	assert(table_type == 0x09 && table_priority == uae_u8(-50));
 	assert(table_version == 3 && table_revision == 4);
 	assert(table_resid >= RTBASE && table_resname >= RTBASE);
+	uaecptr resident_tag = 0;
+	for (uaecptr address = RTBASE + RTAREA_RTG; address + 26 <= here(); address += 2) {
+		if (rtword(address) == 0x4afc && rtlong(address + 2) == address) {
+			resident_tag = address;
+			break;
+		}
+	}
+	assert(resident_tag && rtlong(resident_tag + 6) == resident_tag + 26);
+	assert(rtarea[resident_tag - RTBASE + 10] == 0x81); /* RTF_AUTOINIT | RTF_COLDSTART */
+	assert(rtarea[resident_tag - RTBASE + 11] == 3);
+	assert(rtarea[resident_tag - RTBASE + 12] == 0x09);
+	assert(rtarea[resident_tag - RTBASE + 13] == uae_u8(-50));
+	assert(rtlong(resident_tag + 14) == table_resname && rtlong(resident_tag + 18) == table_resid);
+	const uaecptr init_table = rtlong(resident_tag + 22);
+	assert(rtlong(init_table) == 736);
+	assert(rtlong(init_table + 4) >= RTBASE + RTAREA_RTG);
+	assert(rtlong(init_table + 4) < RTBASE + RTAREA_TRAMPOLINE);
+	assert(rtlong(init_table + 8) >= RTBASE + RTAREA_RTG);
+	assert(rtlong(init_table + 8) < RTBASE + RTAREA_TRAMPOLINE);
+	const uaecptr autoinit = rtlong(init_table + 12);
+	assert(autoinit >= RTBASE + RTAREA_RTG && autoinit < RTBASE + RTAREA_TRAMPOLINE);
+	const unsigned autoinit_handler = rtword(autoinit) & 0x0fff;
+	assert(autoinit_handler && autoinit_handler <= handler_count);
 
 	trap_put_long(&ctx, 4, 0x100);
 	ctx.a[2] = 0x12345678;
-	assert(p6_uaegfx_alloc(&ctx) == LIBBASE);
+	assert(p6_uaegfx_alloc(nullptr) == LIBBASE); /* simple traps use the live 68k registers */
 	assert(p6_uaegfx_library_base() == LIBBASE && ctx.a[2] == 0x12345678);
 	assert(make_size == 736 && add_library_calls == 1);
 	assert(make_a0 >= RTBASE + RTAREA_RTG && make_a0 < RTBASE + RTAREA_TRAMPOLINE);
@@ -252,14 +295,17 @@ int main()
 	trap_put_long(&ctx, list + 4, 0);
 	trap_put_long(&ctx, list + 8, list);
 	ctx.a[0] = BI;
-	assert(p6_uaegfx_init_card(&ctx) == 1);
+	assert(p6_uaegfx_init_card(nullptr) == 1);
 	assert(trap_get_long(&ctx, BI + 170) == 14);
+	const uaecptr board_name = trap_get_long(&ctx, BI + 16);
+	assert(board_name >= RTBASE && board_name + 4 <= RTBASE + sizeof rtarea);
+	assert(std::memcmp(rtarea + (board_name - RTBASE), "UAE\0", 4) == 0);
 	assert(trap_get_word(&ctx, BI + 184) == 8);
 	assert(trap_get_word(&ctx, BI + 200) == 0x52);
 	assert(trap_get_word(&ctx, BI + 222 + 2) == 1024);
 	assert(trap_get_word(&ctx, BI + 232 + 2) == 768);
 	for (uaecptr offset : {282u, 286u, 290u, 294u, 298u, 302u, 310u, 314u,
-		318u, 322u, 382u, 398u, 430u}) {
+		318u, 322u, 326u, 330u, 334u, 338u, 342u, 346u, 354u, 382u, 398u, 430u}) {
 		const uaecptr pointer = trap_get_long(&ctx, BI + offset);
 		assert(pointer >= RTBASE + RTAREA_RTG && pointer < RTBASE + RTAREA_TRAMPOLINE);
 	}
@@ -301,6 +347,12 @@ int main()
 	assert(resident.library_base == LIBBASE);
 	reset_callback(1);
 	assert(p6_uaegfx_library_base() == 0 && !p6_uaegfx_selected());
+	ctx.d[0] = LIBBASE;
+	assert(handlers[autoinit_handler](nullptr) == LIBBASE);
+	assert(p6_uaegfx_library_base() == LIBBASE && add_library_calls == 1);
+	assert(handlers[autoinit_handler](nullptr) == 0); /* no duplicate library */
+	assert(p6_uaegfx_alloc(&ctx) == LIBBASE && add_library_calls == 1);
+	reset_callback(1);
 	assert(p6_uaegfx_resident_snapshot_apply(&resident) == P6_RTG_OK);
 	assert(p6_uaegfx_library_base() == LIBBASE);
 	ctx.a[2] = 0x89abcdef;

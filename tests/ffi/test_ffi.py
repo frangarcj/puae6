@@ -99,7 +99,7 @@ class SyncSettingsPersistenceTests(unittest.TestCase):
         ], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertNotIn('FAIL', result.stdout)
-        self.assertEqual(32, result.stdout.count('ok '), result.stdout)
+        self.assertEqual(35, result.stdout.count('ok '), result.stdout)
 
 
 @unittest.skipUnless(runtime_available(), "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")

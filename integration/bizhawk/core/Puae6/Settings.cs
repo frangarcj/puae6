@@ -40,6 +40,9 @@ public enum Puae6CollisionLevel { Auto, None, Sprites, Playfields, Full }
 // ABI IDs: retain MB16=1; subsequent capacities occupy 2..10.
 public enum Puae6Z3Memory { None, MB16, MB1, MB2, MB4, MB8, MB32, MB64, MB128, MB256, MB512 }
 
+/// <summary>The bounded UAE Zorro III graphics board (restart): disabled, or its fixed 4 MiB of VRAM.</summary>
+public enum Puae6RtgMemory { None, MB4 }
+
 /// <summary>CPU accuracy (restart): cycle exact by default, compatible prefetch, or normal instruction timing; always emulated time.</summary>
 public enum Puae6CpuCompatibility { Exact, Compatible, Normal }
 
@@ -139,6 +142,11 @@ public sealed class Puae6SyncSettings
 	public Puae6Fast FastMemory { get; set; } = Puae6Fast.Auto;
 	/// <summary>One physical Zorro III board, A4030/A4040 only (Normal CPU); requires restart.</summary>
 	public Puae6Z3Memory Z3Memory { get; set; } = Puae6Z3Memory.None;
+
+	/// <summary>The UAE Zorro III RTG board. It is available only on A4030/Normal and keeps a fixed 1024x768 output canvas while the guest switches displays.</summary>
+	[DisplayName("RTG memory")]
+	[Description("UAE Zorro III graphics card memory. 4 MiB requires A4000/030 with Normal CPU accuracy and uses a fixed 1024x768 canvas.")]
+	public Puae6RtgMemory RtgMemory { get; set; } = Puae6RtgMemory.None;
 
 	/// <summary>The FPU: external 68881/68882 on A1200/A4030, or the internal 68040/68060 matching the A4040 CPU. Other combinations are refused at load. It enters the identity of states and movies when it is not <c>None</c>.</summary>
 	public Puae6Fpu FpuModel { get; set; } = Puae6Fpu.None;

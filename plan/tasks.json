@@ -21820,6 +21820,7 @@
         "integration/bizhawk/core/Puae6/Settings.cs",
         "integration/bizhawk/core/Puae6/Controllers.cs",
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "ports/waterbox/Makefile",
         "tests/ffi/Session.cs",
         "tests/bizhawk-movies/MediaMovies.cs",
         "tests/bizhawk-movies/test_media_start.py",
@@ -25602,6 +25603,7 @@
         "integration/bizhawk/core/Puae6/Abi.cs",
         "integration/bizhawk/core/Puae6/Settings.cs",
         "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "ports/waterbox/Makefile",
         "tests/ffi/Program.cs",
         "tests/ffi/test_ffi.py",
         "tests/config/test_parity.py",
@@ -26868,6 +26870,127 @@
         "Las pruebas de lienzo y estado ya no mutan session.config despues de p6_init y RTG0 conserva caps, geometria, identidad y salida previas salvo el nuevo bit de capacidad global."
       ],
       "stop": "No modificar todavia el wrapper MacHawk ni cerrar la issue; la adaptacion BizHawk y su Sync Setting son la siguiente ficha."
+    },
+    {
+      "id": "T85r",
+      "title": "RTG-D5: Sync Setting y lienzo fijo en BizHawk",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85q"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/adr/0006-video-output.md",
+        "docs/adr/future-rtg.md",
+        "integration/bizhawk/core/Puae6/Abi.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "upstream/winuae/expansion.cpp",
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "patches/winuae/0427-portable-rtg-autoconfig.patch",
+        "tests/host/test_rtg_autoconfig.py",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tests/ffi/Session.cs",
+        "tests/waterbox-state/test_wrapper_raster.py",
+        "tests/waterbox-state/test_wrapper_memory.py",
+        "manifests/waterbox-memory.json"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "patches/winuae/0427-portable-rtg-autoconfig.patch",
+        "patches/winuae/series.json",
+        "tests/host/test_rtg_autoconfig.py",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "ports/waterbox/Makefile",
+        "tests/ffi/Program.cs",
+        "tests/ffi/Session.cs",
+        "tests/ffi/test_ffi.py",
+        "tests/waterbox-state/test_wrapper_rtg.py",
+        "manifests/waterbox-memory.json",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Exponer None/4 MiB como ajuste sincronizado de reinicio y trasladarlo sin reinterpretacion a p6_config.rtg_memory; rechazar combinaciones que la API nativa no admite.",
+        "Reservar los 14368 KiB de margen mmap documentados solo para RTG4 y hacer que el tamaño de heaps y la opcion entren en la identidad de estados y peliculas.",
+        "Con RTG4, anunciar y copiar siempre el lienzo completo1024x768 del guest, conservando el centrado y padding negro tanto para chipset como para RTG; RTG0 conserva el recorte activo historico.",
+        "Corregir el bootstrap descubierto por la prueba real: la propia ROM de Autoconfig RTG crea uaegfx.card al mapearse, sin depender del hook de un HDF UAE que no existe con IDE o sin disco.",
+        "Probar compilacion contra el pin MacHawk, configuracion/heap/identidad y save-load en Waterbox sin escribir el checkout hermano."
+      ],
+      "checks": [
+        "BUILD01",
+        "AV01",
+        "DET02",
+        "WB03",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "BizHawk ofrece RTG Memory como Sync Setting None/4 MiB; A4030/Normal/RTG4 abre con lienzo fijo1024x768 y configuraciones incompatibles fallan antes de ejecutar una unidad.",
+        "El wrapper copia el lienzo completo con padding negro, conserva geometria fija al cambiar chipset/RTG, restaura estados en otra instancia/proceso y RTG0 mantiene buffer, heaps, identidad y salida anteriores.",
+        "Un Picasso96 autorizado abre uaegfx.card desde la ROM de la placa tanto con HDF IDE como sin hardfile y selecciona uno de los nueve modos acotados."
+      ],
+      "stop": "No modificar ../MacHawk ni cerrar/publicar la issue hasta ejecutar la integracion real y una prueba con software RTG autorizado."
+    },
+    {
+      "id": "T85s",
+      "title": "RTG-D6: residente AUTOINIT uaegfx independiente del disco",
+      "milestone": "FUTURE",
+      "required": true,
+      "status": "done",
+      "depends": [
+        "T85q"
+      ],
+      "read": [
+        "README.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "upstream/winuae/autoconf.cpp",
+        "upstream/winuae/expansion.cpp",
+        "upstream/winuae/filesys.cpp",
+        "upstream/winuae/od-win32/picasso96_win.cpp",
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "patches/winuae/0428-portable-uaegfx-bootstrap.patch",
+        "patches/winuae/0431-portable-rtg-rtarea.patch",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tests/waterbox-state/test_wrapper_rtg.py"
+      ],
+      "touch": [
+        "ports/portable/rtg_uaegfx.h",
+        "ports/portable/rtg_uaegfx_install.cpp",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tests/waterbox-state/test_wrapper_rtg.py",
+        "tools/check.py"
+      ],
+      "steps": [
+        "Construir dentro de RTAREA un struct Resident AUTOINIT de biblioteca con tabla de inicializacion propia; su init recibe y conserva la base creada por Exec, sin otro MakeLibrary/AddLibrary.",
+        "Mantener el alloc historico como fallback idempotente para el camino UAEFS, pero demostrar que la biblioteca aparece sin HDF y que el HDF IDE no es su disparador.",
+        "Probar primero estructura, limites y reinicio del residente en host; despues ejecutar Picasso96 autorizado en Waterbox real con y sin hardfile hasta que abra uaegfx.card y seleccione un modo acotado.",
+        "Si el ROM scan no alcanza RTAREA, capturar el punto exacto de ResModules/InitResident antes de modificar otra vez Autoconfig; no añadir un segundo scheduler ni un callback por acceso guest."
+      ],
+      "checks": [
+        "BUILD01",
+        "AV01",
+        "DET02",
+        "WB03",
+        "SAFE01"
+      ],
+      "acceptance": [
+        "Exec crea exactamente una uaegfx.card 3.4 desde el residente RTAREA, con base valida e idempotente tras reset, tanto con HDF IDE como sin hardfile.",
+        "Picasso96 autorizado abre la biblioteca y selecciona uno de los nueve modos acotados en Waterbox real; RTG0 y el camino UAEFS no cambian."
+      ],
+      "stop": "No volver a inyectar DiagArea en VRAM ni depender de un HDF UAE; no cerrar T85r o la issue hasta superar ambas topologias reales."
     },
     {
       "id": "T55c12",

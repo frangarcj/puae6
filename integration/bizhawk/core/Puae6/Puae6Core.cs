@@ -178,9 +178,10 @@ public sealed class Puae6Parameters
 [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
 public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<Puae6Settings, Puae6SyncSettings>
 {
-	// The profile's buffers (p6_caps of ABI v1): the delivered picture is at most 760x576 and one unit never delivers more than 8192 audio frames.
-	/// <summary>The largest picture any raster option can deliver (super-hires, 1520 columns; 576 rows); the buffer of one machine is <see cref="RasterWidth"/> x <see cref="RasterHeight"/>.</summary>
-	public const int MaxWidth = 1520, MaxHeight = 576, MaxAudioFrames = 8192;
+	// p6_caps keeps describing the historical 760x576 profile. Raster options can reach 1520x576; the optional RTG configuration instead delivers a fixed 1024x768 canvas.
+	/// <summary>The largest width and height the managed video buffer must hold across the chipset rasters and the RTG canvas.</summary>
+	public const int MaxWidth = 1520, MaxHeight = 768, MaxAudioFrames = 8192;
+	public const int MaxChipsetHeight = 576, RtgCanvasWidth = 1024, RtgCanvasHeight = 768;
 	/// <summary>BizHawk's synchronous sound contract. Matching it from the first frame avoids a transient pitch change when the frontend restarts audio during a window move.</summary>
 	public const uint AudioRateHz = 44100;
 
@@ -245,9 +246,11 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		long hard = hardFileBytes.Sum(bytes => (long)HardFileHeapKiB(bytes));
 		long fmv = settings.Cartridge == Puae6Cartridge.Fmv ? FmvMmapKiB : 0;
+		long rtg = RtgMemoryKiB(settings.RtgMemory);
 		return new()
 		{
-			SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16, MmapHeapSizeKB = (uint)(16384 + 2 * (ExtraMemoryKiB(settings) + hard + fmv)),
+			SbrkHeapSizeKB = 4096, SealedHeapSizeKB = 16384, InvisibleHeapSizeKB = 16, PlainHeapSizeKB = 16,
+			MmapHeapSizeKB = (uint)(16384 + 2 * (ExtraMemoryKiB(settings) + hard + fmv) + rtg),
 		};
 	}
 
@@ -258,6 +261,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public const int FloppyOverlayKiB = 4096;
 	/// <summary>The FMV board's RAM, eight decoded-frame slots, PCM queues, allocator overhead and libmpeg2 working/output buffers, rounded to 10 MiB. It is mutable mmap state and therefore grows the budget by the normal 2x measured-capacity rule.</summary>
 	public const int FmvMmapKiB = 10240;
+	/// <summary>Waterbox mmap budget added by RTG4: twice its 4 MiB VRAM, 3 MiB XRGB canvas and 16 KiB bounded auxiliary state, as fixed by the RTG ADR.</summary>
+	public const int RtgMmapKiB = 14368;
 
 	// What each machine comes with, in KiB: Chip, Slow.
 	static (uint Chip, uint Slow) OwnMemory(Puae6Machine machine) => machine switch
@@ -334,6 +339,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public static int RasterHeight(Puae6SyncSettings settings) =>
 		(settings.Region == Puae6Region.NTSC && IsOcs(settings.Machine) ? 486 : 576) / (settings.VideoLineMode == Puae6VideoLineMode.Single ? 2 : 1);
 
+	/// <summary>The buffer p6_query_video announces for the selected configuration. RTG keeps one canvas while SetSwitch chooses chipset or graphics card.</summary>
+	public static int OutputWidth(Puae6SyncSettings settings) => settings.RtgMemory == Puae6RtgMemory.None ? RasterWidth(settings) : RtgCanvasWidth;
+	public static int OutputHeight(Puae6SyncSettings settings) => settings.RtgMemory == Puae6RtgMemory.None ? RasterHeight(settings) : RtgCanvasHeight;
+
 	static uint FastKib(Puae6Fast fast) => fast switch { Puae6Fast.None => P6.MemoryNone, Puae6Fast.MB1 => 1024u, Puae6Fast.MB2 => 2048u, Puae6Fast.MB4 => 4096u, Puae6Fast.MB8 => 8192u, _ => 0u };
 	static byte Z3MemoryNumber(Puae6Z3Memory memory) => Enum.IsDefined(typeof(Puae6Z3Memory), memory)
 		? (byte)memory : throw new ArgumentOutOfRangeException(nameof(memory), "Unknown Z3 capacity");
@@ -346,6 +355,30 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		Puae6Z3Memory.MB256 => 262144, Puae6Z3Memory.MB512 => 524288,
 		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Unknown Z3 capacity"),
 	};
+
+	static byte RtgMemoryNumber(Puae6RtgMemory memory) => memory switch
+	{
+		Puae6RtgMemory.None => P6.RtgMemoryNone, Puae6RtgMemory.MB4 => P6.RtgMemory4MiB,
+		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Unknown RTG capacity"),
+	};
+
+	static int RtgMemoryKiB(Puae6RtgMemory memory) => memory switch
+	{
+		Puae6RtgMemory.None => 0, Puae6RtgMemory.MB4 => RtgMmapKiB,
+		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Unknown RTG capacity"),
+	};
+
+	static void ValidateRtg(Puae6SyncSettings settings)
+	{
+		RtgMemoryNumber(settings.RtgMemory);
+		if (settings.RtgMemory == Puae6RtgMemory.None) return;
+		if (settings.Machine != Puae6Machine.A4030)
+			throw new ArgumentException("4 MiB of RTG memory requires the A4000/030 machine", nameof(settings));
+		if (settings.CpuCompatibility != Puae6CpuCompatibility.Normal)
+			throw new ArgumentException("4 MiB of RTG memory requires Normal CPU accuracy", nameof(settings));
+		if (settings.VideoResolution == Puae6VideoResolution.SuperHires)
+			throw new ArgumentException("RTG does not accept SuperHires because it does not fit the fixed 1024x768 canvas", nameof(settings));
+	}
 
 	/// <summary>The memory the settings ask for beyond what the machine comes with (Chip and Slow above their own sizes, and all the Fast RAM), in KiB.</summary>
 	static int ExtraMemoryKiB(Puae6SyncSettings settings)
@@ -419,6 +452,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		parameters = Puae6Volumes.Resolve(parameters);
 		parameters.SyncSettings = parameters.ResolveCdSettings(parameters.SyncSettings);
 		_syncSettings = parameters.SyncSettings.Clone();
+		ValidateRtg(_syncSettings);
 		ValidateCartridge(_syncSettings, parameters.CartridgeFirmware, parameters.CdCount != 0);
 		_settings = parameters.Settings.Clone();
 		if (parameters.Firmware.Length == 0) throw new ArgumentException("the PUAE6 core needs a Kickstart image", nameof(parameters));
@@ -445,10 +479,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		};
 		_mediaNames = parameters.MediaNames;
 		ControllerDefinition = Controllers.Define(_syncSettings, Math.Max(_media.Count, _parameters.CdSlotCount));
-		// The buffer the machine announces at the load (ADR 0006): 760 columns and 576 rows for the profile's raster, except an OCS machine in NTSC (the A500, the A500 OG, the A1000 and the A2000 OG cannot leave their
-		// standard); the ECS and AGA machines keep the PAL height in NTSC too so that a programmed PAL beam fits. The raster options scale it (T72). The first picture replaces it with the size that was really drawn.
-		BufferWidth = RasterWidth(_syncSettings);
-		BufferHeight = RasterHeight(_syncSettings);
+		// The buffer announced at load is the chipset raster of ADR 0006 or, with RTG4, its invariant canvas. RTG SetSwitch changes the centered active display, never this allocation.
+		BufferWidth = OutputWidth(_syncSettings);
+		BufferHeight = OutputHeight(_syncSettings);
 		(VsyncNumerator, VsyncDenominator) = _syncSettings.Region == Puae6Region.NTSC ? (60, 1) : (50, 1);
 		_aspectNum = 1; _aspectDen = 1;
 
@@ -551,6 +584,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			? P6.FloppyDrivesNone : (byte)ConnectedFloppyDrives;
 		init.Config.VideoResolution = VideoResolutionNumber(_syncSettings.VideoResolution);
 		init.Config.VideoLineMode = VideoLineModeNumber(_syncSettings.VideoLineMode);
+		init.Config.RtgMemory = RtgMemoryNumber(_syncSettings.RtgMemory);
 		fixed (byte* rom = firmware)
 		{
 			init.Firmware = rom;
@@ -687,6 +721,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.CollisionLevel != Puae6CollisionLevel.Auto && _syncSettings.CollisionLevel != Puae6CollisionLevel.Full)
 			memory += ";collisions=" + (CollisionLevelNumber(_syncSettings.CollisionLevel) - 1);
 		if (_syncSettings.Z3Memory != Puae6Z3Memory.None) memory += ";z3=" + _syncSettings.Z3Memory;
+		if (_syncSettings.RtgMemory != Puae6RtgMemory.None) memory += ";rtg=" + _syncSettings.RtgMemory;
 		// And for its clock (T52): the same, off the machine's own.
 		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;
 		// And for the controller of the hard files (T56): the native config hash derives from it only while a hard file is behind the IDE (Gayle is never emulated with nothing attached); the text names
@@ -925,20 +960,36 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (render && frame.Video != null)
 		{
 			if (frame.VideoFormat != P6.PixelXrgb8888) throw new InvalidOperationException($"the guest delivered pixel format {frame.VideoFormat}");
-			// The buffer is the one the machine announced at the load (ADR 0006, T72a): constant for the life of the image, the same numbers p6_query_video gives for the settings.
-			if (frame.VideoWidth != (uint)RasterWidth(_syncSettings) || frame.VideoHeight != (uint)RasterHeight(_syncSettings))
-				throw new InvalidOperationException($"the guest delivered a buffer of {frame.VideoWidth}x{frame.VideoHeight}, not the {RasterWidth(_syncSettings)}x{RasterHeight(_syncSettings)} announced for {_syncSettings.Machine} in {_syncSettings.Region}");
+			// The buffer is the one p6_query_video announced at load. RTG uses the whole fixed canvas so its centered black padding survives the managed copy and SetSwitch never resizes BizHawk's framebuffer.
+			uint expectedWidth = (uint)OutputWidth(_syncSettings), expectedHeight = (uint)OutputHeight(_syncSettings);
+			if (frame.VideoWidth != expectedWidth || frame.VideoHeight != expectedHeight)
+				throw new InvalidOperationException($"the guest delivered a buffer of {frame.VideoWidth}x{frame.VideoHeight}, not the {expectedWidth}x{expectedHeight} announced for {_syncSettings.Machine} in {_syncSettings.Region}");
 			var active = frame.Active;
-			if (active.Width > MaxWidth || active.Height > MaxHeight || active.X + active.Width > frame.VideoWidth || active.Y + active.Height > frame.VideoHeight
-				|| (ulong)(active.Y + active.Height) * frame.VideoStrideBytes > frame.VideoBytes)
-				throw new InvalidOperationException($"the guest delivered a picture of {active.Width}x{active.Height} that does not fit the profile's buffers");
-			for (uint row = 0; row < active.Height; ++row)
+			ulong rowBytes = (ulong)frame.VideoWidth * 4;
+			ulong deliveredBytes = frame.VideoHeight == 0 ? 0 : (ulong)(frame.VideoHeight - 1) * frame.VideoStrideBytes + rowBytes;
+			if (frame.VideoStrideBytes < rowBytes || deliveredBytes > frame.VideoBytes || active.Width > MaxWidth || active.Height > MaxHeight
+				|| active.X > frame.VideoWidth || active.Width > frame.VideoWidth - active.X || active.Y > frame.VideoHeight || active.Height > frame.VideoHeight - active.Y)
+				throw new InvalidOperationException($"the guest delivered a picture of {active.Width}x{active.Height} that does not fit its {frame.VideoWidth}x{frame.VideoHeight} buffer");
+			if (_syncSettings.RtgMemory != Puae6RtgMemory.None)
 			{
-				var source = new ReadOnlySpan<int>(frame.Video + (active.Y + row) * frame.VideoStrideBytes + active.X * 4, (int)active.Width);
-				PixelCopy.XrgbToArgb(source, _videoBuffer.AsSpan((int)(row * active.Width), (int)active.Width));     // XRGB8888 to BizHawk's ARGB
+				for (uint row = 0; row < frame.VideoHeight; ++row)
+				{
+					var source = new ReadOnlySpan<int>(frame.Video + row * frame.VideoStrideBytes, (int)frame.VideoWidth);
+					PixelCopy.XrgbToArgb(source, _videoBuffer.AsSpan((int)(row * frame.VideoWidth), (int)frame.VideoWidth));
+				}
+				BufferWidth = (int)frame.VideoWidth;
+				BufferHeight = (int)frame.VideoHeight;
 			}
-			BufferWidth = (int)active.Width;
-			BufferHeight = (int)active.Height;
+			else
+			{
+				for (uint row = 0; row < active.Height; ++row)
+				{
+					var source = new ReadOnlySpan<int>(frame.Video + (active.Y + row) * frame.VideoStrideBytes + active.X * 4, (int)active.Width);
+					PixelCopy.XrgbToArgb(source, _videoBuffer.AsSpan((int)(row * active.Width), (int)active.Width));     // XRGB8888 to BizHawk's ARGB
+				}
+				BufferWidth = (int)active.Width;
+				BufferHeight = (int)active.Height;
+			}
 			_aspectNum = (int)frame.AspectNum;
 			_aspectDen = (int)frame.AspectDen;
 			if (frame.CadenceNum != 0 && frame.CadenceDen != 0) (VsyncNumerator, VsyncDenominator) = ((int)frame.CadenceNum, (int)frame.CadenceDen);
@@ -1005,6 +1056,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	public PutSettingsDirtyBits PutSyncSettings(Puae6SyncSettings settings)
 	{
 		Controllers.Validate(settings);
+		ValidateRtg(settings);
 		var result = Puae6SyncSettings.NeedsReboot(_syncSettings, settings) ? PutSettingsDirtyBits.RebootCore : PutSettingsDirtyBits.None;
 		_parameters.SyncSettings = settings.Clone();
 		return result;
@@ -1084,7 +1136,10 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		{
 			throw new StateRejectedException(StateRejection.BadFields, "the payload ends inside the wrapper's fields");
 		}
-		bool ok = s.Frame >= 0 && s.LagCount >= 0 && s.BufferWidth is >= 0 and <= MaxWidth && s.BufferHeight is >= 0 and <= MaxHeight && s.VsyncNumerator > 0 && s.VsyncDenominator > 0
+		bool validVideo = _syncSettings.RtgMemory == Puae6RtgMemory.None
+			? s.BufferWidth is >= 0 && s.BufferWidth <= RasterWidth(_syncSettings) && s.BufferHeight is >= 0 && s.BufferHeight <= RasterHeight(_syncSettings)
+			: s.BufferWidth == RtgCanvasWidth && s.BufferHeight == RtgCanvasHeight;
+		bool ok = s.Frame >= 0 && s.LagCount >= 0 && validVideo && s.VsyncNumerator > 0 && s.VsyncDenominator > 0
 			&& s.AspectNum > 0 && s.AspectDen > 0 && s.Disk0 >= -1 && s.Disk0 < _media.Count && s.Disk1 >= -1 && s.Disk1 < _media.Count
 			&& s.Disk2 >= -1 && s.Disk2 < _media.Count && s.Disk3 >= -1 && s.Disk3 < _media.Count
 			&& (ConnectedFloppyDrives > 0 || s.Disk0 == -1) && (ConnectedFloppyDrives > 1 || s.Disk1 == -1)
