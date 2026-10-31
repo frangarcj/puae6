@@ -194,3 +194,16 @@ La sintesis Layer II conserva las muestras silenciosas de baja amplitud sin
 cambiar el reloj ni el buffer causal, y CD32/CDTV publican la actividad optica en
 el indicador de unidad. Esto no generaliza compatibilidad a todo el catalogo ni
 promete estados entre builds.
+
+## Candidata local A4000/040 T96
+
+La candidata local MacHawk `a5e68d684` fija el guest Windows x64
+`fc5ceecd3ad85f7a65ae12f67a76f7d062a4f9c9c5d3e7f7a70502a2b138f48e`
+y selecciona en su smoke A4000/040, CPU/FPU 68040, multiplicador X8 y RTG 4 MiB.
+El ZIP Darwin ARM64 separado
+`puae6-waterbox-macos-arm64-preview-1bb68201.zip` tiene SHA-256
+`39bddac35f70a16f2e554b0fdb3eeded776783d46db7e9ab8cc29a3fc0b5637e`,
+fija el guest `4d9d8cf0936a943d8b38503eb22eb8761bf067566991780563a42406da0c8b38`
+y supera el smoke instalado de restauracion. La auditoria del ZIP no encuentra
+ROM, HDF, ADF, IPF ni el medio privado. Esta candidata no se publica hasta que
+su commit exacto supere el gate `puae6_only` en Windows real.
