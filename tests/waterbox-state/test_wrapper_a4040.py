@@ -7,6 +7,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_wrapper_cpu as base
+from tests.hdf import hdf_image, hdf_rom
 from tests.state import test_a4040 as a4040
 
 
@@ -24,6 +25,8 @@ class WrapperA4040Tests(unittest.TestCase):
         base.WrapperCpuTests.count = 0
         for name, (source, _, _) in a4040.A4040Tests.ROMS.items():
             (cls.dir / (name + ".rom")).write_bytes(base.builder.build(source))
+        (cls.dir / "hdf.rom").write_bytes(hdf_rom.control_rom())
+        (cls.dir / "disk.hdf").write_bytes(hdf_image.rdb_image())
 
     @classmethod
     def tearDownClass(cls):
@@ -67,6 +70,24 @@ class WrapperA4040Tests(unittest.TestCase):
         for cpu, fpu in (("68040", "M68060"), ("68060", "M68040"), ("68040", "M68882")):
             out = self.session([self.core("A", cpu, fpu)], "cpu-68040", expect=None)
             self.assertIn("FPU" if fpu == "M68882" else "matching A4040 internal CPU", out)
+
+    def test_uaehf_rdb_boot_rom_controls_and_overlay_restore_in_the_sandbox(self):
+        """The A4040 executes the UAE board DiagArea and uses uaehf.device without an illegal MOVEC."""
+        disk = self.dir / "disk.hdf"
+        core = lambda name: self.core(name, "68040", "M68040", f"hdf={disk} hdfc=Uae fast=MB8")
+        out = self.session([
+            core("A"), "run A 6", f"peek A Chip_RAM {hdf_rom.CONTROL_DONE:x} 4", "save A s",
+            "run A 2", "digest A first", "load A s", "run A 2", "digest A second",
+            core("B"), "load B s", "run B 2", "digest B third",
+        ], "hdf")
+        self.assertIn(f"peek A Chip_RAM {hdf_rom.CONTROL_DONE:x} {hdf_rom.DONE:08x}", out)
+        a = self.units(out, "A")
+        b = self.units(out, "B")
+        self.assertEqual(a[6:8], a[8:10])
+        self.assertEqual([unit[1:] for unit in a[6:8]], [unit[1:] for unit in b])
+        digests = self.digests(out, "A")
+        self.assertEqual(digests["first"], digests["second"])
+        self.assertEqual(digests["first"], self.digests(out, "B")["third"])
 
 
 if __name__ == "__main__":

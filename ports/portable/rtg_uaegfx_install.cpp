@@ -92,6 +92,8 @@ enum : uae_u32 {
 struct ResidentCode {
 	uaecptr rts;
 	uaecptr resident;
+	uaecptr resident_name;
+	uaecptr resident_id;
 	uaecptr board_name;
 	uaecptr init_table;
 	uaecptr function_table;
@@ -301,6 +303,8 @@ int p6_uaegfx_install_code(uaecptr start)
 	dl(code.find_card); dl(code.init_card); dl(0xffffffffu);
 	const uaecptr resname = ds_ansi("uaegfx.card");
 	const uaecptr resid = ds_ansi("UAE Graphics Card 3.4");
+	code.resident_name = resname;
+	code.resident_id = resid;
 	code.board_name = ds_ansi("UAE");
 	code.data_table = makedatatable(resid, resname, 0x09, -50, 3, 4);
 	code.init_table = here();
@@ -329,10 +333,30 @@ int p6_uaegfx_install_code(uaecptr start)
 	return 1;
 }
 
+uaecptr p6_uaegfx_startup(TrapContext *ctx, uaecptr resident)
+{
+	if (!code.ready) return resident;
+	trap_put_word(ctx, resident, 0x4afc);          // RTC_MATCHWORD
+	trap_put_long(ctx, resident + 2, resident);    // rt_MatchTag
+	trap_put_long(ctx, resident + 6, resident + 26);
+	trap_put_byte(ctx, resident + 10, 0x81);       // RTF_AUTOINIT | RTF_COLDSTART
+	trap_put_byte(ctx, resident + 11, 3);
+	trap_put_byte(ctx, resident + 12, 0x09);       // NT_LIBRARY
+	trap_put_byte(ctx, resident + 13, uae_u8(-50));
+	trap_put_long(ctx, resident + 14, code.resident_name);
+	trap_put_long(ctx, resident + 18, code.resident_id);
+	trap_put_long(ctx, resident + 22, code.init_table);
+	return resident + 26;
+}
+
 uaecptr p6_uaegfx_alloc(TrapContext *ctx)
 {
 	if (!code.ready || library_base || !(gfxmem_bank.flags & ABFLAG_MAPPED))
 		return library_base;
+	// The portable filesystem entry is a simple trap. It publishes the
+	// resident through p6_uaegfx_startup, so it has no extended TrapContext
+	// and must never try to call back into Exec from the host stack.
+	if (!ctx) return 0;
 	const uaecptr exec = trap_get_long(ctx, 4);
 	const uae_u32 saved_a2 = trap_get_areg(ctx, 2);
 	trap_call_add_areg(ctx, 0, code.function_table);

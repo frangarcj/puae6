@@ -34,6 +34,18 @@ GUEST = build_waterbox.BUILD / "puae6/release/puae6.wbx"
 RECEIPT = build_waterbox.BUILD / "puae6/puae6-receipt.json"
 UNIT = re.compile(r"^u (\S+) (\d+) ticks=(\d+) hash=(\w+) audio=(\d+) pcm=(\w+) lag=(\d) light=(\d) events=(\d+)$")
 PROGRAMS = ("c10-loop", "c10-vbr", "c10-address")
+CLOCK_WORK = """; T98: CPU work completed during a fixed amount of emulated video time.
+entry:
+    MOVE.W #$2700,SR
+    LEA $400.W,A7
+    MOVE.B #3,$BFE201.L
+    MOVE.B #2,$BFE001.L
+    MOVEQ #0,D0
+loop:
+    ADDQ.L #1,D0
+    MOVE.L D0,$2000.L
+    BRA.S loop
+"""
 
 
 @unittest.skipUnless(runtime_available() and TOOLS, "Waterbox runtime or puae6.wbx not built (tools/build_waterbox.py --puae6-run build/waterbox/boot.rom)")
@@ -49,6 +61,7 @@ class WrapperCpuTests(unittest.TestCase):
             (cls.dir / f"{name}.rom").write_bytes(builder.build(fixture.read_text(encoding="utf-8") if "\n" not in source and fixture.is_file() else source))
         (cls.dir / "a4030.rom").write_bytes(builder.build(A4030_PROGRAM))
         (cls.dir / "collisions.rom").write_bytes(builder.build(COLLISION_PROGRAM))
+        (cls.dir / "clock-work.rom").write_bytes(builder.build(CLOCK_WORK))
         cls.count = 0
 
     @classmethod
@@ -148,6 +161,33 @@ class WrapperCpuTests(unittest.TestCase):
             with self.subTest(clock=clock):
                 out = self.session([self.core("A", f"clock={clock}", machine="a1200"), "run A 5", "save A s", "run A 6", "digest A first", "load A s", "run A 6", "digest A second"], "busy")
                 self.assertEqual(self.digests(out, "A")["first"], self.digests(out, "A")["second"])
+
+    def test_a4000_normal_multiplier_changes_cpu_work_and_restores_without_changing_cadence(self):
+        for machine in ("a4030", "a4040"):
+            with self.subTest(machine=machine):
+                slow = self.core("A", "accuracy=Normal", "clock=X2", machine=machine)
+                fast = self.core("B", "accuracy=Normal", "clock=X8", machine=machine)
+                same = self.core("C", "accuracy=Normal", "clock=X8", machine=machine)
+                out = self.session([
+                    slow, "run A 4", "peek A Chip_RAM 2000 4",
+                    fast, "run B 4", "peek B Chip_RAM 2000 4", "save B s",
+                    "run B 4", "digest B first", "load B s", "run B 4", "digest B second",
+                    same, "load C s", "run C 4", "digest C third",
+                ], "clock-work")
+                work = {name: int(value, 16) for name, value in re.findall(r"^peek ([AB]) Chip_RAM 2000 (\w+)$", out, re.M)}
+                self.assertGreater(work["B"], work["A"] * 2, work)
+                b = self.units(out, "B")
+                self.assertEqual([unit[1:] for unit in b[4:8]], [unit[1:] for unit in b[8:12]])
+                self.assertEqual([unit[1:] for unit in b[4:8]], [unit[1:] for unit in self.units(out, "C")])
+                digests = self.digests(out, "B")
+                self.assertEqual(digests["first"], digests["second"])
+                self.assertEqual(digests["first"], self.digests(out, "C")["third"])
+                delivered = {"A": 0, "B": 0}
+                for a, b_unit in zip(self.units(out, "A"), b[:4]):
+                    delivered["A"] += int(a[4])
+                    delivered["B"] += int(b_unit[4])
+                    self.assertLessEqual(abs(int(a[2]) - int(b_unit[2])), 16 * 512)
+                    self.assertLessEqual(abs(delivered["A"] - delivered["B"]), 1)
 
     def test_a_state_runs_in_a_new_sandbox_as_in_the_first(self):
         for settings in (("cpu=M68010",), ("clock=X12",), ("cpu=M68010", "clock=X4")):

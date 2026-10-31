@@ -42,3 +42,11 @@ instruccion despues de que el haz vuelva a empezar).
 - BKPT, el error de bus de un acceso real y las 68030/040/060 no se ofrecen (T55). La 68010 lleva la misma tabla de bus que la 68000 cycle-exact (`do_cycles_ce`).
 - El multiplicador 1 y los altos en la 68EC020 estan medidos y restauran (DET02), pero que un programa real los tolere es asunto del programa (temporizaciones, protecciones): la ayuda de la
   opcion lo dice.
+
+## Ampliacion T98: CPU Normal 68030/040/060
+
+El interprete Normal de WinUAE no usaba `cpucycleunit` para el coste de instruccion de las CPU tardias: `update_68k_cycles` elegia siempre `CYCLES_DIV / 8` para 68020/030 y `/16` para 040/060. La configuracion y su identidad recibian el multiplicador, pero A4030 y A4040 terminaban el mismo bucle en exactamente 802 y 402 pulsos E tanto a X2 como a X8. No era un problema de SysInfo ni de la envoltura BizHawk.
+
+En el perfil portable, solo para Normal y CPU >=68030, se conserva X2 como base y se multiplica ese coste por `2 / N`. No cambia el backend exacto/compatible, el 68020 ni los eventos del chipset. Esta ruta conserva valores menores que la cuantizacion general de `cycles_mult` (0x80), necesaria para que 040/060 lleguen a X16; el resultado sigue siendo division entera determinista y cada instruccion mantiene coste positivo. No hay velocidad maxima, reloj host, espera ni contador nuevo que serializar.
+
+El oraculo dirigido vuelve a medir el bucle con CIA-A y exige que X8 tarde menos de la mitad que X2 en A4030 y A4040, que Auto sea X2 y que repetir X8 sea exacto. DET02 restaura la CPU Normal a X8; libretro compara el mismo motor headless y la cadencia; Waterbox mide un contador de trabajo 68k a igual numero de unidades y restaura en el mismo y en otro sandbox, manteniendo ticks y audio.

@@ -41,6 +41,7 @@ BUF3, BUF4 = 0x7000, 0x7400                   # read-backs (BUF4 holds two block
 RES = 0x5000
 BOARD = 0xE90000
 DONE = 0x444F4E45              # "DONE"
+CONTROL_DTT, CONTROL_TC, CONTROL_DONE, CONTROL_URP, CONTROL_SRP = RES + 0x200, RES + 0x204, RES + 0x208, RES + 0x20C, RES + 0x210
 
 CMD_READ, CMD_WRITE, HD_SCSICMD = 2, 3, 28
 WRITE_BLOCK, CROSS_BLOCK = 3, 7  # CROSS_BLOCK and the next one are the last block of chunk 0 and the first of chunk 1
@@ -266,6 +267,40 @@ def program(read_offset_block, past_end_block):
 
 def rom(read_offset_block=5, past_end_block=0x100000):
     return builder.build(program(read_offset_block, past_end_block))
+
+
+def control_rom():
+    """A4040 no-MMU regression: control storage and physical PTEST remain architectural."""
+    a = _Asm()
+    a.label("entry")
+    a.op("MOVE.W #$2700,SR", 0x46FC, 0x2700)
+    a.move_b_imm_abs(3, 0xBFE201)
+    a.move_b_imm_abs(2, 0xBFE001)
+    a.op("MOVE.L #$0000C040,D1", 0x223C, 0x0000, 0xC040)
+    a.op("MOVEC D1,DTT0", 0x4E7B, 0x1006)
+    a.op("MOVEC DTT0,D2", 0x4E7A, 0x2006)
+    a.op("MOVE.L #$00008000,D1", 0x223C, 0x0000, 0x8000)
+    a.op("MOVEC D1,TC", 0x4E7B, 0x1003)
+    a.op("MOVEC TC,D3", 0x4E7A, 0x3003)
+    a.op("MOVEQ #0,D1", 0x7200)
+    a.op("MOVEC D1,TC", 0x4E7B, 0x1003)
+    a.op("MOVEA.L #$00123000,A0", 0x207C, 0x0012, 0x3000)
+    a.op("PTESTR (A0)", 0xF568)
+    a.op("MOVE.L #$0021E800,D0", 0x203C, 0x0021, 0xE800)
+    a.op("MOVEC D0,URP", 0x4E7B, 0x0806)
+    a.op("MOVEC URP,D4", 0x4E7A, 0x4806)
+    a.op("MOVE.L #$00123000,D1", 0x223C, 0x0012, 0x3000)
+    a.op("MOVEC D1,SRP", 0x4E7B, 0x1807)
+    a.op("MOVEC SRP,D5", 0x4E7A, 0x5807)
+    a.op32("MOVE.L D2,result", 0x23C2, CONTROL_DTT)
+    a.op32("MOVE.L D3,tc", 0x23C3, CONTROL_TC)
+    a.op32("MOVE.L D4,urp", 0x23C4, CONTROL_URP)
+    a.op32("MOVE.L D5,srp", 0x23C5, CONTROL_SRP)
+    a.move_l_imm_abs(DONE, CONTROL_DONE)
+    a.label("park")
+    a.op("STOP #$2700", 0x4E72, 0x2700)
+    a.branch("BRA.S park", 0x6000, "park")
+    return builder.build(a.source())
 
 
 # --- the program of DET02 (T29c) --------------------------------------------------------------------------------------------------------------------------------

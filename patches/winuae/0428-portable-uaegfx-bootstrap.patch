@@ -26,9 +26,10 @@ diff --git a/filesys.cpp b/filesys.cpp
 +#include "rtg_uaegfx.h"
 +#endif
  #include "rommgr.h"
-@@ -8123,3 +8126,5 @@
- #ifdef PICASSO96
- 		picasso96_alloc(ctx);
-+#elif defined(P6_PORTABLE_RTG)
-+		p6_uaegfx_alloc(ctx);
- #endif
+@@ -7755,3 +7758,6 @@
+ 
+ 	resaddr = uaeres_startup(ctx, resaddr);
++#ifdef P6_PORTABLE_RTG
++	resaddr = p6_uaegfx_startup(ctx, resaddr);
++#endif
+ #ifdef BSDSOCKET

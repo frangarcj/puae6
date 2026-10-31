@@ -48,6 +48,7 @@ static void owner(int model,int revision) {
     currprefs.mmu_model=0; currprefs.fpu_strict=true; currprefs.fpu_no_unimplemented=false;
     fpu_reset(); regs.t0=regs.t1=regs.m=0; regs.s=1; regs.intmask=7;
     regs.pcr=model==68060 ? 0x04300300:0; regs.buscr=0;
+    regs.tcr=regs.itt0=regs.itt1=regs.dtt0=regs.dtt1=0;
     x_cp_put_long=put_long; x_cp_get_long=get_long;
     m68k_setpc_normal(0x1002); m68k_areg(regs,0)=0x10000;
     for(int i=0;i<12;i++) put_byte(0x10000+i,0);
@@ -79,7 +80,7 @@ static void disturb_fpu() {
 }
 static Bytes future(int model) {
     Bytes output;
-    for(int reg : {0,1,2,0x800,0x801}) {
+    for(int reg : {0,1,2,3,4,5,6,7,0x800,0x801}) {
         uint32_t value=0; assert(m68k_movec2(reg,&value));
         for(int i=0;i<4;i++) output.push_back(value>>(i*8));
     }
@@ -104,18 +105,22 @@ static void observation(int model) {
     const auto saved=capture(); const auto original=observe();
     const auto cycles=get_cycles(); const auto ram=get_long(0x10000);
     assert(observe()==original && capture()==saved && get_cycles()==cycles && get_long(0x10000)==ram);
-    // Fixed widths: controls 18/26 bytes, context 12, FP registers 80,
+    // Fixed widths: controls 38/46 bytes, context 12, FP registers 80,
     // ten FPU control/pending fields 38, 24 frame scalars 96, operands 48.
-    assert(original.size()==size_t((model==68060 ? 26:18)+274));
-    auto changed=[&](size_t offset) {
-        auto expected=original; expected.at(offset)^=1;
+    assert(original.size()==size_t((model==68060 ? 46:38)+274));
+    auto changed=[&](size_t offset,uint8_t mask=1) {
+        auto expected=original; expected.at(offset)^=mask;
         assert(observe()==expected); apply(saved);
     };
     regs.vbr^=1; changed(0); regs.msp^=1; changed(4); regs.cacr^=1; changed(8);
     regs.sfc^=1; changed(12); regs.dfc^=1; changed(13); regs.instruction_cnt^=1; changed(14);
     if(model==68060) { regs.buscr^=1; changed(18); regs.pcr^=1; changed(22); }
+    const size_t tt=model==68060 ? 26:18;
+    regs.itt0^=4; changed(tt,4); regs.itt1^=4; changed(tt+4,4); regs.dtt0^=4; changed(tt+8,4); regs.dtt1^=4; changed(tt+12,4);
+    const size_t tc=model==68060 ? 42:34;
+    regs.tcr^=0x8000; changed(tc+1,0x80);
     p6_fpu_state f{}; assert(p6_fpu_state_get(&f));
-    const size_t start=model==68060 ? 26:18;
+    const size_t start=model==68060 ? 46:38;
     for(unsigned i=0;i<4;i++) assert(original[start+i]==uint8_t(uint32_t(model)>>(8*i)));
     auto fp=[&](auto &word,size_t offset) {
         word^=1; assert(p6_fpu_state_apply(&f)); changed(start+offset); word^=1;
@@ -179,6 +184,7 @@ int main(int argc,char **argv) {
         for(int cut=0;cut<3;cut++) {
             owner(model,revision); regs.msp=0x6000; regs.instruction_cnt=-123456;
             control(0,5); control(1,3); control(0x801,0x4000); control(2,model==68040 ? 0x80008000:0xf8e0e000);
+            control(3,0x8000); control(4,0x0000c040); control(5,0x00002004); control(6,0x1234); control(7,0x00abc040);
             if(model==68060) { control(8,0xa0000000); control(0x808,0x41); regs.stopped=2; }
             if(cut) { move(0,1); move(1,cut==2 ? 0:3); fpp_set_fpcr(cut==2 ? 0x470:0x70); }
             if(cut==2) fpuop_arithmetic(0xf200,0x0420); // Real pending divide-by-zero state.
@@ -187,6 +193,7 @@ int main(int argc,char **argv) {
             owner(model==68040 ? 68060:68040,0x40); // Reinitialize the backend in the wrong owner first.
             assert(!validate(saved));
             owner(model,revision); control(0,1); control(1,7); control(2,0); control(0x801,0x8000);
+            control(3,0); control(4,0); control(5,4); control(6,0x40); control(7,0x2000);
             regs.msp=0x1234; regs.instruction_cnt=777; regs.stopped=0; disturb_fpu();
             auto before=capture(); auto cycle=get_cycles(); auto ram=get_long(0x10000);
             assert(validate(saved)); assert(capture()==before && cycle==get_cycles() && ram==get_long(0x10000));
@@ -194,6 +201,7 @@ int main(int argc,char **argv) {
             apply(saved);
             observation(model);
             corrupt(saved,"cpu.cacr",1); corrupt(saved,"cpu.sfc",8);
+            corrupt(saved,"cpu.dtt0",1); corrupt(saved,"cpu.tcr",1);
             corrupt(saved,"cpu.stopped",3); corrupt(saved,"fpu.internal.context.model",68882);
             corrupt(saved,"fpu.internal.context.revision",0x42); corrupt(saved,"fpu.internal.fpcr",0x10000);
             corrupt(saved,"fpu.internal.exp_pend",47); corrupt(saved,"fpu.internal.frame.stag",8);

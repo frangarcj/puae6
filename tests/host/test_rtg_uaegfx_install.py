@@ -133,9 +133,7 @@ void trap_set_bytes(TrapContext *ctx, uaecptr address, uae_u8 value, int count)
 	std::memset(ctx->memory + address, value, size_t(count));
 }
 
-void trap_call_add_dreg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->d[reg] = value; }
-void trap_call_add_areg(TrapContext *ctx, int reg, uae_u32 value) { context(ctx)->a[reg] = value; }
-uae_u32 trap_call_lib(TrapContext *ctx, uaecptr, uae_s16 offset)
+uae_u32 call_lib(TrapContext *ctx, uae_s16 offset)
 {
 	ctx = context(ctx);
 	if (offset == -0x54) {
@@ -151,6 +149,10 @@ uae_u32 trap_call_lib(TrapContext *ctx, uaecptr, uae_s16 offset)
 	assert(false);
 	return 0;
 }
+void trap_call_add_dreg(TrapContext *ctx, int reg, uae_u32 value) { assert(ctx); ctx->d[reg] = value; }
+void trap_call_add_areg(TrapContext *ctx, int reg, uae_u32 value) { assert(ctx); ctx->a[reg] = value; }
+uae_u32 trap_call_lib(TrapContext *ctx, uaecptr, uae_s16 offset) { assert(ctx); return call_lib(ctx, offset); }
+uae_u32 CallLib(TrapContext *ctx, uaecptr, uae_s16 offset) { return call_lib(ctx, offset); }
 
 unsigned int define_trap(TrapHandler handler, int, const TCHAR *)
 {
@@ -275,10 +277,21 @@ int main()
 	assert(autoinit >= RTBASE + RTAREA_RTG && autoinit < RTBASE + RTAREA_TRAMPOLINE);
 	const unsigned autoinit_handler = rtword(autoinit) & 0x0fff;
 	assert(autoinit_handler && autoinit_handler <= handler_count);
+	const uaecptr diag_resident = 0x3000;
+	assert(p6_uaegfx_startup(&ctx, diag_resident) == diag_resident + 26);
+	assert(trap_get_word(&ctx, diag_resident) == 0x4afc);
+	assert(trap_get_long(&ctx, diag_resident + 2) == diag_resident);
+	assert(trap_get_long(&ctx, diag_resident + 6) == diag_resident + 26);
+	assert(trap_get_byte(&ctx, diag_resident + 10) == 0x81);
+	assert(trap_get_long(&ctx, diag_resident + 14) == table_resname);
+	assert(trap_get_long(&ctx, diag_resident + 18) == table_resid);
+	assert(trap_get_long(&ctx, diag_resident + 22) == init_table);
 
 	trap_put_long(&ctx, 4, 0x100);
 	ctx.a[2] = 0x12345678;
-	assert(p6_uaegfx_alloc(nullptr) == LIBBASE); /* simple traps use the live 68k registers */
+	assert(p6_uaegfx_alloc(nullptr) == 0); /* a simple trap publishes the resident; it cannot call back into Exec */
+	assert(p6_uaegfx_library_base() == 0 && ctx.a[2] == 0x12345678 && add_library_calls == 0);
+	assert(p6_uaegfx_alloc(&ctx) == LIBBASE);
 	assert(p6_uaegfx_library_base() == LIBBASE && ctx.a[2] == 0x12345678);
 	assert(make_size == 736 && add_library_calls == 1);
 	assert(make_a0 >= RTBASE + RTAREA_RTG && make_a0 < RTBASE + RTAREA_TRAMPOLINE);

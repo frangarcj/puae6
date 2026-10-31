@@ -1,0 +1,61 @@
+diff --git a/newcpu_common.cpp b/newcpu_common.cpp
+--- a/newcpu_common.cpp
++++ b/newcpu_common.cpp
+@@ -70,11 +70,6 @@
+ 
+ int movec_illg (int regno)
+ {
+-#if defined(P6_PORTABLE) && !defined(MMUEMU)
+-	// No translation backend: do not emulate writable MMU controls as successful storage.
+-	if ((regno >= 3 && regno <= 7) || (regno >= 0x805 && regno <= 0x807))
+-		return 1;
+-#endif
+ 	int regno2 = regno & 0x7ff;
+ 
+ 	if (currprefs.cpu_model == 68060) {
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -5471,8 +5471,6 @@
+ 	// do not unnecessarily create useless mmuop030
+ 	// functions when CPU is not 68030
+-	const bool portable_mmu = portable_no_mmu && (curi->mnemo == i_MMUOP030 ||
+-		curi->mnemo == i_PFLUSHN || curi->mnemo == i_PFLUSH || curi->mnemo == i_PFLUSHAN || curi->mnemo == i_PFLUSHA ||
+-		curi->mnemo == i_PLPAR || curi->mnemo == i_PLPAW || curi->mnemo == i_PTESTR || curi->mnemo == i_PTESTW);
++	const bool portable_mmu = portable_no_mmu && curi->mnemo == i_MMUOP030;
+ 	if (portable_mmu || (curi->mnemo == i_MMUOP030 && cpu_level != 3 && !cpu_generic)) {
+ 		illg();
+ 		if (portable_no_mmu) clear_m68k_offset(); // The exception keeps the opcode PC.
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -2165,6 +2165,8 @@ static void build_cpufunctbl (void)
+ 				switch (table68k[opcode].mnemo) {
+ 				case i_CINVL: case i_CINVP: case i_CINVA:
+ 				case i_CPUSHL: case i_CPUSHP: case i_CPUSHA:
++				case i_PFLUSHN: case i_PFLUSH: case i_PFLUSHAN: case i_PFLUSHA:
++				case i_PLPAR: case i_PLPAW: case i_PTESTR: case i_PTESTW:
+ 				case i_MOVE16: case i_LPSTOP:
+ 					continue;
+ 				default:
+@@ -4346,6 +4346,9 @@ bool mmu_op30(uaecptr pc, uae_u32 opcode, uae_u16 extra, uaecptr extraa)
+ 	}
+ 	return fline != 0;	
+ }
+ 
++#endif
++#if defined(CPUEMU_0)
++
+ /* check if an address matches a ttr */
+ static int fake_mmu_do_match_ttr(uae_u32 ttr, uaecptr addr, bool super)
+@@ -4394,8 +4394,10 @@ void mmu_op (uae_u32 opcode, uae_u32 extra)
+ {
++#if !defined(P6_PORTABLE) || defined(MMUEMU)
+ 	if (currprefs.mmu_model) {
+ 		mmu_op_real (opcode, extra);
+ 		return;
+ 	}
++#endif
+ #if MMUOP_DEBUG > 1
+ 	write_log (_T("mmu_op %04X PC=%08X\n"), opcode, m68k_getpc ());
+ #endif

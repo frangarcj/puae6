@@ -27069,6 +27069,7 @@
       "touch": [
         "build/machawk-puae6/**",
         "docs/user/waterbox-preview.md",
+        "tools/check.py",
         "plan/tasks.json"
       ],
       "steps": [
@@ -27858,6 +27859,111 @@
       "stop": "No usar una biblioteca nativa como sustituto del guest Waterbox ni modificar el checkout hermano ../MacHawk."
     },
     {
+      "id": "T97",
+      "title": "Evitar el crash de HDF RDB en uaehf.device sobre A4000/040",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T95b"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "bridge/media.cpp",
+        "ports/portable/block/hdf_target.cpp",
+        "tests/hdf/hdf_rom.py",
+        "tests/hdf/hdf_image.py",
+        "tests/hdf/test_block0.py",
+        "tests/host/cpu_late_state_probe.cpp",
+        "tests/host/test_cpu_late_state.py",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tests/waterbox-media/test_media_hdf.py"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "ports/portable/**",
+        "tests/hdf/**",
+        "tests/host/cpu_late_state_probe.cpp",
+        "tests/host/test_cpu_late_state.py",
+        "tests/host/test_rtg_uaegfx_install.py",
+        "tests/waterbox-media/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Reproducir con el HDF privado solo como input local el montaje RDB por el controlador UAE en A4040/040 y reducir el fallo a un fixture libre o sintetico que no copie sus datos.",
+        "Corregir la frontera minima del motor mediante la cola de parches y probar uaehf.device, IDE y restauracion Waterbox sin ocultar el controlador ni forzar IDE.",
+        "Si se aporta una Kickstart A4000 autorizada, arrancar el HDF real y ejecutar SysInfo; no incorporar ni registrar hashes de ROM o HDF privados."
+      ],
+      "checks": [
+        "MED03",
+        "WB03"
+      ],
+      "acceptance": [
+        "El HDF RDB monta por UAE en A4040/040 sin terminar el proceso y el controlador IDE conserva su comportamiento; el reproducer dirigido pasa nativo y dentro de Waterbox.",
+        "La prueba con firmware autorizado, cuando este disponible, arranca el Workbench y SysInfo no reinicia la maquina; ningun byte privado entra en Git ni en el paquete."
+      ],
+      "stop": "No forzar IDE ni desactivar uaehf.device para ocultar el crash; sin Kickstart autorizada la comprobacion de SysInfo queda pendiente y T96 no se publica."
+    },
+    {
+      "id": "T98",
+      "title": "Hacer efectivo el multiplicador de CPU en A4000 Normal",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T97"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/0012-cpu-68010-and-clock.md",
+        "bridge/config.cpp",
+        "tests/host/test_cpu_clock.py",
+        "tests/waterbox-state/test_wrapper_cpu.py"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "config/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/libretro-host/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/adr/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Medir con un programa 68k y tiempo emulado que A4030 Normal conserva hoy el mismo trabajo por frame con multiplicadores distintos, sin usar el reloj de pared ni SysInfo como unico oraculo.",
+        "Aplicar el multiplicador al backend Normal de 68030/040 con un presupuesto determinista de ciclos, manteniendo el reloj de chipset, DMA y audio y la semantica cycle-exact existente.",
+        "Probar configuracion, estado/restauracion, libretro y Waterbox; contrastar despues la lectura aproximada de SysInfo en el HDF privado."
+      ],
+      "checks": [
+        "DET02",
+        "LR01",
+        "WB03"
+      ],
+      "acceptance": [
+        "En A4030 y A4040 con accuracy Normal, dos multiplicadores distintos producen distinto trabajo de CPU por la misma duracion emulada y el mismo multiplicador reproduce exactamente el mismo futuro.",
+        "El ajuste de BizHawk llega al guest Waterbox, sobrevive a save/load y no altera la cadencia de video, DMA ni audio; SysInfo deja de medir siempre unos 14-16 MHz independientemente del valor."
+      ],
+      "stop": "No sustituir el presupuesto emulado por velocidad maxima dependiente del host, sleeps o reloj de pared; no maquillar el resultado cambiando solo la etiqueta visible."
+    },
+    {
       "id": "T96",
       "title": "Generar preview MacHawk con RTG A4000/040",
       "milestone": "M4",
@@ -27866,6 +27972,8 @@
       "blocked_reason": "",
       "depends": [
         "T95b",
+        "T97",
+        "T98",
         "T82o"
       ],
       "read": [
@@ -27887,7 +27995,8 @@
       "steps": [
         "Importar la correccion integrada en el clon aislado build/machawk-puae6, reconstruir los guests y añadir al smoke el selector A4040/040+FPU68040+RTG4.",
         "Compilar y probar el producto real; generar el ZIP de preview desde la receta fijada sin incluir firmware, HDF ni otro medio privado.",
-        "Registrar commit y SHA-256 exactos de la preview generada; no tocar ni empaquetar ../MacHawk."
+        "Registrar commit y SHA-256 exactos de la preview generada; no tocar ni empaquetar ../MacHawk.",
+        "Registrar BUILD01 para esta candidata reutilizando las puertas dirigidas de seleccion estricta y del wrapper RTG A4040."
       ],
       "checks": [
         "BUILD01"

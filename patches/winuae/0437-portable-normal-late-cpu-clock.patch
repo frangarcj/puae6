@@ -1,0 +1,46 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+index 85c0e6981..14dfac9d2 100644
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -2275,6 +2275,13 @@ static uae_u32 cycles_mult;
+ static void update_68k_cycles (void)
+ {
+ 	cycles_mult = 0;
++#ifdef P6_PORTABLE
++	// The normal 030/040/060 interpreter otherwise uses only the fixed approximate
++	// divisors below. Keep their existing multiplier-2 speed as the baseline and
++	// scale CPU work against emulated time for the configured clock.
++	const uae_u32 p6_normal_clock = changed_prefs.cpu_clock_multiplier >= 256 ? changed_prefs.cpu_clock_multiplier >> 8 : 0;
++	const bool p6_scale_normal_clock = currprefs.cpu_model >= 68030 && !currprefs.cpu_cycle_exact && !currprefs.cpu_compatible && p6_normal_clock;
++#endif
+ 
+ 	if (currprefs.m68k_speed == 0) { // approximate
+ 		cycles_mult = CYCLES_DIV;
+@@ -2310,10 +2317,25 @@ static void update_68k_cycles (void)
+ 			}
+ 		}
+ 	}
++#ifdef P6_PORTABLE
++	if (p6_scale_normal_clock) {
++		cycles_mult = cycles_mult * 2 / p6_normal_clock;
++	}
++#endif
++
++#ifdef P6_PORTABLE
++	if (!p6_scale_normal_clock) {
++		cycles_mult &= ~0x7f;
++		if (cycles_mult < 0x80)
++			cycles_mult = 0x80;
++	} else if (cycles_mult < 1) {
++		cycles_mult = 1;
++	}
++#else
+ 	cycles_mult &= ~0x7f;
+-	if (cycles_mult < 0x80) {
++	if (cycles_mult < 0x80)
+ 		cycles_mult = 0x80;
+-	}
++#endif
+ 
+ 	currprefs.cpu_clock_multiplier = changed_prefs.cpu_clock_multiplier;
+ 	currprefs.cpu_frequency = changed_prefs.cpu_frequency;

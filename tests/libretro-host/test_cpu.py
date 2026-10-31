@@ -1,4 +1,4 @@
-"""T52: the CPU options through the libretro core, run by the minimal frontend (LR01).
+"""T52/T98: the CPU options through the libretro core, run by the minimal frontend (LR01).
 
 puae6_cpu_model (auto, 68000, 68010, 68020) and puae6_cpu_multiplier (auto, 1, 2, 4, 8, 10, 12, 16) are restart options: p6_config.cpu_model and cpu_multiplier. What is decided here:
   * the machine a person gets with a 68010 is the machine headless runs with --cpu 68010 (unit by unit: ticks, audio and picture), on the A500 and the A600, and the program that tells the CPUs apart
@@ -145,13 +145,19 @@ class CpuOptionTests(lr.LibretroHarness):
                 self.assertEqual(plain, size_of(self.a500("boot", "--runs", 3, "--set", f"puae6_cpu_multiplier={multiplier}").stdout))
 
     def test_a_clock_changes_the_cycles_of_a_unit_and_nothing_the_frontend_sees_of_the_chipset(self):
-        for machine, option, name in (("a500", (), lr.KICKSTART_NAMES[0]), ("a1200", lr.A1200, lr.KICKSTART_NAMES_A1200[0])):
-            base = self.headless_units("boot", 12, "--machine", machine)
+        machines = (
+            ("a500", (), lr.KICKSTART_NAMES[0], ()),
+            ("a1200", lr.A1200, lr.KICKSTART_NAMES_A1200[0], ()),
+            ("a4030", ("--set", "puae6_machine=A4030", "--set", "puae6_cpu_compatibility=normal"), "kick40068.A4000", ("--cpu-compatibility", "normal")),
+            ("a4040", ("--set", "puae6_machine=A4040", "--set", "puae6_cpu_compatibility=normal"), "kick40068.A4000", ("--cpu-compatibility", "normal")),
+        )
+        for machine, option, name, headless_extra in machines:
+            base = self.headless_units("boot", 12, "--machine", machine, *headless_extra)
             for multiplier in ("1", "8", "16"):
                 with self.subTest(machine=machine, multiplier=multiplier):
                     out = self.frontend("boot", "--runs", 12, *option, "--set", f"puae6_cpu_multiplier={multiplier}", name=name).stdout
-                    self.compare_with_headless(out, "boot", 12, "--machine", machine, "--cpu-multiplier", multiplier)
-                    fast = self.headless_units("boot", 12, "--machine", machine, "--cpu-multiplier", multiplier)
+                    self.compare_with_headless(out, "boot", 12, "--machine", machine, *headless_extra, "--cpu-multiplier", multiplier)
+                    fast = self.headless_units("boot", 12, "--machine", machine, *headless_extra, "--cpu-multiplier", multiplier)
                     # A unit ends at the first instruction boundary after the beam wraps, so the ticks of a unit differ by the length of that instruction (a few colour clocks of 512 ticks
                     # each: the boot program's instructions are 8 to 12 CPU clocks, 12 colour clocks at 3.55 MHz at the most) and the audio frames of every unit are the same.
                     # and the audio frames of a unit move by one frame between two units when that instruction moves the end across a sample, never more: the frames delivered so far agree to one.

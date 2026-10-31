@@ -32,6 +32,7 @@ int p6_uaegfx_resident_snapshot_get(p6_uaegfx_resident_snapshot *out);
 int p6_uaegfx_resident_snapshot_validate(const p6_uaegfx_resident_snapshot *snapshot);
 int p6_uaegfx_resident_snapshot_apply(const p6_uaegfx_resident_snapshot *snapshot);
 int p6_uaegfx_install_code(uaecptr start);
+uaecptr p6_uaegfx_startup(TrapContext *ctx, uaecptr resident);
 uaecptr p6_uaegfx_alloc(TrapContext *ctx);
 uaecptr p6_uaegfx_library_base(void);
 uae_u32 REGPARAM2 p6_uaegfx_init_card(TrapContext *ctx);

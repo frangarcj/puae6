@@ -6505,14 +6505,14 @@
     {
       "id": "0428-portable-uaegfx-bootstrap",
       "file": "patches/winuae/0428-portable-uaegfx-bootstrap.patch",
-      "sha256": "d0d825390b8e3fa433feb78f0be6775328dec3a050a4f68608581af7b88a4f92",
-      "title": "Bootstrap the bounded uaegfx resident through existing RTAREA and AfterDOS hooks",
-      "reason": "T85i compiles the portable RTG closure without enabling upstream PICASSO96 or its Win32 backend. The fixed resident is emitted into the reserved RTAREA slot, and the existing filesystem AfterDOS hook creates uaegfx.card only when the bounded Z3 bank has actually mapped.",
+      "sha256": "42cc3c692bb82f84f251f3f5315d5c9cc928fb4c825642f12bc3ebbe13b9117c",
+      "title": "Bootstrap the bounded uaegfx resident through RTAREA and the filesystem resident list",
+      "reason": "T85i compiles the portable RTG closure without enabling upstream PICASSO96 or its Win32 backend. T97 additionally proves that filesys_init_storeinfo is a simple trap with no TrapContext, so it cannot call back into Exec to construct uaegfx.card. The DiagArea path now publishes the fixed resident into Exec's ResModules list; AmigaOS performs its normal AUTOINIT after the bounded Z3 bank maps, without a host thread or nested CPU scheduler.",
       "category": "portable RTG guest bootstrap",
       "order": 243,
       "symbols": [
         "p6_uaegfx_install_code",
-        "p6_uaegfx_alloc"
+        "p6_uaegfx_startup"
       ],
       "test": "tests/host/test_rtg_link.py",
       "upstream_candidate": false,
@@ -6526,7 +6526,7 @@
         {
           "path": "filesys.cpp",
           "before_sha256": "9461942d28bbcc4520fbe40ef2627d77e65dd13efb5decbfd5f098d814b73aab",
-          "after_sha256": "41738e65ea9ac5b6ab34ec52c305896324e35bf0fbac582bf4e593c147eca87d"
+          "after_sha256": "ada11b08871d8478f8a7adff7f380eb7b29d27dc666a839d25318cc9d9ce8877"
         }
       ]
     },
@@ -6705,6 +6705,61 @@
           "path": "devices.cpp",
           "before_sha256": "3acc0ea9209baabb3f8c6d813d3208d6527f6a401c16d4911b90c132b7081940",
           "after_sha256": "47f1c96f12c25511149129a97fa556dc1ad108a752dd823d79af60944696b389"
+        }
+      ]
+    },
+    {
+      "id": "0436-portable-040-transparent-translation-registers",
+      "file": "patches/winuae/0436-portable-040-transparent-translation-registers.patch",
+      "sha256": "ef38c81ac71f7a8b278a56efe1c01c71f565ebc8c8d3a0e56015397602ee8581",
+      "title": "Keep 040 MMU control registers architectural without enabling translation",
+      "reason": "T97 reproduces 80000004, 800A0004 and Line-F 8000000B alerts while an A4000/040 mounts an RDB and starts SysInfo. The UAE boot ROM writes DTT0, the expansion driver reads TC, and SysInfo writes TC=$8000, executes PTESTR and writes URP. Preserve WinUAE's architectural control-register storage and its existing physical PTEST/PFLUSH semantics while compiling out address translation; stored TC/URP/SRP values never select a translation backend in the portable build.",
+      "category": "portable 68040 control registers",
+      "order": 251,
+      "symbols": [
+        "movec_illg",
+        "mmu_op"
+      ],
+      "test": "tests/hdf/test_block0.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu_common.cpp",
+          "before_sha256": "b3011e8f0fbf840984cb5af38111b1950fbd4d4c5ce606da81480187c665ac0e",
+          "after_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670"
+        },
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "54427250b7288f110392377748dd11d145d602bc0e2c2a8262b9b33c3a33c41b",
+          "after_sha256": "178ad47fe97ad89bff56d41ceef7e24356b320262ee09787407994b90cf3cc4b"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "4e22c67d3b44443c15c97e54832e3e2b6d361a0df52fefc5fa9bdde9377d0d4b",
+          "after_sha256": "412d860c7129f95dd4b1b3e1e293c234cce7881adcc97b4fdc7581c5069628e0"
+        }
+      ]
+    },
+    {
+      "id": "0437-portable-normal-late-cpu-clock",
+      "file": "patches/winuae/0437-portable-normal-late-cpu-clock.patch",
+      "sha256": "c1c9b2a8ba6893037cdabab2a688893ea077c87fbbe4b97aa0c50682147e2419",
+      "title": "Scale the portable normal 68030+ interpreter by its emulated clock",
+      "reason": "T98 measures identical CIA time at multipliers 2 and 8 on A4030 and A4040 because WinUAE's normal interpreter uses fixed approximate divisors for those CPUs. Preserve the multiplier-2 baseline and scale only CPU instruction work against emulated time; chipset, DMA and audio scheduling remain on the existing event clock.",
+      "category": "deterministic CPU timing",
+      "order": 252,
+      "symbols": [
+        "update_68k_cycles"
+      ],
+      "test": "tests/host/test_cpu_clock.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "412d860c7129f95dd4b1b3e1e293c234cce7881adcc97b4fdc7581c5069628e0",
+          "after_sha256": "6aae10c5209a4167bd6160a45d0df67a0aa534e176725c72d41f12d1c1d86b2e"
         }
       ]
     }

@@ -1,4 +1,4 @@
-"""T52: DET02 with the clock of the CPU at every multiplier (p6_config.cpu_multiplier: 1, 2, 4, 8, 10, 12 and 16, PUAE5's values): a state taken in the middle of a program comes back to the
+"""T52/T98: DET02 with the clock of the CPU at every multiplier (p6_config.cpu_multiplier: 1, 2, 4, 8, 10, 12 and 16, PUAE5's values): a state taken in the middle of a program comes back to the
 machine of the original whatever the clock the CPU runs at.
 
 The multiplier is upstream's cpu_clock_multiplier: one CPU clock lasts 1/N of a colour clock pair, so every instruction and every bus access costs fewer or more emulated colour clocks
@@ -34,8 +34,9 @@ A1200_SCENARIOS = {name: a1200.SCENARIOS[name] for name in ("vsync", "tone", "bu
 DIVERGENCES = {}
 
 
-def make(name, machine, roms, scenarios, multiplier, cpu=None):
-    arguments = ["--cpu-multiplier", str(multiplier)] + (["--cpu", cpu] if cpu else [])
+def make(name, machine, roms, scenarios, multiplier, cpu=None, accuracy=None):
+    arguments = (["--cpu-multiplier", str(multiplier)] + (["--cpu", cpu] if cpu else [])
+                 + (["--cpu-compatibility", accuracy] if accuracy else []))
 
     class Case(d.Det02Case):
         MACHINE = machine
@@ -60,6 +61,8 @@ Det02A1200Clock1Tests = make("Det02A1200Clock1Tests", "a1200", a1200.ROMS, A1200
 Det02A1200Clock2Tests = make("Det02A1200Clock2Tests", "a1200", a1200.ROMS, {k: A1200_SCENARIOS[k] for k in ("vsync", "cache020", "ops020", "aga-8planes")}, 2)
 Det02A1200Clock8Tests = make("Det02A1200Clock8Tests", "a1200", a1200.ROMS, {k: A1200_SCENARIOS[k] for k in ("vsync", "busy", "exceptions", "aga-sprites")}, 8)
 Det02A1200Clock16Tests = make("Det02A1200Clock16Tests", "a1200", a1200.ROMS, A1200_SCENARIOS, 16)
+Det02A4030NormalClock8Tests = make("Det02A4030NormalClock8Tests", "a4030", c10.ROMS, {"busy": BASE["busy"]}, 8, accuracy="normal")
+Det02A4040NormalClock8Tests = make("Det02A4040NormalClock8Tests", "a4040", c10.ROMS, {"busy": BASE["busy"]}, 8, accuracy="normal")
 
 
 if __name__ == "__main__":

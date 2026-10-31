@@ -9,6 +9,8 @@ template<class Canon> bool p6_probe_cpu_late(Canon &c)
     c.put(uint32_t(regs.vbr)).put(uint32_t(regs.msp)).put(uint32_t(regs.cacr));
     c.put(uint8_t(regs.sfc)).put(uint8_t(regs.dfc)).put(int32_t(regs.instruction_cnt));
     if (currprefs.cpu_model == 68060) c.put(uint32_t(regs.buscr)).put(uint32_t(regs.pcr));
+    c.put(uint32_t(regs.itt0)).put(uint32_t(regs.itt1)).put(uint32_t(regs.dtt0)).put(uint32_t(regs.dtt1));
+    c.put(uint32_t(regs.tcr));
     if (!currprefs.fpu_model) return true;
     p6_fpu_state f{};
     if (!p6_fpu_state_get(&f)) return false; // Never publish a partial digest.

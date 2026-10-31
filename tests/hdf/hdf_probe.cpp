@@ -1,6 +1,6 @@
 // T29a harness: loads a firmware with zero to four hard files (P6_MEDIA_HDF) and runs it through p6_run_frame, then dumps Chip RAM so that the test can read what the
 // guest saw through uaehf.device (Chip RAM, then Slow RAM when the machine has it).
-//   p6_hdf_probe ROM a500|a600|a1200 pal|ntsc SEED UNITS DUMP [HDF...]
+//   p6_hdf_probe ROM a500|a600|a1200|a4030|a4040 pal|ntsc SEED UNITS DUMP [HDF...]
 // Output: one line per unit (registers and a digest of the whole machine, so that two processes can be compared), the checks on the caller's buffers and, when the
 // images or the load are refused, the refusal. Exit 0 when the load and every unit succeeded, 3 when the load was refused (the message is printed), 4 for a failed unit.
 // With P6_PROBE_IDE=1 the hard files are on the IDE port of Gayle (p6_config.hdf_controller, T56).
@@ -101,9 +101,10 @@ bool blob_equals(const p6_media &m, const std::vector<uint8_t> &bytes)
 
 int main(int argc, char **argv)
 {
-    if (argc < 7) { fprintf(stderr, "usage: %s ROM a500|a600|a1200 pal|ntsc SEED UNITS DUMP [HDF...]\n", argv[0]); return 64; }
+    if (argc < 7) { fprintf(stderr, "usage: %s ROM a500|a600|a1200|a4030|a4040 pal|ntsc SEED UNITS DUMP [HDF...]\n", argv[0]); return 64; }
     const std::vector<uint8_t> rom = read_file(argv[1]);
-    const uint32_t machine = !strcmp(argv[2], "a1200") ? P6_MACHINE_A1200 : !strcmp(argv[2], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
+    const uint32_t machine = !strcmp(argv[2], "a4040") ? P6_MACHINE_A4040 : !strcmp(argv[2], "a4030") ? P6_MACHINE_A4030 :
+                             !strcmp(argv[2], "a1200") ? P6_MACHINE_A1200 : !strcmp(argv[2], "a600") ? P6_MACHINE_A600 : P6_MACHINE_A500;
     const uint32_t standard = !strcmp(argv[3], "ntsc") ? P6_VIDEO_NTSC : P6_VIDEO_PAL;
     const uint64_t seed = strtoull(argv[4], nullptr, 10);
     const int units = atoi(argv[5]);
@@ -122,6 +123,8 @@ int main(int argc, char **argv)
     c.audio_rate_hz = 48000;
     c.random_seed = seed;
     c.rtc_epoch_seconds = 946684800;
+    if (machine == P6_MACHINE_A4030 || machine == P6_MACHINE_A4040) c.cpu_compatibility = P6_CPU_NORMAL;
+    if (machine == P6_MACHINE_A4040) { c.cpu_model = 5; c.fpu_model = 68040; }
     if (getenv("P6_PROBE_IDE")) c.hdf_controller = P6_HDF_CONTROLLER_IDE;      // T56: the hard files on the IDE port of Gayle (A600 and A1200)
     if (p6_init(&c, &error) != P6_OK) { fprintf(stderr, "init: %s\n", error.message); return 3; }
     if (const char *cycles = getenv("P6_PROBE_CYCLES")) {
@@ -202,6 +205,8 @@ int main(int argc, char **argv)
     fwrite(chipmem_bank.baseaddr, 1, chipmem_bank.allocated_size, out);
     if (bogomem_bank.baseaddr)                       // Slow RAM follows Chip RAM in the dump: a Kickstart allocates there first on an A500
         fwrite(bogomem_bank.baseaddr, 1, bogomem_bank.allocated_size, out);
+    if (fastmem_bank[0].baseaddr)                    // A4000 Kickstarts may allocate expansion strings in Fast RAM
+        fwrite(fastmem_bank[0].baseaddr, 1, fastmem_bank[0].allocated_size, out);
     fclose(out);
     p6_unload(&error);
     p6_shutdown(&error);

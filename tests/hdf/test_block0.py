@@ -3,7 +3,7 @@
 The micro-ROM (hdf_rom.py) finds the UAEFS board by autoconfig, runs its DiagArea, takes BeginIO out of the resident of uaehf.device and issues requests; the test
 decodes what the guest stored (hdf_rom.RES) from the dump of Chip RAM and compares it with the bytes of the image, which are built here from the layouts of
 AmigaDOS alone. The same ROM and image run in two processes with different environments, and in the three machines. Kickstart-based checks are opt-in
-(P6_KICKSTART_ROM, P6_KICKSTART_A1200_ROM): the files are read from where the variable points and never copied, hashed or stored.
+(P6_KICKSTART_ROM, P6_KICKSTART_A1200_ROM, P6_KICKSTART_A4000_ROM): the files are read from where the variable points and never copied, hashed or stored.
 """
 import os
 from pathlib import Path
@@ -100,6 +100,17 @@ class Block0Tests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout[-600:] + result.stderr[-600:])
                     self.assert_reads(name, ram)
                     self.assertIn("hdf 0 buffer_unchanged=1 blob_equal=1", result.stdout)     # neither the caller's bytes nor the registered base changed
+
+    def test_a4040_no_mmu_allows_control_registers_and_physical_ptest_with_an_rdb_loaded(self):
+        with tempfile.TemporaryDirectory(dir=self.temp.name) as directory:
+            result, ram = run(self.exe, directory, hdf_rom.control_rom(), machine="a4040", images=(self.images["rdb"],))
+        self.assertEqual(result.returncode, 0, result.stdout[-600:] + result.stderr[-600:])
+        self.assertEqual(hdf_rom.DONE, struct.unpack_from(">L", ram, hdf_rom.CONTROL_DONE)[0])
+        self.assertEqual(0x0000C040, struct.unpack_from(">L", ram, hdf_rom.CONTROL_DTT)[0])
+        self.assertEqual(0x00008000, struct.unpack_from(">L", ram, hdf_rom.CONTROL_TC)[0])
+        self.assertEqual(0x0021E800, struct.unpack_from(">L", ram, hdf_rom.CONTROL_URP)[0])
+        self.assertEqual(0x00123000, struct.unpack_from(">L", ram, hdf_rom.CONTROL_SRP)[0])
+        self.assertIn("hdf 0 buffer_unchanged=1 blob_equal=1", result.stdout)
 
     def test_what_the_guest_wrote_is_in_the_export_and_nowhere_else(self):
         for name, image in self.images.items():
@@ -207,6 +218,15 @@ class Block0Tests(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("P6_KICKSTART_A1200_ROM"), "opt-in: P6_KICKSTART_A1200_ROM names a Kickstart 3.1 image")
     def test_kickstart_31_mounts_the_partition_of_the_hard_file(self):
         ram = self.boot_kickstart("P6_KICKSTART_A1200_ROM", "a1200", 500)
+        self.assertIn(b"\x03DH0", ram)
+        self.assertIn(b"uaehf.device", ram)
+
+    @unittest.skipUnless(os.environ.get("P6_KICKSTART_A4000_ROM"), "opt-in: P6_KICKSTART_A4000_ROM names an authorized A4000 Kickstart 3.1 image")
+    def test_a4000_040_mounts_rdb_through_uaehf_without_an_illegal_movec(self):
+        # The UAE boot ROM marks RTAREA cache-inhibited through DTT0 before it asks
+        # for the RDB partition. The fixed no-MMU profile must retain that readable
+        # architectural register without enabling address translation.
+        ram = self.boot_kickstart("P6_KICKSTART_A4000_ROM", "a4040", 500)
         self.assertIn(b"\x03DH0", ram)
         self.assertIn(b"uaehf.device", ram)
 

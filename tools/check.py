@@ -1505,9 +1505,31 @@ TASK_SUITES[('FUZZ01', 'T95')] = {
     'dispatch_regression': 'tests.fuzz.test_check.TaskSuiteDispatchTests'}
 TASK_SUITES[('BUILD01', 'T95b')] = {
     'rtg_a4040_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('BUILD01', 'T96')] = {
+    'preferred_puae6_adf_hdf':
+        'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_preferred_puae6_is_strict_for_amiga_adf_and_hdf',
+    'rtg_a4040_sync_setting_compiles_against_machawk':
+        'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
 TASK_SUITES[('WB03', 'T95b')] = {
     'rtg_a4040_wrapper_new_sandbox_restore':
         'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_a4040_internal_fpu_rtg_restores_in_another_sandbox'}
+TASK_SUITES[('MED03', 'T97')] = {
+    'uaehf_rdb_and_040_control_registers':
+        'tests.hdf.test_block0.Block0Tests.test_a4040_no_mmu_allows_control_registers_and_physical_ptest_with_an_rdb_loaded'}
+TASK_SUITES[('WB03', 'T97')] = {
+    'uaehf_rdb_a4040_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests.test_uaehf_rdb_boot_rom_controls_and_overlay_restore_in_the_sandbox'}
+TASK_SUITES[('DET02', 'T98')] = {
+    'normal_late_cpu_clock_work':
+        'tests.host.test_cpu_clock.CPUClockTests.test_a4000_normal_cpu_work_scales_with_the_multiplier',
+    'a4030_normal_clock_restore': 'tests.state.test_det02_clock.Det02A4030NormalClock8Tests',
+    'a4040_normal_clock_restore': 'tests.state.test_det02_clock.Det02A4040NormalClock8Tests'}
+TASK_SUITES[('LR01', 'T98')] = {
+    'normal_late_cpu_frontend_cadence':
+        'tests.libretro-host.test_cpu.CpuOptionTests.test_a_clock_changes_the_cycles_of_a_unit_and_nothing_the_frontend_sees_of_the_chipset'}
+TASK_SUITES[('WB03', 'T98')] = {
+    'normal_late_cpu_work_cadence_and_restore':
+        'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4000_normal_multiplier_changes_cpu_work_and_restores_without_changing_cadence'}
 TASK_SUITES[('BUILD01', 'T85r')] = {
     'rtg_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'rtg_managed_abi_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}

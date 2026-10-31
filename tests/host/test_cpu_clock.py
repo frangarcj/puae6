@@ -1,4 +1,4 @@
-"""T52: the clock of the CPU (p6_config.cpu_multiplier) changes how fast the cycle-exact CPU runs and nothing else, whatever the host.
+"""T52/T98: the clock of the CPU changes deterministic CPU work and nothing else, whatever the host.
 
 The multiplier is upstream's cpu_clock_multiplier (N << 8): one CPU clock lasts CYCLE_UNIT / N, so N = 2 is the 7.09 MHz of a 68000 (the A500's, and the default of every 68000 machine) and N = 4 the
 14.19 MHz of the A1200's 68EC020. The values are PUAE5's `puae_cpu_multiplier`: 1, 2, 4, 8, 10, 12 and 16 (3.55 to 56.75 MHz); zero is the machine's own.
@@ -80,6 +80,8 @@ class CPUClockTests(unittest.TestCase):
     def test_the_default_clock_is_the_one_named_two_on_a_68000_machine_and_four_on_the_a1200(self):
         self.assertEqual(self.run_probe("--cpu", "68000")[1:], self.run_probe("--cpu", "68000", "--multiplier", "2")[1:])
         self.assertEqual(self.run_probe("--machine", "a1200")[1:], self.run_probe("--machine", "a1200", "--multiplier", "4")[1:])
+        for machine in ("a4030", "a4040"):
+            self.assertEqual(self.run_probe("--machine", machine)[1:], self.run_probe("--machine", machine, "--multiplier", "2")[1:])
 
     def test_a_68010_in_loop_mode_scales_with_the_clock(self):
         base = self.run_probe("--cpu", "68010", "--multiplier", "2")[1] * 2
@@ -100,6 +102,15 @@ class CPUClockTests(unittest.TestCase):
         first = self.run_probe("--cpu", "68000", "--multiplier", "12")
         self.cache.clear()
         self.assertEqual(first, self.run_probe("--cpu", "68000", "--multiplier", "12"))
+
+    def test_a4000_normal_cpu_work_scales_with_the_multiplier(self):
+        for machine in ("a4030", "a4040"):
+            with self.subTest(machine=machine):
+                slow = self.run_probe("--machine", machine, "--multiplier", "2")
+                fast = self.run_probe("--machine", machine, "--multiplier", "8")
+                self.assertGreater(slow[1], fast[1] * 2, (machine, slow, fast))
+                self.cache.clear()
+                self.assertEqual(fast, self.run_probe("--machine", machine, "--multiplier", "8"))
 
 
 if __name__ == "__main__":

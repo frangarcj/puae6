@@ -340,10 +340,12 @@ void apply_fpu(const CpuFpu &f)
     p6_fpu_fsave_set(f.fsave_ccr, f.fsave_eo);
 }
 
-// Normal 040/060 instruction reads bypass caches, as on Normal 030. Translation
-// controls are unavailable; preserve the architectural controls and CPU counter.
+// Normal 040/060 instruction reads bypass caches, as on Normal 030. Page tables
+// are unavailable. TC and ITT/DTT stay readable architectural registers: the
+// fixed profile stores their masked values but performs no address translation.
 struct CpuLate {
     uint32_t vbr = 0, msp = 0, cacr = 0, buscr = 0, pcr = 0;
+    uint32_t itt0 = 0, itt1 = 0, dtt0 = 0, dtt1 = 0, tcr = 0;
     uint8_t sfc = 0, dfc = 0;
     int32_t instruction_cnt = 0;
 };
@@ -372,6 +374,19 @@ void visit_late(Archive &a, CpuLate &c)
             a.require((c.pcr & ~0x43u) == owner && (currprefs.fpu_model || (c.pcr & 2)), "cpu.pcr: wrong processor identity");
         }
     }
+    c.itt0 = a.val<uint32_t>(regs.itt0, "cpu.itt0");
+    c.itt1 = a.val<uint32_t>(regs.itt1, "cpu.itt1");
+    c.dtt0 = a.val<uint32_t>(regs.dtt0, "cpu.dtt0");
+    c.dtt1 = a.val<uint32_t>(regs.dtt1, "cpu.dtt1");
+    c.tcr = a.val<uint32_t>(regs.tcr, "cpu.tcr");
+    if (a.mode() != Mode::Measure) {
+        constexpr uint32_t kTransparentMask = UINT32_C(0xffffe364);
+        a.require(!(c.itt0 & ~kTransparentMask) && !(c.itt1 & ~kTransparentMask) &&
+                  !(c.dtt0 & ~kTransparentMask) && !(c.dtt1 & ~kTransparentMask),
+                  "cpu: unsupported transparent translation control bits");
+        a.require(!(c.tcr & ~(is060 ? UINT32_C(0xfffe) : UINT32_C(0xc000))),
+                  "cpu.tcr: unsupported translation control bits");
+    }
 }
 
 void apply_late(const CpuLate &c)
@@ -379,6 +394,8 @@ void apply_late(const CpuLate &c)
     regs.vbr = c.vbr; regs.msp = c.msp; regs.cacr = c.cacr;
     regs.sfc = c.sfc; regs.dfc = c.dfc; regs.instruction_cnt = c.instruction_cnt;
     if (currprefs.cpu_model == 68060) { regs.buscr = c.buscr; regs.pcr = c.pcr; }
+    regs.itt0 = c.itt0; regs.itt1 = c.itt1; regs.dtt0 = c.dtt0; regs.dtt1 = c.dtt1;
+    regs.tcr = c.tcr;
     // Rebuild derived cache geometry, never refill serialized instruction data.
     set_cpu_caches(false);
 }
