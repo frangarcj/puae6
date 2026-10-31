@@ -134,10 +134,23 @@ bool hdf_controller_accepted(const p6_config &c)
            (c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200 || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040));
 }
 
+bool cd_controller_accepted(const p6_config &c)
+{
+    if (c.cd_controller > P6_CD_CONTROLLER_IDE) return false;
+    const uint8_t historical = c.machine == P6_MACHINE_CD32 ? P6_CD_CONTROLLER_CD32
+        : c.machine == P6_MACHINE_CDTV ? P6_CD_CONTROLLER_CDTV : P6_CD_CONTROLLER_NONE;
+    const uint8_t controller = c.cd_controller == P6_CD_CONTROLLER_AUTO ? historical : c.cd_controller;
+    if ((c.flags & P6_CONFIG_UAESCSI) && controller != P6_CD_CONTROLLER_NONE) return false;
+    if (controller == P6_CD_CONTROLLER_CD32) return c.machine == P6_MACHINE_CD32;
+    if (controller == P6_CD_CONTROLLER_CDTV) return c.machine == P6_MACHINE_CDTV;
+    return controller != P6_CD_CONTROLLER_IDE || c.machine == P6_MACHINE_A600 || c.machine == P6_MACHINE_A1200 ||
+        c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040;
+}
+
 bool audio_accepted(const p6_config &c)
 {
     return c.sound_separation <= 11 && c.sound_interpolation <= 5 && c.sound_interpolation != 3 && c.sound_filter <= 3 && c.sound_filter_type <= 2 && c.floppy_speed <= 5 &&
-           c.video_resolution <= 3 && c.video_line_mode <= 2 && cpu_accepted(c) && clock_accepted(c);
+           c.video_resolution <= 3 && (!c.rtg_memory || c.video_resolution != 3) && c.video_line_mode <= 2 && cpu_accepted(c) && clock_accepted(c);
 }
 
 // The rules of ABI v1, written again here from the header comments: the fuzzer's oracle.
@@ -147,9 +160,10 @@ bool oracle_accepts(const p6_config &c)
     static const bool inverted = getenv("P6_FUZZ_SELFTEST") != nullptr;
     const bool accepted = c.abi_version == P6_ABI_VERSION && c.struct_size == sizeof c && machine_accepted(c.machine) &&
            (c.video_standard == P6_VIDEO_PAL || c.video_standard == P6_VIDEO_NTSC) &&
-           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON)) == 0 &&
+           (c.audio_rate_hz == 44100 || c.audio_rate_hz == 48000) && (c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON | P6_CONFIG_UAESCSI)) == 0 &&
            (!(c.flags & P6_CONFIG_HRTMON) || c.machine == P6_MACHINE_A1200) && fpu_accepted(c) && audio_accepted(c) &&
-           !c.reserved7[0] && !c.reserved8[0] && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
+           c.rtg_memory <= P6_RTG_MEMORY_4_MIB && (!c.rtg_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
+           cd_controller_accepted(c) && c.z3_memory <= 10 && (!c.z3_memory || c.machine == P6_MACHINE_A4030 || c.machine == P6_MACHINE_A4040) &&
            (c.machine != P6_MACHINE_CD32 || (!c.flags && !c.floppy_drives)) && c.collision_level <= 4 &&
            (c.floppy_drives <= 4 || c.floppy_drives == P6_FLOPPY_DRIVES_NONE) &&
            (c.machine != P6_MACHINE_CDTV || (!c.flags && !c.floppy_drives)) &&
@@ -211,6 +225,14 @@ ConfigCases config_cases()
     for (uint8_t accuracy : {0, 1, 3, 255}) {
         auto c=valid_config(P6_MACHINE_A4040); c.cpu_compatibility=accuracy; out.reject(c);
     }
+    for (uint32_t machine : {P6_MACHINE_A4030, P6_MACHINE_A4040}) {
+        auto c = valid_config(machine); c.rtg_memory = P6_RTG_MEMORY_4_MIB; out.accept(c);
+        c.video_resolution = 3; out.reject(c);
+    }
+    for (uint32_t machine : {P6_MACHINE_A500, P6_MACHINE_A1200, P6_MACHINE_CD32}) {
+        auto c = valid_config(machine); c.rtg_memory = P6_RTG_MEMORY_4_MIB; out.reject(c);
+    }
+    { auto c = valid_config(P6_MACHINE_A4040); c.rtg_memory = P6_RTG_MEMORY_4_MIB + 1; out.reject(c); }
     for (uint32_t fast : {0u, P6_MEMORY_NONE, 8192u}) for (uint8_t cpu : {0, 3}) for (uint8_t clock : {0, 4}) {
         auto c = valid_config(P6_MACHINE_CD32); c.fast_kib = fast;
         c.cpu_model = cpu; c.cpu_multiplier = clock; out.accept(c);
@@ -279,11 +301,11 @@ ConfigCases config_cases()
     for (uint8_t z3 : {1, 10}) { auto c = cdtv; c.z3_memory = z3; out.reject(c); }
     for (uint32_t fpu : {68881u, 68882u, 68040u, 68060u}) { auto c = cdtv; c.fpu_model = fpu; out.reject(c); }
     { auto c = cdtv; c.hdf_controller = P6_HDF_CONTROLLER_IDE; out.reject(c); }
-    // Both public flag bits compose on A1200; no cartridge on other machines.
+    // Floppy writes and HRTMon compose on A1200. uaescsi.device is accepted on a non-CD machine while the CD controller resolves to None.
     for (uint32_t m = 1; m <= 12; ++m) for (uint32_t flags : {1u, 2u, 3u, 4u}) {
         auto c = valid_config(m); c.flags = flags;
         if ((m == P6_MACHINE_A1200 && flags <= 3) ||
-            (m != P6_MACHINE_CD32 && m != P6_MACHINE_CDTV && flags == P6_CONFIG_FLOPPY_WRITES)) out.accept(c);
+            (m != P6_MACHINE_CD32 && m != P6_MACHINE_CDTV && (flags == P6_CONFIG_FLOPPY_WRITES || flags == P6_CONFIG_UAESCSI))) out.accept(c);
         else out.reject(c);
     }
     return out;
@@ -351,7 +373,8 @@ int fuzz_config(uint64_t seed, uint64_t iterations)
         if (pass == &error && r == P6_OK && error.message[0]) bug("message set on success", i);
         if (r == P6_OK) {
             machines |= 1u << c.machine;
-            if (c.machine == P6_MACHINE_A1200) a1200_flags |= 1u << c.flags;
+            if (c.machine == P6_MACHINE_A1200 && c.flags <= (P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON))
+                a1200_flags |= 1u << c.flags;
             if (c.machine == P6_MACHINE_A4030) {
                 z3 |= 1u << c.z3_memory;
                 fpus |= 1u << (c.fpu_model == 0 ? 0 : c.fpu_model == 68881 ? 1 : 2);

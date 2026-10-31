@@ -27764,6 +27764,139 @@
       "stop": "No exponer una casilla sin backend, no usar el hilo upstream, no acceder a SCSI fisico host y no hacer stubs que devuelvan exito."
     },
     {
+      "id": "T95",
+      "title": "Permitir la placa RTG acotada en A4000/040 sin MMU",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T55c",
+        "T85q"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/adr/future-rtg.md",
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "tests/media/media_probe.cpp",
+        "tests/fuzz/fuzz_probe.cpp"
+      ],
+      "touch": [
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "tests/media/media_probe.cpp",
+        "tests/fuzz/fuzz_probe.cpp",
+        "docs/02-contracts.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Aceptar la unica placa UAE Zorro III de 4 MiB tambien en A4040/Normal, conservando A4030, el rechazo de otras maquinas/exactitudes y la ausencia de MMU.",
+        "Probar validacion transaccional, geometria, preferencias reales de A4040/040 y el oraculo independiente de configuracion bajo sanitizers.",
+        "No incorporar el HDF privado del usuario; usarlo solo para atribuir la configuracion de referencia 68040/FPU/RTG."
+      ],
+      "checks": [
+        "MED01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "A4040/Normal/RTG4 inicializa por la API publica, construye una sola UAE Z3 de 4 MiB y anuncia 1024x768; A4030 conserva el mismo resultado y otras combinaciones fallan antes de mutar la sesion.",
+        "La ampliacion no habilita MMU, caches exactas, otro tamaño RTG ni otro perfil."
+      ],
+      "stop": "No cambiar CPU/MMU ni hashes golden para aceptar el HDF; si la placa no se configura igual en A4040, conservar el reproducer y revisar el preset."
+    },
+    {
+      "id": "T95b",
+      "title": "Exponer RTG4 con A4040 en BizHawk y restaurarlo en Waterbox",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "blocked_reason": "",
+      "depends": [
+        "T95"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/04-validation.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/ffi/Program.cs",
+        "tests/waterbox-state/test_wrapper_rtg.py"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/ffi/Program.cs",
+        "tests/waterbox-state/test_wrapper_rtg.py",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Aceptar A4040/Normal en la Sync Setting RTG y conservar el mismo lienzo, heap e identidad que el contrato RTG4 existente.",
+        "Ejecutar un micro-ROM A4040/040 con RTG4 dentro del guest Waterbox, guardar y restaurar en otra sandbox y comprobar que A4030 y los rechazos anteriores no cambian.",
+        "Documentar que el HDF 68040 debe abrirse como A4040 con FPU68040 y que MMU permanece deshabilitada."
+      ],
+      "checks": [
+        "BUILD01",
+        "WB03"
+      ],
+      "acceptance": [
+        "BizHawk carga A4040/040 con RTG4 y restaura el mismo futuro en otra sandbox Waterbox; la configuracion incompatible se rechaza antes de avanzar.",
+        "El ajuste visible describe A4000/030 o A4000/040 y no sugiere que MMU sea necesaria."
+      ],
+      "stop": "No usar una biblioteca nativa como sustituto del guest Waterbox ni modificar el checkout hermano ../MacHawk."
+    },
+    {
+      "id": "T96",
+      "title": "Generar preview MacHawk con RTG A4000/040",
+      "milestone": "M4",
+      "required": false,
+      "status": "pending",
+      "blocked_reason": "",
+      "depends": [
+        "T95b",
+        "T82o"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/waterbox/puae6/README.md",
+        "build/machawk-puae6/waterbox/puae6/prepare.py",
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py"
+      ],
+      "touch": [
+        "build/machawk-puae6/**",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Importar la correccion integrada en el clon aislado build/machawk-puae6, reconstruir los guests y añadir al smoke el selector A4040/040+FPU68040+RTG4.",
+        "Compilar y probar el producto real; generar el ZIP de preview desde la receta fijada sin incluir firmware, HDF ni otro medio privado.",
+        "Registrar commit y SHA-256 exactos de la preview generada; no tocar ni empaquetar ../MacHawk."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La preview generada contiene el guest y wrapper que admiten A4040/040+FPU68040+RTG4 y su smoke real prueba carga, avance y cierre sin fallback a UAE5.",
+        "El paquete conserva fuentes/licencias y no contiene el HDF, Kickstart ni otros assets privados."
+      ],
+      "stop": "No generar una preview desde un guest antiguo ni publicar un artefacto cuyo gate Windows falle."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

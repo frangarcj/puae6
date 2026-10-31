@@ -1496,6 +1496,13 @@ TASK_SUITES[('AV01', 'T85q')] = {
 TASK_SUITES[('DET02', 'T85q')] = {
     'rtg_public_fixed_canvas': 'tests.state.test_rtg_video',
     'rtg_public_state_future': 'tests.state.test_rtg_state'}
+TASK_SUITES[('MED01', 'T95')] = {
+    'rtg_a4040_public_validation_geometry_and_preferences':
+        'tests.media.test_media.MediaLoadTests.test_media_are_known_by_identity_and_rejected_lists_cost_nothing'}
+TASK_SUITES[('FUZZ01', 'T95')] = {
+    'rtg_a4040_public_config_oracle':
+        'tests.fuzz.test_fuzz.ConfigProfileFuzzTests.test_public_profiles_and_boundaries_under_sanitizers',
+    'dispatch_regression': 'tests.fuzz.test_check.TaskSuiteDispatchTests'}
 TASK_SUITES[('BUILD01', 'T85r')] = {
     'rtg_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'rtg_managed_abi_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}

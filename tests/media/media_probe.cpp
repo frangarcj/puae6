@@ -111,7 +111,7 @@ static void cd_controller_topologies()
            !memcmp(&before, &p6_session::session.config, sizeof before));
 }
 
-// The public contract owns one exact A4030 preference and presentation topology.
+// The public contract owns one exact A4000 preference and presentation topology.
 static void rtg_contract()
 {
     static_assert(sizeof(p6_config) == 72 && offsetof(p6_config, rtg_memory) == 69);
@@ -128,32 +128,35 @@ static void rtg_contract()
     c.rtg_memory = uint8_t(P6_RTG_MEMORY_4_MIB + 1);
     rejected(c, "off or the bounded 4 MiB");
     c = machine_config(P6_MACHINE_A500); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
-    rejected(c, "requires A4030/Normal");
+    rejected(c, "requires A4030 or A4040");
     c = machine_config(P6_MACHINE_A4040); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
-    rejected(c, "requires A4030/Normal");
+    c.cpu_compatibility = P6_CPU_COMPATIBLE;
+    rejected(c, "requires normal CPU accuracy");
     c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
     c.video_resolution = 3;
     rejected(c, "not super-hires");
 
-    c = machine_config(P6_MACHINE_A4030); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
-    p6_video_geometry geometry{P6_ABI_VERSION, sizeof geometry};
-    assert(p6_query_video(&c, &geometry, &e) == P6_OK);
-    assert(geometry.buffer_width == 1024 && geometry.buffer_height == 768 &&
-           geometry.active_width == 756 && geometry.active_height == 574);
+    for (uint32_t machine : {P6_MACHINE_A4030, P6_MACHINE_A4040}) {
+        c = machine_config(machine); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+        p6_video_geometry geometry{P6_ABI_VERSION, sizeof geometry};
+        assert(p6_query_video(&c, &geometry, &e) == P6_OK);
+        assert(geometry.buffer_width == 1024 && geometry.buffer_height == 768 &&
+               geometry.active_width == 756 && geometry.active_height == 574);
+        assert(p6_init(&c, &e) == P6_OK && p6_session::session.state == p6_session::State::Initialized &&
+               p6_session::session.config.rtg_memory == P6_RTG_MEMORY_4_MIB);
+        assert(p6_shutdown(&e) == P6_OK && p6_session::session.state == p6_session::State::Uninitialized);
+
+        p6_bridge::build_preferences(c, false);
+        assert(currprefs.rtgboards[0].rtg_index == 0);
+        assert(currprefs.rtgboards[0].rtgmem_type == GFXBOARD_UAE_Z3);
+        assert(currprefs.rtgboards[0].rtgmem_size == 4u << 20);
+        for (unsigned i = 1; i < MAX_RTG_BOARDS; ++i) assert(!currprefs.rtgboards[i].rtgmem_size);
+        assert(currprefs.z3_mapping_mode == Z3MAPPING_REAL && currprefs.cs_z3autoconfig);
+        assert(p6_bridge::check_preset(&e) == P6_OK);
+    }
     p6_caps caps{P6_ABI_VERSION, sizeof caps};
     assert(p6_query_caps(&caps, &e) == P6_OK && (caps.flags & P6_CAP_RTG));
     assert(caps.max_video_width == 760 && caps.max_video_height == 576);
-    assert(p6_init(&c, &e) == P6_OK && p6_session::session.state == p6_session::State::Initialized &&
-           p6_session::session.config.rtg_memory == P6_RTG_MEMORY_4_MIB);
-    assert(p6_shutdown(&e) == P6_OK && p6_session::session.state == p6_session::State::Uninitialized);
-
-    p6_bridge::build_preferences(c, false);
-    assert(currprefs.rtgboards[0].rtg_index == 0);
-    assert(currprefs.rtgboards[0].rtgmem_type == GFXBOARD_UAE_Z3);
-    assert(currprefs.rtgboards[0].rtgmem_size == 4u << 20);
-    for (unsigned i = 1; i < MAX_RTG_BOARDS; ++i) assert(!currprefs.rtgboards[i].rtgmem_size);
-    assert(currprefs.z3_mapping_mode == Z3MAPPING_REAL && currprefs.cs_z3autoconfig);
-    assert(p6_bridge::check_preset(&e) == P6_OK);
 
     c.rtg_memory = 0;
     p6_bridge::build_preferences(c, false);

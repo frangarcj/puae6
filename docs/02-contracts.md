@@ -71,6 +71,13 @@ sigue sin acreditarse; se conservan los rechazos existentes y no se amplian
 las variantes admitidas por heuristicas (ADR0016). El cierre de A4000/040,
 68060 y Z3 conserva sus pruebas de arranque, restauracion y presupuesto real.
 
+RTG acotado (T85/T95): A4030 y A4040 con CPU Normal pueden montar una unica
+placa UAE Zorro III con 4 MiB poblados en su apertura de 16 MiB. Ambos perfiles
+usan el mismo lienzo fijo 1024x768, los nueve modos y el codec semantico RTG;
+modelo de CPU/FPU y placa siguen formando parte de la identidad. En A4040 la
+combinacion de referencia es CPU68040, FPU68040 y MMU deshabilitada. No se
+habilitan caches exactas, otros tamaños RTG ni MMU por admitir esta placa.
+
 ## ABI C pequena
 
 Operaciones del motor: p6_abi_version, p6_query_caps, p6_init, p6_load,

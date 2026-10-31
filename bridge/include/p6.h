@@ -121,8 +121,8 @@ typedef struct p6_config {
     uint8_t floppy_drives;
     /* T77a: restart collision level: 0 Auto/full, 1 none, 2 sprites, 3 sprites+playfields, 4 full. */
     uint8_t collision_level;
-    /* T85c/T85q: bounded RTG hardware in the byte formerly named reserved7[0]. Zero preserves every ABI v1 caller.
-     * The only nonzero contract is one UAE Zorro III board with 4 MiB populated in its 16 MiB aperture, on A4030/Normal.
+    /* T85c/T85q/T95: bounded RTG hardware in the byte formerly named reserved7[0]. Zero preserves every ABI v1 caller.
+     * The only nonzero contract is one UAE Zorro III board with 4 MiB populated in its 16 MiB aperture, on A4030/Normal or A4040/Normal.
      * Its display uses a fixed 1024x768 XRGB8888 canvas; chipset and RTG modes are centred with zero padding. */
     union {
         uint8_t rtg_memory;
