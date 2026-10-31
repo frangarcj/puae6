@@ -140,10 +140,12 @@ HDF o volumen se rechaza la carga sin tocar la sesion. UAE sigue siendo el core
 predeterminado y sus estados y peliculas no se convierten a PUAE6.
 
 El ajuste de reinicio `RTG memory` ofrece `None` y `MB4`. Los 4 MiB habilitan
-una sola tarjeta UAE Zorro III, exclusivamente con maquina A4000/030 y exactitud
-de CPU `Normal`; la salida conserva un lienzo fijo 1024x768 al cambiar entre
-chipset y RTG. Otra capacidad, maquina o exactitud se rechaza antes de arrancar.
-`None` mantiene el raster normal del chipset.
+una sola tarjeta UAE Zorro III con maquina A4000/030 o A4000/040 y exactitud de
+CPU `Normal`; la salida conserva un lienzo fijo 1024x768 al cambiar entre chipset
+y RTG. Para un HDF preparado para 68040, seleccionar A4000/040, CPU 68040 y FPU
+68040. La MMU permanece deshabilitada y no es necesaria para RTG. Otra capacidad,
+maquina o exactitud se rechaza antes de arrancar. `None` mantiene el raster normal
+del chipset.
 
 Para CD32 FMV, seleccionar maquina `CD32` y cartucho `Fmv`, y aportar en el
 gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
@@ -161,7 +163,7 @@ CAPSImg; el EmuTOS libre se conserva.
 
 La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
 restauracion exacta del estado completo en otro sandbox, comparacion A/V, cuatro
-pruebas CHD nativas y una tercera sandbox A4000/030 que avanza con RTG4 y lienzo
+pruebas CHD nativas y una tercera sandbox A4000/030 o A4000/040 que avanza con RTG4 y lienzo
 1024x768. La prueba GUI abre contenido propio, reconoce PUAE6 en la ventana
 visible y la cierra normalmente. Solo esa configuracion temporal usa el
 fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
@@ -186,7 +188,7 @@ para macOS.
 Estados y peliculas dependen del build, configuracion y medios; no son
 intercambiables con UAE ni otros builds. TINF, ETN2 multisesion, waiting_blits y
 el caso CU06 pendiente siguen como extras. JIT y MMU no estan habilitados; RTG
-queda limitado al perfil A4000/030 de 4 MiB descrito arriba. CD32 FMV si esta
+queda limitado a los perfiles A4000/030 o A4000/040 de 4 MiB descritos arriba. CD32 FMV si esta
 habilitado; Cannon Fodder supera las puertas reales nativa, libretro y Waterbox.
 La sintesis Layer II conserva las muestras silenciosas de baja amplitud sin
 cambiar el reloj ni el buffer causal, y CD32/CDTV publican la actividad optica en

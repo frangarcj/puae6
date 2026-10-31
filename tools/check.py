@@ -1503,6 +1503,11 @@ TASK_SUITES[('FUZZ01', 'T95')] = {
     'rtg_a4040_public_config_oracle':
         'tests.fuzz.test_fuzz.ConfigProfileFuzzTests.test_public_profiles_and_boundaries_under_sanitizers',
     'dispatch_regression': 'tests.fuzz.test_check.TaskSuiteDispatchTests'}
+TASK_SUITES[('BUILD01', 'T95b')] = {
+    'rtg_a4040_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('WB03', 'T95b')] = {
+    'rtg_a4040_wrapper_new_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_a4040_internal_fpu_rtg_restores_in_another_sandbox'}
 TASK_SUITES[('BUILD01', 'T85r')] = {
     'rtg_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'rtg_managed_abi_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}

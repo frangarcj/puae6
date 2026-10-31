@@ -376,8 +376,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	{
 		RtgMemoryNumber(settings.RtgMemory);
 		if (settings.RtgMemory == Puae6RtgMemory.None) return;
-		if (settings.Machine != Puae6Machine.A4030)
-			throw new ArgumentException("4 MiB of RTG memory requires the A4000/030 machine", nameof(settings));
+		if (settings.Machine is not (Puae6Machine.A4030 or Puae6Machine.A4040))
+			throw new ArgumentException("4 MiB of RTG memory requires an A4000/030 or A4000/040 machine", nameof(settings));
 		if (settings.CpuCompatibility != Puae6CpuCompatibility.Normal)
 			throw new ArgumentException("4 MiB of RTG memory requires Normal CPU accuracy", nameof(settings));
 		if (settings.VideoResolution == Puae6VideoResolution.SuperHires)

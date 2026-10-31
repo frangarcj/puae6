@@ -99,8 +99,9 @@ class WrapperRtgTests(unittest.TestCase):
         return result.stdout + result.stderr
 
     @staticmethod
-    def core(name, rtg=True, resolution="Hires"):
-        return f"core {name} machine=a4030 accuracy=Normal vres={resolution} rtg={'MB4' if rtg else 'None'}"
+    def core(name, rtg=True, resolution="Hires", machine="a4030", cpu="Auto", fpu="None"):
+        return (f"core {name} machine={machine} cpu={cpu} fpu={fpu} accuracy=Normal "
+                f"vres={resolution} rtg={'MB4' if rtg else 'None'}")
 
     @staticmethod
     def units(output, name):
@@ -122,7 +123,7 @@ class WrapperRtgTests(unittest.TestCase):
 
     def test_incompatible_machine_accuracy_and_raster_fail_before_a_unit(self):
         cases = (
-            ("core A machine=a500 rtg=MB4", "A4000/030"),
+            ("core A machine=a500 rtg=MB4", "A4000/030 or A4000/040"),
             ("core A machine=a4030 accuracy=Exact rtg=MB4", "Normal CPU accuracy"),
             (self.core("A", resolution="SuperHires"), "fixed 1024x768 canvas"),
         )
@@ -163,6 +164,21 @@ class WrapperRtgTests(unittest.TestCase):
         self.assertTrue(all(pixel == 0 for pixel in outside), "the native black padding must survive the managed XRGB copy")
         centre = [pixels[y * width + x] for y in range(top, top + active_height) for x in range(left, left + active_width)]
         self.assertTrue(any(pixel != 0 for pixel in centre), "the centered chipset picture must not be mistaken for padding")
+
+    def test_a4040_internal_fpu_rtg_restores_in_another_sandbox(self):
+        core = lambda name: self.core(name, machine="a4040", cpu="M68040", fpu="M68040")
+        output = self.session([
+            core("A"), "run A 4", "save A s", "run A 5", "digest A first",
+            "load A s", "run A 5", "digest A second",
+            core("B"), "load B s", "run B 5", "digest B third",
+        ])
+        a = self.units(output, "A")
+        b = self.units(output, "B")
+        self.assertEqual(a[4:9], a[9:14])
+        self.assertEqual([unit[1:] for unit in a[4:9]], [unit[1:] for unit in b])
+        digests = self.digests(output, "A")
+        self.assertEqual(digests["first"], digests["second"])
+        self.assertEqual(digests["first"], self.digests(output, "B")["third"])
 
     def test_rtg_state_is_refused_by_the_same_machine_without_the_board(self):
         output = self.session([

@@ -165,10 +165,14 @@ internal static unsafe partial class Program
 		rtgRequested.Machine = Puae6Machine.A4030; rtgRequested.CpuCompatibility = Puae6CpuCompatibility.Normal; rtgRequested.RtgMemory = Puae6RtgMemory.MB4;
 		Require(core.PutSyncSettings(rtgRequested) == PutSettingsDirtyBits.RebootCore && core.GetSyncSettings().RtgMemory == Puae6RtgMemory.MB4,
 			"RTG memory remains a pending restart setting for EmuHawk");
+		var rtg4040 = rtgRequested.Clone();
+		rtg4040.Machine = Puae6Machine.A4040; rtg4040.CpuModel = Puae6Cpu.M68040; rtg4040.FpuModel = Puae6Fpu.M68040;
+		Require(core.PutSyncSettings(rtg4040) == PutSettingsDirtyBits.RebootCore && core.GetSyncSettings().Machine == Puae6Machine.A4040,
+			"A4000/040 with its internal FPU keeps RTG memory as a pending restart setting");
 		var invalidRtg = rtgRequested.Clone(); invalidRtg.Machine = Puae6Machine.A500;
 		bool rejectedRtg = false;
-		try { core.PutSyncSettings(invalidRtg); } catch (ArgumentException e) { rejectedRtg = e.Message.Contains("A4000/030"); }
-		Require(rejectedRtg && core.GetSyncSettings().RtgMemory == Puae6RtgMemory.MB4, "an incompatible pending RTG setting is rejected atomically");
+		try { core.PutSyncSettings(invalidRtg); } catch (ArgumentException e) { rejectedRtg = e.Message.Contains("A4000/030 or A4000/040"); }
+		Require(rejectedRtg && core.GetSyncSettings().Machine == Puae6Machine.A4040, "an incompatible pending RTG setting is rejected atomically");
 		core.PutSyncSettings(active.Clone());
 		var beforeInvalid = core.GetSyncSettings();
 		var invalid = beforeInvalid.Clone();
