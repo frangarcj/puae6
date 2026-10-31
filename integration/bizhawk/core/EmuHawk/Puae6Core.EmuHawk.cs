@@ -97,7 +97,7 @@ public sealed partial class Puae6Core
 			VolumeNames = volumes.Select(NameOf).ToList(),
 		}, Firmware,
 			() => Puae6WhdLoad.ReadProviderFile(lp.Comm.CoreFileProvider.GetUserPath(VSystemID.Raw.Amiga, false)));
-		ConfigFlags(result.SyncSettings.Cartridge, result.SyncSettings.FloppyWrites, result.SyncSettings.Machine);
+		ConfigFlags(result.SyncSettings.Cartridge, result.SyncSettings.FloppyWrites, result.SyncSettings.UaeScsi, result.SyncSettings.Machine);
 		uint cartridge = CartridgeModel(result.SyncSettings.Cartridge);
 		if (cartridge != 0)
 			result.CartridgeFirmware = cartridge == 32

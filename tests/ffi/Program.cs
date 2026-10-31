@@ -219,6 +219,11 @@ internal static unsafe partial class Program
 		Require(new Puae6SyncSettings().CdController == Puae6CdController.Auto && cdController.DisplayName == "CD controller"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { CdController = Puae6CdController.Ide }),
 			"CD controller is an Auto/CD32/IDE/None sync setting");
+		var uaeScsi = sync[nameof(Puae6SyncSettings.UaeScsi)]!;
+		Require(!new Puae6SyncSettings().UaeScsi && uaeScsi.DisplayName == "uaescsi.device"
+			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { UaeScsi = true })
+			&& Puae6Core.ConfigFlags(Puae6Cartridge.Disabled, false, true, Puae6Machine.A500) == P6.ConfigUaeScsi,
+			"uaescsi.device is a disabled-by-default boolean sync setting and its own native flag");
 		var rtgMemory = sync[nameof(Puae6SyncSettings.RtgMemory)]!;
 		Require(new Puae6SyncSettings().RtgMemory == Puae6RtgMemory.None && rtgMemory.DisplayName == "RTG memory"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { RtgMemory = Puae6RtgMemory.MB4 }),
@@ -237,6 +242,11 @@ internal static unsafe partial class Program
 		var explicitIde = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A1200, CdController = Puae6CdController.Ide }, hard: [new byte[512]]));
 		Require(explicitIde.SyncSettings.Machine == Puae6Machine.A1200 && explicitIde.SyncSettings.CdController == Puae6CdController.Ide,
 			"explicit IDE keeps the selected machine and hard file");
+		var scsi = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A500, CdController = Puae6CdController.None, UaeScsi = true },
+			hard: [new byte[512], new byte[1024]]));
+		Require(scsi.SyncSettings.Machine == Puae6Machine.A500 && scsi.SyncSettings.HdfController == Puae6HdfController.Uae
+			&& scsi.SyncSettings.CdController == Puae6CdController.None && scsi.SyncSettings.UaeScsi && scsi.HardFiles.Count == 2,
+			"uaescsi keeps two HDF on the UAE controller and does not change the machine or CD controller");
 		bool Refused(Puae6SyncSettings settings, IReadOnlyList<byte[]>? hard = null)
 		{
 			try { Puae6WhdLoad.Resolve(WithCd(settings, hard: hard)); return false; }
@@ -252,7 +262,7 @@ internal static unsafe partial class Program
 			&& sync[nameof(Puae6SyncSettings.ControllerPort2)]!.Description.Contains("Only one"), "both controller properties explain the single optical-sensor restriction");
 		Require(P6.FloppyDrivesNone == byte.MaxValue, "the explicit no-drive ABI value does not change historical zero-as-two callers");
 		Require(Puae6Core.AudioRateHz == 44100, "the core produces BizHawk's synchronous 44.1 kHz rate without a transient frontend inference");
-		Require(Puae6Core.CartridgeModel(Puae6Cartridge.Fmv) == 32 && Puae6Core.ConfigFlags(Puae6Cartridge.Fmv, false, Puae6Machine.CD32) == 0,
+		Require(Puae6Core.CartridgeModel(Puae6Cartridge.Fmv) == 32 && Puae6Core.ConfigFlags(Puae6Cartridge.Fmv, false, false, Puae6Machine.CD32) == 0,
 			"FMV is transported as native cartridge model 32 without consuming a config flag");
 		Require(!Puae6Core.IsFreezerCartridge(Puae6Cartridge.Fmv) && Puae6Core.IsFreezerCartridge(Puae6Cartridge.Ar3),
 			"FMV is not a freezer while Action Replay remains one");

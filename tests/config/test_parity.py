@@ -171,7 +171,10 @@ class WrapperParity(Schema):
             with self.subTest(option=name):
                 kind, default = self.properties[how["setting"]]
                 self.assertEqual(kind, how["type"], f"{how['setting']} is a {kind}, the schema says {how['type']}")
-                if option["type"] == "enum":
+                if kind == "bool":
+                    self.assertEqual([(v["value"], v["abi"]) for v in option["values"]], [("disabled", 0), ("enabled", self.constants["P6_CONFIG_UAESCSI"])])
+                    self.assertEqual(default, "false", f"{how['setting']} does not default to disabled")
+                elif option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
                     # A value the schema marks "wrapper": false is one the wrapper does not offer yet: the enum lists the others, in order.
                     offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
@@ -363,7 +366,7 @@ class LibretroParity(Schema):
         self.assertEqual([(v['value'],v['abi']) for v in cartridge['values']], [('disabled',0),('hrtmon',2)])
         self.assertEqual({v['value']:v['abi'] for v in cartridge['libretro']['extra_values']},
                          {'ar1':3,'ar2':4,'ar3':5,'ar1200':6,'fmv':7})
-        self.assertEqual(self.table['p6_config']['flags']['allowed'],[0,1,2,3])
+        self.assertEqual(self.table['p6_config']['flags']['allowed'],[0,1,2,3,4,5,6,7])
         self.assertIn('public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5, Ar1200 = 6, Fmv = 7 }',read(SETTINGS_CS))
         self.assertEqual(self.table['adapters']['cartridge']['wrapper_extra_values'], {'Ar1':3,'Ar2':4,'Ar3':5,'Ar1200':6,'Fmv':7})
         for bad in ('not an identifier', 'HrtMon'):
@@ -447,7 +450,7 @@ class AdaptersAgree(Schema):
         headless = read(HEADLESS)
         libretro = {m[1]: m[2] for m in re.finditer(r"(\w+) = (?:U?INT64_C\()?(-?\d+)u?\)?;", re.search(r"struct Settings \{(.*?)\};", read(GENERATED), re.S)[1])}
         wrapper = read(SETTINGS_CS)
-        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "collision_level": 0, "z3_memory": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "cd_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
+        self.assertEqual(defaults, {"machine": 1, "video_standard": 1, "chip_kib": 0, "slow_kib": 0, "fast_kib": 0, "fpu_model": 0, "collision_level": 0, "z3_memory": 0, "rtg_memory": 0, "cpu_model": 0, "cpu_compatibility": 0, "cpu_multiplier": 0, "hdf_controller": 0, "cd_controller": 0, "audio_rate_hz": 48000, "random_seed": 1,
                                     "rtc_epoch_seconds": 946684800, "flags": 0, "sound_separation": 0, "sound_interpolation": 0, "sound_filter": 0, "sound_filter_type": 0, "floppy_speed": 0, "floppy_drives": 0, "video_resolution": 0, "video_line_mode": 0})
         for field, value in defaults.items():
             entry = self.table["p6_config"][field]

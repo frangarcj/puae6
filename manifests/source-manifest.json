@@ -104,6 +104,7 @@
       "softfloat/softfloat_fpsp.cpp",
       "autoconf.cpp",
       "filesys.cpp",
+      "scsiemul.cpp",
       "hardfile.cpp",
       "gayle.cpp",
       "ide.cpp",
@@ -150,6 +151,7 @@
       "DRIVESOUND",
       "CD32",
       "CDTV",
+      "SCSIEMU",
       "ACTION_REPLAY",
       "CD32_FMV_SCALAR"
     ],

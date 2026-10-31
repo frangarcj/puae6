@@ -7812,6 +7812,57 @@
         "waterbox": "captured by the snapshot"
       },
       {
+        "subsystem": "disk",
+        "chunk": "P6DK",
+        "in_profile": true,
+        "upstream_compiled": true,
+        "policy": "serialize_extended",
+        "proof": {
+          "task": "T84g2",
+          "checks": [
+            "STATE01",
+            "WB03"
+          ],
+          "status": "done",
+          "what": "The private deterministic catalog fixture keeps a real CMD_ADDCHANGEINT pending across native save/load in a fresh process, resets it without leaking the backend owner, and transactionally rejects foreign catalog ordinals, invalid MMC state, guest addresses, request types/data and open slots. The public Sync Setting then restores the enabled device with two UAE HDF in the same and a fresh Waterbox sandbox."
+        },
+        "waterbox": "The device globals, copied IORequests and xmalloc request buffers are ordinary visible sandbox memory. T84g3 drives the enabled device through the real Waterbox wrapper and restores it in same/new sandboxes and processes.",
+        "id": "uaescsi-cooperative-device",
+        "component": "uaescsi.device unit 0 over the deterministic immutable CD catalog: guest opens, change count/state, block size, volume fade and pending change/frame interrupt requests",
+        "owner": "build/upstream/scsiemul.cpp (patches 0433, 0434), ports/portable/media/cd_device.cpp",
+        "save": "p6_scsidev_state_get and p6_cd::uaescsi_backend_capture (patch 0434, bridge/state_hdf.cpp)",
+        "restore": "p6_scsidev_state_set, p6_cd::device_restore and p6_cd::uaescsi_backend_restore",
+        "reset": "scsidev_reset aborts guest requests, closes both guest and enumeration owners, rebuilds the single CD unit and leaves no host worker",
+        "saved_fields": "Catalog ordinal and semantic CD/CDDA state; MMC contingent sense and medium identity; device open count, change number/interrupt/presence, sectors, configured block size and fade controls; the one private open slot; up to 20 pending change/frame requests with guest addresses, type/data and the copied 48-byte IORequest.",
+        "omitted": "Physical host SCSI/tape enumeration and writes are unsupported. Completed synchronous commands leave no request. Thread, semaphore and comm-pipe state do not exist in the portable implementation.",
+        "pointers": "Disc/catalog and host callback pointers are resolved from the verified catalog and never serialized. Guest addresses are bounded and validated against emulated RAM before apply. d_request_iobuf host pointers are rebuilt from copied bytes after all validation succeeds.",
+        "rebuild": "Apply first resolves the selected catalog Disc, restores the semantic CD/MMC owner, allocates request copies and then atomically installs the validated guest device graph.",
+        "evidence": [
+          "patches/winuae/0434-portable-uaescsi-state.patch",
+          "bridge/state_hdf.cpp",
+          "ports/portable/media/cd_device.cpp",
+          "ports/portable/media/cd_device_state.h",
+          "tests/state/test_uaescsi_state.py"
+        ],
+        "probe": {
+          "probe": "private deterministic uaescsi fixture in p6_state_probe",
+          "status": "implemented",
+          "task": "T84g2",
+          "covers": [
+            "pending guest request and private open",
+            "fresh-process native restore",
+            "reset and transactional corrupt-state rejection"
+          ]
+        },
+        "native_state": {
+          "task": "T84g2",
+          "chunk": "P6DK",
+          "file": "bridge/state_hdf.cpp",
+          "visitor": "visit_uaescsi",
+          "proves": "tests/state/test_uaescsi_state.py"
+        }
+      },
+      {
         "subsystem": "ram",
         "chunk": "P6DK",
         "in_profile": true,

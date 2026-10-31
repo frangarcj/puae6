@@ -336,6 +336,21 @@
       "wrapper": {"how": "setting", "setting": "Z3Memory", "type": "Puae6Z3Memory"}
     },
     {
+      "id": "rtg_memory",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.rtg_memory",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "MB4", "abi": 1, "label": "4 MiB"}
+      ],
+      "libretro": null,
+      "libretro_policy": "The bounded RTG board is currently a BizHawk preview setting. Libretro and headless keep the board disabled until their output contracts expose its fixed canvas.",
+      "headless": {"how": "profile"},
+      "wrapper": {"how": "setting", "setting": "RtgMemory", "type": "Puae6RtgMemory"}
+    },
+    {
       "id": "collision_level",
       "class": "reboot",
       "type": "enum",
@@ -637,6 +652,21 @@
       },
       "headless": {"how": "fixed"},
       "wrapper": {"how": "fixed", "where": "flags"}
+    },
+    {
+      "id": "uaescsi",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.flags",
+      "default": "disabled",
+      "values": [
+        {"value": "disabled", "abi": 0, "label": "Disabled"},
+        {"value": "enabled", "abi": 4, "abi_name": "P6_CONFIG_UAESCSI", "label": "Enabled: expose the fixed CD catalog through uaescsi.device"}
+      ],
+      "libretro": null,
+      "libretro_policy": "The libretro adapter has no fixed multi-disc catalog binding for uaescsi.device yet. BizHawk offers the deterministic catalog as a sync setting; libretro keeps the resident disabled.",
+      "headless": {"how": "fixed"},
+      "wrapper": {"how": "setting", "setting": "UaeScsi", "type": "bool"}
     },
     {
       "id": "cartridge",

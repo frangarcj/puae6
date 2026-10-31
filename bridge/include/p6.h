@@ -158,6 +158,9 @@ typedef struct p6_config {
 #define P6_CONFIG_FLOPPY_WRITES UINT32_C(1)
 /* Pinned GPL HRTMon builtin; A1200 only. Disabled by default. Selection takes effect at load. */
 #define P6_CONFIG_HRTMON UINT32_C(2)
+/* Install the real uaescsi.device resident over the already-bound immutable CD catalog. It is independent of the CD controller and is used with
+ * P6_CD_CONTROLLER_NONE; ordinary SCSI I/O completes cooperatively in the calling trap. Physical SCSI, tapes and writes are unsupported. */
+#define P6_CONFIG_UAESCSI UINT32_C(4)
 #define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
 #define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,

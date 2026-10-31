@@ -1398,6 +1398,30 @@ TASK_SUITES[('MED02', 'T84f')] = {
     'controller_preflight_and_whdload_backend': 'tests.bizhawk-movies.test_media_start.MixedCdManagedTests',
     'controller_schema_and_defaults': 'tests.config.test_schema',
     'wrapper_and_frontend_parity': 'tests.config.test_parity'}
+TASK_SUITES[('MED02', 'T84g1')] = {
+    'cooperative_uaescsi_device_and_mmc': 'tests.media.test_uaescsi.UaeScsiTests'}
+TASK_SUITES[('STATE01', 'T84g2')] = {
+    'uaescsi_pending_request_reset_and_transactional_restore': 'tests.state.test_uaescsi_state.UaeScsiStateTests'}
+TASK_SUITES[('WB03', 'T84g2')] = {
+    'uaescsi_two_hdf_local_and_fresh_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_uaescsi_with_two_uae_hdfs_restores_in_place_and_in_a_new_sandbox'}
+TASK_SUITES[('MED02', 'T84g3')] = {
+    'uaescsi_cooperative_device': 'tests.media.test_uaescsi.UaeScsiTests',
+    'uaescsi_schema': 'tests.config.test_schema',
+    'uaescsi_adapter_parity': 'tests.config.test_parity'}
+TASK_SUITES[('STATE01', 'T84g3')] = dict(TASK_SUITES[('STATE01', 'T84g2')])
+TASK_SUITES[('WB03', 'T84g3')] = dict(TASK_SUITES[('WB03', 'T84g2')])
+TASK_SUITES[('BUILD01', 'T84g3')] = {
+    'sync_settings_and_managed_abi': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'real_emuhawk_bootstrap': 'tests.packages.test_emuhawk_selfcheck.RealBootstrapTests'}
+for _gate, _children in {
+    'MED02': ('T84g1', 'T84g3'), 'STATE01': ('T84g2',), 'WB03': ('T84g2',), 'BUILD01': ('T84g3',),
+}.items():
+    TASK_SUITES[(_gate, 'T84g')] = {
+        f'{_child}:{_name}': _suite
+        for _child in _children
+        for _name, _suite in TASK_SUITES[(_gate, _child)].items()
+    }
 TASK_SUITES[('WB03', 'T84f')] = {
     'mixed_cd_adf_hdf_volume_movies': 'tests.bizhawk-movies.test_media_start.MediaMovieStartTests',
     'mixed_initial_state_and_cold_restore': 'tests.bizhawk-movies.test_media_start.MediaMovieStateStartTests'}

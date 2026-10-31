@@ -467,6 +467,33 @@ class WrapperStateTests(unittest.TestCase):
             self.assertEqual(original, path.read_bytes(), "the sandbox never writes the caller's HDF")
             self.assertEqual(mtime, path.stat().st_mtime_ns)
 
+    def test_uaescsi_with_two_uae_hdfs_restores_in_place_and_in_a_new_sandbox(self):
+        hdfs = ",".join(str(self.dir / f"{name}.hdf") for name in ("H0", "H1"))
+        core = lambda name: self.core(name, adf="", hdf=hdfs, cd=True, uaescsi=True, cdc="None")
+        patch0, patch1 = "deadbeef", "91827364"
+        base0, base1 = self.hdfs["H0"][0x40:0x44].hex(), self.hdfs["H1"][0x80:0x84].hex()
+        out = self.session([
+            core("A"), "domains A", "cdstatus A", "run A 3", "save A cut",
+            f"poke A Hard_Disk_1 40 {patch0}", f"poke A Hard_Disk_2 80 {patch1}", "run A 4", "digest A changed",
+            "load A cut", "cdstatus A", "peek A Hard_Disk_1 40 4", "peek A Hard_Disk_2 80 4", "run A 4", "digest A replay",
+            core("B"), "load B cut", "cdstatus B", "peek B Hard_Disk_1 40 4", "peek B Hard_Disk_2 80 4", "run B 4", "digest B fresh",
+        ], firmware="chipcell")
+        self.assertRegex(out, r"domain A Hard_Disk_1 bytes=4608 writable=True")
+        self.assertRegex(out, r"domain A Hard_Disk_2 bytes=5120 writable=True")
+        statuses = re.findall(r"^cdstatus [AB] (.+)$", out, re.M)
+        self.assertEqual(3, len(statuses))
+        self.assertEqual({statuses[0]}, set(statuses), "the bound uaescsi CD topology survives both kinds of restore")
+        self.assertIn("result=0 count=1 selected=0 inserted=1", statuses[0])
+        for name in "AB":
+            self.assertIn(f"peek {name} Hard_Disk_1 40 {base0}", out)
+            self.assertIn(f"peek {name} Hard_Disk_2 80 {base1}", out)
+        a = [u[1:] for u in self.units(out, "A")]
+        b = [u[1:] for u in self.units(out, "B")]
+        self.assertEqual(a[3:7], a[7:11])
+        self.assertEqual(a[3:7], b)
+        digests = {**self.digests(out, "A"), **self.digests(out, "B")}
+        self.assertEqual(digests["replay"], digests["fresh"])
+
     def test_pokes_through_the_memory_domains_into_clean_and_dirty_pages_are_undone_by_a_restore(self):
         out = self.session([self.core("A", adf=""), "peek A Slow_RAM 0 16", "peek A Slow_RAM 1000 16", "peek A Slow_RAM 7fff0 16", "save A start",
                             "poke A Slow_RAM 0 deadbeefdeadbeef", "poke A Slow_RAM 1000 0123456789abcdef", "poke A Slow_RAM 7fff0 cafecafe",

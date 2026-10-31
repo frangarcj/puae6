@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 using BizHawk.Common;
 using BizHawk.Emulation.Common;
@@ -137,7 +138,7 @@ internal static unsafe partial class Program
 		var comm = new CoreComm(_ => { }, (message, _) => { if (message.StartsWith("SaveRAM")) Console.WriteLine($"notice {message}"); }, null!, CoreComm.CorePreferencesFlags.None, null!);
 		settings ??= new Puae6SyncSettings();
 		if (options.TryGetValue("seed", out var seed)) settings.RandomSeed = ulong.Parse(seed);
-		return new Puae6Core(comm, new Puae6Parameters
+		var parameters = new Puae6Parameters
 		{
 			GuestDirectory = Path.GetDirectoryName(guest)!, GuestFileName = Path.GetFileName(guest), PinnedGuestSha256 = options["sha"],
 			Firmware = File.ReadAllBytes(options["firmware"]), RomKey = options.TryGetValue("romkey", out var key) ? File.ReadAllBytes(key) : null, SyncSettings = settings, Media = media ?? new List<byte[]>(), HardFiles = hardFiles ?? new List<byte[]>(), Volumes = volumes ?? new List<byte[]>(),
@@ -147,7 +148,23 @@ internal static unsafe partial class Program
 				CdVolume = int.Parse(options.GetValueOrDefault("cdvolume", "100")),
 			},
 			WhdLoadProvider = options.TryGetValue("whdprovider", out var provider) ? File.ReadAllBytes(provider) : null,
-		});
+		};
+		if (options.ContainsKey("cd"))
+		{
+			var wire = Enumerable.Range(0, 16 * 2448).Select(i => (byte)(i * 37 + 11)).ToArray();
+			var descriptor = new P6CdInfo { Version = 1, Size = (uint)sizeof(P6CdInfo), Bytes = (ulong)wire.Length, Count = 1, Leadout = 16 };
+			var id = SHA256.HashData(wire);
+			for (int i = 0; i < id.Length; ++i) descriptor.Id[i] = id[i];
+			descriptor.Tracks[0] = 0; descriptor.Tracks[1] = 0; descriptor.Tracks[2] = 16;
+			descriptor.Tracks[3] = 1; descriptor.Tracks[4] = 4; // one Mode 1 raw data track
+			parameters.CdInfo = descriptor;
+			parameters.ReadCd = (at, output, count) =>
+			{
+				if (at > (ulong)wire.Length || count < 0 || (ulong)count > (ulong)wire.Length - at || output.Length < count) return false;
+				Buffer.BlockCopy(wire, checked((int)at), output, 0, count); return true;
+			};
+		}
+		return new Puae6Core(comm, parameters);
 	}
 
 	static string Words(Puae6Core core, int from, int count)

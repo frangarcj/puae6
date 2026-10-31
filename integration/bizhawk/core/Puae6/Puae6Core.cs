@@ -107,6 +107,9 @@ public sealed class Puae6Parameters
 			throw new InvalidOperationException("unknown CD controller");
 		bool cd = CdCount != 0;
 		bool mixed = Media.Count != 0 || HardFiles.Count != 0 || Volumes.Count != 0;
+		if (s.UaeScsi && !cd) throw new InvalidOperationException("uaescsi.device requires a fixed CD source at load");
+		if (s.UaeScsi && s.CdController != Puae6CdController.None)
+			throw new InvalidOperationException("uaescsi.device requires CD controller None; it does not replace or rename another controller");
 		switch (s.CdController)
 		{
 			case Puae6CdController.Auto when cd && mixed:
@@ -117,7 +120,7 @@ public sealed class Puae6Parameters
 			case Puae6CdController.Auto when cd && s.Machine != Puae6Machine.CDTV:
 				s.Machine = Puae6Machine.CD32;
 				break;
-			case Puae6CdController.None when cd:
+			case Puae6CdController.None when cd && !s.UaeScsi:
 				throw new InvalidOperationException("CD content cannot be loaded while the CD controller is None");
 			case Puae6CdController.Cd32 when s.Machine != Puae6Machine.CD32:
 				throw new InvalidOperationException("the explicit CD32 controller requires the CD32 machine; the selected machine is not changed");
@@ -196,19 +199,20 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	};
 	public static bool IsFreezerCartridge(Puae6Cartridge cartridge) => cartridge is Puae6Cartridge.HrtMon
 		or Puae6Cartridge.Ar1 or Puae6Cartridge.Ar2 or Puae6Cartridge.Ar3 or Puae6Cartridge.Ar1200;
-	/// <summary>Only floppy writes and builtin HRTMon occupy config flags.</summary>
-	public static uint ConfigFlags(Puae6Cartridge cartridge, bool floppyWrites, Puae6Machine machine)
+	/// <summary>Floppy writes, builtin HRTMon and the independent uaescsi.device resident occupy config flags.</summary>
+	public static uint ConfigFlags(Puae6Cartridge cartridge, bool floppyWrites, bool uaeScsi, Puae6Machine machine)
 	{
 		uint model = CartridgeModel(cartridge);
 		if (model == 32 && machine != Puae6Machine.CD32)
 			throw new ArgumentException("CD32 FMV requires the CD32 machine", nameof(cartridge));
 		if ((cartridge == Puae6Cartridge.HrtMon || model == 1200) && machine != Puae6Machine.A1200 || model is 1 or 2 or 3 && machine != Puae6Machine.A500)
 			throw new ArgumentException("HRTMon/AR1200 require A1200; AR1/2/3 require stock A500", nameof(cartridge));
-		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (cartridge == Puae6Cartridge.HrtMon ? P6.ConfigHrtMon : 0);
+		return (floppyWrites ? P6.ConfigFloppyWrites : 0) | (cartridge == Puae6Cartridge.HrtMon ? P6.ConfigHrtMon : 0)
+			| (uaeScsi ? P6.ConfigUaeScsi : 0);
 	}
 	static void ValidateCartridge(Puae6SyncSettings settings, byte[]? raw, bool cd)
 	{
-		uint model = CartridgeModel(settings.Cartridge); ConfigFlags(settings.Cartridge, settings.FloppyWrites, settings.Machine);
+		uint model = CartridgeModel(settings.Cartridge); ConfigFlags(settings.Cartridge, settings.FloppyWrites, settings.UaeScsi, settings.Machine);
 		if (model == 0) { if (raw is not null) throw new ArgumentException("Only an external cartridge takes cartridge firmware", nameof(raw)); return; }
 		if (model == 32)
 		{
@@ -512,7 +516,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			_mediaSequence = 0;
 			for (int i = 0; i < Drives; ++i) _driveDisk[i] = -1;
 			_imported = imported;
-			if (cd is not null && _syncSettings.CdController == Puae6CdController.Ide) guest.BindCdBeforeLoad();
+			if (cd is not null && (_syncSettings.CdController == Puae6CdController.Ide || _syncSettings.UaeScsi)) guest.BindCdBeforeLoad();
 			InitializeMachine(_parameters.Firmware, guestMedia, guestHardFiles);
 			MountBootDisks();
 			var identity = MakeIdentity(_parameters.Firmware);
@@ -561,7 +565,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.Machine = MachineNumber(_syncSettings.Machine);
 		init.Config.VideoStandard = _syncSettings.Region == Puae6Region.NTSC ? P6.VideoNtsc : P6.VideoPal;
 		init.Config.AudioRateHz = AudioRateHz;
-		init.Config.Flags = ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.Machine);
+		init.Config.Flags = ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, _syncSettings.UaeScsi, _syncSettings.Machine);
 		init.Config.RandomSeed = _syncSettings.RandomSeed;
 		init.Config.RtcEpochSeconds = _syncSettings.RtcEpochSeconds;
 		init.Config.ChipKib = ChipKib(_syncSettings.ChipMemory);
@@ -710,6 +714,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		// The same for the floppy writes (T28): a state of a core that can write its disks does not load in one that cannot, and a SaveRam that was stored changes the disks the
 		// guest has, so what it was (its SHA-256) is part of what a state and a movie are valid for. A core without writes keeps the identity it always had.
 		if (_syncSettings.FloppyWrites) memory += ";floppywrites=1";
+		if (_syncSettings.UaeScsi) memory += ";uaescsi=1";
 		if (_syncSettings.Cartridge == Puae6Cartridge.HrtMon) memory += ";cartridge=hrtmon;cartsha=" + P6.HrtMonRawSha256;
 		if (CartridgeModel(_syncSettings.Cartridge) != 0) memory += ";cartridge=" + _syncSettings.Cartridge + ";cartsha=" + GuestIdentity.Sha256Hex(_parameters.CartridgeFirmware!);
 		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.

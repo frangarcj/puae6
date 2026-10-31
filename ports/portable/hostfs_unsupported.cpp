@@ -123,9 +123,6 @@ void isofss_fill_file_attrs(void *, uae_u64, int *, int *, TCHAR **, uae_u64) {}
 struct scsi_data_tape *tape_alloc(int, const TCHAR *, bool) { return NULL; }
 void tape_free(struct scsi_data_tape *) {}
 bool tape_get_info(int, struct device_info *) { return false; }
-int scsi_add_tape(struct uaedev_config_info *) { return -1; }
-uae_u32 scsi_get_cd_drive_mask(void) { return 0; }
-uae_u32 scsi_get_cd_drive_media_mask(void) { return 0; }
 void pcmcia_reinsert(struct uae_prefs *) {}
 bool pcmcia_disk_reinsert(struct uae_prefs *, struct uaedev_config_info *, bool) { return false; }
 int target_get_volume_name(struct uaedev_mount_info *, struct uaedev_config_info *, bool, bool, int) { return 0; }

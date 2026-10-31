@@ -2,8 +2,29 @@
 #include "cd_read.h"
 #include "cd_audio.h"
 #include "cd_device_state.h"
+#include "execio.h"
+#include "options.h"
+#include "memory.h"
+#include "traps.h"
 #include <limits.h>
 #include <string.h>
+
+// WinUAE normally owns this diagnostic switch in its platform frontend. The
+// portable profile has no global UI logger; keep the engine's optional trace
+// disabled unless a native diagnostic probe explicitly changes it.
+int log_scsi = 0;
+
+int isdatatrack(struct cd_toc_head *toc, int block)
+{
+    if (!toc || toc->last_track_offset < toc->first_track_offset) return 1;
+    cd_toc *track = &toc->toc[toc->first_track_offset];
+    for (int i = toc->first_track_offset + 1; i <= toc->last_track_offset; ++i) {
+        if (block < toc->toc[i].paddress) break;
+        track = &toc->toc[i];
+    }
+    return (track->control & 0x0c) == 4;
+}
+
 namespace {
 const p6_cd::Disc *disc;
 const p6_cd::Disc *catalog[p6_cd::kDeviceMaxDiscs];
@@ -11,6 +32,7 @@ uint32_t catalog_count;
 uint32_t opens, position;
 p6_cd::AudioPlayer audio;
 bool inserted, audio_head, terminal_ack;
+p6_cd::AtapiState uaescsi_state;
 uint32_t head()
 {
     if (!audio_head) return position;
@@ -131,6 +153,31 @@ bool device_restore(const DeviceState &s, const Disc *candidate,
     audio_head = s.audio_head; terminal_ack = s.terminal_ack; error = Result(s.error);
     return true;
 }
+bool uaescsi_backend_capture(AtapiState *out)
+{
+    if (!out) return false;
+    *out = uaescsi_state;
+    return true;
+}
+bool uaescsi_backend_validate(const AtapiState &s, const DeviceState &device)
+{
+    if (s.known != 1 || s.present > 1 || s.present != device.inserted || s.sense_key > 15
+        || memcmp(s.medium_id, device.disc_id, sizeof s.medium_id)) return false;
+    switch (s.sense_key) {
+    case 0: return !s.asc && !s.ascq;
+    case 2: return s.asc == 0x3a && !s.ascq;
+    case 3: return s.asc == 0x11 && !s.ascq;
+    case 5: return (s.asc == 0x20 || s.asc == 0x21 || s.asc == 0x24 || s.asc == 0x64) && !s.ascq;
+    case 6: return s.asc == 0x28 && !s.ascq;
+    default: return false;
+    }
+}
+bool uaescsi_backend_restore(const AtapiState &s, const DeviceState &device)
+{
+    if (!uaescsi_backend_validate(s, device)) return false;
+    uaescsi_state = s;
+    return true;
+}
 Result device_bind(const Disc *candidate)
 {
     return device_catalog_bind(&candidate, 1);
@@ -144,12 +191,14 @@ Result device_catalog_bind(const Disc *const *items, uint32_t count, uint32_t se
             if (!memcmp(items[n]->layout().content_id, items[p]->layout().content_id, 32)) return Result::Invalid;
     }
     memcpy(catalog, items, count * sizeof *items); catalog_count = count;
-    disc = catalog[selected]; inserted = true; opens = position = 0; return error = Result::Ok;
+    disc = catalog[selected]; inserted = true; opens = position = 0;
+    atapi_reset(&uaescsi_state);
+    return error = Result::Ok;
 }
 void device_unbind()
 {
     stop_audio(); disc = nullptr; inserted = false; opens = position = catalog_count = 0;
-    memset(catalog, 0, sizeof catalog); error = Result::Invalid;
+    memset(catalog, 0, sizeof catalog); atapi_reset(&uaescsi_state); error = Result::Invalid;
 }
 Result device_last_error() { return error == Result::Ok && audio_head ? audio.error() : error; }
 uint32_t device_position() { return head(); }
@@ -248,6 +297,88 @@ uae_u32 sys_command_cd_volume(int unit, uae_u16 left, uae_u16 right)
     if (!ready(unit, false)) return UINT32_MAX;
     const auto old = audio.volume(left, right); error = p6_cd::Result::Ok;
     return old;
+}
+
+// uaescsi.device uses only the same immutable unit zero as the integrated
+// controllers. These names satisfy its generic disk/tape surface without ever
+// enumerating or opening a host device.
+int sys_command_open_tape(int, const TCHAR *, bool) { return 0; }
+int sys_command_read(int unit, uae_u8 *out, int block, int count) { return sys_command_cd_read(unit, out, block, count); }
+int sys_command_write(int, uae_u8 *, int, int)
+{
+    error = p6_cd::Result::Unsupported;
+    return -1;
+}
+
+int sys_command_scsi_direct_native(int unit, int type, struct amigascsi *as)
+{
+    using namespace p6_cd;
+    if (unit != 0 || type != INQ_ROMD || !as || !ready(unit, false)
+        || as->cmd_len <= 0 || as->cmd_len > 12 || as->len < 0 || as->len > UINT16_MAX
+        || (as->len && !as->data)) return IOERR_BADADDRESS;
+
+    uint8_t packet[12]{};
+    memcpy(packet, as->cmd, size_t(as->cmd_len));
+    const AtapiReply reply = atapi_execute(&uaescsi_state, packet, as->data, size_t(as->len));
+    as->actual = 0;
+    as->cmdactual = 0;
+    as->status = 0;
+    as->sactual = 0;
+    if (!reply.check_condition) {
+        as->actual = uae_u16(reply.bytes);
+        as->cmdactual = uae_u16(as->cmd_len);
+        return 0;
+    }
+
+    const uint8_t sense[18] = {
+        0x70, 0, uaescsi_state.sense_key, 0, 0, 0, 0, 10,
+        0, 0, 0, 0, uaescsi_state.asc, uaescsi_state.ascq, 0, 0, 0, 0
+    };
+    as->status = 2; // CHECK CONDITION
+    as->sactual = uae_u16(sizeof sense);
+    memcpy(as->sensedata, sense, sizeof sense);
+    return IOERR_BadStatus;
+}
+
+int sys_command_scsi_direct(TrapContext *ctx, int unit, int type, uaecptr command_address)
+{
+    if (!ctx || !trap_valid_address(ctx, command_address, 30)) return IOERR_BADADDRESS;
+    uint8_t command[30];
+    trap_get_bytes(ctx, command, command_address, sizeof command);
+
+    amigascsi as{};
+    const uaecptr data_address = get_long_host(command + 0);
+    as.len = uae_s32(get_long_host(command + 4));
+    const uaecptr cdb_address = get_long_host(command + 12);
+    as.cmd_len = get_word_host(command + 16);
+    as.flags = get_byte_host(command + 20);
+    const uaecptr sense_address = get_long_host(command + 22);
+    as.sense_len = get_word_host(command + 26);
+    if (as.cmd_len <= 0 || as.cmd_len > 12 || as.len < 0 || size_t(as.len) > p6_cd::kAtapiMaxData
+        || !trap_valid_address(ctx, cdb_address, uae_u32(as.cmd_len))
+        || (as.len && !trap_valid_address(ctx, data_address, uae_u32(as.len)))
+        || ((as.flags & (2 | 4)) && as.sense_len && !trap_valid_address(ctx, sense_address, as.sense_len)))
+        return IOERR_BADADDRESS;
+
+    trap_get_bytes(ctx, as.cmd, cdb_address, as.cmd_len);
+    as.data = as.len ? xcalloc(uae_u8, size_t(as.len)) : nullptr;
+    if (as.len && !(as.flags & 1)) trap_get_bytes(ctx, as.data, data_address, as.len);
+    const int result = sys_command_scsi_direct_native(unit, type, &as);
+    if (as.len && (as.flags & 1) && as.actual)
+        trap_put_bytes(ctx, as.data, data_address, as.actual > as.len ? as.len : as.actual);
+
+    put_long_host(command + 8, as.actual);
+    put_word_host(command + 18, as.cmdactual);
+    put_byte_host(command + 21, as.status);
+    put_word_host(command + 28, as.sactual);
+    if (as.flags & (2 | 4)) {
+        const unsigned copied = as.sactual > as.sense_len ? as.sense_len : as.sactual;
+        if (copied) trap_put_bytes(ctx, as.sensedata, sense_address, int(copied));
+        if (as.sense_len > copied) trap_set_bytes(ctx, sense_address + copied, 0, as.sense_len - copied);
+    }
+    trap_put_bytes(ctx, command, command_address, sizeof command);
+    xfree(as.data);
+    return result;
 }
 
 namespace {

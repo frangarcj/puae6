@@ -1,0 +1,235 @@
+diff --git a/include/scsidev.h b/include/scsidev.h
+index d7947502..38117914 100644
+--- a/include/scsidev.h
++++ b/include/scsidev.h
+@@ -24,6 +24,50 @@ uae_u32 scsi_get_cd_drive_media_mask (void);
+ int scsi_add_tape (struct uaedev_config_info *uci);
+ 
+ extern int log_scsi;
++
++#ifdef P6_PORTABLE
++#define P6_SCSIDEV_STATE_VERSION 1
++#define P6_SCSIDEV_OPEN_MAX 20
++#define P6_SCSIDEV_REQUEST_MAX 20
++#define P6_SCSIDEV_IOREQ_BYTES 48
++
++struct p6_scsidev_open_state {
++	uae_u32 active;
++	uae_u32 unit;
++	uae_u32 mode;
++	uae_u32 type;
++	uae_u32 flags;
++};
++
++struct p6_scsidev_request_state {
++	uae_u32 active;
++	uae_u32 request;
++	uae_u32 type;
++	uae_u32 data;
++	uae_u8 iobuf[P6_SCSIDEV_IOREQ_BYTES];
++};
++
++struct p6_scsidev_state {
++	uae_u32 version;
++	uae_u32 opencnt;
++	uae_u32 changenum;
++	uae_u32 changeint;
++	uae_u32 changeint_mediastate;
++	uae_u32 media_inserted;
++	uae_u32 sectors;
++	uae_u32 configblocksize;
++	uae_u32 volumelevel;
++	uae_u32 fadeframes;
++	uae_u32 fadetarget;
++	uae_u32 fadecounter;
++	struct p6_scsidev_open_state open[P6_SCSIDEV_OPEN_MAX];
++	struct p6_scsidev_request_state request[P6_SCSIDEV_REQUEST_MAX];
++};
++
++bool p6_scsidev_state_get(struct p6_scsidev_state *state);
++bool p6_scsidev_state_valid(const struct p6_scsidev_state *state);
++bool p6_scsidev_state_set(const struct p6_scsidev_state *state);
++#endif
+ 
+ #ifdef _WIN32
+ #define UAESCSI_CDEMU 0
+diff --git a/scsiemul.cpp b/scsiemul.cpp
+index 8bf52f2c..c36d1253 100644
+--- a/scsiemul.cpp
++++ b/scsiemul.cpp
+@@ -1262,6 +1262,10 @@ static void dev_reset (void)
+ 			if (dev->unitnum >= 0)
+ 				sys_command_close (dev->unitnum);
+ 		}
++#ifdef P6_PORTABLE
++		if (dev->unitnum >= 0)
++			sys_command_close (dev->unitnum); // close the enumeration owner too
++#endif
+ 		memset (dev, 0, sizeof (struct devstruct));
+ 		xfree (dev->tape_directory);
+ 		dev->unitnum = dev->aunit = -1;
+@@ -1571,6 +1575,164 @@ void scsidev_reset (void)
+ 	dev_reset ();
+ }
+ 
++#ifdef P6_PORTABLE
++static bool p6_guest_range(uaecptr address, uae_u32 bytes)
++{
++	return address && !(address & 1) && valid_address(address, bytes);
++}
++
++bool p6_scsidev_state_valid(const struct p6_scsidev_state *state)
++{
++	if (!state || state->version != P6_SCSIDEV_STATE_VERSION || state->opencnt > 0x7fffffff ||
++		state->changeint_mediastate > 1 || state->media_inserted > 1 || state->sectors > 0x7fffffff ||
++		(state->configblocksize != 2048 && state->configblocksize != 2336 && state->configblocksize != 2352) ||
++		state->volumelevel > 0x7fff || state->fadeframes > 0x7fff || state->fadetarget > 0x7fff ||
++		state->fadecounter > state->fadeframes || (state->changeint && !p6_guest_range(state->changeint, 22)))
++		return false;
++
++	unsigned handles = 0;
++	for (int i = 0; i < P6_SCSIDEV_OPEN_MAX; i++) {
++		const struct p6_scsidev_open_state *open = &state->open[i];
++		if (!open->active) {
++			if (open->unit || open->mode || open->type || open->flags)
++				return false;
++			continue;
++		}
++		if (open->active != 1 || open->unit != 0 || open->type != UAEDEV_SCSI_ID)
++			return false;
++		handles++;
++	}
++	if (handles != (state->opencnt ? 1u : 0u))
++		return false;
++
++	unsigned requests = 0;
++	for (int i = 0; i < P6_SCSIDEV_REQUEST_MAX; i++) {
++		const struct p6_scsidev_request_state *request = &state->request[i];
++		if (!request->active) {
++			struct p6_scsidev_request_state empty = {};
++			if (memcmp(request, &empty, sizeof empty))
++				return false;
++			continue;
++		}
++		if (request->active != 1 || !state->opencnt ||
++			(request->type != ASYNC_REQUEST_CHANGEINT && request->type != ASYNC_REQUEST_FRAMEINT) ||
++			!p6_guest_range(request->request, P6_SCSIDEV_IOREQ_BYTES) || !p6_guest_range(request->data, 22) ||
++			get_long_host((void *)(request->iobuf + 40)) != request->data)
++			return false;
++		const uae_u16 command = get_word_host((void *)(request->iobuf + 28));
++		if ((request->type == ASYNC_REQUEST_CHANGEINT && command != CMD_ADDCHANGEINT) ||
++			(request->type == ASYNC_REQUEST_FRAMEINT && command != CD_ADDFRAMEINT))
++			return false;
++		for (int j = 0; j < i; j++)
++			if (state->request[j].active && state->request[j].request == request->request)
++				return false;
++		requests++;
++	}
++	return requests <= P6_SCSIDEV_REQUEST_MAX;
++}
++
++bool p6_scsidev_state_get(struct p6_scsidev_state *state)
++{
++	if (!state || currprefs.scsi != 1)
++		return false;
++	struct devstruct *dev = getdevstruct(0);
++	if (!dev || dev->unitnum != 0 || dev->aunit != 0 || dev->drivetype != INQ_ROMD || !dev->iscd ||
++		dev->thread_running || dev->tape_directory)
++		return false;
++	memset(state, 0, sizeof *state);
++	state->version = P6_SCSIDEV_STATE_VERSION;
++	state->opencnt = dev->opencnt;
++	state->changenum = dev->changenum;
++	state->changeint = dev->changeint;
++	state->changeint_mediastate = dev->changeint_mediastate;
++	state->media_inserted = dev->di.media_inserted;
++	state->sectors = dev->di.sectorspertrack;
++	state->configblocksize = dev->configblocksize;
++	state->volumelevel = dev->volumelevel;
++	state->fadeframes = dev->fadeframes;
++	state->fadetarget = dev->fadetarget;
++	state->fadecounter = dev->fadecounter;
++	for (int i = 0; i < P6_SCSIDEV_OPEN_MAX; i++) {
++		if (!pdevst[i].inuse)
++			continue;
++		state->open[i].active = 1;
++		state->open[i].unit = pdevst[i].unit;
++		state->open[i].mode = pdevst[i].mode;
++		state->open[i].type = pdevst[i].type;
++		state->open[i].flags = pdevst[i].flags;
++	}
++	for (int i = 0; i < P6_SCSIDEV_REQUEST_MAX; i++) {
++		if (!dev->d_request[i])
++			continue;
++		if (!dev->d_request_iobuf[i])
++			return false;
++		state->request[i].active = 1;
++		state->request[i].request = dev->d_request[i];
++		state->request[i].type = dev->d_request_type[i];
++		state->request[i].data = dev->d_request_data[i];
++		memcpy(state->request[i].iobuf, (const void*)dev->d_request_iobuf[i], P6_SCSIDEV_IOREQ_BYTES);
++	}
++	return p6_scsidev_state_valid(state);
++}
++
++bool p6_scsidev_state_set(const struct p6_scsidev_state *state)
++{
++	if (currprefs.scsi != 1 || !p6_scsidev_state_valid(state))
++		return false;
++	struct devstruct *dev = getdevstruct(0);
++	if (!dev || dev->unitnum != 0 || dev->aunit != 0 || dev->drivetype != INQ_ROMD || !dev->iscd)
++		return false;
++	uae_u8 *copies[P6_SCSIDEV_REQUEST_MAX] = {};
++	for (int i = 0; i < P6_SCSIDEV_REQUEST_MAX; i++) {
++		if (!state->request[i].active)
++			continue;
++		copies[i] = xmalloc(uae_u8, P6_SCSIDEV_IOREQ_BYTES);
++		if (!copies[i]) {
++			for (int j = 0; j < i; j++) xfree(copies[j]);
++			return false;
++		}
++		memcpy(copies[i], state->request[i].iobuf, P6_SCSIDEV_IOREQ_BYTES);
++	}
++	struct device_info info = dev->di;
++	for (int i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++)
++		for (int j = 0; j < MAX_ASYNC_REQUESTS; j++) xfree((void*)devst[i].d_request_iobuf[j]);
++	memset(devst, 0, sizeof devst);
++	for (int i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) devst[i].unitnum = devst[i].aunit = -1;
++	memset(pdevst, 0, sizeof pdevst);
++
++	dev = &devst[0];
++	dev->unitnum = dev->aunit = 0;
++	dev->drivetype = INQ_ROMD;
++	dev->iscd = 1;
++	dev->di = info;
++	dev->di.media_inserted = state->media_inserted;
++	dev->di.sectorspertrack = state->sectors;
++	dev->opencnt = state->opencnt;
++	dev->changenum = state->changenum;
++	dev->changeint = state->changeint;
++	dev->changeint_mediastate = state->changeint_mediastate;
++	dev->configblocksize = state->configblocksize;
++	dev->volumelevel = state->volumelevel;
++	dev->fadeframes = state->fadeframes;
++	dev->fadetarget = state->fadetarget;
++	dev->fadecounter = state->fadecounter;
++	for (int i = 0; i < P6_SCSIDEV_OPEN_MAX; i++) if (state->open[i].active) {
++		pdevst[i].inuse = 1;
++		pdevst[i].unit = state->open[i].unit;
++		pdevst[i].mode = state->open[i].mode;
++		pdevst[i].type = state->open[i].type;
++		pdevst[i].flags = state->open[i].flags;
++	}
++	for (int i = 0; i < P6_SCSIDEV_REQUEST_MAX; i++) if (state->request[i].active) {
++		dev->d_request[i] = state->request[i].request;
++		dev->d_request_type[i] = state->request[i].type;
++		dev->d_request_data[i] = state->request[i].data;
++		dev->d_request_iobuf[i] = copies[i];
++	}
++	return true;
++}
++#endif
++
+ uae_u8 *save_scsidev (int num, size_t *len, uae_u8 *dstptr)
+ {
+ 	uae_u8 *dstbak, *dst;

@@ -879,6 +879,14 @@ BizHawk expone la sync setting de reinicio `CdController`: `Auto`, `None`, `Cd32
 
 BK2/TAS y los estados iniciales guardan la configuracion efectiva y las identidades de CD, ADF, HDF y volumen. Reabrirlos con la misma topologia reproduce input, A/V, PCM, reloj, SaveRAM, overlays y cambios de bandeja en la misma sandbox, otra sandbox y otro proceso; cambiar cualquiera de los cuatro medios se rechaza antes de `Attach` y no muta la sesion. Esto no convierte peliculas de UAE: UAE conserva su identidad, su preferencia predeterminada y su sandbox independiente. Los gates reales ejecutan ambos cores y ambos formatos dentro del mismo proceso EmuHawk.
 
+### `uaescsi.device` cooperativo (T84g)
+
+`P6_CONFIG_UAESCSI` es el bit 2 (valor 4) de `p6_config.flags`. Cero conserva exactamente el perfil anterior; el bit instala el residente real `uaescsi.device` en RTAREA sobre el catalogo CD inmutable ya enlazado. Es independiente del controlador de los HDF: DH0..DH3 siguen en `p6_config.hdf_controller`, y habilitar el dispositivo no los mueve a IDE ni crea otra placa UAEFS. La configuracion publica exige contenido CD y `p6_config.cd_controller = NONE`, de forma que el mismo medio no aparece simultaneamente tras dos controladores. No cambia silenciosamente la maquina ni la seleccion de controlador.
+
+El perfil portable compila `scsiemul.cpp`, pero no `scsidev.cpp`: no enumera SCSI fisico, no abre ficheros del host y no crea worker, semaforo, comm pipe, `sleep` ni `TrapContext` de fondo. `BeginIO` completa cooperativamente en el trap; la unidad cero traduce el subconjunto MMC de CD al mismo `p6_cd::Disc` determinista que usan CD32/CDTV/ATAPI. Escrituras, tape, unidades distintas de cero y opcodes no soportados devuelven errores Amiga/SCSI concretos.
+
+P6DK guarda handles privados, open counts, change/frame interrupts y sus IORequests guest copiadas, estado de medio, geometria y controles CDDA/fade; nunca guarda punteros host. Antes de aplicar valida catalogo, ordinales, direcciones guest, tipos, longitudes y relacion entre owner y backend. Una topologia distinta es `INCOMPATIBLE`; un cuerpo imposible es `CORRUPT_STATE`, ambos transaccionales. BizHawk expone el booleano de reinicio `UaeScsi`; entra en identidad, estados y peliculas. `tests/state/test_uaescsi_state.py` cubre una solicitud pendiente, reset y cuerpos hostiles; el escenario Waterbox usa dos HDF UAE mas CD, restore local y sandbox nuevo.
+
 ## ROMs, discos y persistencia
 
 Firmware y cada medio tienen content ID (SHA-256 de contenido normalizado segun

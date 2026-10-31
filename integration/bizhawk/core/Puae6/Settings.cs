@@ -171,6 +171,11 @@ public sealed class Puae6SyncSettings
 	[Description("Automatic uses CD32 for CD-only content and IDE for mixed media on A600, A1200 or A4000. Explicit choices never change the machine.")]
 	public Puae6CdController CdController { get; set; } = Puae6CdController.Auto;
 
+	/// <summary>Install uaescsi.device over the immutable CD catalog. Requires direct CD content and CD controller None; HDF controller selection is unchanged.</summary>
+	[DisplayName("uaescsi.device")]
+	[Description("Expose the loaded CD catalog through uaescsi.device. Use CD controller None; hard files remain on their selected controller.")]
+	public bool UaeScsi { get; set; } = false;
+
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;
 

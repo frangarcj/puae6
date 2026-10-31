@@ -1,0 +1,202 @@
+diff --git a/devices.cpp b/devices.cpp
+index 3eb3a80d..800744b7 100644
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -260,8 +260,10 @@ void devices_reset(int hardreset)
+ 	if (P6_WITH_RTAREA)
+ 		native2amiga_reset();
+ #endif
+ #ifdef SCSIEMU
++#ifndef P6_PORTABLE
+ 	scsi_reset();
++#endif
+ 	scsidev_reset();
+ 	scsidev_start_threads();
+ #endif
+@@ -507,6 +509,8 @@ void virtualdevice_init (void)
+ 	}
+ #endif
+ #ifdef SCSIEMU
++#ifndef P6_PORTABLE
+ 	scsi_reset ();
++#endif
+ 	scsidev_install ();
+ #endif
+diff --git a/scsiemul.cpp b/scsiemul.cpp
+index 4546079c..8bf52f2c 100644
+--- a/scsiemul.cpp
++++ b/scsiemul.cpp
+@@ -135,6 +135,12 @@ static const TCHAR *getdevname (int type)
+ static void dev_thread(void *devs);
+ static int start_thread(struct devstruct *dev)
+ {
++#ifdef P6_PORTABLE
++	// Portable I/O completes in the calling trap. There is no host worker,
++	// background TrapContext, semaphore or comm pipe to start.
++	(void)dev;
++	return 1;
++#else
+ 	if (dev->thread_running)
+ 		return 1;
+ 	init_comm_pipe (&dev->requests, 300, 3);
+@@ -142,6 +148,7 @@ static int start_thread(struct devstruct *dev)
+ 	uae_start_thread (_T("uaescsi"), dev_thread, dev, NULL);
+ 	uae_sem_wait (&dev->sync_sem);
+ 	return dev->thread_running;
++#endif
+ }
+ 
+ static void dev_close_3(struct devstruct *dev, struct priv_devstruct *pdev)
+@@ -151,9 +158,11 @@ static void dev_close_3(struct devstruct *dev, struct priv_devstruct *pdev)
+ 	if (!dev->opencnt) {
+ 		sys_command_close (dev->unitnum);
+ 		pdev->inuse = 0;
++#ifndef P6_PORTABLE
+ 		write_comm_pipe_pvoid(&dev->requests, NULL, 0);
+ 		write_comm_pipe_pvoid(&dev->requests, NULL, 0);
+ 		write_comm_pipe_u32(&dev->requests, 0, 1);
++#endif
+ 	}
+ }
+ 
+@@ -330,9 +339,11 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
+ 	int i, j, ret;
+ 
+ 	ret = -1;
++#ifndef P6_PORTABLE
+ 	if (!change_sem)
+ 		return ret;
+ 	uae_sem_wait (&change_sem);
++#endif
+ 	for (i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) {
+ 		struct devstruct *dev = &devst[i];
+ 		if (dev->di.unitnum == unitnum + 1) {
+@@ -363,7 +374,9 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
+ 			}
+ 		}
+ 	}
++#ifndef P6_PORTABLE
+ 	uae_sem_post (&change_sem);
++#endif
+ 	return ret;
+ }
+ 
+@@ -420,6 +433,7 @@ static int release_async_request(struct devstruct *dev, uaecptr request)
+ static void abort_async(struct devstruct *dev, uaecptr request, int errcode, int type)
+ {
+ 	int i;
++#ifndef P6_PORTABLE
+ 	i = 0;
+ 	while (i < MAX_ASYNC_REQUESTS) {
+ 		if (dev->d_request[i] == request && dev->d_request_type[i] == ASYNC_REQUEST_TEMP) {
+@@ -430,6 +444,7 @@ static void abort_async(struct devstruct *dev, uaecptr request, int errcode, int
+ 		}
+ 		i++;
+ 	}
++#endif
+ 	i = release_async_request (dev, request);
+ 	if (i >= 0 && log_scsi)
+ 		write_log (_T("asyncronous request=%08X aborted, error=%d\n"), request, errcode);
+@@ -1057,7 +1072,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+ 	int command = get_word_host(iobuf + 28);
+ 	struct priv_devstruct *pdev = getpdevstruct(ctx, request);
+ 	struct devstruct *dev;
++#ifndef P6_PORTABLE
+ 	int canquick;
++#endif
+ 
+ 	put_byte_host(iobuf + 8, NT_MESSAGE);
+ 	if (!pdev) {
+@@ -1077,8 +1094,12 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+ 	}
+ 
+ 	put_byte_host(iobuf + 31, 0);
++#ifdef P6_PORTABLE
++	if (true) {
++#else
+ 	canquick = dev_canquick (dev, iobuf, request);
+ 	if (((flags & 1) && canquick) || (canquick < 0)) {
++#endif
+ 		bool async = dev_do_io(ctx, dev, iobuf, request) != 0;
+ 		uae_u8 v = get_byte_host(iobuf + 31);
+ 		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
+@@ -1087,7 +1108,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+ 		if (!(flags & 1) && !async)
+ 			uae_ReplyMsg (request);
+ 		return v;
+-	} else {
++	}
++#ifndef P6_PORTABLE
++	else {
+ 		add_async_request (dev, iobuf, request, ASYNC_REQUEST_TEMP, 0);
+ 		put_byte_host(iobuf + 30, get_byte_host(iobuf + 30) & ~1);
+ 		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
+@@ -1097,8 +1120,10 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+ 		write_comm_pipe_u32(&dev->requests, request, 1);
+ 		return 0;
+ 	}
++#endif
+ }
+ 
++#ifndef P6_PORTABLE
+ static void dev_thread (void *devs)
+ {
+ 	struct devstruct *dev = (struct devstruct*)devs;
+@@ -1130,6 +1155,7 @@ static void dev_thread (void *devs)
+ 		uae_sem_post (&change_sem);
+ 	}
+ }
++#endif
+ 
+ static uae_u32 REGPARAM2 dev_init_2(TrapContext *ctx, int type)
+ {
+@@ -1196,6 +1222,12 @@ uae_u32 scsi_get_cd_drive_media_mask (void)
+ }
+ int scsi_add_tape (struct uaedev_config_info *uci)
+ {
++#ifdef P6_PORTABLE
++	// The deterministic profile exposes only its immutable CD catalog. A tape
++	// directory would be a host-filesystem device and is never fabricated.
++	(void)uci;
++	return -1;
++#else
+ 	for (int i = 4; i < MAX_TOTAL_SCSI_DEVICES; i++) {
+ 		struct devstruct *dev = &devst[i];
+ 		if (dev->unitnum >= 0 || dev->drivetype > 0)
+@@ -1210,6 +1242,7 @@ int scsi_add_tape (struct uaedev_config_info *uci)
+ 		}
+ 	}
+ 	return -1;
++#endif
+ }
+ static void dev_reset (void)
+ {
+@@ -1222,7 +1255,7 @@ static void dev_reset (void)
+ 		if (dev->opencnt > 0) {
+ 			for (j = 0; j < MAX_ASYNC_REQUESTS; j++) {
+ 				uaecptr request;
+-				if ((request = dev->d_request[i]))
++				if ((request = dev->d_request[j]))
+ 					abort_async (dev, request, 0, 0);
+ 			}
+ 			dev->opencnt = 1;
+@@ -1236,7 +1269,9 @@ static void dev_reset (void)
+ 	for (i = 0; i < MAX_OPEN_DEVICES; i++)
+ 		memset (&pdevst[i], 0, sizeof (struct priv_devstruct));
+ 
++#ifndef P6_PORTABLE
+ 	device_func_init (0);
++#endif
+ 	i = 0;
+ 	while (i < MAX_TOTAL_SCSI_DEVICES) {
+ 		dev = &devst[i];
+@@ -1524,7 +1559,9 @@ void scsidev_start_threads (void)
+ 		return;
+ 	if (log_scsi)
+ 		write_log (_T("scsidev_start_threads()\n"));
++#ifndef P6_PORTABLE
+ 	uae_sem_init (&change_sem, 0, 1);
++#endif
+ }
+ 
+ void scsidev_reset (void)

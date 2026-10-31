@@ -6626,6 +6626,87 @@
           "after_sha256": "523a42e79248f7b90d854c563052ac1b0856261d244d1c9401409c15afc2a617"
         }
       ]
+    },
+    {
+      "id": "0433-cooperative-uaescsi-device",
+      "file": "patches/winuae/0433-cooperative-uaescsi-device.patch",
+      "sha256": "08e7d53c6b8191f9b52cc903cbabcd3a4780fa5831daf5b094b4f8e89ba71b6f",
+      "title": "Run uaescsi.device I/O cooperatively in the calling trap",
+      "reason": "T84g1 exposes only the deterministic CD catalog through uaescsi.device. Portable BeginIO therefore completes ordinary requests synchronously and retains only explicit guest change/frame interrupt requests; no worker, sleep, semaphore, comm pipe, background TrapContext, tape directory or physical SCSI enumeration exists.",
+      "category": "cooperative guest device",
+      "order": 248,
+      "symbols": [
+        "dev_beginio",
+        "dev_thread",
+        "dev_reset",
+        "scsidev_start_threads"
+      ],
+      "test": "tests/media/test_uaescsi.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "76eadcaf3b11c67eeccf2dd78402148157f4bcd7e55aa2b06ec6f63dc2edc531",
+          "after_sha256": "3acc0ea9209baabb3f8c6d813d3208d6527f6a401c16d4911b90c132b7081940"
+        },
+        {
+          "path": "scsiemul.cpp",
+          "before_sha256": "31ce286e129b79a54bd2654bd178fd6c4114f9bb1ec05211999cf99142095874",
+          "after_sha256": "16a77ac1d01b5092d57df09a7c933087c7d0d13d4bd3f8293d1f58e2cea1b0d0"
+        }
+      ]
+    },
+    {
+      "id": "0434-portable-uaescsi-state",
+      "file": "patches/winuae/0434-portable-uaescsi-state.patch",
+      "sha256": "389af7a6275e1a71d59d4d8ff059c90a8d7e237e64e1524b298c697f4adf8dea",
+      "title": "Expose bounded semantic state for portable uaescsi.device",
+      "reason": "T84g2 snapshots only guest addresses and value state for the cooperative unit: private opens, change/frame requests with their copied IORequests, change state, geometry and fade controls. Validation is complete before apply; host pointers, thread objects and physical-device state never enter the snapshot.",
+      "category": "deterministic state",
+      "order": 249,
+      "symbols": [
+        "p6_scsidev_state_get",
+        "p6_scsidev_state_valid",
+        "p6_scsidev_state_set"
+      ],
+      "test": "tests/state/test_uaescsi_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "include/scsidev.h",
+          "before_sha256": "6e2fa77edd84b55f43c0ce41ef86e29538e08580108ddfd577cf929a20bc4487",
+          "after_sha256": "7cd325cedf66fc1a4426f6db65ea6ce1c34aa39b843de22656fa61c2b8f2fe53"
+        },
+        {
+          "path": "scsiemul.cpp",
+          "before_sha256": "16a77ac1d01b5092d57df09a7c933087c7d0d13d4bd3f8293d1f58e2cea1b0d0",
+          "after_sha256": "166c3f4d575a9576205dcbf740b3dd934671874d5ec63bf7ead3d0b49300c8b0"
+        }
+      ]
+    },
+    {
+      "id": "0435-portable-uaescsi-rtarea",
+      "file": "patches/winuae/0435-portable-uaescsi-rtarea.patch",
+      "sha256": "44331aac35bffad10fddb869a7ea48e950d65f3c6d4d50293065db1c63d9e14d",
+      "title": "Install the uaescsi.device resident without changing HDF controllers",
+      "reason": "T84g3 exposes uaescsi.device as an independent deterministic CD transport. Its resident needs RTAREA even when no hard file or RTG board is present; enabling it neither creates a filesystem board nor changes the controller selected for any HDF.",
+      "category": "portable guest device",
+      "order": 250,
+      "symbols": [
+        "P6_WITH_RTAREA"
+      ],
+      "test": "tests/waterbox-state/test_wrapper_state.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "devices.cpp",
+          "before_sha256": "3acc0ea9209baabb3f8c6d813d3208d6527f6a401c16d4911b90c132b7081940",
+          "after_sha256": "47f1c96f12c25511149129a97fa556dc1ad108a752dd823d79af60944696b389"
+        }
+      ]
     }
   ]
 }

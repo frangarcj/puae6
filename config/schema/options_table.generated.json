@@ -156,6 +156,19 @@
       "option": "z3_memory",
       "class": "reboot"
     },
+    "rtg_memory": {
+      "default": 0,
+      "allowed": [
+        0,
+        1
+      ],
+      "names": {
+        "None": 0,
+        "MB4": 1
+      },
+      "option": "rtg_memory",
+      "class": "reboot"
+    },
     "collision_level": {
       "default": 0,
       "allowed": [
@@ -379,7 +392,11 @@
         0,
         1,
         2,
-        3
+        3,
+        4,
+        5,
+        6,
+        7
       ],
       "parts": [
         {
@@ -393,6 +410,19 @@
             "enabled": 1
           },
           "option": "floppy_writes",
+          "class": "reboot"
+        },
+        {
+          "default": 0,
+          "allowed": [
+            0,
+            4
+          ],
+          "names": {
+            "disabled": 0,
+            "enabled": 4
+          },
+          "option": "uaescsi",
           "class": "reboot"
         },
         {
@@ -1825,6 +1855,17 @@
       },
       "libretro": "puae6_z3_memory"
     },
+    "rtg_memory": {
+      "headless": {
+        "how": "profile"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "RtgMemory",
+        "type": "Puae6RtgMemory"
+      },
+      "libretro": null
+    },
     "collision_level": {
       "headless": {
         "how": "named",
@@ -2057,6 +2098,17 @@
         "where": "flags"
       },
       "libretro": "puae6_floppy_writes"
+    },
+    "uaescsi": {
+      "headless": {
+        "how": "fixed"
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "UaeScsi",
+        "type": "bool"
+      },
+      "libretro": null
     },
     "cartridge": {
       "headless": {

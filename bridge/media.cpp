@@ -154,9 +154,12 @@ uint32_t hard_files_in(const p6_media *media, uint32_t count)
 p6_result mount_hard_files(const p6_media *media, uint32_t count, bool ide, p6_error *error)
 {
     const bool ide_cd = resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE;
+    const bool uaescsi = (session.config.flags & P6_CONFIG_UAESCSI) != 0;
     const uint32_t hdf_count = hard_files_in(media, count);
     if (ide_cd && !p6_cd::device_bound_disc())
         return p6_fail(error, P6_ERROR_WRONG_MEDIA, "the IDE CD controller has no bound disc source");
+    if (uaescsi && !p6_cd::device_bound_disc())
+        return p6_fail(error, P6_ERROR_WRONG_MEDIA, "uaescsi.device has no bound disc source");
     // Gayle exposes two master/slave channels. A CD is the primary master; a
     // user who also explicitly places HDFs on Gayle therefore has three HDF
     // slots. HDFs on the normal UAE controller remain four and do not compete.

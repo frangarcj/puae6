@@ -192,8 +192,9 @@ ECL_EXPORT int32_t p6w_cd_change(uint32_t index, uint32_t inserted)
  if (inserted > 1 || index >= cd_count) return P6_ERROR_BAD_ARGUMENT;
  if (!cd_activated || p6_session::session.state != p6_session::State::Loaded) return P6_ERROR_BAD_STATE;
  const uint8_t controller = p6_bridge::resolve_cd_controller(p6_session::session.config);
+ const bool uaescsi = (p6_session::session.config.flags & P6_CONFIG_UAESCSI) != 0;
  const bool cdtv = controller == P6_CD_CONTROLLER_CDTV;
- if (controller != P6_CD_CONTROLLER_CD32 && !cdtv && controller != P6_CD_CONTROLLER_IDE)
+ if (controller != P6_CD_CONTROLLER_CD32 && !cdtv && controller != P6_CD_CONTROLLER_IDE && !uaescsi)
   return P6_ERROR_BAD_STATE;
  if (cdtv && inserted && !p6_cd::device_inserted() && !p6_cdtv_media_absent()) return P6_ERROR_BUSY;
  if (index != selected() && (p6_cd::device_inserted() || p6_cd::device_select(index) != p6_cd::Result::Ok)) return P6_ERROR_BAD_STATE;
@@ -217,15 +218,16 @@ ECL_EXPORT int32_t p6w_cd_activate(void)
  if (!guard.ok) return P6_ERROR_BUSY;
  const auto &s = p6_session::session;
  const uint8_t controller = p6_bridge::resolve_cd_controller(s.config);
+ const bool uaescsi = (s.config.flags & P6_CONFIG_UAESCSI) != 0;
  if (!cd_bound || cd_activated || s.state != p6_session::State::Loaded || s.started
   || (controller != P6_CD_CONTROLLER_CD32 && controller != P6_CD_CONTROLLER_CDTV
-      && controller != P6_CD_CONTROLLER_IDE)) return P6_ERROR_BAD_STATE;
+      && controller != P6_CD_CONTROLLER_IDE && !uaescsi)) return P6_ERROR_BAD_STATE;
  if (controller == P6_CD_CONTROLLER_CDTV) {
   // The first APPLY resets the original CDTV autoconfig card after the post-Seal
   // binding. Do not reset its service, demand an open unit, or initialize Akiko.
   cd_activated = true; return P6_OK;
  }
- if (controller == P6_CD_CONTROLLER_IDE) {
+ if (controller == P6_CD_CONTROLLER_IDE || uaescsi) {
   // IDE is different from the integrated controllers: p6_load needs the
   // immutable catalog already bound so that it can create the ATAPI unit. The
   // unit is registered before Seal and opened by the ordinary reset head on

@@ -1,0 +1,15 @@
+diff --git a/devices.cpp b/devices.cpp
+index 8546124c..41bf560c 100644
+--- a/devices.cpp
++++ b/devices.cpp
+@@ -213,7 +213,9 @@ void devices_unsafeperiod(void)
+ #else
+ #define P6_WITH_RTG 0
+ #endif
+-#define P6_WITH_RTAREA (P6_WITH_HDF || P6_WITH_RTG)
++// uaescsi.device is another RTAREA resident. It owns no UAEFS board and does
++// not change the controller of any hard file.
++#define P6_WITH_RTAREA (P6_WITH_HDF || P6_WITH_RTG || currprefs.scsi == 1)
+ 
+ void devices_reset_ext(int hardreset)
+ {

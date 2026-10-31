@@ -27543,14 +27543,172 @@
       "stop": "No fusionar ni publicar si falla el gate real; no activar uaescsi.device sin backend cooperativo, estado e identidad de Sync Settings comprobados."
     },
     {
+      "id": "T84g1",
+      "title": "Dispositivo uaescsi CD cooperativo dentro del motor",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T84f"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "upstream/winuae/scsiemul.cpp",
+        "upstream/winuae/blkdev.cpp",
+        "ports/portable/sysconfig.h",
+        "ports/portable/hostfs_unsupported.cpp",
+        "ports/portable/media/cd_device.cpp",
+        "bridge/config.cpp"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "manifests/source-manifest.json",
+        "ports/portable/sysconfig.h",
+        "ports/portable/hostfs_unsupported.cpp",
+        "ports/portable/media/cd_device.cpp",
+        "tests/media/**",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Compilar scsiemul.cpp solo para el perfil portable con SCSIEMU, manteniendo fuera scsidev.cpp y cualquier enumeracion SCSI fisica host.",
+        "Convertir BeginIO no rapido en ejecucion sincrona dentro del trap: ninguna cola, semaforo, sleep, trap background ni uae_start_thread queda alcanzable; change/frame interrupts siguen siendo solicitudes guest explicitas.",
+        "Implementar HD_SCSICMD sobre el ejecutor ATAPI CD determinista ya probado y rechazar escritura, tape y unidades distintas de cero con errores Amiga/SCSI concretos.",
+        "Probar instalacion/open/close, INQUIRY, READ CAPACITY, lectura y error de opcode sin hilo ni acceso fisico."
+      ],
+      "checks": [
+        "MED02"
+      ],
+      "acceptance": [
+        "El motor enlaza uaescsi.device y ejecuta sus I/O CD desde el hilo emulado, sin uae_start_thread, semaforos, comm pipes o dispositivo SCSI host.",
+        "La unidad cero usa exclusivamente el catalogo CD del bridge y los comandos no soportados fallan sin stubs exitosos."
+      ],
+      "stop": "No activar aun la opcion publica ni declarar estados compatibles; tras dos fallos conservar el reproducer y dos hipotesis."
+    },
+    {
+      "id": "T84g2",
+      "title": "Estado causal de uaescsi.device cooperativo",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T84g1"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "upstream/winuae/scsiemul.cpp",
+        "bridge/state.cpp",
+        "bridge/state_hdf.cpp",
+        "ports/portable/media/cd_device_state.h",
+        "docs/07-machawk.md",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "bridge/include/p6.h",
+        "bridge/config.cpp"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/state*.cpp",
+        "bridge/state*.h",
+        "ports/portable/media/cd_device.cpp",
+        "bridge/**",
+        "config/**",
+        "integration/bizhawk/core/Puae6/**",
+        "adapters/waterbox/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "manifests/state-inventory.json",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Exponer un snapshot semantico acotado del dispositivo que incluya handles privados, open counts, change/frame interrupts, bloque configurado, volumen/fade y solicitudes guest pendientes.",
+        "Validar completamente punteros guest, indices, tipos y relacion con el catalogo CD antes de mutar; reconstruir el owner CD y rechazar estados de otra topologia.",
+        "Probar cortes en I/O, cambios de disco, reset, sandbox nuevo y mismo futuro tras save/load."
+      ],
+      "checks": [
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Estado nativo y snapshot Waterbox conservan todo estado causal uaescsi y rechazan solicitudes o identidades incompatibles transaccionalmente."
+      ],
+      "stop": "No serializar punteros host ni omitir solicitudes porque hoy se completen rapido; no mover el estado a invisible."
+    },
+    {
+      "id": "T84g3",
+      "title": "Sync Setting uaescsi y escenario BizHawk multi-HDF mas CD",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T84g2"
+      ],
+      "read": [
+        "docs/02-contracts.md",
+        "docs/07-machawk.md",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "bridge/include/p6.h",
+        "bridge/config.cpp"
+      ],
+      "touch": [
+        "bridge/**",
+        "config/**",
+        "adapters/libretro/options_generated.h",
+        "adapters/waterbox/**",
+        "patches/winuae/**",
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/core/EmuHawk/**",
+        "integration/bizhawk/patches/**",
+        "tests/bizhawk-movies/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/media/**",
+        "tests/waterbox-state/**",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Añadir uaescsi.device como booleano Sync Setting ABI-aditivo y parte de identidad, peliculas y estados; disabled conserva exactamente el perfil anterior.",
+        "Con enabled exigir CD y una maquina con RTAREA, instalar el dispositivo sin cambiar el controlador CD elegido ni mover HDF entre UAE e IDE.",
+        "Ejecutar en Waterbox y EmuHawk real dos HDF del controlador UAE mas CD por uaescsi, save/load, cambio de disco, dos sandboxes y replay."
+      ],
+      "checks": [
+        "MED02",
+        "STATE01",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La casilla habilita y deshabilita el dispositivo real, se persiste en BizHawk y el escenario multi-HDF+CD pasa sin fallback ni cambio silencioso de controlador."
+      ],
+      "stop": "No publicar la opcion antes del gate Waterbox/EmuHawk real ni hacerla equivalente a IDE."
+    },
+    {
       "id": "T84g",
       "title": "uaescsi.device cooperativo para CD en PUAE6",
       "milestone": "M4",
       "required": false,
-      "status": "pending",
+      "status": "done",
       "blocked_reason": "",
       "depends": [
-        "T84f"
+        "T84g3"
       ],
       "read": [
         "README.md",
@@ -27569,7 +27727,10 @@
         "patches/winuae/**",
         "bridge/**",
         "ports/portable/**",
+        "adapters/libretro/options_generated.h",
+        "adapters/waterbox/**",
         "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/core/EmuHawk/**",
         "integration/bizhawk/patches/**",
         "config/**",
         "tests/config/**",
@@ -27578,6 +27739,8 @@
         "tests/waterbox-state/**",
         "docs/02-contracts.md",
         "docs/user/waterbox-preview.md",
+        "manifests/source-manifest.json",
+        "manifests/state-inventory.json",
         "tools/check.py",
         "plan/tasks.json"
       ],

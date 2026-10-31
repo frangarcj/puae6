@@ -355,12 +355,12 @@ internal static unsafe partial class Program
  }
  static void HrtConfig(string expectedSha)
  {
-  var off = new Puae6SyncSettings(); Require(off.Cartridge == Puae6Cartridge.Disabled && Puae6Core.ConfigFlags(off.Cartridge,off.FloppyWrites,off.Machine) == 0, "default");
+  var off = new Puae6SyncSettings(); Require(off.Cartridge == Puae6Cartridge.Disabled && Puae6Core.ConfigFlags(off.Cartridge,off.FloppyWrites,off.UaeScsi,off.Machine) == 0, "default");
   Require(sizeof(P6InputV2) == 108 && (int)System.Runtime.InteropServices.Marshal.OffsetOf<P6InputV2>(nameof(P6InputV2.Commands)) == 104, "ABI2");
   Require(P6.HrtMonRawSha256 == expectedSha && P6.CommandFreeze == 1 && P6.ConfigHrtMon == 2, "pinned asset/ABI");
   foreach (bool writes in new[] {false,true}) foreach (var cartridge in new[] {Puae6Cartridge.Disabled,Puae6Cartridge.HrtMon}) {
    var settings = new Puae6SyncSettings {Machine = Puae6Machine.A1200, Cartridge = cartridge, FloppyWrites = writes};
-   Require(Puae6Core.ConfigFlags(settings.Cartridge,settings.FloppyWrites,settings.Machine) == (uint)((writes ? 1 : 0) | (cartridge == Puae6Cartridge.HrtMon ? 2 : 0)), "flags OR");
+   Require(Puae6Core.ConfigFlags(settings.Cartridge,settings.FloppyWrites,settings.UaeScsi,settings.Machine) == (uint)((writes ? 1 : 0) | (cartridge == Puae6Cartridge.HrtMon ? 2 : 0)), "flags OR");
    var buttons = Controllers.Define(settings,0); Require(buttons.BoolButtons.Contains(Controllers.Freeze) == (cartridge == Puae6Cartridge.HrtMon), "Freeze offered");
    buttons.BuildMnemonicsCache("Amiga"); var pressed = new HrtButtons(buttons) {Frame = -1};
    var session = new MovieSession(new MovieConfig(),Path.GetTempPath(),null,() => {},() => {},(_,_) => {});

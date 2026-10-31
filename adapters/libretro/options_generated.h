@@ -19,6 +19,7 @@ struct Settings {
     uint32_t fast_size = 0u;  // reboot, p6_config.fast_kib = Auto
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
     uint32_t z3_memory = 0u;  // reboot, p6_config.z3_memory = None
+    uint32_t rtg_memory = 0u;  // reboot, p6_config.rtg_memory = None
     uint32_t collision_level = 0u;  // reboot, p6_config.collision_level = auto
     uint32_t cpu_model = 0u;  // reboot, p6_config.cpu_model = auto
     uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
@@ -33,6 +34,7 @@ struct Settings {
     uint64_t random_seed = UINT64_C(1);  // reboot, p6_config.random_seed
     int64_t rtc_epoch_seconds = INT64_C(946684800);  // reboot, p6_config.rtc_epoch_seconds
     uint32_t floppy_writes = 0u;  // reboot, p6_config.flags = disabled
+    uint32_t uaescsi = 0u;  // reboot, p6_config.flags = disabled
     uint32_t cartridge = 0u;  // reboot, p6_config.flags = disabled
     uint32_t floppy_speed = 0u;  // reboot, p6_config.floppy_speed = 100
     uint32_t floppy_drive_count = 0u;  // reboot, p6_config.floppy_drives = auto
@@ -119,6 +121,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->fast_kib = settings.fast_size;
     config->fpu_model = settings.fpu_model;
     config->z3_memory = settings.z3_memory;
+    config->rtg_memory = settings.rtg_memory;
     config->collision_level = settings.collision_level;
     config->cpu_model = settings.cpu_model;
     config->cpu_compatibility = settings.cpu_compatibility;
@@ -133,6 +136,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->random_seed = settings.random_seed;
     config->rtc_epoch_seconds = settings.rtc_epoch_seconds;
     config->flags |= settings.floppy_writes;
+    config->flags |= settings.uaescsi;
     config->flags |= settings.cartridge;
     config->floppy_speed = settings.floppy_speed;
     config->floppy_drives = settings.floppy_drive_count;

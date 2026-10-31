@@ -42,7 +42,7 @@ internal static unsafe partial class Program
     var method=typeof(Puae6Core).GetMethod("ParametersFrom",BindingFlags.Static|BindingFlags.NonPublic);
     var p=(Puae6Parameters)method.Invoke(null,new object[]{lp});
     Require(provider.Asked.SequenceEqual(new[]{model==1200?"A1200":"A500","AR"+model}),"selected firmware only");
-    Require(Puae6Core.CartridgeModel(p.SyncSettings.Cartridge)==model && Puae6Core.ConfigFlags(p.SyncSettings.Cartridge,false,p.SyncSettings.Machine)==0,"IDs never become flags");
+    Require(Puae6Core.CartridgeModel(p.SyncSettings.Cartridge)==model && Puae6Core.ConfigFlags(p.SyncSettings.Cartridge,false,false,p.SyncSettings.Machine)==0,"IDs never become flags");
     Require(Controllers.Define(p.SyncSettings,0).BoolButtons.Contains(Controllers.Freeze),"Freeze level offered");
     var disabled=p.SyncSettings.Clone();disabled.Cartridge=Puae6Cartridge.Disabled;
     Require(Puae6SyncSettings.NeedsReboot(p.SyncSettings,disabled),"cartridge setting requires reboot");
@@ -77,7 +77,7 @@ internal static unsafe partial class Program
     Require(cdRejected && hosts==0,"CD and Action Replay refused before host");
    }
   } finally {Puae6Guest.CreateHost=factory;}
-  Require((int)Puae6Cartridge.HrtMon==2 && Puae6Core.ConfigFlags(Puae6Cartridge.HrtMon,true,Puae6Machine.A1200)==3,"HRTMon/flags unchanged");
+  Require((int)Puae6Cartridge.HrtMon==2 && Puae6Core.ConfigFlags(Puae6Cartridge.HrtMon,true,false,Puae6Machine.A1200)==3,"HRTMon/flags unchanged");
   Console.WriteLine("Action Replay public config/provider/Resolve/flags/preflight PASS");
  }
  sealed class CartridgeButtons(ControllerDefinition definition) : IController

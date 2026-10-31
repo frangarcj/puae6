@@ -42,6 +42,12 @@
 #include "media/cd_device.h"
 #include "media/cd_device_state.h"
 
+#include "sysconfig.h"
+#include "sysdeps.h"
+#include "blkdev.h"
+#include "scsidev.h"
+#include "options.h"
+
 extern bool p6_n2a_state_get(uint32_t *values, unsigned capacity, unsigned *count);          // native2amiga.cpp 0180
 extern bool p6_n2a_state_set(const uint32_t *values, unsigned count);
 extern bool p6_filesys_state_get(uint32_t *g, unsigned n);                                  // filesys.cpp 0181
@@ -119,6 +125,73 @@ void visit_ide_cd_fields(Archive &a, p6_cd::DeviceState &d, uint32_t &ordinal)
     for (auto &channel : stream.channel) {
         cd_field(a, channel.current, "ide.cd.channel.current"); cd_field(a, channel.previous, "ide.cd.channel.previous");
         cd_field(a, channel.accumulator, "ide.cd.channel.accumulator"); cd_field(a, channel.cycles, "ide.cd.channel.cycles");
+    }
+}
+
+void visit_uaescsi(Archive &a)
+{
+    p6_cd::DeviceState device{};
+    p6_cd::AtapiState backend{};
+    p6_scsidev_state scsi{};
+    uint32_t ordinal = 0;
+    if (a.mode() == Mode::Save) {
+        a.require(p6_cd::device_capture(&device) && p6_cd::uaescsi_backend_capture(&backend)
+                  && p6_scsidev_state_get(&scsi), "uaescsi.device is not in a state that can be saved");
+        bool found = false;
+        for (uint32_t n = 0; n < p6_cd::device_catalog_size(); ++n)
+            if (p6_cd::device_catalog_disc(n) == p6_cd::device_bound_disc()) { ordinal = n; found = true; break; }
+        a.require(found, "uaescsi.device selected a disc outside its catalog");
+    }
+    visit_ide_cd_fields(a, device, ordinal);
+    cd_field(a, backend.medium_id, "uaescsi.backend.medium_id");
+    cd_field(a, backend.sense_key, "uaescsi.backend.sense_key");
+    cd_field(a, backend.asc, "uaescsi.backend.asc");
+    cd_field(a, backend.ascq, "uaescsi.backend.ascq");
+    cd_field(a, backend.known, "uaescsi.backend.known");
+    cd_field(a, backend.present, "uaescsi.backend.present");
+
+    cd_field(a, scsi.version, "uaescsi.version");
+    cd_field(a, scsi.opencnt, "uaescsi.opencnt");
+    cd_field(a, scsi.changenum, "uaescsi.changenum");
+    cd_field(a, scsi.changeint, "uaescsi.changeint");
+    cd_field(a, scsi.changeint_mediastate, "uaescsi.changeint_mediastate");
+    cd_field(a, scsi.media_inserted, "uaescsi.media_inserted");
+    cd_field(a, scsi.sectors, "uaescsi.sectors");
+    cd_field(a, scsi.configblocksize, "uaescsi.configblocksize");
+    cd_field(a, scsi.volumelevel, "uaescsi.volumelevel");
+    cd_field(a, scsi.fadeframes, "uaescsi.fadeframes");
+    cd_field(a, scsi.fadetarget, "uaescsi.fadetarget");
+    cd_field(a, scsi.fadecounter, "uaescsi.fadecounter");
+    for (auto &open : scsi.open) {
+        cd_field(a, open.active, "uaescsi.open.active");
+        cd_field(a, open.unit, "uaescsi.open.unit");
+        cd_field(a, open.mode, "uaescsi.open.mode");
+        cd_field(a, open.type, "uaescsi.open.type");
+        cd_field(a, open.flags, "uaescsi.open.flags");
+    }
+    for (auto &request : scsi.request) {
+        cd_field(a, request.active, "uaescsi.request.active");
+        cd_field(a, request.request, "uaescsi.request.address");
+        cd_field(a, request.type, "uaescsi.request.type");
+        cd_field(a, request.data, "uaescsi.request.data");
+        cd_field(a, request.iobuf, "uaescsi.request.iobuf");
+    }
+
+    if (measuring(a) || !a.ok()) return;
+    a.require(ordinal < p6_cd::device_catalog_size(), "uaescsi: the CD ordinal is outside its catalog");
+    const p6_cd::Disc *disc = a.ok() ? p6_cd::device_catalog_disc(ordinal) : nullptr;
+    const uint32_t period = session.config.video_standard == P6_VIDEO_NTSC ? 41558u : 41179u;
+    a.require(device.bound == 1 && !device.audio.callbacks && disc &&
+              p6_cd::device_validate(device, disc, period), "uaescsi: the CD device state is invalid");
+    a.require(a.ok() && p6_cd::uaescsi_backend_validate(backend, device), "uaescsi: the MMC contingent state is invalid");
+    a.require(a.ok() && p6_scsidev_state_valid(&scsi), "uaescsi: the guest device state is invalid");
+    a.require(a.ok() && device.opens == (scsi.opencnt ? 1u : 0u) && device.inserted == scsi.media_inserted &&
+              device.inserted == scsi.changeint_mediastate && scsi.sectors == disc->layout().leadout,
+              "uaescsi: the owner, device and selected medium disagree");
+    if (a.applying() && a.ok()) {
+        a.require(p6_cd::device_restore(device, disc, nullptr, nullptr), "uaescsi: the CD owner could not be restored");
+        a.require(a.ok() && p6_cd::uaescsi_backend_restore(backend, device), "uaescsi: the MMC state could not be restored");
+        a.require(a.ok() && p6_scsidev_state_set(&scsi), "uaescsi: the guest device could not be restored");
     }
 }
 
@@ -370,19 +443,25 @@ void visit_hdf(Archive &a)
     const uint32_t files = p6_bridge::hard_file_count();
     const bool motherboard = p6_bridge::motherboard_ide(session.config);
     const bool cd_ide = p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE;
-    if (!files && !motherboard && !cd_ide) return;
+    const bool uaescsi = currprefs.scsi == 1;
+    if (!files && !motherboard && !cd_ide) {
+        if (uaescsi) visit_uaescsi(a);
+        return;
+    }
     visit_identity(a, files);
     if (!a.ok()) return;
     if (p6_bridge::ide_attached(session.config, files)) {
         visit_ide(a);
         if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);
         for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
+        if (a.ok() && uaescsi) visit_uaescsi(a);
         return;
     }
     if (motherboard || cd_ide) {
         visit_ide(a);
         if (!files) {
             if (a.ok() && p6_bridge::resolve_memory(session.config).fast_kib == 0 && !p6_bridge::z3_bytes(session.config)) visit_expansion(a, 0);
+            if (a.ok() && uaescsi) visit_uaescsi(a);
             return;
         }
     }
@@ -397,6 +476,7 @@ void visit_hdf(Archive &a)
     if (a.ok()) visit_expamem_image(a);          // after the chain: putting the card's first 256 bytes back rebuilds the buffer (expamem_next)
     if (a.ok()) visit_queue(a);
     for (uint32_t j = 0; j < files && a.ok(); ++j) visit_overlay_of(a, j);
+    if (a.ok() && uaescsi) visit_uaescsi(a);
 }
 
 // The hard files the state was taken with are the ones the image registered: same number, same content id, in the same order. The section starts with them, so this reads the

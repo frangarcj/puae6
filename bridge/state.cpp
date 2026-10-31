@@ -763,7 +763,8 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
     // Runtime ownership is separate from candidate validation. Refuse a foreign
     // stream before reset/Apply; the phase getter needs no initialized CDA owner
     // when there are no extra streams, including a cold destination.
-    if (p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_CDTV ||
+    if ((session.config.flags & P6_CONFIG_UAESCSI) != 0 ||
+        p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_CDTV ||
         p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_CD32 ||
         p6_bridge::resolve_cd_controller(session.config) == P6_CD_CONTROLLER_IDE) {
         int32_t phase[p6_cda::kPhaseWords];

@@ -86,6 +86,9 @@
 #include "rtg_device.h"
 #include "rtg_memory.h"
 #include "rtg_uaegfx.h"
+#include "blkdev.h"
+#include "execio.h"
+#include "scsidev.h"
 
 #include <algorithm>
 #include <cinttypes>
@@ -551,6 +554,43 @@ bool bind_ide_cd_fixture(uint32_t selected, bool inserted, bool swap)
     const Disc *catalog[2] = {&g_ide_cd[swap ? 1 : 0].disc, &g_ide_cd[swap ? 0 : 1].disc};
     if (device_catalog_bind(catalog, 2, selected) != Result::Ok) return false;
     return inserted || device_set_inserted(false) == Result::Ok;
+}
+
+bool setup_uaescsi_fixture()
+{
+    // T84g2 exercises the private state graph before T84g3 exposes the Sync
+    // Setting. The catalog is the same deterministic fixture as IDE, but no
+    // public controller claims it here.
+    currprefs.scsi = changed_prefs.scsi = 1;
+    scsidev_reset();
+    p6_scsidev_state state{};
+    if (!p6_scsidev_state_get(&state)) {
+        fprintf(stderr, "uaescsi fixture: device state is unavailable\n");
+        return false;
+    }
+    const int opened = sys_command_open(0);
+    if (opened != 1) {
+        fprintf(stderr, "uaescsi fixture: expected a closed backend, open=%d count=%u\n", opened,
+                p6_cd::device_open_count());
+        return false;
+    }
+    memset(chipmem_bank.baseaddr + 0x4000, 0, 0x300);
+    state.opencnt = 1;
+    state.changeint = 0x4200;
+    state.open[0].active = 1;
+    state.open[0].unit = 0;
+    state.open[0].type = 1;
+    state.request[0].active = 1;
+    state.request[0].request = 0x4000;
+    state.request[0].type = 10;
+    state.request[0].data = 0x4100;
+    put_word_host(state.request[0].iobuf + 28, CMD_ADDCHANGEINT);
+    put_long_host(state.request[0].iobuf + 40, state.request[0].data);
+    if (!p6_scsidev_state_set(&state)) {
+        fprintf(stderr, "uaescsi fixture: semantic request is invalid\n");
+        return false;
+    }
+    return true;
 }
 
 enum class OpKind { InputCheck, Save, SaveFields, Load, LoadFault, LoadFaultHead, Mutate, Poke, HandlerTable, Digest, Rtc, Reset, SoftReset, Event, Append, Public, PublicSave, PublicLoad, Export, Status, Ram, RamOut };
@@ -1153,7 +1193,7 @@ int main(int argc, char **argv)
     bool rtg_internal = false;
     uint64_t seed = 1;
     bool floppy_writes = false;
-    bool ide_cd_fixture = false, ide_cd_inserted = true, ide_cd_swap_catalog = false;
+    bool ide_cd_fixture = false, ide_cd_inserted = true, ide_cd_swap_catalog = false, uaescsi_fixture = false;
     uint32_t ide_cd_selected = 0;
     std::vector<StateOp> state_ops;
     std::vector<const char *> adf_paths;
@@ -1298,6 +1338,7 @@ int main(int argc, char **argv)
         }
         else if (!strcmp(argv[i], "--ide-cd-ejected")) { ide_cd_fixture = true; ide_cd_inserted = false; }
         else if (!strcmp(argv[i], "--ide-cd-swap-catalog")) { ide_cd_fixture = true; ide_cd_swap_catalog = true; }
+        else if (!strcmp(argv[i], "--uaescsi-fixture")) { ide_cd_fixture = true; uaescsi_fixture = true; }
         else if (!strcmp(argv[i], "--port") && i + 1 < argc) {
             unsigned port, type, buttons;
             int dx, dy;
@@ -1365,6 +1406,7 @@ int main(int argc, char **argv)
     config.cpu_multiplier = uint8_t(cpu_multiplier);
     config.hdf_controller = uint8_t(hdf_controller);
     config.cd_controller = uint8_t(cd_controller);
+    if (uaescsi_fixture) config.cd_controller = P6_CD_CONTROLLER_NONE;
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);
     config.floppy_drives = uint8_t(floppy_drives);
@@ -1381,6 +1423,7 @@ int main(int argc, char **argv)
         if (loads > 1) printf("pass %" PRIu64 "\n", pass);
         result = p6_load(p6_buffer{rom.data(), rom.size()}, media.empty() ? nullptr : media.data(), uint32_t(media.size()), &error);
         if (result != P6_OK) return fail("p6_load", result, error);
+        if (uaescsi_fixture) currprefs.scsi = changed_prefs.scsi = 1;
         g_profile_rtc = currprefs.cs_rtc;
         print_digests(0);
         run_state_ops(state_ops, 0);
@@ -1403,6 +1446,10 @@ int main(int argc, char **argv)
             frame.struct_size = sizeof frame;
             result = p6_run_frame(&input, P6_RENDER_VIDEO | P6_RENDER_AUDIO | (drive_sound << P6_RENDER_DRIVE_VOLUME_SHIFT), &frame, &error);
             if (result != P6_OK) return fail("p6_run_frame", result, error);
+            if (uaescsi_fixture && unit == 1 && !setup_uaescsi_fixture()) {
+                fprintf(stderr, "cannot prepare uaescsi state fixture\n");
+                return 1;
+            }
             if (extended_input) printf("parallel-poll %" PRIu64 " mask=%u lag=%u\n", unit, p6_input_poll_mask, unsigned((frame.flags & P6_FRAME_LAG) != 0));
             // The PCM that the unit produced, hashed as it was handed over (T15i3): Paula's filter and resampler are in no digest above, and a lost phase shows only here.
             if (frame.audio && frame.audio_frames) {

@@ -40,7 +40,7 @@ public static class P6
 	public const int Cd32NvramBytes = 1024;
 	public const uint MemoryNone = uint.MaxValue;
 	public const byte FloppyDrivesNone = byte.MaxValue;           // ABI zero is the historical two-drive profile; 255 explicitly disconnects DF0..DF3
-	public const uint ConfigFloppyWrites = 1, ConfigHrtMon = 2, CommandFreeze = 1;
+	public const uint ConfigFloppyWrites = 1, ConfigHrtMon = 2, ConfigUaeScsi = 4, CommandFreeze = 1;
 	public const string HrtMonRawSha256 = "15e3e106248822665cc64f5c9a3ed5f52a67c07f81b06eb7118da39099d171f5";
 	public const uint MediaEventMount = 1, MediaEventEject = 2, MediaIndexEject = uint.MaxValue;
 	public const int AdfBytes = 901120;                          // an 880 KiB ADF (the other medium of ABI v1 is a hard file of any multiple of 512 bytes)

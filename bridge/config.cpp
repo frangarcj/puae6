@@ -575,7 +575,7 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "video standard must be PAL or NTSC");
     if (c.audio_rate_hz != 44100 && c.audio_rate_hz != 48000)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "audio rate must be 44100 or 48000 Hz");
-    if ((c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON)) != 0)
+    if ((c.flags & ~(P6_CONFIG_FLOPPY_WRITES | P6_CONFIG_HRTMON | P6_CONFIG_UAESCSI)) != 0)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "unknown config flags");
     if ((c.flags & P6_CONFIG_HRTMON) && c.machine != P6_MACHINE_A1200)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "HRTMon builtin requires A1200");
@@ -619,6 +619,8 @@ p6_result validate_config(const p6_config &c, p6_error *error)
     if (c.cd_controller > P6_CD_CONTROLLER_IDE)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD controller must be auto, none, integrated CD32, integrated CDTV or IDE");
     const uint8_t cd = resolve_cd_controller(c);
+    if ((c.flags & P6_CONFIG_UAESCSI) && cd != P6_CD_CONTROLLER_NONE)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "uaescsi.device requires the CD controller to be None");
     if (cd == P6_CD_CONTROLLER_CD32 && c.machine != kCd32Machine)
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the integrated CD32 controller requires the CD32 motherboard");
     if (cd == P6_CD_CONTROLLER_CDTV && c.machine != kCdtvMachine)
@@ -844,6 +846,7 @@ void build_preferences(const p6_config &c, bool ide_port)
     const uint8_t cd = resolve_cd_controller(c);
     currprefs.cs_cd32cd = cd == P6_CD_CONTROLLER_CD32;
     currprefs.cs_cdtvcd = cd == P6_CD_CONTROLLER_CDTV;
+    currprefs.scsi = (c.flags & P6_CONFIG_UAESCSI) != 0;
 }
 
 p6_result check_preset(p6_error *error)
@@ -874,7 +877,7 @@ p6_result check_preset(p6_error *error)
     else if (preset_config.machine == kCdtvMachine && (p.cs_cdtvcd != (resolve_cd_controller(preset_config) == P6_CD_CONTROLLER_CDTV) || !p.cs_cdtvram || p.cs_cdtvcr || p.cs_rtc != 1 ||
              p.nr_floppies || p.flashfile[0] || p.romextfile[0] || p.romextfile2[0] || p.cs_ksmirror_e0)) drifted = "CDTV motherboard";
     else if (p.reset_delay || p.crash_auto_reset) drifted = "reset";
-    else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi || p.uaescsidevmode || p.socket_emu ||
+    else if (p.uaeboard || p.uaeboard_nodiag || p.boot_rom || p.uae_hide || p.uae_hide_autoconfig || p.scsi != bool(preset_config.flags & P6_CONFIG_UAESCSI) || p.uaescsidevmode || p.socket_emu ||
              p.uaeserial || p.sana2 || p.win32_automount_drives || p.win32_automount_removable || p.win32_automount_cddrives || p.win32_automount_netdrives ||
              p.harddrive_read_only) drifted = "uae controller";    // the hard files are the only thing the UAE controller is configured for, and it is the default one
     else if (p.jports[0].jd[0].id != JSEM_MICE || p.jports[0].jd[1].id != JSEM_JOYS || p.jports[1].jd[0].id != JSEM_JOYS + 1 ||

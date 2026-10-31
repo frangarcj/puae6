@@ -10,7 +10,7 @@ using BizHawk.Client.Common;
 
 /// <summary>
 /// T21b, T28: a small program language to drive several cores in one process, one command per line, so that a test can say "save here, go on, load there, compare":
-///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [mousespeed=1..1000] [machine=a500|a600|a1200|a4030] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [z3=None|MB1..MB512] [rtg=None|MB4] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [drivevolume=0..100] [cdvolume=0..100] [writes]
+///   core NAME [firmware=PATH] [adf=A,B] [hdf=A,B] [volume=A,B] [cd] [uaescsi] [seed=N] [ntsc] [drives=N] [port1=mouse|joystick] [mousespeed=1..1000] [machine=a500|a600|a1200|a4030] [chip=Auto|KB512|MB1|MB2] [slow=Auto|None|KB512|MB1|MB1_5|MB1_75] [fast=None|MB1|MB2|MB4|MB8] [z3=None|MB1..MB512] [rtg=None|MB4] [fpu=None|M68881|M68882] [sep=P0..P100] [interp=None|Anti|RH|Crux] [filter=Emulated|Off|On] [ftype=Auto|A500|A1200] [fspeed=P100|P200|P400|P800|Turbo] [vres=Lores|Hires|SuperHires] [vlines=Single|Double] [drivevolume=0..100] [cdvolume=0..100] [writes]
 ///   (writes: the floppy disks can be written, T28; without it every disk is protected. hdf: hard files, T63b; always writable, their media index follows the floppies. volume: LHA archives or ZIP files of files, T64b,
 ///    built into hard files in memory after the hdf ones)
 ///   run NAME UNITS [script=FILE] [press=SPEC] [silent=A-B] [record]      one "u NAME N ..." line per unit (SPEC is "79:Next Slot;80-85:Insert Disk", core frames, 1-based);
@@ -98,6 +98,7 @@ internal static unsafe partial class Program
 						CpuMultiplier = Enum.Parse<Puae6CpuClock>(arguments.GetValueOrDefault("clock", "Auto")),
 						HdfController = Enum.Parse<Puae6HdfController>(arguments.GetValueOrDefault("hdfc", "Uae")),
 						CdController = Enum.Parse<Puae6CdController>(arguments.GetValueOrDefault("cdc", "Auto")),
+						UaeScsi = arguments.ContainsKey("uaescsi"),
 						SoundSeparation = Enum.Parse<Puae6SoundSeparation>(arguments.GetValueOrDefault("sep", "P70")),
 						SoundInterpolation = Enum.Parse<Puae6SoundInterpolation>(arguments.GetValueOrDefault("interp", "Anti")),
 						SoundFilter = Enum.Parse<Puae6SoundFilter>(arguments.GetValueOrDefault("filter", "Emulated")),
@@ -116,6 +117,7 @@ internal static unsafe partial class Program
 					if (arguments.TryGetValue("drivevolume", out var volume)) make["drivevolume"] = volume;
 					if (arguments.TryGetValue("cdvolume", out var cdVolume)) make["cdvolume"] = cdVolume;
 					if (arguments.TryGetValue("whdprovider", out var whdProvider)) make["whdprovider"] = whdProvider;
+					if (arguments.ContainsKey("cd")) make["cd"] = "";
 					var adfs = arguments.TryGetValue("adf", out var list) ? list.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
 					var machine = new Machine { Mouse = settings.ControllerPort1 == Puae6Port1.Mouse, Options = arguments };
 					var hdfs = arguments.TryGetValue("hdf", out var hardList) ? hardList.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(File.ReadAllBytes).ToList() : [];
@@ -129,6 +131,16 @@ internal static unsafe partial class Program
 					break;
 				}
 				case "buffer": Console.WriteLine($"buffer {words[1]} {machines[words[1]].Core.BufferWidth}x{machines[words[1]].Core.BufferHeight}"); break;     // the buffer announced at the load, or the last picture's
+				case "cdstatus":
+				{
+					var field = typeof(Puae6Core).GetField("_guest", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+					var guest = (Puae6Guest)field.GetValue(machines[words[1]].Core)!;
+					uint* status = stackalloc uint[4];
+					using var active = guest.Host.EnterExit();
+					int result = guest.Lib.p6w_cd_status((IntPtr)status, 4);
+					Console.WriteLine($"cdstatus {words[1]} result={result} count={status[0]} selected={status[1]} inserted={status[2]} opens={status[3]}");
+					break;
+				}
 				case "callbacks": Console.WriteLine($"callbacks {words[1]} {machines[words[1]].InputPolls}"); break;
 				case "picture":
 				{
