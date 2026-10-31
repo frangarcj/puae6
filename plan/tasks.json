@@ -27967,8 +27967,8 @@
       "title": "Generar preview MacHawk con RTG A4000/040",
       "milestone": "M4",
       "required": false,
-      "status": "blocked",
-      "blocked_reason": "Candidata local a5e68d684 y ZIP Darwin 39bddac3 pasan build, smoke y auditoria privada; falta ejecutar el gate puae6_only en un runner Windows real, que requiere subir la rama aislada con autorizacion del usuario.",
+      "status": "done",
+      "blocked_reason": "",
       "depends": [
         "T95b",
         "T97",

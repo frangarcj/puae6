@@ -109,9 +109,9 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-c43bbe56)
-es la descarga para los probadores. El [PR #17](https://github.com/frangarcj/BizHawk/pull/17)
-esta fusionado en `main`. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-157855f9)
+es la descarga para los probadores. El [PR #20](https://github.com/frangarcj/BizHawk/pull/20)
+esta fusionado en `main` como `157855f9`. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
@@ -152,7 +152,7 @@ gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
 formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
 juegos. El ZIP Windows tiene SHA-256
-`285ee71d3c1dea9226b462ce773f999b7929131863585723d38f392c87ee059f`.
+`7a1da49322036131bcc6ff8ce810ffa57d21ce76a0bbdd1f6991d92f23e4ff4e`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
@@ -163,24 +163,23 @@ CAPSImg; el EmuTOS libre se conserva.
 
 La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
 restauracion exacta del estado completo en otro sandbox, comparacion A/V, cuatro
-pruebas CHD nativas y una tercera sandbox A4000/030 o A4000/040 que avanza con RTG4 y lienzo
-1024x768. La prueba GUI abre contenido propio, reconoce PUAE6 en la ventana
-visible y la cierra normalmente. Solo esa configuracion temporal usa el
-fallback de audio Dummy de BizHawk porque el runner no tiene dispositivo; no
-cambia la configuracion distribuida ni elimina la comparacion del PCM emulado.
-La ejecucion dirigida
-[41066539969](https://github.com/frangarcj/BizHawk/actions/runs/41066539969)
-supera todas esas etapas y comprueba ademas el contrato visible 0..4, el LED
-optico y los 44100 Hz sobre el commit probado `28db8e8b`. La matriz de `main`
-[41067827511](https://github.com/frangarcj/BizHawk/actions/runs/41067827511)
-termina correctamente en su segundo intento despues de reintentar un HTTP 500
-de GitHub al publicar la preview conjunta; la release PUAE6 apunta al merge
-`c43bbe56` con el contenido probado. El guest x64 es
-`b349a885684bd254efce82ebfca44ba5c82c9f7235c0160e08b73d565af04e02`.
+pruebas CHD nativas y una tercera sandbox A4000/040 con CPU/FPU 68040,
+multiplicador X8 y RTG4 que avanza con lienzo 1024x768. La prueba GUI abre
+contenido propio, reconoce PUAE6 en la ventana visible y la cierra normalmente.
+Solo esa configuracion temporal usa el fallback de audio Dummy de BizHawk porque
+el runner no tiene dispositivo; no cambia la configuracion distribuida ni
+elimina la comparacion del PCM emulado. La ejecucion dirigida
+[41247454978](https://github.com/frangarcj/BizHawk/actions/runs/41247454978)
+supera todas esas etapas sobre el commit probado `a5e68d684`. Las matrices de
+`main` de [solucion](https://github.com/frangarcj/BizHawk/actions/runs/41248063696)
+y [Waterbox](https://github.com/frangarcj/BizHawk/actions/runs/41248063609)
+terminan correctamente sobre el merge `157855f9`; la release PUAE6 apunta a ese
+contenido probado. El guest x64 es
+`fc5ceecd3ad85f7a65ae12f67a76f7d062a4f9c9c5d3e7f7a70502a2b138f48e`.
 El paquete Darwin ARM64 separado de esta candidata fija el guest
-`4a02d827a5f296bf7b91efcc0ec015679aff04872d7058ca88280ea235eacc86`;
+`4d9d8cf0936a943d8b38503eb22eb8761bf067566991780563a42406da0c8b38`;
 su archivo tiene SHA-256
-`f88e6ece017fc63091ee928c71a3d50002bd54f36c4c707dde69bf1c278b4c6b`,
+`39bddac35f70a16f2e554b0fdb3eeded776783d46db7e9ab8cc29a3fc0b5637e`,
 su `manifest.json` registra revision, runtime y hashes exactos, y supera la
 comprobacion instalada. Sigue siendo un paquete FFI, no un frontend WinForms
 para macOS.
@@ -195,15 +194,19 @@ cambiar el reloj ni el buffer causal, y CD32/CDTV publican la actividad optica e
 el indicador de unidad. Esto no generaliza compatibilidad a todo el catalogo ni
 promete estados entre builds.
 
-## Candidata local A4000/040 T96
+## Preview publicada A4000/040 T96
 
-La candidata local MacHawk `a5e68d684` fija el guest Windows x64
+La preview de [la release `puae6-preview-157855f9`](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-157855f9),
+integrada mediante el [PR #20](https://github.com/frangarcj/BizHawk/pull/20),
+fija el guest Windows x64
 `fc5ceecd3ad85f7a65ae12f67a76f7d062a4f9c9c5d3e7f7a70502a2b138f48e`
 y selecciona en su smoke A4000/040, CPU/FPU 68040, multiplicador X8 y RTG 4 MiB.
+El ZIP Windows `BizHawk-PUAE6-preview-windows-x64-157855f9.zip` tiene SHA-256
+`7a1da49322036131bcc6ff8ce810ffa57d21ce76a0bbdd1f6991d92f23e4ff4e`.
 El ZIP Darwin ARM64 separado
 `puae6-waterbox-macos-arm64-preview-1bb68201.zip` tiene SHA-256
 `39bddac35f70a16f2e554b0fdb3eeded776783d46db7e9ab8cc29a3fc0b5637e`,
 fija el guest `4d9d8cf0936a943d8b38503eb22eb8761bf067566991780563a42406da0c8b38`
 y supera el smoke instalado de restauracion. La auditoria del ZIP no encuentra
-ROM, HDF, ADF, IPF ni el medio privado. Esta candidata no se publica hasta que
-su commit exacto supere el gate `puae6_only` en Windows real.
+ROM, HDF, ADF, IPF ni el medio privado. El gate `puae6_only` de Windows real y
+las dos matrices de `main` pasan sobre los commits exactos registrados arriba.
