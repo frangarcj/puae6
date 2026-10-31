@@ -1,0 +1,85 @@
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -546,6 +546,17 @@
+ 
+ 		private IEmulator MakeCoreFromCoreInventory(CoreInventoryParameters cip, string forcedCoreName = null)
+ 		{
++			// Selecting PUAE6 in the Amiga core picker is an explicit choice. In
++			// particular, do not hide a media/settings error by opening UAE instead.
++			// Movie playback and other callers that force a core still take precedence.
++			if (forcedCoreName == null
++				&& cip.Game.System == VSystemID.Raw.Amiga
++				&& _config.PreferredCores.TryGetValue(cip.Game.System, out var amigaPreference)
++				&& amigaPreference == CoreNames.PUAE6)
++			{
++				forcedCoreName = amigaPreference;
++			}
++
+ 			IReadOnlyCollection<CoreInventory.Core> cores;
+ 			if (forcedCoreName != null)
+ 			{
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+--- a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+@@ -64,6 +64,41 @@
+    config.FirmwareUserSpecifications[new FirmwareID("Amiga", "A500").ConfigKey] = Path.Combine(Stage, "Firmware", "Own.rom");
+    return config;
+   }
++  private static void PreferredMediaDoesNotFallback()
++  {
++   var hdf = new byte[1024 * 1024]; hdf[0] = (byte)'D'; hdf[1] = (byte)'O'; hdf[2] = (byte)'S';
++   var hdfPath = Path.Combine(Stage, "Own.hdf"); File.WriteAllBytes(hdfPath, hdf);
++   foreach (var media in new[] { Path.Combine(Stage, "Own.adf"), hdfPath })
++   {
++    foreach (bool incompatible in new[] { false, true })
++    {
++     var config = Configuration("PUAE6"); config.DontTryOtherCores = false;
++     var provider = new CoreFileProvider(null, new FirmwareManager(), config.PathEntries, config.FirmwareUserSpecifications);
++     var comm = new CoreComm(_ => { }, (_, _) => { }, provider, CoreComm.CorePreferencesFlags.None, null);
++     var requested = new List<string>(); var errors = new List<string>();
++     var loader = new RomLoader(config, null);
++     loader.OnLoadError += (_, e) => errors.Add(e.Message);
++     loader.OnLoadSettings += (_, e) => e.Settings = e.Core == typeof(UAE) ? (object)new UAE.UAESettings() : new Puae6Settings();
++     loader.OnLoadSyncSettings += (_, e) =>
++     {
++      requested.Add(e.Core == typeof(UAE) ? "UAE" : e.Core == typeof(Puae6Core) ? "PUAE6" : e.Core.Name);
++      e.Settings = e.Core == typeof(UAE) ? (object)new UAE.UAESyncSettings()
++       : new Puae6SyncSettings { Machine = incompatible ? Puae6Machine.CD32 : Puae6Machine.A500, WhdLoad = Puae6WhdLoadMode.Disabled };
++     };
++     bool loaded = loader.LoadRom(media, comm, null);
++     Require(requested.SequenceEqual(new[] { "PUAE6" }), "Preferred PUAE6 fell back while opening " + Path.GetExtension(media));
++     if (incompatible)
++      Require(!loaded && errors.Count == 1 && errors[0].Contains("CD32 requires its own model"), "Preferred PUAE6 error was hidden");
++     else
++     {
++      Require(loaded && loader.LoadedEmulator is Puae6Core && errors.Count == 0,
++       "Preferred PUAE6 did not load " + Path.GetExtension(media) + ": " + string.Join(" | ", errors));
++      loader.LoadedEmulator.Dispose();
++     }
++    }
++   }
++   File.Delete(hdfPath);
++  }
+   private static IEmulator Open(string name, MovieSession session, string path, bool record)
+   {
+    var config = Configuration(record ? name : name == "UAE" ? "PUAE6" : "UAE");
+@@ -119,6 +154,7 @@
+     var native = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(Path.Combine(Stage, "native.json")));
+     _ = OSTailoredCode.LinkedLibManager.LoadOrThrow(Path.Combine(Stage, "dll", "libwaterboxhost.dylib"));
+     Identity(native);
++    PreferredMediaDoesNotFallback();
+     var cases = new List<Dictionary<string, object>>(); var names = new[] { "UAE", "PUAE6" };
+     foreach (string format in new[] { "bk2", "tasproj" }) {
+      var rows = new[] { new List<string[]>(), new List<string[]>() }; var states = new byte[2][]; var boots = new byte[2][];
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+--- a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+@@ -109,6 +109,7 @@
+     HawkFile.DearchivalMethod = SharpCompressDearchivalMethod.Instance;
+     var db = Path.Combine(Stage, "gamedb"); Database.InitializeDatabase(db, db, true); MAMEMachineDB.Initialize(db);
+     foreach (var directory in new[] { "User", "Movies", "Movie backups", "Temp Files" }) Directory.CreateDirectory(Path.Combine(Stage, directory));
++    PreferredMediaDoesNotFallback();
+     var firstSession = Session(); var secondSession = Session();
+     IEmulator first = null, second = null;
+     try

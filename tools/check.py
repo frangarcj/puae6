@@ -1339,6 +1339,9 @@ TASK_SUITES[('BUILD01', 'T82m')] = {
     'puae6_uae_settings_and_audio': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'wrapper_contract': 'tests.config.test_parity.WrapperParity',
     'native_explicit_no_drives': 'tests.libretro-host.test_multidrive.MultiDriveTests.test_two_drive_spellings_keep_the_profile_identity_and_explicit_four_or_none_derive_from_it'}
+TASK_SUITES[('BUILD01', 'T82n')] = {
+    'preferred_puae6_adf_hdf': 'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_preferred_puae6_is_strict_for_amiga_adf_and_hdf'}
+TASK_SUITES[('BUILD01', 'T82o')] = dict(TASK_SUITES[('BUILD01', 'T82n')])
 TASK_SUITES[('IN01', 'T84a')] = {
     'wrapper_input_callbacks_and_drive_light': 'tests.ffi.test_core.CoreTests.test_lag_follows_the_guests_reads_and_the_drive_light_follows_the_motor'}
 TASK_SUITES[('WB03', 'T84a')] = {

@@ -85,6 +85,20 @@ class BizHawkTreeTests(unittest.TestCase):
         installed = {p.name for p in (tree / build_tree.INSTALL_AT).glob("*.cs")}
         self.assertTrue({"Puae6Core.cs", "Puae6Core.EmuHawk.cs", "Puae6Guest.cs", "GuestIdentity.cs", "Abi.cs"} <= installed)
 
+    def test_preferred_puae6_is_strict_for_amiga_adf_and_hdf(self):
+        loader = (build_tree.TREE / "src/BizHawk.Client.Common/RomLoader.cs").read_text()
+        selection = loader.index("Selecting PUAE6 in the Amiga core picker is an explicit choice")
+        inventory = loader.index("IReadOnlyCollection<CoreInventory.Core> cores;", selection)
+        self.assertIn("forcedCoreName == null", loader[selection:inventory])
+        self.assertIn("cip.Game.System == VSystemID.Raw.Amiga", loader[selection:inventory])
+        self.assertIn("amigaPreference == CoreNames.PUAE6", loader[selection:inventory])
+        self.assertIn("forcedCoreName = amigaPreference", loader[selection:inventory])
+        probe = (build_tree.TREE / "src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs").read_text()
+        self.assertIn('new[] { Path.Combine(Stage, "Own.adf"), hdfPath }', probe)
+        self.assertIn('config.DontTryOtherCores = false', probe)
+        self.assertIn('requested.SequenceEqual(new[] { "PUAE6" })', probe)
+        self.assertIn('Machine = incompatible ? Puae6Machine.CD32 : Puae6Machine.A500', probe)
+
     def test_each_machine_asks_the_firmware_database_of_bizhawk_for_its_own_kickstart_and_the_database_has_both(self):
         # T23e, T24f: Machine.A500 / A600 / A1200 are the FirmwareIDs (Amiga, "A500" / "A600" / "A1200") of BizHawk's database, which MacHawk already has: nothing is added to it.
         settings = (ROOT / "integration/bizhawk/core/Puae6/Settings.cs").read_text()

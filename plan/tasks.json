@@ -25640,6 +25640,52 @@
       "stop": "Tras dos intentos razonados del mismo fallo, conservar el reproducer y dos hipotesis; no falsear cero como dos unidades ni declarar corregido el audio solo porque compila."
     },
     {
+      "id": "T82n",
+      "title": "Respetar PUAE6 preferido al abrir ADF y HDF",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T82m",
+        "T84f"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "integration/bizhawk/patches/0025-emuhawk-coexistence.patch"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "integration/bizhawk/patches/0030-preferred-puae6-media.patch",
+        "integration/bizhawk/patches/build_tree.py",
+        "tests/ffi/test_bizhawk_tree.py",
+        "tests/packages/test_emuhawk_coexistence.py",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "docs/user/waterbox-preview.md"
+      ],
+      "steps": [
+        "Reproducir el reporte de la preview: PUAE6 esta preferido para Amiga pero un ADF/HDF cuyo constructor PUAE6 rechaza termina abriendo UAE5 por el fallback general de CoreInventory.",
+        "Hacer estricta solo la preferencia explicita PUAE6 para contenido identificado como Amiga; una pelicula o forcedCoreName conserva su seleccion y los demas sistemas/cores mantienen el fallback existente.",
+        "Probar ADF y HDF por RomLoader: configuracion valida llega a PUAE6 y una configuracion CD32 incompatible muestra el error PUAE6 sin crear UAE5. No cambiar maquina, medios ni settings silenciosamente.",
+        "Aplicar la correccion como parche nuevo al pin MacHawk y al worktree aislado de preview; no modificar ../MacHawk ni publicar una candidata en esta ficha.",
+        "Cierre: BUILD01 dirigido y compilacion EmuHawk Release pasan. El EmuHawk real derivado del pin abre ADF/HDF con PUAE6 y ajustes A500, rechaza ambos con el error CD32 sin consultar UAE, y conserva los cuatro casos BK2/TAS de coexistencia exacta."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Con PUAE6 preferido, ADF y HDF nunca abren UAE5: cargan PUAE6 con ajustes compatibles o fallan con el motivo concreto de PUAE6.",
+        "UAE sigue siendo el default, forcedCoreName/peliculas prevalecen y el fallback de otros cores no cambia; el parche aplica al pin y los checks dirigidos pasan."
+      ],
+      "stop": "No auto-cambiar CD32 a otra maquina ni activar DontTryOtherCores globalmente; tras dos fallos conservar el reproducer y dos hipotesis."
+    },
+    {
       "id": "T84",
       "title": "Cerrar la paridad de interfaz PUAE6 frente al UAE5 de MacHawk",
       "milestone": "M4",
@@ -27451,6 +27497,108 @@
         "MIDI se mezcla en el audio emulado y save/load reproduce el mismo futuro PCM, sin reloj de pared, callbacks por instrucción ni estado fuera de Waterbox."
       ],
       "stop": "No incluir firmware/SoundFonts, no usar dispositivos MIDI host ni red, no fingir soporte con una opción que el guest no compile y no modificar ../MacHawk."
+    },
+    {
+      "id": "T82o",
+      "title": "Publicar preview con seleccion PUAE6 estricta para ADF y HDF",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T82n"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/.github/hatari-preview-release.md",
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs"
+      ],
+      "touch": [
+        "build/machawk-puae6/src/BizHawk.Client.Common/RomLoader.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Revisar el diff exacto de T82n, compilar EmuHawk Release y conservar el smoke real que demuestra ADF/HDF validos en PUAE6 y rechazo sin fallback UAE5 cuando la configuracion no es compatible.",
+        "Subir una rama dedicada al fork MacHawk, ejecutar el gate puae6-windows en Windows alojado y fusionar solo si todos sus checks pasan.",
+        "Publicar una prerelease PUAE6 del commit fusionado con el ZIP probado, fuentes y hashes; no presentar uaescsi.device como soportado en esta candidata.",
+        "Cierre 2026-10-31: BUILD01 y EmuHawk Release local pasan. PR18 fusionada como f7920215; el gate Windows 41213248111 pasa ADF/HDF validos y rechazo CD32 sin UAE5, ABI, restore y CHD, y la matriz integrada 41213751974 pasa guests x86_64/ARM64, cuatro plataformas, VICE y EmuHawk. Prerelease puae6-preview-f7920215 publica el ZIP probado con SHA-256 a6e2f829eab11486efe8e213784b9dfd7267f69a72603bf6674bef17cdfba5f3."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La rama, PR y commit fusionado contienen solo la seleccion estricta PUAE6 y sus regresiones ADF/HDF, sin alterar el checkout hermano ../MacHawk.",
+        "El gate Windows real termina correctamente y la prerelease publica el mismo paquete probado con tag, commit y SHA-256 verificables."
+      ],
+      "stop": "No fusionar ni publicar si falla el gate real; no activar uaescsi.device sin backend cooperativo, estado e identidad de Sync Settings comprobados."
+    },
+    {
+      "id": "T84g",
+      "title": "uaescsi.device cooperativo para CD en PUAE6",
+      "milestone": "M4",
+      "required": false,
+      "status": "pending",
+      "blocked_reason": "",
+      "depends": [
+        "T84f"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/01-architecture.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "upstream/winuae/scsiemul.cpp",
+        "upstream/winuae/scsidev.cpp",
+        "ports/portable/sysconfig.h",
+        "ports/portable/hostfs_unsupported.cpp",
+        "bridge/config.cpp"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "ports/portable/**",
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/patches/**",
+        "config/**",
+        "tests/config/**",
+        "tests/ffi/**",
+        "tests/media/**",
+        "tests/waterbox-state/**",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Separar la semantica uaescsi.device del controlador IDE/CD32 existente: la opcion sync habilita el dispositivo Amiga y nunca se limita a renombrar otro backend.",
+        "Sustituir el hilo del SO y las colas host de scsiemul.cpp por avance cooperativo dentro de p6_run_frame, usando solo la fuente CD determinista y errores explicitos para dispositivos fisicos no soportados.",
+        "Serializar solicitudes, respuestas, change interrupts, open counts y estado causal; incluir la opcion en identidad de Sync Settings, peliculas y estados.",
+        "Probar el caso de uso con dos HDF bajo el controlador UAE y CD-ROM mediante uaescsi.device, incluidos save/load, cambio de disco, dos sandboxes y replay determinista."
+      ],
+      "checks": [
+        "MED02",
+        "STATE01",
+        "WB03",
+        "BUILD01"
+      ],
+      "acceptance": [
+        "Con uaescsi.device habilitado AmigaOS ve el CD junto a varios HDF del controlador UAE, y deshabilitarlo elimina el dispositivo sin cambiar silenciosamente de controlador.",
+        "La ejecucion no crea hilos del SO ni consulta dispositivos SCSI host; save/load y peliculas reproducen el mismo futuro y rechazan identidades incompatibles.",
+        "La opcion solo se publica despues de pasar Waterbox real y el gate EmuHawk con el escenario multi-HDF mas CD."
+      ],
+      "stop": "No exponer una casilla sin backend, no usar el hilo upstream, no acceder a SCSI fisico host y no hacer stubs que devuelvan exito."
     },
     {
       "id": "T55c12",
