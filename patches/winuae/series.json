@@ -1451,9 +1451,9 @@
       "file": "patches/winuae/0387-frestore040-fpsp-cu06-zero-infinity.patch",
       "sha256": "6632cd5ca978306fe6d855d96e2c490a16e6fb4db2b5135b4f0a0848eb4e9591",
       "title": "Decode FPSP CU06 reconstructed single zero and infinity",
-      "reason": "T55c: FPSP op2_com maps source sentinel exponents to double while retaining STAG/sign. Decode only documented zero/infinity shapes, preserving pending E3 priority and enabled DZ/OPERR destinations.",
+      "reason": "T95dy decodes only FPSP op2_com zero/infinity sentinels with their STAG and sign, preserving E3 priority and enabled DZ/OPERR destinations; NaNs, denormals and native double remain pending.",
       "category": "FPU correctness",
-      "order": 58,
+      "order": 57,
       "symbols": [
         "fpuop_restore"
       ],
