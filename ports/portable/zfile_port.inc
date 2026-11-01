@@ -90,25 +90,33 @@ int zfile_exists(const TCHAR *name)
  return 1;
 }
 
-void zfile_fclose(zfile *file)
+static int p6_close_file(zfile *file)
 {
- if (!file) return;
+ if (!file) return 0;
  zfile **link = &p6_zfiles;
  while (*link && *link != file) link = &(*link)->next;
- if (!*link) { errno = EBADF; return; }
+ if (!*link) { errno = EBADF; return 1; }
  auto *owner = reinterpret_cast<p6_zfile_owner *>(file);
- if (--file->opencnt > 0) return;
+ if (--file->opencnt > 0) return 0;
  *link = file->next;
  zfile *parent = file->parent;
+ int error = 0;
  if (file->data) xfree(file->data);
  else if (!parent) {
   int result = p6_blob_close(owner->blob);
-  if (result) p6_zfail(NULL, result);
+  if (result) error = p6_zfail(NULL, result);
  }
  xfree(owner);
- if (parent) zfile_fclose(parent);
+ if (parent) (void)p6_close_file(parent);
+ return error;
 }
-void zfile_exit(void) { while (p6_zfiles) zfile_fclose(p6_zfiles); }
+using p6_zfile_close_result = decltype(zfile_fclose(static_cast<zfile *>(nullptr)));
+template<class Result> struct p6_zfile_close_return;
+template<> struct p6_zfile_close_return<void> { static void value(int) {} };
+template<> struct p6_zfile_close_return<int> { static int value(int result) { return result; } };
+p6_zfile_close_result zfile_fclose(zfile *file)
+{ return p6_zfile_close_return<p6_zfile_close_result>::value(p6_close_file(file)); }
+void zfile_exit(void) { while (p6_zfiles) (void)p6_close_file(p6_zfiles); }
 
 uae_s64 zfile_ftell(zfile *file)
 {

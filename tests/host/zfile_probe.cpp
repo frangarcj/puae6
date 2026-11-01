@@ -4,6 +4,7 @@
 #include "blob_io.h"
 #include <errno.h>
 #include <limits.h>
+#include <type_traits>
 
 #ifdef P6_ZFILE_ALLOC_TEST
 static bool fail_wrapper_allocation;
@@ -12,6 +13,20 @@ extern "C" void *p6_test_calloc(size_t n, size_t width)
  return fail_wrapper_allocation ? NULL : calloc(n, width);
 }
 #endif
+
+using p6_close_result = decltype(zfile_fclose(static_cast<zfile *>(nullptr)));
+template<class Result>
+static void close_checked_impl(zfile *file, Result (*close_fn)(zfile *))
+{
+ if constexpr (std::is_void_v<Result>)
+  close_fn(file);
+ else
+  assert(close_fn(file) == 0);
+}
+static void close_checked(zfile *file)
+{
+ close_checked_impl<p6_close_result>(file, &zfile_fclose);
+}
 
 int main(void)
 {
@@ -52,7 +67,7 @@ int main(void)
  assert(zfile_fseek(a, -3, SEEK_END) == 0 && zfile_ftell(a) == 4);
  assert(zfile_fseek(a, 0, -1) == 1 && errno == EINVAL && zfile_ftell(a) == 4);
  assert(zfile_fread(NULL, 1, 1, a) == 0 && zfile_ferror(a) == EINVAL && zfile_ftell(a) == 4);
- zfile_fclose(a); zfile_fclose(b); zfile_fclose(NULL);
+ close_checked(a); close_checked(b); close_checked(NULL);
  assert(zfile_exists("disk.adf") == 1);
  assert(zfile_exists("../disk.adf") == 0 && errno == EINVAL);
  assert(!zfile_fopen("missing", "rb") && errno == ENOENT);
