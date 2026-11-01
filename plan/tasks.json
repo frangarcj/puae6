@@ -28270,7 +28270,7 @@
       "title": "Leer sectores MODE2 Form 1 por IDE y uaescsi",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "blocked_reason": "",
       "depends": [
         "T103"
