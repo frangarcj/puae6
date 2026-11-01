@@ -9,8 +9,8 @@ from tests.host import ensure_generated
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Features excluded for read-only asset media (patch 0047), with their definitions
-# in the pristine WinUAE file so this test cannot pass vacuously.
+# Features excluded for read-only asset media (patch 0047). Their definitions
+# stay visible behind portable guards, so the object check cannot pass vacuously.
 EXCLUDED_DEFINITIONS = {
     "disk_creatediskfile": "bool disk_creatediskfile (",
     "disk_setwriteprotect": "int disk_setwriteprotect (",
@@ -30,16 +30,37 @@ KEPT_DEFINITIONS = ("DISK_validate_filename", "DISK_init", "DISK_reset", "DISK_h
                     "DISK_history_add", "DISK_examine_image")
 
 
+def guarded_by_portable_exclusion(source, signature):
+    """Return whether signature is in the non-portable arm of a guard."""
+    guards = []
+    for line in source.splitlines():
+        directive = line.strip()
+        if directive.startswith("#ifndef P6_PORTABLE"):
+            guards.append(True)
+        elif directive.startswith("#ifdef P6_PORTABLE"):
+            guards.append(False)
+        elif directive.startswith("#if"):
+            guards.append(None)
+        elif directive.startswith("#else") and guards:
+            if guards[-1] is not None:
+                guards[-1] = not guards[-1]
+        elif directive.startswith("#endif") and guards:
+            guards.pop()
+        if signature in line:
+            return any(guard is True for guard in guards)
+    return False
+
+
 class DiskSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         ensure_generated()
         cls.tree = ROOT / "build/upstream"
 
-    def test_pristine_source_defines_every_excluded_feature(self):
-        pristine = (ROOT / "upstream/winuae/disk.cpp").read_text(errors="replace")
+    def test_imported_source_defines_every_excluded_feature(self):
+        imported = (ROOT / "upstream/winuae/disk.cpp").read_text(errors="replace")
         for name, signature in EXCLUDED_DEFINITIONS.items():
-            self.assertIn(signature, pristine, name)
+            self.assertIn(signature, imported, name)
 
     def test_complete_object_host_boundary(self):
         with tempfile.TemporaryDirectory(prefix="p6-disk-object-") as directory:
@@ -74,15 +95,13 @@ class DiskSourceTests(unittest.TestCase):
                 self.assertNotIn("od-win32", text.replace(allowed, ""))
 
     def test_exclusions_are_preprocessor_regions(self):
-        # Every exclusion stays visible upstream text inside a P6_PORTABLE region.
+        # beta21 absorbed the historical guards into its imported base. Verify
+        # their structure instead of relying on the old zero-vs-24 count.
         patched = (self.tree / "disk.cpp").read_text()
-        pristine = (ROOT / "upstream/winuae/disk.cpp").read_text(errors="replace")
-        for signature in EXCLUDED_DEFINITIONS.values():
-            self.assertIn(signature, patched, signature)
-        # 14 regions in patch 0047, 2 in 0052 (input-record hooks) and 8 in 0056 (recent list,
-        # OSD text, path history); a new one must be a deliberate, documented change.
-        self.assertEqual(24, patched.count("#ifndef P6_PORTABLE"))
-        self.assertEqual(pristine.count("#ifndef P6_PORTABLE"), 0)
+        imported = (ROOT / "upstream/winuae/disk.cpp").read_text(errors="replace")
+        for name, signature in EXCLUDED_DEFINITIONS.items():
+            self.assertTrue(guarded_by_portable_exclusion(imported, signature), name)
+            self.assertTrue(guarded_by_portable_exclusion(patched, signature), name)
 
 
 if __name__ == "__main__":
