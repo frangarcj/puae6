@@ -1178,16 +1178,17 @@ const char *check_copr(const Sub &, const Body &b, Seen &seen)
 }
 
 // BLTP: the queue holds at most the pipeline depth (BLITTER_MAX_PIPELINED_CYCLES, 4) and the counts of channels are what blit_bltset makes of four channels and two skips; the
-// held words are 16 bits and the pending flag is a flag. BLTX says whether a blit is running, and BLTP has to agree: a running blit has not counted itself done and has its
-// pipeline queued (the OCS blitter clears the running flag in the cycle that counts it done), and the two channel counts BLTX carries are the ones BLTP carries. The count of
-// the cycles after the end is incremented while a bit is still in the four-stage shifter and has no other bound.
+// held words are 16 bits and the pending flag is a flag. For the cycle-exact engine BLTX and BLTP have to agree: a running blit has not counted itself done and has its pipeline
+// queued (the OCS blitter clears the running flag in the cycle that counts it done). A normal blit is instead in flight in its secondary event while this pipeline stays empty.
+// The two channel counts BLTX carries are the ones BLTP carries. The count after the end is incremented while a bit remains in the four-stage shifter and has no other bound.
 const char *check_bltp(const Sub &, const Body &b, Seen &seen)
 {
     const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
     const auto within = [&at](unsigned word, int low, int high) { return at(word) >= low && at(word) <= high; };
     if (!within(kBltQueued, 0, 4)) return "the blitter queue is deeper than its pipeline";
     if (!within(kBltCountDone, 0, 15)) return "the count of cycles after the end of a blit is beyond what the shifter can hold";
-    if (seen.bltx_state == 2 && (at(kBltCountDone) != 0 || at(kBltQueued) == 0)) return "BLTX says a blit is running and BLTP says it is done or has nothing queued";
+    if (currprefs.blitter_cycle_exact && seen.bltx_state == 2 && (at(kBltCountDone) != 0 || at(kBltQueued) == 0))
+        return "BLTX says a cycle-exact blit is running and BLTP says it is done or has nothing queued";
     if (!within(kBltDelayedUpdate, 0, 1) || !within(kBltLinePixel2, 0, 1)) return "a flag of the blitter is not a flag";
     if (!within(kBltDmaCount, 0, 4) || !within(kBltCycleCount, 2, 4)) return "the channel counts of the blit are beyond four channels or two skips";
     if (uint32_t(at(kBltDmaCount)) != seen.bltx_dmacount || uint32_t(at(kBltCycleCount)) != seen.bltx_cyclecount) return "the channel counts are not the ones BLTX carries";

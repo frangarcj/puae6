@@ -1020,7 +1020,7 @@ loop:
         ("DSKX with a skip position below -1", b"P6DK", "DSKX", dskx_at("skip_offset", 1), struct.pack(">i", -2), "an offset in the track is outside the buffer"),
         ("DSKX with a bit counter that DSD0 does not have", b"P6DK", "DSKX", dskx_at("bit_counter", 0), struct.pack(">i", 0xffff), "the track of a drive is not the one its buffer describes"),
         ("DSKX with the speed of another track than DSD0's", b"P6DK", "DSKX", dskx_at("track_speed", 0), struct.pack(">i", 1), "the track of a drive is not the one its buffer describes"),
-        ("BLTX running while BLTP says the blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a blit is running and BLTP says it is done or has nothing queued"),
+        ("BLTX running while BLTP says the cycle-exact blit is done", b"P6CH", "BLTX", 1, b"\2", "BLTX says a cycle-exact blit is running and BLTP says it is done or has nothing queued"),
     ]
 
     def test_every_value_that_ends_up_indexing_or_names_another_configuration_is_refused(self):
