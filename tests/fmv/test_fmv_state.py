@@ -79,9 +79,18 @@ class FmvStateTests(unittest.TestCase):
         entry = next(item for item in series if item["id"] == "0421-cd32-fmv-state-owner")
         patch = (ROOT / entry["file"]).read_bytes()
         self.assertEqual(entry["sha256"], hashlib.sha256(patch).hexdigest())
+        entry_index = series.index(entry)
         for item in entry["files"]:
+            expected = item["after_sha256"]
+            for later in series[entry_index + 1:]:
+                update = next((candidate for candidate in later["files"]
+                               if candidate["path"] == item["path"]), None)
+                if update is None:
+                    continue
+                self.assertEqual(expected, update["before_sha256"])
+                expected = update["after_sha256"]
             materialized = ROOT / "build/upstream" / item["path"]
-            self.assertEqual(item["after_sha256"], hashlib.sha256(materialized.read_bytes()).hexdigest())
+            self.assertEqual(expected, hashlib.sha256(materialized.read_bytes()).hexdigest())
         body = (ROOT / "bridge/state_fmv.cpp").read_text()
         self.assertNotRegex(body, r"uintptr_t|\bvoid\s*\*|clock_gettime|mach_absolute_time|sleep\s*\(")
         self.assertIn("p6_fmv_state_prepare", patch.decode())
