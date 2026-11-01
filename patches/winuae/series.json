@@ -1521,7 +1521,7 @@
       "title": "Invalidate pending Akiko deliveries when explicit media presence changes",
       "reason": "T66u1: keep the immutable Disc and opened unit while changing media presence, stop CDDA and discard old requests/caches/subchannels at a quiescent boundary. Normal emulated handling owns notification and IRQ timing; preserve response FIFO, CPU, clock and undocumented door bit.",
       "category": "CD media lifecycle",
-      "order": 61,
+      "order": 60,
       "symbols": [
         "p6_akiko_media_set"
       ],
@@ -1531,8 +1531,8 @@
       "files": [
         {
           "path": "akiko.cpp",
-          "before_sha256": "f89e8d54ad21c5c027a67dec7ec73800c793be3d351a2731544d8fa852492ebf",
-          "after_sha256": "44f14b04ebb9d74534560d02a380bede28626171c720d7c51a2b0565191a6db7"
+          "before_sha256": "daa411ab2753a473f72c0fdf0dd63387d87b3876d337deca1ef20250ceca04ad",
+          "after_sha256": "51412b61d488e2dd662d3a5e4139d883a663b976da79cdcb4bf62b56ff9bfd29"
         }
       ]
     },
