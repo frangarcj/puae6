@@ -47,6 +47,17 @@ SHARED_TARGETS = {
     "test_cpu_020": "p6_lifecycle_probe",
 }
 
+# Host modules added after the original parallel runner can consume a different
+# build tree or more than one target.  The parent must include every one in the
+# receipt; workers deliberately refuse to build missing targets themselves.
+HOST_PREPARATIONS = {
+    "test_cpu_backend_build": ("state-opt", True, ("p6_lifecycle_probe",)),
+    "test_cpu_late_state": ("state-opt", True, ("p6_state_probe",)),
+    "test_frestore040": ("state-opt", True, ("p6_state_probe",)),
+    "test_internal_fpu_state": ("state-opt", True, ("p6_lifecycle_probe", "p6_state_probe")),
+    "test_rtg_link": ("link-audit", False, ("p6_headless", "p6_media_probe")),
+}
+
 
 def select_modules(suite: str, requested: list[str]) -> list[str]:
     available = sorted(path.stem for path in (ROOT / f"tests/{suite}").glob("test_*.py"))
@@ -78,13 +89,19 @@ STATE_WORKER_BYTES = 1 << 30
 def preparations(suite: str, modules: list[str]) -> list[tuple[Path, list[str], bool]]:
     """(build directory, targets, optimized) to prepare before the workers start: the modules of the state suite that drive the harness share the tree P6_STATE_PROBE_BUILD
     selects, the ones that build their own probe keep build/link-audit, and the parity test needs both trees."""
-    if suite == "host":
-        return [(ROOT / "build/link-audit", targets, False)] if (targets := shared_targets(modules)) else []
     wanted: dict[Path, tuple[list[str], bool]] = {}
 
     def add(directory, optimized, targets):
         names, _ = wanted.setdefault(directory, ([], optimized))
         names.extend(t for t in targets if t not in names)
+
+    if suite == "host":
+        add(ROOT / "build/link-audit", False, shared_targets(modules))
+        for module in modules:
+            if preparation := HOST_PREPARATIONS.get(module):
+                tree, optimized, targets = preparation
+                add(ROOT / "build" / tree, optimized, targets)
+        return [(directory, targets, optimized) for directory, (targets, optimized) in wanted.items() if targets]
 
     harness = [m for m in modules if m not in STATE_OWN_TREE and m not in {"test_components", "test_envelope"}]
     if any(m not in STATE_BOTH_TREES for m in harness):

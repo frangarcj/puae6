@@ -73,6 +73,17 @@ class ParallelRunnerTests(unittest.TestCase):
                          runner.preparations("host", ["test_bridge_lifecycle", "test_bridge_memory"]))
         self.assertEqual([], runner.preparations("host", ["test_alpha"]))
 
+    def test_host_prepares_every_worker_target_in_the_right_tree(self):
+        prepared = {directory.name: (targets, optimized) for directory, targets, optimized in runner.preparations(
+            "host", ["test_bridge_lifecycle", "test_cpu_backend_build", "test_cpu_late_state",
+                     "test_frestore040", "test_internal_fpu_state", "test_rtg_link"])}
+        self.assertEqual(([
+            "p6_lifecycle_probe", "p6_headless", "p6_media_probe"
+        ], False), prepared["link-audit"])
+        self.assertEqual(([
+            "p6_lifecycle_probe", "p6_state_probe"
+        ], True), prepared["state-opt"])
+
     def prepared(self, modules, variant=None):
         with patch.dict(os.environ, {"P6_STATE_PROBE_BUILD": variant} if variant else {}):
             if not variant:
