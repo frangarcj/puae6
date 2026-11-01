@@ -148,6 +148,7 @@
       "AGA",
       "FPUEMU",
       "WITH_SOFTFLOAT",
+      "WITH_LIBMPEG2",
       "DRIVESOUND",
       "CD32",
       "CDTV",

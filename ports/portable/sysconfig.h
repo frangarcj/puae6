@@ -16,7 +16,7 @@
     defined(ACTION_REPLAY) || defined(BSDSOCKET) || defined(WITH_SLIRP) || defined(AHI) || defined(AHI_v2) || \
     defined(AVIOUTPUT) || defined(RETROPLATFORM) || defined(WITH_SPECIALMONITORS) || \
     defined(WITH_BEAMRACER) || defined(SUPPORT_THREADS) || defined(UAE_MINI) || \
-    defined(SAHF_SETO_PROFITABLE) || defined(WITH_SOFTFLOAT) || \
+    defined(SAHF_SETO_PROFITABLE) || defined(WITH_SOFTFLOAT) || defined(WITH_LIBMPEG2) || \
     defined(MSVC_LONG_DOUBLE) || defined(USE_LONG_DOUBLE) || defined(TOD_HACK)
 #error "P6 A500: excluded feature requested"
 #endif
@@ -36,6 +36,7 @@
 #define ACTION_REPLAY 1 /* T69a: private HRTMon through the original CPU/memory/custom/CIA hooks. */
 #define CDTV 1 /* T67a: private stock controller; no public profile or native state. */
 #define CD32 1 /* T66k1: real Akiko is linked; machine profile remains gated. */
+#define WITH_LIBMPEG2 1 /* Beta21 guards the already selected fixed generic-C FMV decoder with this upstream feature macro. */
 #define DRIVESOUND 1 /* T74: portable mechanical PCM, no physical drive or external sample loader. */
 /* T29a: the hard file units of the engine (uaehf.device, the UAEFS board, the trap area) are compiled; a machine has them only when its media list holds a
  * HDF (bridge/media.cpp). FILESYS, UAE_FILESYS_THREADS and SUPPORT_THREADS stay excluded above: these macros name the single-thread subset instead. */
