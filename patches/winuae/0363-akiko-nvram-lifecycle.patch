@@ -86,21 +86,22 @@ diff --git a/akiko.cpp b/akiko.cpp
  }
  
  static void akiko_nvram_write (int offset, uae_u32 v)
-@@ -2206,6 +2270,14 @@
+@@ -2204,7 +2268,15 @@
+ 	akiko_cdrom_free();
+ 	akiko_clock_reset();
  	akiko_inited = false;
- }
- 
++}
++
 +#ifdef P6_PORTABLE
 +static void akiko_session_end(void)
 +{
 +	akiko_free();
 +	akiko_nvram_free();
-+}
+ }
 +#endif
-+
+ 
  int akiko_init(void)
  {
- 	akiko_free();
 @@ -2235,7 +2307,11 @@
  		device_add_rethink(rethink_akiko);
  	}
