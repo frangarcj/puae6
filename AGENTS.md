@@ -93,7 +93,7 @@ sustituye una ejecucion dentro de Waterbox/BizHawk.
 Los SHA de plan/upstream.lock.json son la autoridad; los null son pendientes
 visibles. No usar latest/master como input de una release. No instalar paquetes,
 alterar configuracion global de Git, borrar directorios o cambiar maquinas sin
-necesidad explicita y autorizacion apropiada. No descargar ROMs comerciales.
+necesidad explicita y autorizacion apropiada.
 
 El runner del plan solo comprueba coherencia documental; NO prueba el emulador.
 Los comandos futuros de docs/06-execution.md no deben anunciarse como existentes.
