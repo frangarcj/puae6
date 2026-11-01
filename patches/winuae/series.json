@@ -442,9 +442,9 @@
     {
       "id": "0347-a4000-motherboard-cpu030",
       "file": "patches/winuae/0347-a4000-motherboard-cpu030.patch",
-      "sha256": "b8f54d4959ce70921218ff29755569744bb51c7bb5517d3835078372b853e12e",
+      "sha256": "e5e7c26e164a4732750a2d6de8feaec65c1c771424743d8892742aad47a46d72",
       "title": "Restore the real A4000 motherboard and normal no-MMU 68030",
-      "reason": "T55b enables real Fat Gary/Ramsey, physical A4000 IDE and CPU030. The explicit generator profile rejects PMMU through line-F while unrestricted upstream generation remains unchanged; only motherboard hardware is restored, PCMCIA and host services stay excluded.",
+      "reason": "T55b beta21 vertical: enable real Fat Gary/Ramsey, physical A4000 IDE and CPU030 while retaining beta21 memory behavior. The explicit generator profile rejects PMMU through line-F and unrestricted generation stays upstream-identical; PCMCIA, MMU and host services remain excluded.",
       "category": "host hooks",
       "order": 18,
       "symbols": [
@@ -459,13 +459,13 @@
       "files": [
         {
           "path": "gencpu.cpp",
-          "before_sha256": "ef9a358fb5be8390b76768a28a9ddbd56e7841de3f4510a79fc602ce97108681",
-          "after_sha256": "55bcff520d9ada2e05ecb16524c82b9024129c5179ebe5aa365075f3a0b6fae3"
+          "before_sha256": "794b0743d8f33b0347c6e0732adcd1faf7cde77b71d5e46e91712c574035789b",
+          "after_sha256": "c6d10bdf50e668ee71e78603287ce196866b01b2d6be00452c5cb4b58382f45b"
         },
         {
           "path": "newcpu.cpp",
-          "before_sha256": "a8e287b748ccdd7240e391d5aa1c446a3f093b4feb9daa5c8d29a04bae286b68",
-          "after_sha256": "3526759937af760d3a32ade6e002f4ec3fd5d73cd51ed02aca24d17ea4d5d6c3"
+          "before_sha256": "99a50f1905065f682c6abd594cea61d9ddfc3e88dc97acf6dad65912c95cc07f",
+          "after_sha256": "a731dcd94e7d65d2e0e6ecf11323f8f54b4ccb9a1972020b4f09aad8bbe9c827"
         },
         {
           "path": "gayle.cpp",
@@ -474,8 +474,8 @@
         },
         {
           "path": "memory.cpp",
-          "before_sha256": "782c3ca6996937e2f443b9cab1e9d27fa0c90cc57496e9ca9e008cfc2455317f",
-          "after_sha256": "e6d35cfd5007cce9094b647a7ff5dbbc60e81d5f2b3009aeea793bfcfe707a1f"
+          "before_sha256": "3127bd0468dc0da90a9c1dab01b97f6b5bf4567b6dce4aa60a71d4c81ca2cddf",
+          "after_sha256": "daf35a452cfd1089a1fe558d6350117e5d7de7e0b4aa4314398f4f7dd433ea0e"
         }
       ]
     },
