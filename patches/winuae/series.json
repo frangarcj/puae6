@@ -1825,9 +1825,9 @@
       "file": "patches/winuae/0403-nrg-etnf-mixed-stride.patch",
       "sha256": "deeed737b29f242ba24ad4e1e186959bc4054ea1219708f73390cb06dff78d7f",
       "title": "Read compact NRG ETNF tracks with independent physical and logical positions",
-      "reason": "T66l6: per-track libMirage a9d6a204 fragment mapping supports mixed strides with independent compact byte/sector accumulation. Keep alignment, contiguity, bounds and canonical150 gaps; do not infer ETN2 or multisession. libcdio has a stricter homogeneous-only constraint.",
+      "reason": "T95ef follows the pinned libMirage per-track fragment mapping: compact bytes and sectors accumulate independently across mixed strides while canonical150, bounds and contiguity remain explicit.",
       "category": "NRG metadata boundary",
-      "order": 72,
+      "order": 65,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1847,9 +1847,9 @@
       "file": "patches/winuae/0404-nrg-etn2-canonical-pregap.patch",
       "sha256": "3b6951ba230059b852dafb6c2b3266dc84c716b2c932cfdce99da813c9c59fc3",
       "title": "Read bounded single-session NRG ETN2 with 64-bit extents",
-      "reason": "T66l7: DiscSystem9b627578 and libMiragea9d6a204 define ETN2 64-bit byte extents, 32-bit packed sectors and shared canonical150 gaps. Preserve independent compact coordinates and old DAO/ETNF identities; multisession and public DiscSystem TAO remain separate debts.",
+      "reason": "T95eg preserves ETN2 64-bit byte extents, 32-bit packed sectors and canonical150 gaps with independent compact coordinates; multisession and providers remain outside this patch.",
       "category": "NRG metadata boundary",
-      "order": 73,
+      "order": 66,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1869,9 +1869,9 @@
       "file": "patches/winuae/0405-nrg-dao-sessions-metadata.patch",
       "sha256": "4a9931df4c661c3e98d916b02a5504e8579d33139c1e32f860b63bd897032365",
       "title": "Preserve bounded NRG DAO session metadata before enabling its provider",
-      "reason": "T66v2: pair CUE/DAO/SINF groups by ordinal following libMirage a9d6a204; preserve explicit CUE0/A2, global tracks, catalogs and raw hints. Retain single-session identities. CdNrg still rejects multisession before payload reads pending device and restore integration.",
+      "reason": "T95eh pairs CUE/DAO/SINF groups by ordinal and preserves explicit session boundaries, global tracks, catalogs and raw hints; the public provider remains disabled for multisession.",
       "category": "NRG metadata boundary",
-      "order": 74,
+      "order": 67,
       "symbols": [
         "nrg_metadata"
       ],
