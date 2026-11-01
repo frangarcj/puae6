@@ -1541,9 +1541,9 @@
       "file": "patches/winuae/0391-nrg-dao-mode2-form1.patch",
       "sha256": "79e1002d0464bc7b5ed6ec91178d12f36083267039289f4257f8a48c674d1cc0",
       "title": "Export NRG Mode02 metadata and encode Mode2 Form1 EDC/P/Q",
-      "reason": "T66l4: preserve cooked2048 payload and expose existing WinUAE EDC/P/Q through a Form1 wrapper. Header bytes12..15 are zero during ECC, then restored as required by the primary libMirage sector implementation; no Mode1 encoder or CHD dependency. TAO and multisession remain pending.",
+      "reason": "T95eb preserves cooked 2048-byte payload and exposes the existing WinUAE EDC/P/Q implementation through a Form1 wrapper, with the header zeroed only during ECC and then restored; no provider, TAO or multisession support is claimed.",
       "category": "CD media normalization",
-      "order": 62,
+      "order": 61,
       "symbols": [
         "nrg_metadata",
         "encode_l2_mode2_form1"
