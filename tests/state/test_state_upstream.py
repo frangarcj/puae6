@@ -891,6 +891,8 @@ loop:
         ("CHSL slot 3 with a pointer of no register", b"P6CH", "CHSL", 28 + 162 + 50, struct.pack(">H", 0x123), "a slot points at a register the engine has no pointer for"),
         ("CHSL with a first offset of 4", b"P6CH", "CHSL", 244, b"\4", "the first slot offset is beyond 3"),
         ("SPR3 with flag bits it never writes", b"P6CH", "SPR3", 24, b"\x08", "unknown bits in the sprite flags"),
+        ("SPR3 with fetch mode 3", b"P6CH", "SPR3", 24, b"\x06", "the sprite fetch mode is beyond 2"),
+        ("SPR3 with a different fetch mode", b"P6CH", "SPR3", 24, b"\x02", "the sprite fetch modes disagree"),
         ("AUD2 in state 6", b"P6AU", "AUD2", 0, b"\6", "the state of the channel is beyond 5"),
         ("AUD1 with an interrupt flag of 2", b"P6AU", "AUD1", 2, b"\2", "the interrupt flag is not a flag"),
         ("AUD3 without the marker bit", b"P6AU", "AUD3", 3, b"\0", "the flags of the channel are not the ones save_audio writes"),

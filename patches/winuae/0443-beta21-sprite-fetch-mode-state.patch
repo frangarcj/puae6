@@ -1,0 +1,13 @@
+diff --git a/drawing.cpp b/drawing.cpp
+index 54514236b..000000000 100644
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -8058,6 +8058,8 @@ uae_u8 *restore_custom_sprite_denise(int num, uae_u8 *src, uae_u16 pos, uae_u1
+ 
+ 	uae_u8 f = RB;
+ 	int armed = f & 1;
++	denise_sprfmode = (f >> 1) & 3;
++	denise_sprfmode64 = denise_sprfmode == 2;
+ 	s->dataa = data[0];
+ 	s->datab = datb[0];
+ 	s->dataa64 = (uae_u32(data[0]) << 16) | (data[1]);

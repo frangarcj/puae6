@@ -2839,6 +2839,30 @@
           "after_sha256": "54514236ba3c01a21516c26c2eb78248e29cbe2f840340da3b7d1ea1c64ff63c"
         }
       ]
+    },
+    {
+      "id": "0443-beta21-sprite-fetch-mode-state",
+      "file": "patches/winuae/0443-beta21-sprite-fetch-mode-state.patch",
+      "sha256": "8dcbc86bb4624090e979ac70861f5601bc68444e20e722ff86274f7c68d4bfc6",
+      "title": "Restore the global Denise sprite fetch mode",
+      "reason": "WinUAE 6.1 beta21 writes its normalized global sprite fetch mode into every SPRn state body, but restore_custom_sprite_denise reads only the armed bit. Restore the global mode and its 64-bit-data derivative so saving the restored AGA owner does not silently turn mode 2 into mode 0.",
+      "category": "state corrections",
+      "order": 112,
+      "symbols": [
+        "restore_custom_sprite_denise",
+        "denise_sprfmode",
+        "denise_sprfmode64"
+      ],
+      "test": "tests/state/test_state_a1200.py; tests/state/test_state_upstream.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "54514236ba3c01a21516c26c2eb78248e29cbe2f840340da3b7d1ea1c64ff63c",
+          "after_sha256": "a087b865032ae87d1984624b2f169b2796b7225d9aa4e4e7e94481174de24297"
+        }
+      ]
     }
   ]
 }

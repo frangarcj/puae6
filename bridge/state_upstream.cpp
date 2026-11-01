@@ -203,6 +203,8 @@ struct Seen {
     uint8_t disk_hpos;                                      // DISK: the fraction of a colour clock disk_hpos had
     uint8_t disk_dma;                                       // DISK: the DMA state (0 off, 2 read, 3 write)
     uint16_t disk_length;                                   // DISK: the words left
+    uint8_t sprite_fetch_mode;                              // SPRn: beta21 keeps one global normalized mode in all eight bodies
+    bool sprite_fetch_mode_seen;
 };
 
 struct Sub {
@@ -998,9 +1000,15 @@ const char *check_chsl(const Sub &, const Body &b, Seen &seen)
 }
 
 // SPRn: pointer u32, position u16, control u16, 8 data words, flags u8 (armed, fetch mode).
-const char *check_spr(const Sub &, const Body &b, Seen &)
+const char *check_spr(const Sub &, const Body &b, Seen &seen)
 {
-    if (b.u8(24) & 0xF8) return "unknown bits in the sprite flags";
+    const unsigned flags = b.u8(24);
+    const uint8_t fetch_mode = uint8_t(flags >> 1);
+    if (flags & 0xF8) return "unknown bits in the sprite flags";
+    if (fetch_mode > 2) return "the sprite fetch mode is beyond 2";
+    if (seen.sprite_fetch_mode_seen && seen.sprite_fetch_mode != fetch_mode) return "the sprite fetch modes disagree";
+    seen.sprite_fetch_mode = fetch_mode;
+    seen.sprite_fetch_mode_seen = true;
     return nullptr;
 }
 
