@@ -36,7 +36,7 @@ public static class P6
 	public const int RenderDriveVolumeShift = 8;
 	public const int RenderCdAudioVolumeShift = 16;
 	public const uint RenderCdAudioVolumeValid = 1u << 23;
-	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5, RegionNvram = 6;
+	public const uint RegionChipRam = 1, RegionSlowRam = 2, RegionRom = 3, RegionFastRam = 4, RegionZ3FastRam = 5, RegionNvram = 6, RegionMotherboardFastRam = 7;
 	public const int Cd32NvramBytes = 1024;
 	public const uint MemoryNone = uint.MaxValue;
 	public const byte FloppyDrivesNone = byte.MaxValue;           // ABI zero is the historical two-drive profile; 255 explicitly disconnects DF0..DF3
@@ -78,6 +78,9 @@ public unsafe struct P6Config
 	public byte RtgMemory;                                       // byte 69: none=0, one bounded UAE Z3 board with 4MiB=1
 	public byte Z3Memory;                                        // byte 70: none=0, 16MiB=1, 1/2/4/8MiB=2..5, 32/64/128/256/512MiB=6..10
 	public byte CdController;                                    // byte 71: Auto/None/CD32/IDE; zero keeps the historical machine profile
+	public byte ChipsetCompatible, Chipset;                      // T105b: additive tail; zero keeps the complete profile
+	public byte MotherboardFastRam;                              // T105d: A4000 Ramsey low RAM in MiB: 0/1/2/4/8/16/32/64
+	public fixed byte ReservedTail[5];                           // must remain zero
 }
 
 [StructLayout(LayoutKind.Sequential)]

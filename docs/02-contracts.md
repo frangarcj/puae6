@@ -4,14 +4,21 @@ Son especificaciones A IMPLEMENTAR. Los nombres p6_* son propuestos, no funcione
 existentes de WinUAE. T04 congela un header y tests antes de escribir el bridge.
 Reglas libretro verificadas: S4. Reglas del wrapper Waterbox verificadas: S5-S7.
 
+Desde T105b, `p6_config` mide 80 bytes. Los offsets 0..71 forman el prefijo ABI-v1
+historico y no se han movido; la cola aditiva contiene `chipset_compatible` en el
+offset 72, `chipset` en el 73, `motherboard_fast_ram` en el 74 y cinco bytes
+reservados a cero. El tamano declarado
+se valida antes de leer esa cola, por lo que una mezcla de headers/binarios se
+rechaza como ABI incompatible en vez de interpretar memoria ajena.
+
 ## A4000/030 (T55b)
 
 `P6_MACHINE_A4030 = 11` selecciona el preset A4000 real de upstream (modelo 6,
 configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
 32 bits. El ID9 corresponde al perfil stock CD32, expuesto por el esquema comun
 y la carga de CD directo (T66r3). El ID10 sigue
-reservado y rechazado. El struct ABI sigue en
-72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
+reservado y rechazado. El prefijo ABI historico sigue en
+72 bytes; la estructura completa mide 80 desde T105b. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
 y no ofrece traduccion de direcciones: el 68030 conserva su PMMU integrada como
 superficie arquitectonica y admite PMOVE/PTEST/PLOAD/PFLUSH sobre TC, SRP, CRP,
 TT0, TT1 y MMUSR, pero esos registros no seleccionan un backend de tablas. El
@@ -22,7 +29,14 @@ Los niveles Compatible/Exact 030 requieren completar sus caches y actualmente
 devuelven UNSUPPORTED.
 
 La memoria propia es 2 MiB Chip y 8 MiB Fast Zorro II, como el A4030 de PUAE5;
-no se habilita RAM de placa. Zorro III ofrece1/2/4/8/16/32/64/128/256/512MiB
+los presets conservan deshabilitada la RAM de placa. El selector separado de RAM
+de placa ofrece 1/2/4/8/16/32/64 MiB en `mbresmem_low`: el banco fijo de Ramsey
+termina en `$08000000`, no participa en Autoconfig y solo se admite en A4030/A4040.
+Su capacidad, bytes y latches Gary/Ramsey forman parte del estado; la capacidad
+deriva `config_hash` en `p6/config/motherboard-fast/v1`, se publica como
+`P6_REGION_MOTHERBOARD_FAST_RAM` con su direccion de bus y añade el doble de su
+capacidad al presupuesto mmap de Waterbox. Puede coexistir con Z2 y Z3.
+Zorro III ofrece1/2/4/8/16/32/64/128/256/512MiB
 por API, libretro, headless y BizHawk. El byte70 conserva None=0 yMB16=1;
 los valores2..10 representan1/2/4/8/32/64/128/256/512MiB. Solo A4030/Normal,
 requiere reinicio y tiene identidad por tamaño. La placa se configura por el bus
@@ -55,7 +69,8 @@ sin MMU ni caches de instrucciones/datos: CPU0/5 selecciona68040 y CPU7
 selecciona68060. FPU0 conserva su significado de ninguna; FPU68040/68060
 requiere la CPU correspondiente y usa SoftFloat estricto, con instrucciones
 no implementadas emuladas por el backend. El reloj Auto conserva el multiplicador2
-del preset; se puede pedir otro multiplicador admitido. La ABI sigue en72bytes.
+del preset; se puede pedir otro multiplicador admitido. El prefijo ABI conserva
+sus 72 bytes y la estructura completa mide 80 desde T105b.
 
 La API nativa, headless, libretro y BizHawk ofrecen esta vertical. Libretro añade
 `a4040_normal` y `a4060_normal`, con CPU Normal y FPU interna coincidente; la
@@ -602,6 +617,36 @@ overrides con `via: CP_A2000`). `cs_ciaatod` (50 o 60 Hz) depende del estandar, 
 Memoria: A500 OG, A2000 OG, A500+ y A2000 siguen las reglas de T49 de su Agnus (OCS: Chip 512 KiB o 1 MiB; ECS: tambien 2 MiB; Slow 512 KiB a 1,75 MiB; una placa Fast Zorro II); el A1000 solo admite la
 suya (`P6_ERROR_UNSUPPORTED` "the A1000 has the memory of its preset"). FPU: solo el A1200.
 
+### Compatibilidad y generacion del chipset (T105b)
+
+El perfil de maquina sigue siendo la fuente de la placa, CPU, dispositivos y
+valores por defecto. Encima se pueden aplicar dos overrides de reinicio: primero
+`chipset_compatible` (`Auto`, A500, A600, A1200, A4000, CD32 o CDTV), que ejecuta
+una tabla `built_in_chipset_prefs` validada, y despues `chipset` (`Auto`, OCS,
+ECS Agnus, ECS Denise, ECS o AGA), que fija exclusivamente la generacion de
+Agnus/Denise. `Auto` conserva el perfil. Una seleccion explicita que resuelve al
+mismo resultado que el perfil tambien conserva su `config_hash`, estado y futuro
+byte a byte; solo un resultado efectivo distinto deriva identidad en el dominio
+`p6/config/chipset/v1`.
+
+Las tablas A500/A600 solo se admiten sobre las placas 68000 genericas soportadas;
+A600 no admite la trampilla Slow de esas placas. A1200, A4000, CD32 y CDTV deben
+coincidir con su familia de placa, y A1000 no acepta overrides. AGA exige una CPU
+68020 o posterior; CD32 solo admite su AGA y CDTV su ECS Agnus. La validacion de
+Chip RAM usa el chipset ya resuelto, de modo que OCS limita tambien un `Auto` del
+perfil a 1 MiB. Toda contradiccion falla antes de crear la sesion.
+
+Una tabla compatible nunca concede IDE, PCMCIA, CD, RTC ni otro dispositivo que
+el perfil de placa no posea. Tras aplicarla se borra `cs_compatible`, para que un
+`fixup_prefs` posterior no reactive sus dispositivos; el override de generacion
+se aplica despues y gana de forma independiente al orden de las propiedades. Las
+superficies son `puae6_chipset_compatible`/`puae6_chipset` en libretro,
+`--chipset-compatible`/`--chipset` en headless y `ChipsetCompatible`/`Chipset` en
+BizHawk. El selector virtual de perfil no se serializa ni deja de inferirse: elegir
+un perfil restablece ambos overrides a `Auto`, y una fila distinta queda marcada
+como override. STATE01 y WB03 prueban identidad canonica y restauracion en otro
+proceso y sandbox.
+
 Decision del A1000: el Kickstart llega como imagen ROM de 256 KiB (1.3 probado; 1.2 y 1.1 los busca el nucleo libretro pero NO se probaron). El A1000 real arranca con un ROM de arranque de 8 KiB y el
 Kickstart en un disco que se carga en la RAM de solo-escritura (WOM): el cargador portable solo acepta 256 o 512 KiB (y la imagen de disco `KICK`), asi que ese camino no existe aqui y `cs_a1000ram`
 queda como bandera sin efecto. Declarado, no emulado.
@@ -625,10 +670,17 @@ quien tenga el 2.04 y el 3.1 los elige en el gestor de firmware de la entrada Am
 
 ### Memoria configurable (T49)
 
-`p6_config` lleva tres tamanos en KiB (`chip_kib`, `slow_kib`, `fast_kib`; ocupan la mitad de lo que era `reserved`, el struct sigue midiendo 72 bytes): 0 es la memoria propia de la
-maquina, `P6_MEMORY_NONE` (`0xFFFFFFFF`) es ninguna (Slow y Fast), y los valores se validan por maquina en `p6_init` (`P6_ERROR_UNSUPPORTED` con la razon): Chip 512 KiB o 1 MiB en
-el A500 (Agnus OCS) y ademas 2 MiB en el A600 y el A1200 (no se ofrece 1,5 MiB: el motor lo asigna como 2 MiB con la mitad alta inalcanzable); Slow 512 KiB, 1 MiB o 1,5 MiB (y 1,75 MiB
-salvo en el A1200, cuyo AGA mapea 1,5 MiB como maximo); Fast una sola placa Zorro II de 1, 2, 4 u 8 MiB. Zorro III y una segunda placa quedan fuera (T55).
+`p6_config` lleva tres tamanos en KiB (`chip_kib`, `slow_kib`, `fast_kib`; ocupan
+la mitad de lo que era `reserved` dentro del prefijo historico de 72 bytes): 0 es
+la memoria propia de la maquina, `P6_MEMORY_NONE` (`0xFFFFFFFF`) es ninguna (Slow
+y Fast), y los valores se validan por maquina en `p6_init`
+(`P6_ERROR_UNSUPPORTED` con la razon). Chip ofrece cada capacidad entre 512 KiB y
+8 MiB en pasos de 512 KiB cuando el Agnus resuelto puede direccionarla; A1000,
+CDTV y CD32 conservan su capacidad fija, y Chip por encima de 2 MiB no puede
+solaparse con Fast Zorro II. Las capacidades no potencia de dos solo mapean y
+serializan sus bytes reales. Slow ofrece 512 KiB, 1 MiB, 1,5 MiB y 1,75 MiB salvo
+en AGA, cuyo maximo es 1,5 MiB; Fast es una sola placa Zorro II de 1, 2, 4 u
+8 MiB. Zorro III usa su selector separado (T55).
 
 La placa de Fast RAM es una tarjeta autoconfig de verdad: el motor la presenta en `$E80000` al terminar el reset (`expamem_reset`), el Kickstart (1.3, 2.05 y 3.1 probados) la configura
 escribiendo su base (`$200000` para 8 MiB) y anade su memoria a la lista del sistema. Sin placa no hay cadena autoconfig ni ventana mapeada: las tres maquinas de serie siguen
@@ -636,13 +688,45 @@ siendo, byte a byte, las de antes (los parches 0110 a 0113 solo actuan con `fast
 (`P6_REGION_FAST_RAM`, big endian, el byte n de la region es la direccion `$200000 + n`). Su contenido entra en el estado nativo (P6RM, ver ADR 0009 punto 10): la cota crece en
 `4 + fast + 278` bytes, y la memoria configurada forma parte de `config_hash` cuando no es la del preset (un estado o una pelicula de otra memoria es INCOMPATIBLE).
 
+T105c no convierte el entero 0..512 MiB de la referencia UAE en un rango falso.
+BizHawk ofrece una propiedad virtual unica que enumera cada placa realmente
+representable: Zorro II 1/2/4/8 MiB y Zorro III
+1/2/4/8/16/32/64/128/256/512 MiB, ademas de Profile y None. La propiedad resuelve
+los campos concretos `FastMemory`/`Z3Memory`, que siguen serializados para conservar
+configuraciones y peliculas anteriores; Z2 y Z3 nunca se intercambian ni se
+redondean. Fast8 continua resolviendo a Z2 de 8 MiB. Un legado con ambas placas se
+muestra como Custom sin mutarlo. El motor, estado, regiones, Autoconfig y presupuesto
+Waterbox siguen usando las opciones tipadas ya probadas; libretro y headless las
+mantienen separadas para que el bus permanezca explicito.
+
+T105d añade `p6_config.motherboard_fast_ram` en el offset 74 sin cambiar los 80
+bytes del ABI: el byte es el numero de MiB y solo admite 0/1/2/4/8/16/32/64.
+Cero conserva exactamente los presets A4030/A4040/A4060 anteriores. A diferencia
+de Z2/Z3, este banco no es una placa: WinUAE lo asigna como `mbresmem_low` y su
+base es `$08000000 - capacidad`. P6RM guarda tamaño y todos sus bytes además de
+los cuatro latches Gary/Ramsey ya existentes. La región y el dominio Waterbox se
+llaman `Motherboard Fast RAM`; su dirección fija se anuncia en los flags de bus.
+
+T105e hace que el importador libretro `.uae` sea una transaccion sobre
+`Settings`: analiza y resuelve el documento completo en una copia, aplica primero
+el preset y despues las claves, valida la combinacion final y solo entonces
+publica opciones y catalogo de discos. En error devuelve las opciones de entrada,
+ningun disco y ninguna aplicacion parcial, conservando unicamente los diagnosticos
+acotados. La allowlist incluye todos los selectores de hardware publicos de
+libretro con contrato de identidad/estado, incluidos compatibilidad/chipset,
+Chip/Slow/Z2/Z3, `a3000mem_size` como RAM baja de placa A4000 y cartucho. Las
+claves crudas que coinciden con el perfil se canonicalizan; las diferencias
+representables usan el mismo override que el menu. `mbresmem_size` (banco alto),
+placas adicionales, RTG, PPC, MMU, JIT, red, plugins, comandos y rutas host siguen
+fuera del contrato y rechazan el fichero entero.
+
 Cotas de estado medidas (micro-ROM, tras T15n: BEAM de 80 a 89 palabras, ADR 0009 punto 14, T62: DSKX de 41 a 42 palabras, +4 bytes en todas, punto 15, T57a: DSKX de 42 a 46 palabras, +16 bytes, punto 16, y T57b: DSKX a 62 palabras, +64 bytes, y la cota de DSDn de 4 a 6 bytes por palabra del buffer, +131 072 bytes, punto 17): A500 3 739 773, A600 3 739 742, A1200 6 021 976; A500 OG 3 215 454, A500+ 3 739 773, A1000 3 215 470, A2000 OG 3 739 789, A2000 3 739 789
 (T50: sin Slow ni reloj el A500 OG y el A1000; +16 de CTOD en el A1000 y los A2000); A500 con 2 MiB de Fast 5 837 207; A600 con 2 MiB de Chip y 8 MiB de Fast 13 177 208;
 A1200 con 8 MiB de Fast 14 410 866; A1200 con 8 MiB de Fast y 1,5 MiB de Slow 16 508 018; A1200 con FPU 68882 6 022 086.
 
 ### FPU 68881/68882 (T54)
 
-`p6_config.fpu_model` (los 4 bytes que eran `reserved32`, offset 52; una union anonima conserva el nombre antiguo y el struct sigue midiendo 72 bytes): 0 sin FPU (por defecto), 68881
+`p6_config.fpu_model` (los 4 bytes que eran `reserved32`, offset 52; una union anonima conserva el nombre antiguo y el prefijo historico sigue midiendo 72 bytes): 0 sin FPU (por defecto), 68881
 o 68882. Solo el A1200 (su 68020 tiene interfaz de coprocesador): en un 68000 o con otro valor `p6_init` falla con `P6_ERROR_UNSUPPORTED` y la razon. La FPU interna del 030/040 llega con
 esas CPUs (T55). Se calcula con `fpp.cpp` + `fpp_softfloat.cpp` + `softfloat/*` (nunca `fpp_native`, x87 ni `long double`): los resultados son bit a bit los mismos en cualquier host e
 ISA (corpus de `tests/host/fpu_corpus.py` en las cinco filas de la matriz, `tests/host/fpu_matrix.golden.json`). Una maquina sin FPU lanza la excepcion de linea F (vector 11) con
@@ -655,7 +739,7 @@ pelicula solo cuando no es `None`).
 
 ### CPU 68010 y reloj de la CPU (T52)
 
-`p6_config.cpu_model` (un byte, offset 63: el octavo de lo que era `reserved[0]`; `reserved8` desaparece como campo y el struct sigue midiendo 72 bytes): **cero es la CPU de la maquina** (68000 en el A500,
+`p6_config.cpu_model` (un byte, offset 63: el octavo de lo que era `reserved[0]`; `reserved8` desaparece como campo y el prefijo historico sigue midiendo 72 bytes): **cero es la CPU de la maquina** (68000 en el A500,
 A500 OG, A500+, A600, A1000, A2000 OG y A2000; 68EC020 en el A1200), 1 = 68000, 2 = 68010, 3 = 68020 (`1 + (modelo - 68000) / 10`). Decision: **la 68010 es opcional en las maquinas de 68000**, incluido el A600
 (el mismo zocalo; la 68010 es la mejora de siempre de una maquina de 68000) y **el A1200 solo tiene su 68EC020 soldada**: es la unica CPU para la que estan hechos su preset AGA, el Kickstart 3.1 (que el motor
 rechaza en una 68000, parche 0290) y el bus de 24 bits, de modo que `cpu_model` 1 o 2 en el A1200, o un 68020 en una maquina de 68000, o un valor mayor de 3, dan `P6_ERROR_UNSUPPORTED` con la razon antes de
@@ -691,7 +775,7 @@ settings `CpuModel` y `CpuMultiplier` de BizHawk (en la identidad del estado y d
 
 ### Niveles de precision de CPU (T53)
 
-`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66; `p6_config` sigue midiendo 72 bytes. El byte 67 es `floppy_drives` (T61) y `collision_level` ocupa el byte 68 (T77a) y `reserved7[3]` empieza en 69. Valores: 0 exact (defecto sin cambios),
+`p6_config.cpu_compatibility` ocupa el byte antes reservado del offset 66, dentro del prefijo historico de 72 bytes. El byte 67 es `floppy_drives` (T61) y `collision_level` ocupa el byte 68 (T77a) y `reserved7[3]` empieza en 69. Valores: 0 exact (defecto sin cambios),
 1 compatible (prefetch), 2 normal (ciclos por instruccion). Son opciones de reinicio, con el reloj emulado y el mismo `p6_run_frame`; `m68k_speed = 0`, nunca velocidad ligada al host.
 Los tres niveles estan disponibles para las CPUs soportadas 68000, 68010 y 68EC020 en sus maquinas permitidas. Se eligen mediante libretro `puae6_cpu_compatibility`, headless `--cpu-compatibility exact|compatible|normal` y el sync setting `CpuCompatibility` (`Exact`, `Compatible`, `Normal`) de BizHawk. Cambiar la opcion requiere recargar el contenido.
 
@@ -703,7 +787,7 @@ El blitter sigue la condicion upstream: sin CPU memory CE usa el scheduler norma
 ### Opciones de audio de Paula (T73)
 
 `p6_config.sound_separation`, `sound_interpolation`, `sound_filter` y `sound_filter_type` (un byte cada uno, offsets 56 a 59: son los 4 primeros bytes de lo que era `reserved[0]`; los otros 4 pasan
-a `reserved8[4]` (offset 60) y `reserved[1]` a `reserved1` (offset 64), a cero; el struct sigue midiendo 72 bytes y nada se mueve). **Cero en los cuatro es el perfil** (separacion 70 %, interpolacion `anti`, filtro
+a `reserved8[4]` (offset 60) y `reserved[1]` a `reserved1` (offset 64), a cero; el prefijo historico sigue midiendo 72 bytes y nada se mueve). **Cero en los cuatro es el perfil** (separacion 70 %, interpolacion `anti`, filtro
 emulado, tipo `auto` = modelo A500 en A500/A600 y modelo A1200 en A1200), asi que una fuente anterior a las opciones no cambia. Resto de valores: separacion `1 + porcentaje/10` (1 = 0 %, mono; 11 = 100 %),
 interpolacion `1 + sound_interpol` (1 none, 2 anti, 4 rh, 5 crux; **3, sinc, es `P6_ERROR_UNSUPPORTED`**: su cola no esta en el estado nativo y el parche 0099 la rechaza), filtro `1 + sound_filter`
 (1 off, 2 emulado, 3 siempre activo) y tipo 1 = A500, 2 = A1200. Fuera de rango, `P6_ERROR_UNSUPPORTED` con la razon.
@@ -730,7 +814,7 @@ compara el PCM de las tres superficies para cada valor y combinacion.
 
 ### Velocidad de disquete (T62)
 
-`p6_config.floppy_speed` (un byte, offset 60: el quinto de lo que era `reserved[0]`; `reserved8` queda con 3 bytes desde el offset 61, a cero, y el struct sigue midiendo 72 bytes). Es el `floppy_speed` de
+`p6_config.floppy_speed` (un byte, offset 60: el quinto de lo que era `reserved[0]`; `reserved8` queda con 3 bytes desde el offset 61, a cero, y el prefijo historico sigue midiendo 72 bytes). Es el `floppy_speed` de
 upstream, con los valores de PUAE5 (`puae_floppy_speed`: 100, 200, 400, 800 y turbo = 0): **cero es el perfil** (la unidad real, 100 %), 1 = 100 % nombrado, 2 = 200 %, 3 = 400 %, 4 = 800 %, 5 = turbo;
 mayor de 5, `P6_ERROR_UNSUPPORTED` con la razon. Es una **opcion de reinicio**, no de presentacion: cambia cuando termina cada transferencia del DMA de disco (a 200/400/800 % el controlador lee la pista
 mas deprisa y vacia el FIFO de golpe: `get_floppy_speed`, `doreaddma`; en turbo `DSKLEN_2` mueve la transferencia entera de una vez y espera dos lineas, `linecounter`, antes de la interrupcion DSKBLK),
@@ -749,7 +833,7 @@ propias lecturas y las protecciones de copia pueden no funcionar por encima del 
 ### Resolucion y modo de linea (T72)
 
 `p6_config.video_resolution` y `p6_config.video_line_mode` (un byte cada uno, offsets 61 y 62: el sexto y el septimo de lo que era `reserved[0]`; `reserved8` queda con 1 byte en el offset 63, a cero, y el struct
-sigue midiendo 72 bytes). Son el `gfx_resolution` y el `gfx_vresolution` de upstream, con los valores de PUAE5 (`puae_video_resolution` lores / hires / superhires, `puae_video_vresolution` single / double):
+conserva el prefijo historico de 72 bytes). Son el `gfx_resolution` y el `gfx_vresolution` de upstream, con los valores de PUAE5 (`puae_video_resolution` lores / hires / superhires, `puae_video_vresolution` single / double):
 **cero es el perfil** (hires y doble linea), `video_resolution` 1 = lores, 2 = hires nombrado, 3 = super-hires, `video_line_mode` 1 = simple, 2 = doble nombrado; mayor de 3 / 2, `P6_ERROR_UNSUPPORTED`. Son
 **opciones de reinicio del motor** (ADR 0006, "Resolucion y modo de linea"): cambian lo que el dibujante pinta, el buffer anunciado y los pixeles historia del estado. `config_hash`: entran en los bits 28 a 30 de
 la palabra de flags (28-29 la resolucion fuera de hires: 1 lores, 2 super-hires; 30 la linea simple), **solo fuera del perfil**, sin chocar con la memoria (8-22, 31), la FPU (23-24) ni la velocidad de disquete
@@ -768,10 +852,10 @@ del estado y de la pelicula solo fuera del perfil: `;resolution=Lores;linemode=S
 de la imagen en cualquier raster, y el aspecto forzado PAL / NTSC lleva tambien el factor del raster. AV01: `tests/step/test_resolution.py` (cada raster en PAL y NTSC con programas de Copper y plano de bits,
 entrelazado, haces ECS y AGA; baselines propios en `tests/step/resolution-baselines.json`, y el raster del perfil contra los dorados de siempre) y `tests/libretro-host/test_resolution.py`.
 
-Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` (Auto, KB512, MB1, MB2), `puae6_slow_size` (Auto, None, KB512, MB1, MB1_5, MB1_75) y
+Opciones (todas de reinicio, del esquema `config/schema/options.json`): libretro `puae6_chip_size` ofrece `Auto` y las dieciseis capacidades entre `KB512` y `MB8` en pasos de 512 KiB (`MB1_5`, `MB2_5`, etc.); `puae6_slow_size` ofrece Auto, None, KB512, MB1, MB1_5 y MB1_75, y
 `puae6_fast_size` (None, MB1, MB2, MB4, MB8), headless `--chip KIB`, `--slow KIB|none` y `--fast KIB`, y los sync settings de BizHawk `ChipMemory`, `SlowMemory` y `FastMemory` (el heap mmap
 de Waterbox crece con la memoria pedida por encima de la propia de la maquina, ver `manifests/waterbox-memory.json`). Un tamano que la maquina no puede tener hace fallar la carga con la razon
-del puente; uno que el esquema no tiene, nombrando la clave y el valor. Cambiar una de ellas con la maquina en marcha solo se avisa y se aplica al volver a cargar (la cota de estado no se mueve).
+del puente; uno que el esquema no tiene, nombrando la clave y el valor. OCS se limita a 1 MiB; A1000, CDTV y CD32 conservan su capacidad fija. Una Chip RAM mayor de 2 MiB no puede coexistir con Fast RAM Zorro II porque sus rangos se solapan (Zorro III es independiente). El motor reserva la siguiente potencia de dos para alojar bancos no potencia de dos, pero solo mapea, publica y serializa la capacidad exacta: 2,5 MiB no aliasa el hueco reservado. Hasta 2 MiB se conservan los hashes historicos; por encima, `config_hash` deriva el tamano exacto en el dominio `p6/config/extended-chip/v1`, sin ocupar los bits de identidad FPU. Cambiar una opcion con la maquina en marcha solo se avisa y se aplica al volver a cargar (la cota de estado no se mueve).
 
 Presets publicados junto a los de serie (`config/schema/options.json`, `presets`): `a1200_fast8` (el A1200 de PUAE5: A1200 con 8 MiB de Fast) y `a600_puae5` (A600 con 2 MiB de Chip y
 8 MiB de Fast; el A600 de PUAE5 lleva ademas Gayle y el Kickstart 3.1 de su modelo, que este no: corre el Kickstart que se le da, y el 2.05 es el probado). Son combinaciones de
@@ -860,7 +944,7 @@ esas pruebas quedan BLOCKED; no se copia ni se calcula el hash de ninguno.
 
 ### Selector nativo de controlador CD (T84e1)
 
-`p6_config.cd_controller` consume el byte 71 antes llamado `reserved8[0]`; la union conserva ese nombre para compatibilidad de fuentes y `p6_config` sigue midiendo 72 bytes. Los valores son `AUTO` (0), `NONE` (1),
+`p6_config.cd_controller` consume el byte 71 antes llamado `reserved8[0]`; la union conserva ese nombre para compatibilidad de fuentes y cierra el prefijo historico de 72 bytes. Los valores son `AUTO` (0), `NONE` (1),
 `CD32` integrado (2), `CDTV` integrado (3) e `IDE` (4). `AUTO` resuelve exactamente el perfil historico: CD32 integrado en la placa CD32, CDTV integrado en la placa CDTV y ningun controlador CD en el resto. La consulta unica
 `p6_bridge::resolve_cd_controller` entrega siempre esa topologia concreta antes de tocar el motor. CD32/CDTV integrados solo se aceptan en su placa; IDE solo en A600/A1200/A4030/A4040; cualquier valor o combinacion imposible
 falla en `p6_init`, antes de copiar la configuracion a la sesion, con un motivo y sin fallback.
@@ -1533,7 +1617,7 @@ Volumenes en el nucleo BizHawk/Waterbox (T64b, `integration/bizhawk/core/Puae6/V
 ## Regiones de memoria
 
 Implementado (T20a): `p6_memory_regions` (capacidad `P6_CAP_MEMORY_REGIONS`) devuelve vistas de la memoria que el motor asigno, no copias: Chip RAM,
-Slow RAM y la ROM con su tamano real (el perfil A500 no tiene Fast RAM y una RAM que la maquina no tiene no se informa), con los bytes en el orden
+Slow RAM, Zorro II/Zorro III, RAM de placa A4000 y la ROM con su tamano real (una RAM que la maquina no tiene no se informa), con los bytes en el orden
 del 68000 (big endian) y el offset n de una region es el byte n de esa memoria. Solo la RAM lleva `P6_REGION_WRITABLE`. Una escritura del host es una
 accion externa que la maquina no hizo: quien graba una pelicula la trata como entrada. Los punteros valen hasta la siguiente llamada que cambie la
 maquina (una unidad, un reset, un unload); el motor libera y reasigna su RAM en `memory_reset`, asi que un puntero guardado puede quedar colgando.
@@ -1698,7 +1782,7 @@ restore, sandbox nuevo e identidad de pelicula.
 
 ### Niveles de colisiones (T77a)
 
-`p6_config.collision_level` ocupa el byte 68; el contrato conserva 72 bytes.
+`p6_config.collision_level` ocupa el byte 68 del prefijo historico de 72 bytes.
 0 es Auto (Full), 1 None, 2 Sprites, 3 Sprites+Playfields y 4 Full.
 El motor recibe respectivamente 3, 0, 1, 2 y 3: Auto mantiene todas las colisiones
 del perfil anterior. Los niveles reducidos alteran CLXDAT y pueden romper juegos.

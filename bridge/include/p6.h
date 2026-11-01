@@ -72,7 +72,7 @@ typedef struct p6_config {
     uint32_t flags;             /* P6_CONFIG_*; any other bit is P6_ERROR_BAD_ARGUMENT. */
     uint64_t random_seed;
     int64_t rtc_epoch_seconds;  /* UTC epoch; never read from host clock. */
-    uint32_t chip_kib;          /* Chip RAM: 0 = the machine's own, else 512, 1024, 1536 or 2048 (A500: 512 or 1024). */
+    uint32_t chip_kib;          /* Chip RAM: 0 = the machine's own, else 512..8192 in 512 KiB steps (OCS: at most 1024; fixed CD/A1000 profiles reject overrides). */
     uint32_t slow_kib;          /* Slow RAM at $C00000: 0 = the machine's own, P6_MEMORY_NONE = none, else 512, 1024, 1536 or 1792. */
     uint32_t fast_kib;          /* Zorro II Fast RAM: 0 = the machine's own (A4030/A4040: 8192 KiB; others: none), P6_MEMORY_NONE = none, else 1024, 2048, 4096 or 8192. */
     union {
@@ -136,6 +136,11 @@ typedef struct p6_config {
         uint8_t cd_controller;
         uint8_t reserved8[1];       /* Source-compatible spelling of this byte before T84e1; nonzero values now select a CD topology. */
     };
+    /* T105b: additive ABI-v1 tail. Zero keeps the complete machine profile. The bridge applies the selected compatibility table first and the validated chipset override second. */
+    uint8_t chipset_compatible;     /* P6_CHIPSET_COMPATIBLE_*: Auto/A500/A600/A1200/A4000/CD32/CDTV. */
+    uint8_t chipset;                /* P6_CHIPSET_*: Auto/OCS/ECS Agnus/ECS Denise/ECS/AGA. */
+    uint8_t motherboard_fast_ram;   /* T105d: A4000 Ramsey low RAM in MiB: 0, 1, 2, 4, 8, 16, 32 or 64. Separate from Zorro boards. */
+    uint8_t reserved_tail[5];       /* Must be zero. Keeps p6_config naturally aligned; future additions remain size-negotiated. */
 } p6_config;
 #define P6_CPU_EXACT 0u
 #define P6_CPU_COMPATIBLE 1u
@@ -143,6 +148,19 @@ typedef struct p6_config {
 #define P6_HDF_CONTROLLER_UAE 0u
 #define P6_HDF_CONTROLLER_IDE 1u
 #define P6_CD_CONTROLLER_AUTO UINT8_C(0)
+#define P6_CHIPSET_COMPATIBLE_AUTO UINT8_C(0)
+#define P6_CHIPSET_COMPATIBLE_A500 UINT8_C(1)
+#define P6_CHIPSET_COMPATIBLE_A600 UINT8_C(2)
+#define P6_CHIPSET_COMPATIBLE_A1200 UINT8_C(3)
+#define P6_CHIPSET_COMPATIBLE_A4000 UINT8_C(4)
+#define P6_CHIPSET_COMPATIBLE_CD32 UINT8_C(5)
+#define P6_CHIPSET_COMPATIBLE_CDTV UINT8_C(6)
+#define P6_CHIPSET_AUTO UINT8_C(0)
+#define P6_CHIPSET_OCS UINT8_C(1)
+#define P6_CHIPSET_ECS_AGNUS UINT8_C(2)
+#define P6_CHIPSET_ECS_DENISE UINT8_C(3)
+#define P6_CHIPSET_ECS UINT8_C(4)
+#define P6_CHIPSET_AGA UINT8_C(5)
 #define P6_CD_CONTROLLER_NONE UINT8_C(1)
 #define P6_CD_CONTROLLER_CD32 UINT8_C(2)
 #define P6_CD_CONTROLLER_CDTV UINT8_C(3)
@@ -164,7 +182,8 @@ typedef struct p6_config {
 #define P6_OVERLAY_SECTORS UINT32_C(3520)    /* 512-byte sectors: two disks' worth */
 #define P6_MEMORY_NONE UINT32_C(0xFFFFFFFF)
 /* The flags word of config_hash carries p6_config.flags in bits 0 to 7 (the defined P6_CONFIG_* flags; any other bit is refused) and, when the memory is not the preset's,
- * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, chip_kib/64 at 17), so the two never collide.
+ * the sizes above them (bridge/config.cpp identity_flags: bit 31, fast_kib/1024 at bit 8, slow_kib/64 at 12, Chip RAM through 2 MiB/64 at 17), so the two never collide.
+ * Larger Chip RAM derives that hash with its exact KiB value (domain p6/config/extended-chip/v1), leaving bits 23 and 24 exclusively for FPU.
  * The floppy speed (T62) takes bits 25 to 27 of it: 0 for the real drive speed, whether the config says 0 or 1, else 1 = 200 %, 2 = 400 %, 3 = 800 %, 4 = turbo.
  * The raster (T72) takes bits 28 to 30: 28-29 the resolution off hires (1 = lores, 2 = super-hires) and 30 set for the single line mode; the profile's own raster, however it is spelled, adds nothing.
  * Paula's output options (sound_*) are not in that word: when they differ from the profile's setting for the machine, config_hash is derived from the one above and an audio word
@@ -363,7 +382,7 @@ typedef struct p6_frame {
  * cross-build interchange format. Region data is borrowed until next mutation.
  *
  * Memory regions (T20a) are the memory as the emulated CPU sees it, in the order of the 68000: bytes are in big-endian
- * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM, Fast RAM and the ROM, each
+ * order and offset n of a region is byte n of that memory. The profile reports Chip RAM, Slow RAM, Zorro RAM, A4000 motherboard RAM and the ROM, each
  * with its real size; a RAM that the machine does not have is not reported. RAM and the byte-indexed serial EEPROM (P6_REGION_NVRAM) carry P6_REGION_WRITABLE: the
  * ROM is read-only. A host write is an external action that the emulated machine did not do, so a caller that records
  * a replay has to treat it as input. The pointers are valid until the next call that changes the machine (a
@@ -385,8 +404,9 @@ typedef struct p6_memory_region {
 #define P6_REGION_FAST_RAM UINT32_C(4)   /* Zorro II Fast RAM (T49): present only when p6_config.fast_kib asked for it, and after the unit that ran its autoconfig reset */
 #define P6_REGION_Z3_FAST_RAM UINT32_C(5) /* Zorro III backing RAM, when configured; guest visibility follows autoconfig. */
 #define P6_REGION_NVRAM UINT32_C(6) /* CD32 24C08 backing, 1024 bytes, byte indexed; serial EEPROM, no Amiga bus mapping. */
+#define P6_REGION_MOTHERBOARD_FAST_RAM UINT32_C(7) /* A4000 Ramsey low RAM, fixed immediately below $08000000; not an Autoconfig board. */
 #define P6_REGION_WRITABLE (UINT32_C(1) << 0)
-/* Optional Z3 bus mapping: valid only while mapped. Upper 16 bits encode its 64 KiB page; structs retain their ABI v1 layout. */
+/* Optional bus mapping (Z3 or A4000 motherboard RAM): valid only while mapped. Upper 16 bits encode its 64 KiB page; structs retain their ABI v1 layout. */
 #define P6_REGION_BUS_ADDRESS_VALID (UINT32_C(1) << 1)
 #define P6_REGION_BUS_ADDRESS_MASK UINT32_C(0xffff0000)
 #define P6_REGION_BUS_ADDRESS(flags) ((uint32_t)(flags) & P6_REGION_BUS_ADDRESS_MASK)

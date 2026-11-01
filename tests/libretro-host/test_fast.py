@@ -89,14 +89,14 @@ class MemoryOptionTests(lr.LibretroHarness):
                 self.assertEqual(int(sizes[0]), plain + 4 + (kib << 10) + EXPANSION_BYTES)
 
     def test_a_size_the_machine_cannot_have_fails_the_load_with_the_reason_and_a_value_of_no_schema_fails_it_naming_the_key(self):
-        for options, text in ((("--set", "puae6_chip_size=MB2"), "chip memory size is not supported for this machine"),                              # the A500: OCS Agnus
+        for options, text in ((("--set", "puae6_chip_size=MB2"), "OCS Agnus supports at most 1 MiB"),                                                # the A500: OCS Agnus
                               (("--set", "puae6_machine=A1200", "--set", "puae6_slow_size=MB1_75"), "slow memory size is not supported for this machine")):    # AGA maps 1.5 MiB
             with self.subTest(options=options):
                 name = lr.KICKSTART_NAMES_A1200[0] if "A1200" in " ".join(options) else lr.KICKSTART_NAMES[0]
                 out = self.frontend("boot", *options, name=name, expect=3).stdout
                 self.assertIn(text, out)
                 self.assertNotIn("run 1 ", out)
-        for key, value, allowed in (("puae6_fast_size", "MB16", "None, MB1, MB2, MB4, MB8, Auto"), ("puae6_chip_size", "mb2", "Auto, KB512, MB1, MB2"),
+        for key, value, allowed in (("puae6_fast_size", "MB16", "None, MB1, MB2, MB4, MB8, Auto"), ("puae6_chip_size", "mb2", "Auto, KB512, MB1, MB1_5, MB2, MB2_5, MB3, MB3_5, MB4, MB4_5, MB5, MB5_5, MB6, MB6_5, MB7, MB7_5, MB8"),
                                     ("puae6_slow_size", "512", "Auto, None, KB512, MB1, MB1_5, MB1_75"), ("puae6_preset", "a4000", "none, a1200_fast8, a600_puae5, a4030_normal, cd32_fast8, a4040_normal, a4060_normal")):
             with self.subTest(key=key, value=value):
                 out = self.frontend("boot", "--set", f"{key}={value}", expect=3).stdout

@@ -837,10 +837,10 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             // An external write into Chip RAM at the boundary (a host action, never part of a replay): the file's bytes at ADDRESS. "ram UNIT CODE ADDRESS BYTES".
             std::vector<uint8_t> data;
             const unsigned long at = strtoul(op.chunk, nullptr, 0);
-            p6_memory_region regions[4] = {};
+            p6_memory_region regions[8] = {};
             uint32_t count = 0;
             int code = -1;
-            if (read_file(op.path, &data) && p6_memory_regions(regions, 4, &count, &error) == P6_OK)
+            if (read_file(op.path, &data) && p6_memory_regions(regions, 8, &count, &error) == P6_OK)
                 for (uint32_t i = 0; i < count; ++i)
                     if (regions[i].type == P6_REGION_CHIP_RAM && (regions[i].flags & P6_REGION_WRITABLE) && at <= regions[i].bytes && data.size() <= regions[i].bytes - at) {
                         memcpy(static_cast<uint8_t *>(const_cast<void *>(regions[i].data)) + at, data.data(), data.size());
@@ -851,10 +851,10 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
         } else if (op.kind == OpKind::RamOut) {
             // Chip RAM [ADDRESS, ADDRESS + LENGTH) into a file, what a host could read through p6_memory_regions. "ramout UNIT CODE ADDRESS LENGTH".
             const unsigned long at = strtoul(op.chunk, nullptr, 0), length = strtoul(op.extra, nullptr, 0);
-            p6_memory_region regions[4] = {};
+            p6_memory_region regions[8] = {};
             uint32_t count = 0;
             int code = -1;
-            if (p6_memory_regions(regions, 4, &count, &error) == P6_OK)
+            if (p6_memory_regions(regions, 8, &count, &error) == P6_OK)
                 for (uint32_t i = 0; i < count; ++i)
                     if (regions[i].type == P6_REGION_CHIP_RAM && at <= regions[i].bytes && length <= regions[i].bytes - at) {
                         if (FILE *f = fopen(op.path, "wb")) {
@@ -1215,12 +1215,13 @@ int main(int argc, char **argv)
     uint32_t hdf_controller = 0;                             // T56: p6_config hdf_controller as the ABI number (--hdf-controller uae|ide: 0 the UAE controller, 1 the IDE port of Gayle)
     uint32_t cd_controller = P6_CD_CONTROLLER_AUTO;          // T84e1: --cd-controller auto|none|cd32|cdtv|ide; resolved before the engine is touched
     uint32_t collision_level = 0;
+    uint32_t chipset_compatible = 0, chipset = 0;
     uint32_t floppy_drives = 0;
     uint32_t drive_sound = 0;
     uint32_t floppy_speed = 0;                               // T62: p6_config floppy_speed as the ABI number (--floppy-speed: 0 the profile, 1 100 %, 2 200 %, 3 400 %, 4 800 %, 5 turbo)
     uint32_t sound[4] = {0, 0, 0, 0};                       // T73: p6_config sound_separation, sound_interpolation, sound_filter, sound_filter_type as ABI numbers (--sound-sep, --sound-interp, --sound-filter, --sound-type)
     uint32_t chip_kib = 0, slow_kib = 0, fast_kib = 0;      // T49: 0 is the machine's own memory (slow: "none" is P6_MEMORY_NONE)
-    uint8_t z3_memory = 0;
+    uint8_t z3_memory = 0, motherboard_fast_ram = 0;
     bool rtg_internal = false;
     uint64_t seed = 1;
     bool floppy_writes = false;
@@ -1257,6 +1258,16 @@ int main(int argc, char **argv)
             else return 64;
         }
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc) rate = uint32_t(strtoul(argv[++i], nullptr, 10));
+        else if (!strcmp(argv[i], "--chipset-compatible") && i + 1 < argc) {
+            const char *v = argv[++i]; const char *names[] = {"auto", "a500", "a600", "a1200", "a4000", "cd32", "cdtv"};
+            for (chipset_compatible = 0; chipset_compatible < 7 && strcmp(v, names[chipset_compatible]); ++chipset_compatible) {}
+            if (chipset_compatible == 7) return 64;
+        }
+        else if (!strcmp(argv[i], "--chipset") && i + 1 < argc) {
+            const char *v = argv[++i]; const char *names[] = {"auto", "ocs", "ecs-agnus", "ecs-denise", "ecs", "aga"};
+            for (chipset = 0; chipset < 6 && strcmp(v, names[chipset]); ++chipset) {}
+            if (chipset == 6) return 64;
+        }
         else if (!strcmp(argv[i], "--chip") && i + 1 < argc) chip_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--slow") && i + 1 < argc) { const char *v = argv[++i]; slow_kib = !strcmp(v, "none") ? P6_MEMORY_NONE : uint32_t(strtoul(v, nullptr, 10)); }
         else if (!strcmp(argv[i], "--z3") && i + 1 < argc) {
@@ -1269,6 +1280,12 @@ int main(int argc, char **argv)
                 if (choice == p6_bridge::kZ3Choices) return 64;
                 z3_memory = uint8_t(choice);
             }
+        }
+        else if (!strcmp(argv[i], "--motherboard-fast") && i + 1 < argc) {
+            const char *value = argv[++i];
+            const unsigned mib = !strcmp(value, "none") ? 0u : unsigned(strtoul(value, nullptr, 10));
+            if (mib > 64 || (mib && mib != 1 && mib != 2 && mib != 4 && mib != 8 && mib != 16 && mib != 32 && mib != 64)) return 64;
+            motherboard_fast_ram = uint8_t(mib);
         }
         else if (!strcmp(argv[i], "--rtg-internal")) rtg_internal = true;
         else if (!strcmp(argv[i], "--fast") && i + 1 < argc) fast_kib = uint32_t(strtoul(argv[++i], nullptr, 10));
@@ -1431,12 +1448,15 @@ int main(int argc, char **argv)
     config.slow_kib = slow_kib;
     config.fast_kib = fast_kib;
     config.z3_memory = z3_memory;
+    config.motherboard_fast_ram = motherboard_fast_ram;
     config.fpu_model = fpu_model;
     config.cpu_model = uint8_t(cpu_model);
     config.cpu_compatibility = uint8_t(cpu_compatibility);
     config.cpu_multiplier = uint8_t(cpu_multiplier);
     config.hdf_controller = uint8_t(hdf_controller);
     config.cd_controller = uint8_t(cd_controller);
+    config.chipset_compatible = uint8_t(chipset_compatible);
+    config.chipset = uint8_t(chipset);
     if (uaescsi_fixture) config.cd_controller = P6_CD_CONTROLLER_NONE;
     config.sound_separation = uint8_t(sound[0]); config.sound_interpolation = uint8_t(sound[1]); config.sound_filter = uint8_t(sound[2]); config.sound_filter_type = uint8_t(sound[3]);
     config.floppy_speed = uint8_t(floppy_speed);

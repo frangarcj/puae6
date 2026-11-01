@@ -231,7 +231,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 			return; // p6_cartridge_bind authenticates the known 40.22/40.30 contents.
 		}
 		bool aga = model == 1200; var own = OwnMemory(settings.Machine);
-		if (cd || settings.FloppyWrites || settings.FpuModel != Puae6Fpu.None || settings.Z3Memory != Puae6Z3Memory.None || settings.HdfController != Puae6HdfController.Uae
+		if (cd || settings.FloppyWrites || settings.FpuModel != Puae6Fpu.None || settings.Z3Memory != Puae6Z3Memory.None || settings.MotherboardFastRam != Puae6MotherboardFastRam.None || settings.HdfController != Puae6HdfController.Uae
 			|| settings.CpuModel != Puae6Cpu.Auto && settings.CpuModel != (aga ? Puae6Cpu.M68020 : Puae6Cpu.M68000)
 			|| settings.CpuMultiplier != Puae6CpuClock.Auto && settings.CpuMultiplier != (aga ? Puae6CpuClock.X4 : Puae6CpuClock.X2)
 			|| !Enum.IsDefined(typeof(Puae6CpuCompatibility), settings.CpuCompatibility) || !aga && settings.CpuCompatibility == Puae6CpuCompatibility.Normal
@@ -292,7 +292,14 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		Puae6Machine.A1000 => P6.MachineA1000, Puae6Machine.A2000OG => P6.MachineA2000OG, Puae6Machine.A2000 => P6.MachineA2000, Puae6Machine.A4030 => P6.MachineA4030, Puae6Machine.A4040 => P6.MachineA4040, Puae6Machine.CD32 => P6.MachineCd32, Puae6Machine.CDTV => P6.MachineCdtv, _ => P6.MachineA500,
 	};
 
-	static uint ChipKib(Puae6Chip chip) => chip switch { Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB2 => 2048u, _ => 0u };
+	static uint ChipKib(Puae6Chip chip) => chip switch
+	{
+		Puae6Chip.KB512 => 512u, Puae6Chip.MB1 => 1024u, Puae6Chip.MB1_5 => 1536u, Puae6Chip.MB2 => 2048u,
+		Puae6Chip.MB2_5 => 2560u, Puae6Chip.MB3 => 3072u, Puae6Chip.MB3_5 => 3584u, Puae6Chip.MB4 => 4096u,
+		Puae6Chip.MB4_5 => 4608u, Puae6Chip.MB5 => 5120u, Puae6Chip.MB5_5 => 5632u, Puae6Chip.MB6 => 6144u,
+		Puae6Chip.MB6_5 => 6656u, Puae6Chip.MB7 => 7168u, Puae6Chip.MB7_5 => 7680u, Puae6Chip.MB8 => 8192u,
+		Puae6Chip.Auto => 0u, _ => throw new ArgumentOutOfRangeException(nameof(chip), chip, "Unknown Chip RAM capacity"),
+	};
 
 	static uint SlowKib(Puae6Slow slow) => slow switch { Puae6Slow.None => P6.MemoryNone, Puae6Slow.KB512 => 512u, Puae6Slow.MB1 => 1024u, Puae6Slow.MB1_5 => 1536u, Puae6Slow.MB1_75 => 1792u, _ => 0u };
 
@@ -318,6 +325,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 	// The controller of the hard files (T56): the numbers of config/schema/options.json (0 the UAE controller, 1 the IDE port of Gayle).
 	static byte HdfControllerNumber(Puae6HdfController controller) => controller switch { Puae6HdfController.Ide => (byte)1, _ => (byte)0 };
 	static byte CdControllerNumber(Puae6CdController controller) => controller switch { Puae6CdController.None => (byte)1, Puae6CdController.Cd32 => (byte)2, Puae6CdController.Ide => (byte)4, _ => (byte)0 };
+	static byte ChipsetCompatibleNumber(Puae6ChipsetCompatible compatible) => compatible switch { Puae6ChipsetCompatible.A500 => (byte)1, Puae6ChipsetCompatible.A600 => (byte)2, Puae6ChipsetCompatible.A1200 => (byte)3, Puae6ChipsetCompatible.A4000 => (byte)4, Puae6ChipsetCompatible.CD32 => (byte)5, Puae6ChipsetCompatible.CDTV => (byte)6, _ => (byte)0 };
+	static byte ChipsetNumber(Puae6Chipset chipset) => chipset switch { Puae6Chipset.OCS => (byte)1, Puae6Chipset.EcsAgnus => (byte)2, Puae6Chipset.EcsDenise => (byte)3, Puae6Chipset.Ecs => (byte)4, Puae6Chipset.Aga => (byte)5, _ => (byte)0 };
 
 	static uint FpuNumber(Puae6Fpu fpu) => fpu switch { Puae6Fpu.M68881 => 68881u, Puae6Fpu.M68882 => 68882u, Puae6Fpu.M68040 => 68040u, Puae6Fpu.M68060 => 68060u, _ => 0u };
 
@@ -366,6 +375,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		Puae6Z3Memory.MB256 => 262144, Puae6Z3Memory.MB512 => 524288,
 		_ => throw new ArgumentOutOfRangeException(nameof(memory), "Unknown Z3 capacity"),
 	};
+	static byte MotherboardFastRamNumber(Puae6MotherboardFastRam memory) => memory is Puae6MotherboardFastRam.None or Puae6MotherboardFastRam.MB1 or Puae6MotherboardFastRam.MB2 or Puae6MotherboardFastRam.MB4 or Puae6MotherboardFastRam.MB8 or Puae6MotherboardFastRam.MB16 or Puae6MotherboardFastRam.MB32 or Puae6MotherboardFastRam.MB64
+		? (byte)memory : throw new ArgumentOutOfRangeException(nameof(memory), "Unknown A4000 motherboard RAM capacity");
+	static int MotherboardFastRamKiB(Puae6MotherboardFastRam memory) => MotherboardFastRamNumber(memory) * 1024;
 
 	static byte RtgMemoryNumber(Puae6RtgMemory memory) => memory switch
 	{
@@ -400,6 +412,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		uint fast = FastKib(settings.FastMemory);
 		long extra = (fast == P6.MemoryNone ? 0 : fast == 0 && (settings.Machine is Puae6Machine.A4030 or Puae6Machine.A4040) ? 8192 : fast) + overlay;
 		extra += Z3MemoryKiB(settings.Z3Memory);
+		extra += MotherboardFastRamKiB(settings.MotherboardFastRam);
 		if (chip > ownChip) extra += chip - ownChip;
 		if (slow != P6.MemoryNone && slow > ownSlow) extra += slow - ownSlow;
 		return (int)extra;
@@ -588,6 +601,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		init.Config.CpuMultiplier = CpuMultiplierNumber(_syncSettings.CpuMultiplier);
 		init.Config.HdfController = HdfControllerNumber(_syncSettings.HdfController);
 		init.Config.CdController = CdControllerNumber(_syncSettings.CdController);
+		init.Config.ChipsetCompatible = ChipsetCompatibleNumber(_syncSettings.ChipsetCompatible);
+		init.Config.Chipset = ChipsetNumber(_syncSettings.Chipset);
+		init.Config.MotherboardFastRam = MotherboardFastRamNumber(_syncSettings.MotherboardFastRam);
 		init.Config.SoundSeparation = SoundSeparationNumber(_syncSettings.SoundSeparation);
 		init.Config.SoundInterpolation = SoundInterpolationNumber(_syncSettings.SoundInterpolation);
 		init.Config.SoundFilter = SoundFilterNumber(_syncSettings.SoundFilter);
@@ -728,6 +744,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (CartridgeModel(_syncSettings.Cartridge) != 0) memory += ";cartridge=" + _syncSettings.Cartridge + ";cartsha=" + GuestIdentity.Sha256Hex(_parameters.CartridgeFirmware!);
 		// And for the FPU (T54): the model is in the config hash of the native state too, and a state or a movie of a machine with a 68882 means nothing to one without.
 		if (_syncSettings.FpuModel != Puae6Fpu.None) memory += ";fpu=" + _syncSettings.FpuModel;
+		if (_syncSettings.ChipsetCompatible != Puae6ChipsetCompatible.Auto) memory += ";compatible=" + _syncSettings.ChipsetCompatible;
+		if (_syncSettings.Chipset != Puae6Chipset.Auto) memory += ";chipset=" + _syncSettings.Chipset;
 		// And for the CPU (T52): the native config hash derives from the resolved model when it is not the machine's own; the text names whatever the setting is off Auto, which is stricter (it also tells an
 		// explicit 68000 from Auto on an A500) and never looser.
 		if (_syncSettings.CpuModel != Puae6Cpu.Auto) memory += ";cpu=" + _syncSettings.CpuModel;
@@ -735,6 +753,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		if (_syncSettings.CollisionLevel != Puae6CollisionLevel.Auto && _syncSettings.CollisionLevel != Puae6CollisionLevel.Full)
 			memory += ";collisions=" + (CollisionLevelNumber(_syncSettings.CollisionLevel) - 1);
 		if (_syncSettings.Z3Memory != Puae6Z3Memory.None) memory += ";z3=" + _syncSettings.Z3Memory;
+		if (_syncSettings.MotherboardFastRam != Puae6MotherboardFastRam.None) memory += ";motherboardfast=" + _syncSettings.MotherboardFastRam;
 		if (_syncSettings.RtgMemory != Puae6RtgMemory.None) memory += ";rtg=" + _syncSettings.RtgMemory;
 		// And for its clock (T52): the same, off the machine's own.
 		if (_syncSettings.CpuMultiplier != Puae6CpuClock.Auto) memory += ";cpuclock=" + _syncSettings.CpuMultiplier;

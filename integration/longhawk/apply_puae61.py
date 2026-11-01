@@ -11,8 +11,9 @@ import subprocess
 HERE = Path(__file__).resolve().parent
 PATCH = HERE / "0001-puae61-beta21.patch"
 LONGHAWK_BASE = "8de36990487237db3c50bf446e6af69671a89a9e"
-GUEST_SHA256 = "a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2"
-SOURCES_SHA256 = "dfaf5c5ec4fc81cc95ccc59f4ce5e88fb2c74e11d1784bdb1fa817e15aff0c0b"
+PUAE6_GUEST_SHA256 = "c3aaf5889c7002b6a905a0b8af517d9627e772de255238d4b1c319216a958be2"
+PUAE61_GUEST_SHA256 = "6893d33541cf28cf27a244aec2950f6f4f3bde5f3d3036a5acdbdeb1a83c8f46"
+SOURCES_SHA256 = "791a9fdf28bd0f710b5d52d834d407a9e401ceb4598cfeed9bbec3ded4d2b171"
 
 
 class IntegrationError(RuntimeError):
@@ -34,11 +35,13 @@ def verify_file(path, expected):
 		raise IntegrationError(f"SHA-256 inesperado para {path.name}: {actual}")
 
 
-def apply(target, guest, sources):
+def apply(target, puae6_guest, puae61_guest, sources):
 	target = target.resolve(strict=True)
-	guest = guest.resolve(strict=True)
+	puae6_guest = puae6_guest.resolve(strict=True)
+	puae61_guest = puae61_guest.resolve(strict=True)
 	sources = sources.resolve(strict=True)
-	verify_file(guest, GUEST_SHA256)
+	verify_file(puae6_guest, PUAE6_GUEST_SHA256)
+	verify_file(puae61_guest, PUAE61_GUEST_SHA256)
 	verify_file(sources, SOURCES_SHA256)
 	try:
 		root = Path(run_git(target, "rev-parse", "--show-toplevel")).resolve()
@@ -55,25 +58,29 @@ def apply(target, guest, sources):
 	try:
 		# El checkout fijado conserva varios ficheros CRLF; el parche se guarda LF
 		# para que el artefacto textual sea estable en cualquier host.
-		run_git(target, "apply", "--ignore-space-change", "--check", str(PATCH))
-		run_git(target, "apply", "--ignore-space-change", str(PATCH))
+		run_git(target, "apply", "--unidiff-zero", "--ignore-space-change", "--check", str(PATCH))
+		run_git(target, "apply", "--unidiff-zero", "--ignore-space-change", str(PATCH))
 	except subprocess.CalledProcessError as error:
 		raise IntegrationError(error.stderr.strip() or "el parche no se puede aplicar") from error
-	destination = target / "waterbox/puae61"
-	shutil.copyfile(guest, destination / "puae61-x64.wbx")
-	shutil.copyfile(sources, destination / "source.tar.gz")
-	verify_file(destination / "puae61-x64.wbx", GUEST_SHA256)
-	verify_file(destination / "source.tar.gz", SOURCES_SHA256)
-	print("PUAE61 beta21 aplicado; revise el diff y añada puae61-x64.wbx con git add -f")
+	puae6_destination = target / "waterbox/puae6/puae6-x64.wbx"
+	puae61_destination = target / "waterbox/puae61"
+	shutil.copyfile(puae6_guest, puae6_destination)
+	shutil.copyfile(puae61_guest, puae61_destination / "puae61-x64.wbx")
+	shutil.copyfile(sources, puae61_destination / "source.tar.gz")
+	verify_file(puae6_destination, PUAE6_GUEST_SHA256)
+	verify_file(puae61_destination / "puae61-x64.wbx", PUAE61_GUEST_SHA256)
+	verify_file(puae61_destination / "source.tar.gz", SOURCES_SHA256)
+	print("PUAE6/PUAE61 aplicados; revise el diff y añada ambos guests x64 con git add -f")
 
 
 def main():
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("target", type=Path, help="checkout limpio de LongHawk")
-	parser.add_argument("guest", type=Path, help="guest beta21 puae6.wbx normalizado")
+	parser.add_argument("puae6_guest", type=Path, help="guest PUAE6 x64 normalizado")
+	parser.add_argument("puae61_guest", type=Path, help="guest PUAE61 beta21 x64 normalizado")
 	parser.add_argument("sources", type=Path, help="source.tar.gz correspondiente")
 	args = parser.parse_args()
-	apply(args.target, args.guest, args.sources)
+	apply(args.target, args.puae6_guest, args.puae61_guest, args.sources)
 
 
 if __name__ == "__main__":

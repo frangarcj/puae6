@@ -32,7 +32,7 @@
 
 namespace p6_libretro {
 
-constexpr size_t kMaxMemoryDescriptors = 5;                 // Chip, Slow, Z2 Fast, Z3 Fast, ROM
+constexpr size_t kMaxMemoryDescriptors = 6;                 // Chip, Slow, Z2 Fast, Z3 Fast, A4000 motherboard Fast, ROM
 constexpr size_t kChipStart = 0x000000, kSlowStart = 0xC00000, kFastStart = 0x200000, kAddressSpaceEnd = 0x1000000;
 
 struct MemoryMap {
@@ -101,6 +101,10 @@ inline bool build_memory_map(const p6_memory_region *regions, uint32_t count, Me
         case P6_REGION_Z3_FAST_RAM:
             if (region.flags & P6_REGION_BUS_ADDRESS_VALID)
                 out->descriptor[out->count++] = describe_region(region, P6_REGION_BUS_ADDRESS(region.flags), "Z3", RETRO_MEMDESC_SYSTEM_RAM);
+            break;
+        case P6_REGION_MOTHERBOARD_FAST_RAM:
+            if (region.flags & P6_REGION_BUS_ADDRESS_VALID)
+                out->descriptor[out->count++] = describe_region(region, P6_REGION_BUS_ADDRESS(region.flags), "MBFAST", RETRO_MEMDESC_SYSTEM_RAM);
             break;
         case P6_REGION_NVRAM:
             out->save_ram = region.data; out->save_ram_bytes = size_t(region.bytes);

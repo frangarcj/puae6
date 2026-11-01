@@ -373,6 +373,57 @@ const MachineInfo &machine_info(uint32_t machine)
 
 bool is_aga(uint32_t machine) { return (machine_info(machine).chipset_mask & CSMASK_AGA) != 0; }
 
+uint8_t profile_compatible(uint32_t machine)
+{
+    switch (machine) {
+    case P6_MACHINE_A600: return P6_CHIPSET_COMPATIBLE_A600;
+    case P6_MACHINE_A1200: return P6_CHIPSET_COMPATIBLE_A1200;
+    case P6_MACHINE_A4030: case P6_MACHINE_A4040: return P6_CHIPSET_COMPATIBLE_A4000;
+    case P6_MACHINE_CD32: return P6_CHIPSET_COMPATIBLE_CD32;
+    case kCdtvMachine: return P6_CHIPSET_COMPATIBLE_CDTV;
+    default: return P6_CHIPSET_COMPATIBLE_A500;
+    }
+}
+
+int compatible_cp(uint8_t compatible)
+{
+    switch (compatible) {
+    case P6_CHIPSET_COMPATIBLE_A500: return CP_A500;
+    case P6_CHIPSET_COMPATIBLE_A600: return CP_A600;
+    case P6_CHIPSET_COMPATIBLE_A1200: return CP_A1200;
+    case P6_CHIPSET_COMPATIBLE_A4000: return CP_A4000;
+    case P6_CHIPSET_COMPATIBLE_CD32: return CP_CD32;
+    case P6_CHIPSET_COMPATIBLE_CDTV: return CP_CDTV;
+    default: return 0;
+    }
+}
+
+int compatible_mask(uint8_t compatible)
+{
+    switch (compatible) {
+    case P6_CHIPSET_COMPATIBLE_A500: return CSMASK_OCS;
+    case P6_CHIPSET_COMPATIBLE_A600: return CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE;
+    case P6_CHIPSET_COMPATIBLE_A1200: case P6_CHIPSET_COMPATIBLE_A4000: case P6_CHIPSET_COMPATIBLE_CD32:
+        return CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA;
+    case P6_CHIPSET_COMPATIBLE_CDTV: return CSMASK_ECS_AGNUS;
+    default: return 0;
+    }
+}
+
+uint8_t resolved_compatible(const p6_config &c) { return c.chipset_compatible ? c.chipset_compatible : profile_compatible(c.machine); }
+
+int resolved_chipset_mask(const p6_config &c)
+{
+    switch (c.chipset) {
+    case P6_CHIPSET_OCS: return CSMASK_OCS;
+    case P6_CHIPSET_ECS_AGNUS: return CSMASK_ECS_AGNUS;
+    case P6_CHIPSET_ECS_DENISE: return CSMASK_ECS_DENISE;
+    case P6_CHIPSET_ECS: return CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE;
+    case P6_CHIPSET_AGA: return CSMASK_ECS_AGNUS | CSMASK_ECS_DENISE | CSMASK_AGA;
+    default: return c.chipset_compatible ? compatible_mask(resolved_compatible(c)) : machine_info(c.machine).chipset_mask;
+    }
+}
+
 // Physical IDE controllers supported by the profile: Gayle and the A4000 motherboard.
 bool is_a4000(uint32_t machine) { return machine == P6_MACHINE_A4030 || machine == P6_MACHINE_A4040; }
 bool has_gayle(uint32_t machine) { return machine == P6_MACHINE_A600 || machine == P6_MACHINE_A1200 || is_a4000(machine); }
@@ -407,6 +458,8 @@ bool machine_has_ecs_agnus(uint32_t machine)
     return (machine_info(machine).chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0;
 }
 
+bool config_has_ecs_agnus(const p6_config &c) { return (resolved_chipset_mask(c) & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0; }
+
 Memory preset_memory(uint32_t machine)
 {
     return machine_info(machine).memory;
@@ -421,7 +474,8 @@ Memory resolve_memory(const p6_config &c)
 }
 
 // Bits of the flags word of config_hash (the envelope has no field for the memory): 0 to 7 are p6_config.flags (P6_CONFIG_*, T27 uses bit 0; validate_config refuses any bit that is not a
-// defined flag, so the memory can never collide with them), 8 to 11 fast_kib / 1024, 12 to 16 slow_kib / 64, 17 to 22 chip_kib / 64, 31 marks that the memory is not the preset's.
+// defined flag, so the memory can never collide with them), 8 to 11 fast_kib / 1024, 12 to 16 slow_kib / 64, 17 to 22 Chip RAM up to 2 MiB / 64, 31 marks that the memory is not the preset's.
+// Larger Chip banks keep 2 MiB in those historical bits and derive the hash with their exact size; bits23/24 remain exclusively FPU identity.
 constexpr uint32_t kMemoryIdentityBit = 0x80000000u;
 
 // Bits23/24 carry FPU: 1=68881, 2=68882, 3=internal (CPU identity distinguishes040/060).
@@ -521,7 +575,25 @@ uint32_t identity_flags(const p6_config &c)
     const uint32_t raster = raster_identity(c);
     if (memory_is_preset(c)) return c.flags | fpu | floppy | raster;
     const Memory m = resolve_memory(c);
-    return c.flags | fpu | floppy | raster | kMemoryIdentityBit | (m.chip_kib / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+    return c.flags | fpu | floppy | raster | kMemoryIdentityBit | (std::min(m.chip_kib, 2048u) / 64) << 17 | (m.slow_kib / 64) << 12 | (m.fast_kib / 1024) << 8;
+}
+
+bool extended_chip_identity(const p6_config &c, uint8_t out[2])
+{
+    const uint32_t chip = resolve_memory(c).chip_kib;
+    if (chip <= 2048) return false;
+    out[0] = uint8_t(chip);
+    out[1] = uint8_t(chip >> 8);
+    return true;
+}
+
+bool chipset_identity(const p6_config &c, uint8_t out[2])
+{
+    const uint8_t compatible = resolved_compatible(c);
+    out[0] = compatible == profile_compatible(c.machine) ? 0 : compatible;
+    const int inherited = c.chipset_compatible ? compatible_mask(compatible) : machine_info(c.machine).chipset_mask;
+    out[1] = resolved_chipset_mask(c) == inherited ? 0 : c.chipset;
+    return out[0] || out[1];
 }
 
 bool memory_is_preset(const p6_config &c)
@@ -532,30 +604,32 @@ bool memory_is_preset(const p6_config &c)
 
 p6_result validate_memory(const p6_config &c, p6_error *error)
 {
-    // What the engine allocates and maps without a quirk: Chip RAM sizes of 1.5 MiB (allocated as 2 MiB with the upper half out of reach) are not offered.
-    // The OCS Agnus of the A500 and A2000 OG has 1 MiB as the 8371 with the jumper, anything above it needs ECS. AGA maps at most 1.5 MiB of Slow RAM (memory_reset).
-    const MachineInfo &m = machine_info(c.machine);
-    const bool ecs = (m.chipset_mask & (CSMASK_ECS_AGNUS | CSMASK_AGA)) != 0, aga = is_aga(c.machine);
+    // T105a: the engine reserves the next power-of-two host span for a non-power-of-two Chip bank, but exposes and serializes only the exact half-megabyte capacity.
+    // The OCS Agnus of the A500 and A2000 OG has 1 MiB as the 8371 with the jumper; UAE's extended 1.5-8 MiB configurations require ECS/AGA. AGA maps at most 1.5 MiB of Slow RAM.
+    const bool ecs = config_has_ecs_agnus(c), aga = (resolved_chipset_mask(c) & CSMASK_AGA) != 0;
+    const Memory memory = resolve_memory(c);
     if (c.machine == kCdtvMachine && ((c.chip_kib && c.chip_kib != 1024) ||
         (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV requires 1 MiB Chip, no Slow or Fast RAM");
     if (c.machine == kCd32Machine && ((c.chip_kib && c.chip_kib != 2048) ||
         (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && c.fast_kib != 8192)))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "CD32 has 2 MiB Chip, no Slow RAM and either no Fast RAM or the CD32FR 8 MiB board");
-    if (is_a4000(c.machine) && ((c.chip_kib && c.chip_kib != 2048) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE)))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000 has 2 MiB Chip and no Slow RAM trapdoor");
+    if (is_a4000(c.machine) && c.slow_kib && c.slow_kib != P6_MEMORY_NONE)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A4000 has no Slow RAM trapdoor");
     if (c.machine == P6_MACHINE_A1000) {
         // The 8361 Agnus of the A1000 addresses 512 KiB and the machine has no expansion the profile could name: the memory is the preset's.
         if ((c.chip_kib && c.chip_kib != 512) || (c.slow_kib && c.slow_kib != P6_MEMORY_NONE) || (c.fast_kib && c.fast_kib != P6_MEMORY_NONE))
             return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A1000 has the memory of its preset: 512 KiB Chip, no Slow, no Fast");
         return P6_OK;
     }
-    if (c.chip_kib && !one_of(c.chip_kib, {512, 1024}) && !(ecs && c.chip_kib == 2048))
-        return p6_fail(error, P6_ERROR_UNSUPPORTED, "chip memory size is not supported for this machine");
+    if (memory.chip_kib < 512 || memory.chip_kib > 8192 || (memory.chip_kib % 512) != 0 || (!ecs && memory.chip_kib > 1024))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Chip RAM must be a 512 KiB step through 8 MiB (OCS Agnus supports at most 1 MiB)");
     if (c.slow_kib && c.slow_kib != P6_MEMORY_NONE && !one_of(c.slow_kib, {512, 1024, 1536}) && !(!aga && c.slow_kib == 1792))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "slow memory size is not supported for this machine");
     if (c.fast_kib && c.fast_kib != P6_MEMORY_NONE && !one_of(c.fast_kib, {1024, 2048, 4096, 8192}))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "fast memory size is not supported");
+    if (memory.chip_kib > 2048 && memory.fast_kib)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "Chip RAM above 2 MiB overlaps the Zorro II Fast RAM address space");
     return P6_OK;
 }
 
@@ -565,6 +639,30 @@ p6_result validate_config(const p6_config &c, p6_error *error)
         return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "config has the wrong ABI version or size");
     if (!find_machine(c.machine))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "the requested machine is not supported");
+    if (c.chipset_compatible > P6_CHIPSET_COMPATIBLE_CDTV || c.chipset > P6_CHIPSET_AGA)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "chipset compatibility or chipset selector is not supported");
+    if (c.motherboard_fast_ram && (!is_a4000(c.machine) || !one_of(c.motherboard_fast_ram, {1, 2, 4, 8, 16, 32, 64})))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "motherboard Fast RAM supports 1/2/4/8/16/32/64 MiB on A4000 only");
+    for (uint8_t byte : c.reserved_tail) if (byte)
+        return p6_fail(error, P6_ERROR_BAD_ARGUMENT, "the reserved p6_config tail must be zero");
+    const bool generic_68000 = one_of(c.machine, {P6_MACHINE_A500, P6_MACHINE_A500OG, P6_MACHINE_A500PLUS, P6_MACHINE_A600, P6_MACHINE_A2000OG, P6_MACHINE_A2000});
+    const uint8_t compatible = resolved_compatible(c);
+    if (c.chipset_compatible && (compatible == P6_CHIPSET_COMPATIBLE_A500 || compatible == P6_CHIPSET_COMPATIBLE_A600) && !generic_68000)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "A500/A600 compatibility requires a supported 68000 motherboard");
+    if (c.chipset_compatible == P6_CHIPSET_COMPATIBLE_A600 && resolve_memory(c).slow_kib)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "A600 compatibility does not support a Slow RAM trapdoor");
+    if (c.chipset_compatible && ((compatible == P6_CHIPSET_COMPATIBLE_A1200) != (c.machine == P6_MACHINE_A1200) ||
+        (compatible == P6_CHIPSET_COMPATIBLE_A4000) != is_a4000(c.machine) ||
+        (compatible == P6_CHIPSET_COMPATIBLE_CD32) != (c.machine == kCd32Machine) ||
+        (compatible == P6_CHIPSET_COMPATIBLE_CDTV) != (c.machine == kCdtvMachine)))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "chipset compatibility does not match the selected motherboard family");
+    if (c.machine == P6_MACHINE_A1000 && (c.chipset_compatible || c.chipset))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the A1000 keeps its 8361 Agnus and 8362 Denise profile");
+    if ((c.machine == kCd32Machine && c.chipset && c.chipset != P6_CHIPSET_AGA) ||
+        (c.machine == kCdtvMachine && c.chipset && c.chipset != P6_CHIPSET_ECS_AGNUS))
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "the CD32/CDTV chipset is fixed by its motherboard profile");
+    if ((c.chipset || c.chipset_compatible) && (resolved_chipset_mask(c) & CSMASK_AGA) && resolve_cpu(c) < 68020)
+        return p6_fail(error, P6_ERROR_UNSUPPORTED, "AGA requires a 68020 or later machine profile");
     if (c.machine == kCdtvMachine && ((c.cpu_model && c.cpu_model != 1) || c.cpu_compatibility != P6_CPU_EXACT ||
         (c.cpu_multiplier && c.cpu_multiplier != 2) || c.fpu_model || c.z3_memory || c.floppy_drives || c.flags || c.hdf_controller))
         return p6_fail(error, P6_ERROR_UNSUPPORTED, "private CDTV requires stock exact 68000, no expansions or floppy drives");
@@ -714,6 +812,18 @@ void build_preferences(const p6_config &c, bool ide_port)
         currprefs.cs_compatible = CP_A2000;
         built_in_chipset_prefs(&currprefs);
     }
+    uint8_t chipset_difference[2]{};
+    chipset_identity(c, chipset_difference);
+    if (chipset_difference[0]) {
+        currprefs.cs_compatible = compatible_cp(resolved_compatible(c));
+        built_in_chipset_prefs(&currprefs);
+        currprefs.chipset_mask = compatible_mask(resolved_compatible(c));
+        currprefs.cs_compatible = 0; // apply once: lifecycle fixups must not re-enable table devices later
+    }
+    if (chipset_difference[1]) {
+        currprefs.chipset_mask = resolved_chipset_mask(c);
+        currprefs.cs_compatible = 0; // the explicit generation wins after the table
+    }
     if (c.machine != kCd32Machine && c.machine != kCdtvMachine && currprefs.floppyslots[1].dfxtype == DRV_NONE)
         currprefs.floppyslots[1].dfxtype = DRV_35_DD;     // upstream's A500 OG and A1000 have one drive; the ABI gives every machine DF0 and DF1 (the external drive port)
     if (resolve_floppy_drives(c) != 2) {
@@ -733,6 +843,12 @@ void build_preferences(const p6_config &c, bool ide_port)
             currprefs.cs_ide = IDE_A600A1200;
         else
             clear_device_rom(&currprefs, ROMTYPE_MB_IDE, 0, true);      // upstream's table lists Gayle's IDE among the boards of the motherboard (currprefs.expansionboard): not without a hard file
+    } else if (!is_a4000(c.machine) && c.machine != kCd32Machine && c.machine != kCdtvMachine) {
+        // A compatibility table may describe a different 68000 board, but it never grants host/device surfaces the selected profile does not own.
+        currprefs.cs_ide = 0;
+        currprefs.cs_pcmcia = 0;
+        currprefs.cs_ciaoverlay = 1;
+        clear_device_rom(&currprefs, ROMTYPE_MB_IDE, 0, true);
     }
     if (machine.compatible == 0) {
         // The chipset table has been applied once, by built_in_prefs (A600, A1200, CDTV) or just above (A2000, whose base preset is the A500). With cs_compatible = 0 the fixup_prefs calls of the
@@ -770,6 +886,8 @@ void build_preferences(const p6_config &c, bool ide_port)
     currprefs.bogomem.size = memory.slow_kib * 1024;
     currprefs.fastmem[0].size = memory.fast_kib * 1024;     // one Zorro II autoconfig board (patch 0110); fixup_prefs keeps board 0 only
     currprefs.z3fastmem[0].size = z3_bytes(c);
+    currprefs.mbresmem_low.size = motherboard_fast_bytes(c); // fixed Ramsey bank ending at $08000000; never an Autoconfig board
+    currprefs.mbresmem_high.size = 0;
     currprefs.rtgboards[0].rtg_index = 0;
     currprefs.rtgboards[0].rtgmem_type = GFXBOARD_UAE_Z3;
     currprefs.rtgboards[0].rtgmem_size = c.rtg_memory == P6_RTG_MEMORY_4_MIB ? 4u << 20 : 0;
@@ -854,21 +972,24 @@ p6_result check_preset(p6_error *error)
     const uae_prefs &p = currprefs;
     const MachineInfo &machine = machine_info(preset_config.machine);
     const bool no_gayle = machine.no_gayle;
+    uint8_t chipset_difference[2]{};
+    const bool chipset_changed = chipset_identity(preset_config, chipset_difference);
     const Memory memory = resolve_memory(preset_config);
     const char *drifted = nullptr;
     if (p.cpu_model != resolve_cpu(preset_config) || p.cpu_clock_multiplier != (resolve_cpu_multiplier(preset_config) << 8) || p.cpu_cycle_exact != (preset_config.cpu_compatibility == P6_CPU_EXACT) || p.cpu_memory_cycle_exact != p.cpu_cycle_exact ||
         p.cpu_compatible != (preset_config.cpu_compatibility != P6_CPU_NORMAL) || p.m68k_speed || p.fpu_model != int(preset_config.fpu_model) ||
         p.fpu_mode != (preset_config.fpu_model ? 1 : 0) || p.fpu_strict != (preset_config.machine == P6_MACHINE_A4040) || p.fpu_no_unimplemented || p.mmu_model ||
         p.address_space_24 != (machine.cpu < 68030) || (machine.cpu >= 68020 && p.waiting_blits)) drifted = "cpu";
-    else if (p.chipset_mask != machine.chipset_mask || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
+    else if (p.chipset_mask != resolved_chipset_mask(preset_config) || p.blitter_cycle_exact != p.cpu_cycle_exact || p.collision_level != resolve_collision_level(preset_config)) drifted = "chipset";
     else if (p.chipmem.size != memory.chip_kib * 1024 || p.bogomem.size != memory.slow_kib * 1024 || p.fastmem[0].size != memory.fast_kib * 1024 ||
-             p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size != z3_bytes(preset_config) || p.mbresmem_low.size || p.mbresmem_high.size) drifted = "memory";
+             p.fastmem[1].size || p.fastmem[2].size || p.fastmem[3].size || p.z3fastmem[0].size != z3_bytes(preset_config) ||
+             p.mbresmem_low.size != motherboard_fast_bytes(preset_config) || p.mbresmem_high.size) drifted = "memory";
     else if (p.rtgboards[0].rtg_index || p.rtgboards[0].rtgmem_type != GFXBOARD_UAE_Z3 ||
              p.rtgboards[0].rtgmem_size != (preset_config.rtg_memory == P6_RTG_MEMORY_4_MIB ? 4u << 20 : 0) ||
              p.rtgboards[1].rtgmem_size || p.rtgboards[2].rtgmem_size || p.rtgboards[3].rtgmem_size) drifted = "RTG board";
     else if ((preset_config.z3_memory || preset_config.rtg_memory) &&
              (p.z3_mapping_mode != Z3MAPPING_REAL || !p.cs_z3autoconfig || p.z3fastmem[0].no_reset_unmap)) drifted = "Z3 autoconfig";
-    else if (p.cs_compatible != machine.compatible) drifted = "chipset table";
+    else if (p.cs_compatible != (chipset_changed ? 0 : machine.compatible)) drifted = "chipset table";
     else if (no_gayle && (p.cs_ide != (preset_ide ? IDE_A600A1200 : 0) || p.cs_pcmcia || p.cs_compatible || !p.cs_ciaoverlay)) drifted = "gayle";
     else if (is_a4000(preset_config.machine) && (p.cs_ide != IDE_A4000 || p.cs_fatgaryrev != 0 || p.cs_ramseyrev != 15 || p.cs_rtc != 2)) drifted = "A4000 motherboard";
     else if (!no_gayle && !is_a4000(preset_config.machine) && p.cs_ide) drifted = "gayle";

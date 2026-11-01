@@ -6911,6 +6911,35 @@
           "after_sha256": "769669718384d87a46c343d3be041fbb5d930717bee735138ebdddeb55824f65"
         }
       ]
+    },
+    {
+      "id": "0445-beta21-chipmem-half-megabyte-steps",
+      "file": "patches/winuae/0445-beta21-chipmem-half-megabyte-steps.patch",
+      "sha256": "61c04e7b89979b24ea2e05fd8a75412185d869278efdb6faef58700455b69320",
+      "title": "Accept exact half-megabyte Chip RAM sizes through 8 MiB",
+      "reason": "PUAE6 exposes the bounded WinUAE-compatible 512 KiB Chip RAM steps. Non-power-of-two banks allocate the next power-of-two aperture but use the requested allocated_size as the exact access limit, so no mirrored or hidden bytes enter memory, states or identities.",
+      "category": "deterministic configuration",
+      "order": 259,
+      "symbols": [
+        "fixup_prefs",
+        "chipmem_setindirect",
+        "allocate_memory"
+      ],
+      "test": "tests/host/test_bridge_lifecycle.py; tests/state/test_state_fast.py; tests/waterbox-state/test_wrapper_memory.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "a738a20c57feb7f4bd829face7487f717cf6410d499b960a78bcb8d00b2658c9",
+          "after_sha256": "63dd8aaa168a19144d24a1ad3b17d2ea34a80ea233f48ddd198d4335f91a3de4"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "5b46e41eeaa13e619d8ba4b86f22daba37a79d34fa050cb5ee55ab53992bdfe3",
+          "after_sha256": "bdd0d8082e6d31f3a73cc04886aa9d4ed37e8821f3e650a6f56e390a7f9c8455"
+        }
+      ]
     }
   ]
 }

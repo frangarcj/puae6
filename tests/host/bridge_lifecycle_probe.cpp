@@ -118,6 +118,18 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     c = make_config(); c.flags = P6_CONFIG_UAESCSI;      assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.flags = P6_CONFIG_UAESCSI; c.cd_controller = P6_CD_CONTROLLER_IDE;
                                                          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "uaescsi.device"));
+    c = make_config(); c.chipset_compatible = 7;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.chipset = 6;                     assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.reserved_tail[0] = 1;            assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.chipset = P6_CHIPSET_AGA;        assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "AGA"));
+    c = make_config(); c.machine = P6_MACHINE_A1200; c.chipset = P6_CHIPSET_OCS;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "1 MiB"));
+    c = make_config(); c.machine = P6_MACHINE_A1000; c.chipset = P6_CHIPSET_OCS;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "A1000"));
+    c = make_config(); c.machine = P6_MACHINE_CD32; c.chipset = P6_CHIPSET_ECS;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "fixed"));
+    c = make_config(); c.machine = P6_MACHINE_A600; c.chipset_compatible = P6_CHIPSET_COMPATIBLE_A500; c.chipset = P6_CHIPSET_ECS_DENISE;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
                                                          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "RTG"));
     c = make_config(); c.rtg_memory = P6_RTG_MEMORY_4_MIB + 1;
@@ -224,10 +236,20 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     // Memory (T49): the sizes the machine can have are accepted, the others are UNSUPPORTED, and the preset's own sizes are the same config as zero.
     c = make_config(); c.chip_kib = 1024;                assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.chip_kib = 2048;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // OCS Agnus: no more than 1 MiB
-    c = make_config(); c.chip_kib = 1536;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.chip_kib = 1536;                assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);              // OCS Agnus: half-megabyte steps above 1 MiB need ECS/AGA
     c = make_config(); c.chip_kib = 256;                 assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = 2304;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "512 KiB step"));
+    c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = 8704;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "8 MiB"));
+    for (uint32_t chip = 512; chip <= 8192; chip += 512) {
+        c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = chip;
+        assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    }
     c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = 2048; c.fast_kib = 8192;
                                                          assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.machine = P6_MACHINE_A600; c.chip_kib = 2560; c.fast_kib = 8192;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "overlaps"));
     c = make_config(); c.machine = P6_MACHINE_A1200; c.fast_kib = 8192; c.slow_kib = 1536;
                                                          assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.machine = P6_MACHINE_A1200; c.slow_kib = 1792;
@@ -375,6 +397,22 @@ static Snapshot boot_once(const std::vector<uint8_t> &rom, uint32_t standard, ui
     return s;
 }
 
+static void chipset_override_once(const std::vector<uint8_t> &rom)
+{
+    p6_error e = make_error();
+    p6_config c = make_config();
+    c.machine = P6_MACHINE_A600;
+    c.chipset_compatible = P6_CHIPSET_COMPATIBLE_A500;
+    assert(p6_init(&c, &e) == P6_OK);
+    const p6_result loaded = load(rom, &e);
+    if (loaded != P6_OK) fprintf(stderr, "chipset override load returned %d (%s), mask=%d ce=%d/%d\n", int(loaded), e.message,
+                                currprefs.chipset_mask, int(currprefs.blitter_cycle_exact), int(currprefs.cpu_cycle_exact));
+    assert(loaded == P6_OK);
+    assert(currprefs.chipset_mask == CSMASK_OCS);
+    assert(currprefs.cs_compatible == 0 && currprefs.cs_ide == 0 && currprefs.cs_pcmcia == 0);
+    assert(p6_unload(&e) == P6_OK && p6_shutdown(&e) == P6_OK);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s boot.rom\n", argv[0]); return 64; }
@@ -383,6 +421,7 @@ int main(int argc, char **argv)
 
     rejects_bad_calls_before_load(rom);
     rejects_invalid_input_without_touching_the_machine(rom);
+    chipset_override_once(rom);
 
     const Snapshot first = boot_once(rom, P6_VIDEO_PAL, 1);
     assert(first.pc == 0xF800D2);

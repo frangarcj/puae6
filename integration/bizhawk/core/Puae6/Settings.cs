@@ -19,9 +19,12 @@ public enum Puae6Cartridge { Disabled = 0, HrtMon = 2, Ar1 = 3, Ar2 = 4, Ar3 = 5
 /// of BizHawk's database is in Puae6Core.EmuHawk.cs (FirmwareOf): the database has the entries "A500" (Kickstart 1.3) and "A600" (2.05, 2.04 and the 3.1 r40.063 of the A600 and the A2000).
 /// </summary>
 public enum Puae6Machine { A500, A600, A1200, A500OG, A500PLUS, A1000, A2000OG, A2000, A4030, CD32, A4040, CDTV }
+public enum Puae6ChipsetCompatible { Auto, A500, A600, A1200, A4000, CD32, CDTV }
+public enum Puae6Chipset { Auto, OCS, EcsAgnus, EcsDenise, Ecs, Aga }
 
-/// <summary>Chip RAM (restart): the machine's own (A500 512 KiB, A600 1 MiB, A1200 2 MiB) or a size; the A500 (OCS) has 512 KiB or 1 MiB, the other machines also 2 MiB.</summary>
-public enum Puae6Chip { Auto, KB512, MB1, MB2 }
+/// <summary>Chip RAM (restart): the machine's own size or UAE's half-megabyte capacities through 8 MiB. OCS Agnus supports at most 1 MiB; fixed CD/A1000 profiles reject overrides.</summary>
+// Auto/KB512/MB1/MB2 retain their serialized values from the first previews.
+public enum Puae6Chip { Auto = 0, KB512 = 1, MB1 = 2, MB1_5 = 4, MB2 = 3, MB2_5 = 5, MB3 = 6, MB3_5 = 7, MB4 = 8, MB4_5 = 9, MB5 = 10, MB5_5 = 11, MB6 = 12, MB6_5 = 13, MB7 = 14, MB7_5 = 15, MB8 = 16 }
 
 /// <summary>Slow RAM at $C00000 (restart): the machine's own (A500 512 KiB, A600 and A1200 none), none, or a size; 1.75 MiB is not available on the A1200 (AGA maps 1.5 MiB at most).</summary>
 public enum Puae6Slow { Auto, None, KB512, MB1, MB1_5, MB1_75 }
@@ -39,6 +42,29 @@ public enum Puae6Cpu { Auto, M68000, M68010, M68020, M68030, M68040, M68060 }
 public enum Puae6CollisionLevel { Auto, None, Sprites, Playfields, Full }
 // ABI IDs: retain MB16=1; subsequent capacities occupy 2..10.
 public enum Puae6Z3Memory { None, MB16, MB1, MB2, MB4, MB8, MB32, MB64, MB128, MB256, MB512 }
+public enum Puae6MotherboardFastRam { None = 0, MB1 = 1, MB2 = 2, MB4 = 4, MB8 = 8, MB16 = 16, MB32 = 32, MB64 = 64 }
+
+/// <summary>A single-board Fast RAM choice for the settings editor. The concrete Z2/Z3 fields remain the serialized contract, so existing configs and presets do not change.</summary>
+public enum Puae6FastRam
+{
+	Profile,
+	None,
+	Z2MB1,
+	Z2MB2,
+	Z2MB4,
+	Z2MB8,
+	Z3MB1,
+	Z3MB2,
+	Z3MB4,
+	Z3MB8,
+	Z3MB16,
+	Z3MB32,
+	Z3MB64,
+	Z3MB128,
+	Z3MB256,
+	Z3MB512,
+	Custom,
+}
 
 /// <summary>The bounded UAE Zorro III graphics board (restart): disabled, or its fixed 4 MiB of VRAM.</summary>
 public enum Puae6RtgMemory { None, MB4 }
@@ -135,6 +161,12 @@ public sealed partial class Puae6SyncSettings
 	/// <summary>Which Amiga it is. A state or a movie of one machine is refused by the other; the Kickstart asked of BizHawk's firmware database follows it (FirmwareID Amiga "A500", "A600" or "A1200", the name of the member).</summary>
 	public Puae6Machine Machine { get; set; } = Puae6Machine.A500;
 
+	/// <summary>Validated WinUAE compatibility table applied after the selected machine profile.</summary>
+	public Puae6ChipsetCompatible ChipsetCompatible { get; set; } = Puae6ChipsetCompatible.Auto;
+
+	/// <summary>Validated Agnus/Denise generation applied after the compatibility table.</summary>
+	public Puae6Chipset Chipset { get; set; } = Puae6Chipset.Auto;
+
 	/// <summary>Chip RAM of the machine. A size the machine cannot have is refused when the core starts, with the reason.</summary>
 	public Puae6Chip ChipMemory { get; set; } = Puae6Chip.Auto;
 
@@ -145,6 +177,11 @@ public sealed partial class Puae6SyncSettings
 	public Puae6Fast FastMemory { get; set; } = Puae6Fast.Auto;
 	/// <summary>One physical Zorro III board, A4030/A4040 only (Normal CPU); requires restart.</summary>
 	public Puae6Z3Memory Z3Memory { get; set; } = Puae6Z3Memory.None;
+
+	/// <summary>RAM de placa A4000 en el banco bajo de Ramsey, separada de las placas Zorro II/III. Solo A4030/A4040; requiere reinicio.</summary>
+	[DisplayName("Motherboard Fast RAM")]
+	[Description("A4000 Ramsey motherboard RAM ending at $08000000. This is not a Zorro expansion board.")]
+	public Puae6MotherboardFastRam MotherboardFastRam { get; set; } = Puae6MotherboardFastRam.None;
 
 	/// <summary>The UAE Zorro III RTG board. It is available only on A4030/Normal or A4040/Normal and keeps a fixed 1024x768 output canvas while the guest switches displays.</summary>
 	[DisplayName("RTG memory")]

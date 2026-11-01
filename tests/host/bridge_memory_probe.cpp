@@ -314,6 +314,34 @@ void reports_the_slow_ram_the_cpu_reaches(const std::vector<uint8_t> &rom)
     }
 }
 
+// T105a: UAE's non-power-of-two Chip capacities reserve a power-of-two host span, but the CPU, DMA, region and state see exactly the requested bytes.
+// The limit accessors must not fold the high half-megabyte over address zero and must not expose the reserved tail.
+void reports_exact_extended_chip_ram(const std::vector<uint8_t> &rom)
+{
+    for (uint32_t kib : {1536u, 2560u, 8192u}) {
+        p6_config c = make_config();
+        c.machine = P6_MACHINE_A600;
+        c.chip_kib = kib;
+        load_config(rom, c);
+        const Regions r = ask();
+        const p6_memory_region *chip = r.find(P6_REGION_CHIP_RAM);
+        assert(chip && chip->data == chipmem_bank.baseaddr && chip->bytes == uint64_t(kib) * 1024 && chipmem_bank.allocated_size == chip->bytes);
+        const uint32_t mask = kib == 1536 ? (2u << 20) - 1 : kib == 2560 ? (4u << 20) - 1 : (8u << 20) - 1;
+        assert(chipmem_bank.mask == mask);
+        chipmem_bank.bput(0, 0x11);
+        chipmem_bank.bput(uint32_t(chip->bytes - 1), 0x22);
+        assert(chipmem_bank.bget(0) == 0x11 && chipmem_bank.bget(uint32_t(chip->bytes - 1)) == 0x22);
+        if ((chip->bytes & (chip->bytes - 1)) != 0) {
+            const uint8_t tail = chipmem_bank.baseaddr[chip->bytes];
+            chipmem_bank.bput(uint32_t(chip->bytes), 0x33);
+            assert(chipmem_bank.baseaddr[chip->bytes] == tail && chipmem_bank.bget(uint32_t(chip->bytes)) == 0);
+        }
+        run_unit();
+        assert(ask().find(P6_REGION_CHIP_RAM)->bytes == chip->bytes);
+        unload();
+    }
+}
+
 // T50: the memory each preset comes with is what the engine allocates and reports, before and after a unit: Chip RAM of its size, the Slow RAM only where the preset has it.
 void reports_the_memory_of_every_preset(const std::vector<uint8_t> &rom)
 {
@@ -347,6 +375,7 @@ int main(int argc, char **argv)
     reports_the_machine_memory(chipcell);
     reports_the_fast_ram_board(chipcell);
     reports_the_slow_ram_the_cpu_reaches(chipcell);
+    reports_exact_extended_chip_ram(chipcell);
     reports_the_memory_of_every_preset(chipcell);
     the_host_sees_and_changes_what_the_cpu_does(chipcell);
     the_drive_light_follows_the_led(chipcell, disk, adf);

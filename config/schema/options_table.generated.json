@@ -34,6 +34,50 @@
       "option": "machine",
       "class": "reboot"
     },
+    "chipset_compatible": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "names": {
+        "Auto": 0,
+        "A500": 1,
+        "A600": 2,
+        "A1200": 3,
+        "A4000": 4,
+        "CD32": 5,
+        "CDTV": 6
+      },
+      "option": "chipset_compatible",
+      "class": "reboot"
+    },
+    "chipset": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "names": {
+        "Auto": 0,
+        "OCS": 1,
+        "ECS_Agnus": 2,
+        "ECS_Denise": 3,
+        "ECS": 4,
+        "AGA": 5
+      },
+      "option": "chipset",
+      "class": "reboot"
+    },
     "video_standard": {
       "default": 1,
       "allowed": [
@@ -53,13 +97,39 @@
         0,
         512,
         1024,
-        2048
+        1536,
+        2048,
+        2560,
+        3072,
+        3584,
+        4096,
+        4608,
+        5120,
+        5632,
+        6144,
+        6656,
+        7168,
+        7680,
+        8192
       ],
       "names": {
         "Auto": 0,
         "KB512": 512,
         "MB1": 1024,
-        "MB2": 2048
+        "MB1_5": 1536,
+        "MB2": 2048,
+        "MB2_5": 2560,
+        "MB3": 3072,
+        "MB3_5": 3584,
+        "MB4": 4096,
+        "MB4_5": 4608,
+        "MB5": 5120,
+        "MB5_5": 5632,
+        "MB6": 6144,
+        "MB6_5": 6656,
+        "MB7": 7168,
+        "MB7_5": 7680,
+        "MB8": 8192
       },
       "option": "chip_size",
       "class": "reboot"
@@ -167,6 +237,31 @@
         "MB4": 1
       },
       "option": "rtg_memory",
+      "class": "reboot"
+    },
+    "motherboard_fast_ram": {
+      "default": 0,
+      "allowed": [
+        0,
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64
+      ],
+      "names": {
+        "None": 0,
+        "MB1": 1,
+        "MB2": 2,
+        "MB4": 4,
+        "MB8": 8,
+        "MB16": 16,
+        "MB32": 32,
+        "MB64": 64
+      },
+      "option": "motherboard_fast_ram",
       "class": "reboot"
     },
     "collision_level": {
@@ -1764,6 +1859,47 @@
         "auto": 0
       }
     },
+    "chipset_compatible": {
+      "headless": {
+        "how": "named",
+        "flag": "--chipset-compatible",
+        "names": {
+          "Auto": "auto",
+          "A500": "a500",
+          "A600": "a600",
+          "A1200": "a1200",
+          "A4000": "a4000",
+          "CD32": "cd32",
+          "CDTV": "cdtv"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "ChipsetCompatible",
+        "type": "Puae6ChipsetCompatible"
+      },
+      "libretro": "puae6_chipset_compatible"
+    },
+    "chipset": {
+      "headless": {
+        "how": "named",
+        "flag": "--chipset",
+        "names": {
+          "Auto": "auto",
+          "OCS": "ocs",
+          "ECS_Agnus": "ecs-agnus",
+          "ECS_Denise": "ecs-denise",
+          "ECS": "ecs",
+          "AGA": "aga"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "Chipset",
+        "type": "Puae6Chipset"
+      },
+      "libretro": "puae6_chipset"
+    },
     "video_standard": {
       "headless": {
         "how": "flag",
@@ -1865,6 +2001,28 @@
         "type": "Puae6RtgMemory"
       },
       "libretro": null
+    },
+    "motherboard_fast_ram": {
+      "headless": {
+        "how": "named",
+        "flag": "--motherboard-fast",
+        "names": {
+          "None": "none",
+          "MB1": "1",
+          "MB2": "2",
+          "MB4": "4",
+          "MB8": "8",
+          "MB16": "16",
+          "MB32": "32",
+          "MB64": "64"
+        }
+      },
+      "wrapper": {
+        "how": "setting",
+        "setting": "MotherboardFastRam",
+        "type": "Puae6MotherboardFastRam"
+      },
+      "libretro": "puae6_motherboard_fast_ram"
     },
     "collision_level": {
       "headless": {

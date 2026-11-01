@@ -341,8 +341,9 @@ void visit_ram(Archive &a)
     visit_hrtmon(a);
     visit_ar(a);
     const uint32_t z3 = p6_bridge::z3_bytes(session.config);
+    const uint32_t motherboard = p6_bridge::motherboard_fast_bytes(session.config);
     const bool rtg = session.config.rtg_memory == P6_RTG_MEMORY_4_MIB;
-    if (!fast && !z3 && !rtg && session.config.machine != p6_bridge::kCdtvMachine) return;
+    if (!fast && !z3 && !motherboard && !rtg && session.config.machine != p6_bridge::kCdtvMachine) return;
     if (fast) {
         a.val<uint32_t>(fast, fast, fast, "ram.fast_size");
         if (a.mode() == Mode::Save || a.applying())
@@ -354,6 +355,13 @@ void visit_ram(Archive &a)
         if (a.mode() == Mode::Save || a.applying())
             a.require(z3fastmem_bank[0].allocated_size == z3 && z3fastmem_bank[0].baseaddr, "the Z3 board is not allocated");
         a.bytes(z3fastmem_bank[0].baseaddr, z3, "ram.z3");
+    }
+    if (motherboard) {
+        a.val<uint32_t>(motherboard, motherboard, motherboard, "ram.motherboard_fast_size");
+        if (a.mode() == Mode::Save || a.applying())
+            a.require(a3000lmem_bank.allocated_size == motherboard && a3000lmem_bank.baseaddr,
+                "the A4000 motherboard Fast RAM is not allocated");
+        a.bytes(a3000lmem_bank.baseaddr, motherboard, "ram.motherboard_fast");
     }
     if (rtg) visit_rtg(a);
     visit_expansion(a, fast);
@@ -490,6 +498,19 @@ Identity current_identity()
     memcpy(identity.codegen_hash, build.codegen_hash, 32);
     const p6_config &c = session.config;
     config_hash(c.machine, c.video_standard, c.audio_rate_hz, p6_bridge::identity_flags(c), c.random_seed, c.rtc_epoch_seconds, identity.config_hash);
+    // T105a: Chip RAM above 2 MiB would occupy the FPU bits in the historical flags word. Preserve every old hash and derive only extended configurations with their exact size.
+    uint8_t extended_chip[2];
+    if (p6_bridge::extended_chip_identity(c, extended_chip)) {
+        const uint8_t *parts[2] = {identity.config_hash, extended_chip};
+        const uint64_t lengths[2] = {32, 2};
+        domain_hash("p6/config/extended-chip/v1", parts, lengths, 2, identity.config_hash);
+    }
+    uint8_t chipset[2];
+    if (p6_bridge::chipset_identity(c, chipset)) {
+        const uint8_t *parts[2] = {identity.config_hash, chipset};
+        const uint64_t lengths[2] = {32, 2};
+        domain_hash("p6/config/chipset/v1", parts, lengths, 2, identity.config_hash);
+    }
     // T73: Paula's output options. The hash of a config at the profile's setting is the one it always was; any other setting derives from it with the four resolved settings.
     uint8_t audio[4];
     if (p6_bridge::audio_identity(c, audio)) {
@@ -545,6 +566,11 @@ Identity current_identity()
         const uint8_t *parts[2] = {identity.config_hash, &c.z3_memory};
         const uint64_t lengths[2] = {32, 1};
         domain_hash("p6/config/z3/v1", parts, lengths, 2, identity.config_hash);
+    }
+    if (c.motherboard_fast_ram) {
+        const uint8_t *parts[2] = {identity.config_hash, &c.motherboard_fast_ram};
+        const uint64_t lengths[2] = {32, 1};
+        domain_hash("p6/config/motherboard-fast/v1", parts, lengths, 2, identity.config_hash);
     }
     if (c.rtg_memory) {
         const uint8_t *parts[2] = {identity.config_hash, &c.rtg_memory};

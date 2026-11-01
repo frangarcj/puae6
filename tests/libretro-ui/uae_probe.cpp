@@ -70,9 +70,10 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
     struct Row {
         const char *file;
         uint32_t machine, standard, chip, slow, fast, fpu, rate, writes;
+        uint32_t compatible = 0, chipset = 0;
     };
     const Row rows[] = {
-        {"chipset_compatible=A1200\n", 3, 1, 0, 0, 0, 0, 48000, 0},
+        {"chipset_compatible=A1200\n", 3, 1, 0, 0, 0, 0, 48000, 0, 3, 0},
         // T50: the machines that came after (value 4 to 8 of puae6_machine); the A2000 OG and the A2000 are told apart by the chipset line
         {"chipset_compatible=A500+\n", 5, 1, 0, 0, 0, 0, 48000, 0},
         {"chipset_compatible=a1000\nchipset=ocs\n", 6, 1, 0, 0, 0, 0, 48000, 0},
@@ -80,14 +81,15 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         {"chipset_compatible=A2000\nchipset=ecs_agnus\nchipmem_size=2\n", 8, 1, 1024, 0, 0, 0, 48000, 0},
         {"chipset_compatible=A2000\n", 8, 1, 0, 0, 0, 0, 48000, 0},
         {"puae6_machine=A500OG\n", 4, 1, 0, 0, 0, 0, 48000, 0},
-        {"chipset_compatible=a600\nchipmem_size=4\nfastmem_size=8\n", 2, 1, 2048, 0, 8192, 0, 48000, 0},
+        {"chipset_compatible=a600\nchipmem_size=4\nfastmem_size=8\n", 2, 1, 2048, 0, 8192, 0, 48000, 0, 2, 0},
+        {"chipset_compatible=A1200\nchipmem_size=5\n", 3, 1, 2560, 0, 0, 0, 48000, 0, 3, 0},
         {"chipset=aga\ncpu_model=68020\nfpu_model=68882\n", 3, 1, 0, 0, 0, 68882, 48000, 0},
         {"chipset=ocs\nbogomem_size=2\nntsc=true\nsound_frequency=44100\n", 1, 2, 0, 512, 0, 0, 44100, 0},
-        {"chipset_compatible=A500\nbogomem_size=0\nfastmem_size_k=1024\nfpu_model=0\n", 1, 1, 0, 0xFFFFFFFFu, 1024, 0, 48000, 0},
-        {"chipset_compatible=A500\nbogomem_size=7\nfloppy_write_protect=false\n", 1, 1, 0, 1792, 0, 0, 48000, 1},
-        {"chipset_compatible=A500\nbogomem_size=6\nchipmem_size=2\nfloppy_write_protect=true\n", 1, 1, 1024, 1536, 0, 0, 48000, 0},
-        {"puae6_machine=A600\npuae6_video_standard=NTSC\npuae6_chip_size=MB1\npuae6_slow_size=None\npuae6_fast_size=MB4\npuae6_fpu_model=M68881\n"
-         "puae6_audio_rate=44100\npuae6_floppy_writes=enabled\n", 2, 2, 1024, 0xFFFFFFFFu, 4096, 68881, 44100, 1},
+        {"chipset_compatible=A500\nbogomem_size=0\nfastmem_size_k=1024\nfpu_model=0\n", 1, 1, 0, 0xFFFFFFFFu, 1024, 0, 48000, 0, 1, 0},
+        {"chipset_compatible=A500\nbogomem_size=7\nfloppy_write_protect=false\n", 1, 1, 0, 1792, 0, 0, 48000, 1, 1, 0},
+        {"chipset_compatible=A500\nbogomem_size=6\nchipmem_size=2\nfloppy_write_protect=true\n", 1, 1, 1024, 1536, 0, 0, 48000, 0, 1, 0},
+        {"puae6_machine=A1200\npuae6_video_standard=NTSC\npuae6_chip_size=MB1\npuae6_slow_size=None\npuae6_fast_size=MB4\npuae6_fpu_model=M68881\n"
+         "puae6_audio_rate=44100\npuae6_floppy_writes=enabled\n", 3, 2, 1024, 0xFFFFFFFFu, 4096, 68881, 44100, 1},
     };
     for (const Row &row : rows) {
         Settings expected = concrete();
@@ -99,6 +101,8 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
         expected.fpu_model = row.fpu;
         expected.audio_rate_hz = row.rate;
         expected.floppy_writes = row.writes;
+        expected.chipset_compatible = row.compatible;
+        expected.chipset = row.chipset;
         const Result r = import(row.file);
         if (!r.ok) printf("unexpected: %s\n", describe_report(r.imported.errors[0]).c_str());
         CHECK(r.ok);
@@ -125,6 +129,16 @@ static void valid_keys_make_the_config_of_the_equivalent_options()
     CHECK(cfg030.machine == P6_MACHINE_A4030 && cfg030.cpu_compatibility == P6_CPU_NORMAL && cfg030.fast_kib == P6_MEMORY_NONE);
     CHECK(!import("chipset_compatible=A4000\ncpu_24bit_addressing=true\n").ok);
     CHECK(!import("chipset_compatible=A1200\ncpu_24bit_addressing=false\n").ok);
+    // T105e: both native menu spellings and WinUAE's raw first-board/low-motherboard keys reach the same validated settings.
+    const std::string raw_memory = "chipset_compatible=A4000\npuae6_cpu_compatibility=normal\nz3mem_size=64\na3000mem_size=4\n";
+    const std::string native_memory = "puae6_machine=A4030\npuae6_chipset_compatible=A4000\npuae6_cpu_compatibility=normal\npuae6_z3_memory=MB64\npuae6_motherboard_fast_ram=MB4\n";
+    const Result raw = import(raw_memory), native = import(native_memory);
+    CHECK(raw.ok && native.ok && same_config(raw.imported.settings, native.imported.settings));
+    CHECK(raw.imported.settings.z3_memory == 7 && raw.imported.settings.motherboard_fast_ram == 4);
+    CHECK(same_config(import("a3000mem_size=4\nz3mem_size=64\npuae6_cpu_compatibility=normal\nchipset_compatible=A4000\n").imported.settings,
+                      import(raw_memory).imported.settings));
+    CHECK(import("puae6_machine=A1200\npuae6_cartridge=ar1200\n").ok);
+    CHECK(!import("puae6_machine=A500\npuae6_chipset=AGA\n").ok);
     // The preset a file names is the preset of the frontend: a600_puae5 = A600 + 2 MiB Chip + 8 MiB Fast, then the keys refine it.
     Settings preset = concrete();
     preset.preset = 2;
@@ -218,7 +232,8 @@ static void precedence()
     Settings after = r.imported.settings;
     CHECK(after.statusbar == 3 && after.mapper_b == 5 && after.vkbd_theme == 4 && after.turbo_fire == 1);
     for (const Option &option : kOptions) {
-        const bool semantic = !strcmp(option.key, "puae6_machine") || !strcmp(option.key, "puae6_video_standard") || !strcmp(option.key, "puae6_preset");
+        const bool semantic = !strcmp(option.key, "puae6_machine") || !strcmp(option.key, "puae6_chipset_compatible") ||
+            !strcmp(option.key, "puae6_video_standard") || !strcmp(option.key, "puae6_preset");
         if (!semantic) CHECK(after.*option.field == busy.*option.field);
     }
     CHECK(r.imported.warnings.size() == 3);         // gfx_width, joyport0, mouse_speed
@@ -259,9 +274,9 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"cpu_compatible=false", "cpu_compatible", "cycle exact"},
         {"cycle_exact=false", "cycle_exact", "cycle exact"},
         {"mmu_model=68030", "mmu_model", "no MMU"},
-        {"z3mem_size=64", "z3mem_size", "not implemented"},
-        {"mbresmem_size=8", "mbresmem_size", "not implemented"},
-        {"a3000mem_size=4", "a3000mem_size", "not implemented"},
+        {"z3mem_size=64", "z3mem_size", "only on A4000"},
+        {"mbresmem_size=8", "mbresmem_size", "only the first validated"},
+        {"a3000mem_size=4", "a3000mem_size", "only on A4000"},
         {"fastmem2_size=4", "fastmem2_size", "one Zorro II"},
         {"immediate_blits=true", "immediate_blits", "compatibility shortcut"},
         {"waiting_blits=automatic", "waiting_blits", "compatibility shortcut"},
@@ -295,19 +310,15 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
         {"cpu_model=68000\nchipset_compatible=A1200", "cpu_model", "A1200: 68020"},
         {"cpu_model=68010\nchipset_compatible=A1200", "cpu_model", "A1200: 68020"},
         {"cpu_model=68020\nchipset_compatible=A500", "cpu_model", "A500: 68000 or 68010"},
-        {"chipset=aga\nchipset_compatible=A500", "chipset", "A500: ocs"},
-        {"chipset=ecs_agnus", "chipset", "names no machine by itself"},
-        {"chipset=ecs_denise", "chipset", "not one of this core's"},
-        {"chipset_compatible=A2000\nchipset=aga", "chipset", "A2000: ecs_agnus"},
-        {"chipset_compatible=A500+\nchipset=ocs", "chipset", "A500PLUS: ecs"},
-        {"chipset_compatible=A1000\nchipset=ecs", "chipset", "A1000: ocs"},
+        {"chipset=aga\nchipset_compatible=A500", "chipset", "AGA requires"},
+        {"chipset_compatible=A2000\nchipset=aga", "chipset", "AGA requires"},
+        {"chipset_compatible=A1000\nchipset=ecs", "chipset", "fixed 8361/8362"},
         {"chipset_compatible=A4000\ncpu_model=68020", "cpu_model", "A4030: 68030"},
-        {"chipset_compatible=CD32", "chipset_compatible", "A500, A500+, A600, A1000, A1200, A2000"},
         {"fpu_model=68020", "fpu_model", "0, 68881, 68882, 68040 or 68060"},
         {"fpu_model=abc", "fpu_model", "expected a number"},
         {"chipmem_size=-1", "chipmem_size", "128 KiB"},
         {"chipmem_size=0", "chipmem_size", "256 KiB"},
-        {"chipmem_size=3", "chipmem_size", "1536 KiB of Chip RAM is not offered"},
+        {"chipmem_size=17", "chipmem_size", "8704 KiB of Chip RAM is not offered"},
         {"bogomem_size=1", "bogomem_size", "256 KiB of Slow RAM is not offered"},
         {"fastmem_size=16", "fastmem_size", "16 MiB of Fast RAM is not offered"},
         {"sound_frequency=22050", "sound_frequency", "22050 Hz is not offered"},
@@ -352,6 +363,11 @@ static void dangerous_keys_are_refused_with_their_key_and_line()
     // Every problem of the file is reported, not only the first.
     const Result many = import("filesystem2=a\nscsi=true\nhardfile2=b\ncdimage0=c\n");
     CHECK(!many.ok && many.imported.errors.size() == 4);
+    Settings base = concrete();
+    base.fast_size = 2048;
+    const Result transactional = import("puae6_machine=A1200\nfloppy0=boot.adf\npuae6_z3_memory=MB4\n", base);
+    CHECK(!transactional.ok && same_config(transactional.imported.settings, base));
+    CHECK(transactional.imported.disks.empty() && transactional.imported.applied.empty());
 }
 
 static void raw_drive_facts_agree_with_the_final_physical_count()
@@ -417,6 +433,7 @@ static void the_text_is_read_like_a_configuration_file()
     const char *keys = "chipset_compatible=A600\nchipmem_size=2\nntsc=yes\n";
     Settings expected = concrete();
     expected.machine = 2;
+    expected.chipset_compatible = 2;
     expected.chip_size = 1024;
     expected.video_standard = 2;
     CHECK(same_config(import(keys).imported.settings, expected));
@@ -576,9 +593,11 @@ static void whatever_the_bytes_the_answer_is_consistent()
             CHECK(s.audio_rate_hz == 44100 || s.audio_rate_hz == 48000);
         } else {
             ++refused;
+            CHECK(same_config(r.imported.settings, base));
+            CHECK(r.imported.disks.empty() && r.imported.applied.empty());
         }
     }
-    CHECK(accepted > 200 && refused > 200);        // both outcomes are exercised
+    CHECK(accepted > 20 && refused > 200);         // both outcomes are exercised after the stricter final-combination validation
     // Pure noise.
     for (unsigned iteration = 0; iteration < 3000; ++iteration) {
         std::vector<uint8_t> noise(random.below(600));
@@ -586,6 +605,10 @@ static void whatever_the_bytes_the_answer_is_consistent()
         UaeImport out;
         const bool ok = import_uae(noise, "/d/", concrete(), 16, &out);
         CHECK(ok == out.errors.empty());
+        if (!ok) {
+            CHECK(same_config(out.settings, concrete()));
+            CHECK(out.disks.empty() && out.applied.empty());
+        }
     }
 }
 

@@ -1,0 +1,104 @@
+diff --git a/main.cpp b/main.cpp
+index cf9a110a..4ae3e34e 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -477,7 +477,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 	}
+ #endif
+ 
+-	if (((p->chipmem.size & (p->chipmem.size - 1)) != 0 && p->chipmem.size != 0x180000)
++	if ((p->chipmem.size >= 0x80000 && (p->chipmem.size & 0x7ffff) != 0)
+ 		|| p->chipmem.size < 0x20000
+ 		|| p->chipmem.size > 0x800000)
+ 	{
+@@ -486,7 +486,7 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ 		err = 1;
+ 	}
+ 
+-	if (p->chipmem.size == 0x180000 && p->cachesize) {
++	if ((p->chipmem.size & (p->chipmem.size - 1)) != 0 && p->cachesize) {
+ 		error_log(_T("JIT unsupported chipmem size %d (0x%x)."), p->chipmem.size, p->chipmem.size);
+ 		p->chipmem.size = 0x200000;
+ 		err = 1;
+diff --git a/memory.cpp b/memory.cpp
+index 74660be1..f31e131c 100644
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -667,7 +667,7 @@ static uae_u32 REGPARAM2 chipmem_lget_limit(uaecptr addr)
+ 	uae_u32 *m;
+ 
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000 - 3) {
++	if (addr > chipmem_bank.allocated_size - 4) {
+ 		return chipmem_noise(addr);
+ 	}
+ 	m = (uae_u32 *)(chipmem_bank.baseaddr + addr);
+@@ -679,7 +679,7 @@ static uae_u32 REGPARAM2 chipmem_wget_limit(uaecptr addr)
+ 	uae_u16 *m, v;
+ 
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000 - 1) {
++	if (addr > chipmem_bank.allocated_size - 2) {
+ 		return chipmem_noise(addr);
+ 	}
+ 	m = (uae_u16 *)(chipmem_bank.baseaddr + addr);
+@@ -691,7 +691,7 @@ static uae_u32 REGPARAM2 chipmem_bget_limit(uaecptr addr)
+ {
+ 	uae_u8 v;
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000) {
++	if (addr >= chipmem_bank.allocated_size) {
+ 		return chipmem_noise(addr);
+ 	}
+ 	v = chipmem_bank.baseaddr[addr];
+@@ -703,7 +703,7 @@ static void REGPARAM2 chipmem_lput_limit(uaecptr addr, uae_u32 l)
+ 	uae_u32 *m;
+ 
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000) {
++	if (addr > chipmem_bank.allocated_size - 4) {
+ 		return;
+ 	}
+ 	m = (uae_u32 *)(chipmem_bank.baseaddr + addr);
+@@ -715,7 +715,7 @@ static void REGPARAM2 chipmem_wput_limit(uaecptr addr, uae_u32 w)
+ 	uae_u16 *m;
+ 
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000) {
++	if (addr > chipmem_bank.allocated_size - 2) {
+ 		return;
+ 	}
+ 	m = (uae_u16 *)(chipmem_bank.baseaddr + addr);
+@@ -725,7 +725,7 @@ static void REGPARAM2 chipmem_wput_limit(uaecptr addr, uae_u32 w)
+ static void REGPARAM2 chipmem_bput_limit(uaecptr addr, uae_u32 b)
+ {
+ 	addr &= chipmem_bank.mask;
+-	if (addr >= 0x180000) {
++	if (addr >= chipmem_bank.allocated_size) {
+ 		return;
+ 	}
+ 	chipmem_bank.baseaddr[addr] = b;
+@@ -1023,7 +1023,7 @@ void chipmem_setindirect(void)
+ 		chipmem_xlate_indirect = chipmem_xlate;
+ 	}
+ 
+-	if (currprefs.chipmem.size == 0x180000) {
++	if ((currprefs.chipmem.size & (currprefs.chipmem.size - 1)) != 0) {
+ 		chipmem_bank.bget = chipmem_bget_limit;
+ 		chipmem_bank.wget = chipmem_wget_limit;
+ 		chipmem_bank.lget = chipmem_lget_limit;
+@@ -2767,8 +2767,11 @@ static void allocate_memory (void)
+ 		if (!currprefs.cachesize && memsize < 0x100000) {
+ 			memsize = 0x100000;
+ 		}
+-		if (memsize == 0x180000) {
+-			memsize = 0x200000;
++		if ((memsize & (memsize - 1)) != 0) {
++			int allocated = 0x100000;
++			while (allocated < memsize)
++				allocated <<= 1;
++			memsize = allocated;
+ 			chipmem_full_mask = chipmem_bank.mask = memsize - 1;
+ 		}
+ 		chipmem_bank.reserved_size = memsize;
+

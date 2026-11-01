@@ -112,6 +112,41 @@ DAO multisesion, ISO V1 y CHD V2; conserva sus IDs al promover el transporte a V
 Brian the Lion acredita arranque real, interaccion y restauracion de juego. Las
 etiquetas CD32FR/FastRAM seleccionan FR en libretro, como se describe abajo.
 
+## Chip RAM ampliada (T105a)
+
+`puae6_chip_size` conserva `Auto` y los valores previos `KB512`, `MB1` y `MB2`, y añade cada paso de 512 KiB hasta `MB8`: `MB1_5`, `MB2_5`, `MB3`, `MB3_5`, `MB4`, `MB4_5`, `MB5`, `MB5_5`, `MB6`, `MB6_5`, `MB7`, `MB7_5` y `MB8`. Headless recibe el numero exacto de KiB mediante `--chip`; BizHawk muestra los mismos nombres en `ChipMemory`. Los perfiles no cambian: `Auto` sigue tomando su capacidad y elegir o inferir un preset aplica los mismos valores concretos de antes.
+
+La seleccion se valida antes de crear la sesion: OCS llega como maximo a 1 MiB, A1000/CDTV/CD32 conservan su memoria fija y una Chip RAM superior a 2 MiB no se combina con Fast RAM Zorro II. Los bancos no potencia de dos conservan su capacidad direccionable exacta, su identidad y su estado; el espacio reservado hasta la siguiente potencia de dos no aparece como memoria ni aliasa paginas bajas.
+
+## Compatibilidad y chipset sobre perfiles (T105b)
+
+Los perfiles siguen siendo el punto de partida y conservan todos sus defaults. Dos
+opciones de reinicio permiten refinarlos sin perder el selector virtual:
+
+* `puae6_chipset_compatible`: `Auto`, `A500`, `A600`, `A1200`, `A4000`,
+  `CD32` o `CDTV`. Aplica una tabla de compatibilidad WinUAE despues del perfil.
+* `puae6_chipset`: `Auto`, `OCS`, `ECS_Agnus`, `ECS_Denise`, `ECS` o
+  `AGA`. Fija la generacion de Agnus/Denise despues de la tabla compatible.
+
+Headless ofrece `--chipset-compatible auto|a500|a600|a1200|a4000|cd32|cdtv`
+y `--chipset auto|ocs|ecs-agnus|ecs-denise|ecs|aga`; BizHawk muestra
+`ChipsetCompatible` y `Chipset`. Elegir un perfil restablece ambas propiedades a
+`Auto`; al abrir una configuracion, el perfil se sigue infiriendo por sus valores
+concretos y los overrides aparecen en negrita. Escribir explicitamente el mismo
+resultado del perfil no crea otra identidad ni otro estado.
+
+Las combinaciones se validan antes de ejecutar. A500/A600 solo se aplican a las
+placas 68000 genericas soportadas y A600 no admite Slow RAM; A1200, A4000, CD32 y
+CDTV deben coincidir con su familia. A1000 no admite override. AGA requiere una
+CPU 68020 o posterior, CD32 conserva AGA y CDTV ECS Agnus, y OCS limita Chip RAM
+a 1 MiB. Una tabla no añade IDE, PCMCIA, CD, RTC ni dispositivos que no pertenezcan
+al perfil elegido.
+
+Estas claves nativas llevan el prefijo `puae6_`. El importador `.uae` conserva
+la seleccion de perfil de `chipset_compatible` y `chipset`, pero desde T105e
+traduce una tabla o generacion distinta y representable a estos mismos overrides;
+si coincide con el perfil se canonicaliza como `Auto`.
+
 ## A4000/030 (T55b)
 
 El modelo `A4030` usa la placa A4000 real: AGA, Gary/Ramsey, Ricoh RTC, mapa de
@@ -132,6 +167,25 @@ El presupuesto mmap aumenta el doble de la RAM elegida. Otros modelos se
 rechazan. Cambiarla requiere recargar y cambia la identidad del estado.
 La aceptacion completa de T55b, incluido Waterbox real, sigue pendiente.
 
+Desde T105c el PropertyGrid de BizHawk presenta una sola fila **Fast RAM board**:
+`Profile`, `None`, Zorro II de 1/2/4/8 MiB o Zorro III de
+1/2/4/8/16/32/64/128/256/512 MiB. El nombre siempre muestra el bus; no acepta un
+entero entre 0 y 512 ni redondea una capacidad. Seleccionar Z2 limpia Z3 y
+viceversa. Los campos concretos `FastMemory` y `Z3Memory` siguen siendo el
+formato serializado para no romper configuraciones anteriores; una configuracion
+antigua que contenga las dos placas se muestra como `Custom` y no se reescribe.
+Los presets Fast8 siguen guardando `FastMemory=MB8`, es decir, la misma placa Z2.
+Libretro y headless conservan sus dos opciones tipadas anteriores.
+
+La RAM de placa A4000 es una tercera opcion independiente:
+`puae6_motherboard_fast_ram=None|MB1|MB2|MB4|MB8|MB16|MB32|MB64`,
+`--motherboard-fast none|1|2|4|8|16|32|64` o `MotherboardFastRam` en BizHawk.
+Solo A4030/A4040 con CPU Normal la admiten. Es el banco bajo de Ramsey que acaba
+en `$08000000`, no una placa Zorro: no sustituye Fast8 ni Z3 y puede coexistir
+con ambas. `None` conserva los presets A4030/A4040/A4060 tal como estaban.
+Cada capacidad cambia la identidad, el estado incluye todos sus bytes y el
+presupuesto Waterbox crece en dos veces la capacidad.
+
 ## Perfiles de maquina en MacHawk
 
 El editor de Sync Settings ofrece una propiedad virtual `Machine profile`; no se
@@ -148,7 +202,8 @@ seleccionado, y en negrita solo los overrides. `Machine` deja de editarse por
 separado en esa vista para evitar combinaciones transitorias invalidas; CPU, FPU,
 memoria, controladores y el resto de Sync Settings permanecen editables. Restablecer
 una fila recupera el valor del perfil, y el boton de defaults conserva el A500
-historico. El perfil es solo ayuda de interfaz: la identidad sigue derivandose de
+historico. `ChipsetCompatible` y `Chipset` siguen la misma regla y vuelven a
+`Auto` al elegir un perfil. El perfil es solo ayuda de interfaz: la identidad sigue derivandose de
 los mismos valores concretos que recibe el guest.
 
 ## Clases y la frontera con la emulacion
@@ -392,11 +447,11 @@ en `unsupported` del esquema (no es una clave de `p6_config`: ni headless ni el 
 
 ### Politica
 
-* **Se acepta y se traduce** lo que el esquema tiene (modelo, memoria, FPU, estandar de video, frecuencia de audio, proteccion de escritura) y los discos.
-* **Se comprueba** lo que solo describe la maquina que el perfil ya es (chipset, CPU, ciclo exacto, numero de unidades): un valor que no coincide **se rechaza**, uno que coincide no hace nada.
+* **Se acepta y se traduce** lo que el esquema publico tiene (modelo, presets, chipset validado, Chip/Slow/Zorro II/Zorro III/RAM de placa, CPU/FPU, cartucho, video, audio y unidades) y los discos.
+* **Se comprueba** primero el documento completo. Un chipset que coincide solo describe el perfil y se canonicaliza; uno distinto usa el override publico. CPU, ciclo exacto y numero de unidades deben ser una combinacion final valida, independientemente del orden.
 * **Aviso** (el fichero carga): claves de ventana/entrada del anfitrion (`gfx_*`, `win32.*`, `input.*`, `joyport*`, `mouse_*`, ...). No cambian la maquina; el core registra una linea por clave y un
   mensaje en pantalla con su numero. Los metadatos (`config_*`) se aceptan sin aviso.
-* **Se rechaza** lo que cambia la maquina y no cabe en el esquema (directorios y discos duros del anfitrion, CD, Kickstart por ruta, SCSI, RTG, JIT, placas, redes, rutas absolutas) **y toda clave
+* **Se rechaza** lo que cambia la maquina y no cabe en el esquema (directorios y discos duros del anfitrion, CD, Kickstart por ruta, SCSI, RTG, JIT, MMU, PPC, placas no inventariadas, redes, comandos, plugins, rutas absolutas) **y toda clave
   desconocida**: no se puede saber que una clave desconocida deje la maquina como esta, y un `.uae` con una clave ignorada en silencio es como dos sesiones divergen. La carga falla con la clave y la linea
   (`line 12 (filesystem2): not supported: ...`); el log lleva **todos** los problemas (hasta 32; el resto se cuenta) y la pantalla los tres primeros.
 * Una clave de ruta (`filesystem*`, `hardfile*`, `uaehf*`, `cdimage*`, `kickstart*`, `cart*`, `flash_file`) **sin valor** no monta nada y no se rechaza.
@@ -410,6 +465,11 @@ porque ganaria la que apareciese despues. Una opcion que el fichero no nombra co
 menu, `puae6_video_*`, `puae6_mapper_*`, ... se rechazan con ese motivo): el fichero solo escribe las opciones `reboot` del hash de configuracion. Si el fichero no nombra maquina, preset ni
 `chipset_compatible`, el chipset (`ocs`/`ecs`/`aga`) fija el modelo (A500/A600/A1200; `ecs_agnus` solo comprueba el A2000 que nombra `chipset_compatible`); sin ninguno de ellos manda el modelo del frontend y `cpu_model`/`chipset` se comprueban contra el.
 Para el aviso "cambia en el menu" (`refresh_options`) el core compara con lo que el *frontend* tiene, no con lo que impuso el fichero: cambiar solo una opcion de presentacion no avisa de nada.
+
+La aplicacion es transaccional: analisis, resolucion, validacion final y rutas se
+hacen en una copia. Si aparece una clave host, un valor o una combinacion invalida,
+el resultado conserva exactamente las opciones de entrada y no devuelve discos ni
+claves aplicadas parcialmente; solo conserva los diagnosticos acotados.
 
 El resultado es el mismo `p6_config` (y el mismo `config_hash` y estado guardado) que las opciones equivalentes: `test_uae.py` carga el fichero y, en otro proceso, las opciones, y compara
 imagenes, audio y el estado guardado unidad por unidad.
@@ -436,14 +496,16 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 
 | Clave | Que hace |
 |---|---|
-| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000`, `A4000` -> `puae6_machine` (T50: `A500+` es el A500PLUS; `A2000` es el A2000OG con `chipset=ocs` y el A2000 con `chipset=ecs_agnus` o sin linea de chipset). `-` y `Generic` no nombran maquina. Cualquier otra (`A3000`, `CD32`, ...) se rechaza. El A500OG solo se elige con `puae6_machine=A500OG`: ningun `.uae` lo distingue del A500 sin cambiar la memoria. |
-| `chipset` | `ocs`/`ecs`/`aga`: si el fichero no nombra maquina la fija (A500/A600/A1200); si la nombra, debe ser la suya (`A2000`: `ocs` o `ecs_agnus`). `ecs_agnus` solo, sin `chipset_compatible=A2000`, y `ecs_denise` se rechazan. |
+| `chipset_compatible` | `A500`, `A500+`, `A600`, `A1000`, `A1200`, `A2000`, `A4000` (`a4000` tambien, los valores crudos no distinguen mayusculas), `CD32`, `CDTV` seleccionan el perfil representable; las familias publicas aplican tambien `puae6_chipset_compatible`. T50: `A2000` es A2000OG con `chipset=ocs` y A2000 con `ecs_agnus` o sin linea. `-` y `Generic` no nombran maquina. A3000 se rechaza. |
+| `chipset` | `ocs`, `ecs_agnus`, `ecs_denise`, `ecs`, `aga`. Sin modelo, OCS/ECS/AGA infieren A500/A600/A1200; cualquier valor distinto del chipset completo del perfil se convierte en `puae6_chipset` y pasa la misma validacion publica (AGA necesita 68020+, A1000/CD fijos, etc.). |
 | `cpu_model` | `68000` o `68010` en las maquinas de 68000 (A500, A500OG, A500PLUS, A600, A1000, A2000OG, A2000), `68020` en el A1200 (su 68EC020), `68030` en A4030 y `68040`/`68060` en A4040 (precision Normal, sin MMU) -> `puae6_cpu_model`. Otro valor, o una CPU que la maquina no puede tener, se rechaza. |
 | `cpu_multiplier` | `1`, `2`, `4`, `8`, `10`, `12`, `16` (veces 3,55 MHz, como PUAE5) -> `puae6_cpu_multiplier`; `0` es el de la maquina (`auto`). Otro numero se rechaza (T52). |
 | `fpu_model` | `0` -> `puae6_fpu_model=None`; `68881`, `68882`, `68040`, `68060` -> `M68881`, `M68882`, `M68040`, `M68060`. La carga valida la combinacion: 68881/68882 en A1200/A4030; FPU interna 68040/68060 solo en A4040 con la CPU correspondiente. |
-| `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `4`=2 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB) y lo que no ofrece el core se rechazan. |
+| `chipmem_size` | Unidades de 512 KiB (como WinUAE): `1`=512 KiB, `2`=1 MiB, `3`=1,5 MiB ... `16`=8 MiB -> `puae6_chip_size`. `-1` (128 KiB), `0` (256 KiB), mas de `16` y una combinacion que el Agnus/perfil no pueda direccionar se rechazan. |
 | `bogomem_size` | Unidades de 256 KiB: `0`=ninguna (`None`), `2`=512 KiB, `4`, `6`, `7` -> `puae6_slow_size`. |
 | `fastmem_size`, `fastmem_size_k` | MiB (o KiB): `0`=ninguna, `1`, `2`, `4`, `8` MiB -> `puae6_fast_size`. |
+| `z3mem_size` | Primer banco Zorro III en MiB: `0`, `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`, `512` -> `puae6_z3_memory`; solo A4030/A4040 Normal. Los bancos adicionales siguen rechazados salvo valor cero. |
+| `a3000mem_size` | Banco bajo de placa A4000 en MiB: `0`, `1`, `2`, `4`, `8`, `16`, `32`, `64` -> `puae6_motherboard_fast_ram`. `mbresmem_size` es el banco alto no soportado y solo admite cero. |
 | `sound_frequency` | `44100`/`48000` -> `puae6_audio_rate`. |
 | `sound_stereo_separation` | `0` a `10` (decimas de 100 %, como WinUAE) -> `puae6_sound_stereo_separation` `0`..`100`. `7` es el 70 % del perfil. Fuera de rango se rechaza. |
 | `sound_interpol` | `none`, `anti`, `rh`, `crux` -> `puae6_sound_interpolation`. `sinc` se rechaza (su cola no esta en el estado nativo). |
@@ -457,7 +519,7 @@ absolutas (`/`, `\`, `C:`, `esquema://`), empiezan por `~`, llevan `$(`/`${` o t
 | `floppy0` | El disco de DF0 (ruta relativa). Vacio = ninguno. |
 | `floppy1`, `floppy2`, `floppy3` | Solo vacios: libretro maneja DF0 y un disco no se puede dejar en otra unidad en silencio. Con valor: se rechaza. |
 | `diskimage0` ... `diskimage15` | Discos de la lista de intercambio, tras `floppy0`. |
-| `puae6_machine`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_fpu_model`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_floppy_drives`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_cpu_compatibility`, `puae6_hdf_controller` | Grafia nativa de las opciones `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y `puae6_video_standard=PAL auto` / `NTSC auto` se rechazan (T76): son la eleccion automatica del frontend, que el core resuelve con el nombre del `.uae` antes de leer sus claves; un fichero nombra la maquina y el estandar. |
+| `puae6_machine`, `puae6_chipset_compatible`, `puae6_chipset`, `puae6_video_standard`, `puae6_chip_size`, `puae6_slow_size`, `puae6_fast_size`, `puae6_z3_memory`, `puae6_motherboard_fast_ram`, `puae6_fpu_model`, `puae6_cartridge`, `puae6_audio_rate`, `puae6_floppy_writes`, `puae6_sound_stereo_separation`, `puae6_sound_interpolation`, `puae6_sound_filter`, `puae6_sound_filter_type`, `puae6_floppy_speed`, `puae6_floppy_drives`, `puae6_video_resolution`, `puae6_video_line_mode`, `puae6_cpu_model`, `puae6_cpu_multiplier`, `puae6_cpu_compatibility`, `puae6_hdf_controller` | Grafia nativa de las opciones publicas `reboot` del menu (valores tal cual: `MB4`, `A1200`, `None`). `puae6_machine=auto` y los estandares automaticos se rechazan: el frontend ya los resolvio con el nombre del `.uae`. RTG, controlador CD y uaescsi no son opciones libretro publicas y no se importan. |
 | `puae6_preset` | `none`, `a1200_fast8`, `a600_puae5`, `a4030_normal`, `cd32_fast8`: preset del esquema, que las demas claves refinan. |
 
 Las flags `cpu_cycle_exact`, `cpu_memory_cycle_exact`, `blitter_cycle_exact` y `cycle_exact` deben ser `true` en exact y `false` en compatible/normal; `cpu_compatible` es `true` en exact/compatible y `false` en normal. Describen el nivel final de `puae6_cpu_compatibility`, cualquiera que sea el orden de las claves; una contradiccion se rechaza.

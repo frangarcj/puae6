@@ -4,17 +4,19 @@ Esta integración añade `PUAE61` como tercera opción Amiga sin sustituir `UAE`
 ni `PUAE6`. El parche parte exactamente del commit LongHawk
 `8de36990487237db3c50bf446e6af69671a89a9e`.
 
-Los dos artefactos no textuales se aceptan únicamente con estas identidades:
+Los tres artefactos no textuales se aceptan únicamente con estas identidades:
 
-- guest Windows x64: `a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2`;
-- fuentes correspondientes: `dfaf5c5ec4fc81cc95ccc59f4ce5e88fb2c74e11d1784bdb1fa817e15aff0c0b`.
+- guest PUAE6 Windows x64: `c3aaf5889c7002b6a905a0b8af517d9627e772de255238d4b1c319216a958be2`;
+- guest PUAE61 Windows x64: `6893d33541cf28cf27a244aec2950f6f4f3bde5f3d3036a5acdbdeb1a83c8f46`;
+- fuentes correspondientes: `791a9fdf28bd0f710b5d52d834d407a9e401ceb4598cfeed9bbec3ded4d2b171`.
 
 Aplicación sobre un checkout limpio:
 
 ```sh
 python3 integration/longhawk/apply_puae61.py \
   /ruta/a/LongHawk \
-  build/waterbox-x64/release/puae6.wbx \
+  /ruta/a/puae6.wbx \
+  /ruta/a/puae61.wbx \
   /ruta/a/source.tar.gz
 ```
 

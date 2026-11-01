@@ -27,7 +27,7 @@ CHECK(P6_CAP_AR23 == (UINT64_C(1)<<12) && P6_CARTRIDGE_AR2==2 && P6_CARTRIDGE_AR
 LAYOUT(p6_result, 4, 4);
 LAYOUT(p6_error, 264, 4);
 LAYOUT(p6_caps, 32, 8);
-LAYOUT(p6_config, 72, 8);
+LAYOUT(p6_config, 80, 8);
 LAYOUT(p6_buffer, 16, 8);
 LAYOUT(p6_media, 56, 8);
 LAYOUT(p6_port_input, 16, 4);
@@ -55,6 +55,9 @@ OFFSET(p6_config, sound_filter, 58);
 OFFSET(p6_config, sound_filter_type, 59);
 OFFSET(p6_config, floppy_speed, 60);           /* T62: the fifth byte of what was reserved[0] */
 OFFSET(p6_config, video_resolution, 61);       /* T72: the sixth and seventh bytes of what was reserved[0] */
+OFFSET(p6_config, chipset_compatible, 72);     /* T105b: additive ABI-v1 tail */
+OFFSET(p6_config, chipset, 73);
+OFFSET(p6_config, motherboard_fast_ram, 74); /* T105d: A4000 Ramsey low RAM in MiB */
 OFFSET(p6_config, video_line_mode, 62);
 OFFSET(p6_config, cpu_model, 63);             /* T52: the eighth byte of what was reserved[0] */
 OFFSET(p6_config, cpu_multiplier, 64);       /* T52: the first byte of what was reserved[1] */

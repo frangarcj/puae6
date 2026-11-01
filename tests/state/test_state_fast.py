@@ -66,8 +66,15 @@ ROMS = {
 
 
 def identity_flags(chip, slow, fast, flags=0):
-    """The flags word of config_hash for a memory that is not the preset's: p6_config.flags in bits 0-7, fast/1024 at 8, slow/64 at 12, chip/64 at 17, bit 31 set."""
-    return flags | 0x80000000 | (chip // 64) << 17 | (slow // 64) << 12 | (fast // 1024) << 8
+    """The historical flags word: Chip RAM through 2 MiB ends at bit 22; larger banks derive the resulting hash separately."""
+    return flags | 0x80000000 | (min(chip, 2048) // 64) << 17 | (slow // 64) << 12 | (fast // 1024) << 8
+
+
+def memory_config_hash(machine, chip, slow=0, fast=0):
+    result = e.config_hash(machine, 1, 48000, identity_flags(chip, slow, fast), SEED, CLOCK)
+    if chip > 2048:
+        result = e.domain_hash("p6/config/extended-chip/v1", result, chip.to_bytes(2, "little"))
+    return result
 
 
 def sub_bodies(body):
@@ -171,6 +178,23 @@ class LayoutTests(FastCase):
             self.assertEqual(want, blob[176:208], f"{machine} {extra}")
             seen.add(blob[176:208])
         self.assertEqual(len(cases), len(seen))
+
+    def test_extended_chip_ram_keeps_its_exact_state_bytes_and_identity(self):
+        plain, _ = self.saved("chip-plain", "a1200", "vsync", 3, [])
+        seen = set()
+        for kib in (1536, 2560, 8192):
+            with self.subTest(kib=kib):
+                blob, _ = self.saved(f"chip-{kib}", "a1200", "vsync", 3, ["--chip", str(kib)])
+                chunks, baseline = parse_chunks(blob), parse_chunks(plain)
+                self.assertEqual(len(baseline[RAM][2]) + (kib - 2048) * 1024, len(chunks[RAM][2]))
+                self.assertEqual(memory_config_hash(3, kib), blob[176:208])
+                seen.add(blob[176:208])
+                again = self.dir / f"chip-{kib}-again.state"
+                run = self.probe_on("a1200", "vsync", "--units", "0", "--load-at", "0", str(self.dir / f"chip-{kib}.state"),
+                                    "--save-at", "0", str(again), "--chip", str(kib))
+                self.assertEqual([(0, 0, "")], run.loads)
+                self.assertEqual(blob, again.read_bytes())
+        self.assertEqual(3, len(seen))
 
     def test_a_state_of_other_memory_is_incompatible(self):
         plain, _ = self.saved("plain", "a1200", "vsync", 3, [])

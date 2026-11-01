@@ -70,7 +70,7 @@ constexpr const char *kBoards = "expansion boards, CPU boards and host devices a
 constexpr const char *kProfile =
     "this value is fixed by the machine profile and is not a key of the option schema; the importer cannot tell whether the file agrees with it, so it refuses it (remove the line)";
 constexpr const char *kExec = "a .uae cannot include another file, load a plugin or run a program";
-constexpr const char *kZ3 = "Zorro III and motherboard RAM are not implemented (only 0 is accepted)";
+constexpr const char *kExtraMemory = "only the first validated Zorro III board and the low A4000 motherboard bank are offered (only 0 is accepted here)";
 constexpr const char *kHostWindow = "a host window or input setting: the frontend and the core's own options decide it";
 
 enum class Kind { Reject, Zero, Ignore, Metadata };
@@ -126,12 +126,12 @@ constexpr Rule kRules[] = {
     {"script", true, Kind::Reject, false, kExec},
     {"cmd", true, Kind::Reject, false, kExec},
     {"command", true, Kind::Reject, false, kExec},
-    {"z3mem", true, Kind::Zero, false, kZ3},
-    {"z3fastmem", true, Kind::Zero, false, kZ3},
-    {"mem25bit", true, Kind::Zero, false, kZ3},
-    {"a3000mem", true, Kind::Zero, false, kZ3},
-    {"mbresmem", true, Kind::Zero, false, kZ3},
-    {"megachipmem", true, Kind::Zero, false, kZ3},
+    {"z3mem", true, Kind::Zero, false, kExtraMemory},
+    {"z3fastmem", true, Kind::Zero, false, kExtraMemory},
+    {"mem25bit", true, Kind::Zero, false, kExtraMemory},
+    {"a3000mem", true, Kind::Zero, false, kExtraMemory},
+    {"mbresmem", true, Kind::Zero, false, kExtraMemory},
+    {"megachipmem", true, Kind::Zero, false, kExtraMemory},
     {"fastmem2", true, Kind::Zero, false, "only one Zorro II Fast RAM board is offered (only 0 is accepted for the others)"},
     {"fastmem3", true, Kind::Zero, false, "only one Zorro II Fast RAM board is offered (only 0 is accepted for the others)"},
     {"fastmem4", true, Kind::Zero, false, "only one Zorro II Fast RAM board is offered (only 0 is accepted for the others)"},
@@ -185,8 +185,8 @@ constexpr Fixed kFixed[] = {
 
 // The native spelling of a reboot option: the libretro key, exactly as the frontend's menu has it. The presentation, input and OSD options are not here.
 constexpr const char *kNativeKeys[] = {
-    "puae6_machine",  "puae6_preset",     "puae6_video_standard", "puae6_chip_size",     "puae6_slow_size",
-    "puae6_fast_size", "puae6_fpu_model", "puae6_audio_rate",     "puae6_floppy_writes", "puae6_sound_stereo_separation",
+    "puae6_machine", "puae6_preset", "puae6_chipset_compatible", "puae6_chipset", "puae6_video_standard", "puae6_chip_size", "puae6_slow_size",
+    "puae6_fast_size", "puae6_z3_memory", "puae6_motherboard_fast_ram", "puae6_fpu_model", "puae6_audio_rate", "puae6_floppy_writes", "puae6_cartridge", "puae6_sound_stereo_separation",
     "puae6_sound_interpolation", "puae6_sound_filter", "puae6_sound_filter_type", "puae6_floppy_speed", "puae6_floppy_drives", "puae6_video_resolution", "puae6_video_line_mode", "puae6_cpu_model", "puae6_cpu_multiplier", "puae6_cpu_compatibility", "puae6_collision_level", "puae6_hdf_controller",
 };
 
@@ -204,13 +204,15 @@ struct MachineFacts {
     const char *cpu;
 };
 constexpr MachineFacts kMachines[] = {{"A500", "ocs", "68000"}, {"A600", "ecs", "68000"}, {"A1200", "aga", "68020"},
-                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"}, {"A4030", "aga", "68030"}, {"A4040", "aga", "68040"}};
+                                      {"A500OG", "ocs", "68000"}, {"A500PLUS", "ecs", "68000"}, {"A1000", "ocs", "68000"}, {"A2000OG", "ocs", "68000"}, {"A2000", "ecs_agnus", "68000"},
+                                      {"CD32", "aga", "68020"}, {"CDTV", "ecs_agnus", "68000"}, {"A4030", "aga", "68030"}, {"A4040", "aga", "68040"}};
 // The spellings of chipset_compatible (WinUAE's cscompa) that name a machine. "A2000" names two: the A2000 OG with the OCS chipset and the A2000 with the ECS Agnus (see finish).
 struct Spelling {
     const char *spelling;
     const char *machine;
 };
-constexpr Spelling kSpellings[] = {{"a500", "A500"}, {"a500+", "A500PLUS"}, {"a600", "A600"}, {"a1000", "A1000"}, {"a1200", "A1200"}, {"a2000", "A2000"}, {"a4000", "A4030"}};
+constexpr Spelling kSpellings[] = {{"a500", "A500"}, {"a500+", "A500PLUS"}, {"a600", "A600"}, {"a1000", "A1000"}, {"a1200", "A1200"}, {"a2000", "A2000"},
+                                    {"a4000", "A4030"}, {"cd32", "CD32"}, {"cdtv", "CDTV"}};
 
 class Importer {
 public:
@@ -237,6 +239,7 @@ private:
     size_t max_disks_;
     UaeImport *out_;
     std::map<std::string, unsigned> claimed_;          // option key -> the line that set it
+    std::map<std::string, const Entry *> claimed_entries_;
     const Entry *chipset_ = nullptr, *cpu_ = nullptr, *a2000_ = nullptr;
     const Entry *floppy0_ = nullptr;
     std::vector<const Entry *> drive_facts_;
@@ -335,6 +338,7 @@ private:
             return false;
         }
         claimed_[option] = e.line;
+        claimed_entries_[option] = &e;
         return true;
     }
 
@@ -456,10 +460,15 @@ private:
             for (const Spelling &spelling : kSpellings) {
                 if (v != spelling.spelling) continue;
                 if (v == "a2000") a2000_ = &e;                 // the chipset line tells the A2000 OG from the A2000: decided in finish()
-                else set_name(e, "puae6_machine", spelling.machine);
+                else {
+                    set_name(e, "puae6_machine", spelling.machine);
+                    const char *compatible = v == "a500" ? "A500" : v == "a600" ? "A600" : v == "a1200" ? "A1200" :
+                        v.compare("a4000") == 0 ? "A4000" : v == "cd32" ? "CD32" : v == "cdtv" ? "CDTV" : nullptr;
+                    if (compatible) set_name(e, "puae6_chipset_compatible", compatible);
+                }
                 return;
             }
-            error(e, "the machine \"" + e.value + "\" is not one of this core's (A500, A500+, A600, A1000, A1200, A2000)");
+            error(e, "the machine \"" + e.value + "\" is not one of this core's (A500, A500+, A600, A1000, A1200, A2000, A4000, CD32, CDTV)");
             return;
         }
         if (key == "chipset") {
@@ -508,6 +517,16 @@ private:
             if (!parse_int(e.value, false, &number) || number > (kib ? 1048576 : 1024)) error(e, kib ? "expected a number of KiB" : "expected a number of MiB");
             else if (number == 0) set_name(e, "puae6_fast_size", "None");
             else set_number(e, "puae6_fast_size", uint64_t(number) * (kib ? 1 : 1024), std::to_string(number) + (kib ? " KiB" : " MiB") + " of Fast RAM");
+            return;
+        }
+        if (key == "z3mem_size") {
+            if (!parse_int(e.value, false, &number) || number > 512) error(e, "expected a supported number of MiB (0, 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512)");
+            else set_name(e, "puae6_z3_memory", number ? "MB" + std::to_string(number) : "None");
+            return;
+        }
+        if (key == "a3000mem_size") {
+            if (!parse_int(e.value, false, &number) || number > 64) error(e, "expected A4000 motherboard RAM in MiB (0, 1, 2, 4, 8, 16, 32 or 64)");
+            else set_name(e, "puae6_motherboard_fast_ram", number ? "MB" + std::to_string(number) : "None");
             return;
         }
         if (key == "sound_frequency") {
@@ -649,6 +668,85 @@ private:
         error(e, "unknown key: the importer reads only the keys listed in docs/options.md, because it cannot tell that any other leaves the machine alone");
     }
 
+    void final_error(const char *option, const std::string &message)
+    {
+        const auto found = claimed_entries_.find(option);
+        if (found != claimed_entries_.end()) error(*found->second, "invalid final configuration: " + message);
+        else error(0, option, "invalid final configuration: " + message);
+    }
+
+    void validate_final_configuration()
+    {
+        const p6_options::Settings &s = out_->settings;
+        const bool a4000 = s.machine == P6_MACHINE_A4030 || s.machine == P6_MACHINE_A4040;
+        const bool generic_68000 = s.machine == P6_MACHINE_A500 || s.machine == P6_MACHINE_A500OG || s.machine == P6_MACHINE_A500PLUS ||
+            s.machine == P6_MACHINE_A600 || s.machine == P6_MACHINE_A2000OG || s.machine == P6_MACHINE_A2000;
+        uint32_t chip = 0, slow = 0, fast = 0, profile_mask = 0, profile_cpu = 68000;
+        switch (s.machine) {
+        case P6_MACHINE_A500: chip = 512; slow = 512; profile_mask = 1; break;
+        case P6_MACHINE_A600: chip = 1024; profile_mask = 3; break;
+        case P6_MACHINE_A1200: chip = 2048; profile_mask = 7; profile_cpu = 68020; break;
+        case P6_MACHINE_A500OG: chip = 512; profile_mask = 1; break;
+        case P6_MACHINE_A500PLUS: chip = 1024; profile_mask = 3; break;
+        case P6_MACHINE_A1000: chip = 512; profile_mask = 1; break;
+        case P6_MACHINE_A2000OG: chip = 512; slow = 512; profile_mask = 1; break;
+        case P6_MACHINE_A2000: chip = 1024; profile_mask = 2; break;
+        case P6_MACHINE_CD32: chip = 2048; profile_mask = 7; profile_cpu = 68020; break;
+        case P6_MACHINE_CDTV: chip = 1024; profile_mask = 2; break;
+        case P6_MACHINE_A4030: chip = 2048; fast = 8192; profile_mask = 7; profile_cpu = 68030; break;
+        case P6_MACHINE_A4040: chip = 2048; fast = 8192; profile_mask = 7; profile_cpu = 68040; break;
+        default: final_error("puae6_machine", "the selected machine is not supported"); return;
+        }
+        chip = s.chip_size ? s.chip_size : chip;
+        slow = s.slow_size == P6_MEMORY_NONE ? 0 : s.slow_size ? s.slow_size : slow;
+        fast = s.fast_size == P6_MEMORY_NONE ? 0 : s.fast_size ? s.fast_size : fast;
+        const uint32_t compatible_mask[] = {0, 1, 3, 7, 7, 7, 2};
+        uint32_t mask = s.chipset_compatible ? compatible_mask[s.chipset_compatible] : profile_mask;
+        if (s.chipset) mask = s.chipset == P6_CHIPSET_OCS ? 1 : s.chipset == P6_CHIPSET_ECS_AGNUS ? 2 :
+            s.chipset == P6_CHIPSET_ECS_DENISE ? 1 : s.chipset == P6_CHIPSET_ECS ? 3 : 7;
+        const uint32_t cpu = s.cpu_model ? 68000 + 10 * (s.cpu_model - 1) : profile_cpu;
+
+        if (a4000 && s.cpu_compatibility != P6_CPU_NORMAL) final_error("puae6_cpu_compatibility", "A4000 requires Normal CPU accuracy");
+        if (s.z3_memory && !a4000) final_error("puae6_z3_memory", "Zorro III RAM is available only on A4000");
+        if (s.motherboard_fast_ram && !a4000) final_error("puae6_motherboard_fast_ram", "motherboard Fast RAM is available only on A4000");
+        if (s.chipset_compatible && (s.chipset_compatible == P6_CHIPSET_COMPATIBLE_A500 || s.chipset_compatible == P6_CHIPSET_COMPATIBLE_A600) && !generic_68000)
+            final_error("puae6_chipset_compatible", "A500/A600 compatibility requires a supported 68000 motherboard");
+        if (s.chipset_compatible == P6_CHIPSET_COMPATIBLE_A600 && slow)
+            final_error("puae6_chipset_compatible", "A600 compatibility does not support Slow RAM");
+        if (s.chipset_compatible && ((s.chipset_compatible == P6_CHIPSET_COMPATIBLE_A1200) != (s.machine == P6_MACHINE_A1200) ||
+            (s.chipset_compatible == P6_CHIPSET_COMPATIBLE_A4000) != a4000 ||
+            (s.chipset_compatible == P6_CHIPSET_COMPATIBLE_CD32) != (s.machine == P6_MACHINE_CD32) ||
+            (s.chipset_compatible == P6_CHIPSET_COMPATIBLE_CDTV) != (s.machine == P6_MACHINE_CDTV)))
+            final_error("puae6_chipset_compatible", "chipset compatibility does not match the selected motherboard family");
+        if (s.machine == P6_MACHINE_A1000 && (s.chipset_compatible || s.chipset)) final_error("puae6_chipset", "A1000 keeps its fixed 8361/8362 chipset");
+        if ((s.machine == P6_MACHINE_CD32 && s.chipset && s.chipset != P6_CHIPSET_AGA) ||
+            (s.machine == P6_MACHINE_CDTV && s.chipset && s.chipset != P6_CHIPSET_ECS_AGNUS))
+            final_error("puae6_chipset", "CD32/CDTV keeps its motherboard chipset");
+        if ((s.chipset || s.chipset_compatible) && (mask & 4) && cpu < 68020) final_error("puae6_chipset", "AGA requires a 68020 or later profile");
+        if (s.machine == P6_MACHINE_A1000 && (chip != 512 || slow || fast)) final_error("puae6_chip_size", "A1000 memory is fixed to 512 KiB Chip only");
+        if (s.machine == P6_MACHINE_CDTV && (chip != 1024 || slow || fast)) final_error("puae6_chip_size", "CDTV memory is fixed to 1 MiB Chip only");
+        if (s.machine == P6_MACHINE_CD32 && (chip != 2048 || slow || (fast && fast != 8192))) final_error("puae6_chip_size", "CD32 supports 2 MiB Chip and only the optional 8 MiB Fast board");
+        if (a4000 && slow) final_error("puae6_slow_size", "A4000 has no Slow RAM trapdoor");
+        if (chip < 512 || chip > 8192 || chip % 512 || (!(mask & 2) && chip > 1024)) final_error("puae6_chip_size", "Chip RAM is not addressable by the selected chipset");
+        if (slow && slow != 512 && slow != 1024 && slow != 1536 && (!(mask & 4) && slow != 1792))
+            final_error("puae6_slow_size", "Slow RAM is not offered by the selected chipset");
+        if (chip > 2048 && fast) final_error("puae6_fast_size", "Chip RAM above 2 MiB overlaps Zorro II Fast RAM");
+        if (s.cpu_model && cpu != profile_cpu && !(profile_cpu == 68000 && cpu == 68010) && !(s.machine == P6_MACHINE_A4040 && (cpu == 68040 || cpu == 68060)))
+            final_error("puae6_cpu_model", "the CPU is not offered by the selected machine profile");
+        if (s.fpu_model && s.fpu_model != 68881 && s.fpu_model != 68882 && !(s.machine == P6_MACHINE_A4040 && s.fpu_model == cpu))
+            final_error("puae6_fpu_model", "the selected FPU is not offered by this CPU profile");
+        if ((s.fpu_model == 68881 || s.fpu_model == 68882) && s.machine != P6_MACHINE_A1200 && s.machine != P6_MACHINE_A4030)
+            final_error("puae6_fpu_model", "68881/68882 requires A1200 or A4030");
+        if (s.hdf_controller && s.machine != P6_MACHINE_A600 && s.machine != P6_MACHINE_A1200 && !a4000)
+            final_error("puae6_hdf_controller", "the selected motherboard has no supported IDE port");
+        if (s.cartridge == 2 && s.machine != P6_MACHINE_A1200) final_error("puae6_cartridge", "HRTMon requires A1200");
+        if (s.cartridge >= 3 && s.cartridge <= 5 && (s.machine != P6_MACHINE_A500 || chip != 512 || slow != 512 || fast || cpu != 68000))
+            final_error("puae6_cartridge", "Action Replay I/II/III requires stock A500/68000 memory");
+        if (s.cartridge == 6 && (s.machine != P6_MACHINE_A1200 || chip != 2048 || slow || fast || cpu != 68020))
+            final_error("puae6_cartridge", "Action Replay 1200 requires stock A1200/68EC020 memory");
+        if (s.cartridge == 7 && s.machine != P6_MACHINE_CD32) final_error("puae6_cartridge", "the FMV module requires CD32");
+    }
+
     void finish()
     {
         // The machine: named by the file (chipset_compatible, puae6_machine, a preset) or, when the file names none, by its chipset. A chipset and a CPU that
@@ -657,29 +755,26 @@ private:
             set_name(*a2000_, "puae6_machine", chipset_ && lower(chipset_->value) == "ocs" ? "A2000OG" : "A2000");
         const bool named = claimed_.count("puae6_machine") || claimed_.count("puae6_preset");
         std::string chipset;
+        const char *chipset_option = nullptr;
         if (chipset_) {
             chipset = lower(chipset_->value);
             const char *machine = chipset == "ocs" ? "A500" : chipset == "ecs" ? "A600" : chipset == "aga" ? "A1200" : nullptr;
-            if (chipset == "ecs_agnus") {
-                // The A2000's chipset (T50): it checks a machine the file names (chipset_compatible = A2000) but does not choose one alone, since it says nothing of the Kickstart or the memory.
-                if (!named) {
-                    error(*chipset_, "the chipset ecs_agnus names no machine by itself: add chipset_compatible=A2000");
-                    chipset.clear();
-                }
-            } else if (!machine) {
-                error(*chipset_, "the chipset \"" + chipset_->value + "\" is not one of this core's (ocs, ecs_agnus, ecs, aga)");
+            chipset_option = chipset == "ocs" ? "OCS" : chipset == "ecs_agnus" ? "ECS_Agnus" : chipset == "ecs_denise" ? "ECS_Denise" :
+                chipset == "ecs" ? "ECS" : chipset == "aga" ? "AGA" : nullptr;
+            if (!chipset_option) {
+                error(*chipset_, "the chipset \"" + chipset_->value + "\" is not one of this core's (ocs, ecs_agnus, ecs_denise, ecs, aga)");
                 chipset.clear();
             } else if (!named) {
-                set_name(*chipset_, "puae6_machine", machine);
+                if (machine) set_name(*chipset_, "puae6_machine", machine);
             }
         }
         const p6_options::Option *machines = find_option("puae6_machine");
         const MachineFacts *facts = nullptr;
         for (const MachineFacts &machine : kMachines)
             if (machines && strcmp(option_value_name(*machines, out_->settings.machine), machine.name) == 0) facts = &machine;
+        // A raw chipset equal to the complete profile only describes it. A different, representable value is the public override.
+        if (chipset_option && (!facts || chipset != facts->chipset)) set_name(*chipset_, "puae6_chipset", chipset_option);
         if (facts) {
-            if (!chipset.empty() && chipset != facts->chipset)
-                error(*chipset_, std::string("the chipset ") + chipset_->value + " is not the one of the machine (" + facts->name + ": " + facts->chipset + ")");
             if (cpu_) {
                 // T52: the CPU of the file is the machine's own, which it only describes, or, on a machine with a 68000, a 68010 in its socket, which is the option puae6_cpu_model; anything
                 // else is the reason the load would give.
@@ -706,6 +801,7 @@ private:
             if (!parse_bool(entry->value, &value) || value != expected)
                 error(*entry, "raw cycle exact/compatible flags must match puae6_cpu_compatibility (expected " + std::string(expected ? "true" : "false") + ")");
         }
+        validate_final_configuration();
         // Raw drive keys describe the physical configuration; only the common
         // option chooses it. Auto preserves the two-drive preset identity.
         const unsigned drives = out_->settings.floppy_drive_count ? out_->settings.floppy_drive_count : out_->settings.floppy_multidrive ? 4 : 2;
@@ -746,14 +842,27 @@ private:
 
 bool import_uae(const std::vector<uint8_t> &bytes, const std::string &directory, const p6_options::Settings &base, size_t max_disks, UaeImport *out)
 {
+    *out = UaeImport();
+    out->settings = base;
     if (base.machine == p6_options::kMachineAuto || base.video_standard == p6_options::kVideoStandardPalAuto || base.video_standard == p6_options::kVideoStandardNtscAuto) {
         // The keys that describe a machine (chipset, CPU) are checked against the one the options chose, so it must exist: the core resolves the automatic model first (model.h).
         out->errors.push_back({0, "", "internal error: the importer needs a model and a video standard, not the automatic ones"});
         return false;
     }
     try {
-        return Importer(base, directory, max_disks, out).run(bytes);
+        UaeImport staged;
+        if (Importer(base, directory, max_disks, &staged).run(bytes)) {
+            *out = std::move(staged);
+            return true;
+        }
+        out->errors = std::move(staged.errors);
+        out->warnings = std::move(staged.warnings);
+        out->errors_omitted = staged.errors_omitted;
+        out->warnings_omitted = staged.warnings_omitted;
+        return false;
     } catch (const std::bad_alloc &) {
+        *out = UaeImport();
+        out->settings = base;
         out->errors.push_back({0, "", "not enough memory to read the file"});
         return false;
     }

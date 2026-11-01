@@ -114,7 +114,7 @@ static void cd_controller_topologies()
 // The public contract owns one exact A4000 preference and presentation topology.
 static void rtg_contract()
 {
-    static_assert(sizeof(p6_config) == 72 && offsetof(p6_config, rtg_memory) == 69);
+    static_assert(sizeof(p6_config) == 80 && offsetof(p6_config, rtg_memory) == 69 && offsetof(p6_config, chipset_compatible) == 72);
     p6_error e = make_error();
     const p6_config untouched = p6_session::session.config;
     auto rejected = [&](p6_config c, const char *message) {

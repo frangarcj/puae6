@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 LONGHAWK = Path(os.environ.get("P6_LONGHAWK_PUAE61", ROOT / "build/longhawk-puae61")).resolve()
 INTEGRATION = ROOT / "integration/longhawk"
 BASE = "8de36990487237db3c50bf446e6af69671a89a9e"
-GUEST_SHA = "a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2"
-SOURCES_SHA = "dfaf5c5ec4fc81cc95ccc59f4ce5e88fb2c74e11d1784bdb1fa817e15aff0c0b"
+PUAE6_GUEST_SHA = "c3aaf5889c7002b6a905a0b8af517d9627e772de255238d4b1c319216a958be2"
+GUEST_SHA = "6893d33541cf28cf27a244aec2950f6f4f3bde5f3d3036a5acdbdeb1a83c8f46"
+SOURCES_SHA = "791a9fdf28bd0f710b5d52d834d407a9e401ceb4598cfeed9bbec3ded4d2b171"
 
 
 def digest(path):
@@ -48,11 +49,13 @@ class LongHawkPuae61Tests(unittest.TestCase):
 		self.assertIn("coreName == CoreNames.PUAE6 || coreName == CoreNames.PUAE61", loader)
 
 	def test_guest_and_corresponding_sources_are_pinned(self):
+		puae6_guest = LONGHAWK / "waterbox/puae6/puae6-x64.wbx"
 		guest = LONGHAWK / "waterbox/puae61/puae61-x64.wbx"
 		sources = LONGHAWK / "waterbox/puae61/source.tar.gz"
+		self.assertEqual(PUAE6_GUEST_SHA, digest(puae6_guest))
 		self.assertEqual(GUEST_SHA, digest(guest))
 		self.assertEqual(SOURCES_SHA, digest(sources))
-		self.assertNotEqual(digest(LONGHAWK / "waterbox/puae6/puae6-x64.wbx"), digest(guest))
+		self.assertNotEqual(digest(puae6_guest), digest(guest))
 		with tarfile.open(sources, "r:gz") as archive:
 			lock = json.load(archive.extractfile("source/plan/upstream.lock.json"))
 			members = set(archive.getnames())
@@ -70,7 +73,9 @@ class LongHawkPuae61Tests(unittest.TestCase):
 				"src/BizHawk.Emulation.Cores", "src/BizHawk.Tests.Client.Common", "waterbox/puae6", cwd=worktree)
 			run("git", "checkout", "--detach", BASE, cwd=worktree)
 			run("python3", str(INTEGRATION / "apply_puae61.py"), str(worktree),
+				str(LONGHAWK / "waterbox/puae6/puae6-x64.wbx"),
 				str(LONGHAWK / "waterbox/puae61/puae61-x64.wbx"), str(LONGHAWK / "waterbox/puae61/source.tar.gz"))
+			self.assertEqual(PUAE6_GUEST_SHA, digest(worktree / "waterbox/puae6/puae6-x64.wbx"))
 			self.assertEqual(GUEST_SHA, digest(worktree / "waterbox/puae61/puae61-x64.wbx"))
 			self.assertEqual(SOURCES_SHA, digest(worktree / "waterbox/puae61/source.tar.gz"))
 			status = run("git", "status", "--porcelain", "--untracked-files=all", cwd=worktree).stdout
@@ -87,7 +92,7 @@ class LongHawkPuae61Tests(unittest.TestCase):
 		result = run(
 			"dotnet", "build", "src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj",
 			"-c", "Release", "--nologo", "-p:InstallGitHooks=false",
-			"-p:Puae6GuestSha256=ff64ace000e297e82e06324303fa5dbf5ebf418ce9f0ec83f0efae1023c11d7d",
+			"-p:Puae6GuestSha256=c3aaf5889c7002b6a905a0b8af517d9627e772de255238d4b1c319216a958be2",
 			f"-p:Puae61GuestSha256={GUEST_SHA}", cwd=LONGHAWK)
 		self.assertIn("0 Errores", result.stdout)
 		self.assertTrue((LONGHAWK / "output/EmuHawk.exe").is_file())

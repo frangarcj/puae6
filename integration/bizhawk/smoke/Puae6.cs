@@ -42,14 +42,14 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
 
     // adapters/waterbox/p6w.h and bridge/include/p6.h, checked against what the guest was compiled with (p6w_layout).
     internal static readonly ulong[] ExpectedLayout = [
-        1264, 1000, 1008, 104, 56,          // p6w_init: size, result, error, media, sizeof(p6w_media)
+        1272, 1008, 1016, 112, 56,          // p6w_init: size, result, error, media, sizeof(p6w_media)
         400, 8, 136, 144,                   // p6w_frame: size, frame, result, error
-        128, 72, 72, 64, 80,                // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
+        128, 72, 80, 64, 80,                // p6_frame size, p6_input size, p6_config size, p6_frame.audio, p6_frame.master_ticks
         32, 8, 16, 24,                      // p6w_memory_area: size, name, size, flags (the layout of LibWaterboxCore.MemoryArea)
         320, 8, 56, 64,                     // p6w_media_event: size, event, result, error
         336, 8, 72, 80,                     // p6w_media_write_status: size, status, result, error (T28)
         304, 16, 32, 40, 48];               // p6w_media_export: size, buffer, written, result, error
-    const int InitSize = 1264, InitFirmware = 80, InitMediaCount = 96, InitMedia = 104, MediaSize = 56, InitResult = 1000, InitError = 1008;
+    const int InitSize = 1272, InitFirmware = 88, InitMediaCount = 104, InitMedia = 112, MediaSize = 56, InitResult = 1008, InitError = 1016;
     const int FrameSize = 400, FrameInner = 8, FrameResult = 136, FrameError = 144, InputSize = 72;
     const uint FrameNoVideo = 2;
 
@@ -57,7 +57,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
     internal uint MachineId = 1;
     /// p6_config.chip_kib, slow_kib and fast_kib the next TryInit gives the guest (T49): 0 is the machine's own memory, uint.MaxValue (Slow) is none.
     internal uint ChipKib, SlowKib, FastKib;
-    internal byte Z3Memory;
+    internal byte Z3Memory, MotherboardFastRam;
     /// p6_config.fpu_model the next TryInit gives the guest (T54): 0 (none), 68881 or 68882 (A1200 only).
     internal uint FpuModel;
     /// p6_config.flags the next TryInit gives the guest: P6_CONFIG_FLOPPY_WRITES (1) makes the floppies writable (T28, --floppy-writes).
@@ -105,7 +105,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             Marshal.Copy(firmware, 0, rom, firmware.Length);
             var p = (byte*)args.Address;
             *(uint*)p = 1; *(uint*)(p + 4) = InitSize;                      // abi_version, struct_size
-            *(uint*)(p + 8) = 1; *(uint*)(p + 12) = 72;                     // p6_config: abi_version, struct_size
+            *(uint*)(p + 8) = 1; *(uint*)(p + 12) = 80;                     // p6_config: abi_version, additive size-negotiated struct
             *(uint*)(p + 16) = MachineId; *(uint*)(p + 20) = standard;      //   machine (1 = A500, 2 = A600, 3 = A1200, 4 = A500OG, 5 = A500PLUS, 6 = A1000, 7 = A2000OG, 8 = A2000), video standard
             *(uint*)(p + 24) = 48000; *(uint*)(p + 28) = ConfigFlags; *(ulong*)(p + 32) = seed;     //   audio rate, flags, random seed
             *(long*)(p + 40) = epoch;                                       //   rtc epoch
@@ -113,6 +113,7 @@ internal sealed unsafe class Puae6Machine : WaterboxSandbox
             *(uint*)(p + 60) = FpuModel;
             p[8 + 66] = MachineId == 11 ? (byte)2 : (byte)0; // A4030 is Normal, never a fabricated exact profile
             p[8 + 70] = Z3Memory;
+            p[8 + 74] = MotherboardFastRam;
             *(nint*)(p + InitFirmware) = rom; *(ulong*)(p + InitFirmware + 8) = (ulong)firmware.Length;
             *(uint*)(p + InitMediaCount) = mediaCount ?? (uint)media.Length;
             for (int i = 0; i < media.Length && i < 16; ++i)                // p6w_media: type, flags, content_id (SHA-256), data, bytes
@@ -512,7 +513,7 @@ internal static unsafe class Puae6
     /// The mmap heap of the sandbox for a memory configuration (T49): the budget of manifests/waterbox-memory.json plus twice the memory asked for above what the machine comes with
     /// (Chip and Slow above their own sizes, and all the Fast RAM). The same rule as Puae6Core.Heaps in the wrapper (tests/waterbox-state compares them), so a budget is at least
     /// twice what was measured.
-    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false, ulong hardFileKib = 0)
+    internal static nuint MmapBudget(nuint baseBytes, uint machineId, uint chipKib, uint slowKib, uint fastKib, bool floppyWrites = false, ulong hardFileKib = 0, uint motherboardFastMib = 0)
     {
         uint ownChip = machineId is 3 or 11 ? 2048u : machineId is 2 or 5 or 8 ? 1024u : 512u, ownSlow = machineId is 1 or 7 ? 512u : 0u;
         ulong extra = fastKib == uint.MaxValue ? 0 : fastKib == 0 && machineId == 11 ? 8192u : fastKib;
@@ -520,6 +521,7 @@ internal static unsafe class Puae6
         if (slowKib != uint.MaxValue && slowKib > ownSlow) extra += slowKib - ownSlow;
         if (floppyWrites) extra += 4096;        // T28: the write overlay (Puae6Core.FloppyOverlayKiB), measured in manifests/waterbox-memory.json
         extra += hardFileKib;                   // T29d: HardFileHeapKiB of every hard file, see below
+        extra += 1024ul * motherboardFastMib;
         return baseBytes + (nuint)(2 * extra * 1024);
     }
 
@@ -570,7 +572,10 @@ internal static unsafe class Puae6
         Program.Require(machineName is "a500" or "a600" or "a1200" or "a500og" or "a500plus" or "a1000" or "a2000og" or "a2000" or "a4030",
             $"--machine is a500, a600, a1200, a500og, a500plus, a1000, a2000og, a2000 or a4030 (got {machineName})");
         uint machineId = machineName switch { "a600" => 2u, "a1200" => 3u, "a500og" => 4u, "a500plus" => 5u, "a1000" => 6u, "a2000og" => 7u, "a2000" => 8u, "a4030" => 11u, _ => 1u };
-        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)));
+        string motherboardFastText = options.Optional("motherboard-fast") ?? "0";
+        uint motherboardFastMib = motherboardFastText == "none" ? 0u : uint.Parse(motherboardFastText);
+        Program.Require(motherboardFastMib is 0 or 1 or 2 or 4 or 8 or 16 or 32 or 64, "--motherboard-fast must be none/0/1/2/4/8/16/32/64 MiB");
+        layout.Mmap = MmapBudget(layout.Mmap, machineId, chipKib, slowKib, fastKib, options.Flag("floppy-writes"), (ulong)hardFiles.Sum(file => (long)HardFileHeapKiB(file.Length)), motherboardFastMib);
         (byte z3, int z3Mib) = (options.Optional("z3") ?? "none") switch {
             "none" => ((byte)0, 0), "16" => ((byte)1, 16),
             "1" => ((byte)2, 1), "2" => ((byte)3, 2), "4" => ((byte)4, 4), "8" => ((byte)5, 8),
@@ -585,7 +590,7 @@ internal static unsafe class Puae6
             ["guest_sha256"] = guest.GetProperty("sha256").GetString(), ["runtime_sha256"] = runtime.GetProperty("sha256").GetString(),
             ["layout"] = new Dictionary<string, ulong> { ["sbrk"] = layout.Sbrk, ["sealed"] = layout.Sealed, ["invisible"] = layout.Invisible,
                 ["plain"] = layout.Plain, ["mmap"] = layout.Mmap },
-            ["configured_memory"] = new Dictionary<string, uint> { ["chip_kib"] = chipKib, ["slow_kib"] = slowKib, ["fast_kib"] = fastKib },
+            ["configured_memory"] = new Dictionary<string, uint> { ["chip_kib"] = chipKib, ["slow_kib"] = slowKib, ["fast_kib"] = fastKib, ["motherboard_fast_mib"] = motherboardFastMib },
             ["configured_fpu"] = fpuModel,
             ["firmware_bytes"] = firmware.Length, ["media_bytes"] = disks.Sum(image => (long)image.Length), ["hard_file_bytes"] = hardFiles.Sum(image => (long)image.Length),
             ["host_buffers_poisoned_after_init"] = true };
@@ -598,7 +603,7 @@ internal static unsafe class Puae6
             var parts = item.Split(':'); var span = parts[0].Split('-');
             return (ulong.Parse(span[0]), ulong.Parse(span[^1]), uint.Parse(parts[1]));
         }).ToList();
-        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel, Z3Memory = z3,
+        using var machine = new Puae6Machine(api, image, layout) { MachineId = machineId, ChipKib = chipKib, SlowKib = slowKib, FastKib = fastKib, FpuModel = fpuModel, Z3Memory = z3, MotherboardFastRam = (byte)motherboardFastMib,
             ConfigFlags = options.Flag("floppy-writes") ? 1u : 0u, MediaTypes = mediaTypes };
         foreach (var port in options.All("port"))
         {
