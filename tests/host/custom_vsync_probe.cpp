@@ -13,6 +13,8 @@ int config_changed, config_changed_flags, pissoff;
 static int last_redraw_point;
 static bool denise_accurate_mode;
 static std::string calls;
+static void observe_nosignal() { calls += 'N'; }
+#include "vsync_signal_under_test.h"
 static int clear_seen;
 static void finish_drawing_frame(bool drawlines)
 { assert(drawlines); calls += 'F'; clear_seen = display_reset; }
@@ -112,6 +114,7 @@ int main()
         assert((calls.find('F') != std::string::npos) == (n == 1));
     }
     // Hardware post keeps configuration ageing, device callbacks and beam time.
+    // beta21 checks signal loss from the raster path, before/after this post.
     config_changed = 1; config_changed_flags = 7; bogusframe = timehack_alive = 2;
     currcycle = 100; bplcon0 = beamcon0 = 0; nosignal_trigger = false;
     lineoptimizations_draw_always = true;
@@ -124,7 +127,12 @@ int main()
         assert(config_changed_flags == (n == 0 ? 7 : 0));
     }
     assert(bogusframe == 0 && timehack_alive == 0);
-    bplcon0 = 2; vsync_handler_post(); assert(nosignal_trigger);
+    calls.clear(); check_no_signal_under_test();
+    assert(!nosignal_trigger && calls.empty());
+    bplcon0 = 2; check_no_signal_under_test();
+    assert(nosignal_trigger && calls == "N");
+    calls.clear(); vsync_handler_post();
+    assert(calls == "DVCO" && nosignal_trigger && nosignal_cnt == 0);
     // STOP/idle accounting remains state bookkeeping, even with host pacing
     // preferences set. No clock or sleep provider is linked by this executable.
     currprefs.m68k_speed = -1; currprefs.cpu_idle = 150; regs.stopped = 1;

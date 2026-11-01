@@ -17,11 +17,16 @@ class CustomVSyncTests(unittest.TestCase):
         tree = ROOT / "build/upstream"
         drawing = (tree / "drawing.cpp").read_text()
         cfg = (tree / "cfgfile.cpp").read_text()
+        custom = (tree / "custom.cpp").read_text()
         original = (ROOT / "upstream/winuae/custom.cpp").read_text()
         header = ''.join(function(drawing, sig) for sig in
                          ("static void count_frame(int monid)",
                           "void check_prefs_picasso(void)", "void vsync_handle_redraw("))
         header += function(cfg, "void config_check_vsync (void)")
+        signal = function(custom, "static void check_no_signal(void)")
+        signal = signal.replace("check_no_signal(void)",
+                                "check_no_signal_under_test(void)", 1)
+        signal = signal.replace("handle_nosignal();", "observe_nosignal();")
         common = ["clang++", "-std=c++17", "-UNDEBUG", "-fno-fast-math",
                   "-I" + str(ROOT / "ports/portable"), "-I" + str(ROOT / "build/generated"),
                   "-I" + str(tree / "include"), "-I" + str(tree)]
@@ -32,6 +37,7 @@ class CustomVSyncTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="p6-custom-vsync-") as tmp:
             tmp = Path(tmp)
             (tmp / "vsync_drawing_under_test.h").write_text(header)
+            (tmp / "vsync_signal_under_test.h").write_text(signal)
             (tmp / "vsync_present_reference.h").write_text(function(original, "static bool crender_screen("))
             for optimization in ("-O0", "-O2"):
                 exe = tmp / "probe"
