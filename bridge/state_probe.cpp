@@ -331,7 +331,13 @@ void cias(Canon &c)
 // The chipset digest in contiguous groups, so that a divergence can be told apart by what it is (T15i3): the groups are written one after the other in the order the
 // digest has always had, and each is also digested alone under "chip UNIT GROUP HEX".
 void chip_beam(Canon &c) {
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    c.put(int32_t(vpos)).put(int32_t(current_linear_vpos)).put(agnus_hpos);
+#elif UAEMAJOR == 6 && UAEMINOR == 0
     c.put(int32_t(vpos)).put(int32_t(linear_vpos)).put(agnus_hpos);
+#else
+#error Audit the beam digest before selecting another WinUAE version
+#endif
     int32_t latch[4];
     const bool lpen = p6_lightpen_latch_get(latch);
     if (lpen || latch[3]) for (int32_t value : latch) c.put(value);
@@ -694,7 +700,11 @@ void foreign_handler(uae_u32) {}        // not in the scheduler's table: a save 
 void print_handler_table()
 {
     struct Expected { uint8_t id; evfunc2 handler; };
-    const Expected table[] = {{1, blitter_handler}, {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
+    const Expected table[] = {
+#if UAEMAJOR == 6 && UAEMINOR == 0
+                              {1, blitter_handler},
+#endif
+                              {2, event_doint_delay_do_ext}, {3, p6_custom_event2_handler(0)}, {4, p6_custom_event2_handler(1)},
                               {5, event_audxdat_func}, {6, event_setdsr}, {7, event_CIA_synced_interrupt}, {8, event_CIA_tod_inc_event},
                               {9, event_DISK_handler}, {10, p6_disk_motordelay_handler()}, {11, p6_custom_event2_handler(2)}, {12, p6_custom_event2_handler(3)},
                               {13, p6_custom_event2_handler(4)}, {14, p6_cdtv_subcode_handler()}};
@@ -951,15 +961,34 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             else if (!strcmp(op.chunk, "spc-int")) regs.spcflags |= SPCFLAG_INT;
             else if (!strcmp(op.chunk, "lastipl")) regs.lastipl = 5;
             else if (!strncmp(op.chunk, "ev2:", 4)) {
-                // A real secondary event, scheduled through the engine's own call (slot 0 is the blitter's): ev2:ID[:delay], ID of scheduler_handler and optional emulated-clock delay.
+                // A real secondary event, scheduled through the engine's own call: ev2:ID[:delay], ID of scheduler_handler and optional emulated-clock delay.
                 int id = 0; unsigned delay = 0;
                 sscanf(op.chunk + 4, "%d:%u", &id, &delay);
                 const evfunc2 handler = p6_state::scheduler_handler(uint8_t(id));
-                if (handler) event2_newevent_xx(id == 1 ? ev2_blitter : -1, evt_t(delay ? delay : 2000 + 100 * id) * CYCLE_UNIT, uae_u32(id == 13 ? 128 : 0x1000 + id), handler);
+                if (handler) {
+#if UAEMAJOR == 6 && UAEMINOR == 0
+                    const int slot = id == 1 ? ev2_blitter : -1;
+#elif UAEMAJOR == 6 && UAEMINOR == 1
+                    const int slot = -1;
+#else
+#error Audit secondary-event allocation before selecting another WinUAE version
+#endif
+                    event2_newevent_xx(slot, evt_t(delay ? delay : 2000 + 100 * id) * CYCLE_UNIT, uae_u32(id == 13 ? 128 : 0x1000 + id), handler);
+                }
             } else if (!strncmp(op.chunk, "beam:", 5)) {
                 // beam:VPOS:LINEAR:HPOS puts the beam counters where a state had them (diagnosis only: what DET02 shows once the beam is out of the way).
                 int v = 0, l = 0, h = 0;
-                if (sscanf(op.chunk + 5, "%d:%d:%d", &v, &l, &h) == 3) { vpos = v; linear_vpos = l; agnus_hpos = uae_u8(h); }
+                if (sscanf(op.chunk + 5, "%d:%d:%d", &v, &l, &h) == 3) {
+                    vpos = v;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+                    current_linear_vpos = l;
+#elif UAEMAJOR == 6 && UAEMINOR == 0
+                    linear_vpos = l;
+#else
+#error Audit the beam poke before selecting another WinUAE version
+#endif
+                    agnus_hpos = uae_u8(h);
+                }
             } else if (!strcmp(op.chunk, "rtc-fault")) p6_rtc_read(nullptr, 0);       // latches the clock's sticky fault, as a failed read would
             else if (!strcmp(op.chunk, "cs-rtc")) currprefs.cs_rtc = 4;               // an unsupported clock chip
             else if (!strncmp(op.chunk, "waiting-blits:", 14)) {
