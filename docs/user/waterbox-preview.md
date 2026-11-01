@@ -129,11 +129,13 @@ El ajuste de reinicio `CD controller` ofrece `Auto`, `None`, `Cd32` e `Ide`.
 `Auto` conserva CD32 al abrir solo un CD, pero al combinar CD con ADF, HDF,
 un volumen ZIP/directorio o WHDLoad conserva una maquina A600, A1200 o A4000
 y usa su IDE. `Cd32` exige la maquina CD32 y `Ide` una maquina compatible.
-`None` tambien puede usarse con la casilla de reinicio `uaescsi.device`: la
-casilla exige contenido CD y expone su catalogo por el dispositivo Amiga sin
-cambiar `HDF controller`; asi un HDF de arranque y varios HDF de juegos pueden
-seguir en `Uae` mientras el CD queda en uaescsi. Sin esa casilla, `None` continua
-rechazando contenido CD. Una eleccion incompatible se detiene antes
+`None` tambien puede usarse con el ajuste de reinicio `uaescsi.device`, que
+ofrece `Disabled`, `Auto` y `Enabled`. `Auto` no hace nada cuando no hay CD y,
+si hay un catalogo CD con controlador `None`, lo expone por el dispositivo
+Amiga sin cambiar `HDF controller`; asi un HDF de arranque y varios HDF de
+juegos pueden seguir en `Uae` mientras el CD queda en uaescsi. `Enabled` exige
+contenido CD y `None`, y muestra un error ante otra topologia; `Disabled` con
+CD y `None` tambien se rechaza porque el medio quedaria sin controlador. Una eleccion incompatible se detiene antes
 de abrir el medio y muestra el motivo, sin cambiar silenciosamente de maquina.
 Estados, BK2 y TAS vuelven a abrir la misma topologia; si cambia el CD, ADF,
 HDF o volumen se rechaza la carga sin tocar la sesion. UAE sigue siendo el core

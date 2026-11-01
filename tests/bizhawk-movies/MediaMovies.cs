@@ -89,7 +89,26 @@ internal static unsafe partial class Program
   Require(mixed.SyncSettings.Machine == Puae6Machine.A600 && mixed.SyncSettings.CdController == Puae6CdController.Ide, "CD+ADF Auto policy");
   var hdf = MixedParameters(directory, Puae6Machine.A1200, Puae6CdController.Ide); hdf.HardFiles = [Read(directory, "H.hdf")];
   mixed = Puae6WhdLoad.Resolve(hdf);
-  Require(mixed.SyncSettings.Machine == Puae6Machine.A1200 && mixed.SyncSettings.CdController == Puae6CdController.Ide, "explicit CD+HDF policy");
+  Require(mixed.SyncSettings.Machine == Puae6Machine.A1200 && mixed.SyncSettings.CdController == Puae6CdController.Ide
+   && mixed.SyncSettings.UaeScsi == Puae6UaeScsi.Disabled, "Auto uaescsi does not replace explicit IDE");
+
+  var scsi = MixedParameters(directory, Puae6Machine.A500, Puae6CdController.None); scsi.HardFiles = [Read(directory, "H.hdf")];
+  mixed = Puae6WhdLoad.Resolve(scsi);
+  Require(mixed.SyncSettings.Machine == Puae6Machine.A500 && mixed.SyncSettings.CdController == Puae6CdController.None
+   && mixed.SyncSettings.UaeScsi == Puae6UaeScsi.Enabled && mixed.SyncSettings.HdfController == Puae6HdfController.Uae,
+   "Auto uaescsi binds CD without moving HDF or changing machine/controller");
+
+  var noCd = new Puae6Parameters { Firmware = [1], SyncSettings = new Puae6SyncSettings { CdController = Puae6CdController.None } };
+  noCd.SyncSettings.WhdLoad = Puae6WhdLoadMode.Disabled;
+  Require(Puae6WhdLoad.Resolve(noCd).SyncSettings.UaeScsi == Puae6UaeScsi.Disabled, "Auto uaescsi without CD is disabled");
+  foreach (var invalid in new[] {
+   new Puae6Parameters { Firmware = [1], SyncSettings = new Puae6SyncSettings { CdController = Puae6CdController.None, UaeScsi = Puae6UaeScsi.Enabled } },
+   MixedParameters(directory, Puae6Machine.A600, Puae6CdController.Ide),
+  }) {
+   invalid.SyncSettings.UaeScsi = Puae6UaeScsi.Enabled;
+   try { Puae6WhdLoad.Resolve(invalid); throw new Exception("explicit uaescsi Enabled accepted an incompatible topology"); }
+   catch (InvalidOperationException) { }
+  }
 
   var files = Puae6Volumes.ReadArchive(Read(directory, "volume.zip"));
   var whdImages = Puae6WhdLoad.Build(files, [1], [2]);
@@ -355,12 +374,12 @@ internal static unsafe partial class Program
  }
  static void HrtConfig(string expectedSha)
  {
-  var off = new Puae6SyncSettings(); Require(off.Cartridge == Puae6Cartridge.Disabled && Puae6Core.ConfigFlags(off.Cartridge,off.FloppyWrites,off.UaeScsi,off.Machine) == 0, "default");
+  var off = new Puae6SyncSettings(); Require(off.Cartridge == Puae6Cartridge.Disabled && Puae6Core.ConfigFlags(off.Cartridge,off.FloppyWrites,Puae6Core.UaeScsiEnabled(off),off.Machine) == 0, "default");
   Require(sizeof(P6InputV2) == 108 && (int)System.Runtime.InteropServices.Marshal.OffsetOf<P6InputV2>(nameof(P6InputV2.Commands)) == 104, "ABI2");
   Require(P6.HrtMonRawSha256 == expectedSha && P6.CommandFreeze == 1 && P6.ConfigHrtMon == 2, "pinned asset/ABI");
   foreach (bool writes in new[] {false,true}) foreach (var cartridge in new[] {Puae6Cartridge.Disabled,Puae6Cartridge.HrtMon}) {
    var settings = new Puae6SyncSettings {Machine = Puae6Machine.A1200, Cartridge = cartridge, FloppyWrites = writes};
-   Require(Puae6Core.ConfigFlags(settings.Cartridge,settings.FloppyWrites,settings.UaeScsi,settings.Machine) == (uint)((writes ? 1 : 0) | (cartridge == Puae6Cartridge.HrtMon ? 2 : 0)), "flags OR");
+   Require(Puae6Core.ConfigFlags(settings.Cartridge,settings.FloppyWrites,Puae6Core.UaeScsiEnabled(settings),settings.Machine) == (uint)((writes ? 1 : 0) | (cartridge == Puae6Cartridge.HrtMon ? 2 : 0)), "flags OR");
    var buttons = Controllers.Define(settings,0); Require(buttons.BoolButtons.Contains(Controllers.Freeze) == (cartridge == Puae6Cartridge.HrtMon), "Freeze offered");
    buttons.BuildMnemonicsCache("Amiga"); var pressed = new HrtButtons(buttons) {Frame = -1};
    var session = new MovieSession(new MovieConfig(),Path.GetTempPath(),null,() => {},() => {},(_,_) => {});

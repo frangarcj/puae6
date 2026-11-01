@@ -178,6 +178,20 @@ class SchemaValidationTests(unittest.TestCase):
         option(document, "random_seed")["wrapper"] = {"how": "setting", "setting": "RandomSeed"}
         self.refuses(document, "wrapper 'setting' takes exactly the fields")
 
+    def test_wrapper_only_auto_policy_is_typed_but_never_becomes_an_abi_value(self):
+        document = schema()
+        uae = option(document, "uaescsi")
+        self.assertEqual({v["value"]: v["abi"] for v in uae["values"]}, {"disabled": 0, "enabled": 4})
+        self.assertEqual(uae["wrapper"]["values"], ["Disabled", "Auto", "Enabled"])
+        self.assertEqual(uae["wrapper"]["default"], "Auto")
+        table = json.loads(gen.generate_table(document))
+        self.assertEqual(table["p6_config"]["flags"]["allowed"], [0, 1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual(table["adapters"]["uaescsi"]["wrapper"]["default"], "Auto")
+        for bad in (["Disabled", "Enabled"], ["Disabled", "Auto", "Auto", "Enabled"], ["Disabled", "Auto", "not valid"]):
+            changed = schema()
+            option(changed, "uaescsi")["wrapper"]["values"] = bad
+            self.refuses(changed, "wrapper values must be unique C# enum members")
+
     def test_unsupported_and_reserved_names_cannot_shadow_an_option(self):
         document = schema()
         document["unsupported"].append({"key": "video_standard", "why": "contradiction."})

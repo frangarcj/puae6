@@ -224,10 +224,10 @@ internal static unsafe partial class Program
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { CdController = Puae6CdController.Ide }),
 			"CD controller is an Auto/CD32/IDE/None sync setting");
 		var uaeScsi = sync[nameof(Puae6SyncSettings.UaeScsi)]!;
-		Require(!new Puae6SyncSettings().UaeScsi && uaeScsi.DisplayName == "uaescsi.device"
-			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { UaeScsi = true })
+		Require(new Puae6SyncSettings().UaeScsi == Puae6UaeScsi.Auto && uaeScsi.DisplayName == "uaescsi.device"
+			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { UaeScsi = Puae6UaeScsi.Enabled })
 			&& Puae6Core.ConfigFlags(Puae6Cartridge.Disabled, false, true, Puae6Machine.A500) == P6.ConfigUaeScsi,
-			"uaescsi.device is a disabled-by-default boolean sync setting and its own native flag");
+			"uaescsi.device is an Auto/Disabled/Enabled sync setting and keeps its native flag");
 		var rtgMemory = sync[nameof(Puae6SyncSettings.RtgMemory)]!;
 		Require(new Puae6SyncSettings().RtgMemory == Puae6RtgMemory.None && rtgMemory.DisplayName == "RTG memory"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { RtgMemory = Puae6RtgMemory.MB4 }),
@@ -246,11 +246,14 @@ internal static unsafe partial class Program
 		var explicitIde = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A1200, CdController = Puae6CdController.Ide }, hard: [new byte[512]]));
 		Require(explicitIde.SyncSettings.Machine == Puae6Machine.A1200 && explicitIde.SyncSettings.CdController == Puae6CdController.Ide,
 			"explicit IDE keeps the selected machine and hard file");
-		var scsi = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A500, CdController = Puae6CdController.None, UaeScsi = true },
+		var scsi = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A500, CdController = Puae6CdController.None },
 			hard: [new byte[512], new byte[1024]]));
 		Require(scsi.SyncSettings.Machine == Puae6Machine.A500 && scsi.SyncSettings.HdfController == Puae6HdfController.Uae
-			&& scsi.SyncSettings.CdController == Puae6CdController.None && scsi.SyncSettings.UaeScsi && scsi.HardFiles.Count == 2,
-			"uaescsi keeps two HDF on the UAE controller and does not change the machine or CD controller");
+			&& scsi.SyncSettings.CdController == Puae6CdController.None && scsi.SyncSettings.UaeScsi == Puae6UaeScsi.Enabled && scsi.HardFiles.Count == 2,
+			"Auto enables uaescsi for CD plus None and keeps two HDF on the UAE controller");
+		var noCdAuto = Puae6WhdLoad.Resolve(new Puae6Parameters { Firmware = [1], SyncSettings = new Puae6SyncSettings { CdController = Puae6CdController.None, WhdLoad = Puae6WhdLoadMode.Disabled } });
+		Require(noCdAuto.SyncSettings.UaeScsi == Puae6UaeScsi.Disabled && noCdAuto.SyncSettings.CdController == Puae6CdController.None,
+			"Auto without a CD resolves disabled without changing the controller");
 		bool Refused(Puae6SyncSettings settings, IReadOnlyList<byte[]>? hard = null)
 		{
 			try { Puae6WhdLoad.Resolve(WithCd(settings, hard: hard)); return false; }
@@ -258,8 +261,16 @@ internal static unsafe partial class Program
 		}
 		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.Cd32 }),
 			"explicit CD32 refuses another machine instead of changing it");
-		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.None }),
-			"None refuses supplied CD content before opening a sandbox");
+		Require(!Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.None }),
+			"Auto accepts supplied CD content with None");
+		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.None, UaeScsi = Puae6UaeScsi.Disabled }),
+			"Disabled does not leave supplied CD content without a controller");
+		try
+		{
+			Puae6WhdLoad.Resolve(new Puae6Parameters { SyncSettings = new Puae6SyncSettings { CdController = Puae6CdController.None, UaeScsi = Puae6UaeScsi.Enabled, WhdLoad = Puae6WhdLoadMode.Disabled } });
+			throw new Exception("Enabled uaescsi accepted missing CD content");
+		}
+		catch (InvalidOperationException) { }
 		Require(Refused(new Puae6SyncSettings { Machine = Puae6Machine.A600, CdController = Puae6CdController.Ide, HdfController = Puae6HdfController.Ide },
 			Enumerable.Range(0, 4).Select(_ => new byte[512]).ToArray()), "IDE CD plus four IDE hard files is rejected before opening a sandbox");
 		Require(sync[nameof(Puae6SyncSettings.ControllerPort1)]!.Description.Contains("Only one")
