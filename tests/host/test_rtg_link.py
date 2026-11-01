@@ -36,9 +36,9 @@ class RtgLinkTests(unittest.TestCase):
         self.assertEqual(filesys.count("P6_PORTABLE_RTG"), 2)
         self.assertIn("p6_uaegfx_install_code(rtarea_base + RTAREA_RTG)", autoconf)
         self.assertIn("Portable uaegfx resident exceeds its fixed RTAREA slot", autoconf)
-        self.assertIn("p6_uaegfx_alloc(ctx)", filesys)
+        self.assertIn("p6_uaegfx_startup(ctx, resaddr)", filesys)
         self.assertIn("#elif defined(P6_PORTABLE_RTG)", autoconf)
-        self.assertIn("#elif defined(P6_PORTABLE_RTG)", filesys)
+        self.assertIn("#ifdef P6_PORTABLE_RTG", filesys)
 
     def test_real_headless_link_and_imports(self):
         executable = build_targets(
