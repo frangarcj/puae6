@@ -1616,11 +1616,11 @@
     {
       "id": "0394-hrtmon-port",
       "file": "patches/winuae/0394-hrtmon-port.patch",
-      "sha256": "48f4e659edcd827e4650581432bedb3e3ccc07727aead8077941af6cc83347c4",
+      "sha256": "767e4a50081a90d4e8f0936f52963d656f801c6a487987ec40324a82f1d1081e",
       "title": "Port pinned HRTMon owner and lifecycle through original Action Replay hooks",
       "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec. Legacy .uss path codecs are excluded in portable; no successful stubs or path deserialization.",
       "category": "optional cartridge host boundary",
-      "order": 65,
+      "order": 70,
       "symbols": [
         "cartridge_enter",
         "cartridge_exit",
@@ -1633,8 +1633,8 @@
       "files": [
         {
           "path": "ar.cpp",
-          "before_sha256": "7b3d207f00da646ea239f9b393fd55b2eb72989d583b408d15b57b8e9d2e3cb6",
-          "after_sha256": "72ba5a7d0a8314c4eb9b17cf90775e5ddb680e6ce68f804cee1f280914f00c27"
+          "before_sha256": "ec95741b5459be556bcc9dd94ddb6a11a3f3684378053c160e3fa342fb0a9130",
+          "after_sha256": "02a167a2dff4b1d24c597df61564426e16eefe567eb328c9a2b31bbc03b58304"
         }
       ]
     },
@@ -1668,11 +1668,11 @@
     {
       "id": "0398-hrtmon-native-state",
       "file": "patches/winuae/0398-hrtmon-native-state.patch",
-      "sha256": "cacd4cd09ebaf6a356f9d3e642b2d0cce33710d08087d3b080182f0ba3343f7b",
+      "sha256": "df46ab43b1778b1350af2c9a72fe4f6b95eef0d005e1bd880b08f84d45e95419",
       "title": "Preserve native HRTMon memory mapping shadows and CPU pending action",
       "reason": "T69b: private fixed HRTMon owner accessors and boundary support for complete native state; memory and causal flags restore without paths or serialized pointers. The bridge requires these endpoints; no-cartridge execution remains unchanged. Capture the three actual fixed A1200 bank maps, including Kickstart mirrors A8..B0 before Freeze; restore each span without changing B1..B7.",
       "category": "cartridge state host boundary",
-      "order": 67,
+      "order": 71,
       "symbols": [
         "p6_hrtmon_memory",
         "p6_hrtmon_get",
@@ -1685,13 +1685,13 @@
       "files": [
         {
           "path": "ar.cpp",
-          "before_sha256": "72ba5a7d0a8314c4eb9b17cf90775e5ddb680e6ce68f804cee1f280914f00c27",
-          "after_sha256": "0266006ee5e83dd7ee7dbd989f1286004053069f77716d2f88b7099becca2d55"
+          "before_sha256": "02a167a2dff4b1d24c597df61564426e16eefe567eb328c9a2b31bbc03b58304",
+          "after_sha256": "eadfdcd412e5242ebf3a205623ea3658d86261efa2bb3ce636cf2c9d58817baf"
         },
         {
           "path": "newcpu.cpp",
-          "before_sha256": "a8fd0336e54b4af9a4ba78c5cd78cd0361036194ff45fb0e1b1f3ed6f1a3f54b",
-          "after_sha256": "72a0b1f29d14c296ac1b50861db0427155dddb757d00e12bb69eaff704393290"
+          "before_sha256": "50d6cff4030e5e1d29a77e80c1a5271fb679e555f90509caf9d4d09aca069aa3",
+          "after_sha256": "24b4cf306773bd680049d60d4ac7dd96949fdde1a29f83e70e91b49900776599"
         }
       ]
     },

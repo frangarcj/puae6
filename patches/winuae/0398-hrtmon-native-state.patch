@@ -65,10 +65,7 @@ diff --git a/ar.cpp b/ar.cpp
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -10755,7 +10755,8 @@
- 	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || (regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7 ||
- 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
- 		w = "a register or mode that the CPU of this machine does not have is set";
+@@ -11001,3 +11001,4 @@
 -	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
 +	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
 +		((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ? SPCFLAG_ACTION_REPLAY : 0)))

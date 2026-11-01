@@ -1,13 +1,14 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
-@@ -214,7 +214,9 @@
+@@ -214,8 +214,10 @@
  #include "ar.h"
  #include "savestate.h"
  #include "crc32.h"
 +#ifdef PICASSO96
  #include "gfxboard.h"
 +#endif
+ #include "flashrom.h"
  
  #define DEBUG
  #ifdef DEBUG
