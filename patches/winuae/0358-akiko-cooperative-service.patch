@@ -1,14 +1,13 @@
 diff --git a/akiko.cpp b/akiko.cpp
 --- a/akiko.cpp
 +++ b/akiko.cpp
-@@ -503,10 +503,19 @@
+@@ -503,7 +503,16 @@
  static volatile int frame2counter;
  
  static smp_comm_pipe requests;
 -static volatile int akiko_thread_running;
 -static uae_sem_t akiko_sem, sub_sem, cda_sem;
 -
--static void checkint (void)
 +static bool akiko_service_running, mute_pending;
 +static int request_count(void)
 +{
@@ -21,26 +20,7 @@ diff --git a/akiko.cpp b/akiko.cpp
 +static void akiko_service(void);
 +static uae_sem_t akiko_sem, sub_sem;
 +
-+static void akiko_checkint (void)
- {
- 	if (cdrom_intreq & cdrom_intena) {
- 		irq ();
-@@ -529,13 +538,13 @@
- 	}
- #endif
- 	cdrom_intreq |= status;
--	checkint ();
-+	akiko_checkint ();
- 	cdrom_led ^= LED_CD_ACTIVE2;
- }
- 
- static void rethink_akiko(void)
- {
--	checkint ();
-+	akiko_checkint ();
- }
- 
- static void cdaudiostop_do (void)
+ static void akiko_checkint(void)
 @@ -618,8 +627,6 @@
  
  static int statusfunc_imm(int status, int playpos)
