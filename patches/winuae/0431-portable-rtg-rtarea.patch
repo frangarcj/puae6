@@ -1,7 +1,7 @@
 diff --git a/devices.cpp b/devices.cpp
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -207,6 +207,13 @@
+@@ -234,6 +234,13 @@ void device_add_reset_imm(DEVICE_INT p)
  #else
  #define P6_WITH_HDF 0
  #endif
@@ -13,9 +13,9 @@ diff --git a/devices.cpp b/devices.cpp
 +#endif
 +#define P6_WITH_RTAREA (P6_WITH_HDF || P6_WITH_RTG)
  
- void devices_reset_ext(int hardreset)
+ void device_check_config(void)
  {
-@@ -235,7 +242,7 @@ void devices_reset(int hardreset)
+@@ -278,7 +285,7 @@ void devices_reset(int hardreset)
  #ifdef AUTOCONFIG
  	rtarea_reset();
  #elif defined(P6_FILESYS)
@@ -24,7 +24,7 @@ diff --git a/devices.cpp b/devices.cpp
  		rtarea_reset();
  #endif
  	DISK_reset();
-@@ -250,7 +257,7 @@ void devices_reset(int hardreset)
+@@ -293,7 +300,7 @@ void devices_reset(int hardreset)
  #ifndef P6_PORTABLE
  	native2amiga_reset();
  #elif defined(P6_FILESYS)
@@ -33,7 +33,7 @@ diff --git a/devices.cpp b/devices.cpp
  		native2amiga_reset();
  #endif
  #ifdef SCSIEMU
-@@ -265,11 +272,11 @@ void devices_reset(int hardreset)
+@@ -308,11 +315,11 @@ void devices_reset(int hardreset)
  	ethernet_reset();
  	reset_traps();
  #elif defined(P6_FILESYS)
@@ -47,7 +47,7 @@ diff --git a/devices.cpp b/devices.cpp
  		filesys_prepare_reset();
  		filesys_reset();
  	}
-@@ -395,13 +402,13 @@ void virtualdevice_free(void)
+@@ -444,13 +451,13 @@ void virtualdevice_free(void)
  	reset_traps();
  	free_traps();
  #elif defined(P6_FILESYS)
@@ -63,16 +63,14 @@ diff --git a/devices.cpp b/devices.cpp
  		filesys_cleanup();
  #endif
  #ifdef BSDSOCKET
-@@ -441,7 +448,7 @@ void virtualdevice_free(void)
- 	ethernet_enumerate_free();
- 	rtarea_free();
+@@ -486,5 +493,5 @@ void virtualdevice_free(void)
  #elif defined(P6_FILESYS)
 -	if (P6_WITH_HDF) {
 +	if (P6_WITH_RTAREA) {
  		native2amiga_free();
  		rtarea_free();
  	}
-@@ -485,15 +492,16 @@ void virtualdevice_init (void)
+@@ -545,15 +552,16 @@ void virtualdevice_init (void)
  #ifdef AUTOCONFIG
  	rtarea_setup ();
  #elif defined(P6_FILESYS)
@@ -92,7 +90,7 @@ diff --git a/devices.cpp b/devices.cpp
  		uaeres_install ();
  		hardfile_install ();
  	}
-@@ -515,11 +523,11 @@ void virtualdevice_init (void)
+@@ -575,11 +583,11 @@ void virtualdevice_init (void)
  #elif defined(P6_PORTABLE)
  	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
 -	// T56: and the IDE port of Gayle
@@ -110,7 +108,7 @@ diff --git a/devices.cpp b/devices.cpp
 diff --git a/expansion.cpp b/expansion.cpp
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -3865,7 +3865,11 @@
+@@ -3870,7 +3870,11 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
  	}
  
  #if defined(FILESYS) || defined(P6_FILESYS)

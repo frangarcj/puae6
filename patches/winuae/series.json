@@ -2550,7 +2550,7 @@
     {
       "id": "0431-portable-rtg-rtarea",
       "file": "patches/winuae/0431-portable-rtg-rtarea.patch",
-      "sha256": "955c74e4bc32f63e7dcb5b5131fb721f6838e3585da245bd98664fbccd9b4410",
+      "sha256": "57daa41cbaee9416c55bbe5cee0405333f7514981437b6e286245b4a7f3e74e3",
       "title": "Give bounded portable RTG an RTAREA lifecycle without hard files",
       "reason": "T85o executes the already linked uaegfx bootstrap without an HDF. RTG therefore shares RTAREA, traps and the filesys resident lifecycle with the HDF owner, while hardfile devices and their worker paths remain conditional on an actual HDF.",
       "category": "portable RTG guest bootstrap",
@@ -2567,13 +2567,13 @@
       "files": [
         {
           "path": "devices.cpp",
-          "before_sha256": "1c409031d92ce0897276791ab22f6e07b00d301405bd1f9a360433bbcf19e1fd",
-          "after_sha256": "76eadcaf3b11c67eeccf2dd78402148157f4bcd7e55aa2b06ec6f63dc2edc531"
+          "before_sha256": "f342febb34c49f2d535978073dce997415d05ba6d4e348cb9b46db6877d4fcac",
+          "after_sha256": "382eab8e27d2cbc651bd005ce8a45162f4e062e79cdbe0798ac476c71fecc6d7"
         },
         {
           "path": "expansion.cpp",
-          "before_sha256": "8ba4341fafdb7da59d231b380efeaadde0b63856a43e1e0aa350042d9432133f",
-          "after_sha256": "57e63cdf1119586a9738b99878458d8e92660aaa1bc27e30f4455efe0a548d9d"
+          "before_sha256": "c3e673a41d2c0e3bd7033baab3cbcc07dad39dc64def4059edcdde4d322d30fc",
+          "after_sha256": "1814c186d5ec9482869a3f5369b2626cb4f1bcbee45f70a61af69e1ac93b2fb7"
         }
       ]
     },
