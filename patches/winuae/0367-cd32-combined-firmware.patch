@@ -1,7 +1,7 @@
 diff --git a/memory.cpp b/memory.cpp
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -2116,8 +2116,23 @@
+@@ -2170,8 +2170,23 @@
  
  	if (f != NULL) {
  #ifdef P6_PORTABLE
@@ -26,7 +26,7 @@ diff --git a/memory.cpp b/memory.cpp
  		uae_u8 header[8];
  		if (zfile_fread(header, 1, sizeof header, f) != sizeof header)
  			goto err;
-@@ -2146,6 +2161,7 @@
+@@ -2200,6 +2215,7 @@
  				goto err;
  		kickmem_bank.mask = size - 1;
  		kickmem_bank.reserved_size = size;
