@@ -2632,7 +2632,7 @@
     {
       "id": "0434-portable-uaescsi-state",
       "file": "patches/winuae/0434-portable-uaescsi-state.patch",
-      "sha256": "389af7a6275e1a71d59d4d8ff059c90a8d7e237e64e1524b298c697f4adf8dea",
+      "sha256": "6aa7b845ce0a2f76fe180a2a2f636602fe60d58a2babad578ab54c9320a061f9",
       "title": "Expose bounded semantic state for portable uaescsi.device",
       "reason": "T84g2 snapshots only guest addresses and value state for the cooperative unit: private opens, change/frame requests with their copied IORequests, change state, geometry and fade controls. Validation is complete before apply; host pointers, thread objects and physical-device state never enter the snapshot.",
       "category": "deterministic state",
@@ -2653,8 +2653,8 @@
         },
         {
           "path": "scsiemul.cpp",
-          "before_sha256": "16a77ac1d01b5092d57df09a7c933087c7d0d13d4bd3f8293d1f58e2cea1b0d0",
-          "after_sha256": "166c3f4d575a9576205dcbf740b3dd934671874d5ec63bf7ead3d0b49300c8b0"
+          "before_sha256": "d27d0cd4225503bd6edb2c29bcdc67aa8be8918ea44433eeab9963ac74ace832",
+          "after_sha256": "dd220b9bbfe9a5092bcac0a60d03463f1cf28ff0187efd77093217c3ef756ce1"
         }
       ]
     },

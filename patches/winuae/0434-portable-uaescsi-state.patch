@@ -57,7 +57,7 @@ diff --git a/scsiemul.cpp b/scsiemul.cpp
 index 8bf52f2c..c36d1253 100644
 --- a/scsiemul.cpp
 +++ b/scsiemul.cpp
-@@ -1262,6 +1262,10 @@ static void dev_reset (void)
+@@ -1264,6 +1264,10 @@ static void dev_reset (void)
  			if (dev->unitnum >= 0)
  				sys_command_close (dev->unitnum);
  		}
@@ -68,7 +68,7 @@ index 8bf52f2c..c36d1253 100644
  		memset (dev, 0, sizeof (struct devstruct));
  		xfree (dev->tape_directory);
  		dev->unitnum = dev->aunit = -1;
-@@ -1571,6 +1575,164 @@ void scsidev_reset (void)
+@@ -1573,6 +1577,164 @@ void scsidev_reset (void)
  	dev_reset ();
  }
  
