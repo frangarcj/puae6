@@ -236,7 +236,7 @@
     {
       "id": "0341-blitter-channel-mask-restore",
       "file": "patches/winuae/0341-blitter-channel-mask-restore.patch",
-      "sha256": "f4a7e1efca728f4e7eb900fb9408b44618071f3138f7b9b7bad8251939e23e18",
+      "sha256": "f03764fbff5bc029ec3a849f58a68e1510b548f8bd03749e64e1934994e45293",
       "title": "Preserve the serialized blitter channel mask across BLTCON derived-state rebuild",
       "reason": "T58: Amiga Soccer exposes BLTX blit_ch 13 changing to 9 at load. restore_blitter_new reads the pipeline mask but blit_bltset derives it from a BLTCON0 write that is still pending. Keep the serialized mask while rebuilding other derived values; synthetic pending-bltcon and frontend byte-for-byte round trips cover this without game bytes.",
       "category": "state corrections",
@@ -250,8 +250,8 @@
       "files": [
         {
           "path": "blitter.cpp",
-          "before_sha256": "a92506251b1334ded6cee889cc52718c2e42d5a06518ab79361981d6b3171bc1",
-          "after_sha256": "47c2066e655cd04cc8c7405cea36257f1f73fdb3f322f60f2733ba61b7c60bfb"
+          "before_sha256": "ad1b76fdfffc25de8a934e0555256a7a23896c11924d3f376e2d0a6255a0add1",
+          "after_sha256": "d98c8f8c8335ad432436a8f7aa37c06ec992b3b092b88a5285fc980a79d1a4d4"
         }
       ]
     },
