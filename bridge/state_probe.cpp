@@ -999,7 +999,7 @@ void run_state_ops(const std::vector<StateOp> &ops, uint64_t unit)
             else if (!strcmp(op.chunk, "rtc-ricoh")) {
                 // Diagnostic-only chip selection after the reset head, until the real A4000 preset is implemented.
                 // No public configuration or frontend offers this hybrid machine.
-                currprefs.cs_rtc = 2;
+                currprefs.cs_rtc = changed_prefs.cs_rtc = 2;
                 rtc_hardreset();
             }
             else if (!strcmp(op.chunk, "cia-tod2") || !strcmp(op.chunk, "cia-tod2-event")) {
