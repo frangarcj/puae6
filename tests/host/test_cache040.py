@@ -45,9 +45,13 @@ int main() {
     for(int model : {68040,68060}) {
         currprefs={model,true,false,true}; regs={}; regs.cacr=0x80008000;
         set_cpu_caches(false); writes.clear();
-        for(int reg : {3,4,5,6,7,0x805,0x806,0x807}) assert(movec_illg(reg));
-        for(int reg : {0,1,2,0x800,0x801}) assert(!movec_illg(reg));
-        if(model==68060) assert(!movec_illg(8) && !movec_illg(0x808));
+        if(model==68040) {
+            for(int reg : {0,1,2,3,4,5,6,7,0x800,0x801,0x803,0x804,0x805,0x806,0x807}) assert(!movec_illg(reg));
+            for(int reg : {8,9,0x802,0x808,0x809}) assert(movec_illg(reg));
+        } else {
+            for(int reg : {0,1,2,3,4,5,6,7,8,0x800,0x801,0x806,0x807,0x808}) assert(!movec_illg(reg));
+            for(int reg : {9,0x802,0x803,0x804,0x805,0x809}) assert(movec_illg(reg));
+        }
         regs.a[0]=0x10000;
         auto &line=seed(regs.a[0]);
         flush_cpu_caches_040(0xf468); // CPUSHL DC,(A0): push dirty data then invalidate
