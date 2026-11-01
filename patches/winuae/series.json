@@ -610,7 +610,7 @@
       "file": "patches/winuae/0354-cd32-eeprom-state.patch",
       "sha256": "38e5b49af730b072c56d036b69465bae15f976786c5ad63ae6c96cb5ec0be2c0",
       "title": "Expose the real 24C08 protocol and memory as a private semantic state",
-      "reason": "T66c reuses WinUAE EEPROM without host backing. All causal I2C fields and chip memory are validated before replacement; fixed geometry and bindings are derived.",
+      "reason": "T66c beta21 vertical reuses the real WinUAE EEPROM without host backing. All causal I2C fields and chip memory are validated before replacement; fixed geometry and bindings are derived.",
       "category": "host hooks",
       "order": 23,
       "symbols": [
@@ -624,8 +624,8 @@
       "files": [
         {
           "path": "flashrom.cpp",
-          "before_sha256": "e16efa76c0dac8f8d443f535e46de65376f8fc8c98259c1a78ddbb89f9e9f3df",
-          "after_sha256": "b8ada53722f491e8b0bfac87df33fe5f852dffaf8ef5b7a844a98a533f2ab0cd"
+          "before_sha256": "aa703029e9008a6f13468df1c73f9221aa3ca107fe07f0d8243c2647b87f20f1",
+          "after_sha256": "61c6cce25aed257ea11c2153d5d0124c024ca15c649f0393685ba1038bf1fe5d"
         }
       ]
     },
