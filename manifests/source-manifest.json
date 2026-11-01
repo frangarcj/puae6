@@ -51,6 +51,7 @@
     "softfloat/softfloat_fpsp.cpp",
     "autoconf.cpp",
     "filesys.cpp",
+    "scsiemul.cpp",
     "hardfile.cpp",
     "gayle.cpp",
     "ide.cpp",
