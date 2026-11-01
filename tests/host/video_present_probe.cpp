@@ -29,8 +29,15 @@ int display_reset;
 static int hook_fn(vidbuf_description *, vidbuffer *) { return 7; }
 
 static struct { int calls, w, h, dx, dy; bool blank; } limits;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+void set_custom_limits(int w, int h, int dx, int dy)
+{ ++limits.calls; limits.w = w; limits.h = h; limits.dx = dx; limits.dy = dy; limits.blank = false; }
+#elif UAEMAJOR == 6 && UAEMINOR == 0
 void set_custom_limits(int w, int h, int dx, int dy, bool blank)
 { ++limits.calls; limits.w = w; limits.h = h; limits.dx = dx; limits.dy = dy; limits.blank = blank; }
+#else
+#error Audit set_custom_limits before selecting another WinUAE version
+#endif
 static int color_notices;
 void notice_new_xcolors(void) { ++color_notices; }
 
