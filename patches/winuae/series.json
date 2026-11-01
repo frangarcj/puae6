@@ -1135,7 +1135,7 @@
       "file": "patches/winuae/0372-fpu-internal-state.patch",
       "sha256": "016e102f0a1fcd2dc4c59017d53e953cb326456d95b8606e7a058901d157091a",
       "title": "Capture and restore private internal 040/060 SoftFloat state",
-      "reason": "T55c4 preserves every FSAVE word and pending FPU state with pure context validation before transactional application; does not expose models, change P6CP or implement upstream FRESTORE040 TODO.",
+      "reason": "T95dk preserves every FSAVE word and pending FPU state with pure context validation before transactional application; it does not expose models, change P6CP or implement the upstream FRESTORE040 TODO.",
       "category": "host hooks",
       "order": 43,
       "symbols": [
