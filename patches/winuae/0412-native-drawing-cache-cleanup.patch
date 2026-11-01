@@ -1,17 +1,14 @@
 diff --git a/drawing.cpp b/drawing.cpp
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -1317,7 +1317,8 @@
- 		abort();
- 	}
- 
+@@ -1364,4 +1364,5 @@
 -	if (oldheight_alloc == vb->height_allocated &&
 +	if (amiga2aspect_line_map && native2amiga_line_map &&
 +		oldheight_alloc == vb->height_allocated &&
  		oldheight == vb->outheight &&
  		oldpitch == vb->rowbytes &&
  		oldgenlock == init_genlock_data &&
-@@ -2433,6 +2434,14 @@
+@@ -2493,6 +2494,14 @@
  
  void drawing_free(void)
  {
