@@ -703,12 +703,13 @@ void visit_scheduler(Archive &a)
             }
         }
     }
-    // Beta 21 rebuilds ev_misc from the secondary table in p6_events_set, including oldcycles. Its body must name that exact derived event;
-    // accepting an earlier time or another origin would serialize bytes that Apply immediately discards. WinUAE 6.0 can retain an earlier wake-up
-    // after removing a slot without re-arming it, so preserve that version's looser but causal relation.
+    // Beta 21 rebuilds ev_misc from the secondary table in p6_events_set. Its body must name that exact active event and time; oldcycles is the
+    // earlier cycle at which the live scheduler armed it, and Apply replays the main table after deriving the private secondary indices so that
+    // value also roundtrips. WinUAE 6.0 can retain an earlier wake-up after removing a slot without re-arming it, so preserve that version's looser
+    // but causal relation.
     if (checks && any) {
 #if UAEMAJOR == 6 && UAEMINOR == 1
-        a.require(main_active[ev_misc] && main_time[ev_misc] == earliest && main_old[ev_misc] == now,
+        a.require(main_active[ev_misc] && main_time[ev_misc] == earliest,
                   "secondary events are pending but ev_misc is not armed for them");
 #else
         a.require(main_active[ev_misc] && main_time[ev_misc] <= earliest,
@@ -722,11 +723,6 @@ void visit_scheduler(Archive &a)
         p6_custom_extra_cycle_set(extra);
         hsync_counter = hs;
         vsync_counter = vs;
-        for (int i = 0; i < ev_max; ++i) {
-            eventtab[i].active = main_active[i];
-            eventtab[i].evtime = main_time[i];
-            eventtab[i].oldcycles = main_old[i];
-        }
         for (int i = 0; i < kEvent2Slots; ++i) {
             eventtab2[i].active = sec_active[i];
             if (sec_active[i]) {
@@ -735,7 +731,14 @@ void visit_scheduler(Archive &a)
                 eventtab2[i].handler = scheduler_handler(sec_id[i]);
             }
         }
+        // Beta 21 derives firstvent2idx/event2total and ev_misc here. Replay the validated main table afterwards: its active/time agree with that
+        // derivation, while oldcycles is the live scheduling origin and must not be replaced with the restore boundary.
         p6_events_set(round, next, pending);       // also zeroes event2cnt and event2restart
+        for (int i = 0; i < ev_max; ++i) {
+            eventtab[i].active = main_active[i];
+            eventtab[i].evtime = main_time[i];
+            eventtab[i].oldcycles = main_old[i];
+        }
     }
 }
 

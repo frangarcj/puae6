@@ -261,8 +261,8 @@ class SchedulerChunkTests(ProbeCase):
                 tied.add(label)
             if name == "ev.evtime" and not table.get(f"ev.active[{index}]"):
                 tied.add(label)
-            if "ev2.max" in table.order and index == MISC and name in ("ev.evtime", "ev.oldcycles"):
-                tied.add(label)       # beta 21 rebuilds both from the earliest secondary event
+            if "ev2.max" in table.order and index == MISC and name == "ev.evtime":
+                tied.add(label)       # beta 21 rebuilds the wake-up time from the earliest secondary event; its scheduling origin still roundtrips
             if name == "ev2.handler" and index == 0 and "ev2.idx" in table.order:
                 tied.add(label)
             if name in ("ev2.handler", "ev2.evtime", "ev2.data") and not table.get(f"ev2.active[{index}]"):

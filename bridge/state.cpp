@@ -386,6 +386,7 @@ int64_t scheduler_cycle(Mode mode)
     return mode == Mode::Save ? int64_t(currcycle) : g_context ? g_context->scheduler_cycle : -1;
 }
 
+constexpr uint32_t kSchedulerChunk = 1;
 const Chunk kChunks[kMaxChunkCount + 1] = {
     {"P6CP", "cpu", 1, visit_cpu, nullptr},
     {"P6SC", "scheduler", 1, visit_scheduler, rebuild_scheduler},
@@ -785,9 +786,8 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
             return p6_fail(error, P6_ERROR_INTERNAL, "the reset head did not run before the state was applied; the image is faulted");
         }
     }
-    for (uint32_t i = 0; i < chunk_count(); ++i) {
+    const auto apply_body = [&](uint32_t i) -> p6_result {
         const Chunk &chunk = active_chunk(i);
-        if (!chunk.visit || !chosen(i)) continue;
         Archive archive = Archive::applier(views[i].body, views[i].length);
         chunk.visit(archive);
         archive.finish();
@@ -799,7 +799,17 @@ p6_result load(const void *buffer, uint64_t bytes, const Options &options, p6_er
                      chunk.name, archive.why());
             return p6_fail(error, P6_ERROR_INTERNAL, text);
         }
+        return P6_OK;
+    };
+    for (uint32_t i = 0; i < chunk_count(); ++i) {
+        const Chunk &chunk = active_chunk(i);
+        if (!chunk.visit || !chosen(i)) continue;
+        if (const p6_result result = apply_body(i)) return result;
     }
+    // P6SC first establishes the saved cycle epoch used while the other bodies restore their ages. Some engine body readers schedule secondary events
+    // as a side effect and thereby rewrite ev_misc; replay P6SC after them so the scheduler table and its insertion cursors are the saved owner's.
+    if (chosen(kSchedulerChunk))
+        if (const p6_result result = apply_body(kSchedulerChunk)) return result;
     for (uint32_t i = 0; i < chunk_count(); ++i)
         if (active_chunk(i).visit && active_chunk(i).rebuild && chosen(i)) active_chunk(i).rebuild();
     // The samples this image produced and has not handed over are its own history, not the state's: the first unit after the load hands over what the saved
