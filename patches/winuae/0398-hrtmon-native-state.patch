@@ -11,7 +11,7 @@ diff --git a/ar.cpp b/ar.cpp
  #ifdef PICASSO96
  #include "gfxboard.h"
  #endif
-@@ -2047,6 +2050,50 @@
+@@ -2125,6 +2128,50 @@
  	if (armodel == 1)
  		action_replay_flag = ACTION_REPLAY_ACTIVE;
  }
