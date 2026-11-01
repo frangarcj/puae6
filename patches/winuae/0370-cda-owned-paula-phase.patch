@@ -1,7 +1,7 @@
 diff --git a/audio.cpp b/audio.cpp
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -2949,19 +2949,21 @@
+@@ -2958,19 +2958,21 @@
  #define P6_AUDIO_PHASE_GLOBAL 25
  #define P6_AUDIO_PHASE_CHANNEL 16
  #define P6_AUDIO_PHASE_WORDS (P6_AUDIO_PHASE_GLOBAL + AUDIO_CHANNELS_PAULA * P6_AUDIO_PHASE_CHANNEL)
@@ -27,7 +27,7 @@ diff --git a/audio.cpp b/audio.cpp
  	out[0] = p6_float_bits(next_sample_evtime);
  	const uint64_t pending = uint64_t(get_cycles () - last_cycles);
  	out[1] = int32_t(pending); out[2] = int32_t(pending >> 32);
-@@ -2984,9 +2986,8 @@
+@@ -2993,9 +2995,8 @@
  	return true;
  }
  
@@ -39,7 +39,7 @@ diff --git a/audio.cpp b/audio.cpp
  	next_sample_evtime = p6_bits_float(in[0]);
  	last_cycles = get_cycles () - evt_t(uint64_t(uint32_t(in[1])) | uint64_t(uint32_t(in[2])) << 32);
  	audio_work_to_do = in[3];
-@@ -3007,6 +3008,36 @@
+@@ -3016,6 +3017,36 @@
  	}
  	return true;
  }

@@ -1086,23 +1086,23 @@
     {
       "id": "0370-cda-owned-paula-phase",
       "file": "patches/winuae/0370-cda-owned-paula-phase.patch",
-      "sha256": "6b8f214e9da9e49f0a8546fc5dd9fd11b71e116fbc434ae4a01d373ac9b1e4d2",
+      "sha256": "697fc3c4f6a1406ea58d551885dfffd81197437ec8df70304faf5eca76742266",
       "title": "Preserve Paula phase with an explicitly owned CDA stream",
-      "reason": "T66m5 shares phase capture/application with strict0099 while permitting only the backend-owned slot0 stereo CDA stream; no clock advancement or stream scheduling.",
+      "reason": "T95di shares phase capture/application with the strict native endpoint while permitting only no extra stream or the backend-owned slot0 stereo CDA stream. It restores values without clock advancement or stream scheduling.",
       "category": "host hooks",
       "order": 41,
       "symbols": [
         "p6_cda::phase_get",
         "p6_cda::phase_set"
       ],
-      "test": "tests/audio/test_cd_audio.py",
+      "test": "tests/audio/test_cd_audio.py; tests/media/test_akiko_state.py",
       "upstream_candidate": false,
       "removal_version": null,
       "files": [
         {
           "path": "audio.cpp",
-          "before_sha256": "2d2eb3492fd1d3a2f9ea4b02db43dc2643eceef90e7ef6cafd882c003bd62357",
-          "after_sha256": "77a937afc625022bb5517fe7ff4fa1568cac41c67f8ebe55dbd4bfd5aed5c48d"
+          "before_sha256": "01bbf017584ecd94ee737586909079bd0b1b32002de8de1e624b2b4716eed2b6",
+          "after_sha256": "16fd07217b369774e0d2f2096f2d56491eeef083d5fccb37a7a79072680e716b"
         }
       ]
     },
