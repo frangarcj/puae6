@@ -1,7 +1,7 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -476,6 +476,7 @@
+@@ -477,6 +477,7 @@
  static int mouse_port[NORMAL_JPORTS];
  static int cd32_shifter[NORMAL_JPORTS];
  static int cd32_pad_enabled[NORMAL_JPORTS];
@@ -9,7 +9,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static int parport_joystick_enabled;
  static int oleft[MAX_JPORTS], oright[MAX_JPORTS], otop[MAX_JPORTS], obot[MAX_JPORTS];
  static int horizclear[MAX_JPORTS], vertclear[MAX_JPORTS];
-@@ -4086,7 +4087,6 @@
+@@ -4106,7 +4107,6 @@
  /* joystick 1 button 1 is used as a output for incrementing shift register */
  void handle_cd32_joystick_cia (uae_u8 pra, uae_u8 dra)
  {
@@ -17,7 +17,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	int i;
  
  	maybe_read_input();
-@@ -4097,7 +4097,7 @@
+@@ -4117,7 +4117,7 @@
  	for (i = 0; i < 2; i++) {
  		uae_u8 but = 0x40 << i;
  		if (cd32padmode(i)) {
@@ -26,7 +26,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  				if (!(pra & but)) {
  					cd32_shifter[i]--;
  					if (cd32_shifter[i] < 0)
-@@ -4107,7 +4107,7 @@
+@@ -4127,7 +4127,7 @@
  				}
  			}
  		}
@@ -35,7 +35,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	}
  }
  
-@@ -4686,6 +4686,7 @@
+@@ -4706,6 +4706,7 @@
  // getvelocity() divides by, and the host edge detector. The in-session reset keeps them, as the hardware and upstream do.
  void p6_input_session_begin(void)
  {
@@ -43,7 +43,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	memset(mouse_axis, 0, sizeof mouse_axis);
  	memset(oldm_axis, 0, sizeof oldm_axis);
  	memset(mouse_x, 0, sizeof mouse_x);
-@@ -10857,6 +10858,11 @@
+@@ -10939,6 +10940,11 @@
  	memset(out, 0, sizeof *out);
  	out->potgo_value = potgo_value;
  	for (int p = 0; p < 2; p++) {
@@ -55,7 +55,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		for (int i = 0; i < 2; i++) {
  			out->pot_cap[p][i] = pot_cap[p][i];
  			out->pot_dat[p][i] = pot_dat[p][i];
-@@ -10899,6 +10905,11 @@
+@@ -10981,6 +10987,11 @@
  {
  	potgo_value = in->potgo_value;
  	for (int p = 0; p < 2; p++) {
@@ -67,7 +67,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		for (int i = 0; i < 2; i++) {
  			pot_cap[p][i] = in->pot_cap[p][i];
  			pot_dat[p][i] = in->pot_dat[p][i];
-@@ -10938,7 +10949,7 @@
+@@ -11020,7 +11031,7 @@
  }
  
  // True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
@@ -76,7 +76,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  bool p6_input_boundary(const char **why)
  {
  	const char *w = NULL;
-@@ -10954,8 +10965,6 @@
+@@ -11036,8 +11047,6 @@
  		w = "an input qualifier is held";
  	if (!w && (osk_state || lightpen_enabled2))
  		w = "the on screen keyboard or a light pen is active";
@@ -85,7 +85,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	if (!w && (currprefs.keyboard_mode || currprefs.cs_resetwarning))
  		w = "a keyboard mode or a reset warning that is not the A500's";
  	if (!w && (currprefs.turbo_emulation || currprefs.input_mouse_speed != 100))
-@@ -10987,3 +10996,22 @@
+@@ -11069,3 +11078,22 @@
  	return w == NULL;
  }
  #endif
