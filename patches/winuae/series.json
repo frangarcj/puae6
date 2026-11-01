@@ -74,7 +74,7 @@
     {
       "id": "0331-disk-raw-track-tail",
       "file": "patches/winuae/0331-disk-raw-track-tail.patch",
-      "sha256": "fae292379a35fc1d1e0c7feadea99d0d5455615715b69aee91751c755df149df",
+      "sha256": "1379c8038c59add3ea7b6562a10799c6309c1b16f26a70a5d1ac5b083160d22d",
       "title": "A raw track leaves no stale bits in its last word",
       "reason": "T57: a raw track of the extended ADF reads (bitlen + 7) / 8 bytes into the MFM buffer and then builds words from pairs of bytes, so the second byte of the last word of a track whose length is not a multiple of 16 bits was whatever the previous track left. The drive never reads those bits (the position wraps at the length), but the buffer is saved in the state (DSDn), so its bytes have to be a function of the image alone.",
       "category": "host hooks",
@@ -88,8 +88,8 @@
       "files": [
         {
           "path": "disk.cpp",
-          "before_sha256": "7fd0572860adbcf50cb4f4dad66d73c89de4aca301c06705f2f3f9254e03d6ad",
-          "after_sha256": "15a47e24424412bcf0daaedafc57a168530abba2cd712035c843fb9af0e89945"
+          "before_sha256": "017956c8a5a102400e592e2e445bc303020aec7d8efd5ffea54a1d28469f5a93",
+          "after_sha256": "aaadd55c50ea84d20e88b8fd9aabea88d8c5a129874c04838670e79205827d56"
         }
       ]
     },

@@ -1,7 +1,7 @@
 diff --git a/disk.cpp b/disk.cpp
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -2572,6 +2572,11 @@
+@@ -2582,6 +2582,11 @@
  		int base_offset = ti->type == TRACK_RAW ? 0 : 1;
  		drv->tracklen = ti->bitlen + 16 * base_offset;
  		drv->bigmfmbuf[0] = ti->sync;
