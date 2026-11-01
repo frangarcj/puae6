@@ -2716,7 +2716,7 @@
     {
       "id": "0437-portable-normal-late-cpu-clock",
       "file": "patches/winuae/0437-portable-normal-late-cpu-clock.patch",
-      "sha256": "c1c9b2a8ba6893037cdabab2a688893ea077c87fbbe4b97aa0c50682147e2419",
+      "sha256": "9c4fc168f0f6ee85b4e8cc08128a474654e7cf1539e24819e397dadcd0f42cb4",
       "title": "Scale the portable normal 68030+ interpreter by its emulated clock",
       "reason": "T98 measures identical CIA time at multipliers 2 and 8 on A4030 and A4040 because WinUAE's normal interpreter uses fixed approximate divisors for those CPUs. Preserve the multiplier-2 baseline and scale only CPU instruction work against emulated time; chipset, DMA and audio scheduling remain on the existing event clock.",
       "category": "deterministic CPU timing",
@@ -2730,8 +2730,8 @@
       "files": [
         {
           "path": "newcpu.cpp",
-          "before_sha256": "412d860c7129f95dd4b1b3e1e293c234cce7881adcc97b4fdc7581c5069628e0",
-          "after_sha256": "6aae10c5209a4167bd6160a45d0df67a0aa534e176725c72d41f12d1c1d86b2e"
+          "before_sha256": "38f00567f33bc2509a8a9cbdd576074575ffe7edecbaa14db144888f114f115f",
+          "after_sha256": "052a99933ce6b89a116fa8c3f90da90934015caf32d5a68599ddf65f07cfa7f1"
         }
       ]
     }

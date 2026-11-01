@@ -2,7 +2,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
 index 85c0e6981..14dfac9d2 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2275,6 +2275,13 @@ static uae_u32 cycles_mult;
+@@ -2304,6 +2304,13 @@ static uae_u32 cycles_mult;
  static void update_68k_cycles (void)
  {
  	cycles_mult = 0;
@@ -16,7 +16,7 @@ index 85c0e6981..14dfac9d2 100644
  
  	if (currprefs.m68k_speed == 0) { // approximate
  		cycles_mult = CYCLES_DIV;
-@@ -2310,10 +2317,25 @@ static void update_68k_cycles (void)
+@@ -2339,10 +2346,25 @@ static void update_68k_cycles (void)
  			}
  		}
  	}
