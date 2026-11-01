@@ -18,9 +18,8 @@ static int calls[8], call_count, configure_result = 1;
 
 #include "cfgfile_preset_under_test.h"
 
-// The pristine reference still calls target_default_options first; the patched file (0053)
-// excludes that desktop host-defaults hook, so it must not be reached: no stub is provided.
-#ifdef TEST_REFERENCE
+// Observe the desktop hook only when the selected production body still owns it.
+#if defined(EXPECT_TARGET_HOOK) && !defined(P6_PORTABLE)
 constexpr int kHook = 1;
 void target_default_options(struct uae_prefs *p, int type)
 { assert(p == &prefs && type == 1); calls[call_count++] = 1; }
@@ -93,6 +92,9 @@ static void run_case(bool dirty, int rom_result, int ntsc)
 
     call_count = 0;
     buildin_default_prefs(&prefs);
+    if (call_count != 1 + kHook)
+        fprintf(stderr, "preset callbacks: count=%d hook=%d first=%d second=%d\n",
+                call_count, kHook, calls[0], calls[1]);
     require(call_count == 1 + kHook && (!kHook || calls[0] == 1) && calls[kHook] == 2,
             "default callbacks called in order with expected arguments");
     for (int i = 0; i < MAX_RAM_BOARDS; ++i)

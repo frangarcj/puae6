@@ -40,6 +40,8 @@ class CfgfilePresetTests(unittest.TestCase):
         ensure_generated()
         original = (ROOT / "upstream/winuae/cfgfile.cpp").read_text()
         patched = (ROOT / "build/upstream/cfgfile.cpp").read_text()
+        reference_clears_all = ("memset(&p->fastmem[i]" in original and
+                                "memset(&p->z3fastmem[i]" in original)
         with tempfile.TemporaryDirectory(prefix="p6-cfgfile-preset-") as directory:
             tmp = Path(directory)
             common = ["clang++", "-std=c++17", "-UNDEBUG", "-fsanitize=address,undefined",
@@ -51,10 +53,13 @@ class CfgfilePresetTests(unittest.TestCase):
             for opt in ("-O0", "-O2"):
                 executables = []
                 for label, source in (("reference", original), ("patched", patched)):
-                    (tmp / "cfgfile_preset_under_test.h").write_text(extract(source))
+                    selected = extract(source)
+                    (tmp / "cfgfile_preset_under_test.h").write_text(selected)
                     exe = tmp / label
+                    hook = ["-DEXPECT_TARGET_HOOK"] if "target_default_options" in selected else []
+                    portable = ["-DP6_PORTABLE"] if label == "patched" else []
                     subprocess.run([*common, opt,
-                                    "-DP6_PORTABLE" if label == "patched" else "-DTEST_REFERENCE",
+                                    *portable, *hook,
                                     str(ROOT / "tests/host/cfgfile_preset_probe.cpp"),
                                     "-o", str(exe)], check=True, timeout=90)
                     executables.append(exe)
@@ -64,9 +69,13 @@ class CfgfilePresetTests(unittest.TestCase):
                 self.assertEqual(ref_clean.returncode, 0, ref_clean.stderr)
                 ref_dirty = subprocess.run([str(executables[0]), "dirty"], capture_output=True,
                                            text=True, env=env, timeout=20)
-                self.assertNotEqual(ref_dirty.returncode, 0,
-                                    "pristine helper unexpectedly cleared every populated slot")
-                self.assertIn("Fast/Z3 RAM slot remains populated", ref_dirty.stderr)
+                if reference_clears_all:
+                    self.assertEqual(ref_dirty.returncode, 0, ref_dirty.stderr)
+                    self.assertEqual(ref_clean.stdout, ref_dirty.stdout)
+                else:
+                    self.assertNotEqual(ref_dirty.returncode, 0,
+                                        "pristine helper unexpectedly cleared every populated slot")
+                    self.assertIn("Fast/Z3 RAM slot remains populated", ref_dirty.stderr)
                 patched_clean = subprocess.run([str(executables[1])], check=True,
                                                capture_output=True, text=True,
                                                env=env, timeout=20)
