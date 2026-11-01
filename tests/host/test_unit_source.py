@@ -22,16 +22,16 @@ def engine_sources():
     return [TREE / name for name in selection["upstream_units"]]
 
 
-def profile_view(text):
-    """Source as the P6 profile compiles it: `#ifndef P6_PORTABLE` regions and `#else` of `#ifdef` dropped."""
+def profile_view(text, portable=True):
+    """Source as either side of the P6_PORTABLE guards compiles it."""
     out, stack = [], []  # entries: (kind, keeping)
     for line in text.splitlines():
         token = line.strip()
         keeping = all(keep for _, keep in stack)
         if token.startswith("#ifndef P6_PORTABLE"):
-            stack.append(("guard", False))
+            stack.append(("guard", not portable))
         elif token.startswith("#ifdef P6_PORTABLE"):
-            stack.append(("guard", True))
+            stack.append(("guard", portable))
         elif token.startswith("#if"):
             stack.append(("other", True))
         elif token.startswith("#else") and stack and stack[-1][0] == "guard":
@@ -112,10 +112,15 @@ class UnitSourceTests(unittest.TestCase):
                 callers.append(source.name)
         self.assertEqual(callers, [])
 
-    def test_the_pristine_profile_keeps_m68k_go_and_a_zero_flag(self):
-        source = (ROOT / "upstream/winuae/newcpu.cpp").read_text()
+    def test_the_imported_desktop_profile_keeps_m68k_go_and_a_zero_flag(self):
+        # beta21 absorbed the historical portable guards into its imported
+        # base, so inspect the non-portable arm instead of raw source text.
+        source = profile_view((ROOT / "upstream/winuae/newcpu.cpp").read_text(), portable=False)
+        header = profile_view((ROOT / "upstream/winuae/include/newcpu.h").read_text(), portable=False)
         self.assertIn("void m68k_go (int may_quit)", source)
-        self.assertNotIn(FLAG, source)
+        self.assertNotIn("int m68k_go_unit (int mode)", source)
+        self.assertIn("#define SPCFLAG_UNIT_END 0", header)
+        self.assertNotIn("extern int m68k_go_unit (int mode);", header)
 
 
 if __name__ == "__main__":
