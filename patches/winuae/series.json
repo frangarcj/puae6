@@ -26,13 +26,36 @@
       ]
     },
     {
+      "id": "0192-beta21-counter-restart-order",
+      "file": "patches/winuae/0192-beta21-counter-restart-order.patch",
+      "sha256": "6b1d6063c9b931342a366abee4fa8210736b0e374c86744df6e8d1e200f7a348",
+      "title": "Reanchor host time before beta21 resets the cycle counter",
+      "reason": "WinUAE 6.1 beta 21 added an early set_cycles(start_cycles) while the portable hook inherited from patch 0073 remained immediately before a later, now redundant set_cycles. A reset therefore moved the engine counter backwards before the bridge could account elapsed ticks and reanchor the deterministic RTC, faulting the image at the unit boundary. Move only the existing hook before the first counter reset; keep both upstream set_cycles calls and the clock's backwards-time check.",
+      "category": "host hooks",
+      "order": 2,
+      "symbols": [
+        "m68k_go_unit",
+        "p6_counter_restart_hook"
+      ],
+      "test": "tests/state/test_det02.py (the six disk-seek reset-image-beam-set cuts)",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "f4f3cb98937ba34ad4a028e225c3999ae1bb4a3c8c6a84b5dfc7551756264b4a",
+          "after_sha256": "c06993bd470439d66ea621466a6aafb06d4e94a64961ed14f4a5010c43bc65bb"
+        }
+      ]
+    },
+    {
       "id": "0330-disk-prevtracklen-state",
       "file": "patches/winuae/0330-disk-prevtracklen-state.patch",
-      "sha256": "516c3c237c99048f5982cb5345b1e5405dcc4cc209346367c2d7a6a2a7923933",
+      "sha256": "dbad87f8ca34f934b06aa4248dfbf56f16d865c59c7b1e42c9be05e425b4cef4",
       "title": "Floppy controller state: the scale of the head position",
       "reason": "T57: updatemfmpos scales the position of the head by the ratio of the new track length to the last one the position was scaled to (prevtracklen), which is 0 right after an insert and otherwise the length of the last filled track. restore_disk copies it from the LIVE machine's track, so a state taken on one raw track and loaded in a machine that had last scaled to another (every track of an extended ADF or FDI has its own length) moved the head by the wrong ratio when it left the track. DSKX carries it as the tenth word of each drive.",
       "category": "host hooks",
-      "order": 2,
+      "order": 3,
       "symbols": [
         "p6_disk_phase_get",
         "p6_disk_phase_set"
@@ -43,8 +66,8 @@
       "files": [
         {
           "path": "disk.cpp",
-          "before_sha256": "e7dbf1b47ea71904eb6e1b2a658e95fcf1869a6eb13a4269da1c2d4dafd0d133",
-          "after_sha256": "7fd0572860adbcf50cb4f4dad66d73c89de4aca301c06705f2f3f9254e03d6ad"
+          "before_sha256": "a6b17f466c1e8f36ee5f0384c800221ad5adfdc4169ab5fcf426926637ecf322",
+          "after_sha256": "017956c8a5a102400e592e2e445bc303020aec7d8efd5ffea54a1d28469f5a93"
         }
       ]
     },
@@ -55,7 +78,7 @@
       "title": "A raw track leaves no stale bits in its last word",
       "reason": "T57: a raw track of the extended ADF reads (bitlen + 7) / 8 bytes into the MFM buffer and then builds words from pairs of bytes, so the second byte of the last word of a track whose length is not a multiple of 16 bits was whatever the previous track left. The drive never reads those bits (the position wraps at the length), but the buffer is saved in the state (DSDn), so its bytes have to be a function of the image alone.",
       "category": "host hooks",
-      "order": 3,
+      "order": 4,
       "symbols": [
         "drive_fill_bigbuf"
       ],
@@ -77,7 +100,7 @@
       "title": "fdi2raw reads a hostile FDI without leaving its buffers",
       "reason": "T57b: fdi2raw.cpp trusts the file: the Huffman streams of a low-level track are read with no end (the tree recurses as deep as the stream says, root is an uninitialised node that a leaf frees), a pulse count of 2^32 allocates and indexes, a zero-width cell loops for ever, the bits out are written past the 40000-byte buffer, the cells are timed by a division by zero and a double cast out of range, a track with no index stream walks it with offsets that were never set, the cache keeps every decoded track (a megabyte each) and loadtrack indexes the cache before it flips the side. Everything the decoder takes from the file is now checked against the bytes of the track and against fixed limits (262144 pulses, tree depth 40, 70000 nodes, 8 sub-streams, 200000 bits out, 4*pulses+64 steps), the source buffer is the size of the largest track plus 4 KiB of zeros, and the cache keeps one track; a track it cannot decode is an unformatted one.",
       "category": "host hooks",
-      "order": 4,
+      "order": 5,
       "symbols": [
         "addbit",
         "decode_lowlevel_track",
@@ -111,7 +134,7 @@
       "title": "fdi2raw draws its weak bits from the track and the revolution, not from the machine",
       "reason": "T57b: the pulses of a low-level FDI track are drawn at random (a pulse with a stability below the largest is there with that probability, the stable ones jitter within their bounds) with the emulator's generator uaerand. A decode then changed the machine's future by the number of draws it made, and the buffer that a state restore decodes again was not the one the original had decoded earlier. The draws are a function of (track, revolution) with a generator of the decoder's own (xorshift32, seeded by a mix of both); fdi2raw_set_revolution gives the revolution that disk.cpp counts and the state carries.",
       "category": "host hooks",
-      "order": 5,
+      "order": 6,
       "symbols": [
         "fdi2_decode",
         "fdi2raw_loadrevolution_2",
@@ -142,7 +165,7 @@
       "title": "FDI tracks are a function of the revolution, and the state carries the multi-revolution reader",
       "reason": "T57b: drive_fill_bigbuf passes the revolution (fdirev, counted from 0 whenever the head reads another track, fditrack) to fdi2raw and makes the length 0 before the call, so a track the decoder cannot read is an unformatted one and not the previous track's length; fetchnextrevolution counts the next revolution and keeps the old length when the new one cannot be decoded. DSKX carries, for each drive, multi_revolution (DSDn restores the buffer but not the flag that says it has several revolutions), revolution_check, fdirev and fditrack: 46 to 62 words.",
       "category": "host hooks",
-      "order": 6,
+      "order": 7,
       "symbols": [
         "drive_fill_bigbuf",
         "drive_insert",
@@ -168,7 +191,7 @@
       "title": "The timing of a buffered track is one value per byte in the state",
       "reason": "T57b: DISK_update reads the timing of a track (FDI, IPF) as tracktiming[mfmpos / 8], one value per byte of the track, and upstream's save_disk2/restore_disk2 write one per 16-bit word: the second half of the timing array was never carried, and a machine that loaded the state read that half of the track at the speed the buffer left there (the first revolution's, after an insert). DSDn with the timing bit now holds the words and then (tracklen + 7) / 8 values.",
       "category": "host hooks",
-      "order": 7,
+      "order": 8,
       "symbols": [
         "restore_disk2",
         "save_disk2"
@@ -191,7 +214,7 @@
       "title": "disk.cpp reads an IPF through the free reader (ipf_track.h): insert, a track, the next revolution, close",
       "reason": "T58b: ADF_IPF was the capsimg hook (caps_loadimage, caps_loadtrack, caps_loadrevolution) and is not compiled. With P6_IPF the drive keeps the index of the image (opened at insert from the store of media, closed at eject), decodes the track under the head with the revolution it is, which counts from 0 whenever another track is read and is the fdirev/fditrack of the FDI in DSKX, and fetches the next revolution of a track with weak cells at every index. Nothing is added to the state: the reader keeps nothing between two reads, the buffer and its timing are in DSDn and the index is made again when the state's medium is inserted.",
       "category": "host hooks",
-      "order": 8,
+      "order": 9,
       "symbols": [
         "drive_fill_bigbuf",
         "drive_image_free",
@@ -217,7 +240,7 @@
       "title": "Preserve the serialized blitter channel mask across BLTCON derived-state rebuild",
       "reason": "T58: Amiga Soccer exposes BLTX blit_ch 13 changing to 9 at load. restore_blitter_new reads the pipeline mask but blit_bltset derives it from a BLTCON0 write that is still pending. Keep the serialized mask while rebuilding other derived values; synthetic pending-bltcon and frontend byte-for-byte round trips cover this without game bytes.",
       "category": "state corrections",
-      "order": 9,
+      "order": 10,
       "symbols": [
         "restore_blitter_new"
       ],
@@ -239,7 +262,7 @@
       "title": "Check the unmodified nearest-sprite sentinel before scaling an AGA countdown",
       "reason": "T35d: min starts at INT_MAX when no armed sprite lies in the future. Testing min-2 against INT_MAX always succeeds; SuperHires then shifts INT_MAX-2 beyond unsigned-int range. Test min itself so the sentinel stays unscaled. Real distances and the -2 matching margin are unchanged; the derived count is rebuilt and is not serialized.",
       "category": "build/portability",
-      "order": 10,
+      "order": 11,
       "symbols": [
         "spr_nearest"
       ],
@@ -261,7 +284,7 @@
       "title": "Expose upstream 68000 normal and prefetch-compatible execution",
       "reason": "T53 first vertical: choose the existing generic/prefetch/CE tables, accessors and loops by restart configuration. Returning compatible loop handlers have their own correctly typed table; the CE generator output stays unchanged. MMU-only opcode debugging remains excluded.",
       "category": "host hooks",
-      "order": 11,
+      "order": 12,
       "symbols": [
         "set_x_funcs",
         "build_cpufunctbl",
@@ -296,7 +319,7 @@
       "title": "Apply CD32 pad levels at the common unit boundary and expose its serial protocol state",
       "reason": "T70 CD32 vertical: preserve both pad shifters and CIA clock edges in native state; no host polling, mapping reconfiguration or second scheduler. Button application follows the small MacHawk bizhawk.c boundary idea.",
       "category": "host hooks",
-      "order": 12,
+      "order": 13,
       "symbols": [
         "p6_input_cd32",
         "p6_input_get",
@@ -321,7 +344,7 @@
       "title": "Select upstream normal and compatible cores for the 68010 and 68020",
       "reason": "T53 extends the three accuracy levels to every supported CPU. Existing 68010 tables and the generated 68020 prefetch core use the same emulated scheduler; excluded input-recording callbacks stay excluded.",
       "category": "host hooks",
-      "order": 13,
+      "order": 14,
       "symbols": [
         "set_x_funcs",
         "m68k_run",
@@ -346,7 +369,7 @@
       "title": "Expose the RF5C01A controls, alarm registers and battery RAM for native state",
       "reason": "T55a prepares the real A4000 RTC without publishing an incomplete machine. Semantic copies preserve every reachable chip register; the calendar remains the existing emulated-clock service.",
       "category": "host hooks",
-      "order": 14,
+      "order": 15,
       "symbols": [
         "p6_rtc_ricoh_get",
         "p6_rtc_ricoh_set"
@@ -369,7 +392,7 @@
       "title": "Apply the second mouse at the video boundary",
       "reason": "T70b adds an independent pointer without rebuilding host mappings or dropping keyboard edges. Its existing counters, deltas and buttons already belong to P6IN; mouse_port[1] is derived from the applied device on restore.",
       "category": "host hooks",
-      "order": 15,
+      "order": 16,
       "symbols": [
         "p6_input_mouse2",
         "p6_input_get",
@@ -393,7 +416,7 @@
       "title": "Generate only supported generic CPUs and reject portable PMMU opcodes",
       "reason": "T53 Waterbox links whole objects: generic 040/060 cache handlers and fake-MMU helpers imported modules the no-MMU profile excludes. Open the generic file at its first requested model and reject PMMU through the real line-F exception; no GC/export change or successful MMU stub.",
       "category": "build/portability",
-      "order": 16,
+      "order": 17,
       "symbols": [
         "generate_cpu",
         "mmu_op30",
@@ -422,7 +445,7 @@
       "title": "Restore the real A4000 motherboard and normal no-MMU 68030",
       "reason": "T55b enables real Fat Gary/Ramsey, physical A4000 IDE and CPU030. The explicit generator profile rejects PMMU through line-F while unrestricted upstream generation remains unchanged; only motherboard hardware is restored, PCMCIA and host services stay excluded.",
       "category": "host hooks",
-      "order": 17,
+      "order": 18,
       "symbols": [
         "p6_mbres_get",
         "p6_mbres_set",
@@ -462,7 +485,7 @@
       "title": "Apply an absolute optical sensor at the boundary and expose its hardware latch",
       "reason": "T70c feeds normalized optical input without host MMIO callbacks or drawing-dependent conversions. The photodiode event remains in the emulated scheduler; its beam latch is explicit causal state.",
       "category": "host hooks",
-      "order": 18,
+      "order": 19,
       "symbols": [
         "p6_input_pointer",
         "p6_pointer_beam",
@@ -498,7 +521,7 @@
       "title": "Disable bitplane collisions below Full collision level",
       "reason": "T77a guest CLXDAT reproducer reads bit 0 with None because the zeroed comparison masks still match pixel zero. Gate the bitplane table entries on Full; Full keeps its existing expression and every hardware collision.",
       "category": "state corrections",
-      "order": 19,
+      "order": 20,
       "symbols": [
         "expand_colmask"
       ],
@@ -520,7 +543,7 @@
       "title": "Expose the real parallel joystick adapter at the frame boundary",
       "reason": "T70d drives the real WinUAE CIA parallel-adapter levels without host parallel services, preserving serial output and causal state. The portable CIA-B branch runs only while the adapter is attached; no unrelated serial feature is enabled.",
       "category": "host hooks",
-      "order": 20,
+      "order": 21,
       "symbols": [
         "p6_input_parallel",
         "p6_input_parallel_active",
@@ -554,7 +577,7 @@
       "title": "Generate 040/060 instruction tables without MMU and retain real cache maintenance",
       "reason": "T55c1 prepares normal 040/060 handlers without exposing models. Every PMMU opcode and MOVEC translation control is rejected by the no-MMU profile. Upstream cache pushes and invalidations operate on the real cache arrays and memory writer; only unavailable MMU maintenance is excluded.",
       "category": "host hooks",
-      "order": 21,
+      "order": 22,
       "symbols": [
         "gen_opcode",
         "movec_illg",
@@ -588,7 +611,7 @@
       "title": "Expose the real 24C08 protocol and memory as a private semantic state",
       "reason": "T66c reuses WinUAE EEPROM without host backing. All causal I2C fields and chip memory are validated before replacement; fixed geometry and bindings are derived.",
       "category": "host hooks",
-      "order": 22,
+      "order": 23,
       "symbols": [
         "p6_cd32_eeprom_new",
         "p6_cd32_eeprom_get",
@@ -612,7 +635,7 @@
       "title": "Encode the ECMA-130 Mode1 synchronization field exactly",
       "reason": "T66b: ECMA-130 section14.1 requires00, tenFF and00. The old elevenFF changed both the synchronization field and the EDC/ECC computed from it. Only the pinned pure encoder is used by the CD probe; no CD32 device is enabled.",
       "category": "host hooks",
-      "order": 23,
+      "order": 24,
       "symbols": [
         "encode_l2"
       ],
@@ -634,7 +657,7 @@
       "title": "Restore the physical Z3 board mapping and shared autoconfig window",
       "reason": "T55c2 keeps one real Z3 board unmapped until guest autoconfig and restores its chosen base and the Z2/Z3 chain window without host pointers.",
       "category": "host hooks",
-      "order": 24,
+      "order": 25,
       "symbols": [
         "expamem_map_z3fastmem",
         "p6_expansion_state_get",
@@ -658,7 +681,7 @@
       "title": "Keep only the supported 16 MiB Z3 board in the portable profile",
       "reason": "Without AUTOCONFIG the portable allowlist previously erased every Z3 size. Keep only board0 on the 32-bit68030 at the size the bridge accepts; all other boards remain excluded.",
       "category": "build/portability",
-      "order": 25,
+      "order": 26,
       "symbols": [
         "fixup_prefs"
       ],
@@ -680,7 +703,7 @@
       "title": "Isolate pinned CUE parsing through bounded metadata callbacks",
       "reason": "T66e2a shares parsecue directive/token traversal while the metadata-only branch excludes the image device and codecs. Relative indices, flags and all gaps remain explicit for normalization in T66e2b.",
       "category": "host hooks",
-      "order": 26,
+      "order": 27,
       "symbols": [
         "parsecue",
         "cue_metadata",
@@ -704,7 +727,7 @@
       "title": "Export bounded CCD metadata through the pinned parseccd traversal",
       "reason": "T66j1 isolates the real CCD section traversal, validates numeric/TOC/index consistency and retains raw Q fields, without opening IMG/SUB or enabling a CD device.",
       "category": "host hooks",
-      "order": 27,
+      "order": 28,
       "symbols": [
         "parseccd",
         "ccd_metadata",
@@ -728,7 +751,7 @@
       "title": "Service Akiko CD requests cooperatively at emulated hsync boundaries",
       "reason": "T66h1 replaces host worker scheduling with one bounded hsync service, complete FIFO play packets and admission backpressure. Sector buffers retain their 128-sector capacity with correct overlap and leadout handling. CD32 selection, timer reset/state and CDDA remain pending.",
       "category": "host hooks",
-      "order": 28,
+      "order": 29,
       "symbols": [
         "akiko_service",
         "AKIKO_hsync_handler",
@@ -753,7 +776,7 @@
       "title": "Pause and capture the real CDA stream without host time",
       "reason": "T66i1 exposes bounded semantic values for the single stereo CDA stream, preserves paused sample position and rejects other streams. Exhausted/sentinel buffers stop before dereferencing; native machine-state support remains guarded until its codec exists.",
       "category": "host hooks",
-      "order": 29,
+      "order": 30,
       "symbols": [
         "audio_state_cda",
         "p6_cda::capture",
@@ -783,7 +806,7 @@
       "title": "Anchor Akiko service phases to integer emulated cycles and real reset",
       "reason": "T66h2 replaces persistent float/line periods with PAL/NTSC cycle accumulators. Turbo never accelerates hardware, zero elapsed cycles do no work, and reset anchors phase and clears pending commands. Complete Akiko state and machine integration remain pending.",
       "category": "host hooks",
-      "order": 30,
+      "order": 31,
       "symbols": [
         "akiko_clock_reset",
         "akiko_clock_tick",
@@ -808,7 +831,7 @@
       "title": "Export bounded DAO NRG metadata through pinned parsenrg",
       "reason": "T66l1 reuses the pinned chunk traversal with exact bounded offset reads, correct DAOI/CUES layouts and strict single-session DAO validation. No payload or device loading.",
       "category": "host hooks",
-      "order": 31,
+      "order": 32,
       "symbols": [
         "parsenrg",
         "nrg_metadata"
@@ -831,7 +854,7 @@
       "title": "Bounded portable CD32 FMV and stock accelerator-ROM policy",
       "reason": "T43b1 links WinUAE's real CL450/L64111 device with the pinned scalar decoder. The cooperative build removes only its host semaphore, rejects dimensions above the fixed 352x288x4 buffers before conversion/copy and validates genlock inputs; audio remains on the emulated-time CDA stream. Portable CD32 is stock 68EC020, so the unrelated accelerator ROM speed workaround and unavailable protect_roms host hook stay excluded.",
       "category": "host hooks",
-      "order": 32,
+      "order": 33,
       "symbols": [
         "devices_update_sync",
         "patchrom",
@@ -878,7 +901,7 @@
       "title": "Own Akiko NVRAM per session and preserve bytes across reset",
       "reason": "T66m1 excludes flashfile host access, recreates the real 24C08 protocol over persistent session bytes, and frees the owner only at the registered session exit. Private snapshots include every chip field and the real DDR/pin latches, with transactional validation.",
       "category": "host hooks",
-      "order": 33,
+      "order": 34,
       "symbols": [
         "nvram_read",
         "akiko_session_end",
@@ -903,7 +926,7 @@
       "title": "Expose pure CDA restore preflight for private aggregate state",
       "reason": "T66n2a validates the complete player before restoring the real stream; the shared predicate preserves I1 geometry, ownership and causal validation without advancing audio.",
       "category": "instrumentation",
-      "order": 34,
+      "order": 35,
       "symbols": [
         "p6_cda::can_restore",
         "p6_cda::restore"
@@ -926,7 +949,7 @@
       "title": "Capture and restore private Akiko transport without host state",
       "reason": "T66m2 preserves FIFO cursors, sector caches and subcode causally; unreadable payload is canonical zero while all validity metadata survives. Private preflight rejects invalid states before mutation, without device I/O or time advance.",
       "category": "host hooks",
-      "order": 35,
+      "order": 36,
       "symbols": [
         "p6_akiko_transport_get",
         "p6_akiko_transport_preflight",
@@ -950,7 +973,7 @@
       "title": "Preserve private Akiko controller and NVRAM causal state",
       "reason": "T66m3a captures explicit controller/TOC/Q/C2P/clock state and extracts pure EEPROM/NVRAM preflights. Applying a valid component does not reopen a disc, execute a command, allocate, notify or advance; transport and backend are aggregated separately.",
       "category": "host hooks",
-      "order": 36,
+      "order": 37,
       "symbols": [
         "p6_akiko_controller_get",
         "p6_akiko_controller_preflight",
@@ -984,7 +1007,7 @@
       "title": "Load canonical stock CD32 extended and main firmware in portable memory",
       "reason": "T66p1 opens only the private stock CD32 profile to the canonical one-MiB pair; both halves use exact checked read_kickstart and retain the CD32 E0/F8 maps. Other profiles keep their closed ROM envelope.",
       "category": "host hooks",
-      "order": 37,
+      "order": 38,
       "symbols": [
         "load_kickstart"
       ],
@@ -1006,7 +1029,7 @@
       "title": "Aggregate private Akiko state and validate candidates without owners",
       "reason": "T66m3b preflights controller, transport and backend/player together before applying; callback bindings are reconstructed without replaying device work. Value-only validators accept candidate scheduler/configuration/CDA period before destination owners exist.",
       "category": "host hooks",
-      "order": 38,
+      "order": 39,
       "symbols": [
         "p6_akiko_state_get",
         "p6_akiko_state_validate",
@@ -1038,7 +1061,7 @@
       "title": "Restore CDA clock update in the portable device graph",
       "reason": "T66q1 reproduces native CDDA play failure: 0017 excluded update_cda_sound while component fixtures initialized it manually. The portable graph now links the real CDA mixer and must keep its upstream emulated clock update. Native startup computes frame clocks while produce_sound is temporarily0, before init_sound; portable custom must still notify devices then, while update_sound safely ignores an unopened transport.",
       "category": "host hooks",
-      "order": 39,
+      "order": 40,
       "symbols": [
         "devices_update_sound",
         "update_cda_sound"
@@ -1066,7 +1089,7 @@
       "title": "Preserve Paula phase with an explicitly owned CDA stream",
       "reason": "T66m5 shares phase capture/application with strict0099 while permitting only the backend-owned slot0 stereo CDA stream; no clock advancement or stream scheduling.",
       "category": "host hooks",
-      "order": 40,
+      "order": 41,
       "symbols": [
         "p6_cda::phase_get",
         "p6_cda::phase_set"
@@ -1089,7 +1112,7 @@
       "title": "Preserve CD32 one-shot overlay latch during native CIA restore",
       "reason": "T66m6 carries oldovl only for the CD32 auto-overlay profile; existing CIA-overlay profiles still derive OVL from PRA/DDRA with their unchanged body. Unsupported auto-overlay profiles remain rejected.",
       "category": "host hooks",
-      "order": 41,
+      "order": 42,
       "symbols": [
         "p6_cia_overlay_rebuild",
         "p6_cia_boundary",
@@ -1113,7 +1136,7 @@
       "title": "Capture and restore private internal 040/060 SoftFloat state",
       "reason": "T55c4 preserves every FSAVE word and pending FPU state with pure context validation before transactional application; does not expose models, change P6CP or implement upstream FRESTORE040 TODO.",
       "category": "host hooks",
-      "order": 42,
+      "order": 43,
       "symbols": [
         "p6_fpu_state_get",
         "p6_fpu_state_validate",
@@ -1138,7 +1161,7 @@
       "title": "Allow all bounded Z3 RAM capacities in the portable profile",
       "reason": "T55c5 extends the single A4030 physical Z3 board to the reference capacities1..512MiB without enabling other CPUs,24-bit maps or extra boards.",
       "category": "host hooks",
-      "order": 43,
+      "order": 44,
       "symbols": [
         "fixup_prefs"
       ],
@@ -1160,7 +1183,7 @@
       "title": "Reset registered portable devices without an expansion chain",
       "reason": "T66p1 stock CD32 has no Fast/HDF/IDE chain: reset callbacks marked pending by devices_reset must run before CPU prefetch resumes, as expamem_reset does for expansion machines.",
       "category": "host hooks",
-      "order": 44,
+      "order": 45,
       "symbols": [
         "custom_reset",
         "devices_reset_ext"
@@ -1183,7 +1206,7 @@
       "title": "Expose the active CD32 EEPROM backing for frontend persistence",
       "reason": "T66r4 reads the same1024bytes as the real I2C chip through an optional memory region; no mirror, allocation, protocol or lifecycle change.",
       "category": "host hooks",
-      "order": 45,
+      "order": 46,
       "symbols": [
         "p6_akiko_nvram_data"
       ],
@@ -1205,7 +1228,7 @@
       "title": "Restore defined UNIMP040 fields and pending arithmetic exception",
       "reason": "T55c7 replaces the FRESTORE040 frame-size skip with real bus reads of the defined fields and E3/E1 arithmetic priority. Null/idle clear stale pending exceptions. Busy pipeline resumption remains outside this correction.",
       "category": "state corrections",
-      "order": 46,
+      "order": 47,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1227,7 +1250,7 @@
       "title": "Preserve BUSY040 fields and service pending arithmetic before CU",
       "reason": "T55c8 stages the full BUSY frame, retains defined pipeline metadata through private state and FSAVE, and prevents premature CU execution with pending E3/E1. Full pipeline continuation remains in T55c.",
       "category": "state corrections",
-      "order": 47,
+      "order": 48,
       "symbols": [
         "fpuop_restore",
         "fpuop_save",
@@ -1251,7 +1274,7 @@
       "title": "Identify a new restored CU arithmetic exception with FPIARCU",
       "reason": "T55c: MC68040UM9.2.4/9.8 identifies the causative instruction through FPIAR and records the CU address in FPIARCU. Only a newly generated FE arithmetic exception updates it; preserved E3 context is unchanged.",
       "category": "state corrections",
-      "order": 48,
+      "order": 49,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1273,7 +1296,7 @@
       "title": "Resume the FPSP rev40 CU06 extended-register reconstruction",
       "reason": "T55c: MotorolaFPSP bugfix.S rebuilds CU06 with the live architectural destination and an IEEE extended source in ETEMP; its ETE15 encoding belongs to an earlier stage than FE. Keep other CU06 formats and pipeline states in the parent gate.",
       "category": "state corrections",
-      "order": 49,
+      "order": 50,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1295,7 +1318,7 @@
       "title": "Encode FSQRT state commands and distinguish sqrt from double move",
       "reason": "T55c: MC68040UM9.8/fig9-11/table9-16 requires FSQRT04->05->21, WB/E3 for all sqrt precisions and CU/E1 for FDMOVE44. The broad low-six-bit test confuses these opmodes. Preserve the other arithmetic-family mask.",
       "category": "state corrections",
-      "order": 50,
+      "order": 51,
       "symbols": [
         "fpsr_check_arithmetic_exception"
       ],
@@ -1317,7 +1340,7 @@
       "title": "Retain the physical Z3 board on Normal no-MMU 040 and 060",
       "reason": "T55c: the native A4040 profile uses the same real Z3 autoconfig/backing as A4030; the portable guard must retain its validated power-of-two capacity on all three 32-bit CPUs.",
       "category": "profile support",
-      "order": 51,
+      "order": 52,
       "symbols": [
         "fixup_prefs"
       ],
@@ -1339,7 +1362,7 @@
       "title": "Reconstruct sprite state words without signed extension",
       "reason": "T66r7: restore_custom_sprite_denise promoted uint16 words to int; high-bit words sign-extended to uint64 and overwrote the other half of native sprite state. Use unsigned32 intermediates for both32/64-bit modes.",
       "category": "state corrections",
-      "order": 52,
+      "order": 53,
       "symbols": [
         "restore_custom_sprite_denise"
       ],
@@ -1361,7 +1384,7 @@
       "title": "Preserve the pending preference countdown across native restore",
       "reason": "T66r7: a fresh owner inherits a reset-head config_changed request absent in the saved game; its next vsync changes programmed beam latches and Denise state. Serialize both countdown and flags, including legitimate early pending requests.",
       "category": "state corrections",
-      "order": 53,
+      "order": 54,
       "symbols": [
         "p6_custom_beam_get",
         "p6_custom_beam_set",
@@ -1386,7 +1409,7 @@
       "title": "Retain generated integer F-line handlers on 040 and 060",
       "reason": "T55c: the old absent-coprocessor filter also replaced CINVA and other integer F-line instructions with op_illg. Kickstart A4000 enters alert8000000B at F80C6E/F4D8. Preserve generated CPU/privilege checks for cache maintenance, MOVE16 and LPSTOP without enabling absent PMMU or FPU.",
       "category": "profile support",
-      "order": 54,
+      "order": 55,
       "symbols": [
         "build_cpufunctbl"
       ],
@@ -1408,7 +1431,7 @@
       "title": "Publish reset registers before FMODE can reapply their saved values",
       "reason": "T66r8: FMODE(0) calls set_chipset_mode when the previous session used nonzero FMODE, reapplying stale BPLCON/DIWHIGH before their saved values were synchronized. Reorder eight existing assignments without changing warm-reset policy.",
       "category": "state corrections",
-      "order": 55,
+      "order": 56,
       "symbols": [
         "custom_reset",
         "FMODE",
@@ -1432,7 +1455,7 @@
       "title": "Resume FPSP CU06 double commands reconstructed from normal single sources",
       "reason": "T55c: Motorola FPSP op2_xi/op2_com preserves a converted normal SINGLE ETEMP while rewriting CMD1 to double. Decode only that documented rev40/CU06 shape and use live FPn; retain exception priority, and leave double-native and special/denormal variants explicitly pending.",
       "category": "FPU correctness",
-      "order": 56,
+      "order": 57,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1454,7 +1477,7 @@
       "title": "Decode FPSP CU06 reconstructed single zero and infinity",
       "reason": "T55c: FPSP op2_com maps source sentinel exponents to double while retaining STAG/sign. Decode only documented zero/infinity shapes, preserving pending E3 priority and enabled DZ/OPERR destinations.",
       "category": "FPU correctness",
-      "order": 57,
+      "order": 58,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1476,7 +1499,7 @@
       "title": "Export bounded MDS v1 metadata without handles or payload reads",
       "reason": "T66s1: preserve the pinned parsemds layout with explicit endian, bounded reads, exact signature and raw pregap/length/offset/name fields. No filesystem, index inference or public MDS claim; malformed/unsupported inputs leave output intact.",
       "category": "media parser portability",
-      "order": 58,
+      "order": 59,
       "symbols": [
         "parsemds",
         "mds_metadata"
@@ -1499,7 +1522,7 @@
       "title": "Export NRG DAO Mode2 2336-byte track metadata",
       "reason": "T66l3: keep exact physical stride and offsets for mode03 while the native provider reconstructs only header16 by real LBA. TAO, mode02 and multisession remain unsupported and pending.",
       "category": "media parser portability",
-      "order": 59,
+      "order": 60,
       "symbols": [
         "parsenrg",
         "nrg_metadata"
@@ -1522,7 +1545,7 @@
       "title": "Invalidate pending Akiko deliveries when explicit media presence changes",
       "reason": "T66u1: keep the immutable Disc and opened unit while changing media presence, stop CDDA and discard old requests/caches/subchannels at a quiescent boundary. Normal emulated handling owns notification and IRQ timing; preserve response FIFO, CPU, clock and undocumented door bit.",
       "category": "CD media lifecycle",
-      "order": 60,
+      "order": 61,
       "symbols": [
         "p6_akiko_media_set"
       ],
@@ -1544,7 +1567,7 @@
       "title": "Export NRG Mode02 metadata and encode Mode2 Form1 EDC/P/Q",
       "reason": "T66l4: preserve cooked2048 payload and expose existing WinUAE EDC/P/Q through a Form1 wrapper. Header bytes12..15 are zero during ECC, then restored as required by the primary libMirage sector implementation; no Mode1 encoder or CHD dependency. TAO and multisession remain pending.",
       "category": "CD media normalization",
-      "order": 61,
+      "order": 62,
       "symbols": [
         "nrg_metadata",
         "encode_l2_mode2_form1"
@@ -1577,7 +1600,7 @@
       "title": "Read packed ETNF tracks with explicit canonical 150-sector pregaps",
       "reason": "T66l5: GNU VCDImager strips pregaps from ETNF offsets; GNU libcdio reconstructs 150 sectors per preceding track. Expose this explicit interoperable policy for contiguous single-session layouts; original nonstandard pregaps, ETN2 and multisession remain unsupported.",
       "category": "CD media normalization",
-      "order": 62,
+      "order": 63,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1599,7 +1622,7 @@
       "title": "Decode FPSP reconstructed CU06 NaN SINGLE payloads",
       "reason": "T55c11: FPSP op2_xi/op2_com remaps SINGLE max exponent407f to43ff while retaining STAG3 and payload. Convert only this bounded shape to extended NaN before existing arithmetic; preserve sign, payload and quiet/signaling bit. Native DOUBLE06 and denormals remain pending.",
       "category": "FPU state correction",
-      "order": 63,
+      "order": 64,
       "symbols": [
         "fpuop_restore"
       ],
@@ -1621,7 +1644,7 @@
       "title": "Port pinned HRTMon owner and lifecycle through original Action Replay hooks",
       "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec. Legacy .uss path codecs are excluded in portable; no successful stubs or path deserialization.",
       "category": "optional cartridge host boundary",
-      "order": 64,
+      "order": 65,
       "symbols": [
         "cartridge_enter",
         "cartridge_exit",
@@ -1646,7 +1669,7 @@
       "title": "Encode Mode2 Form2 EDC without modifying payload or adding P/Q",
       "reason": "T66t8: CHD cooked Form2 requires EDC over subheader plus2324 payload bytes. Reuse the original build_edc polynomial, write only trailing four bytes; normalized XA duplicated subheader is selected explicitly by the provider.",
       "category": "CD media normalization",
-      "order": 65,
+      "order": 66,
       "symbols": [
         "encode_l2_mode2_form2"
       ],
@@ -1673,7 +1696,7 @@
       "title": "Preserve native HRTMon memory mapping shadows and CPU pending action",
       "reason": "T69b: private fixed HRTMon owner accessors and boundary support for complete native state; memory and causal flags restore without paths or serialized pointers. The bridge requires these endpoints; no-cartridge execution remains unchanged. Capture the three actual fixed A1200 bank maps, including Kickstart mirrors A8..B0 before Freeze; restore each span without changing B1..B7.",
       "category": "cartridge state host boundary",
-      "order": 66,
+      "order": 67,
       "symbols": [
         "p6_hrtmon_memory",
         "p6_hrtmon_get",
@@ -1703,7 +1726,7 @@
       "title": "Serve the private stock CDTV controller cooperatively at hsync",
       "reason": "T67a: original DMAC/6525 and command protocol over the common CD backend, with bounded FIFO, emulated SEEK delay, synchronous lifecycle and no host threads or file persistence. Public CDTV profile and causal state remain gated.",
       "category": "CDTV host service boundary",
-      "order": 67,
+      "order": 68,
       "symbols": [
         "CDTV_hsync_handler",
         "cdtv_service",
@@ -1731,7 +1754,7 @@
       "title": "Capture validate and apply the private typed CDTV component",
       "reason": "T67b1: explicit value-only CDTV inventory, buffers, cached TOC/Q, NVRAM and shared CD owner state. Validation precedes application; no clock, callbacks or IRQ effects. Full native P6CT remains disabled until T67b2.",
       "category": "CDTV state component boundary",
-      "order": 68,
+      "order": 69,
       "symbols": [
         "p6_cdtv_state_get",
         "p6_cdtv_state_validate",
@@ -1757,7 +1780,7 @@
       "title": "Load the verified private CDTV extended and main ROM through bounded views",
       "reason": "T67c1: fixed ID22 extended256KiB plus ID6 main256KiB, with original extended bank padding and independent bounded views. No public CDTV profile, autoconfig or state claim.",
       "category": "CDTV firmware boundary",
-      "order": 69,
+      "order": 70,
       "symbols": [
         "read_kickstart",
         "load_kickstart"
@@ -1780,7 +1803,7 @@
       "title": "Restore original CDTV autoconfig chain and empty unit without host effects",
       "reason": "T67c2: retain the original DMAC card and forwarding, capture pending/assigned/shut-up phases, validate candidate phase and destination before mutation, and restore the real empty unit. Native private profile only; public CD boot and Waterbox remain gated.",
       "category": "CDTV autoconfig state boundary",
-      "order": 70,
+      "order": 71,
       "symbols": [
         "p6_cdtv_current_card",
         "p6_expansion_state_get",
@@ -1828,7 +1851,7 @@
       "title": "Read compact NRG ETNF tracks with independent physical and logical positions",
       "reason": "T66l6: per-track libMirage a9d6a204 fragment mapping supports mixed strides with independent compact byte/sector accumulation. Keep alignment, contiguity, bounds and canonical150 gaps; do not infer ETN2 or multisession. libcdio has a stricter homogeneous-only constraint.",
       "category": "NRG metadata boundary",
-      "order": 71,
+      "order": 72,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1850,7 +1873,7 @@
       "title": "Read bounded single-session NRG ETN2 with 64-bit extents",
       "reason": "T66l7: DiscSystem9b627578 and libMiragea9d6a204 define ETN2 64-bit byte extents, 32-bit packed sectors and shared canonical150 gaps. Preserve independent compact coordinates and old DAO/ETNF identities; multisession and public DiscSystem TAO remain separate debts.",
       "category": "NRG metadata boundary",
-      "order": 72,
+      "order": 73,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1872,7 +1895,7 @@
       "title": "Preserve bounded NRG DAO session metadata before enabling its provider",
       "reason": "T66v2: pair CUE/DAO/SINF groups by ordinal following libMirage a9d6a204; preserve explicit CUE0/A2, global tracks, catalogs and raw hints. Retain single-session identities. CdNrg still rejects multisession before payload reads pending device and restore integration.",
       "category": "NRG metadata boundary",
-      "order": 73,
+      "order": 74,
       "symbols": [
         "nrg_metadata"
       ],
@@ -1894,7 +1917,7 @@
       "title": "Bound raw Action Replay cartridge reads and reset private owner latches",
       "reason": "T69d1: privately copied AR2/3 blobs use the original loader and banks. Reject incomplete reads and malformed checksum extents before adoption, guard allocation failures and reset AR owner latches on cleanup. Native snapshots remain explicitly unsupported until a full semantic codec exists; no public cartridge compatibility is claimed.",
       "category": "cartridge ownership boundary",
-      "order": 74,
+      "order": 75,
       "symbols": [
         "action_replay_load",
         "action_replay_cleanup",
@@ -1920,7 +1943,7 @@
       "title": "Expose complete private AR2/3 native control and bank state",
       "reason": "T69d2: semantic cartridge state includes independent map/visibility latches, saved IRQ7 vector, shadows, RAM and pending CIA handler identity. Restore rebuilds existing banks without triggering NMI or I/O. Native CPU boundary admits the supported private AR2/3 pending phases; no public cartridge option or commercial compatibility is implied.",
       "category": "native cartridge state access",
-      "order": 75,
+      "order": 76,
       "symbols": [
         "p6_ar_memory",
         "p6_ar_get",
@@ -1952,7 +1975,7 @@
       "title": "Reset retained CDTV display latches only on a new power-on",
       "reason": "T67c3d: two long independent owners diverge by1024ticks at169; transplanting the display/Copper state reproduces it, blitter does not. Restore BSS-zero display state before custom_init only on CDTV power-on, preserving warm reset and first-owner behavior.",
       "category": "cold session boundary",
-      "order": 76,
+      "order": 77,
       "symbols": [
         "p6_custom_display_power_on"
       ],
@@ -1974,7 +1997,7 @@
       "title": "Start the CDTV disk read shifter at its cold BSS phase",
       "reason": "T67c3d: DMA remains active without a physical drive. Exact cold622 replay proves the disk phase domain causes the4096tick return difference; scheduler cursor transplant does not. Reset only bitoffset at new CDTV power-on, preserving hardware RESET and state restore.",
       "category": "cold session boundary",
-      "order": 77,
+      "order": 78,
       "symbols": [
         "p6_disk_power_on"
       ],
@@ -1996,7 +2019,7 @@
       "title": "Preserve AR1 wait-PC state and release its always-present banks",
       "reason": "T69e1: private AR1 snapshots preserve wait_pop and wait_for_pc with reachable byte/word strobe SPC forms. Cleanup, also called directly by memory_cleanup, removes ROM/RAM banks before freeing the owner; AR2/3 state bodies and the public cartridge ABI remain unchanged.",
       "category": "native cartridge state access",
-      "order": 78,
+      "order": 79,
       "symbols": [
         "p6_ar_memory",
         "p6_ar_validate",
@@ -2029,7 +2052,7 @@
       "title": "Expose complete private AR1200 monitor state and retire its banks on cleanup",
       "reason": "T69f1: explicitly recognize the AR1200 owner geometry and its dummy/cart map shapes, preserving HRTMon mirrors. Cleanup removes all sixteen banks before freeing the private owner, including direct memory_cleanup. The bridge keeps ROM/padding immutable and serializes every writable upper-half byte with independent ROM/model identity.",
       "category": "native cartridge state access",
-      "order": 79,
+      "order": 80,
       "symbols": [
         "action_replay_cleanup",
         "p6_hrtmon_memory",
@@ -2053,7 +2076,7 @@
       "title": "Release native drawing geometry caches and rebuild them after reload",
       "reason": "T39b: hosted Linux LSan reports leaked aspect-map allocations at libretro dlclose. Free the drawing-owned maps on teardown and do not let unchanged cached dimensions bypass their reconstruction on a new load. Live frame and snapshot behavior is unchanged.",
       "category": "host lifecycle",
-      "order": 80,
+      "order": 81,
       "symbols": [
         "drawing_free",
         "init_row_map"
@@ -2076,7 +2099,7 @@
       "title": "Parse producer-backed global ETNF sessions with an explicit canonical policy",
       "reason": "T66w1: CDI2Nero f43561d emits ETNF/SINF groups with global CDI coordinates and omits stored pregaps. Normalize only multi-group ETNF as declared GlobalCanonical150; preserve legacy single packed/ETN2 and DAO. The private owner must opt in separately; no physical lead-in or original Q is claimed.",
       "category": "media metadata",
-      "order": 81,
+      "order": 82,
       "symbols": [
         "p6_cd::nrg_metadata"
       ],
@@ -2098,7 +2121,7 @@
       "title": "Preserve FPSP-normalized small operands in 68040 FE continuation",
       "reason": "T55c13: FPSP mk_norm sets E15 for ordinary small normals as well as wrapped negative biased exponents. Use exponent bit14, as FPSP round.S:denorm does, before the existing denormalizer; preserve SINGLE denormals normalized by get_op and existing extended-denormal FE. CU06 remains unresolved.",
       "category": "FPU state correction",
-      "order": 82,
+      "order": 83,
       "symbols": [
         "fpuop_restore"
       ],
@@ -2120,7 +2143,7 @@
       "title": "Query CDTV controller-observed absence without advancing hardware",
       "reason": "T67d2: libretro retains physical absence until the stock controller sees it. A pure bounded query avoids copying NVRAM or reading MMIO; its result is derived from existing causal fields, with no new scheduler or state.",
       "category": "host media hook",
-      "order": 83,
+      "order": 84,
       "symbols": [
         "p6_cdtv_media_absent"
       ],
@@ -2142,7 +2165,7 @@
       "title": "Start a new display owner with clean interlace detection history",
       "reason": "T39b: lace reloads retain prevlofs and interlace_seen from the old owner, shifting init_hz and config_changed in units1/2. A temporary read-only-linked real probe isolates prevlofs: identical BEAM reapply and clearing only interlace_seen fail, while clearing field history converges. Restore BSS zero only before custom_init on a new owner, without requesting configuration work. First-owner behavior, RESET and state_load are unchanged; REF01 retains the required bridge lifecycle hook.",
       "category": "cold session boundary",
-      "order": 84,
+      "order": 85,
       "symbols": [
         "p6_custom_interlace_power_on"
       ],
@@ -2164,7 +2187,7 @@
       "title": "Connect the bounded CD32 FMV board to the portable expansion and video graph",
       "reason": "T43b1 enables WinUAE's real FMV sync, compositor and Zorro II catalog only after the scalar decoder and bounded portable audio owner have been selected. The board still requires an authenticated pre-load ROM owner; stock CD32 without one keeps the previous graph.",
       "category": "portable device graph",
-      "order": 85,
+      "order": 86,
       "symbols": [
         "mpeg2_init",
         "custom_reset",
@@ -2211,7 +2234,7 @@
       "title": "Use fixed scalar tables and defined bit arithmetic for portable CD32 FMV Layer II audio",
       "reason": "T43b1 removes the kjmp2 run-time cos import and the host/ISA-dependent initialization result; T43b2 makes the 24-bit window unsigned so a full input window cannot trigger signed-shift UB. The literal matrix is the version-1.1 formula truncated toward zero and is ordinary captured guest state; non-portable WinUAE keeps its original initialization.",
       "category": "deterministic decoder table",
-      "order": 86,
+      "order": 87,
       "symbols": [
         "kjmp2_init"
       ],
@@ -2233,7 +2256,7 @@
       "title": "Keep FMV and CDDA PCM streams bounded and owner-distinct",
       "reason": "T43c lets the 4608-frame FMV block coexist with the existing 588-frame CDDA stream on the same emulated scheduler. Stop, refill and pause validate the exact cd_audio_state owner; forged or stale ids cannot replace another stream, and portable buffers are capped at one FMV block.",
       "category": "portable audio ownership",
-      "order": 87,
+      "order": 88,
       "symbols": [
         "audio_state_channel",
         "audio_enable_stream",
@@ -2258,7 +2281,7 @@
       "title": "Record a bounded address-free FMV decoder journal",
       "reason": "T43d1 routes portable CL450 input through stable journal-owned bytes and records exact scalar parse results. A sequence-to-I checkpoint permits bounded reconstruction in a fresh decoder without serializing libmpeg2 pointers, raw structs or host timing.",
       "category": "portable state reconstruction",
-      "order": 88,
+      "order": 89,
       "symbols": [
         "cl450_parse_frame",
         "cl450_reset",
@@ -2282,7 +2305,7 @@
       "title": "Expose the complete CD32 FMV device as bounded value state",
       "reason": "T43d2 captures the real CL450, L64111, PCM, video and genlock owners without pointers, reconstructs libmpeg2 from the bounded journal and restores its distinct audio stream only after candidate validation. A fresh image reconstructs the bound cartridge owner and fixed banks without guest execution; the public state registry remains unchanged for stock CD32 images.",
       "category": "portable state ownership",
-      "order": 89,
+      "order": 90,
       "symbols": [
         "p6_fmv_state_get",
         "p6_fmv_state_validate",
@@ -2324,7 +2347,7 @@
       "title": "Bound CD32 FMV software composition before writing output",
       "reason": "T43e1 replaces the unchecked row arithmetic with one scalar compositor that validates geometry, depth, stride and capacities before its first write. The portable probe exercises exact MPEG, border and Amiga selection for 16/32-bit layouts and integer scales without adding a clock, allocation or frontend hand-over.",
       "category": "portable video composition",
-      "order": 90,
+      "order": 91,
       "symbols": [
         "p6_fmv_compose",
         "cd32_fmv_genlock"
@@ -2347,7 +2370,7 @@
       "title": "Capture live FMV ownership and pre-frame genlock state",
       "reason": "T43f2 found with Cannon Fodder that stock CD32 phase capture names the Akiko owner while active FMV PCM belongs to the cartridge, and that genlock can legitimately become active before its first decoded image. Route shared Paula phase through the exact FMV owner, restore inactive-owner gain, preserve this scalar-only genlock phase, and report specific capture failures without weakening candidate validation.",
       "category": "portable live state ownership",
-      "order": 91,
+      "order": 92,
       "symbols": [
         "p6_fmv_audio_phase_get",
         "p6_fmv_audio_phase_set",
@@ -2383,7 +2406,7 @@
       "title": "Apply a transient presentation gain to the CDDA owner",
       "reason": "T84b needs a live frontend CD-audio volume after the hardware CD mixer but before the common Paula/extra-stream mix. Bind the gain to the portable CDDA owner, leave simultaneous FMV untouched, consume samples while muted, and keep the preference outside the semantic CDA state codec.",
       "category": "portable audio presentation",
-      "order": 92,
+      "order": 93,
       "symbols": [
         "p6_cda::presentation"
       ],
@@ -2405,7 +2428,7 @@
       "title": "Serve the portable IDE CD through a bounded cooperative ATAPI subset",
       "reason": "T84e2 attaches the already authenticated immutable Disc owner to Gayle without the full host SCSI graph. PACKET commands execute synchronously at emulated register boundaries, use the common CDDA clock and return CHECK CONDITION for every unsupported or invalid request.",
       "category": "portable IDE CD transport",
-      "order": 93,
+      "order": 94,
       "symbols": [
         "p6_cd::atapi_execute",
         "process_packet_command",
@@ -2439,7 +2462,7 @@
       "title": "Serialize the portable IDE ATAPI drive semantically",
       "reason": "T84e3 restores an IDE CD at command, data and CDDA boundaries without copying ide_hdf or any pointer. The accessor validates ATA/ATAPI cursors, bounded causal buffer, sense and medium identity before applying them to the already-open drive.",
       "category": "portable IDE CD state",
-      "order": 94,
+      "order": 95,
       "symbols": [
         "p6_ide_atapi_disc_matches",
         "p6_ide_state_get",
@@ -2463,7 +2486,7 @@
       "title": "Bind bounded portable RTG memory to the UAE Zorro III Autoconfig chain",
       "reason": "T85f reuses the pinned UAE Z3 RTG identity while replacing host allocation with the static 4 MiB device. The portable profile registers exactly board zero, advertises the required 16 MiB physical aperture with 4 MiB populated, maps only 64 banks after validating the assigned base, and never enables Z2 or physical graphics boards.",
       "category": "portable RTG autoconfig",
-      "order": 95,
+      "order": 96,
       "symbols": [
         "expamem_init_gfxcard_z3",
         "expamem_map_gfxcard_z3",
@@ -2488,7 +2511,7 @@
       "title": "Bootstrap the bounded uaegfx resident through RTAREA and the filesystem resident list",
       "reason": "T85i compiles the portable RTG closure without enabling upstream PICASSO96 or its Win32 backend. T97 additionally proves that filesys_init_storeinfo is a simple trap with no TrapContext, so it cannot call back into Exec to construct uaegfx.card. The DiagArea path now publishes the fixed resident into Exec's ResModules list; AmigaOS performs its normal AUTOINIT after the bounded Z3 bank maps, without a host thread or nested CPU scheduler.",
       "category": "portable RTG guest bootstrap",
-      "order": 96,
+      "order": 97,
       "symbols": [
         "p6_uaegfx_install_code",
         "p6_uaegfx_startup"
@@ -2516,7 +2539,7 @@
       "title": "Extend semantic Autoconfig state with the bounded RTG bank",
       "reason": "T85m appends the mapped base, fixed populated size and map bit only when the portable RTG board is configured. RTG0 keeps the previous expansion body, while restore validates the entire candidate before rebinding the static VRAM bank.",
       "category": "portable RTG semantic state",
-      "order": 97,
+      "order": 98,
       "symbols": [
         "p6_expansion_state_get",
         "p6_expansion_state_set"
@@ -2539,7 +2562,7 @@
       "title": "Preserve the bounded portable RTG board through preference fixup",
       "reason": "T85n configures one UAE Zorro III board without enabling the upstream AUTOCONFIG feature. The portable fixup therefore preserves board zero when P6_PORTABLE_RTG is linked while continuing to erase every unsupported additional RTG slot.",
       "category": "portable RTG preferences",
-      "order": 98,
+      "order": 99,
       "symbols": [
         "fixup_prefs"
       ],
@@ -2561,7 +2584,7 @@
       "title": "Give bounded portable RTG an RTAREA lifecycle without hard files",
       "reason": "T85o executes the already linked uaegfx bootstrap without an HDF. RTG therefore shares RTAREA, traps and the filesys resident lifecycle with the HDF owner, while hardfile devices and their worker paths remain conditional on an actual HDF.",
       "category": "portable RTG guest bootstrap",
-      "order": 99,
+      "order": 100,
       "symbols": [
         "virtualdevice_init",
         "devices_reset",
@@ -2591,7 +2614,7 @@
       "title": "Preserve quiet CD32 FMV samples through Layer II synthesis",
       "reason": "T90 isolates 40-326-sample zero runs inside kjmp2 output while the same real elementary stream has none in the independent FFmpeg decode; changing delivery cadence does not alter them. Retain eight fractional bits across the synthesis matrix and compensate in the window shift, using a 64-bit product to avoid overflow. The total fixed-point scale, decoder clock, PCM ownership and host scheduling remain unchanged.",
       "category": "deterministic decoder precision",
-      "order": 100,
+      "order": 101,
       "symbols": [
         "kjmp2_decode_frame"
       ],
@@ -2613,7 +2636,7 @@
       "title": "Run uaescsi.device I/O cooperatively in the calling trap",
       "reason": "T84g1 exposes only the deterministic CD catalog through uaescsi.device. Portable BeginIO therefore completes ordinary requests synchronously and retains only explicit guest change/frame interrupt requests; no worker, sleep, semaphore, comm pipe, background TrapContext, tape directory or physical SCSI enumeration exists.",
       "category": "cooperative guest device",
-      "order": 101,
+      "order": 102,
       "symbols": [
         "dev_beginio",
         "dev_thread",
@@ -2643,7 +2666,7 @@
       "title": "Expose bounded semantic state for portable uaescsi.device",
       "reason": "T84g2 snapshots only guest addresses and value state for the cooperative unit: private opens, change/frame requests with their copied IORequests, change state, geometry and fade controls. Validation is complete before apply; host pointers, thread objects and physical-device state never enter the snapshot.",
       "category": "deterministic state",
-      "order": 102,
+      "order": 103,
       "symbols": [
         "p6_scsidev_state_get",
         "p6_scsidev_state_valid",
@@ -2672,7 +2695,7 @@
       "title": "Install the uaescsi.device resident without changing HDF controllers",
       "reason": "T84g3 exposes uaescsi.device as an independent deterministic CD transport. Its resident needs RTAREA even when no hard file or RTG board is present; enabling it neither creates a filesystem board nor changes the controller selected for any HDF.",
       "category": "portable guest device",
-      "order": 103,
+      "order": 104,
       "symbols": [
         "P6_WITH_RTAREA"
       ],
@@ -2694,7 +2717,7 @@
       "title": "Keep 040 MMU control registers architectural without enabling translation",
       "reason": "T97 reproduces 80000004, 800A0004 and Line-F 8000000B alerts while an A4000/040 mounts an RDB and starts SysInfo. The UAE boot ROM writes DTT0, the expansion driver reads TC, and SysInfo writes TC=$8000, executes PTESTR and writes URP. Preserve WinUAE's architectural control-register storage and its existing physical PTEST/PFLUSH semantics while compiling out address translation; stored TC/URP/SRP values never select a translation backend in the portable build.",
       "category": "portable 68040 control registers",
-      "order": 104,
+      "order": 105,
       "symbols": [
         "movec_illg",
         "mmu_op"
@@ -2727,7 +2750,7 @@
       "title": "Scale the portable normal 68030+ interpreter by its emulated clock",
       "reason": "T98 measures identical CIA time at multipliers 2 and 8 on A4030 and A4040 because WinUAE's normal interpreter uses fixed approximate divisors for those CPUs. Preserve the multiplier-2 baseline and scale only CPU instruction work against emulated time; chipset, DMA and audio scheduling remain on the existing event clock.",
       "category": "deterministic CPU timing",
-      "order": 105,
+      "order": 106,
       "symbols": [
         "update_68k_cycles"
       ],

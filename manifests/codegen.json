@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "upstream_commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "upstream_commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0",
   "flags": {
     "c": [
       "-std=c11",
@@ -65,27 +65,14 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
-        "cpuemu_0.cpp",
-        "cpuemu_11.cpp",
         "cpuemu_13.cpp",
-        "cpuemu_20.cpp",
         "cpuemu_21.cpp"
       ],
       "runs": [
         {
           "args": [
-            "--no-mmu",
-            "0",
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "11",
-            "12",
             "13",
             "14",
-            "20",
             "21"
           ],
           "cwd": "generated"

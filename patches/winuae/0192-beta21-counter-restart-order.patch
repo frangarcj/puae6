@@ -1,0 +1,25 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -7017,6 +7017,10 @@
+ 			hsync_counter = 0;
+ 			vsync_counter = 0;
+ 			if (quit_program) {
++#ifdef P6_PORTABLE
++				if (p6_counter_restart_hook)
++					p6_counter_restart_hook();
++#endif
+ 				set_cycles(start_cycles);
+ 				clear_events();
+ 			}
+@@ -7039,10 +7043,6 @@
+ 			prefs_changed_cpu();
+ 			build_cpufunctbl();
+ 			set_x_funcs();
+-#ifdef P6_PORTABLE
+-			if (p6_counter_restart_hook)
+-				p6_counter_restart_hook();
+-#endif
+ 			set_cycles (start_cycles);
+ #ifdef P6_UNIT_TRACE
+ 			p6_unit_last_reported = -1;

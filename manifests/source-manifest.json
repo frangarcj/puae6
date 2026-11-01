@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "host-contracts-planned",
-  "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
+  "commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0",
   "profile": "deterministic-a500",
   "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0) = A500: 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; built_in_prefs(model=2, config=0, compa=0) = A600: 68000 CE, ECS Agnus+Denise, Chip1M, sin Slow, sin RTC, sin Gayle (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1; config/profiles/a600-ecs.json); built_in_prefs(model=4, config=0, compa=0) = A1200: 68EC020 CE (cpuemu_21), AGA Alice+Lisa, Chip2M, sin Slow/Fast, sin RTC, sin Gayle (mismos overrides cs_*, waiting_blits=0; config/profiles/a1200-aga.json, T24b); PAL/NTSC explicito",
   "audit_sources": [
@@ -9,10 +9,7 @@
     "newcpu_common.cpp",
     "readcpu.cpp",
     "events.cpp",
-    "cpuemu_0.cpp",
-    "cpuemu_11.cpp",
     "cpuemu_13.cpp",
-    "cpuemu_20.cpp",
     "cpuemu_21.cpp",
     "cpustbl.cpp",
     "cpudefs.cpp",
@@ -34,7 +31,6 @@
     "expansion.cpp",
     "ersatz.cpp",
     "diskutil.cpp",
-    "fdi2raw.cpp",
     "savestate.cpp",
     "main.cpp",
     "devices.cpp",
@@ -57,15 +53,7 @@
     "native2amiga.cpp",
     "traps.cpp",
     "uaeresource.cpp",
-    "def_icons.cpp",
-    "cdrom.cpp",
-    "akiko.cpp",
-    "cdtv.cpp",
-    "flashrom.cpp",
-    "ar.cpp",
-    "cd32_fmv.cpp",
-    "cd32_fmv_genlock.cpp",
-    "archivers/mp2/kjmp2.cpp"
+    "def_icons.cpp"
   ],
   "selection": {
     "status": "requires-port-patches-and-link-proof",
@@ -89,7 +77,6 @@
       "keybuf.cpp",
       "expansion.cpp",
       "diskutil.cpp",
-      "fdi2raw.cpp",
       "main.cpp",
       "devices.cpp",
       "fpp.cpp",
@@ -104,30 +91,18 @@
       "softfloat/softfloat_fpsp.cpp",
       "autoconf.cpp",
       "filesys.cpp",
-      "scsiemul.cpp",
       "hardfile.cpp",
       "gayle.cpp",
       "ide.cpp",
       "native2amiga.cpp",
       "traps.cpp",
       "uaeresource.cpp",
-      "def_icons.cpp",
-      "cdrom.cpp",
-      "akiko.cpp",
-      "cdtv.cpp",
-      "flashrom.cpp",
-      "ar.cpp",
-      "cd32_fmv.cpp",
-      "cd32_fmv_genlock.cpp",
-      "archivers/mp2/kjmp2.cpp"
+      "def_icons.cpp"
     ],
     "generated_units": [
       "cpudefs.cpp",
       "cpustbl.cpp",
-      "cpuemu_0.cpp",
-      "cpuemu_11.cpp",
       "cpuemu_13.cpp",
-      "cpuemu_20.cpp",
       "cpuemu_21.cpp",
       "blitfunc.cpp",
       "blittable.cpp"
@@ -138,22 +113,13 @@
       "sinctable.cpp",
       "filesys_bootrom.cpp"
     ],
-    "cpu_dispatch": "CPUEMU_0 generic tables, CPUEMU_11 prefetch 68000/68010, CPUEMU_13 cycle-exact 68000/68010, CPUEMU_20 prefetch 68020 and CPUEMU_21 cycle-exact 68020. Restart p6_config.cpu_compatibility selects the matching table/accessors/loop, with exact as the unchanged default. No MMU/JIT/host clock.",
+    "cpu_dispatch": "CPUEMU_13 agrupa handlers13/14; CPUEMU_21 es el 68020 cycle exact (T24a, ADR 0010), sin MMU; la FPU 68881/68882 es FPUEMU + SoftFloat y su presencia es currprefs.fpu_model (T54). Parche0014 limita cputbls P6 a [0][4]=op_smalltbl_14 y la ampliacion T24a anade [2][4]=op_smalltbl_21; m68k_run elige el bucle CE por modelo. Generados intactos, sin CPU68010 anunciada.",
     "features_on": [
-      "CPUEMU_0",
-      "CPUEMU_11",
       "CPUEMU_13",
-      "CPUEMU_20",
       "CPUEMU_21",
       "AGA",
       "FPUEMU",
-      "WITH_SOFTFLOAT",
-      "DRIVESOUND",
-      "CD32",
-      "CDTV",
-      "SCSIEMU",
-      "ACTION_REPLAY",
-      "CD32_FMV_SCALAR"
+      "WITH_SOFTFLOAT"
     ],
     "features_off": [
       "JIT",
@@ -169,6 +135,9 @@
       "WITH_PPC",
       "MMUEMU",
       "PICASSO96",
+      "CD32",
+      "CDTV",
+      "DRIVESOUND",
       "WITH_LUA",
       "BSDSOCKET",
       "WITH_SLIRP",
@@ -257,10 +226,7 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
-        "cpuemu_0.cpp",
-        "cpuemu_11.cpp",
         "cpuemu_13.cpp",
-        "cpuemu_20.cpp",
         "cpuemu_21.cpp"
       ],
       "recipe": "manifests/codegen.json; tools/generate_cpu.py; HOST only"
@@ -312,7 +278,7 @@
     "capsimg": "IPF fuera de M1; licencia y alternativa MAME pendientes de revision propia",
     "genp2c/gencomp": "Sin invocacion genp2c hallada en proyectos actuales; gencomp es JIT excluido. No agregar por glob.",
     "gayle.cpp/ide.cpp": "T56: gayle.cpp e ide.cpp se compilan para el puerto IDE de Gayle del A600 y el A1200 con discos duros (opcion hdf_controller = ide; sin ella los presets siguen con cs_ide=cs_pcmcia=cs_compatible=0 y Gayle apagado). Quedan fuera (parches 0320, 0321): la ranura PCMCIA y sus tarjetas, Fat Gary/Ramsey, el SCSI del A4000T y el Dataflyer, los dispositivos ATAPI (CD-ROM, cinta), los .ini de identidad y el hilo del IDE (cada orden se sirve al escribirla). Gayle solo se enciende con un disco detras. Un dispositivo soportado nunca se simula con stubs de exito.",
-    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "JIT, PPC, MMU y RTG excluidos. CDTV compila solo el controlador privado cooperativo stock; sin perfil publico, codec, SCSI, CR, tarjeta ni persistencia NVRAM. CD32 incluye Akiko, servicios CD y el cartucho FMV escalar con libmpeg2 generic-C; la opcion FMV se expone publicamente desde T43f2, tras cerrar decoder, audio, estado, compositor y aceptacion real en libretro y Waterbox. FPU 68881/68882 SoftFloat disponible en perfiles compatibles.",
+    "JIT/PPC/FPU/MMU/RTG/CD32/CDTV": "Fuera de los perfiles A500/A600/A1200 salvo la FPU 68881/68882 por SoftFloat del A1200 (T54); JIT, PPC, MMU (T55), RTG, CD32 y CDTV siguen apagados (MMUEMU apagado); no enlazar por conveniencia",
     "red/hostfs/dispositivos fisicos/plugins/archives": "Sin backend ni contrato determinista M1; rechazo explicito"
   },
   "unresolved": [
