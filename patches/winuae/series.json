@@ -161,7 +161,7 @@
     {
       "id": "0334-disk-fdi-track-state",
       "file": "patches/winuae/0334-disk-fdi-track-state.patch",
-      "sha256": "83149be338a5e158026bba0f803e423291b30fe9ae8b35ef998290fded209c52",
+      "sha256": "b9021f511b613e8900cd938ce84c219e588bda87bc7cdbcdc647681f83031bed",
       "title": "FDI tracks are a function of the revolution, and the state carries the multi-revolution reader",
       "reason": "T57b: drive_fill_bigbuf passes the revolution (fdirev, counted from 0 whenever the head reads another track, fditrack) to fdi2raw and makes the length 0 before the call, so a track the decoder cannot read is an unformatted one and not the previous track's length; fetchnextrevolution counts the next revolution and keeps the old length when the new one cannot be decoded. DSKX carries, for each drive, multi_revolution (DSDn restores the buffer but not the flag that says it has several revolutions), revolution_check, fdirev and fditrack: 46 to 62 words.",
       "category": "host hooks",
@@ -179,8 +179,8 @@
       "files": [
         {
           "path": "disk.cpp",
-          "before_sha256": "15a47e24424412bcf0daaedafc57a168530abba2cd712035c843fb9af0e89945",
-          "after_sha256": "a34200e4d0c793ddc13cd76211c487d308e3c4ea4516d3a3926ac8d9dc6034e9"
+          "before_sha256": "aaadd55c50ea84d20e88b8fd9aabea88d8c5a129874c04838670e79205827d56",
+          "after_sha256": "e837a4ad25fc5258bc60495dc7b3ec11c63189afa9889841d510479d514205f9"
         }
       ]
     },
