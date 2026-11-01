@@ -72,7 +72,9 @@ uint16_t current_sr()
 evfunc2 scheduler_handler(uint8_t id)
 {
     switch (id) {
+#if UAEMAJOR == 6 && UAEMINOR == 0
     case 1: return blitter_handler;
+#endif
     case 2: return event_doint_delay_do_ext;
     case 3: return p6_custom_event2_handler(0);
     case 4: return p6_custom_event2_handler(1);
@@ -100,7 +102,9 @@ evfunc2 scheduler_handler(uint8_t id)
 // cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
 uint8_t scheduler_handler_id(evfunc2 f)
 {
+#if UAEMAJOR == 6 && UAEMINOR == 0
     if (f == blitter_handler) return 1;
+#endif
     if (f == event_doint_delay_do_ext) return 2;
     if (f == p6_custom_event2_handler(0)) return 3;
     if (f == p6_custom_event2_handler(1)) return 4;
@@ -121,13 +125,14 @@ uint8_t scheduler_handler_id(evfunc2 f)
 namespace {
 
 // -- The 68020 block of P6CP (T24c) -------------------------------------------------------------------------------------------------------------------------------
-// Appended to the body of a machine whose CPU is a 68020, in this order (little endian, 662 bytes):
+// Appended to the body of a machine whose CPU is a 68020, in this order (little endian, 662 bytes in 6.0, 663 bytes in 6.1):
 //   u32 vbr  u32 msp  u32 caar  u8 sfc dfc (0..7)  u8 cacr (0..15)
 //   u32 prefetch020addr  u32 cacheholdingaddr020  u32 cacheholdingdata020  u16 prefetch020[4]  u8 prefetch020_valid[4] (0..1)
 //   i32 pipeline_pos (-1..255)  i32 pipeline_r8[2] (0..255)  i32 pipeline_stop (-1..1)
 //   64 x { u32 data  u32 tag (bit 0 the supervisor bit, bits 1..7 zero)  u8 valid (0..1) }          caches020, the instruction cache of the 68020
 //   i32 instruction_cnt  u8 ce020extracycles (0..16)  i64 ce020prefetchendcycle  i64 ce020startcycle  i64 ce020endcycle (each >= 0, in the epoch of P6SC)
 //   u16 ce020_extra (the remainder below a colour clock of do_cycles_ce020, 0..CYCLE_UNIT-1)
+//   u8 lastipl (0..7, 6.1 only: the last sampled interrupt level, used to detect a new level-7 edge)
 // The registers, the cache and the prefetch queue with its pipeline are what WinUAE's own save_cpu carries for a 68020 (that body is under SAVESTATE and is not compiled): they are
 // read from `regs` and from the one file-local table (patch 0108, p6_caches020_get/set). The last five fields are what the cycle-exact core keeps between two instructions and
 // that DET02 showed to decide the future, one by one (docs/adr/0009-state-format.md point 9 and the comments in visit_020).
@@ -144,6 +149,9 @@ struct Cpu020 {
     uint8_t extracycles = 0;
     int64_t prefetch_end = 0, start_cycle = 0, end_cycle = 0;
     uint16_t sub_cck = 0;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    uint8_t lastipl = 0;
+#endif
     uae_u32 cache_data[kCaches020] = {}, cache_tag[kCaches020] = {};
     uae_u8 cache_valid[kCaches020] = {};
 };
@@ -192,6 +200,10 @@ void visit_020(Archive &a, Cpu020 &c)
     // do_cycles_ce020 keeps the part of a colour clock it has not paid in a function-local static (patch 0108): the same kind of state as extra_cycle of P6SC, which the 68000 core
     // keeps the same way. A same image carried its own remainder into the loaded machine's first instruction (DET02 same-image: the registers differed one unit later).
     c.sub_cck = get<uint16_t>(a, p6_custom_ce020_extra_get(), 0, CYCLE_UNIT - 1, "cpu.ce020_extra");
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    // Beta 21 remembers the previous IPL to make level 7 edge-sensitive. It may remain nonzero at an instruction boundary and must follow the loaded machine.
+    c.lastipl = get<uint8_t>(a, regs.lastipl, 0, 7, "cpu.lastipl");
+#endif
 }
 
 void apply_020(const Cpu020 &c)
@@ -219,6 +231,9 @@ void apply_020(const Cpu020 &c)
     regs.ce020startcycle = c.start_cycle;
     regs.ce020endcycle = c.end_cycle;
     p6_custom_ce020_extra_set(c.sub_cck);
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    regs.lastipl = c.lastipl;
+#endif
     p6_caches020_set(c.cache_data, c.cache_tag, c.cache_valid, kCaches020);
 }
 
@@ -574,8 +589,11 @@ void visit_cpu(Archive &a)
 // P6SC body, little endian, in this order:
 //   i64 currcycle (>= 0)  u16 extra_cycle (0..511)  u16 cycles_to_add_remain (0..511)  u32 hsync_counter  u32 vsync_counter
 //   4 x { u8 active, i64 evtime (0 when inactive), i64 oldcycles }                      eventtab[ev_sync, ev_cia, ev_misc, ev_audio]
-//   u8 event2idx (0..16)  u8 event2next (1..15)
+//   u8 event2 cursor/range  u8 event2next
 //   16 x { u8 active, u8 handler id (0 when inactive), i64 evtime (0 when inactive), u32 data (0 when inactive) }        eventtab2[0..15]
+// In 6.0 the first byte is event2idx (0..16) and the blitter owns slot zero. Beta 21 replaced both with event2max (2, 4, 8 or 16):
+// the active allocation range of its dynamically grown table. The body keeps the same byte and all 16 slots; build identity prevents states
+// from crossing the two engine versions.
 // start_cycles is NOT written: it is 0 (m68k_go_unit BEGIN) and the next reset head restarts the counter from it; upstream's restore_cycles() would
 // put the saved cycle count there and a later reset would start from the wrong epoch. nextevent is derived by rebuild_scheduler. currcycle_cck is not
 // written either: the engine only reads it to take snapshots (agnus_*_cck) and to subtract them, so it is the origin of a clock that only differences
@@ -583,7 +601,13 @@ void visit_cpu(Archive &a)
 void visit_scheduler(Archive &a)
 {
     const bool checks = a.mode() != Mode::Measure;
-    int idx = 0, nxt = 1, cnt = 0, restart = 0, remain = 0;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    int idx = 2, nxt = ev2_misc, cnt = 0, restart = 0, remain = 0;
+#elif UAEMAJOR == 6 && UAEMINOR == 0
+    int idx = 0, nxt = ev2_misc, cnt = 0, restart = 0, remain = 0;
+#else
+#error Audit the secondary scheduler state before selecting another WinUAE version
+#endif
     p6_events_get(&idx, &nxt, &cnt, &restart, &remain);
     if (a.mode() == Mode::Save) {
         a.require(cnt == 0 && restart == 0, "the secondary scheduler is inside a handler");
@@ -614,10 +638,20 @@ void visit_scheduler(Archive &a)
         }
     }
 
-    // 3. The secondary scheduler: its round (event2idx decides which of two events due together runs first; event2next where the next one goes) and
-    //    all 16 slots by index, because the slot decides that order too.
+    // 3. The secondary scheduler: 6.0 carries event2idx (the round of equal-time events); beta 21 carries event2max (the allocated range).
+    //    event2next and all 16 slots still decide insertion and dispatch order.
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    const uint8_t round = get<uint8_t>(a, idx, 2, ev2_max, "ev2.max");
+#else
     const uint8_t round = get<uint8_t>(a, idx, 0, ev2_max, "ev2.idx");                // set to slot+1: 16 is valid, MISC_handler masks it
+#endif
     const uint8_t next = get<uint8_t>(a, nxt, ev2_misc, ev2_max - 1, "ev2.next");
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    if (checks) {
+        a.require(round == 2 || round == 4 || round == 8 || round == 16, "ev2.max: the allocated range is not a power-of-two scheduler range");
+        a.require(next < round, "ev2.next: the allocation cursor is outside the allocated range");
+    }
+#endif
     bool sec_active[kEvent2Slots];
     uint8_t sec_id[kEvent2Slots];
     int64_t sec_time[kEvent2Slots];
@@ -635,7 +669,12 @@ void visit_scheduler(Archive &a)
         if (checks) {
             if (sec_active[i]) {
                 a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
+#if UAEMAJOR == 6 && UAEMINOR == 1
+                a.require(i < round, "a secondary event is active outside the allocated range");
+                a.require(sec_id[i] != kEv2Blitter, "beta 21 cannot name the private non-CE blitter handler");
+#else
                 a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
+#endif
                 if (sec_id[i] == 14) a.require(currprefs.cs_cdtvcd && sec_data[i] == 0, "CDTV subcode event has no owner or invalid data");
                 if (sec_id[i] == 15) a.require(p6_ar_cia_handler() && sec_data[i] <= 1, "AR CIA event has no owner or invalid data");
                 if (sec_id[i] == 13) a.require(sec_data[i] <= 255, "optical event horizontal position is out of range");
