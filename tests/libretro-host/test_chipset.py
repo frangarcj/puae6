@@ -50,4 +50,3 @@ class ChipsetOptionTests(lr.LibretroHarness):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -31,4 +31,3 @@ class ChipsetStateTests(ProbeCase):
 
 if __name__ == "__main__":
     unittest.main()
-

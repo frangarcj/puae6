@@ -42,4 +42,3 @@ class WrapperMotherboardFastTests(base.WrapperCpuTests):
 
 if __name__ == "__main__":
     unittest.main()
-
