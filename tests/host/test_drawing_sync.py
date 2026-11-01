@@ -51,7 +51,12 @@ class DrawingSyncTests(unittest.TestCase):
                        if line.startswith("#define MAX_RGA_OVERLAPPING_CYCLES ")) + "\n"
         bodies += braced(source, "struct denise_rga_queue") + ";\n"
         bodies += "static struct denise_rga_queue temp_line;\nstatic struct denise_rga_queue *this_line;\n"
-        bodies += "static int spr_unalign_reg, spr_unalign_val;\n"
+        for declaration in ("static int spr_unalign_reg[",
+                            "static uae_u16 spr_unalign_val[",
+                            "static uae_u64 spr_unalign_val64[",
+                            "static int denise_afterreset;"):
+            bodies += next(line for line in source.splitlines()
+                           if line.startswith(declaration)) + "\n"
         for sig in ("static void updatelinedata(", "static void quick_denise_rga(",
                     "static void update_overlapped_cycles(", *names):
             bodies += function(source, sig)

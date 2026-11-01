@@ -7,23 +7,24 @@
 #include "xwin.h"
 #include "drawing.h"
 #include <cassert>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
 
 int multithread_enabled = 1;
-int vpos, linear_vpos;
-bool lof_store;
+int vpos, linear_vpos, linear_vpos_start;
+int linear_vpos_vb_start, linear_vpos_vb_end;
+bool aga_mode;
 uae_u8 *xlinebuffer, *xlinebuffer2, *xlinebuffer_genlock;
 struct denise_rga rga_denise[DENISE_RGA_SLOT_TOTAL]{};
 uae_prefs currprefs{};
 struct amigadisplay adisplays[MAX_AMIGADISPLAYS]{};
 static std::vector<int> calls;
-static std::vector<unsigned> args;
-// Test-owned geometry caches released by the real drawing_free (0412).
-static int *amiga2aspect_line_map, *native2amiga_line_map;
-static int native2amiga_line_map_height;
-static void seen(int id, unsigned a=0);
+static std::vector<uint64_t> args;
+static int spr64_reg;
+static uae_u64 spr64_val;
+static void seen(int id, uint64_t a=0);
 static void refresh_indicator_init(void);
 static void gen_pfield_tables(void);
 static void gen_direct_drawing_table(void);
@@ -32,20 +33,24 @@ void draw_denise_border_line_fast(int, bool, nln_how, linestate *);
 void draw_denise_bitplane_line_fast(int, nln_how, linestate *);
 void denise_handle_quick_strobe(uae_u16, int, int);
 void draw_denise_line(int, nln_how, uae_u32, int, int, int, int, int, int,
-                      int, int, bool, int, bool, bool, linestate *);
+                      int, int, bool, int, bool, uae_s8, bool, linestate *);
 void draw_denise_vsync(int);
 void denise_update_reg(uae_u16, uae_u16, uae_u32);
 void denise_store_registers(void);
 void denise_restore_registers(void);
-static void sprwrite(int r, uae_u32 v) { seen(9, (r<<16)|v); }
+static void sprwrite(int r, uae_u16 v) { seen(9, (r<<16)|v); }
+static void sprwrite_64(int r, uae_u64 v)
+{ spr64_reg = r; spr64_val = v; seen(10); }
 
 #include "drawing_sync_under_test.h"
 
-static void seen(int id, unsigned a)
+static void seen(int id, uint64_t a)
 {
     if (id < 20) {
         assert(this_line == &temp_line && temp_line.vpos == vpos &&
-               temp_line.linear_vpos == linear_vpos && temp_line.lof == lof_store);
+               temp_line.linear_vpos == linear_vpos_start &&
+               temp_line.linear_vpos_vb_start == linear_vpos_vb_start &&
+               temp_line.linear_vpos_vb_end == linear_vpos_vb_end);
     }
     calls.push_back(id); args.push_back(a);
 }
@@ -57,8 +62,8 @@ void draw_denise_bitplane_line_fast(int y, nln_how how, linestate *ls)
 void denise_handle_quick_strobe(uae_u16 st, int pos, int end)
 { assert(st==0x1234 && pos==5); seen(4,end); }
 void draw_denise_line(int y,nln_how h,uae_u32 n,int s,int sc,int ec,int sk,int sk2,
- int dt,int cs,int cl,bool lol,int hd,bool blank,bool fin,linestate *ls)
-{ assert(y==14 && h==nln_normal && n==77 && s==2 && sc==3 && ec==4 && sk==5 && sk2==6 && dt==7 && cs==8 && cl==9 && lol && hd==10 && blank && ls); seen(0,fin); }
+ int dt,int cs,int cl,bool lol,int hd,bool blank,uae_s8 borderline,bool fin,linestate *ls)
+{ assert(y==14 && h==nln_normal && n==77 && s==2 && sc==3 && ec==4 && sk==5 && sk2==6 && dt==7 && cs==8 && cl==9 && lol && hd==10 && blank && borderline==2 && ls); seen(0,fin); }
 void draw_denise_vsync(int e) { assert(e==1); seen(5,e); }
 void denise_update_reg(uae_u16 r,uae_u16 v,uae_u32 n)
 { assert(n==((r==0x20 || r==0x40) ? 55u : 88u)); seen(6,(r<<16)|v); }
@@ -73,15 +78,16 @@ void reset_drawing(void) { seen(24); }
 int main()
 {
     linestate ls{};
-    vpos=31; linear_vpos=47; lof_store=1;
+    vpos=31; linear_vpos_start=47;
+    linear_vpos_vb_start=41; linear_vpos_vb_end=73;
     for (int i=0;i<DENISE_RGA_SLOT_TOTAL;i++) rga_denise[i].line=0;
     multithread_enabled=1; // P6 must not re-enable worker dispatch from this legacy knob.
     draw_denise_border_line_fast_queue(12,true,nln_normal,&ls);
-    ++vpos; ++linear_vpos; lof_store = false;
+    ++vpos; ++linear_vpos_start;
     draw_denise_bitplane_line_fast_queue(13,nln_normal,&ls);
     quick_denise_rga_queue(55,3,6);
     denise_handle_quick_strobe_queue(0x1234,5,10);
-    draw_denise_line_queue(14,nln_normal,77,2,4,3,4,5,6,7,8,9,true,true,10,true,true,&ls);
+    draw_denise_line_queue(14,nln_normal,77,2,4,3,4,5,6,7,8,9,true,10,true,2,true,&ls);
     draw_denise_vsync_queue(1);
     denise_update_reg_queue(0x100,0x200,88);
     denise_store_restore_registers_queue(true,99);
@@ -89,12 +95,15 @@ int main()
     draw_denise_line_queue_flush();
     const std::vector<int> expected{2,1,4,0,5,6,7,8};
     assert(calls==expected);
-    assert(this_line==&temp_line && temp_line.vpos==vpos && temp_line.linear_vpos==linear_vpos && temp_line.lof==lof_store);
+    assert(this_line==&temp_line && temp_line.vpos==vpos &&
+           temp_line.linear_vpos==linear_vpos_start &&
+           temp_line.linear_vpos_vb_start==linear_vpos_vb_start &&
+           temp_line.linear_vpos_vb_end==linear_vpos_vb_end);
     for (int i=0;i<=5;i++) {
         assert(rga_denise[(4-i)&DENISE_RGA_SLOT_MASK].line==1);
         assert(rga_denise[(10-i)&DENISE_RGA_SLOT_MASK].line==1);
     }
-    draw_denise_line_queue(14,nln_normal,77,2,24,3,4,5,6,7,8,9,true,true,10,true,false,&ls);
+    draw_denise_line_queue(14,nln_normal,77,2,24,3,4,5,6,7,8,9,true,10,true,2,false,&ls);
     for (int i=0;i<=5;i++) assert(rga_denise[(24-i)&DENISE_RGA_SLOT_MASK].line==0);
 
     calls.clear(); args.clear();
@@ -112,11 +121,18 @@ int main()
     assert(args[0]==((0x20u<<16)|0xabcdu) && args[1]==((0x40u<<16)|0x1234u));
     calls.clear(); args.clear();
     rga_denise[start].rga=0x40;
-    spr_unalign_reg=0x142; spr_unalign_val=0xfeed;
+    aga_mode=false; spr_unalign_reg[0]=0x142; spr_unalign_val[0]=0xfeed;
     quick_denise_rga(55,start,start);
     assert((calls==std::vector<int>{6,9}));
     assert(args[0]==((0x40u<<16)|0xabcdu) && args[1]==((2u<<16)|0xfeedu));
-    spr_unalign_reg=0;
+    assert(spr_unalign_reg[0]==0);
+    calls.clear(); args.clear();
+    aga_mode=true; spr_unalign_reg[1]=0x144;
+    spr_unalign_val64[1]=UINT64_C(0x123456789abcdef0);
+    quick_denise_rga(55,start,start);
+    assert((calls==std::vector<int>{6,10}));
+    assert(spr64_reg==4 && spr64_val==UINT64_C(0x123456789abcdef0));
+    assert(spr_unalign_reg[1]==0);
 
     calls.clear(); args.clear();
     for (int i=0;i<DENISE_RGA_SLOT_TOTAL;i++) rga_denise[i].line=0;
@@ -125,14 +141,9 @@ int main()
     for (int cycle=0; cycle<2; ++cycle) {
         calls.clear(); args.clear();
         drawing_init();
-        amiga2aspect_line_map = static_cast<int *>(malloc(4 * sizeof(int)));
-        native2amiga_line_map = static_cast<int *>(malloc(3 * sizeof(int)));
-        assert(amiga2aspect_line_map && native2amiga_line_map);
-        native2amiga_line_map_height = 3;
+        assert(denise_afterreset == 10);
         drawing_free();
-        assert(!amiga2aspect_line_map && !native2amiga_line_map);
-        assert(native2amiga_line_map_height == 0);
-        drawing_free(); // Cleanup is safe after its caches have been released.
+        drawing_free(); // No worker resources exist in the portable profile.
         assert((calls==std::vector<int>{20,21,22,23,24}));
     }
 }
