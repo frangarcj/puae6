@@ -1,9 +1,7 @@
 diff --git a/cia.cpp b/cia.cpp
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -3531,3 +3531,25 @@
- 	return w == NULL;
- }
+@@ -3615,1 +3615,23 @@
  #endif
 +
 +#ifdef P6_PORTABLE
