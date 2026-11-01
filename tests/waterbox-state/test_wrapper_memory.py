@@ -41,6 +41,7 @@ A1200_FAST8 = ("a1200", {"fast": "MB8"})
 A600_PUAE5 = ("a600", {"chip": "MB2", "fast": "MB8"})
 A500_FAST2 = ("a500", {"fast": "MB2", "slow": "MB1"})
 CONFIGS = (A1200_FAST8, A600_PUAE5, A500_FAST2)
+EXTENDED_CHIP = (("a1200", {"chip": "MB2_5"}), ("a1200", {"chip": "MB8"}))
 # The settings of the cores above as p6_config sizes (the units of the rule of the manifest).
 KIB = {"MB1": 1024, "MB2": 2048, "MB4": 4096, "MB8": 8192}
 
@@ -117,6 +118,40 @@ class WrapperMemoryTests(unittest.TestCase):
                 self.assertEqual(("Fast_RAM", "100", "00000000"), peeks[4], "the load took the later write back")
                 self.assertEqual(("Fast_RAM", "0", "DEADBEEF01020304"), peeks[5], "and kept the earlier ones")
                 self.assertEqual(8, len(peeks[6][2]) // 2)
+
+    def test_extended_chip_ram_has_its_exact_domain_and_restores_in_a_fresh_sandbox(self):
+        script, n, m = self.held_keys(), 20, 30
+        for config, size in zip(EXTENDED_CHIP, (2560 << 10, 8192 << 10)):
+            with self.subTest(chip=config[1]["chip"]):
+                domain = build_waterbox.run_ffi("domains", "--runtime", "libwaterboxhost.dylib", "--guest", str(base.GUEST), "--sha", self.sha,
+                                                "--firmware", str(self.dir / "chipcell.rom"), "--machine", config[0], "--chip", config[1]["chip"])
+                self.assertEqual(0, domain.returncode, f"{domain.stdout[-2500:]}\n{domain.stderr[-2500:]}")
+                self.assertIn(f"domain Chip RAM size={size} writable=True", domain.stdout)
+                self.assertEqual(4, domain.stdout.count("ok an out-of-range access throws"))
+                state = self.dir / f"extended-{config[1]['chip']}.state"
+                out = self.session([self.memcore("A", config), f"run A {n} script={script} press={base.SWAP}", "save A s", f"savefile A {state}",
+                                    self.memcore("B", config), "load B s", f"run A {m} script={script} press={base.SWAP}", f"run B {m} script={script} press={base.SWAP}",
+                                    "digest A a", "digest B b"])
+                a, b = ([unit[1:] for unit in self.units(out, name)] for name in "AB")
+                self.assertEqual(a[n:], b)
+                self.assertEqual(self.digests(out, "A")["a"], self.digests(out, "B")["b"])
+                later = self.session([self.memcore("C", config), f"loadfile C {state}", f"run C {m} script={script} press={base.SWAP}", "digest C c"])
+                self.assertEqual(a[n:], [unit[1:] for unit in self.units(later, "C")])
+                self.assertEqual(self.digests(out, "A")["a"], self.digests(later, "C")["c"])
+
+    def test_chipset_overrides_restore_in_a_new_sandbox_and_process(self):
+        script, n, m = self.held_keys(), 20, 30
+        options = {"compatible": "A500", "chipset": "EcsDenise"}
+        state = self.dir / "chipset.state"
+        out = self.session([self.core("A", "a600", **options), f"run A {n} script={script} press={base.SWAP}", "save A s", f"savefile A {state}",
+                            self.core("B", "a600", **options), "load B s", f"run A {m} script={script} press={base.SWAP}", f"run B {m} script={script} press={base.SWAP}",
+                            "digest A a", "digest B b"])
+        a, b = ([unit[1:] for unit in self.units(out, name)] for name in "AB")
+        self.assertEqual(a[n:], b)
+        self.assertEqual(self.digests(out, "A")["a"], self.digests(out, "B")["b"])
+        later = self.session([self.core("C", "a600", **options), f"loadfile C {state}", f"run C {m} script={script} press={base.SWAP}", "digest C c"])
+        self.assertEqual(a[n:], [unit[1:] for unit in self.units(later, "C")])
+        self.assertEqual(self.digests(out, "A")["a"], self.digests(later, "C")["c"])
 
     def test_the_slow_ram_domain_has_the_size_the_cpu_reaches_not_the_size_the_engine_allocated(self):
         # T75a: the engine allocates 2 MiB for the 1.5 and 1.75 MiB options but maps only what was asked. `domains` (tests/ffi) writes the last word of the domain through the guest

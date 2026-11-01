@@ -146,9 +146,55 @@ public sealed partial class Puae6SyncSettings : ICustomTypeDescriptor
 		var source = TypeDescriptor.GetProperties(typeof(Puae6SyncSettings), attributes);
 		var result = new List<PropertyDescriptor>(source.Count);
 		result.Add(new ProfileProperty());
+		result.Add(new FastRamProperty());
 		foreach (PropertyDescriptor property in source)
-			if (property.Name != nameof(Machine)) result.Add(new ProfileValueProperty(property));
+			if (property.Name is not (nameof(Machine) or nameof(FastMemory) or nameof(Z3Memory))) result.Add(new ProfileValueProperty(property));
 		return new(result.ToArray(), true);
+	}
+
+	private static Puae6FastRam FastRamOf(Puae6SyncSettings settings)
+	{
+		if (settings.Z3Memory != Puae6Z3Memory.None)
+		{
+			if (settings.FastMemory != Puae6Fast.None) return Puae6FastRam.Custom;
+			return settings.Z3Memory switch
+			{
+				Puae6Z3Memory.MB1 => Puae6FastRam.Z3MB1, Puae6Z3Memory.MB2 => Puae6FastRam.Z3MB2,
+				Puae6Z3Memory.MB4 => Puae6FastRam.Z3MB4, Puae6Z3Memory.MB8 => Puae6FastRam.Z3MB8,
+				Puae6Z3Memory.MB16 => Puae6FastRam.Z3MB16, Puae6Z3Memory.MB32 => Puae6FastRam.Z3MB32,
+				Puae6Z3Memory.MB64 => Puae6FastRam.Z3MB64, Puae6Z3Memory.MB128 => Puae6FastRam.Z3MB128,
+				Puae6Z3Memory.MB256 => Puae6FastRam.Z3MB256, Puae6Z3Memory.MB512 => Puae6FastRam.Z3MB512,
+				_ => Puae6FastRam.Custom,
+			};
+		}
+		return settings.FastMemory switch
+		{
+			Puae6Fast.Auto => Puae6FastRam.Profile, Puae6Fast.None => Puae6FastRam.None,
+			Puae6Fast.MB1 => Puae6FastRam.Z2MB1, Puae6Fast.MB2 => Puae6FastRam.Z2MB2,
+			Puae6Fast.MB4 => Puae6FastRam.Z2MB4, Puae6Fast.MB8 => Puae6FastRam.Z2MB8,
+			_ => Puae6FastRam.Custom,
+		};
+	}
+
+	private static void SetFastRam(Puae6SyncSettings settings, Puae6FastRam value)
+	{
+		if (value == Puae6FastRam.Custom) throw new ArgumentException("Custom represents a legacy two-board configuration and cannot be selected", nameof(value));
+		settings.Z3Memory = value switch
+		{
+			Puae6FastRam.Z3MB1 => Puae6Z3Memory.MB1, Puae6FastRam.Z3MB2 => Puae6Z3Memory.MB2,
+			Puae6FastRam.Z3MB4 => Puae6Z3Memory.MB4, Puae6FastRam.Z3MB8 => Puae6Z3Memory.MB8,
+			Puae6FastRam.Z3MB16 => Puae6Z3Memory.MB16, Puae6FastRam.Z3MB32 => Puae6Z3Memory.MB32,
+			Puae6FastRam.Z3MB64 => Puae6Z3Memory.MB64, Puae6FastRam.Z3MB128 => Puae6Z3Memory.MB128,
+			Puae6FastRam.Z3MB256 => Puae6Z3Memory.MB256, Puae6FastRam.Z3MB512 => Puae6Z3Memory.MB512,
+			_ => Puae6Z3Memory.None,
+		};
+		settings.FastMemory = value switch
+		{
+			Puae6FastRam.Profile => Puae6Fast.Auto, Puae6FastRam.None => Puae6Fast.None,
+			Puae6FastRam.Z2MB1 => Puae6Fast.MB1, Puae6FastRam.Z2MB2 => Puae6Fast.MB2,
+			Puae6FastRam.Z2MB4 => Puae6Fast.MB4, Puae6FastRam.Z2MB8 => Puae6Fast.MB8,
+			_ => Puae6Fast.None,
+		};
 	}
 
 	private sealed class ProfileProperty() : PropertyDescriptor(
@@ -170,6 +216,39 @@ public sealed partial class Puae6SyncSettings : ICustomTypeDescriptor
 			OnValueChanged(component, EventArgs.Empty);
 		}
 		public override bool ShouldSerializeValue(object component) => false;
+	}
+
+	private sealed class FastRamProperty() : PropertyDescriptor(
+		"FastRam",
+		[new DisplayNameAttribute("Fast RAM board"),
+		 new DescriptionAttribute("Selects one validated Zorro II or Zorro III board. Profile keeps the preset; legacy configs containing both boards are shown as Custom and are not rewritten."),
+		 new RefreshPropertiesAttribute(RefreshProperties.All)])
+	{
+		public override Type ComponentType => typeof(Puae6SyncSettings);
+		public override bool IsReadOnly => false;
+		public override Type PropertyType => typeof(Puae6FastRam);
+		public override bool CanResetValue(object component) => ShouldSerializeValue(component);
+		public override object GetValue(object? component) => FastRamOf((Puae6SyncSettings)component!);
+		public override void ResetValue(object component)
+		{
+			var settings = (Puae6SyncSettings)component;
+			var baseline = Puae6MachineProfiles.Create(settings.ProfileOf());
+			settings.FastMemory = baseline.FastMemory;
+			settings.Z3Memory = baseline.Z3Memory;
+			OnValueChanged(component, EventArgs.Empty);
+		}
+		public override void SetValue(object? component, object? value)
+		{
+			if (component is not Puae6SyncSettings settings || value is not Puae6FastRam fast) throw new ArgumentException("Invalid Fast RAM board", nameof(value));
+			SetFastRam(settings, fast);
+			OnValueChanged(component, EventArgs.Empty);
+		}
+		public override bool ShouldSerializeValue(object component)
+		{
+			var settings = (Puae6SyncSettings)component;
+			var baseline = Puae6MachineProfiles.Create(settings.ProfileOf());
+			return settings.FastMemory != baseline.FastMemory || settings.Z3Memory != baseline.Z3Memory;
+		}
 	}
 
 	private sealed class ProfileValueProperty(PropertyDescriptor property) : PropertyDescriptor(property)

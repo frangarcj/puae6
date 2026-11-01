@@ -118,6 +118,7 @@ static const Named video_line_mode_names[] = {{"single", 1}, {"double", 0}};
 // The CPU (T52), after --cpu: p6_config.cpu_model as 1 + (model - 68000) / 10; zero (auto) is the machine's own. The bridge refuses the combinations a machine cannot have.
 static const Named z3_memory_names[] = {{"none", 0}, {"16", 1}, {"1", 2}, {"2", 3}, {"4", 4}, {"8", 5},
     {"32", 6}, {"64", 7}, {"128", 8}, {"256", 9}, {"512", 10}};
+static const Named motherboard_fast_ram_names[] = {{"none", 0}, {"1", 1}, {"2", 2}, {"4", 4}, {"8", 8}, {"16", 16}, {"32", 32}, {"64", 64}};
 static const Named collision_level_names[] = {{"auto", 0}, {"none", 1}, {"sprites", 2}, {"playfields", 3}, {"full", 4}};
 static const Named cpu_model_names[] = {{"auto", 0}, {"68000", 1}, {"68010", 2}, {"68020", 3}, {"68030", 4}, {"68040", 5}, {"68060", 7}};
 // The clock of the CPU (T52), after --cpu-multiplier: upstream's cpu_clock_multiplier / 256, PUAE5's values; zero (auto) is the machine's own (2 with a 68000, 4 on the A1200).
@@ -126,6 +127,8 @@ static const Named cpu_multiplier_names[] = {{"auto", 0}, {"1", 1}, {"2", 2}, {"
 // The controller of the hard files (T56), after --hdf-controller: the UAE controller (uaehf.device, the default) or the IDE port of Gayle (A600 and A1200 only, and only with a --hdf).
 static const Named hdf_controller_names[] = {{"uae", 0}, {"ide", 1}};      // P6_HDF_CONTROLLER_UAE, P6_HDF_CONTROLLER_IDE
 static const Named cd_controller_names[] = {{"auto", 0}, {"none", 1}, {"cd32", 2}, {"ide", 4}}; // P6_CD_CONTROLLER_*
+static const Named chipset_compatible_names[] = {{"auto", 0}, {"a500", 1}, {"a600", 2}, {"a1200", 3}, {"a4000", 4}, {"cd32", 5}, {"cdtv", 6}};
+static const Named chipset_names[] = {{"auto", 0}, {"ocs", 1}, {"ecs-agnus", 2}, {"ecs-denise", 3}, {"ecs", 4}, {"aga", 5}};
 
 template <size_t N>
 static bool pick_named(const Named (&table)[N], const char *spelling, uint8_t *abi)
@@ -175,12 +178,13 @@ static int run(int argc, char **argv)
     uint8_t floppy_speed = 0;                                                                           // 0: the real drive (T62)
     uint8_t video_resolution = 0, video_line_mode = 0;                                                  // 0: the profile's raster, hires and double lines (T72)
     uint8_t collision_level = 0;
-    uint8_t z3_memory = 0;
+    uint8_t z3_memory = 0, motherboard_fast_ram = 0;
     uint8_t cpu_compatibility = 0;
     uint8_t drive_sound_volume = 0;
     uint8_t cpu_model = 0, cpu_multiplier = 0;                                                          // 0: the machine's own CPU and clock (T52)
     uint8_t hdf_controller = 0;                                                                         // T56: 0 the UAE controller, 1 the IDE port of Gayle (P6_HDF_CONTROLLER_*)
     uint8_t cd_controller = 0;                                                                          // T84f: explicit optical controller, or profile auto
+    uint8_t chipset_compatible = 0, chipset = 0;                                                        // T105b: profile table/generation unless named
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "--units") && i + 1 < argc) units = uint32_t(strtoul(argv[++i], nullptr, 10));
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = strtoull(argv[++i], nullptr, 10);
@@ -220,12 +224,15 @@ static int run(int argc, char **argv)
         else if (!strcmp(argv[i], "--resolution") && i + 1 < argc) { if (!pick_named(video_resolution_names, argv[++i], &video_resolution)) return -1; }
         else if (!strcmp(argv[i], "--line-mode") && i + 1 < argc) { if (!pick_named(video_line_mode_names, argv[++i], &video_line_mode)) return -1; }
         else if (!strcmp(argv[i], "--z3") && i + 1 < argc) { if (!pick_named(z3_memory_names, argv[++i], &z3_memory)) return -1; }
+        else if (!strcmp(argv[i], "--motherboard-fast") && i + 1 < argc) { if (!pick_named(motherboard_fast_ram_names, argv[++i], &motherboard_fast_ram)) return -1; }
         else if (!strcmp(argv[i], "--collisions") && i + 1 < argc) { if (!pick_named(collision_level_names, argv[++i], &collision_level)) return -1; }
         else if (!strcmp(argv[i], "--cpu") && i + 1 < argc) { if (!pick_named(cpu_model_names, argv[++i], &cpu_model)) return -1; }
         else if (!strcmp(argv[i], "--cpu-compatibility") && i + 1 < argc) { if (!pick_named(cpu_compatibility_names, argv[++i], &cpu_compatibility)) return -1; }
         else if (!strcmp(argv[i], "--cpu-multiplier") && i + 1 < argc) { if (!pick_named(cpu_multiplier_names, argv[++i], &cpu_multiplier)) return -1; }
         else if (!strcmp(argv[i], "--hdf-controller") && i + 1 < argc) { if (!pick_named(hdf_controller_names, argv[++i], &hdf_controller)) return -1; }
         else if (!strcmp(argv[i], "--cd-controller") && i + 1 < argc) { if (!pick_named(cd_controller_names, argv[++i], &cd_controller)) return -1; }
+        else if (!strcmp(argv[i], "--chipset-compatible") && i + 1 < argc) { if (!pick_named(chipset_compatible_names, argv[++i], &chipset_compatible)) return -1; }
+        else if (!strcmp(argv[i], "--chipset") && i + 1 < argc) { if (!pick_named(chipset_names, argv[++i], &chipset)) return -1; }
         else if (!strcmp(argv[i], "--ntsc")) standard = P6_VIDEO_NTSC;
         else if (!rom_path && argv[i][0] != '-') rom_path = argv[i];
         else return -1;
@@ -258,12 +265,15 @@ static int run(int argc, char **argv)
     config.floppy_drives = floppy_drives;
     config.hdf_controller = hdf_controller;
     config.cd_controller = cd_controller;
+    config.chipset_compatible = chipset_compatible;
+    config.chipset = chipset;
     config.video_resolution = video_resolution;
     config.video_line_mode = video_line_mode;
     config.cpu_model = cpu_model;
     config.cpu_compatibility = cpu_compatibility;
     config.collision_level = collision_level;
     config.z3_memory = z3_memory;
+    config.motherboard_fast_ram = motherboard_fast_ram;
     config.cpu_multiplier = cpu_multiplier;
     p6_error error = make_error();
     p6_result result = p6_init(&config, &error);

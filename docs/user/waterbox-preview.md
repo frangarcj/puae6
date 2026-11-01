@@ -200,7 +200,7 @@ superan todas esas etapas. Las dos matrices de solucion de la candidata
 [41306891107](https://github.com/frangarcj/BizHawk/actions/runs/41306891107) y
 [41306900471](https://github.com/frangarcj/BizHawk/actions/runs/41306900471)
 terminan correctamente; la release PUAE6 apunta al merge probado. El guest x64 es
-`ff64ace000e297e82e06324303fa5dbf5ebf418ce9f0ec83f0efae1023c11d7d`.
+`c3aaf5889c7002b6a905a0b8af517d9627e772de255238d4b1c319216a958be2`.
 El paquete Darwin ARM64 separado de esta candidata fija el guest
 `60553796d6a8ab5fc3ff1b4f4c15729a5a9824d97bb3f1585eba16e23dcb6543`;
 su archivo tiene SHA-256

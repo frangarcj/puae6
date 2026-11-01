@@ -47,6 +47,7 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
         {P6_REGION_SLOW_RAM, P6_REGION_WRITABLE, &bogomem_bank, currprefs.bogomem.size},
         {P6_REGION_FAST_RAM, P6_REGION_WRITABLE, &fastmem_bank[0], 0},
         {P6_REGION_Z3_FAST_RAM, P6_REGION_WRITABLE, &z3fastmem_bank[0], 0},
+        {P6_REGION_MOTHERBOARD_FAST_RAM, P6_REGION_WRITABLE, &a3000lmem_bank, 0},
         {P6_REGION_ROM, 0, &kickmem_bank, 0},
     };
     p6_memory_region found[sizeof sources / sizeof sources[0] + 1];
@@ -55,7 +56,8 @@ extern "C" p6_result p6_memory_regions(p6_memory_region *regions, uint32_t capac
         uint64_t bytes = source.bank->allocated_size;
         if (source.reach && bytes > source.reach) bytes = source.reach;
         uint32_t flags = source.flags;
-        if (source.type == P6_REGION_Z3_FAST_RAM && source.bank->start >= 0x10000000 && source.bank->start < 0xf0000000 && &get_mem_bank(source.bank->start) == source.bank)
+        if ((source.type == P6_REGION_Z3_FAST_RAM || source.type == P6_REGION_MOTHERBOARD_FAST_RAM) &&
+            source.bank->start < 0xf0000000 && &get_mem_bank(source.bank->start) == source.bank)
             flags |= P6_REGION_BUS_ADDRESS_VALID | (source.bank->start & P6_REGION_BUS_ADDRESS_MASK);
         if (source.bank->baseaddr && bytes)
             found[n++] = p6_memory_region{source.type, flags, source.bank->baseaddr, bytes};

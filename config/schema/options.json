@@ -199,6 +199,45 @@
       "wrapper": {"how": "setting", "setting": "Machine", "type": "Puae6Machine"}
     },
     {
+      "id": "chipset_compatible",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.chipset_compatible",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Machine profile"},
+        {"value": "A500", "abi": 1, "label": "A500"},
+        {"value": "A600", "abi": 2, "label": "A600"},
+        {"value": "A1200", "abi": 3, "label": "A1200"},
+        {"value": "A4000", "abi": 4, "label": "A4000"},
+        {"value": "CD32", "abi": 5, "label": "CD32"},
+        {"value": "CDTV", "abi": 6, "label": "CDTV"}
+      ],
+      "libretro": {"key": "puae6_chipset_compatible", "category": "machine", "label": "Chipset Compatible",
+        "info": "Applies a validated WinUAE compatibility table after the machine profile. Auto preserves the profile; incompatible CPU or motherboard families are refused before execution."},
+      "headless": {"how": "named", "flag": "--chipset-compatible", "names": {"Auto": "auto", "A500": "a500", "A600": "a600", "A1200": "a1200", "A4000": "a4000", "CD32": "cd32", "CDTV": "cdtv"}},
+      "wrapper": {"how": "setting", "setting": "ChipsetCompatible", "type": "Puae6ChipsetCompatible"}
+    },
+    {
+      "id": "chipset",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.chipset",
+      "default": "Auto",
+      "values": [
+        {"value": "Auto", "abi": 0, "label": "Compatibility table / machine profile"},
+        {"value": "OCS", "abi": 1, "label": "OCS"},
+        {"value": "ECS_Agnus", "abi": 2, "label": "ECS Agnus", "wrapper_name": "EcsAgnus"},
+        {"value": "ECS_Denise", "abi": 3, "label": "ECS Denise", "wrapper_name": "EcsDenise"},
+        {"value": "ECS", "abi": 4, "label": "ECS", "wrapper_name": "Ecs"},
+        {"value": "AGA", "abi": 5, "label": "AGA", "wrapper_name": "Aga"}
+      ],
+      "libretro": {"key": "puae6_chipset", "category": "machine", "label": "Chipset",
+        "info": "Overrides the validated Agnus/Denise generation after the machine compatibility table. AGA requires a 68020-or-later profile; OCS addressing limits Chip RAM to 1 MiB."},
+      "headless": {"how": "named", "flag": "--chipset", "names": {"Auto": "auto", "OCS": "ocs", "ECS_Agnus": "ecs-agnus", "ECS_Denise": "ecs-denise", "ECS": "ecs", "AGA": "aga"}},
+      "wrapper": {"how": "setting", "setting": "Chipset", "type": "Puae6Chipset"}
+    },
+    {
       "id": "video_standard",
       "class": "reboot",
       "type": "enum",
@@ -232,13 +271,26 @@
         {"value": "Auto", "abi": 0, "label": "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"},
         {"value": "KB512", "abi": 512, "label": "512 KiB"},
         {"value": "MB1", "abi": 1024, "label": "1 MiB"},
-        {"value": "MB2", "abi": 2048, "label": "2 MiB"}
+        {"value": "MB1_5", "abi": 1536, "label": "1.5 MiB"},
+        {"value": "MB2", "abi": 2048, "label": "2 MiB"},
+        {"value": "MB2_5", "abi": 2560, "label": "2.5 MiB"},
+        {"value": "MB3", "abi": 3072, "label": "3 MiB"},
+        {"value": "MB3_5", "abi": 3584, "label": "3.5 MiB"},
+        {"value": "MB4", "abi": 4096, "label": "4 MiB"},
+        {"value": "MB4_5", "abi": 4608, "label": "4.5 MiB"},
+        {"value": "MB5", "abi": 5120, "label": "5 MiB"},
+        {"value": "MB5_5", "abi": 5632, "label": "5.5 MiB"},
+        {"value": "MB6", "abi": 6144, "label": "6 MiB"},
+        {"value": "MB6_5", "abi": 6656, "label": "6.5 MiB"},
+        {"value": "MB7", "abi": 7168, "label": "7 MiB"},
+        {"value": "MB7_5", "abi": 7680, "label": "7.5 MiB"},
+        {"value": "MB8", "abi": 8192, "label": "8 MiB"}
       ],
       "libretro": {
         "key": "puae6_chip_size",
         "category": "machine",
         "label": "Chip RAM",
-        "info": "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach."
+        "info": "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. OCS Agnus supports at most 1 MiB; ECS and AGA profiles offer UAE's half-megabyte capacities through 8 MiB. Non-power-of-two banks keep their exact visible size and do not alias the reserved host tail."
       },
       "headless": {"how": "kib", "flag": "--chip"},
       "wrapper": {"how": "setting", "setting": "ChipMemory", "type": "Puae6Chip"}
@@ -349,6 +401,27 @@
       "libretro_policy": "The bounded RTG board is currently a BizHawk preview setting. Libretro and headless keep the board disabled until their output contracts expose its fixed canvas.",
       "headless": {"how": "profile"},
       "wrapper": {"how": "setting", "setting": "RtgMemory", "type": "Puae6RtgMemory"}
+    },
+    {
+      "id": "motherboard_fast_ram",
+      "class": "reboot",
+      "type": "enum",
+      "maps_to": "p6_config.motherboard_fast_ram",
+      "default": "None",
+      "values": [
+        {"value": "None", "abi": 0, "label": "None"},
+        {"value": "MB1", "abi": 1, "label": "1 MiB"},
+        {"value": "MB2", "abi": 2, "label": "2 MiB"},
+        {"value": "MB4", "abi": 4, "label": "4 MiB"},
+        {"value": "MB8", "abi": 8, "label": "8 MiB"},
+        {"value": "MB16", "abi": 16, "label": "16 MiB"},
+        {"value": "MB32", "abi": 32, "label": "32 MiB"},
+        {"value": "MB64", "abi": 64, "label": "64 MiB"}
+      ],
+      "libretro": {"key": "puae6_motherboard_fast_ram", "category": "machine", "label": "Motherboard Fast RAM",
+        "info": "A4000 Ramsey motherboard RAM ending at $08000000. This memory is separate from Zorro II and Zorro III boards and is available only on A4030/A4040 with Normal CPU accuracy. Existing A4000 presets keep None."},
+      "headless": {"how": "named", "flag": "--motherboard-fast", "names": {"None": "none", "MB1": "1", "MB2": "2", "MB4": "4", "MB8": "8", "MB16": "16", "MB32": "32", "MB64": "64"}},
+      "wrapper": {"how": "setting", "setting": "MotherboardFastRam", "type": "Puae6MotherboardFastRam"}
     },
     {
       "id": "collision_level",

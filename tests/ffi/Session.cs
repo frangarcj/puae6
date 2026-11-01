@@ -79,6 +79,8 @@ internal static unsafe partial class Program
 					var settings = new Puae6SyncSettings
 					{
 						Machine = MachineOf(arguments.GetValueOrDefault("machine")),
+						ChipsetCompatible = Enum.Parse<Puae6ChipsetCompatible>(arguments.GetValueOrDefault("compatible", "Auto"), true),
+						Chipset = Enum.Parse<Puae6Chipset>(arguments.GetValueOrDefault("chipset", "Auto"), true),
 						Region = arguments.ContainsKey("ntsc") ? Puae6Region.NTSC : Puae6Region.PAL,
 						FloppyDrives = int.Parse(arguments.GetValueOrDefault("drives", "1")),
 						ControllerPort1 = Enum.Parse<Puae6Port1>(arguments.GetValueOrDefault("port1", "mouse"), true),
@@ -90,6 +92,7 @@ internal static unsafe partial class Program
 						SlowMemory = Enum.Parse<Puae6Slow>(arguments.GetValueOrDefault("slow", "Auto")),
 						FastMemory = Enum.Parse<Puae6Fast>(arguments.GetValueOrDefault("fast", "Auto")),
 						Z3Memory = Enum.Parse<Puae6Z3Memory>(arguments.GetValueOrDefault("z3", "None")),
+						MotherboardFastRam = Enum.Parse<Puae6MotherboardFastRam>(arguments.GetValueOrDefault("motherboard-fast", "None")),
 						RtgMemory = Enum.Parse<Puae6RtgMemory>(arguments.GetValueOrDefault("rtg", "None")),
 						FpuModel = Enum.Parse<Puae6Fpu>(arguments.GetValueOrDefault("fpu", "None")),
 						CpuModel = Enum.Parse<Puae6Cpu>(arguments.GetValueOrDefault("cpu", "Auto")),

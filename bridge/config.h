@@ -31,12 +31,19 @@ constexpr unsigned kZ3Choices = sizeof kZ3MiB / sizeof *kZ3MiB;
 inline uint32_t z3_bytes(const p6_config &config) {
     return config.z3_memory < kZ3Choices ? uint32_t(kZ3MiB[config.z3_memory]) << 20 : 0;
 }
+inline uint32_t motherboard_fast_bytes(const p6_config &config) {
+    return uint32_t(config.motherboard_fast_ram) << 20;
+}
 // True when resolve_memory gives the machine's own memory: such a config is the series one in every identity (config_hash included).
 bool memory_is_preset(const p6_config &config);
 
 // The flags word that config_hash takes (the envelope hashes machine, standard, rate, flags, seed and clock; the memory has no field of its own there so that the
 // identity of every preset config stays the one it was): c.flags for a config with the preset's memory, else with bit 31 and the three sizes folded in above the flag bits (fast/1024 at 8, slow/64 at 12, chip/64 at 17; bits 0 to 7 stay p6_config.flags); T54 adds the FPU (23, 24), T62 the floppy speed (25 to 27) and T72 the raster (28 to 30, only off hires and double lines).
 uint32_t identity_flags(const p6_config &config);
+// Chip RAM above 2 MiB no longer fits the historical flags word without colliding with FPU bits. Such a config derives its hash from the flags-word hash and the exact little-endian KiB value.
+bool extended_chip_identity(const p6_config &config, uint8_t out[2]);
+// Canonical compatibility-table and chipset override, only when the effective hardware differs from the complete profile. Used to derive config_hash without changing any Auto/profile identity.
+bool chipset_identity(const p6_config &config, uint8_t out[2]);
 
 // The floppy drive speed (T62, p6_config.floppy_speed) as upstream's floppy_speed: 100, 200, 400 or 800 (percent of the real drive), 0 for the turbo mode that transfers a whole DSKLEN at once.
 int resolve_floppy_speed(const p6_config &config);

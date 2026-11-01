@@ -13,6 +13,8 @@ namespace p6_options {
 // machine. A key libretro does not offer keeps its default here, which is the only value the core ever uses for it.
 struct Settings {
     uint32_t machine = 0u;  // reboot, p6_config.machine = auto (libretro starts automatic; the schema's default for the other adapters is A500)
+    uint32_t chipset_compatible = 0u;  // reboot, p6_config.chipset_compatible = Auto
+    uint32_t chipset = 0u;  // reboot, p6_config.chipset = Auto
     uint32_t video_standard = 0u;  // reboot, p6_config.video_standard = PAL auto (libretro starts automatic; the schema's default for the other adapters is PAL)
     uint32_t chip_size = 0u;  // reboot, p6_config.chip_kib = Auto
     uint32_t slow_size = 0u;  // reboot, p6_config.slow_kib = Auto
@@ -20,6 +22,7 @@ struct Settings {
     uint32_t fpu_model = 0u;  // reboot, p6_config.fpu_model = None
     uint32_t z3_memory = 0u;  // reboot, p6_config.z3_memory = None
     uint32_t rtg_memory = 0u;  // reboot, p6_config.rtg_memory = None
+    uint32_t motherboard_fast_ram = 0u;  // reboot, p6_config.motherboard_fast_ram = None
     uint32_t collision_level = 0u;  // reboot, p6_config.collision_level = auto
     uint32_t cpu_model = 0u;  // reboot, p6_config.cpu_model = auto
     uint32_t cpu_compatibility = 0u;  // reboot, p6_config.cpu_compatibility = exact
@@ -115,6 +118,8 @@ inline void to_config(const Settings &settings, p6_config *config)
 {
     config->flags = 0u;
     config->machine = settings.machine;
+    config->chipset_compatible = settings.chipset_compatible;
+    config->chipset = settings.chipset;
     config->video_standard = settings.video_standard;
     config->chip_kib = settings.chip_size;
     config->slow_kib = settings.slow_size;
@@ -122,6 +127,7 @@ inline void to_config(const Settings &settings, p6_config *config)
     config->fpu_model = settings.fpu_model;
     config->z3_memory = settings.z3_memory;
     config->rtg_memory = settings.rtg_memory;
+    config->motherboard_fast_ram = settings.motherboard_fast_ram;
     config->collision_level = settings.collision_level;
     config->cpu_model = settings.cpu_model;
     config->cpu_compatibility = settings.cpu_compatibility;
@@ -450,6 +456,23 @@ constexpr Value kWhdloadButtonwaitValues[] = {
     {"disabled", 0u},
     {"enabled", 1u},
 };
+constexpr Value kChipsetCompatibleValues[] = {
+    {"Auto", 0u},
+    {"A500", 1u},
+    {"A600", 2u},
+    {"A1200", 3u},
+    {"A4000", 4u},
+    {"CD32", 5u},
+    {"CDTV", 6u},
+};
+constexpr Value kChipsetValues[] = {
+    {"Auto", 0u},
+    {"OCS", 1u},
+    {"ECS_Agnus", 2u},
+    {"ECS_Denise", 3u},
+    {"ECS", 4u},
+    {"AGA", 5u},
+};
 constexpr Value kVideoStandardValues[] = {
     {"PAL auto", 0u},
     {"NTSC auto", 3u},
@@ -460,7 +483,20 @@ constexpr Value kChipSizeValues[] = {
     {"Auto", 0u},
     {"KB512", 512u},
     {"MB1", 1024u},
+    {"MB1_5", 1536u},
     {"MB2", 2048u},
+    {"MB2_5", 2560u},
+    {"MB3", 3072u},
+    {"MB3_5", 3584u},
+    {"MB4", 4096u},
+    {"MB4_5", 4608u},
+    {"MB5", 5120u},
+    {"MB5_5", 5632u},
+    {"MB6", 6144u},
+    {"MB6_5", 6656u},
+    {"MB7", 7168u},
+    {"MB7_5", 7680u},
+    {"MB8", 8192u},
 };
 constexpr Value kSlowSizeValues[] = {
     {"Auto", 0u},
@@ -497,6 +533,16 @@ constexpr Value kZ3MemoryValues[] = {
     {"MB128", 8u},
     {"MB256", 9u},
     {"MB512", 10u},
+};
+constexpr Value kMotherboardFastRamValues[] = {
+    {"None", 0u},
+    {"MB1", 1u},
+    {"MB2", 2u},
+    {"MB4", 4u},
+    {"MB8", 8u},
+    {"MB16", 16u},
+    {"MB32", 32u},
+    {"MB64", 64u},
 };
 constexpr Value kCollisionLevelValues[] = {
     {"auto", 0u},
@@ -983,12 +1029,15 @@ constexpr Option kOptions[] = {
     {"puae6_kickstart", true, &Settings::kickstart, kKickstartValues, 8, 0},
     {"puae6_whdload", true, &Settings::whdload, kWhdloadValues, 2, 0},
     {"puae6_whdload_buttonwait", true, &Settings::whdload_buttonwait, kWhdloadButtonwaitValues, 2, 0},
+    {"puae6_chipset_compatible", true, &Settings::chipset_compatible, kChipsetCompatibleValues, 7, 0},
+    {"puae6_chipset", true, &Settings::chipset, kChipsetValues, 6, 0},
     {"puae6_video_standard", true, &Settings::video_standard, kVideoStandardValues, 4, 0},
-    {"puae6_chip_size", true, &Settings::chip_size, kChipSizeValues, 4, 0},
+    {"puae6_chip_size", true, &Settings::chip_size, kChipSizeValues, 17, 0},
     {"puae6_slow_size", true, &Settings::slow_size, kSlowSizeValues, 6, 0},
     {"puae6_fast_size", true, &Settings::fast_size, kFastSizeValues, 6, 5},
     {"puae6_fpu_model", true, &Settings::fpu_model, kFpuModelValues, 5, 0},
     {"puae6_z3_memory", true, &Settings::z3_memory, kZ3MemoryValues, 11, 0},
+    {"puae6_motherboard_fast_ram", true, &Settings::motherboard_fast_ram, kMotherboardFastRamValues, 8, 0},
     {"puae6_collision_level", true, &Settings::collision_level, kCollisionLevelValues, 5, 0},
     {"puae6_cpu_model", true, &Settings::cpu_model, kCpuModelValues, 7, 0},
     {"puae6_cpu_compatibility", true, &Settings::cpu_compatibility, kCpuCompatibilityValues, 3, 0},
@@ -1116,14 +1165,22 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "Add ButtonWait to the core's WHDLoad preferences. Disabled preserves the tested T65a recipe (PUAE5 defaults to enabled). NoWriteCache stays enabled, SplashDelay and ConfigDelay stay zero; scripts and preferences from the game or provider are never used. It takes effect the next time the content is loaded; the running machine is not changed.",
      "Add ButtonWait to the core's WHDLoad preferences. Disabled preserves the tested T65a recipe (PUAE5 defaults to enabled). NoWriteCache stays enabled, SplashDelay and ConfigDelay stay zero; scripts and preferences from the game or provider are never used. It takes effect the next time the content is loaded; the running machine is not changed.",
      "media", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
+    {"puae6_chipset_compatible", "Chipset Compatible (Restart)", "Chipset Compatible (Restart)",
+     "Applies a validated WinUAE compatibility table after the machine profile. Auto preserves the profile; incompatible CPU or motherboard families are refused before execution. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Applies a validated WinUAE compatibility table after the machine profile. Auto preserves the profile; incompatible CPU or motherboard families are refused before execution. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"Auto", "Machine profile"}, {"A500", "A500"}, {"A600", "A600"}, {"A1200", "A1200"}, {"A4000", "A4000"}, {"CD32", "CD32"}, {"CDTV", "CDTV"}}, "Auto"},
+    {"puae6_chipset", "Chipset (Restart)", "Chipset (Restart)",
+     "Overrides the validated Agnus/Denise generation after the machine compatibility table. AGA requires a 68020-or-later profile; OCS addressing limits Chip RAM to 1 MiB. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "Overrides the validated Agnus/Denise generation after the machine compatibility table. AGA requires a 68020-or-later profile; OCS addressing limits Chip RAM to 1 MiB. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"Auto", "Compatibility table / machine profile"}, {"OCS", "OCS"}, {"ECS_Agnus", "ECS Agnus"}, {"ECS_Denise", "ECS Denise"}, {"ECS", "ECS"}, {"AGA", "AGA"}}, "Auto"},
     {"puae6_video_standard", "Video Standard (Restart)", "Video Standard (Restart)",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.",
      "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"PAL auto", "Automatic PAL (file name tags, else PAL)"}, {"NTSC auto", "Automatic NTSC (file name tags, else NTSC)"}, {"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL auto"},
     {"puae6_chip_size", "Chip RAM (Restart)", "Chip RAM (Restart)",
-     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.",
-     "machine", {{"Auto", "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
+     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. OCS Agnus supports at most 1 MiB; ECS and AGA profiles offer UAE's half-megabyte capacities through 8 MiB. Non-power-of-two banks keep their exact visible size and do not alias the reserved host tail. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. OCS Agnus supports at most 1 MiB; ECS and AGA profiles offer UAE's half-megabyte capacities through 8 MiB. Non-power-of-two banks keep their exact visible size and do not alias the reserved host tail. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"Auto", "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB2", "2 MiB"}, {"MB2_5", "2.5 MiB"}, {"MB3", "3 MiB"}, {"MB3_5", "3.5 MiB"}, {"MB4", "4 MiB"}, {"MB4_5", "4.5 MiB"}, {"MB5", "5 MiB"}, {"MB5_5", "5.5 MiB"}, {"MB6", "6 MiB"}, {"MB6_5", "6.5 MiB"}, {"MB7", "7 MiB"}, {"MB7_5", "7.5 MiB"}, {"MB8", "8 MiB"}}, "Auto"},
     {"puae6_slow_size", "Slow RAM (Restart)", "Slow RAM (Restart)",
      "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.",
      "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1140,6 +1197,10 @@ inline retro_core_option_v2_definition kDefinitionsV2[] = {
      "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030/A4040 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory. It takes effect the next time the content is loaded; the running machine is not changed.",
      "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030/A4040 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory. It takes effect the next time the content is loaded; the running machine is not changed.",
      "machine", {{"None", "None"}, {"MB16", "16 MiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"MB32", "32 MiB"}, {"MB64", "64 MiB"}, {"MB128", "128 MiB"}, {"MB256", "256 MiB"}, {"MB512", "512 MiB"}}, "None"},
+    {"puae6_motherboard_fast_ram", "Motherboard Fast RAM (Restart)", "Motherboard Fast RAM (Restart)",
+     "A4000 Ramsey motherboard RAM ending at $08000000. This memory is separate from Zorro II and Zorro III boards and is available only on A4030/A4040 with Normal CPU accuracy. Existing A4000 presets keep None. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "A4000 Ramsey motherboard RAM ending at $08000000. This memory is separate from Zorro II and Zorro III boards and is available only on A4030/A4040 with Normal CPU accuracy. Existing A4000 presets keep None. It takes effect the next time the content is loaded; the running machine is not changed.",
+     "machine", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"MB16", "16 MiB"}, {"MB32", "32 MiB"}, {"MB64", "64 MiB"}}, "None"},
     {"puae6_collision_level", "Collision Level (Restart)", "Collision Level (Restart)",
      "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.",
      "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.",
@@ -1462,12 +1523,15 @@ constexpr retro_core_option_definition kDefinitionsV1[] = {
     {"puae6_kickstart", "Kickstart ROM (Restart)", "Automatic looks for the Kickstart of the model (see Model). A version chosen here is looked for in the system directory instead, under PUAE5's names (kick34005.A500, amiga-os-130.rom, the TOSEC names) and the machine runs it if the ROM, identified by its content, can run on that machine: the CPU the ROM needs is checked at load and a Kickstart of another CPU (the 3.1 of the A1200 on an A500) is refused with the reason. A file whose name does not say its version is not found: rename it. ROMs encrypted by Amiga Forever (AMIROMTYPE1) are decrypted with the rom.key that sits in the same system directory; the decrypted ROM is the firmware and its SHA-256 the identity of the states, so a state taken with another Kickstart is refused. PUAE5's AROS is not offered (it is not built in). It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Automatic (the Kickstart of the model)"}, {"kick33180.A500", "1.2 r33.180 (A500, A2000)"}, {"kick34005.A500", "1.3 r34.5 (A500, A1000, A2000, CDTV)"}, {"kick37175.A500", "2.04 r37.175 (A500+)"}, {"kick37350.A600", "2.05 r37.350 (A600)"}, {"kick40063.A600", "3.1 r40.063 (A500, A600, A2000)"}, {"kick39106.A1200", "3.0 r39.106 (A1200)"}, {"kick40068.A1200", "3.1 r40.068 (A1200)"}}, "auto"},
     {"puae6_whdload", "WHDLoad Support (Restart)", "A directory, LHA or ZIP with exactly one .slave boots on the A1200 with its Kickstart 3.1. Supply the pinned WHDLoad_usr.lha in the system directory. The core constructs three images in memory, uses its own startup and preferences, and never mounts a host directory. Save Hard Disk Changes keeps writes only when content closes. Multiple slaves or mixed media are refused; Disabled keeps the normal volume flow. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Automatic: one slave uses the WHDLoad bundle"}, {"disabled", "Disabled: load as a normal volume"}}, "auto"},
     {"puae6_whdload_buttonwait", "WHDLoad ButtonWait (Restart)", "Add ButtonWait to the core's WHDLoad preferences. Disabled preserves the tested T65a recipe (PUAE5 defaults to enabled). NoWriteCache stays enabled, SplashDelay and ConfigDelay stay zero; scripts and preferences from the game or provider are never used. It takes effect the next time the content is loaded; the running machine is not changed.", {{"disabled", "Disabled"}, {"enabled", "Enabled"}}, "disabled"},
+    {"puae6_chipset_compatible", "Chipset Compatible (Restart)", "Applies a validated WinUAE compatibility table after the machine profile. Auto preserves the profile; incompatible CPU or motherboard families are refused before execution. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine profile"}, {"A500", "A500"}, {"A600", "A600"}, {"A1200", "A1200"}, {"A4000", "A4000"}, {"CD32", "CD32"}, {"CDTV", "CDTV"}}, "Auto"},
+    {"puae6_chipset", "Chipset (Restart)", "Overrides the validated Agnus/Denise generation after the machine compatibility table. AGA requires a 68020-or-later profile; OCS addressing limits Chip RAM to 1 MiB. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Compatibility table / machine profile"}, {"OCS", "OCS"}, {"ECS_Agnus", "ECS Agnus"}, {"ECS_Denise", "ECS Denise"}, {"ECS", "ECS"}, {"AGA", "AGA"}}, "Auto"},
     {"puae6_video_standard", "Video Standard (Restart)", "PAL has 312 lines at 50 Hz and NTSC 262 lines at 60 Hz. It decides the clock and the timing of the whole machine. The automatic values (T76, as PUAE5's) take NTSC from NTSC or (USA) and PAL from PAL, (Europe), (France), (Germany), (Italy), (Spain), (Finland), (Denmark) or (Sweden) in the name of the file or of one of its disks when File Name Tags is on, and the standard they name when there is no such tag. It takes effect the next time the content is loaded; the running machine is not changed.", {{"PAL auto", "Automatic PAL (file name tags, else PAL)"}, {"NTSC auto", "Automatic NTSC (file name tags, else NTSC)"}, {"PAL", "PAL (50 Hz)"}, {"NTSC", "NTSC (60 Hz)"}}, "PAL auto"},
-    {"puae6_chip_size", "Chip RAM (Restart)", "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. The A500 (OCS Agnus) has 512 KiB or 1 MiB; 2 MiB needs an ECS or AGA machine. 1.5 MiB is not offered: the engine allocates it as 2 MiB with the upper half out of reach. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}}, "Auto"},
+    {"puae6_chip_size", "Chip RAM (Restart)", "The Chip RAM the Amiga has. 'Machine's own' is what the model comes with. OCS Agnus supports at most 1 MiB; ECS and AGA profiles offer UAE's half-megabyte capacities through 8 MiB. Non-power-of-two banks keep their exact visible size and do not alias the reserved host tail. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (512 KiB on the OCS machines, 1 MiB on the ECS ones, 2 MiB on the A1200)"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB2", "2 MiB"}, {"MB2_5", "2.5 MiB"}, {"MB3", "3 MiB"}, {"MB3_5", "3.5 MiB"}, {"MB4", "4 MiB"}, {"MB4_5", "4.5 MiB"}, {"MB5", "5 MiB"}, {"MB5_5", "5.5 MiB"}, {"MB6", "6 MiB"}, {"MB6_5", "6.5 MiB"}, {"MB7", "7 MiB"}, {"MB7_5", "7.5 MiB"}, {"MB8", "8 MiB"}}, "Auto"},
     {"puae6_slow_size", "Slow RAM (Restart)", "The Slow RAM at $C00000 (the A500 trapdoor board). 'Machine's own' is 512 KiB on the A500 and the A2000 OG and none on the others. 1.75 MiB is not offered on the A1200: AGA maps 1.5 MiB of it at most. It takes effect the next time the content is loaded; the running machine is not changed.", {{"Auto", "Machine's own (A500 and A2000 OG 512 KiB, the others none)"}, {"None", "None"}, {"KB512", "512 KiB"}, {"MB1", "1 MiB"}, {"MB1_5", "1.5 MiB"}, {"MB1_75", "1.75 MiB"}}, "Auto"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart)", "Auto uses the machine's own RAM (A4030/A4040: 8 MiB, others: none); None disables the board. One Zorro II Fast RAM board that the Kickstart configures through autoconfig, as PUAE5's A600 and A1200 have (8 MiB). The state of a machine with Fast RAM is larger by the size of the board. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"Auto", "Machine's own (A4030/A4040: 8 MiB; others: none)"}}, "Auto"},
     {"puae6_fpu_model", "FPU (Restart)", "The A1200 and A4030 accept a 68881 or 68882. A4040 accepts no FPU or the internal 68040/68060 FPU matching its CPU. Other combinations are refused at load. It is computed by SoftFloat, never by the host's FPU, so the results are the same on every host and ISA. Programs that find no FPU use their own code: PUAE5's A1200 has a 68882. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"M68881", "68881"}, {"M68882", "68882"}, {"M68040", "68040 internal (matching CPU only)"}, {"M68060", "68060 internal (matching CPU only)"}}, "None"},
     {"puae6_z3_memory", "Zorro III Fast RAM (Restart)", "One Zorro III board with 1, 2, 4, 8, 16, 32, 64, 128, 256 or 512 MiB, configured by the guest. Available on A4030/A4040 with Normal CPU accuracy only; other machines are refused. No MMU. None retains the machine's original memory. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB16", "16 MiB"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"MB32", "32 MiB"}, {"MB64", "64 MiB"}, {"MB128", "128 MiB"}, {"MB256", "256 MiB"}, {"MB512", "512 MiB"}}, "None"},
+    {"puae6_motherboard_fast_ram", "Motherboard Fast RAM (Restart)", "A4000 Ramsey motherboard RAM ending at $08000000. This memory is separate from Zorro II and Zorro III boards and is available only on A4030/A4040 with Normal CPU accuracy. Existing A4000 presets keep None. It takes effect the next time the content is loaded; the running machine is not changed.", {{"None", "None"}, {"MB1", "1 MiB"}, {"MB2", "2 MiB"}, {"MB4", "4 MiB"}, {"MB8", "8 MiB"}, {"MB16", "16 MiB"}, {"MB32", "32 MiB"}, {"MB64", "64 MiB"}}, "None"},
     {"puae6_collision_level", "Collision Level (Restart)", "Full preserves all sprite and playfield collisions (the default). Reduced levels change what CLXDAT reports and may break games; they are compatibility options, part of state and movie identity. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (Full)"}, {"none", "None"}, {"sprites", "Sprites only"}, {"playfields", "Sprites and Playfields"}, {"full", "Full"}}, "auto"},
     {"puae6_cpu_model", "CPU (Restart)", "The CPU of the machine. 'Machine's own' is the 68000 of the A500, A500 OG, A500+, A600, A1000, A2000 OG and A2000 and the soldered 68EC020 of the A1200. The machines with a 68000 also take a 68010 in its socket (loop mode, VBR, RTD, MOVES and the four word exception frames); a 68020 is the A1200's and the A1200 takes no other CPU, and any other combination fails the load with the reason. The A4030 has a 68030 with Normal accuracy only and no MMU; compatible and exact 030 are rejected. The A4040 has a 68040 by default and also accepts a 68060, both Normal only, without MMU or instruction/data caches. Its internal FPU is an explicit matching choice. The CPU is part of the machine: a state, a rewind or a movie of one CPU does not load in another. It takes effect the next time the content is loaded; the running machine is not changed.", {{"auto", "Machine's own (68000; 68EC020 on the A1200)"}, {"68000", "68000"}, {"68010", "68010"}, {"68020", "68020"}, {"68030", "68030 (A4030, Normal only, no MMU)"}, {"68040", "68040 (A4040, Normal only, no MMU)"}, {"68060", "68060 (A4040, Normal only, no MMU)"}}, "auto"},
     {"puae6_cpu_compatibility", "CPU Accuracy (Restart)", "CPU accuracy for the supported 68000, 68010 and 68EC020 machines; the A4030/68030 and A4040/68040/68060 require Normal and have no MMU. Exact preserves cycle-exact CPU and bus timing (the default); compatible preserves prefetch and normal uses instruction timing. Every level counts emulated time independently of the host clock. Changing the level requires reloading the content; states and movies require the same level. It takes effect the next time the content is loaded; the running machine is not changed.", {{"exact", "Cycle exact"}, {"compatible", "Compatible (prefetch)"}, {"normal", "Normal (instruction timing)"}}, "exact"},
@@ -1558,12 +1622,15 @@ constexpr retro_variable kVariables[] = {
     {"puae6_kickstart", "Kickstart ROM (Restart); auto|kick33180.A500|kick34005.A500|kick37175.A500|kick37350.A600|kick40063.A600|kick39106.A1200|kick40068.A1200"},
     {"puae6_whdload", "WHDLoad Support (Restart); auto|disabled"},
     {"puae6_whdload_buttonwait", "WHDLoad ButtonWait (Restart); disabled|enabled"},
+    {"puae6_chipset_compatible", "Chipset Compatible (Restart); Auto|A500|A600|A1200|A4000|CD32|CDTV"},
+    {"puae6_chipset", "Chipset (Restart); Auto|OCS|ECS_Agnus|ECS_Denise|ECS|AGA"},
     {"puae6_video_standard", "Video Standard (Restart); PAL auto|NTSC auto|PAL|NTSC"},
-    {"puae6_chip_size", "Chip RAM (Restart); Auto|KB512|MB1|MB2"},
+    {"puae6_chip_size", "Chip RAM (Restart); Auto|KB512|MB1|MB1_5|MB2|MB2_5|MB3|MB3_5|MB4|MB4_5|MB5|MB5_5|MB6|MB6_5|MB7|MB7_5|MB8"},
     {"puae6_slow_size", "Slow RAM (Restart); Auto|None|KB512|MB1|MB1_5|MB1_75"},
     {"puae6_fast_size", "Fast RAM (Zorro II) (Restart); Auto|None|MB1|MB2|MB4|MB8"},
     {"puae6_fpu_model", "FPU (Restart); None|M68881|M68882|M68040|M68060"},
     {"puae6_z3_memory", "Zorro III Fast RAM (Restart); None|MB16|MB1|MB2|MB4|MB8|MB32|MB64|MB128|MB256|MB512"},
+    {"puae6_motherboard_fast_ram", "Motherboard Fast RAM (Restart); None|MB1|MB2|MB4|MB8|MB16|MB32|MB64"},
     {"puae6_collision_level", "Collision Level (Restart); auto|none|sprites|playfields|full"},
     {"puae6_cpu_model", "CPU (Restart); auto|68000|68010|68020|68030|68040|68060"},
     {"puae6_cpu_compatibility", "CPU Accuracy (Restart); exact|compatible|normal"},

@@ -28316,6 +28316,326 @@
       "stop": "No incorporar el ZIP, BIN, CUE privado ni sus hashes al repositorio; no fingir 2048 bytes para Form 2, no cambiar TOC, identidad, estado, ABI ni formatos de frontend."
     },
     {
+      "id": "T105a",
+      "title": "Paridad Chip RAM de 512 KiB a 8 MiB sin perder perfiles",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T104"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/parity-puae5.md",
+        "docs/07-machawk.md",
+        "references/machawk/src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs",
+        "upstream/winuae/main.cpp",
+        "upstream/winuae/memory.cpp",
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "config/schema/options.json",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/state/test_state_fast.py",
+        "tests/waterbox-state/test_wrapper_memory.py"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/include/p6.h",
+        "bridge/config.cpp",
+        "bridge/config.h",
+        "bridge/state.cpp",
+        "config/schema/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/config/**",
+        "tests/libretro-ui/**",
+        "tests/waterbox-state/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/parity-puae5.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Aceptar las dieciseis capacidades de Chip RAM que ofrece UAE, de 512 KiB a 8 MiB en pasos de 512 KiB, solo en perfiles con Agnus compatible; conservar Auto y los valores concretos de todos los presets.",
+        "Corregir mediante parche el almacenamiento y los accesos de tamanos no potencia de dos, sin enmascarar direcciones hacia otra pagina ni exponer el hueco reservado; incluir tamano y bytes exactos en identidad, regiones y estado.",
+        "Exponer los valores en esquema, headless, libretro y MacHawk, con rechazo explicito de combinaciones fisicamente incompatibles y pruebas de restauracion para un tamano no potencia de dos y el extremo de 8 MiB."
+      ],
+      "checks": [
+        "GEN01",
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Cada opcion entre 512 KiB y 8 MiB conserva exactamente sus bytes direccionables, produce identidad distinta y restaura el mismo futuro; 2,5 MiB no aliasa sus paginas bajas y 8 MiB no desborda el banco.",
+        "Los perfiles existentes mantienen sus valores e identidades por defecto y el PropertyGrid sigue infiriendo el mismo perfil; una maquina cuyo Agnus no puede direccionar el valor falla antes de crear la sesion con diagnostico concreto.",
+        "Native y Waterbox pasan sus puertas dirigidas y la misma superficie queda preparada para portarse a PUAE61 sin copiar un estado ni un golden de otra version."
+      ],
+      "stop": "No limitarse a mostrar valores que fixup_prefs reduzca a 2 MiB, no cambiar golden ni tolerancias, no habilitar MMU/JIT y no aceptar una combinacion cuyo rango de DMA/CPU no este probado."
+    },
+    {
+      "id": "T105b",
+      "title": "Paridad de Chipset compatible y override de chipset sobre perfiles",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T105a"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "references/machawk/src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs",
+        "bridge/config.cpp",
+        "integration/bizhawk/core/Puae6/Profiles.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs"
+      ],
+      "touch": [
+        "bridge/**",
+        "config/schema/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/smoke/**",
+        "tests/config/**",
+        "tests/contracts/**",
+        "tests/ffi/**",
+        "tests/host/**",
+        "tests/libretro-host/**",
+        "tests/media/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "tools/generate_options.py",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/parity-puae5.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Anadir Auto/A500/A600/A1200/A4000/CD32/CDTV y Auto/OCS/ECS Agnus/ECS Denise/ECS/AGA como overrides concretos del perfil, preservando el selector virtual y sus defaults.",
+        "Definir una matriz validada de CPU, Agnus, Denise y placa; aplicar primero el perfil y despues los overrides, con identidad causal y diagnosticos independientes del orden.",
+        "Probar las combinaciones validas y los rechazos en native, libretro y Waterbox, incluida restauracion en sandbox nuevo."
+      ],
+      "checks": [
+        "GEN01",
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "PUAE6 permite los mismos selectores visibles que UAE sin perder los perfiles ni convertir Auto en otro valor serializado.",
+        "Cada combinacion aceptada conserva chipset, identidad y futuro tras save/load; las incompatibles se rechazan antes de ejecutar."
+      ],
+      "stop": "No pasar cs_compatible o chipset_mask crudos sin validacion, no reactivar dispositivos host de una tabla y no usar el orden de propiedades para resolver contradicciones."
+    },
+    {
+      "id": "T105c",
+      "title": "Paridad Fast RAM con seleccion Zorro II o Zorro III",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T105b"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "references/machawk/src/BizHawk.Emulation.Cores/Computers/Amiga/UAE.ISettable.cs",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "integration/bizhawk/core/Puae6/Settings.cs"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "config/schema/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "tests/ffi/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Sustituir el falso entero arbitrario de UAE por una seleccion numerica cuya resolucion a una placa Zorro II o Zorro III sea explicita y reproducible, conservando las opciones tipadas actuales.",
+        "Rechazar capacidades que ninguna placa emulada represente en vez de redondearlas; conservar Autoconfig, regiones, presupuesto Waterbox y estado de la placa elegida.",
+        "Probar extremos y transicion Z2/Z3 con identidad, estado y perfiles existentes."
+      ],
+      "checks": [
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "La propiedad unificada cubre todas las capacidades realmente soportadas de UAE y muestra si son Zorro II o III; los presets Fast8 siguen produciendo la misma placa Z2.",
+        "No se acepta un entero que fixup_prefs borre o cambie y cada capacidad aceptada restaura bytes y Autoconfig exactos."
+      ],
+      "stop": "No presentar 0..512 como rango continuo si el hardware solo admite capacidades discretas, no convertir una Z2 en Z3 silenciosamente y no alterar los presets Fast8."
+    },
+    {
+      "id": "T105d",
+      "title": "Motherboard Fast RAM A4000 con estado y perfiles",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T105c"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "upstream/winuae/memory.cpp",
+        "bridge/config.cpp",
+        "bridge/state.cpp",
+        "integration/bizhawk/core/Puae6/Settings.cs"
+      ],
+      "touch": [
+        "bridge/**",
+        "config/schema/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/smoke/Puae6.cs",
+        "tests/config/**",
+        "tests/contracts/**",
+        "tests/ffi/**",
+        "tests/host/**",
+        "tests/libretro-host/**",
+        "tests/libretro-ui/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "tools/check.py",
+        "tools/generate_options.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Exponer None/1/2/4/8/16/32/64 MiB como RAM de placa A4000 separada de Z2/Z3 y asignar el banco bajo de Ramsey que usa WinUAE.",
+        "Anadir region, identidad, codec nativo y presupuesto Waterbox exactos sin mover el banco a memoria invisible.",
+        "Mantener A4030/A4040/A4060 con sus perfiles actuales y probar RAM de placa sola y combinada con una placa Z3.",
+        "Ampliacion de touch (2026-11-01): el campo aditivo del ABI y la opcion generada requieren actualizar probes de contrato/host/libretro, el smoke de Waterbox, FFI y sus registradores en tools/check.py; no cambia el alcance funcional."
+      ],
+      "checks": [
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "La RAM de placa solo aparece en A4000, conserva direccion, bytes y latches Ramsey tras restaurar y no sustituye Fast8/Z3.",
+        "Los perfiles A4000 existentes conservan sus defaults y cada override aceptado entra en la identidad de estado y pelicula."
+      ],
+      "stop": "No llamar motherboard RAM a una placa Zorro, no omitirla del snapshot por tamano y no habilitarla en maquinas sin Ramsey."
+    },
+    {
+      "id": "T105e",
+      "title": "Importacion .uae amplia pero validada y transaccional",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T105d"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "adapters/libretro/config_import.cpp",
+        "config/schema/options.json",
+        "tests/libretro-ui/test_uae.py"
+      ],
+      "touch": [
+        "adapters/libretro/**",
+        "config/schema/**",
+        "tests/libretro-ui/**",
+        "tests/fuzz/**",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Ampliar el allowlist a toda clave de hardware que tenga representacion publica y estado probado, incluida la nueva memoria y chipset, manteniendo paths relativos y diagnosticos agregados.",
+        "Resolver primero el documento completo y validar la combinacion final sin depender del orden; no aplicar parcialmente una configuracion con errores.",
+        "Clasificar y rechazar plugins, comandos, red, PPC, JIT, MMU y cualquier clave sin propietario determinista."
+      ],
+      "checks": [
+        "LR01",
+        "FUZZ01"
+      ],
+      "acceptance": [
+        "Las configuraciones UAE de la superficie soportada producen los mismos valores efectivos que el editor y los presets, independientemente del orden de claves.",
+        "Una clave host o combinacion invalida rechaza el archivo completo sin mutar opciones ni medios; el fuzzer no encuentra ejecucion, path escape ni estado parcial."
+      ],
+      "stop": "Paridad no significa ejecutar comandos ni cargar plugins: no importar una clave sin contrato, identidad, estado y prueba."
+    },
+    {
+      "id": "T105f",
+      "title": "Portar la paridad de configuracion a PUAE61 y cerrar matriz cruzada",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T105e"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/adr/0005-update-rehearsal.md",
+        "integration/bizhawk/core/Puae6/Profiles.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs"
+      ],
+      "touch": [
+        "adapters/**",
+        "bridge/**",
+        "config/**",
+        "docs/adr/**",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/user/**",
+        "integration/bizhawk/**",
+        "patches/winuae/**",
+        "tests/**",
+        "tools/check.py",
+        "tools/generate_options.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Portar cada cambio funcional y su parche a la cola beta21 en un worktree aislado, preservando los cambios locales del checkout PUAE61 y sin copiar estados ni hashes golden entre motores.",
+        "Mantener una unica clase de Sync Settings/perfiles en MacHawk para PUAE6 y PUAE61, pero guests, identidades, estados y peliculas separados.",
+        "Ejecutar las puertas dirigidas de ambos motores y la prueba Windows que abre los dos cores con presets y overrides equivalentes antes de integrar."
+      ],
+      "checks": [
+        "BUILD01",
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "PUAE6 y PUAE61 muestran la misma superficie de perfiles y overrides, y cada uno ejecuta/restaura su propio guest con identidad distinta.",
+        "Los presets previos conservan sus valores concretos en ambos cores y la matriz cruzada detecta cualquier fallback o normalizacion silenciosa."
+      ],
+      "stop": "No modificar encima del worktree beta21 sucio, no compartir estados o peliculas entre builds y no declarar paridad con una sola version probada."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

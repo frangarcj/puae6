@@ -6797,6 +6797,35 @@
           "after_sha256": "8659e5245804ee526dc231d939999c2ffed47c01a167276a6ac874093b6d7749"
         }
       ]
+    },
+    {
+      "id": "0439-chipmem-half-megabyte-steps",
+      "file": "patches/winuae/0439-chipmem-half-megabyte-steps.patch",
+      "sha256": "a27dbe33ff71ad6f7c2614b10b2fe6d49365122c7fb78d357bd003220dd054c5",
+      "title": "Map non-power-of-two Chip RAM without address aliasing",
+      "reason": "T105a exposes the half-megabyte capacities offered by the UAE settings. WinUAE 6.0.3 otherwise resets most of them to 2 MiB, and its 1.5 MiB-only accessors hard-code that boundary. Allocate the next power-of-two host span, keep the exact guest-visible size, and use bounded accessors for every non-power-of-two bank; JIT remains excluded.",
+      "category": "portable memory configuration",
+      "order": 254,
+      "symbols": [
+        "fixup_prefs",
+        "chipmem_setindirect",
+        "allocate_memory"
+      ],
+      "test": "tests/state/test_state_fast.py",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "main.cpp",
+          "before_sha256": "fe353c60249e9bebe4a29a9934d11d10f723b962ec27ddbd4ba38ee7b2c9f9c7",
+          "after_sha256": "c47a5429ee781a85b3f972bf4accd2a6cf80e1d35f75e56754a79f9cacb663c2"
+        },
+        {
+          "path": "memory.cpp",
+          "before_sha256": "02208997a8771e9d85f584682f64ee07c546622a8b5adfb825917d13f79e591a",
+          "after_sha256": "8688b7fbfcc48af0235fc4466de03c21c5d0fe101fc971445a0665594fbecb99"
+        }
+      ]
     }
   ]
 }

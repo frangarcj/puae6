@@ -1424,6 +1424,51 @@ TASK_SUITES[('WB03', 'T100')] = {
         'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_uaescsi_with_two_uae_hdfs_restores_in_place_and_in_a_new_sandbox',
     'uaescsi_auto_without_cd':
         'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_uaescsi_auto_without_cd_resolves_disabled_and_runs'}
+TASK_SUITES[('GEN01', 'T105a')] = {
+    'chip_schema_and_generated_frontends': 'tests.config.test_schema',
+    'chip_managed_and_adapter_parity': 'tests.config.test_parity',
+    'chip_uae_import': 'tests.libretro-ui.test_uae'}
+TASK_SUITES[('STATE01', 'T105a')] = {
+    'extended_chip_native_access': 'tests.host.test_bridge_memory',
+    'extended_chip_state_identity_and_restore': 'tests.state.test_state_fast.LayoutTests.test_extended_chip_ram_keeps_its_exact_state_bytes_and_identity'}
+TASK_SUITES[('WB03', 'T105a')] = {
+    'extended_chip_sandbox_and_process_restore':
+        'tests.waterbox-state.test_wrapper_memory.WrapperMemoryTests.test_extended_chip_ram_has_its_exact_domain_and_restores_in_a_fresh_sandbox'}
+TASK_SUITES[('GEN01', 'T105b')] = {
+    'chipset_schema_and_generated_frontends': 'tests.config.test_schema',
+    'chipset_managed_and_adapter_parity': 'tests.config.test_parity',
+    'additive_config_layout': 'tests.contracts.test_api',
+    'chipset_libretro_mapping_and_validation': 'tests.libretro-host.test_chipset'}
+TASK_SUITES[('STATE01', 'T105b')] = {
+    'chipset_validation_and_applied_preferences': 'tests.host.test_bridge_lifecycle',
+    'chipset_identity_and_cold_restore': 'tests.state.test_state_chipset'}
+TASK_SUITES[('WB03', 'T105b')] = {
+    'chipset_sandbox_and_process_restore':
+        'tests.waterbox-state.test_wrapper_memory.WrapperMemoryTests.test_chipset_overrides_restore_in_a_new_sandbox_and_process'}
+TASK_SUITES[('STATE01', 'T105c')] = {
+    'unified_fast_ram_property_and_presets': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'z2_identity_and_cold_restore': 'tests.state.test_state_fast.LayoutTests.test_the_state_is_saved_again_byte_for_byte_after_a_load_into_a_new_process',
+    'z3_autoconfig_and_restore': 'tests.state.test_z3.Z3Tests'}
+TASK_SUITES[('WB03', 'T105c')] = {
+    'z2_sandbox_restore': 'tests.waterbox-state.test_wrapper_memory.WrapperMemoryTests.test_a_movie_with_fast_ram_plays_back_to_the_units_of_its_recording',
+    'z3_sandbox_and_process_restore': 'tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests.test_cpu_fpu_z3_oracles_and_same_new_sandbox_and_process_restore'}
+TASK_SUITES[('STATE01', 'T105d')] = {
+    'motherboard_fast_native_state_and_ramsey': 'tests.state.test_motherboard_fast.MotherboardFastTests'}
+TASK_SUITES[('WB03', 'T105d')] = {
+    'motherboard_fast_wrapper_domain_heap_restore': 'tests.waterbox-state.test_wrapper_motherboard_fast.WrapperMotherboardFastTests.test_domain_heap_and_restore_alone_and_with_z3'}
+TASK_SUITES[('LR01', 'T105e')] = {
+    'transactional_uae_import_and_frontend_equivalence': 'tests.libretro-ui.test_uae'}
+TASK_SUITES[('FUZZ01', 'T105e')] = {
+    'seeded_uae_mutation_paths_and_no_partial_state': 'tests.libretro-ui.test_uae.UaeProbeTests'}
+TASK_SUITES[('BUILD01', 'T105f')] = {
+    'cross_version_surface_presets_and_product_identity':
+        'tests.config.test_cross_version_parity.CrossVersionBuildParityTests'}
+TASK_SUITES[('STATE01', 'T105f')] = {
+    'beta21_native_configuration_identity_and_restore':
+        'tests.config.test_cross_version_parity.CrossVersionStateParityTests'}
+TASK_SUITES[('WB03', 'T105f')] = {
+    'beta21_wrapper_domains_heaps_and_cold_restore':
+        'tests.config.test_cross_version_parity.CrossVersionWaterboxParityTests'}
 for _gate, _children in {
     'MED02': ('T84g1', 'T84g3'), 'STATE01': ('T84g2',), 'WB03': ('T84g2',), 'BUILD01': ('T84g3',),
 }.items():

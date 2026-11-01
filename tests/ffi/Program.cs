@@ -66,6 +66,7 @@ internal static unsafe partial class Program
 					if (options.TryGetValue("slow", out var slow)) settings.SlowMemory = Enum.Parse<Puae6Slow>(slow);
 					if (options.TryGetValue("fast", out var fast)) settings.FastMemory = Enum.Parse<Puae6Fast>(fast);
 					if (options.TryGetValue("z3", out var z3)) settings.Z3Memory = Enum.Parse<Puae6Z3Memory>(z3);
+					if (options.TryGetValue("motherboard-fast", out var motherboard)) settings.MotherboardFastRam = Enum.Parse<Puae6MotherboardFastRam>(motherboard);
 					if (options.TryGetValue("rtg", out var rtg)) settings.RtgMemory = Enum.Parse<Puae6RtgMemory>(rtg);
 					settings.FloppyWrites = options.ContainsKey("writes");
 					// --hdf-bytes N[,N...] (T63b): the sizes of the hard files the core would be given.
@@ -223,6 +224,21 @@ internal static unsafe partial class Program
 		Require(new Puae6SyncSettings().CdController == Puae6CdController.Auto && cdController.DisplayName == "CD controller"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { CdController = Puae6CdController.Ide }),
 			"CD controller is an Auto/CD32/IDE/None sync setting");
+
+		var fastSettings = new Puae6SyncSettings { Machine = Puae6Machine.A4030, CpuCompatibility = Puae6CpuCompatibility.Normal };
+		var fastGrid = System.ComponentModel.TypeDescriptor.GetProperties(fastSettings);
+		var fastRam = fastGrid["FastRam"]!;
+		Require(fastRam != null && fastGrid[nameof(Puae6SyncSettings.FastMemory)] == null && fastGrid[nameof(Puae6SyncSettings.Z3Memory)] == null,
+			"the PropertyGrid exposes one Fast RAM board selector while concrete legacy fields remain serializable");
+		Require((Puae6FastRam)fastRam.GetValue(fastSettings)! == Puae6FastRam.Profile, "the unified Fast RAM selector starts at the machine profile");
+		fastRam.SetValue(fastSettings, Puae6FastRam.Z2MB8);
+		Require(fastSettings.FastMemory == Puae6Fast.MB8 && fastSettings.Z3Memory == Puae6Z3Memory.None, "Zorro II 8 MiB resolves to the existing Z2 board");
+		fastRam.SetValue(fastSettings, Puae6FastRam.Z3MB512);
+		Require(fastSettings.FastMemory == Puae6Fast.None && fastSettings.Z3Memory == Puae6Z3Memory.MB512, "Zorro III 512 MiB resolves without an implicit Z2 board");
+		var profile = fastGrid["MachineProfile"]!;
+		profile.SetValue(fastSettings, Puae6MachineProfile.A1200Fast8);
+		Require(fastSettings.FastMemory == Puae6Fast.MB8 && fastSettings.Z3Memory == Puae6Z3Memory.None
+			&& (Puae6FastRam)fastRam.GetValue(fastSettings)! == Puae6FastRam.Z2MB8, "Fast8 presets remain the same Zorro II board");
 		var uaeScsi = sync[nameof(Puae6SyncSettings.UaeScsi)]!;
 		Require(new Puae6SyncSettings().UaeScsi == Puae6UaeScsi.Auto && uaeScsi.DisplayName == "uaescsi.device"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { UaeScsi = Puae6UaeScsi.Enabled })
@@ -324,7 +340,7 @@ internal static unsafe partial class Program
 			Console.WriteLine($"size {name} {sizeof(T)}");
 			foreach (string field in fields) Console.WriteLine($"field {name}.{field} {Marshal.OffsetOf<T>(field)}");
 		}
-		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "RtgMemory", "Z3Memory", "CdController");
+		Dump<P6Config>("P6Config", "AbiVersion", "StructSize", "Machine", "VideoStandard", "AudioRateHz", "Flags", "RandomSeed", "RtcEpochSeconds", "ChipKib", "SlowKib", "FastKib", "FpuModel", "SoundSeparation", "SoundInterpolation", "SoundFilter", "SoundFilterType", "FloppySpeed", "VideoResolution", "VideoLineMode", "CpuModel", "CpuMultiplier", "HdfController", "CpuCompatibility", "FloppyDrives", "CollisionLevel", "RtgMemory", "Z3Memory", "CdController", "ChipsetCompatible", "Chipset", "MotherboardFastRam");
 		Dump<P6PortInput>("P6PortInput", "Type", "Buttons", "Dx", "Dy", "Reserved");
 		Dump<P6Input>("P6Input", "AbiVersion", "StructSize", "Keys", "Port0", "Port1", "Reserved");
 		Dump<P6Rect>("P6Rect", "X", "Y", "Width", "Height");
