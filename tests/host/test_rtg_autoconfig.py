@@ -62,15 +62,17 @@ void map_banks(addrbank *bank, int first, int count, int)
 	bank->flags |= ABFLAG_MAPPED;
 }
 
-void map_banks_z2(addrbank *bank, int first, int count)
+bool map_banks_z2(addrbank *bank, int first, int count)
 {
 	map_banks(bank, first, count, 0);
+	return true;
 }
 
-void map_banks_z3(addrbank *bank, int first, int count)
+bool map_banks_z3(addrbank *bank, int first, int count)
 {
 	++map_calls;
 	map_banks(bank, first, count, 0);
+	return true;
 }
 
 int main()
@@ -206,14 +208,15 @@ class RtgAutoconfigTests(unittest.TestCase):
             probe = temporary / "probe.cpp"
             probe.write_text(textwrap.dedent(PROBE), encoding="utf-8")
             executable = temporary / "probe"
-            subprocess.run([
+            build = subprocess.run([
                 "clang++", "-std=c++17", "-UNDEBUG", "-fno-fast-math", "-O1",
                 "-ffunction-sections", "-fdata-sections", "-DP6_PORTABLE_RTG=1",
                 *SANITIZERS, *includes, str(probe),
                 str(ROOT / "ports/portable/rtg_device.cpp"),
                 str(ROOT / "ports/portable/rtg_memory.cpp"),
                 "-Wl,-dead_strip", "-o", str(executable),
-            ], check=True, timeout=180, capture_output=True)
+            ], timeout=180, capture_output=True, text=True)
+            self.assertEqual(build.returncode, 0, build.stderr[-4000:])
             result = subprocess.run(
                 [str(executable)], capture_output=True, text=True, timeout=120,
                 env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0"})
