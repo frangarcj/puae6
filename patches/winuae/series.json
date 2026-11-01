@@ -1359,9 +1359,9 @@
     {
       "id": "0382-sprite-restore-unsigned-words",
       "file": "patches/winuae/0382-sprite-restore-unsigned-words.patch",
-      "sha256": "e937c2d90c7dee2cb4be3fabfc0e7a7a9a60aa5327387d0a64764ee6d6d71b68",
+      "sha256": "262763f2ade9ca0a4cad44bcee3a5af04b0233506f3dad8e66d6817a461717e1",
       "title": "Reconstruct sprite state words without signed extension",
-      "reason": "T66r7: restore_custom_sprite_denise promoted uint16 words to int; high-bit words sign-extended to uint64 and overwrote the other half of native sprite state. Use unsigned32 intermediates for both32/64-bit modes.",
+      "reason": "T95dt ports the attributed 0382 correction to beta21: uint16 sprite words must be widened unsigned before shifts used to rebuild the native 64-bit Denise state.",
       "category": "state corrections",
       "order": 53,
       "symbols": [
@@ -1373,8 +1373,8 @@
       "files": [
         {
           "path": "drawing.cpp",
-          "before_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a",
-          "after_sha256": "6af1f03f335196827febb68bfb02e13cd64c51fcf677583898758d666cdbd4ef"
+          "before_sha256": "e8b1c9a0571a681d784a7a8d42fb1f983c9e9e106a6996750d53ded162db17b5",
+          "after_sha256": "3d54012b1b7981909d757d931433dd47e653a1a5a0707dfcfa7b50586c437bc2"
         }
       ]
     },
