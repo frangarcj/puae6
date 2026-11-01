@@ -28,9 +28,10 @@ class PendingConfigTests(d.Det02Case):
 
     def test_early_and_changed_mode_cuts_keep_the_pending_check_and_complete_future(self):
         for rom in ("vsync", "long_frame"):
-            # On AGA this existing scenario adopts its shorter raster in unit 6;
+            # Beta21 keeps agnus_afterreset for three more fields, starts the
+            # stable-raster countdown in units 10/11 and adopts it in unit 12;
             # the following two boundaries still hold the mode-change request.
-            points = (1, 2) if rom == "vsync" else (6, 7)
+            points = (1, 2) if rom == "vsync" else (12, 13)
             paths = {n: self.dir / f"{rom}.{n}" for n in points}
             final = self.dir / (rom + ".end")
             ops = [arg for n, path in paths.items() for arg in ("--public-save-at", str(n), str(path))]
