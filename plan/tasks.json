@@ -28110,6 +28110,53 @@
       "stop": "No convertir Auto en un cambio silencioso de maquina/controlador ni hacer que la identidad dependa de estado host no registrado."
     },
     {
+      "id": "T101",
+      "title": "Publicar preview con consultas CPU y uaescsi automatico",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "blocked_reason": "",
+      "depends": [
+        "T96",
+        "T99",
+        "T100"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "docs/user/waterbox-preview.md",
+        "docs/user/release-notes.md",
+        "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
+        "build/machawk-puae6/waterbox/puae6/README.md",
+        "build/machawk-puae6/waterbox/puae6/prepare.py",
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py"
+      ],
+      "touch": [
+        "build/machawk-puae6/**",
+        "docs/user/waterbox-preview.md",
+        "docs/user/release-notes.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Importar en el clon MacHawk aislado los commits T99/T100 y el guest reconstruido desde la cola exacta, sin copiar ROM, HDF, capturas ni otro input privado.",
+        "Ampliar el smoke de producto con A4030 sin FPU, A4040 sin/con FPU y la resolucion Disabled/Auto/Enabled de uaescsi; compilar y ejecutar la puerta Windows real antes de integrar.",
+        "Fusionar el candidato probado en main, esperar la matriz integrada y publicar una prerelease puae6-preview-<merge> con ZIP, fuentes, licencias y hashes exactos.",
+        "Eliminar permanentemente copias privadas, artefactos intermedios y staging prescindible tras conservar solo la release verificable."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "La preview Windows x64 del merge probado ejecuta consultas CPU/FPU en A4030 y A4040 sin crash, conserva el multiplicador y ofrece uaescsi Disabled/Auto/Enabled con Auto sin CD seguro.",
+        "El ZIP descargado coincide con su SHA-256 publicado, incluye fuentes/licencias y ningun firmware, HDF, captura, juego o medio privado; la limpieza final conserva el repositorio y la release."
+      ],
+      "stop": "No publicar desde un guest anterior a T99/T100, no sustituir el gate Windows por pruebas locales y no empaquetar ni subir los inputs privados autorizados solo para comprobacion."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",
