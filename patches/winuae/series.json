@@ -1272,8 +1272,8 @@
       "id": "0378-frestore040-cu-exception-address",
       "file": "patches/winuae/0378-frestore040-cu-exception-address.patch",
       "sha256": "49d3ad2bdf7c165ab240372d60a4a1a590df7ebc50736af8e031d1796bf61737",
-      "title": "Identify a new restored CU arithmetic exception with FPIARCU",
-      "reason": "T55c: MC68040UM9.2.4/9.8 identifies the causative instruction through FPIAR and records the CU address in FPIARCU. Only a newly generated FE arithmetic exception updates it; preserved E3 context is unchanged.",
+      "title": "Use restored CU address for a newly generated arithmetic exception",
+      "reason": "T95dp keeps the restored BUSY instruction identity distinct from the following CPU retry PC when CU resumption generates a new arithmetic exception.",
       "category": "state corrections",
       "order": 49,
       "symbols": [
