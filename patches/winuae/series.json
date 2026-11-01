@@ -2661,7 +2661,7 @@
     {
       "id": "0435-portable-uaescsi-rtarea",
       "file": "patches/winuae/0435-portable-uaescsi-rtarea.patch",
-      "sha256": "44331aac35bffad10fddb869a7ea48e950d65f3c6d4d50293065db1c63d9e14d",
+      "sha256": "97a9befd71c1729a3cd964dba2420275ca4fedee00a21ccd311a42b7c1baef1b",
       "title": "Install the uaescsi.device resident without changing HDF controllers",
       "reason": "T84g3 exposes uaescsi.device as an independent deterministic CD transport. Its resident needs RTAREA even when no hard file or RTG board is present; enabling it neither creates a filesystem board nor changes the controller selected for any HDF.",
       "category": "portable guest device",
@@ -2675,8 +2675,8 @@
       "files": [
         {
           "path": "devices.cpp",
-          "before_sha256": "3acc0ea9209baabb3f8c6d813d3208d6527f6a401c16d4911b90c132b7081940",
-          "after_sha256": "47f1c96f12c25511149129a97fa556dc1ad108a752dd823d79af60944696b389"
+          "before_sha256": "a54336a49160794665a0bdae7ee9e58463cfd1ce9231a5915f479d2969eb9137",
+          "after_sha256": "e690028a4e4679b12e88bb70c02bbe4a6f0e3155eb222903bd8d3577126b74ce"
         }
       ]
     },

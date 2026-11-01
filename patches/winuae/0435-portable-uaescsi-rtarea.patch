@@ -2,7 +2,7 @@ diff --git a/devices.cpp b/devices.cpp
 index 8546124c..41bf560c 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -213,7 +213,9 @@ void devices_unsafeperiod(void)
+@@ -240,7 +240,9 @@ void device_add_reset_imm(DEVICE_INT p)
  #else
  #define P6_WITH_RTG 0
  #endif
@@ -11,5 +11,5 @@ index 8546124c..41bf560c 100644
 +// not change the controller of any hard file.
 +#define P6_WITH_RTAREA (P6_WITH_HDF || P6_WITH_RTG || currprefs.scsi == 1)
  
- void devices_reset_ext(int hardreset)
+ void device_check_config(void)
  {
