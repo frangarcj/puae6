@@ -113,9 +113,17 @@ static void rejects_bad_calls_before_load(const std::vector<uint8_t> &rom)
     }
     c = make_config(3);                                  assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.audio_rate_hz = 22050;          assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
-    c = make_config(); c.flags = 4;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);   // FloppyWrites=1 and HRTMon=2 are known; 0x4 is unknown.
+    c = make_config(); c.flags = 8;                      assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
     c = make_config(); c.flags = P6_CONFIG_FLOPPY_WRITES; assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
-    c = make_config(); c.reserved7[0] = 1;               assert(p6_init(&c, &e) == P6_ERROR_BAD_ARGUMENT);
+    c = make_config(); c.flags = P6_CONFIG_UAESCSI;      assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
+    c = make_config(); c.flags = P6_CONFIG_UAESCSI; c.cd_controller = P6_CD_CONTROLLER_IDE;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "uaescsi.device"));
+    c = make_config(); c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED && strstr(e.message, "RTG"));
+    c = make_config(); c.rtg_memory = P6_RTG_MEMORY_4_MIB + 1;
+                                                         assert(p6_init(&c, &e) == P6_ERROR_UNSUPPORTED);
+    c = make_config(); c.machine = P6_MACHINE_A4030; c.cpu_compatibility = P6_CPU_NORMAL; c.rtg_memory = P6_RTG_MEMORY_4_MIB;
+                                                         assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.reserved8[0] = P6_CD_CONTROLLER_NONE;
                                                          assert(p6_init(&c, &e) == P6_OK && p6_shutdown(&e) == P6_OK);
     c = make_config(); c.cd_controller = P6_CD_CONTROLLER_IDE + 1;
