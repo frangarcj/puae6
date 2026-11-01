@@ -3,11 +3,11 @@
 T15c1, T15c2 and T15c3 prove each chunk by itself. What the closure adds is what the card asks of the three: every causal component of rtc, cia and input has its serializer and
 a test that exists; no pointer or address is in a chunk; and the future. A restored machine executes: the units that follow a load run, and they are the original's.
 
-The future (DET02) of a whole machine needs every chunk, and the chipset, the disk, the audio and the picture have none yet. What can be shown today is this: when the machine a state
-is loaded into is, in every subsystem that the probe digests, the machine the state was taken from (the chipset, which the programs below never change, is in the same state at
-every boundary, and the counters it shares with the scheduler come back with it), the units that follow are the original's, digest by digest, in the cpu, the scheduler, RAM, the clock,
-the CIAs, the chipset, the audio and the input. That is what these tests check, for the keyboard in the middle of a handshake, the mouse in flight, the reset chord held, the pot lines
-measuring and both CIAs running timers, TOD and alarms. The picture and the bridge's session counters (video, bridge) are not compared: they belong to T15g and T15h.
+The future (DET02) of a whole machine needs every chunk. The chipset, disk, audio and video chunks now exist, so this closure loads the complete state instead of relying on an old
+assumption that their hidden state repeats at a convenient later unit. The units that follow must be the original's, digest by digest, in the CPU, scheduler, RAM, clock, CIAs, chipset,
+audio and input. The field mutations below keep the device coverage non-vacuous: changing a CIA or input value still changes the documented future. The scenarios cover a keyboard in
+the middle of a handshake, a mouse in flight, the reset chord held, pot lines measuring and both CIAs running timers, TOD and alarms. The picture and the bridge's session counters
+(video, bridge) are not compared here: they belong to T15g and T15h.
 """
 import json
 import os
@@ -27,7 +27,7 @@ CAUSAL = {"serialize", "serialize_extended", "extension"}
 CHUNK_TASKS = {"P6RT": "T15c1", "P6CI": "T15c2", "P6IN": "T15c3", "P6SC": "T15b2"}       # the chunk that carries a component, and the task that wrote it
 # Ricoh adds a second RTC serializer after the original MSM6242B closure.
 COMPONENT_TASKS = {"rtc-ricoh-rf5c01a-registers": "T55a"}
-FULL = ("--only", "cpu", "--only", "scheduler", "--only", "ram", "--only", "rtc", "--only", "cia", "--only", "input")
+FULL = ()       # no --only filters: every current chunk participates in the restored machine
 COMPARED = ("cpu", "scheduler", "ram", "rtc", "cia", "chipset", "audio", "input")
 UNITS_AFTER = 5
 CIA_CHUNK, INPUT_CHUNK = 7, 9
