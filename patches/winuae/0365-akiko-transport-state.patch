@@ -92,5 +92,5 @@ diff --git a/akiko.cpp b/akiko.cpp
 +}
 +#endif
  
- static void akiko_checkint (void)
+ static void akiko_checkint(void)
  {

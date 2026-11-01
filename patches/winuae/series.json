@@ -946,9 +946,9 @@
     {
       "id": "0365-akiko-transport-state",
       "file": "patches/winuae/0365-akiko-transport-state.patch",
-      "sha256": "e9ef1afc32d6529a910a2eb232bae744bb20af01e3125fafefbd9b421d735aae",
+      "sha256": "5e4e7a85356c8e89025b3925316351038c3786c1863c768ae12f23174c2b50cc",
       "title": "Capture and restore private Akiko transport without host state",
-      "reason": "T66m2 preserves FIFO cursors, sector caches and subcode causally; unreadable payload is canonical zero while all validity metadata survives. Private preflight rejects invalid states before mutation, without device I/O or time advance.",
+      "reason": "T95dd preserves FIFO cursors, sector caches and subcode causally; unreadable payload is canonical zero while all validity metadata survives. Private preflight rejects invalid states before mutation, without device I/O or time advance.",
       "category": "host hooks",
       "order": 36,
       "symbols": [
@@ -962,8 +962,8 @@
       "files": [
         {
           "path": "akiko.cpp",
-          "before_sha256": "3196282e33e87652662f6d25e38c21a1468fe61fabdc8ea709a27a237c653ab7",
-          "after_sha256": "30fecc1cd6dacf6c03470142d0d501f7f25dfde0900e19f8507335bf90399d9f"
+          "before_sha256": "f0e20a747c1cf9001303840f80303bf8c4606a46cedc383a4d83166a897bb13a",
+          "after_sha256": "01fc362263fa5f675bd72d3fb8dc8be23b9b0061638a3faca8c9b83845bf3266"
         }
       ]
     },
