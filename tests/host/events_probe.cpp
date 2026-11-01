@@ -15,6 +15,9 @@ struct observation { unsigned id; evt_t cycle; };
 static observation trace[64];
 static unsigned trace_count;
 
+extern void p6_events_get(int *, int *, int *, int *, int *);
+extern void p6_events_set(int, int, int);
+
 static void record(unsigned id)
 {
  assert(trace_count < sizeof trace / sizeof trace[0]);
@@ -83,8 +86,8 @@ static void primary_order()
 static void secondary_queue()
 {
  reset();
- event2_newevent_xx(3, 2 * CYCLE_UNIT, 42, secondary);
- event2_newevent_xx(4, CYCLE_UNIT, 99, secondary);
+ event2_newevent_xx(0, 2 * CYCLE_UNIT, 42, secondary);
+ event2_newevent_xx(1, CYCLE_UNIT, 99, secondary);
  do_cycles_normal(3 * CYCLE_UNIT);
  assert(trace_count == 2 && nextevent == EVT_MAX);
  check(0, 99, CYCLE_UNIT); check(1, 42, 2 * CYCLE_UNIT);
@@ -139,8 +142,20 @@ static void cycle_partition_and_pacing()
  check(0, 1, CYCLE_UNIT); check(1, 1, 2 * CYCLE_UNIT);
 }
 
+static void scheduler_state_access()
+{
+ reset();
+ int max, next, count, restart, remain;
+ p6_events_get(&max, &next, &count, &restart, &remain);
+ assert(max == 2 && next == ev2_misc && count == 0 && restart == 0 && remain == 0);
+ p6_events_set(4, 3, 17);
+ p6_events_get(&max, &next, &count, &restart, &remain);
+ assert(max == 4 && next == 3 && count == 0 && restart == 0 && remain == 17);
+ p6_events_set(2, ev2_misc, 0);
+}
+
 int main()
 {
- primary_order(); secondary_queue(); cycle_partition_and_pacing();
+ primary_order(); secondary_queue(); cycle_partition_and_pacing(); scheduler_state_access();
  return 0;
 }
