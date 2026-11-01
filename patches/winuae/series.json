@@ -2336,7 +2336,7 @@
     {
       "id": "0423-cd32-fmv-live-state",
       "file": "patches/winuae/0423-cd32-fmv-live-state.patch",
-      "sha256": "20fb3f63007108635b5584eb4a93a766a013a880671ee057e889b2289e527337",
+      "sha256": "3ca35a7917644b2ff83e75e34f3cbb25889065f9249e6252643f852e9580a411",
       "title": "Capture live FMV ownership and pre-frame genlock state",
       "reason": "T43f2 found with Cannon Fodder that stock CD32 phase capture names the Akiko owner while active FMV PCM belongs to the cartridge, and that genlock can legitimately become active before its first decoded image. Route shared Paula phase through the exact FMV owner, restore inactive-owner gain, preserve this scalar-only genlock phase, and report specific capture failures without weakening candidate validation.",
       "category": "portable live state ownership",
@@ -2354,13 +2354,13 @@
       "files": [
         {
           "path": "cd32_fmv.cpp",
-          "before_sha256": "a996cc767bc67661b285dc3648268542fa9543f8f0f31dc0e66fa69d5a0ed386",
-          "after_sha256": "65779dd42edf7b886087ed1679487edc2f5c5b11480f4b317bae423a9b72823c"
+          "before_sha256": "0888ec3df41c9f3a1266fd54dc060d0cebd5af09c5be984bdf16d801a82a738e",
+          "after_sha256": "98d2d71445c11f820049f7796774d580f5af72439765d8282d0b35a2159c3530"
         },
         {
           "path": "audio.cpp",
-          "before_sha256": "0ab6525284f16f81dfda9bc750031319d256c0f0416a54780c44a4a182cff85a",
-          "after_sha256": "8afb4a956611677a2e1e3f6b77712bd276dc4743902e192aadfadf26c4655692"
+          "before_sha256": "80717208393d8dacc9082c05e01645f03ab61a8d4909784bd4fe45c1656ffe78",
+          "after_sha256": "94e35cc1871abc1c0c868200e93a7dd76decd5a309a2ddc29080e23387821422"
         },
         {
           "path": "cd32_fmv_genlock.cpp",

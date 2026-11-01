@@ -1,7 +1,7 @@
 diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
 --- a/cd32_fmv.cpp
 +++ b/cd32_fmv.cpp
-@@ -1571,9 +1571,21 @@ static bool p6_fmv_state_prepare()
+@@ -1583,9 +1583,21 @@ static bool p6_fmv_state_prepare()
  	return bank == &fmv_rom_bank && p6_fmv_state_preflight();
  }
  
@@ -25,7 +25,7 @@ diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
  	memset(s, 0, sizeof *s); s->version = s->mapped = 1;
  	memcpy(s->ram, fmv_ram_bank.baseaddr, sizeof s->ram); memcpy(s->audio_ram, audioram, sizeof s->audio_ram);
  	memcpy(s->cl450_regs, cl450_regs, sizeof cl450_regs); memcpy(s->cl450_imem, cl450_imem, sizeof cl450_imem);
-@@ -1603,12 +1615,12 @@ bool p6_fmv_state_get(p6_fmv_state *s)
+@@ -1615,12 +1627,12 @@ bool p6_fmv_state_get(p6_fmv_state *s)
  	const int active_buffer = cas.cda_userdata >= 0 && cas.cda_userdata < 2 ? cas.cda_userdata : 0;
  	if (cda) for (int n = 0; n < 2; ++n) memcpy(s->cda_buffers[n], cda->buffers[n], sizeof s->cda_buffers[n]);
  	const int16_t *stream_base = cda ? reinterpret_cast<int16_t*>(cda->buffers[active_buffer]) : s->cda_buffers[0];
@@ -45,14 +45,14 @@ diff --git a/cd32_fmv.cpp b/cd32_fmv.cpp
 diff --git a/audio.cpp b/audio.cpp
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -3174,5 +3174,6 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
+@@ -3183,5 +3183,6 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
  #ifdef P6_PORTABLE
  namespace p6_cda {
 +static_assert(kMaxStreams == AUDIO_CHANNEL_STREAMS, "portable CDA stream count");
  static bool streams_supported()
  {
      unsigned owners = 0;
-@@ -3309,15 +3310,15 @@ static bool restore_at(cd_audio_state &cas, int16_t *base, uint32_t frames, cons
+@@ -3318,15 +3319,15 @@ static bool restore_at(cd_audio_state &cas, int16_t *base, uint32_t frames, cons
      cas.cda_bufptr = s.active ? base + s.offset * 2 : dummy_buffer;
      cas.cda_length = int(s.remaining); cas.cda_userdata = s.userdata;
      cas.cda_paused = s.paused != 0; cas.cda_streamid = s.active ? int(streamid) : 0;
