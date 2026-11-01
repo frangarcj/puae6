@@ -273,7 +273,7 @@ static void public_builtin(const std::vector<uint8_t> &rom,const char *directory
         assert(p6_init(&c,&e)==P6_ERROR_UNSUPPORTED && !p6_bridge::hrtmon_bound());
         assert(p6_session::session.state==p6_session::State::Uninitialized);
     }
-    auto c=config(); c.flags=4; assert(p6_init(&c,&e)==P6_ERROR_BAD_ARGUMENT);
+    auto c=config(); c.flags=UINT32_C(1)<<31; assert(p6_init(&c,&e)==P6_ERROR_BAD_ARGUMENT);
     // The two flag bits compose, and unload/reload recreates only an immutable owner.
     c.flags=P6_CONFIG_HRTMON|P6_CONFIG_FLOPPY_WRITES; call(p6_init(&c,&e),e);
     assert(p6_load({nullptr,0},nullptr,0,&e)==P6_ERROR_NEED_FIRMWARE && !p6_bridge::hrtmon_bound());
