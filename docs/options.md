@@ -132,6 +132,25 @@ El presupuesto mmap aumenta el doble de la RAM elegida. Otros modelos se
 rechazan. Cambiarla requiere recargar y cambia la identidad del estado.
 La aceptacion completa de T55b, incluido Waterbox real, sigue pendiente.
 
+## Perfiles de maquina en MacHawk
+
+El editor de Sync Settings ofrece una propiedad virtual `Machine profile`; no se
+guarda en configuraciones, estados ni peliculas. Al abrir una configuracion se
+infiere a partir de sus valores concretos, por lo que las configuraciones previas
+no se reescriben. Al elegir un perfil se aplican juntos sus defaults validos.
+Incluye todas las maquinas y los seis presets del esquema: A1200 Fast8, A600
+PUAE5, A4030 Normal, CD32 Fast8, A4040 Normal y A4060 Normal. En particular,
+A4040 Normal selecciona CPU/FPU 68040 y A4060 Normal CPU/FPU 68060; una variante
+LC040 sigue siendo posible cambiando despues `FpuModel` a `None`.
+
+El PropertyGrid muestra en fuente normal cada valor igual al perfil inferido o
+seleccionado, y en negrita solo los overrides. `Machine` deja de editarse por
+separado en esa vista para evitar combinaciones transitorias invalidas; CPU, FPU,
+memoria, controladores y el resto de Sync Settings permanecen editables. Restablecer
+una fila recupera el valor del perfil, y el boton de defaults conserva el A500
+historico. El perfil es solo ayuda de interfaz: la identidad sigue derivandose de
+los mismos valores concretos que recibe el guest.
+
 ## Clases y la frontera con la emulacion
 
 | Clase | Que es | Entra en `p6_config`, `config_hash` y estado | Cuando se aplica |

@@ -232,6 +232,35 @@ internal static unsafe partial class Program
 		Require(new Puae6SyncSettings().RtgMemory == Puae6RtgMemory.None && rtgMemory.DisplayName == "RTG memory"
 			&& Puae6SyncSettings.NeedsReboot(new Puae6SyncSettings(), new Puae6SyncSettings { RtgMemory = Puae6RtgMemory.MB4 }),
 			"RTG memory is a None/4 MiB sync setting");
+		Require(Enum.GetValues<Puae6MachineProfile>().Length == 16, "the settings editor exposes sixteen complete machine profiles");
+		var profile4040 = Puae6MachineProfiles.Create(Puae6MachineProfile.A4040Normal);
+		Require(profile4040.Machine == Puae6Machine.A4040 && profile4040.CpuModel == Puae6Cpu.M68040
+			&& profile4040.CpuCompatibility == Puae6CpuCompatibility.Normal && profile4040.FpuModel == Puae6Fpu.M68040,
+			"the A4040 profile selects a coherent 68040 CPU and internal FPU");
+		var profile4060 = Puae6MachineProfiles.Create(Puae6MachineProfile.A4060Normal);
+		Require(profile4060.Machine == Puae6Machine.A4040 && profile4060.CpuModel == Puae6Cpu.M68060
+			&& profile4060.CpuCompatibility == Puae6CpuCompatibility.Normal && profile4060.FpuModel == Puae6Fpu.M68060,
+			"the A4060 profile selects a coherent 68060 CPU and internal FPU");
+		Require(Puae6MachineProfiles.Infer(Puae6MachineProfiles.Create(Puae6MachineProfile.A600Puae5)) == Puae6MachineProfile.A600Puae5
+			&& Puae6MachineProfiles.Infer(Puae6MachineProfiles.Create(Puae6MachineProfile.A1200Fast8)) == Puae6MachineProfile.A1200Fast8
+			&& Puae6MachineProfiles.Infer(Puae6MachineProfiles.Create(Puae6MachineProfile.CD32Fast8)) == Puae6MachineProfile.CD32Fast8,
+			"the three memory presets infer back to their exact profiles");
+		var profiled = new Puae6SyncSettings();
+		var profiledProperties = System.ComponentModel.TypeDescriptor.GetProperties(profiled);
+		Require(profiledProperties["MachineProfile"] is not null && profiledProperties[nameof(Puae6SyncSettings.Machine)] is null,
+			"the instance descriptor exposes the virtual profile and hides the transitional Machine row");
+		var machineProfile = profiledProperties["MachineProfile"]!;
+		Require(!machineProfile.ShouldSerializeValue(profiled), "the virtual profile name is never serialized");
+		machineProfile.SetValue(profiled, Puae6MachineProfile.A4040Normal);
+		Require(profiled.Machine == Puae6Machine.A4040 && profiled.CpuModel == Puae6Cpu.M68040 && profiled.FpuModel == Puae6Fpu.M68040,
+			"selecting a profile atomically applies its concrete machine values");
+		var fpuOverride = System.ComponentModel.TypeDescriptor.GetProperties(profiled)[nameof(Puae6SyncSettings.FpuModel)]!;
+		Require(!fpuOverride.ShouldSerializeValue(profiled), "a value equal to its profile baseline is not shown as an override");
+		fpuOverride.SetValue(profiled, Puae6Fpu.None);
+		Require(fpuOverride.ShouldSerializeValue(profiled), "a changed value is shown as a profile override");
+		fpuOverride.ResetValue(profiled);
+		Require(profiled.FpuModel == Puae6Fpu.M68040 && !fpuOverride.ShouldSerializeValue(profiled),
+			"resetting an override restores the selected profile value");
 		Puae6Parameters WithCd(Puae6SyncSettings settings, IReadOnlyList<byte[]>? media = null, IReadOnlyList<byte[]>? hard = null) => new()
 		{
 			Firmware = [1], SyncSettings = settings, Media = media ?? [], HardFiles = hard ?? [],

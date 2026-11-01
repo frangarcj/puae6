@@ -64,6 +64,13 @@ se modifican. Darwin ARM64 conserva su carril FFI; la preview de producto para
 los probadores utiliza EmuHawk Windows x64. No se anuncia GUI WinForms macOS por compilar o
 ejecutar pruebas CLI.
 
+En Config > Cores > PUAE6, `Machine profile` aplica de una vez los defaults de
+cada maquina y los seis presets del esquema. A4040 Normal incluye 68040 y FPU
+interna; A4060 Normal incluye 68060 y FPU interna. Los valores normales aparecen
+sin resaltar y cada override en negrita; restablecer una fila recupera el valor
+del perfil. El selector no se serializa ni cambia por si mismo estados o peliculas:
+solo escribe los Sync Settings concretos que ya formaban su identidad.
+
 La prueba dirigida de la aplicacion real compara BK2/TAS, A/V, estado final y
 sandboxes aislados de UAE/PUAE6 con una micro-ROM propia y la referencia UAE
 compilada desde fuentes (incluye la correccion setjmp ya validada). El
