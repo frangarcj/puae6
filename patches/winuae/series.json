@@ -1889,14 +1889,15 @@
     {
       "id": "0407-action-replay-blob-owner",
       "file": "patches/winuae/0407-action-replay-blob-owner.patch",
-      "sha256": "46d92e8b65781c503564d94525b9e84a4a54d8e74258948852a973bbabd85f4b",
+      "sha256": "274187d1612e56fd2a2c3f8610d6b0981742f170555a7105e10a2e60cdf17b2e",
       "title": "Bound raw Action Replay cartridge reads and reset private owner latches",
-      "reason": "T69d1: privately copied AR2/3 blobs use the original loader and banks. Reject incomplete reads and malformed checksum extents before adoption, guard allocation failures and reset AR owner latches on cleanup. Native snapshots remain explicitly unsupported until a full semantic codec exists; no public cartridge compatibility is claimed.",
+      "reason": "T69d1: privately copied AR2/3 blobs use the original loader and banks. Reject incomplete reads and malformed checksum extents before adoption, guard allocation failures and reset AR owner latches on cleanup. Preserve the 6.0 zero-delay CIA transition on beta21 through its CE-aware event wrapper: immediate in Compatible and scheduled in Cycle Exact. Native snapshots remain explicitly unsupported until a full semantic codec exists; no public cartridge compatibility is claimed.",
       "category": "cartridge ownership boundary",
       "order": 76,
       "symbols": [
         "action_replay_load",
         "action_replay_cleanup",
+        "action_replay_cia_access",
         "action_replay_calculate_checksum",
         "disable_rom_test",
         "action_replay_version"
@@ -1908,7 +1909,7 @@
         {
           "path": "ar.cpp",
           "before_sha256": "eadfdcd412e5242ebf3a205623ea3658d86261efa2bb3ce636cf2c9d58817baf",
-          "after_sha256": "6bc45c4108971abdb54917157e9371cbda1778746b8e6f3891a2b1e4faf220a1"
+          "after_sha256": "0e7041c552903347b401629db58b2294b2c28a35ce4bacac993f160e292b23a2"
         }
       ]
     },
@@ -1934,8 +1935,8 @@
       "files": [
         {
           "path": "ar.cpp",
-          "before_sha256": "6bc45c4108971abdb54917157e9371cbda1778746b8e6f3891a2b1e4faf220a1",
-          "after_sha256": "0e7203e161cda50c1031e6eed1a27f3e7b6e801ea2560b314d3896b22bb6af1b"
+          "before_sha256": "0e7041c552903347b401629db58b2294b2c28a35ce4bacac993f160e292b23a2",
+          "after_sha256": "d38224df81bdde232470a49e034228a03fd26d0c0dd33c79be2a89c32f41d4f2"
         },
         {
           "path": "newcpu.cpp",
@@ -2011,8 +2012,8 @@
       "files": [
         {
           "path": "ar.cpp",
-          "before_sha256": "0e7203e161cda50c1031e6eed1a27f3e7b6e801ea2560b314d3896b22bb6af1b",
-          "after_sha256": "95143e63d73e061f1fa6274720239442a40dde9b35592e973eb22174cdebdb08"
+          "before_sha256": "d38224df81bdde232470a49e034228a03fd26d0c0dd33c79be2a89c32f41d4f2",
+          "after_sha256": "a5d65d5184595e9ac7aee70391e29aeedb3d3d017943e543103bb4c05c9234dc"
         },
         {
           "path": "newcpu.cpp",
@@ -2040,8 +2041,8 @@
       "files": [
         {
           "path": "ar.cpp",
-          "before_sha256": "95143e63d73e061f1fa6274720239442a40dde9b35592e973eb22174cdebdb08",
-          "after_sha256": "38c416975b47afbe460108776ce0562f00d2a4593df2a9751fe8f9b16783d904"
+          "before_sha256": "a5d65d5184595e9ac7aee70391e29aeedb3d3d017943e543103bb4c05c9234dc",
+          "after_sha256": "1aaae734176c7b6c817ebaf1187fdbfb4b33094fa078825d38016ca5789d2a4e"
         }
       ]
     },

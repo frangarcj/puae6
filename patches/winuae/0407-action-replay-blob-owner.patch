@@ -1,6 +1,18 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
+@@ -1176,9 +1176,9 @@
+ 	if (action_replay_flag == ACTION_REPLAY_INACTIVE)
+ 		return;
+ 	int delay = currprefs.cpu_cycle_exact ? 1 : 0;
+ 	if ((armode_write & ARMODE_ACTIVATE_BFE001) && !write) {
+-		event2_newevent_xx(-1, delay, write, action_replay_cia_access_delay);
++		event2_newevent_xx_ce(delay, write, action_replay_cia_access_delay);
+ 	} else if ((armode_write & ARMODE_ACTIVATE_BFD100) && write) {
+-		event2_newevent_xx(-1, delay, write, action_replay_cia_access_delay);
++		event2_newevent_xx_ce(delay, write, action_replay_cia_access_delay);
+ 	}
+ }
 @@ -1333,7 +1333,13 @@
  	/* Search for first non-zero Long starting from the end of the rom. */
  	/* Assume long alignment, (will always be true for AR2 and AR3 and the AR1 rom i've got). */
