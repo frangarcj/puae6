@@ -2159,13 +2159,12 @@
     {
       "id": "0417-cd32-fmv-portable-graph",
       "file": "patches/winuae/0417-cd32-fmv-portable-graph.patch",
-      "sha256": "7fca4e6407d075fa8948e569b3b271c34778bad4d711b54a5947ad45b6a499c7",
+      "sha256": "a0b79dccd4c34f1510bef8a2f4758216c7cf532d814c8031f57c117a4f8e39e7",
       "title": "Connect the bounded CD32 FMV board to the portable expansion and video graph",
       "reason": "T43b1 enables WinUAE's real FMV sync, compositor and Zorro II catalog only after the scalar decoder and bounded portable audio owner have been selected. The board still requires an authenticated pre-load ROM owner; stock CD32 without one keeps the previous graph.",
       "category": "portable device graph",
       "order": 86,
       "symbols": [
-        "mpeg2_init",
         "custom_reset",
         "devices_update_sync",
         "virtualdevice_init",
@@ -2177,29 +2176,24 @@
       "removal_version": null,
       "files": [
         {
-          "path": "cd32_fmv.cpp",
-          "before_sha256": "d55e1ae8c0fab1c3b2be56cc17ad2aa9b97ad9effbabbaf635fba3b914395aad",
-          "after_sha256": "ddf6da0bc65761e070d91343d128aed43296f331aaff58ba7a78aa0a134463a1"
-        },
-        {
           "path": "custom.cpp",
-          "before_sha256": "958633ed08a0a34dde6840a01ca3d7daad43835e1ae939e1c3e2c7873e3b9e73",
-          "after_sha256": "a5b33ff92b7678b83235168d046789790855d413cc838bf51ab04ff87bcd9450"
+          "before_sha256": "71cd86b7d40964133f20458e39b742879dc898ab414239f8a8f7657634dc82e2",
+          "after_sha256": "262bdfbef81eeed9a332eab848d1b85454a9d6545391ab6834edb917e6738a1c"
         },
         {
           "path": "devices.cpp",
-          "before_sha256": "f73ea6810e32c9ba8f389327f2a3c7815076289824d97738b82cf61518ed1071",
-          "after_sha256": "1c409031d92ce0897276791ab22f6e07b00d301405bd1f9a360433bbcf19e1fd"
+          "before_sha256": "0084b997e56849b8f35dbd9cd9243673f0331c9814f5659305f71ca5c334152d",
+          "after_sha256": "f342febb34c49f2d535978073dce997415d05ba6d4e348cb9b46db6877d4fcac"
         },
         {
           "path": "drawing.cpp",
-          "before_sha256": "8f7bce0856be8b456624a274f1e150c471f8df304330314b403681af2685abdf",
-          "after_sha256": "d7d857460f5f2add43304dee273f681bc7b1be67be3f804999f6442defdb8593"
+          "before_sha256": "d51578040a49410ce19de92f5f8eda660414761e39a4de16ef08bbf61ae825ff",
+          "after_sha256": "78f55255f91c7bffc1a331f0197053597d48a438e45a3a6f70c8cf8ba9bc1b45"
         },
         {
           "path": "expansion.cpp",
-          "before_sha256": "d23cacab6bef85d307be7a2e8d7b15646f2701aa5a5f3dbc42b6cc8880cb17b4",
-          "after_sha256": "215b5b7f16becd1acb229736c5fb98cf87f66291c8bbfaf07839f286559c3110"
+          "before_sha256": "f38fc9f135db7cff35285581e02065a58ec311e406ce91578f4c2fbe4e8b2ad5",
+          "after_sha256": "8f13c9e7d8c07f9c9b281d08cac8c22763207876bb5ad1d54171ae5f0d102579"
         }
       ]
     },
