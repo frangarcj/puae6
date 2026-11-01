@@ -2683,7 +2683,7 @@
     {
       "id": "0436-portable-040-transparent-translation-registers",
       "file": "patches/winuae/0436-portable-040-transparent-translation-registers.patch",
-      "sha256": "ef38c81ac71f7a8b278a56efe1c01c71f565ebc8c8d3a0e56015397602ee8581",
+      "sha256": "9e9e5a3e1c1978359b68aacd51370f30eb84067c4eb12def7bb9313548c4e117",
       "title": "Keep 040 MMU control registers architectural without enabling translation",
       "reason": "T97 reproduces 80000004, 800A0004 and Line-F 8000000B alerts while an A4000/040 mounts an RDB and starts SysInfo. The UAE boot ROM writes DTT0, the expansion driver reads TC, and SysInfo writes TC=$8000, executes PTESTR and writes URP. Preserve WinUAE's architectural control-register storage and its existing physical PTEST/PFLUSH semantics while compiling out address translation; stored TC/URP/SRP values never select a translation backend in the portable build.",
       "category": "portable 68040 control registers",
@@ -2698,18 +2698,18 @@
       "files": [
         {
           "path": "newcpu_common.cpp",
-          "before_sha256": "b3011e8f0fbf840984cb5af38111b1950fbd4d4c5ce606da81480187c665ac0e",
-          "after_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670"
+          "before_sha256": "002b0e935794d3527c1cc28493995f44e37350ff0fd40c3ff2c2c9d32c9ce5f0",
+          "after_sha256": "b51428614688824996454fc71b57ad11c2b6eb67d2885e1755255cc273d6fab0"
         },
         {
           "path": "gencpu.cpp",
-          "before_sha256": "54427250b7288f110392377748dd11d145d602bc0e2c2a8262b9b33c3a33c41b",
-          "after_sha256": "178ad47fe97ad89bff56d41ceef7e24356b320262ee09787407994b90cf3cc4b"
+          "before_sha256": "716565dda3799e0552852d30ce539e4958ed117cb7e7d6ef82f49ff264537a54",
+          "after_sha256": "7d8cf296312f7676e1c140ac3c1493994105ebb9d2ad6bd3beda6c3314e17a30"
         },
         {
           "path": "newcpu.cpp",
-          "before_sha256": "4e22c67d3b44443c15c97e54832e3e2b6d361a0df52fefc5fa9bdde9377d0d4b",
-          "after_sha256": "412d860c7129f95dd4b1b3e1e293c234cce7881adcc97b4fdc7581c5069628e0"
+          "before_sha256": "1ded2b6415c04f7b0253062c8b7512f44cd654956c9fc87248ae8c0d5085efa8",
+          "after_sha256": "38f00567f33bc2509a8a9cbdd576074575ffe7edecbaa14db144888f114f115f"
         }
       ]
     },
