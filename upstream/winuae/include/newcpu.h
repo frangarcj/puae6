@@ -97,7 +97,7 @@ struct comptbl {
 };
 #endif
 
-extern cpuop_func *loop_mode_table[];
+extern cpuop_func_noret *loop_mode_table[];
 
 extern uae_u32 REGPARAM3 op_illg(uae_u32) REGPARAM;
 extern void REGPARAM3 op_illg_noret(uae_u32) REGPARAM;
@@ -114,6 +114,9 @@ typedef long double fptype;
 #else
 typedef double fptype;
 #endif
+#else
+/* fpdata and FPP declarations are shared; FPU state/operations stay guarded. */
+typedef double fptype;
 #endif
 
 #define MAX68020CYCLES 4
@@ -182,6 +185,13 @@ typedef struct
 	fptype fp;
 #endif
 } fpdata;
+
+#ifdef CPU_AARCH64
+#ifdef JIT
+#include "jit/comptbl.h"
+#include "jit/compemu.h"
+#endif
+#endif
 
 struct regstruct
 {
@@ -277,6 +287,20 @@ struct regstruct
 	int ce020_tail;
 	evt_t ce020_tail_cycles;
 	int memory_waitstate_cycles;
+
+#ifdef CPU_AARCH64
+#ifdef JIT
+	/* store scratch regs also in this struct to avoid load of mem pointer */
+	uae_u32 scratchregs[VREGS - S1];
+	fpu_register scratchfregs[VFREGS - 8];
+	uae_u32 jit_exception;
+
+	/* pointer to real arrays/structs for easier access in JIT */
+	uae_u32* raw_cputbl_count;
+	uintptr mem_banks;
+	uintptr cache_tags;
+#endif
+#endif
 };
 
 extern struct regstruct regs;
@@ -331,24 +355,31 @@ extern bool m68k_interrupt_delay;
 
 extern void safe_interrupt_set(int, int, bool);
 
-#define SPCFLAG_CPUINRESET 2
-#define SPCFLAG_CPU_SLOW 4
-#define SPCFLAG_INT 8
-#define SPCFLAG_BRK 16
-#define SPCFLAG_UAEINT 32
-#define SPCFLAG_TRACE 64
-#define SPCFLAG_DOTRACE 128
-#define SPCFLAG_DOINT 256 /* arg, JIT fails without this.. */
-#define SPCFLAG_BLTNASTY 512
-#define SPCFLAG_EXEC 1024
-#define SPCFLAG_ACTION_REPLAY 2048
-#define SPCFLAG_TRAP 4096 /* enforcer-hack */
-#define SPCFLAG_MODE_CHANGE 8192
+#define SPCFLAG_CPUINRESET	0x000002
+#define SPCFLAG_CPU_SLOW	0x000004
+#define SPCFLAG_INT			0x000008
+#define SPCFLAG_BRK			0x000010
+#define SPCFLAG_UAEINT		0x000020
+#define SPCFLAG_TRACE		0x000040
+#define SPCFLAG_DOTRACE		0x000080
+#define SPCFLAG_DOINT		0x000100 /* arg, JIT fails without this.. */
+#define SPCFLAG_BLTNASTY	0x000200
+#define SPCFLAG_EXEC		0x000400
+#define SPCFLAG_ACTION_REPLAY 0x000800
+#define SPCFLAG_TRAP		0x001000 /* enforcer-hack */
+#define SPCFLAG_MODE_CHANGE	0x002000
 #ifdef JIT
-#define SPCFLAG_END_COMPILE 16384
+#define SPCFLAG_END_COMPILE	0x004000
 #endif
-#define SPCFLAG_CHECK 32768
-#define SPCFLAG_MMURESTART 65536
+#define SPCFLAG_CHECK		0x008000
+#define SPCFLAG_MMURESTART	0x010000
+#define SPCFLAG_CALLBACK	0x020000
+#ifdef P6_PORTABLE
+// A video unit was rendered: leave the CPU loop at the next instruction boundary.
+#define SPCFLAG_UNIT_END 1
+#else
+#define SPCFLAG_UNIT_END 0
+#endif
 
 STATIC_INLINE void set_special_exter(uae_u32 x)
 {
@@ -739,7 +770,15 @@ extern int m68k_divl (uae_u32, uae_u32, uae_u16, uaecptr);
 extern int m68k_mull (uae_u32, uae_u32, uae_u16);
 extern void init_m68k (void);
 extern void m68k_run(void);
+#ifdef P6_PORTABLE
+// m68k_go is replaced by resumable video units: BEGIN once per load, then APPLY (reset preamble only)
+// and RUN (one unit) per frame, LEAVE at unload.
+enum { M68K_UNIT_BEGIN, M68K_UNIT_APPLY, M68K_UNIT_RUN, M68K_UNIT_LEAVE };
+enum { M68K_UNIT_DONE, M68K_UNIT_APPLIED, M68K_UNIT_QUIT, M68K_UNIT_NO_ROM };
+extern int m68k_go_unit (int mode);
+#else
 extern void m68k_go (int);
+#endif
 extern void m68k_dumpstate(uaecptr *, uaecptr);
 extern void m68k_dumpcache(bool);
 extern int getMulu68kCycles(uae_u16 src);
@@ -890,7 +929,7 @@ extern bool can_cpu_tracer (void);
 #define CPU_HALT_ACCELERATOR_CPU_FALLBACK 4
 #define CPU_HALT_ALL_CPUS_STOPPED 5
 #define CPU_HALT_FAKE_DMA 6
-#define CPU_HALT_AUTOCONFIG_CONFLICT 7
+//#define CPU_HALT_AUTOCONFIG_CONFLICT 7
 #define CPU_HALT_PCI_CONFLICT 8
 #define CPU_HALT_CPU_STUCK 9
 #define CPU_HALT_SSP_IN_NON_EXISTING_ADDRESS 10
@@ -903,5 +942,17 @@ void process_cpu_indirect_memory_write(uae_u32 addr, uae_u32 data, int size);
 
 const struct cputbl *uaegetjitcputbl(void);
 const struct cputbl *getjitcputbl(int cpulvl, int direct);
+
+
+#if defined(DEBUGGER) && defined(GDBSERVER)
+// Read-only fault metadata, captured before exception-frame construction.
+struct cpu_debug_fault {
+	bool memory = false;
+	uae_u32 address = 0, status = 0;
+	int access = 0; // 1 read, 2 write, 3 read-modify-write, 0 unknown
+	int size = 0, function_code = -1;
+};
+extern cpu_debug_fault cpu_get_debug_fault(int vector);
+#endif
 
 #endif /* UAE_NEWCPU_H */

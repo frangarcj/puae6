@@ -891,6 +891,7 @@ void reenumeratemonitors(void)
 
 static void getd3dmonitornames (void)
 {
+#ifdef WITH_DIRECT3D9
 	// XP does not support hybrid displays, don't load Direct3D
 	// Windows 10+ seems to use same names by default
 	if (os_win10)
@@ -927,6 +928,7 @@ static void getd3dmonitornames (void)
 		md++;
 	}
 	d3d->Release ();
+#endif
 }
 
 static bool enumeratedisplays2 (bool selectall)
@@ -1396,6 +1398,7 @@ int lockscr(struct vidbuffer *vb, bool fullupdate, bool skip)
 	if (vb->vram_buffer) {
 		vb->bufmem = D3D_locktexture(vb->monitor_id, &vb->rowbytes, &vb->width_allocated, &vb->height_allocated, skip ? -1 : (fullupdate ? 1 : 0));
 		if (vb->bufmem) {
+			vb->bufmemend = vb->bufmem + vb->rowbytes * vb->height_allocated;
 			ret = 1;
 		}
 	} else {
@@ -1415,6 +1418,7 @@ void unlockscr(struct vidbuffer *vb, int y_start, int y_end)
 	vb->locked = false;
 	if (vb->vram_buffer) {
 		vb->bufmem = NULL;
+		vb->bufmemend = NULL;
 		D3D_unlocktexture(vb->monitor_id, y_start, y_end);
 	}
 	gfx_unlock();
@@ -1477,7 +1481,7 @@ void getrtgfilterdata(int monid, struct displayscale *ds)
 		picasso_offset_my *= currprefs.gf[GF_RTG].gfx_filter_vert_zoom_mult;
 	}
 
-	if (!mon->scalepicasso)
+	if (!mon->scalepicasso || currprefs.win32_rtgnonsquarepixels)
 		return;
 
 	int srcratio, dstratio;
@@ -1493,25 +1497,50 @@ void getrtgfilterdata(int monid, struct displayscale *ds)
 	float my = (float)mon->currentmode.native_height / srcheight;
 
 	if (mon->scalepicasso == RTG_MODE_INTEGER_SCALE) {
-		int divx = mon->currentmode.native_width / srcwidth;
-		int divy = mon->currentmode.native_height / srcheight;
-		float mul = (float)(!divx || !divy ? 1 : (divx > divy ? divy : divx));
-		if (!divx || !divy) {
+		float fdivx = (float)mon->currentmode.native_width / srcwidth;
+		float fdivy = (float)mon->currentmode.native_height / srcheight;
+		float fmul = (float)(fdivx < 1.0 || fdivy < 1.0 ? 1 : (fdivx > fdivy ? fdivy : fdivx));
+		int mul = (int)(fmul * (1 << (currprefs.gf[GF_RTG].gfx_filter_integerscalelimit)));
+		fmul = (float)mul / (1 << (currprefs.gf[GF_RTG].gfx_filter_integerscalelimit));
+		if (fdivx < 1.0 || fdivy < 1.0) {
+			float adjust = 0.5f / (1 << (currprefs.gf[GF_RTG].gfx_filter_integerscalelimit));
+			fmul = 1.0f;
+			float prevfmul = fmul;
+			for(;;) {
+				if (fmul <= adjust) {
+					adjust /= 2.0f;
+					if (adjust < 0.10f) {
+						break;
+					}
+				}
+				fmul -= adjust;
+				if (fmul < 0.10f) {
+					fmul = 0.10f;
+					break;
+				}
+				if ((float)mon->currentmode.native_width / srcwidth > 2 * fmul || ((float)mon->currentmode.native_height / srcheight > 2 * fmul)) {
+					fmul = prevfmul;
+					break;
+				}
+				prevfmul = fmul;
+			}
+#if 0
 			if ((float)mon->currentmode.native_width / srcwidth <= 0.95f || ((float)mon->currentmode.native_height / srcheight <= 0.95f)) {
-				mul = 0.5f;
+				fmul = 1.0f / 2.0f;
 			}
 			if ((float)mon->currentmode.native_width / srcwidth <= 0.45f || ((float)mon->currentmode.native_height / srcheight <= 0.45f)) {
-				mul = 0.25f;
+				fmul = 1.0f / 4.0f;
 			}
+#endif
 		}
-		ds->outwidth = (int)(mon->currentmode.native_width / mul);
-		ds->outheight = (int)(mon->currentmode.native_height / mul);
-		int xx = (int)((mon->currentmode.native_width / mul - srcwidth) / 2);
-		int yy = (int)((mon->currentmode.native_height / mul - srcheight) / 2);
+		ds->outwidth = (int)(mon->currentmode.native_width / fmul);
+		ds->outheight = (int)(mon->currentmode.native_height / fmul);
+		int xx = (int)((mon->currentmode.native_width / fmul - srcwidth) / 2);
+		int yy = (int)((mon->currentmode.native_height / fmul - srcheight) / 2);
 		picasso_offset_x = -xx;
 		picasso_offset_y = -yy;
-		mx = mul;
-		my = mul;
+		mx = fmul;
+		my = fmul;
 		outwidth = srcwidth;
 		outheight = srcheight;
 		ds->mode = 1;
@@ -1738,7 +1767,20 @@ static void update_gfxparams(struct AmigaMonitor *mon)
 	struct picasso96_state_struct *state = &picasso96_state[mon->monitor_id];
 
 	updatewinfsmode(mon->monitor_id, &currprefs);
+
 #ifdef PICASSO96
+
+	if (currprefs.win32_rtgvblankrate == 0) {
+		currprefs.gfx_apmode[1].gfx_refreshrate = currprefs.gfx_apmode[0].gfx_refreshrate;
+		if (currprefs.gfx_apmode[0].gfx_interlaced) {
+			currprefs.gfx_apmode[1].gfx_refreshrate *= 2;
+		}
+	} else if (currprefs.win32_rtgvblankrate < 0) {
+		currprefs.gfx_apmode[1].gfx_refreshrate = 0;
+	} else {
+		currprefs.gfx_apmode[1].gfx_refreshrate = currprefs.win32_rtgvblankrate;
+	}
+
 	if (mon->screen_is_picasso) {
 		float mx = 1.0;
 		float my = 1.0;
@@ -1751,16 +1793,6 @@ static void update_gfxparams(struct AmigaMonitor *mon)
 		mon->currentmode.current_width = (int)(state->Width * currprefs.rtg_horiz_zoom_mult * mx);
 		mon->currentmode.current_height = (int)(state->Height * currprefs.rtg_vert_zoom_mult * my);
 		currprefs.gfx_apmode[1].gfx_interlaced = false;
-		if (currprefs.win32_rtgvblankrate == 0) {
-			currprefs.gfx_apmode[1].gfx_refreshrate = currprefs.gfx_apmode[0].gfx_refreshrate;
-			if (currprefs.gfx_apmode[0].gfx_interlaced) {
-				currprefs.gfx_apmode[1].gfx_refreshrate *= 2;
-			}
-		} else if (currprefs.win32_rtgvblankrate < 0) {
-			currprefs.gfx_apmode[1].gfx_refreshrate = 0;
-		} else {
-			currprefs.gfx_apmode[1].gfx_refreshrate = currprefs.win32_rtgvblankrate;
-		}
 	} else {
 #endif
 		mon->currentmode.current_width = currprefs.gfx_monitor[mon->monitor_id].gfx_size.width;
@@ -1861,6 +1893,7 @@ static int open_windows(struct AmigaMonitor *mon, bool mousecapture, bool starte
 
 	inputdevice_unacquire();
 	reset_sound();
+	draw_denise_line_queue_flush();
 	if (mon->hAmigaWnd == NULL)
 		wait_keyrelease();
 
@@ -2091,7 +2124,7 @@ int check_prefs_changed_gfx(void)
 
 		c |= gf->gfx_filter_aspect != gfc->gfx_filter_aspect ? (1) : 0;
 		c |= gf->gfx_filter_rotation != gfc->gfx_filter_rotation ? (1) : 0;
-		c |= gf->gfx_filter_keep_aspect != gfc->gfx_filter_keep_aspect ? (1) : 0;
+		c |= gf->gfx_filter_aspect_type != gfc->gfx_filter_aspect_type ? (1) : 0;
 		c |= gf->gfx_filter_keep_autoscale_aspect != gfc->gfx_filter_keep_autoscale_aspect ? (1) : 0;
 		c |= gf->gfx_filter_luminance != gfc->gfx_filter_luminance ? (1) : 0;
 		c |= gf->gfx_filter_contrast != gfc->gfx_filter_contrast ? (1) : 0;
@@ -2135,6 +2168,7 @@ int check_prefs_changed_gfx(void)
 	c |= currprefs.gfx_threebitcolors != changed_prefs.gfx_threebitcolors ? (256) : 0;
 	c |= currprefs.gfx_grayscale != changed_prefs.gfx_grayscale ? (512) : 0;
 	c |= currprefs.gfx_ntscpixels != changed_prefs.gfx_ntscpixels ? (512) : 0;
+	c |= currprefs.gfx_ntscpixelspal != changed_prefs.gfx_ntscpixelspal ? (512) : 0;
 	c |= currprefs.gfx_monitorblankdelay != changed_prefs.gfx_monitorblankdelay ? (512) : 0;
 
 	c |= currprefs.gfx_display_sections != changed_prefs.gfx_display_sections ? (512) : 0;
@@ -2239,6 +2273,7 @@ int check_prefs_changed_gfx(void)
 		currprefs.gfx_threebitcolors = changed_prefs.gfx_threebitcolors;
 		currprefs.gfx_grayscale = changed_prefs.gfx_grayscale;
 		currprefs.gfx_ntscpixels = changed_prefs.gfx_ntscpixels;
+		currprefs.gfx_ntscpixelspal = changed_prefs.gfx_ntscpixelspal;
 		currprefs.gfx_monitorblankdelay = changed_prefs.gfx_monitorblankdelay;
 
 		currprefs.gfx_display_sections = changed_prefs.gfx_display_sections;
@@ -2288,12 +2323,15 @@ int check_prefs_changed_gfx(void)
 				}
 			}
 			if (c & 1024) {
+				reset_drawing();
 				target_graphics_buffer_update(mon->monitor_id, true);
 			}
 			if (c & 512) {
+				reset_drawing();
 				reopen_gfx(mon);
 			}
 			if ((c & 16) || ((c & 8) && keepfsmode)) {
+				reset_drawing();
 				if (reopen(mon, c & 2, unacquired == false)) {
 					c |= 2;
 				} else {
@@ -2305,6 +2343,7 @@ int check_prefs_changed_gfx(void)
 					inputdevice_unacquire();
 					unacquired = true;
 				}
+				reset_drawing();
 				close_windows(mon);
 				if (currprefs.gfx_api != changed_prefs.gfx_api || currprefs.gfx_api_options != changed_prefs.gfx_api_options) {
 					currprefs.gfx_api = changed_prefs.gfx_api;
@@ -2357,6 +2396,8 @@ int check_prefs_changed_gfx(void)
 	if (
 		currprefs.gf[0].gfx_filter_autoscale != changed_prefs.gf[0].gfx_filter_autoscale ||
 		currprefs.gf[2].gfx_filter_autoscale != changed_prefs.gf[2].gfx_filter_autoscale ||
+		currprefs.gf[0].gfx_filter_blanking != changed_prefs.gf[0].gfx_filter_blanking ||
+		currprefs.gf[2].gfx_filter_blanking != changed_prefs.gf[2].gfx_filter_blanking ||
 		currprefs.gfx_xcenter_pos != changed_prefs.gfx_xcenter_pos ||
 		currprefs.gfx_ycenter_pos != changed_prefs.gfx_ycenter_pos ||
 		currprefs.gfx_xcenter_size != changed_prefs.gfx_xcenter_size ||
@@ -2372,6 +2413,8 @@ int check_prefs_changed_gfx(void)
 		currprefs.gfx_ycenter = changed_prefs.gfx_ycenter;
 		currprefs.gf[0].gfx_filter_autoscale = changed_prefs.gf[0].gfx_filter_autoscale;
 		currprefs.gf[2].gfx_filter_autoscale = changed_prefs.gf[2].gfx_filter_autoscale;
+		currprefs.gf[0].gfx_filter_blanking = changed_prefs.gf[0].gfx_filter_blanking;
+		currprefs.gf[2].gfx_filter_blanking = changed_prefs.gf[2].gfx_filter_blanking;
 
 		get_custom_limits (NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 		fixup_prefs_dimensions (&changed_prefs);
@@ -2415,6 +2458,7 @@ int check_prefs_changed_gfx(void)
 		currprefs.win32_warn_exit != changed_prefs.win32_warn_exit ||
 		currprefs.win32_gui_control != changed_prefs.win32_gui_control ||
 		currprefs.turbo_boot != changed_prefs.turbo_boot ||
+		currprefs.power_led_dim != changed_prefs.power_led_dim ||
 		currprefs.right_control_is_right_win_key != changed_prefs.right_control_is_right_win_key)
 	{
 		currprefs.win32_minimize_inactive = changed_prefs.win32_minimize_inactive;
@@ -2441,6 +2485,7 @@ int check_prefs_changed_gfx(void)
 		currprefs.win32_warn_exit = changed_prefs.win32_warn_exit;
 		currprefs.win32_gui_control = changed_prefs.win32_gui_control;
 		currprefs.turbo_boot = changed_prefs.turbo_boot;
+		currprefs.power_led_dim = changed_prefs.power_led_dim;
 		currprefs.right_control_is_right_win_key = changed_prefs.right_control_is_right_win_key;
 		inputdevice_unacquire ();
 		currprefs.keyboard_leds_in_use = changed_prefs.keyboard_leds_in_use = (currprefs.keyboard_leds[0] | currprefs.keyboard_leds[1] | currprefs.keyboard_leds[2]) != 0;
@@ -2787,7 +2832,8 @@ static int modeswitchneeded(struct AmigaMonitor *mon, struct winuae_currentmode 
 		/* fullscreen to fullscreen */
 		if (mon->screen_is_picasso) {
 			if (state->Width < wc->current_width && state->Height < wc->current_height) {
-				if (currprefs.gf[GF_RTG].gfx_filter_autoscale == 1 || (currprefs.gf[GF_RTG].gfx_filter_autoscale == 2 && currprefs.win32_rtgallowscaling))
+				int mode = currprefs.gf[GF_RTG].gfx_filter_autoscale;
+				if (mode == AUTOSCALE_STATIC_AUTO || (mode == AUTOSCALE_STATIC_NOMINAL && currprefs.win32_rtgallowscaling))
 					return 0;
 			}
 			if (state->Width != wc->current_width ||
@@ -2809,7 +2855,8 @@ static int modeswitchneeded(struct AmigaMonitor *mon, struct winuae_currentmode 
 	} else {
 		/* fullwindow to fullwindow */
 		if (mon->screen_is_picasso) {
-			if (currprefs.gf[GF_RTG].gfx_filter_autoscale && ((wc->native_width > state->Width && wc->native_height >= state->Height) || (wc->native_height > state->Height && wc->native_width >= state->Width)))
+			int mode = currprefs.gf[GF_RTG].gfx_filter_autoscale;
+			if (mode && ((wc->native_width > state->Width && wc->native_height >= state->Height) || (wc->native_height > state->Height && wc->native_width >= state->Width)))
 				return -1;
 			if (currprefs.win32_rtgallowscaling && (state->Width != wc->native_width || state->Height != wc->native_height))
 				return -1;
@@ -3017,9 +3064,7 @@ void close_windows(struct AmigaMonitor *mon)
 
 	setDwmEnableMMCSS (FALSE);
 	reset_sound ();
-#if 0
-	S2X_free(mon->monitor_id);
-#endif
+	draw_denise_line_queue_flush();
 	freevidbuffer(mon->monitor_id, &avidinfo->drawbuffer);
 	freevidbuffer(mon->monitor_id, &avidinfo->tempbuffer);
 	close_hwnds(mon);
@@ -3772,6 +3817,20 @@ retry:
 	if (wasfs[1] == 0)
 		regqueryint(NULL, wasfsname[1], &wasfs[1]);
 
+#if !defined WITH_DIRECT3D9 && defined WITH_DIRECT3D11
+	if (currprefs.gfx_api == 1) {
+		changed_prefs.gfx_api = currprefs.gfx_api = 2;
+	}
+#endif
+#if defined WITH_DIRECT3D9 && !defined WITH_DIRECT3D11
+	if (currprefs.gfx_api == 2) {
+		changed_prefs.gfx_api = currprefs.gfx_api = 1;
+	}
+#endif
+#if !defined WITH_DIRECT3D9 && !defined WITH_DIRECT3D11
+	changed_prefs.gfx_api = currprefs.gfx_api = 0;
+#endif
+
 	d3d_select(&currprefs);
 
 	for (;;) {
@@ -4028,7 +4087,7 @@ static void updatedisplayarea2(int monid)
 
 void updatedisplayarea(int monid)
 {
-	set_custom_limits(-1, -1, -1, -1, false);
+	set_custom_limits(-1, -1, -1, -1);
 	if (monid >= 0) {
 		updatedisplayarea2(monid);
 	} else {

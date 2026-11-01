@@ -239,6 +239,7 @@ extern int input_mousehack_status(TrapContext *ctx, int mode, uaecptr diminfo, u
 extern void input_mousehack_mouseoffset (uaecptr pointerprefs);
 extern int mousehack_alive (void);
 extern void mousehack_wakeup(void);
+extern bool mousehack_pending(void);
 extern void mousehack_write(int reg, uae_u16 val);
 extern void setmouseactive(int monid, int);
 extern bool ismouseactive(void);
@@ -266,6 +267,16 @@ extern int inputdevice_translatekeycode (int keyboard, int scancode, int state, 
 extern void inputdevice_checkqualifierkeycode (int keyboard, int scancode, int state);
 extern void inputdevice_setkeytranslation (struct uae_input_device_kbr_default **trans, int **kbmaps);
 extern void inputdevice_do_keyboard(int code, int state);
+#ifdef P6_PORTABLE
+// Reads of the input registers by the emulated CPU, one bit each. Write-only for the engine: the bridge clears the
+// mask at the start of a unit and reads it at the end, and the unit is a lag frame when nothing was read.
+enum { P6_POLL_JOY0DAT = 1, P6_POLL_JOY1DAT = 2, P6_POLL_POT0DAT = 4, P6_POLL_POT1DAT = 8, P6_POLL_POTGOR = 16,
+       P6_POLL_CIAA_PRA = 32, P6_POLL_CIAA_SDR = 64 };
+extern unsigned p6_input_poll_mask;
+#define P6_INPUT_POLL(bit) (p6_input_poll_mask |= (bit))
+#else
+#define P6_INPUT_POLL(bit) ((void)0)
+#endif
 extern void inputdevice_do_kb_reset(void);
 extern int inputdevice_iskeymapped (int keyboard, int scancode);
 extern int inputdevice_synccapslock (int, int*);
@@ -308,6 +319,7 @@ extern int inputdevice_getjoyportdevice (int port, int val);
 extern void inputdevice_validate_jports (struct uae_prefs *p, int changedport, bool fixedports[MAX_JPORTS][MAX_JPORT_DEVS]);
 extern void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig);
 extern void inputdevice_jportcustom_fixup(struct uae_prefs *p, TCHAR*, int);
+extern void inputdevice_joyport_keyboard_default(struct uae_prefs *p, const TCHAR *value, int portnum);
 
 extern void inputdevice_init (void);
 extern void inputdevice_close (void);

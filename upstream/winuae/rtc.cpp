@@ -10,16 +10,28 @@
 #include "options.h"
 
 #include "rtc.h"
+#ifdef P6_PORTABLE
+#include "rtc_time.h"
+#endif
 
 uae_u8 get_clock_msm(struct rtc_msm_data *data, int addr, struct tm *ct)
 {
 	uae_u8 v = 0;
 	int year;
 
+#ifdef P6_PORTABLE
+	struct tm civil;
+#endif
 	if (!ct) {
+#ifdef P6_PORTABLE
+		if (p6_rtc_read(&civil, currprefs.cs_rtc_adjust))
+			return 0xff;
+		ct = &civil;
+#else
 		time_t t = time (0);
 		t += currprefs.cs_rtc_adjust;
 		ct = localtime (&t);
+#endif
 	}
 	year = ct->tm_year;
 	if (data->yearmode && year >= 100)
@@ -96,10 +108,19 @@ uae_u8 get_clock_ricoh(struct rtc_ricoh_data *data, int addr, struct tm *ct)
 #endif
 		return v;
 	}
+#ifdef P6_PORTABLE
+	struct tm civil;
+#endif
 	if (!ct) {
+#ifdef P6_PORTABLE
+		if (p6_rtc_read(&civil, currprefs.cs_rtc_adjust))
+			return 0xff;
+		ct = &civil;
+#else
 		time_t t = time (0);
 		t += currprefs.cs_rtc_adjust;
 		ct = localtime (&t);
+#endif
 	}
 	switch (addr)
 	{

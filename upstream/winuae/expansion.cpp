@@ -23,7 +23,9 @@
 #endif
 #include "cdtv.h"
 #include "cdtvcr.h"
+#ifndef P6_PORTABLE
 #include "threaddep/thread.h"
+#endif
 #ifdef A2091
 #include "a2091.h"
 #endif
@@ -60,6 +62,7 @@
 #endif
 #ifdef WITH_X86
 #include "x86.h"
+#include "atonce.h"
 #endif
 #include "filesys.h"
 #include "ethernet.h"
@@ -296,7 +299,12 @@ bool expamem_z3hack(struct uae_prefs *p)
 	if (z3hack_override == Z3MAPPING_REAL) {
 		return false;
 	}
+#ifdef P6_PORTABLE
+	// No accelerator boards, so the Blizzard 12xx memory type test is always false.
+	return p->z3_mapping_mode == Z3MAPPING_UAE;
+#else
 	return p->z3_mapping_mode == Z3MAPPING_UAE || cpuboard_memorytype(p) == BOARD_MEMORY_BLIZZARD_12xx;
+#endif
 }
 
 /* Ugly hack for >2M chip RAM in single pool
@@ -424,7 +432,10 @@ static addrbank *expamem_init_last (void)
 #ifdef DEBUGGER
 	memory_map_dump ();
 #endif
+#ifndef P6_PORTABLE
+	// Host page protection for native memory mapping and JIT direct; neither exists here.
 	mman_set_barriers(false);
+#endif
 	return NULL;
 }
 
@@ -1030,28 +1041,28 @@ addrbank romboardmem_bank[MAX_ROM_BOARDS] =
 	{
 		romboardmem0_lget, romboardmem0_wget, romboardmem0_bget,
 		empty_put, empty_put, empty_put,
-		romboardmem0_xlate, romboardmem0_check, NULL, _T("*"), _T("ROM board"),
+		romboardmem0_xlate, romboardmem0_check, NULL, _T("*"), _T("Custom ROM board #1"),
 		romboardmem0_lget, romboardmem0_wget,
 		ABFLAG_ROM | ABFLAG_THREADSAFE | ABFLAG_CACHE_ENABLE_ALL | ABFLAG_DIRECTACCESS, 0, 0
 	},
 	{
 		romboardmem1_lget, romboardmem1_wget, romboardmem1_bget,
 		empty_put, empty_put, empty_put,
-		romboardmem1_xlate, romboardmem1_check, NULL, _T("*"), _T("ROM board"),
+		romboardmem1_xlate, romboardmem1_check, NULL, _T("*"), _T("Custom ROM board #2"),
 		romboardmem1_lget, romboardmem1_wget,
 		ABFLAG_ROM | ABFLAG_THREADSAFE | ABFLAG_CACHE_ENABLE_ALL | ABFLAG_DIRECTACCESS, 0, 0
 	},
 	{
 		romboardmem2_lget, romboardmem2_wget, romboardmem2_bget,
 		empty_put, empty_put, empty_put,
-		romboardmem2_xlate, romboardmem2_check, NULL, _T("*"), _T("ROM board"),
+		romboardmem2_xlate, romboardmem2_check, NULL, _T("*"), _T("Custom ROM board #3"),
 		romboardmem2_lget, romboardmem2_wget,
 		ABFLAG_ROM | ABFLAG_THREADSAFE | ABFLAG_CACHE_ENABLE_ALL | ABFLAG_DIRECTACCESS, 0, 0
 	},
 	{
 		romboardmem3_lget, romboardmem3_wget, romboardmem3_bget,
 		empty_put, empty_put, empty_put,
-		romboardmem3_xlate, romboardmem3_check, NULL, _T("*"), _T("ROM board"),
+		romboardmem3_xlate, romboardmem3_check, NULL, _T("*"), _T("Custom ROM board #4"),
 		romboardmem3_lget, romboardmem3_wget,
 		ABFLAG_ROM | ABFLAG_THREADSAFE | ABFLAG_CACHE_ENABLE_ALL | ABFLAG_DIRECTACCESS, 0, 0
 	}
@@ -1209,7 +1220,7 @@ static bool expamem_init_catweasel (struct autoconfig_info *aci)
 
 #endif
 
-#ifdef FILESYS
+#if defined(FILESYS) || defined(P6_FILESYS)
 
 /*
 * Filesystem device ROM/RAM space
@@ -1323,6 +1334,7 @@ uae_u32 uaeboard_base; /* Determined by the OS */
 static uae_u32 uaeboard_ram_start;
 #define UAEBOARD_WRITEOFFSET 0x4000
 
+// Used by the trap area and the UAEFS board (T29a); the board's RAM is where uaeboard 0 keeps what the 68k side shares with the host.
 uae_u8 *uaeboard_map_ram(uaecptr p)
 {
 	if (currprefs.uaeboard > 1) {
@@ -1430,11 +1442,12 @@ static addrbank *expamem_map_uaeboard(struct autoconfig_info *aci)
 	uaeboard_base = expamem_board_pointer;
 	uaeboard_ram_start = UAEBOARD_WRITEOFFSET;
 	uaeboard_bank.start = uaeboard_base;
-	map_banks_z2(&uaeboard_bank, uaeboard_base >> 16, 1);
-	if (currprefs.uaeboard > 1) {
-		rtarea_bank.start = uaeboard_base + 65536;
-		map_banks_z2(&rtarea_bank, (uaeboard_base + 65536) >> 16, 1);
-		ce_cachable[(uaeboard_base + 65536) >> 16] = CACHE_DISABLE_ALLOCATE;
+	if (map_banks_z2(&uaeboard_bank, uaeboard_base >> 16, 1)) {
+		if (currprefs.uaeboard > 1) {
+			rtarea_bank.start = uaeboard_base + 65536;
+			map_banks_z2(&rtarea_bank, (uaeboard_base + 65536) >> 16, 1);
+			ce_cachable[(uaeboard_base + 65536) >> 16] = CACHE_DISABLE_ALLOCATE;
+		}
 	}
 	return &uaeboard_bank;
 }
@@ -1621,9 +1634,16 @@ static addrbank *expamem_map_fastcard(struct autoconfig_info *aci)
 		return ab;
 	uae_u32 size = ab->allocated_size;
 	ab->start = start;
+#ifdef P6_PORTABLE
+	// T49: the accessors of a bank subtract startaccessmask, which the allocation sets from the start the bank had THEN (zero: the board is allocated at load, before the guest
+	// chooses its base). A board as large as the Zorro II space (8 MiB at $200000) would be read and written a rotation away from its address.
+	ab->startmask = start;
+	ab->startaccessmask = start & ab->mask;
+#endif
 	if (ab->start && size) {
-		map_banks_z2(ab, ab->start >> 16, size >> 16);
-		initramboard(ab, &currprefs.fastmem[devnum]);
+		if (map_banks_z2(ab, ab->start >> 16, size >> 16)) {
+			initramboard(ab, &currprefs.fastmem[devnum]);
+		}
 	}
 	return ab;
 }
@@ -1855,7 +1875,7 @@ bool expansion_is_next_board_fastram(void)
 
 /* ********************************************************** */
 
-#ifdef FILESYS
+#if defined(FILESYS) || defined(P6_FILESYS)
 
 static bool expamem_rtarea_init(struct autoconfig_info *aci)
 {
@@ -1896,9 +1916,97 @@ static addrbank *expamem_map_filesys (struct autoconfig_info *aci)
 	mapped_malloc(&filesys_bank);
 	memcpy (filesys_bank.baseaddr, expamem, 0x3000);
 	uaeboard_ram_start = UAEBOARD_WRITEOFFSET;
-	map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1);
-	expamem_map_filesys_update();
+	if (map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1)) {
+		expamem_map_filesys_update();
+	}
 	return &filesys_bank;
+}
+
+/* Native state of the UAEFS board (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0182): where the board is and the 64 KiB it holds. The autoconfig chain it
+ * sits on is the one p6_expansion_state_get describes. Values: 0 the base of the board (0 before the guest gave it one, $FFFFFFFF after a shut-up, else a multiple of 64 KiB
+ * inside the Zorro II space), 1 whether the board has its memory (the guest configured it), 2 whether it answers at that base, 3 where the next uaeboard_alloc_ram starts
+ * (0 while the board has no memory: the variable is not read before expamem_map_filesys sets it). The bytes are the whole bank: the DiagArea the boot code runs, the code
+ * filesys_diagentry wrote after it and the records the 68k side shares with the host. */
+#define P6_UAEFS_WORDS 4
+#define P6_UAEFS_BYTES 65536
+
+static bool p6_uaefs_mapped(void)
+{
+	const uae_u32 start = filesys_bank.start;
+	return start != 0 && start != 0xffffffff && start < 0x1000000 && filesys_bank.allocated_size && &get_mem_bank(start) == &filesys_bank;
+}
+
+bool p6_uaefs_state_get(uint32_t *w, unsigned n, uint8_t *bytes)
+{
+	if (!w || n != P6_UAEFS_WORDS || !bytes)
+		return false;
+	const bool allocated = filesys_bank.baseaddr && filesys_bank.allocated_size == P6_UAEFS_BYTES;
+	if (filesys_bank.baseaddr && !allocated)
+		return false;
+	const bool mapped = p6_uaefs_mapped();
+	w[0] = (allocated || filesys_bank.start == 0xffffffff) ? filesys_bank.start : 0;
+	w[1] = allocated ? 1 : 0;
+	w[2] = mapped ? 1 : 0;
+	w[3] = allocated ? uaeboard_ram_start : 0;
+	if (allocated)
+		memcpy(bytes, filesys_bank.baseaddr, P6_UAEFS_BYTES);
+	else
+		memset(bytes, 0, P6_UAEFS_BYTES);
+	return true;
+}
+
+/* The inverse for an image that has installed the board (expansion_init): false, and nothing touched, for values no board could have. The mapping and the allocation are
+ * rebuilt as expamem_map_filesys leaves them. */
+bool p6_uaefs_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
+{
+	if (!w || n != P6_UAEFS_WORDS || !bytes || w[1] > 1 || w[2] > w[1])
+		return false;
+	const uint32_t start = w[0];
+	if (w[2] && (start & 0xffff || ((start < 0x200000 || start >= 0xa00000) && (start < 0xe90000 || start >= 0xf00000))))
+		return false; // the Zorro II space, or the I/O window above the autoconfig one where expansion.library puts the boards of 64 KiB
+	if (w[1] && start != 0 && (start & 0xffff))
+		return false;
+	if (!w[1] && (start != 0 && start != 0xffffffff))
+		return false;
+	if (w[1] ? (w[3] < UAEBOARD_WRITEOFFSET || w[3] > P6_UAEFS_BYTES) : w[3] != 0)
+		return false;
+	if (p6_uaefs_mapped())
+		map_banks(&dummy_bank, filesys_bank.start >> 16, 1, 0);
+	mapped_free(&filesys_bank);
+	filesys_bank.start = start;
+	filesys_bank.mask = filesys_bank.reserved_size - 1;
+	if (w[1]) {
+		if (!mapped_malloc(&filesys_bank))
+			return false;
+		memcpy(filesys_bank.baseaddr, bytes, P6_UAEFS_BYTES);
+		uaeboard_ram_start = w[3];
+	}
+	if (w[2])
+		map_banks_z2(&filesys_bank, start >> 16, 1);
+	return true;
+}
+
+/* Native state (bridge/state_hdf.cpp, after the UAEFS board, patch 0221): the image of the autoconfig card beyond its first 256 bytes, which the tail of P6RM carries (p6_expansion_state_get).
+ * expamem is the buffer in which each card builds its autoconfig data when the chain reaches it; for the UAEFS board it holds, up to 12 KiB, the DiagArea the guest's expansion.library
+ * will run, the boot code and the bootblock, and expamem_map_filesys copies the first $3000 bytes of it into the board's memory the moment the guest gives the board its base. A machine
+ * that loaded a state taken before that moment had the buffer of its own reset (the card's init runs when the chain gets to it, not at the reset), so the board it mapped had $FF where
+ * the original's had the DiagArea (Kickstart 2.05 on a hard file, units 67 to 72: the 68k side found other code and the first request of the file system went another way). The bytes
+ * are the buffer as it is, values only. */
+#define P6_EXPAMEM_IMAGE_BYTES (0x3000 - 256)
+bool p6_expamem_image_get(uint8_t *bytes, unsigned n)
+{
+	if (!bytes || n != P6_EXPAMEM_IMAGE_BYTES)
+		return false;
+	memcpy(bytes, expamem + 256, P6_EXPAMEM_IMAGE_BYTES);
+	return true;
+}
+
+bool p6_expamem_image_set(const uint8_t *bytes, unsigned n)
+{
+	if (!bytes || n != P6_EXPAMEM_IMAGE_BYTES)
+		return false;
+	memcpy(expamem + 256, bytes, P6_EXPAMEM_IMAGE_BYTES);
+	return true;
 }
 
 #if KS12_BOOT_HACK
@@ -2068,8 +2176,9 @@ static addrbank *expamem_map_z3fastmem (struct autoconfig_info *aci)
 	uae_u32 size = currprefs.z3fastmem[devnum].size;
 
 	if (ab->allocated_size) {
-		map_banks_z3(ab, z3fs >> 16, size >> 16);
-		initramboard(ab, &currprefs.z3fastmem[devnum]);
+		if (map_banks_z3(ab, z3fs >> 16, size >> 16)) {
+			initramboard(ab, &currprefs.z3fastmem[devnum]);
+		}
 	}
 	return ab;
 }
@@ -2417,6 +2526,7 @@ static uaecptr check_boot_rom (struct uae_prefs *p, int *boot_rom_type)
 		if (valid_address (RTAREA_DEFAULT, 65536))
 			b = RTAREA_BACKUP;
 	}
+	// Units of the UAE controller (hard files here; host directories are refused when the configuration is built) need the boot ROM.
 	if (nr_directory_units (NULL))
 		return b;
 	if (nr_directory_units (p))
@@ -3144,7 +3254,13 @@ static void expansion_parse_cards(struct uae_prefs *p, bool log)
 			}
 			if (aci->devnum > 0) {
 				TCHAR *s = label + _tcslen(label);
+#ifdef P6_PORTABLE
+				char suffix[16]; // devnum is an unsigned 8-bit field from flags.
+				snprintf(suffix, sizeof suffix, " [%d]", aci->devnum + 1);
+				_tcscpy(s, suffix);
+#else
 				_stprintf(s, _T(" [%d]"), aci->devnum + 1);
+#endif
 			}
 
 			if ((aci->zorro == 1 || aci->zorro == 2 || aci->zorro == 3) && aci->addrbank != &expamem_none && (aci->autoconfig_raw[0] != 0xff || aci->autoconfigp)) {
@@ -3637,6 +3753,8 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
 
 	reset_ac(p);
 
+#ifndef P6_PORTABLE
+	// Accelerator boards are not part of the A500 profile.
 	if (p->cpuboard_type) {
 		// This may require first 128k slot.
 		cards_set[cardno].flags = 1;
@@ -3646,6 +3764,7 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
 		cards_set[cardno].cst = &cpuboards[p->cpuboard_type].subtypes[p->cpuboard_subtype];;
 		cards_set[cardno++].map = NULL;
 	}
+#endif
 
 	if (p->z3chipmem.size) {
 		cards_set[cardno].flags = 0;
@@ -3692,7 +3811,7 @@ static void expansion_add_autoconfig(struct uae_prefs *p)
 		fastmem_num++;
 	}
 
-#ifdef FILESYS
+#if defined(FILESYS) || defined(P6_FILESYS)
 	if (do_mount && p->uaeboard >= 0 && p->uaeboard < 2) {
 		cards_set[cardno].flags = CARD_FLAG_UAEROM;
 		cards_set[cardno].name = _T("UAEFS");
@@ -3880,7 +3999,10 @@ void expamem_reset (int hardreset)
 			}
 		}
 
-		set_ks12_boot_hack();
+#if defined(FILESYS) || defined(P6_FILESYS)
+		if (do_mount) // the boot hack writes into the trap area, which exists only while a hard file is mounted
+			set_ks12_boot_hack();
+#endif
 		call_card_init(0);
 	}
 }
@@ -3936,6 +4058,12 @@ void expansion_cleanup (void)
 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
 		mapped_free (&fastmem_bank[i]);
 		mapped_free (&z3fastmem_bank[i]);
+#ifdef P6_PORTABLE
+		// T49: a board of the next image is allocated from scratch, at the address its own autoconfig chain assigns: nothing of this one survives
+		fastmem_bank[i].reserved_size = 0;
+		fastmem_bank[i].mask = 0;
+		fastmem_bank[i].start = 0;
+#endif
 	}
 	mapped_free (&z3chipmem_bank);
 
@@ -3947,7 +4075,7 @@ void expansion_cleanup (void)
 	}
 #endif
 
-#ifdef FILESYS
+#if defined(FILESYS) || defined(P6_FILESYS)
 	mapped_free (&filesys_bank);
 #endif
 	if (currprefs.uaeboard) {
@@ -3993,21 +4121,41 @@ void expansion_map(void)
 	if (currprefs.z3chipmem.size) {
 		map_banks_z3(&z3chipmem_bank, z3chipmem_bank.start >> 16, currprefs.z3chipmem.size >> 16);
 	}
+#if defined(FILESYS) || defined(P6_FILESYS)
 	if (do_mount < 0 && ks11orolder()) {
 		filesys_bank.start = 0xe90000;
 		mapped_free(&filesys_bank);
 		mapped_malloc(&filesys_bank);
-		map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1);
-		expamem_init_filesys(NULL);
-		expamem_map_filesys_update();
+		if (map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1)) {
+			expamem_init_filesys(NULL);
+			expamem_map_filesys_update();
+		}
 	}
+#endif
 }
-
 static void clear_bank (addrbank *ab)
 {
 	if (!ab->baseaddr || !ab->allocated_size)
 		return;
+#ifdef P6_PORTABLE
+	// T49: a board is allocated zeroed, and writing zeros over zeros still dirties its pages: a Waterbox snapshot carries every dirty page, so a pristine 8 MiB board would add
+	// 8 MiB to each. Only what is not zero is cleared; the result is the same.
+	size_t size = ab->allocated_size > 0x800000 ? 0x800000 : ab->allocated_size;
+	for (size_t i = 0; i + sizeof (uae_u64) <= size; i += sizeof (uae_u64)) {
+		uae_u64 word;
+		memcpy (&word, ab->baseaddr + i, sizeof word);
+		if (word) {
+			word = 0;
+			memcpy (ab->baseaddr + i, &word, sizeof word);
+		}
+	}
+	for (size_t i = size & ~size_t(sizeof (uae_u64) - 1); i < size; i++) {
+		if (ab->baseaddr[i])
+			ab->baseaddr[i] = 0;
+	}
+#else
 	memset (ab->baseaddr, 0, ab->allocated_size > 0x800000 ? 0x800000 : ab->allocated_size);
+#endif
 }
 
 void expansion_clear (void)
@@ -4017,9 +4165,97 @@ void expansion_clear (void)
 		clear_bank (&z3fastmem_bank[i]);
 	}
 	clear_bank (&z3chipmem_bank);
+#ifndef P6_PORTABLE
+	// Graphics board memory (PICASSO96) is not part of the A500 profile.
 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
 		clear_bank (gfxmem_banks[i]);
 	}
+#endif
+}
+
+/* Native state (bridge/state.cpp, the tail of the body of P6RM while a Zorro II Fast RAM board is configured, patch 0112): where the autoconfig chain of the image has got
+ * to and where the board sits. The chain is rebuilt from the preferences by every reset (expamem_reset); what the guest has done to it since is a handful of values: the
+ * card it is at (ecard), the half-written base address (hi, lo), the nibbles the card presents (expamem, the first 256 bytes: the rest stays $FF), the base of the board
+ * (fastmem_bank[0].start: the slot the chain suggests, what the guest gave it, or $FFFFFFFF after a shut-up), whether the board answers at that base, and whether the window
+ * at $E80000 still answers. Values only, in this order: 0 ecard, 1 cardno, 2 chipdone, 3 map_set (the card's map function has been taken up), 4 bank_current (0 none, 1 the
+ * autoconfig bank itself), 5 autoconfig_mode, 6 hi, 7 lo, 8 board_pointer, 9 board_size, 10 fast_start, 11 fast_allocated, 12 fast_mapped. */
+#define P6_EXPANSION_WORDS 13
+static bool p6_fast_mapped(void)
+{
+	const uae_u32 start = fastmem_bank[0].start;
+	return start != 0 && start != 0xffffffff && start < 0x1000000 && fastmem_bank[0].allocated_size && &get_mem_bank(start) == &fastmem_bank[0];
+}
+
+bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+{
+	if (!w || n != P6_EXPANSION_WORDS || !autoconfig)
+		return false;
+	if (expamem_bank_current && expamem_bank_current != &expamem_bank)
+		return false;
+	w[0] = ecard;
+	w[1] = cardno;
+	w[2] = chipdone ? 1 : 0;
+	w[3] = expamem_map ? 1 : 0;
+	w[4] = expamem_bank_current ? 1 : 0;
+	w[5] = expamem_autoconfig_mode;
+	w[6] = expamem_hi;
+	w[7] = expamem_lo;
+	w[8] = expamem_board_pointer;
+	w[9] = expamem_board_size;
+	w[10] = fastmem_bank[0].start;
+	w[11] = fastmem_bank[0].allocated_size;
+	w[12] = p6_fast_mapped() ? 1 : 0;
+	memcpy(autoconfig, expamem, 256);
+	return true;
+}
+
+/* The inverse, for a machine of the same configuration that has run its reset head: false (and nothing touched) when the values cannot belong to such a machine. The window
+ * at $E80000 and the board's mapping are rebuilt as expamem_next and expamem_map_fastcard leave them. */
+bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig)
+{
+	if (!w || n != P6_EXPANSION_WORDS || !autoconfig)
+		return false;
+	const uint32_t size = fastmem_bank[0].allocated_size;
+	const uint32_t start = w[10];
+	if (w[1] != uint32_t(cardno) || w[0] > w[1] || w[2] > 1 || w[3] > 1 || w[4] > 1 || w[5] > 1 || w[11] != size || w[12] > 1)
+		return false;
+	if (!size && (w[10] || w[12]))
+		return false; // no Fast RAM board (T29c: the chain of a machine with only the UAEFS board): words 10 to 12 are zero
+	if (w[0] >= w[1] && (w[3] || w[4] || w[5]))
+		return false;
+	if (w[12] && (start & 0xffff || start < 0x200000 || (start >> 16) + (size >> 16) > 0xa0))
+		return false;
+	if (start != 0 && start != 0xffffffff && (start & 0xffff))
+		return false;
+
+	if (size) {
+		if (p6_fast_mapped())
+			map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
+		fastmem_bank[0].start = start;
+		if (start != 0 && start != 0xffffffff) {
+			fastmem_bank[0].startmask = start;
+			fastmem_bank[0].startaccessmask = start & fastmem_bank[0].mask;
+		}
+		if (w[12])
+			map_banks_z2(&fastmem_bank[0], start >> 16, size >> 16);
+	}
+
+	ecard = int(w[0]);
+	chipdone = w[2] != 0;
+	expamem_autoconfig_mode = int(w[5]);
+	expamem_hi = uae_u16(w[6]);
+	expamem_lo = uae_u8(w[7]);
+	expamem_board_pointer = w[8];
+	expamem_board_size = w[9];
+	memset(expamem, 0xff, sizeof expamem);
+	memcpy(expamem, autoconfig, 256);
+	expamem_map = w[3] ? cards[ecard]->map : NULL;
+	if (ecard >= cardno)
+		expamem_init_clear_zero();
+	else
+		map_banks(&expamem_bank, 0xE8, 1, 0);
+	expamem_bank_current = w[4] ? &expamem_bank : NULL;
+	return true;
 }
 
 #ifdef SAVESTATE
@@ -4301,6 +4537,25 @@ void restore_expansion_finish(void)
 
 #endif /* SAVESTATE */
 
+#ifdef P6_PORTABLE
+// The fixed profile has no expansion peripherals or accelerator boards. T56: the one board of the table is the IDE port that Gayle gives the A600 and the A1200 (a card that is
+// not autoconfig, which upstream lists among the motherboard devices); its drives are the hard files of the session (gayle.cpp).
+const struct expansionromtype expansionroms[] = {
+	{
+		_T("ide_mb"), _T("A600/A1200/A4000 IDE"), _T("Commodore"),
+		NULL, gayle_ide_init, NULL, gayle_add_ide_unit, ROMTYPE_MB_IDE | ROMTYPE_NOT, 0, 0, BOARD_NONAUTOCONFIG_BEFORE, true,
+		NULL, 0,
+		false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_IDE,
+		0, 0, 0, false, NULL, false, 1
+	},
+	{ NULL }
+};
+static const struct cpuboardsubtype dummy_sub[] = { { NULL } };
+const struct cpuboardtype cpuboards[] = {
+	{ -1, _T("-"), dummy_sub, 0 },
+	{ 0, NULL, NULL, 0 }
+};
+#else
 #if 0
 static const struct expansionsubromtype a2090_sub[] = {
 	{
@@ -4553,6 +4808,23 @@ static const struct expansionboardsettings x86vga_settings[] = {
 		_T("Chipset\0") _T("CL-GD5426\0") _T("CL-GD5429\0"),
 		_T("chipset\0") _T("cl-gd5426\0") _T("cl-gd5429\0"),
 		true
+	},
+	{
+		NULL
+	}
+};
+
+static const struct expansionboardsettings atonce_bridge_settings[] = {
+	{
+		// 0
+		_T("Automount first MBR hardfile"),
+		_T("automounthdf"),
+	},
+	{
+		// 19 (not yet implemented)
+		_T("FPU"),
+		_T("fpu"),
+		false, false, 19
 	},
 	{
 		NULL
@@ -6124,6 +6396,14 @@ const struct expansionromtype expansionroms[] = {
 		false, 2, NULL,
 		{ 0xd2, 0x07, 0x00, 0x00, 0x14, 0x4A, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08 }
 	},
+	{
+		_T("aide"), _T("AIDE"), _T("Matthias Heinrichs"),
+		NULL, aide_init, NULL, aide_add_ide_unit, ROMTYPE_AIDE | ROMTYPE_NOT, 0, 0, BOARD_NONAUTOCONFIG_BEFORE, true,
+		NULL, 0,
+		false, EXPANSIONTYPE_IDE,
+		0, 0, 0, false, NULL,
+		false, 0, NULL
+	},
 
 	/* PC Bridgeboards */
 #ifdef WITH_X86
@@ -6167,6 +6447,17 @@ const struct expansionromtype expansionroms[] = {
 		false, EXPANSIONTYPE_X86_BRIDGE,
 		0, 0, 0, false, NULL,
 		false, 0, x86at386_bridge_settings
+	},
+	{
+		// Vortex ATonce Plus: 286 board in the A500 68000 socket. Not a Zorro
+		// bridgeboard: no autoconfig, no BIOS ROM file (the x86 BIOS is loaded
+		// from the floppy .dsg into Amiga chip RAM by the 68k driver).
+		_T("atonceplus"), _T("ATonce Plus"), _T("Vortex"),
+		NULL, atonce_init, NULL, NULL, ROMTYPE_ATONCE | ROMTYPE_NOT, 0, 0, BOARD_NONAUTOCONFIG_BEFORE, true,
+		NULL, 0,
+		false, EXPANSIONTYPE_X86_BRIDGE,
+		0, 0, 0, false, NULL,
+		false, 0, atonce_bridge_settings
 	},
 #endif
 
@@ -6328,6 +6619,7 @@ const struct expansionromtype expansionroms[] = {
 #endif
 
 		/* Network */
+#ifdef A2065
 	{
 		_T("a2065"), _T("A2065"), _T("Commodore"),
 		NULL, a2065_init, NULL, NULL, ROMTYPE_A2065 | ROMTYPE_NOT, 0, 0, BOARD_AUTOCONFIG_Z2, true,
@@ -6346,6 +6638,7 @@ const struct expansionromtype expansionroms[] = {
 		false, 0, ethernet_settings,
 		{ 0xc1, 0xc9, 0x00, 0x00, 2167 >> 8, 2167 & 255, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 	},
+#endif
 #ifdef WITH_QEMU_CPU
 	{
 		_T("ariadne2"), _T("Ariadne II"), _T("Village Tronic"),
@@ -7286,6 +7579,8 @@ const struct cpuboardtype cpuboards[] = {
 		NULL
 	}
 };
+
+#endif
 
 const struct memoryboardtype memoryboards[]
 {

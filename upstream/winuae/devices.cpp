@@ -1,10 +1,14 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
+#include "gdb_server.h"
 
 #include "devices.h"
 
 #include "options.h"
+#include "uae.h"
+#ifndef P6_PORTABLE
 #include "threaddep/thread.h"
+#endif
 #include "memory.h"
 #include "audio.h"
 #ifdef GFXBOARD
@@ -18,7 +22,9 @@
 #ifdef WITH_SNDBOARD
 #include "sndboard.h"
 #endif
+#ifndef P6_PORTABLE
 #include "statusline.h"
+#endif
 #ifdef WITH_PPC
 #include "uae/ppc.h"
 #endif
@@ -40,7 +46,9 @@
 #ifdef SERIAL_PORT
 #include "serial.h"
 #endif
+#ifdef BSDSOCKET
 #include "bsdsocket.h"
+#endif
 #include "uaeserial.h"
 #include "uaeresource.h"
 #include "native2amiga.h"
@@ -64,7 +72,7 @@
 #endif
 #include "ethernet.h"
 #include "drawing.h"
-#ifdef AVIOUTPUT
+#ifdef VIDEOGRAB
 #include "videograb.h"
 #endif
 #ifdef WITH_MIDIEMU
@@ -101,6 +109,9 @@ static void execute_device_items(DEVICE_VOID *pp, int cnt)
 	}
 }
 
+#ifndef P6_PORTABLE
+static uae_sem_t thread_sema;
+#endif
 static int device_configs_cnt;
 static DEVICE_VOID device_configs[MAX_DEVICE_ITEMS];
 static int device_vsync_pre_cnt;
@@ -118,6 +129,43 @@ static DEVICE_VOID device_leaves_early[MAX_DEVICE_ITEMS];
 static int device_resets_cnt;
 static DEVICE_INT device_resets[MAX_DEVICE_ITEMS];
 static bool device_reset_done[MAX_DEVICE_ITEMS];
+#ifndef P6_PORTABLE
+static int device_callbacks_cnt;
+static DEVICE_VOID device_callbacks[MAX_DEVICE_ITEMS];
+
+void device_call_main_thread_callbacks(void)
+{
+	uae_sem_wait(&thread_sema);
+	DEVICE_VOID device_callbacks_tmp[MAX_DEVICE_ITEMS];
+	int device_callbacks_cnt_tmp = device_callbacks_cnt;
+	memcpy(device_callbacks_tmp, device_callbacks, sizeof(DEVICE_VOID) * device_callbacks_cnt);
+	device_callbacks_cnt = 0;
+	uae_sem_post(&thread_sema);
+	execute_device_items(device_callbacks_tmp, device_callbacks_cnt_tmp);
+}
+
+// queues function for execution from main thread if called from another thread
+void device_add_main_thread_callback(DEVICE_VOID p)
+{
+	if (is_mainthread()) {
+		p();
+	} else {
+		uae_sem_wait(&thread_sema);
+		add_device_item(device_callbacks, &device_callbacks_cnt, p);
+		set_special(SPCFLAG_CALLBACK);
+		uae_sem_post(&thread_sema);
+	}
+}
+#else
+void device_call_main_thread_callbacks(void)
+{
+}
+
+void device_add_main_thread_callback(DEVICE_VOID p)
+{
+	p();
+}
+#endif
 
 static void reset_device_items(void)
 {
@@ -180,15 +228,26 @@ void device_add_reset_imm(DEVICE_INT p)
 	p(1);
 }
 
+#ifdef P6_FILESYS
+// The session mounts a hard file (bridge/media.cpp adds one mount configuration per HDF of the media list).
+#define P6_WITH_HDF (currprefs.mountitems > 0)
+#else
+#define P6_WITH_HDF 0
+#endif
+
 void device_check_config(void)
 {
 	execute_device_items(device_configs, device_configs_cnt);
 
+#ifndef P6_PORTABLE
 	check_prefs_changed_cd();
+#endif
 	check_prefs_changed_audio();
 	check_prefs_changed_custom();
 	check_prefs_changed_cpu();
+#ifndef P6_PORTABLE
 	check_prefs_picasso();
+#endif
 }
 
 void devices_reset_ext(int hardreset)
@@ -203,10 +262,13 @@ void devices_reset_ext(int hardreset)
 
 void devices_reset(int hardreset)
 {
+	gdb_server_reset();
 	memset(device_reset_done, 0, sizeof(device_reset_done));
 	// must be first
 	init_eventtab();
+#ifndef P6_PORTABLE
 	init_shm();
+#endif
 
 #ifdef GFXBOARD
 	// must be before memory_reset()
@@ -215,6 +277,9 @@ void devices_reset(int hardreset)
 	memory_reset();
 #ifdef AUTOCONFIG
 	rtarea_reset();
+#elif defined(P6_FILESYS)
+	if (P6_WITH_HDF)
+		rtarea_reset();
 #endif
 	DISK_reset();
 	CIA_reset(hardreset);
@@ -225,7 +290,12 @@ void devices_reset(int hardreset)
 #ifdef WITH_PPC
 	uae_ppc_reset(is_hardreset());
 #endif
+#ifndef P6_PORTABLE
 	native2amiga_reset();
+#elif defined(P6_FILESYS)
+	if (P6_WITH_HDF)
+		native2amiga_reset();
+#endif
 #ifdef SCSIEMU
 	scsi_reset();
 	scsidev_reset();
@@ -234,18 +304,27 @@ void devices_reset(int hardreset)
 #ifdef DRIVESOUND
 	driveclick_reset();
 #endif
+#ifndef P6_PORTABLE
 	ethernet_reset();
 	reset_traps();
-#ifdef FILESYS
-	filesys_prepare_reset();
-	filesys_reset();
+#elif defined(P6_FILESYS)
+	if (P6_WITH_HDF)
+		reset_traps();
+#endif
+#if defined(FILESYS) || defined(P6_FILESYS)
+	if (P6_WITH_HDF) {
+		filesys_prepare_reset();
+		filesys_reset();
+	}
 #endif
 #if defined (BSDSOCKET)
 	bsdlib_reset();
 #endif
-#ifdef FILESYS
-	filesys_start_threads();
-	hardfile_reset();
+#if defined(FILESYS) || defined(P6_FILESYS)
+	if (P6_WITH_HDF) {
+		filesys_start_threads();
+		hardfile_reset();
+	}
 #endif
 #ifdef UAESERIAL
 	uaeserialdev_reset();
@@ -255,27 +334,39 @@ void devices_reset(int hardreset)
 	initparallel();
 #endif
 	dongle_reset();
+#ifndef P6_PORTABLE
 	sampler_init();
 	device_func_reset();
+#endif
 #ifdef RETROPLATFORM
 	rp_reset();
 #endif
+#ifndef P6_PORTABLE
 	keymcu_reset();
 	keymcu2_reset();
 	keymcu3_reset();
+
+	uae_sem_wait(&thread_sema);
+	device_callbacks_cnt = 0;
+	uae_sem_post(&thread_sema);
+#endif
 	uae_int_requested = 0;
 }
 
 void devices_vsync_pre(void)
 {
 	audio_vsync();
+#ifndef P6_PORTABLE
 	blkdev_vsync();
+#endif
 	CIA_vsync_prehandler();
 	inputdevice_vsync();
+#ifndef P6_PORTABLE
 	filesys_vsync();
 	sampler_vsync();
 	clipboard_vsync();
 	statusline_vsync();
+#endif
 
 	execute_device_items(device_vsyncs_pre, device_vsync_pre_cnt);
 }
@@ -289,6 +380,7 @@ void devices_hsync(void)
 {
 	DISK_hsync();
 	audio_hsync();
+	blitter_hsync();
 
 	decide_blitter(-1);
 #ifdef SERIAL_PORT
@@ -310,8 +402,10 @@ void devices_rethink(void)
 	execute_device_items(device_rethinks, device_rethink_cnt);
 
 	rethink_uae_int();
+#ifndef P6_PORTABLE
 	/* cpuboard_rethink must be last */
 	cpuboard_rethink();
+#endif
 }
 
 void devices_update_sound(float clk, float syncadjust)
@@ -320,7 +414,9 @@ void devices_update_sound(float clk, float syncadjust)
 #ifdef WITH_SNDBOARD
 	update_sndboard_sound (clk / syncadjust);
 #endif
+#ifndef P6_PORTABLE
 	update_cda_sound(clk / syncadjust);
+#endif
 #ifdef WITH_X86
 	x86_update_sound(clk / syncadjust);
 #endif
@@ -338,6 +434,7 @@ void devices_update_sync(float svpos, float syncadjust)
 
 void virtualdevice_free(void)
 {
+	gdb_server_close();
 #ifdef WITH_PPC
 	// must be first
 	uae_ppc_free();
@@ -345,25 +442,37 @@ void virtualdevice_free(void)
 
 	execute_device_items(device_leaves_early, device_leave_early_cnt);
 
+#ifndef P6_PORTABLE
 	reset_traps();
 	free_traps();
-#ifdef FILESYS
-	filesys_cleanup();
+#elif defined(P6_FILESYS)
+	if (P6_WITH_HDF) {
+		reset_traps();
+		free_traps();
+	}
+#endif
+#if defined(FILESYS) || defined(P6_FILESYS)
+	if (P6_WITH_HDF)
+		filesys_cleanup();
 #endif
 #ifdef BSDSOCKET
 	bsdlib_reset();
 #endif
+#ifndef P6_PORTABLE
 	sampler_free();
+#endif
 	inputdevice_close();
 	DISK_free();
 	dump_counts();
 #ifdef SERIAL_PORT
 	serial_exit();
 #endif
-#ifdef AUTOCONFIG
+#if defined(AUTOCONFIG) || defined(P6_PORTABLE)
 	expansion_cleanup();
 #endif
+#ifndef P6_PORTABLE
 	device_func_free();
+#endif
 #ifdef WITH_LUA
 	uae_lua_free();
 #endif
@@ -372,20 +481,31 @@ void virtualdevice_free(void)
 #endif
 	savestate_free();
 	memory_cleanup();
+#ifndef P6_PORTABLE
+	rtarea_free();
 	free_shm();
 	cfgfile_addcfgparam(0);
+#elif defined(P6_FILESYS)
+	if (P6_WITH_HDF) {
+		native2amiga_free();
+		rtarea_free();
+	}
+#endif
 #ifdef DRIVESOUND
 	driveclick_free();
 #endif
+#ifndef P6_PORTABLE
 	ethernet_enumerate_free();
-	rtarea_free();
+#endif
 	drawing_free();
 #ifdef WITH_DRACO
 	draco_free();
 #endif
+#ifndef P6_PORTABLE
 	keymcu_free();
 	keymcu2_free();
 	keymcu3_free();
+#endif
 	execute_device_items(device_leaves, device_leave_cnt);
 }
 
@@ -394,16 +514,31 @@ void do_leave_program (void)
 	virtualdevice_free();
 	graphics_leave();
 	close_sound();
+#ifndef P6_PORTABLE
 	if (! no_gui)
 		gui_exit();
+#endif
 #ifdef USE_SDL
 	SDL_Quit();
 #endif
+#ifndef P6_PORTABLE
 	machdep_free();
+
+	if (thread_sema) {
+		uae_sem_destroy(&thread_sema);
+		thread_sema = NULL;
+	}
+#endif
 }
 
 void virtualdevice_init (void)
 {
+#ifndef P6_PORTABLE
+	if (!thread_sema) {
+		uae_sem_init(&thread_sema, 0, 1);
+	}
+#endif
+
 	reset_device_items();
 
 #ifdef CD32
@@ -411,11 +546,19 @@ void virtualdevice_init (void)
 #endif
 #ifdef AUTOCONFIG
 	rtarea_setup ();
+#elif defined(P6_FILESYS)
+	// T29a: the trap area, uaehf.device and the UAEFS board exist only when the session mounts a hard file; without one the machine is what it was before
+	if (P6_WITH_HDF) {
+		rtarea_setup ();
+		native2amiga_install ();
+	}
 #endif
-#ifdef FILESYS
-	rtarea_init ();
-	uaeres_install ();
-	hardfile_install ();
+#if defined(FILESYS) || defined(P6_FILESYS)
+	if (P6_WITH_HDF) {
+		rtarea_init ();
+		uaeres_install ();
+		hardfile_install ();
+	}
 #endif
 #ifdef SCSIEMU
 	scsi_reset ();
@@ -431,9 +574,15 @@ void virtualdevice_init (void)
 	expansion_init ();
 	emulib_install ();
 	uaeexe_install ();
+#elif defined(P6_PORTABLE)
+	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
+	// T56: and the IDE port of Gayle
+	if (currprefs.fastmem[0].size || P6_WITH_HDF || currprefs.cs_ide)
+		expansion_init ();
 #endif
-#ifdef FILESYS
-	filesys_install ();
+#if defined(FILESYS) || defined(P6_FILESYS)
+	if (P6_WITH_HDF)
+		filesys_install ();
 #endif
 #if defined (BSDSOCKET)
 	bsdlib_install ();
@@ -447,11 +596,14 @@ void virtualdevice_init (void)
 #ifdef WITH_DRACO
 	draco_init();
 #endif
+#ifndef P6_PORTABLE
 	keymcu_init();
 	keymcu2_init();
 	keymcu3_init();
+#endif
 }
 
+#ifdef SAVESTATE
 void devices_restore_start(void)
 {
 	restore_audio_start();
@@ -469,6 +621,8 @@ void devices_restore_start(void)
 	restore_expansion_boards(NULL);
 }
 
+#endif
+
 void devices_syncchange(void)
 {
 #ifdef WITH_X86
@@ -484,19 +638,25 @@ void devices_pause(void)
 #ifdef WITH_DSP
 	dsp_pause(1);
 #endif
+#ifndef P6_PORTABLE
 	blkdev_entergui();
+#endif
 #ifdef RETROPLATFORM
 	rp_pause(1);
 #endif
-#ifdef AVIOUTPUT
+#ifdef VIDEOGRAB
 	pausevideograb(1);
 #endif
+#ifndef P6_PORTABLE
 	ethernet_pause(1);
+#endif
 }
 
 void devices_unpause(void)
 {
+#ifndef P6_PORTABLE
 	blkdev_exitgui();
+#endif
 #ifdef RETROPLATFORM
 	rp_pause(0);
 #endif
@@ -506,13 +666,17 @@ void devices_unpause(void)
 #ifdef WITH_DSP
 	dsp_pause(0);
 #endif
-#ifdef AVIOUTPUT
+#ifdef VIDEOGRAB
 	pausevideograb(0);
 #endif
+#ifndef P6_PORTABLE
 	ethernet_pause(0);
+#endif
 }
 
 void devices_unsafeperiod(void)
 {
+#ifndef P6_PORTABLE
 	clipboard_unsafeperiod();
+#endif
 }

@@ -5575,8 +5575,12 @@ static void gen_opcode (unsigned int opcode)
 		genamode(curi, curi->smode, "srcreg", curi->size, "src", 1, 0, cpu_level == 1 ? GF_NOREFILL : 0);
 		if (curi->size == sz_byte) {
 			out("src &= 0xFF;\n");
-			if (curi->mnemo == i_ANDSR)
+			if (curi->mnemo == i_ANDSR) {
 				out("src |= 0xff00;\n");
+			}
+			if (cpu_level == 2 || cpu_level == 3) {
+				check_trace();
+			}
 		} else {
 			check_trace();
 		}
@@ -7305,8 +7309,11 @@ static void gen_opcode (unsigned int opcode)
 			genastore("m68k_areg(regs, 7)", curi->smode, "srcreg", sz_long, "src");
 			out("m68k_areg(regs, 7) += offs;\n");
 			fill_prefetch_next_t();
-			if (!next_level_060_to_040())
-				next_level_020_to_010();
+			if (!next_level_060_to_040()) {
+				if (!next_level_040_to_030()) {
+					next_level_020_to_010();
+				}
+			}
 		}
 		break;
 	case i_UNLK:
@@ -10205,6 +10212,7 @@ static void generate_cpu (int id, int mode)
 			opcode_next_clev[rp] = cpu_level;
 	} else if (id == 35) { // 35 = 68030 MMU + caches + CE
 		mmu_postfix = "030c";
+		xfc_postfix = "_state";
 		cpu_level = 3;
 		using_ce020 = 2;
 		using_prefetch_020 = 2;
@@ -10275,6 +10283,21 @@ static void generate_cpu (int id, int mode)
 
 int main(int argc, char *argv[])
 {
+	// PUAE6: optional model numbers on the command line restrict the emitted tables and
+	// handler files; without arguments every model is generated, as upstream does.
+	bool selected[56] = {};
+	bool restricted = false;
+	for (int a = 1; a < argc; a++) {
+		char *end;
+		long n = strtol(argv[a], &end, 10);
+		if (end == argv[a] || *end || n < 0 || n > 55) {
+			fprintf(stderr, "gencpu: invalid model number '%s'\n", argv[a]);
+			return 1;
+		}
+		selected[n] = true;
+		restricted = true;
+	}
+
 	init_table68k();
 
 	opcode_map =  xmalloc (int, nr_cpuop_funcs);
@@ -10313,6 +10336,8 @@ int main(int argc, char *argv[])
 
 	for (int i = 0; i <= 55; i++) {
 		if ((i >= 6 && i < 11) || (i > 14 && i < 20) || (i > 25 && i < 31) || (i > 35 && i < 40))
+			continue;
+		if (restricted && !selected[i])
 			continue;
 		generate_stbl = 1;
 		generate_cpu (i, 0);

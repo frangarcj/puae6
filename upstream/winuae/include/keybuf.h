@@ -20,4 +20,7 @@ extern void setcapslockstate(int);
 extern void keybuf_inject(const uae_char*);
 extern void keybuf_ignore_next_release(void);
 extern void keybuf_vsync(void);
+#ifdef P6_PORTABLE
+extern int keybuf_free(void);
+#endif
 #endif /* UAE_KEYBUF_H */

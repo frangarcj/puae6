@@ -54,7 +54,7 @@ extern uae_u8 *zfile_get_data_pointer(struct zfile *z, size_t *len);
 extern const TCHAR *zfile_get_ext(const TCHAR *);
 
 extern int zfile_exists (const TCHAR *name);
-extern void zfile_fclose (struct zfile *z);
+extern int zfile_fclose (struct zfile *z);
 extern uae_s64 zfile_fseek (struct zfile *z, uae_s64 offset, int mode);
 extern uae_s64 zfile_ftell(struct zfile *z);
 extern uae_s32 zfile_ftell32(struct zfile *z);
@@ -98,11 +98,19 @@ extern int zfile_truncate(struct zfile *z, uae_s64 size);
 #define ZFD_UNPACK 8 //gzip,dms
 #define ZFD_RAWDISK 16  //fdi->adf,ipf->adf etc..
 #define ZFD_CD 32 //cue/iso, cue has priority over iso
+#ifdef P6_PORTABLE
+#define ZFD_DISKHISTORY 0 // history is excluded from the portable profile
+#else
 #define ZFD_DISKHISTORY 0x100 //allow diskhistory (if disk image)
+#endif
 #define ZFD_CHECKONLY 0x200 //file exists checkc
 #define ZFD_DELAYEDOPEN 0x400 //do not unpack, just get metadata
 #define ZFD_NORECURSE 0x10000 // do not recurse archives
+#ifdef P6_PORTABLE
+#define ZFD_NORMAL 0 // registered raw assets only; no archive/unpack probing
+#else
 #define ZFD_NORMAL (ZFD_ARCHIVE|ZFD_UNPACK)
+#endif
 #define ZFD_ALL 0x0000ffff
 
 #define ZFD_RAWDISK_AMIGA 0x10000

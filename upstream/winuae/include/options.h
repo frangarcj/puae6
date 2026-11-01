@@ -14,9 +14,7 @@
 
 #include "traps.h"
 
-#define UAEMAJOR 6
-#define UAEMINOR 0
-#define UAESUBREV 3
+#include "winuae_version.h"
 
 #define MAX_AMIGADISPLAYS 4
 
@@ -369,6 +367,11 @@ struct apmode
 
 #define MAX_LUA_STATES 16
 
+#define ASPECT_TYPE_NONE 0
+#define ASPECT_TYPE_VGA 1
+#define ASPECT_TYPE_TV_AUTO 2
+#define ASPECT_TYPE_TV_PAL 3
+#define ASPECT_TYPE_TV_NTSC 4
 
 #define MAX_FILTERDATA 3
 #define GF_NORMAL 0
@@ -397,11 +400,12 @@ struct gfx_filterdata
 	int gfx_filter_noise, gfx_filter_blur;
 	int gfx_filter_saturation, gfx_filter_luminance, gfx_filter_contrast;
 	int gfx_filter_gamma, gfx_filter_gamma_ch[3];
-	int gfx_filter_keep_aspect, gfx_filter_aspect;
+	int gfx_filter_aspect_type, gfx_filter_aspect;
 	int gfx_filter_autoscale;
 	int gfx_filter_integerscalelimit;
 	int gfx_filter_keep_autoscale_aspect;
 	int gfx_filter_rotation;
+	int gfx_filter_blanking;
 	bool changed;
 };
 
@@ -515,6 +519,14 @@ struct monconfig
 #define DISPLAY_OPTIMIZATIONS_PARTIAL 1
 #define DISPLAY_OPTIMIZATIONS_NONE 2
 
+#define HVSYNC_COMBINED 0
+#define HVSYNC_CSYNC 1
+#define HVSYNC_HVSYNC 2
+#define HVSYNC_SYNCPOS 3
+#define HVSYNC_COMBINED_SYNC 3
+#define HVSYNC_CSYNC_SYNC 4
+#define HVSYNC_HVSYNC_SYNC 5
+
 struct uae_prefs {
 
 	struct strlist *all_lines;
@@ -552,6 +564,9 @@ struct uae_prefs {
 
 	bool start_debugger;
 	int debugging_features;
+#ifdef GDBSERVER
+	int gdb_port;
+#endif
 	TCHAR debugging_options[MAX_DPATH];
 	bool start_gui;
 
@@ -612,6 +627,7 @@ struct uae_prefs {
 	int gfx_xcenter_pos, gfx_ycenter_pos;
 	int gfx_xcenter_size, gfx_ycenter_size;
 	int gfx_max_horizontal, gfx_max_vertical;
+	bool gfx_keep_aspect;
 	int gfx_saturation, gfx_luminance, gfx_contrast, gfx_gamma, gfx_gamma_ch[3];
 	bool gfx_blackerthanblack;
 	int gfx_threebitcolors;
@@ -631,6 +647,7 @@ struct uae_prefs {
 	int gfx_monitorblankdelay;
 	int gfx_rotation;
 	bool gfx_ntscpixels;
+	bool gfx_ntscpixelspal;
 	uae_u32 gfx_bordercolor;
 
 	struct gfx_filterdata gf[3];
@@ -643,7 +660,7 @@ struct uae_prefs {
 	float blitter_speed_throttle;
 	unsigned int chipset_mask;
 	bool chipset_hr;
-	bool display_calibration;
+	int display_calibration;
 	int keyboard_mode;
 	bool keyboard_nkro;
 	bool ntscmode;
@@ -750,6 +767,8 @@ struct uae_prefs {
 	int cs_ciatype[2];
 	int cs_kbhandshake;
 	int cs_hvcsync;
+	int cs_hsyncadjust;
+	int cs_vsyncadjust;
 	int cs_eclockphase;
 	int cs_eclocksync;
 	int cs_agnusmodel;
@@ -775,8 +794,8 @@ struct uae_prefs {
 	TCHAR cartident[256];
 	int cart_internal;
 	TCHAR pci_devices[256];
-	TCHAR prtname[256];
-	TCHAR sername[256];
+	TCHAR prtname[MAX_DPATH];
+	TCHAR sername[MAX_DPATH];
 	TCHAR a2065name[MAX_DPATH];
 	TCHAR ne2000pciname[MAX_DPATH];
 	TCHAR ne2000pcmcianame[MAX_DPATH];
@@ -910,6 +929,7 @@ struct uae_prefs {
 	int win32_iconified_input;
 
 	bool win32_rtgallowscaling;
+	bool win32_rtgnonsquarepixels;
 	int win32_rtgscaleaspectratio;
 	int win32_rtgvblankrate;
 	bool win32_borderless;
@@ -956,6 +976,7 @@ struct uae_prefs {
 
 	struct jport jports[MAX_JPORTS];
 	struct jport_custom jports_custom[MAX_JPORTS_CUSTOM];
+	int jports_default[MAX_JPORTS];
 	int input_selected_setting;
 	int input_joymouse_multiplier;
 	int input_joymouse_deadzone;
@@ -1002,7 +1023,6 @@ extern void cfgfile_target_write_bool (struct zfile *f, const TCHAR *option, boo
 extern void cfgfile_target_dwrite_bool (struct zfile *f, const TCHAR *option, bool b);
 
 extern void cfgfile_write_str(struct zfile *f, const TCHAR *option, const TCHAR *value);
-extern void cfgfile_write_str_escape(struct zfile *f, const TCHAR *option, const TCHAR *value);
 extern void cfgfile_dwrite_str(struct zfile *f, const TCHAR *option, const TCHAR *value);
 extern void cfgfile_target_write_str(struct zfile *f, const TCHAR *option, const TCHAR *value);
 extern void cfgfile_target_dwrite_str(struct zfile *f, const TCHAR *option, const TCHAR *value);
@@ -1035,6 +1055,7 @@ extern TCHAR *cfgfile_subst_path(const TCHAR *path, const TCHAR *subst, const TC
 
 extern TCHAR *target_expand_environment (const TCHAR *path, TCHAR *out, int maxlen);
 extern int target_parse_option (struct uae_prefs *, const TCHAR *option, const TCHAR *value, int type);
+extern int target_parse_compat_option(struct uae_prefs *, const TCHAR *option, const TCHAR *value);
 extern void target_save_options (struct zfile*, struct uae_prefs *);
 extern void target_default_options (struct uae_prefs *, int type);
 extern void target_fixup_options (struct uae_prefs *);

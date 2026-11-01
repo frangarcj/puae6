@@ -1,0 +1,25 @@
+diff --git a/custom.cpp b/custom.cpp
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -8609,6 +8609,10 @@
+ }
+ 
+ #endif /* SAVESTATE */
++
++#endif /* SAVESTATE || P6_STATE_BODIES */
++
++#if defined SAVESTATE || defined P6_STATE_BODIES || defined P6_PORTABLE
+ 
+ #ifdef P6_PORTABLE
+ /* An RGA slot also points at the refresh pointer, at the pointer of an audio channel and at the disk pointer, none of which has a register of its own: restoring
+@@ -8744,6 +8748,10 @@
+ 	return &dummyrgaaddr;
+ }
+ 
++#endif /* SAVESTATE || P6_STATE_BODIES || P6_PORTABLE */
++
++#if defined SAVESTATE || defined P6_STATE_BODIES
++
+ uae_u8 *save_custom_slots(size_t *len, uae_u8 *dstptr)
+ {
+ 	uae_u8 *dstbak, *dst;

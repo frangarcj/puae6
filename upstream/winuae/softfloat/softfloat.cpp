@@ -94,7 +94,8 @@ this code that are retained.
 | division and square root approximations.  (Can be specialized to target if
 | desired.)
 *----------------------------------------------------------------------------*/
-#include "softfloat-macros.h"
+/* PUAE6 derivative: use the case-exact upstream header on all hosts. */
+#include "SOFTFLOAT-MACROS.H"
 
 /*----------------------------------------------------------------------------
  | Variables for storing sign, exponent and significand of internal extended

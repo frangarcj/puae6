@@ -29,11 +29,14 @@
 #include "debug.h"
 #include "uae.h"
 
-#ifndef CPU_TESTER
+#if !defined(CPU_TESTER) && !defined(P6_PORTABLE)
 #define SUPPORT_MMU 1
 #else
+/* The profile has no 68030 MMU (MMUEMU is off, cpummu030.cpp is not linked): the restartable FMOVEM bookkeeping stays out. */
 #define SUPPORT_MMU 0
+#ifdef CPU_TESTER
 extern void cputester_fault(void);
+#endif
 #endif
 
 #ifdef WITH_SOFTFLOAT
@@ -381,6 +384,11 @@ static bool fp_exception_pending(bool pre)
 			Exception(regs.fp_exp_pend);
 			if (currprefs.fpu_model != 68882)
 				regs.fp_exp_pend = 0;
+#ifdef P6_PORTABLE
+			// The generated handler of the instruction goes on to refill the prefetch queue unless fp_exception is set; the exception has just loaded it
+			// for the handler's first instruction, and a second refill (CE020) skips into the handler and runs what is left as opcodes.
+			regs.fp_exception = true;
+#endif
 			return true;
 		}
 	}
@@ -396,7 +404,9 @@ static bool fp_exception_pending(bool pre)
 		regs.fpu_exp_pre = pre;
 		Exception(55);
 		regs.fp_unimp_pend = 0;
-
+#ifdef P6_PORTABLE
+		regs.fp_exception = true;
+#endif
 		return true;
 	}
 	return false;
@@ -2318,6 +2328,9 @@ void fpuop_trapcc (uae_u32 opcode, uaecptr oldpc, uae_u16 extra)
 		fpu_op_illg (opcode, 0, false, oldpc);
 	} else if (cc) {
 		Exception_cpu_oldpc(7, oldpc);
+#ifdef P6_PORTABLE
+		regs.fp_exception = true;		// as TRAPcc does: the exception ends the instruction, no second prefetch (see fp_exception_pending)
+#endif
 	}
 }
 
@@ -3634,6 +3647,10 @@ void fpu_modechange(void)
 	for (int i = 0; i < 8; i++) {
 		fpp_from_exten_fmovem(&regs.fp[i], &temp_ext[i][0], &temp_ext[i][1], &temp_ext[i][2]);
 	}
+#ifdef P6_PORTABLE
+	// SoftFloat is the only backend of the profile (fpp_native.cpp is not linked: its results follow the host's FPU).
+	fp_init_softfloat(currprefs.fpu_model);
+#else
 	if (currprefs.fpu_mode > 0) {
 #ifdef WITH_SOFTFLOAT
 		fp_init_softfloat(currprefs.fpu_model);
@@ -3650,6 +3667,7 @@ void fpu_modechange(void)
 #endif
 		fp_init_native();
 	}
+#endif
 	get_features();
 	for (int i = 0; i < 8; i++) {
 		fpp_to_exten_fmovem(&regs.fp[i], temp_ext[i][0], temp_ext[i][1], temp_ext[i][2]);
@@ -3676,7 +3694,7 @@ static void fpu_test(void)
 
 void fpu_reset (void)
 {
-#ifndef CPU_TESTER
+#if !defined(CPU_TESTER) && !defined(P6_PORTABLE)
 	currprefs.fpu_mode = changed_prefs.fpu_mode;
 	if (currprefs.fpu_mode > 0) {
 #ifdef WITH_SOFTFLOAT
@@ -3718,7 +3736,9 @@ void fpu_reset (void)
 	fpp_set_fpcr (0);
 	fpp_set_fpsr (0);
 	fpp_set_fpiar (0);
-	fpux_restore (NULL);
+#ifndef P6_PORTABLE
+	fpux_restore (NULL);	/* od-win32: puts the x87 control word back; the profile never touches it */
+#endif
 	// reset precision
 	fpp_set_mode(0x00000080 | 0x00000010);
 	fpp_set_mode(0x00000000);
@@ -3871,4 +3891,23 @@ uae_u8 *save_fpu(size_t *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
+#endif
+
+#ifdef P6_PORTABLE
+/* State access for bridge/state_cpu.cpp (T54). fsave_data is the one piece of 68881/68882 state that lives in a file-local variable of this unit: the FSAVE frame of an
+ * idle FPU reads the condition/command word and the exceptional operand that the last exception left (a 68040 or 68060 would have more, the profile has neither). The
+ * registers, FPCR/FPSR/FPIAR and the pending-exception words are in `regs`. Everything else here is derived from fpu_model by fpu_reset (get_features) or written before it is read. */
+void p6_fpu_fsave_get(uae_u32 *ccr, uae_u32 *eo)
+{
+	*ccr = fsave_data.ccr;
+	for (int i = 0; i < 3; i++)
+		eo[i] = fsave_data.eo[i];
+}
+
+void p6_fpu_fsave_set(uae_u32 ccr, const uae_u32 *eo)
+{
+	fsave_data.ccr = ccr;
+	for (int i = 0; i < 3; i++)
+		fsave_data.eo[i] = eo[i];
+}
 #endif

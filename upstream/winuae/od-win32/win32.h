@@ -10,32 +10,10 @@
 #ifndef __WIN32_H__
 #define __WIN32_H__
 
-#define MAKEBD(x,y,z) ((((x) - 2000) * 10000 + (y)) * 100 + (z))
-#define GETBDY(x) ((x) / 1000000 + 2000)
-#define GETBDM(x) (((x) - ((x / 10000) * 10000)) / 100)
-#define GETBDD(x) ((x) % 100)
+#include "winuae_version.h"
 
-#define WINUAEPUBLICBETA 0
 #define LANG_DLL 1
 #define LANG_DLL_FULL_VERSION_MATCH 1
-
-#if WINUAEPUBLICBETA
-#define WINUAEBETA _T("")
-#else
-#define WINUAEBETA _T("")
-#endif
-
-#define WINUAEDATE MAKEBD(2026, 3, 1)
-
-//#define WINUAEEXTRA _T("AmiKit Preview")
-//#define WINUAEEXTRA _T("Amiga Forever Edition")
-
-#ifndef WINUAEEXTRA
-#define WINUAEEXTRA _T("")
-#endif
-#ifndef WINUAEREV
-#define WINUAEREV _T("")
-#endif
 
 #define IHF_WINDOWHIDDEN 6
 #define WINUAEAPPNAME _T("Arabuusimiehet.WinUAE")

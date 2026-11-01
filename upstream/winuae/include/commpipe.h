@@ -54,6 +54,10 @@ STATIC_INLINE void destroy_comm_pipe (smp_comm_pipe *p)
 	uae_sem_destroy (&p->lock);
 	uae_sem_destroy (&p->reader_wait);
 	uae_sem_destroy (&p->writer_wait);
+#ifdef P6_PORTABLE
+	free (p->data); // allocated by init_comm_pipe; an image that is loaded again and again must not leave one behind
+	p->data = NULL;
+#endif
 }
 
 STATIC_INLINE void maybe_wake_reader (smp_comm_pipe *p, int no_buffer)

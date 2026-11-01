@@ -36,9 +36,9 @@ static uae_u32 SockLibBase;
 
 /* ObtainSocket()/ReleaseSocket() public socket pool */
 struct sockd {
-	long sockpoolids[SOCKPOOLSIZE];
-	SOCKET_TYPE sockpoolsocks[SOCKPOOLSIZE];
-	uae_u32 sockpoolflags[SOCKPOOLSIZE];
+	long sockpoolids;
+	SOCKET_TYPE sockpoolsocks;
+	uae_u32 sockpoolflags;
 };
 
 static long curruniqid = 65536;
@@ -196,7 +196,7 @@ bool checksd(TrapContext *ctx, SB, int sd)
 			}
 		}
 		for (iCounter  = 0; iCounter < SOCKPOOLSIZE; iCounter++) {
-			if (s == sockdata->sockpoolsocks[iCounter])
+			if (sockdata[iCounter].sockpoolids != UNIQUE_ID && s == sockdata[iCounter].sockpoolsocks)
 				return true;
 		}
 	}
@@ -639,6 +639,9 @@ static uae_u32 REGPARAM2 bsdsocklib_recv (TrapContext *ctx)
 static uae_u32 REGPARAM2 bsdsocklib_shutdown (TrapContext *ctx)
 {
 	struct socketbase *sb = get_socketbase (ctx);
+#ifndef _WIN32
+	sb->context = ctx;
+#endif
 	return host_shutdown (sb, trap_get_dreg(ctx, 0), trap_get_dreg(ctx, 1));
 }
 
@@ -646,6 +649,9 @@ static uae_u32 REGPARAM2 bsdsocklib_shutdown (TrapContext *ctx)
 static uae_u32 REGPARAM2 bsdsocklib_setsockopt (TrapContext *ctx)
 {
 	struct socketbase *sb = get_socketbase (ctx);
+#ifndef _WIN32
+	sb->context = ctx;
+#endif
 	host_setsockopt (sb, trap_get_dreg(ctx, 0), trap_get_dreg(ctx, 1), trap_get_dreg(ctx, 2),
 		trap_get_areg(ctx, 0), trap_get_dreg(ctx, 3));
 	return sb->resultval;
@@ -759,7 +765,7 @@ static int sockpoolindex (long id)
 	int i;
 
 	for (i = 0; i < SOCKPOOLSIZE; i++)
-		if (sockdata->sockpoolids[i] == id)
+		if (sockdata[i].sockpoolids == id)
 			return i;
 
 	return -1;
@@ -784,16 +790,17 @@ static uae_u32 REGPARAM2 bsdsocklib_ObtainSocket (TrapContext *ctx)
 		BSDTRACE ((_T("[invalid key]\n")));
 		return -1;
 	}
-	s = sockdata->sockpoolsocks[i];
+	s = sockdata[i].sockpoolsocks;
 
 	sd = getsd(ctx, sb, s);
 
 	BSDTRACE ((_T(" -> Socket=%d\n"), sd));
 
 	if (sd != -1) {
-		sb->ftable[sd - 1] = sockdata->sockpoolflags[i];
+		sb->ftable[sd - 1] = sockdata[i].sockpoolflags;
 		callfdcallback(ctx, sb, sd - 1, FDCB_ALLOC);
-		sockdata->sockpoolids[i] = UNIQUE_ID;
+		sockdata[i].sockpoolids = UNIQUE_ID;
+		sockdata[i].sockpoolsocks = 0;
 		return sd - 1;
 	}
 
@@ -850,9 +857,9 @@ static uae_u32 REGPARAM2 bsdsocklib_ReleaseSocket (TrapContext *ctx)
 			write_log (_T("bsdsocket: ERROR: Global socket pool overflow\n"));
 			return -1;
 		}
-		sockdata->sockpoolids[i] = id;
-		sockdata->sockpoolsocks[i] = s;
-		sockdata->sockpoolflags[i] = flags;
+		sockdata[i].sockpoolids = id;
+		sockdata[i].sockpoolsocks = s;
+		sockdata[i].sockpoolflags = flags;
 
 		BSDTRACE ((_T("id %d s 0x%x\n"), id,s));
 	} else {
@@ -910,9 +917,9 @@ static uae_u32 REGPARAM2 bsdsocklib_ReleaseCopyOfSocket (TrapContext *ctx)
 			write_log (_T("bsdsocket: ERROR: Global socket pool overflow\n"));
 			return -1;
 		}
-		sockdata->sockpoolids[i] = id;
-		sockdata->sockpoolsocks[i] = s;
-		sockdata->sockpoolflags[i] = flags;
+		sockdata[i].sockpoolids = id;
+		sockdata[i].sockpoolsocks = s;
+		sockdata[i].sockpoolflags = flags;
 
 		BSDTRACE ((_T("id %d s 0x%x\n"), id,s));
 
@@ -1880,9 +1887,10 @@ void bsdlib_reset (void)
 #endif
 
 	for (i = 0; i < SOCKPOOLSIZE; i++) {
-		if (sockdata->sockpoolids[i] != UNIQUE_ID) {
-			sockdata->sockpoolids[i] = UNIQUE_ID;
-			host_closesocketquick (sockdata->sockpoolsocks[i]);
+		if (sockdata[i].sockpoolids != UNIQUE_ID) {
+			sockdata[i].sockpoolids = UNIQUE_ID;
+			host_closesocketquick (sockdata[i].sockpoolsocks);
+			sockdata[i].sockpoolsocks = 0;
 		}
 	}
 
@@ -1950,9 +1958,13 @@ void bsdlib_install (void)
 	int i;
 
 	if (!sockdata) {
-		sockdata = xcalloc (struct sockd, 1);
-		for (i = 0; i < SOCKPOOLSIZE; i++)
-			sockdata->sockpoolids[i] = UNIQUE_ID;
+		sockdata = xcalloc (struct sockd, SOCKPOOLSIZE);
+		if (!sockdata) {
+			return;
+		}
+		for (i = 0; i < SOCKPOOLSIZE; i++) {
+			sockdata[i].sockpoolids = UNIQUE_ID;
+		}
 	}
 
 	if (!init_socket_layer ())
@@ -2008,6 +2020,15 @@ void bsdlib_install (void)
 	dl (*sockfuncvecs);
 
 	write_log (_T("bsdsocket.library installed\n"));
+}
+
+#else
+
+volatile int bsd_int_requested;
+
+void bsdsock_fake_int_handler(void)
+{
+	bsd_int_requested = 0;
 }
 
 #endif /* ! BSDSOCKET */

@@ -28,6 +28,7 @@
 #endif
 
 int log_scsiemu = 0;
+int log_scsi;
 
 #define PRE_INSERT_DELAY (3 * (currprefs.ntscmode ? 60 : 50))
 
@@ -561,6 +562,7 @@ int device_func_init (int flags)
 {
 	blkdev_fix_prefs (&currprefs);
 	install_driver (flags);
+	gui_flicker_led(LED_CD, 0, 0);
 	dev_init = true;
 	return 1;
 }
@@ -1656,6 +1658,9 @@ int scsi_cd_emulate (int unitnum, uae_u8 *cmdbuf, int scsi_cmd_len,
 	}
 	break;
 	case 0x01: /* REZERO UNIT */
+		if (nodisk(&di))
+			goto nodisk;
+		stopplay(unitnum);
 		scsi_len = 0;
 		break;
 	case 0x1d: /* SEND DIAGNOSTICS */

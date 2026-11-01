@@ -46,7 +46,7 @@ int disk_debug_track = -1;
 #include "driveclick.h"
 #endif
 #ifdef CAPS
-#include "caps/caps_win32.h"
+#include "od-win32/caps/caps_win32.h"
 #endif
 #ifdef SCP
 #include "scp.h"
@@ -62,7 +62,9 @@ int disk_debug_track = -1;
 #include "fsdb.h"
 #include "statusline.h"
 #include "rommgr.h"
+#ifndef P6_PORTABLE
 #include "tinyxml2.h"
+#endif
 #ifdef FLOPPYBRIDGE
 #include "floppybridge/floppybridge_abstract.h"
 #include "floppybridge/floppybridge_lib.h"
@@ -264,6 +266,7 @@ static drive floppy[MAX_FLOPPY_DRIVES];
 static TCHAR dfxhistory[HISTORY_MAX][MAX_PREVIOUS_IMAGES][MAX_DPATH];
 
 static uae_u8 exeheader[]={0x00,0x00,0x03,0xf3,0x00,0x00,0x00,0x00};
+#ifndef P6_PORTABLE
 static uae_u8 bootblock_ofs[]={
 	0x44,0x4f,0x53,0x00,0xc0,0x20,0x0f,0x19,0x00,0x00,0x03,0x70,0x43,0xfa,0x00,0x18,
 	0x4e,0xae,0xff,0xa0,0x4a,0x80,0x67,0x0a,0x20,0x40,0x20,0x68,0x00,0x16,0x70,0x00,
@@ -278,6 +281,7 @@ static uae_u8 bootblock_ffs[]={
 	0x64, 0x6F, 0x73, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x65, 0x78, 0x70, 0x61,
 	0x6E, 0x73, 0x69, 0x6F, 0x6E, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x00, 0x00,
 };
+#endif
 
 #define FS_OFS_DATABLOCKSIZE 488
 #define FS_FLOPPY_BLOCKSIZE 512
@@ -285,11 +289,13 @@ static uae_u8 bootblock_ffs[]={
 #define FS_FLOPPY_TOTALBLOCKS 1760
 #define FS_FLOPPY_RESERVED 2
 
+#ifndef P6_PORTABLE
 static void writeimageblock (struct zfile *dst, uae_u8 *sector, int offset)
 {
 	zfile_fseek (dst, offset, SEEK_SET);
 	zfile_fwrite (sector, FS_FLOPPY_BLOCKSIZE, 1, dst);
 }
+#endif
 
 static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
 {
@@ -304,6 +310,7 @@ static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
 	return cs;
 }
 
+#ifndef P6_PORTABLE
 static int dirhash (const uae_char *name)
 {
 	uae_u32 hash;
@@ -618,6 +625,7 @@ static int createimagefromexe(struct zfile *src, struct zfile *dst, int hd, bool
 
 	return 1;
 }
+#endif
 
 #ifdef FLOPPYBRIDGE
 static FloppyBridgeAPI *bridges[4];
@@ -831,8 +839,21 @@ static bool ispcbridgedrive(int num)
 	return type == DRV_PC_525_ONLY_40 || type == DRV_PC_35_ONLY_80 || type == DRV_PC_525_40_80;
 }
 
+#ifdef P6_PORTABLE
+extern "C" int p6_blob_overlay_room(unsigned int sectors);       // ports/portable/blob_io.c
+extern "C" int p6_blob_overlay_writable(const char *id);
+extern "C" int p6_blob_raw_write(const char *id, unsigned int track, const unsigned short *words, unsigned int bits);
+extern "C" int p6_blob_raw_read(const char *id, unsigned int track, unsigned short *words, unsigned int *bits);
+extern "C" void p6_blob_raw_clear(const char *id, unsigned int track);
+#endif
 static bool drive_writeprotected(drive *drv)
 {
+#ifdef P6_PORTABLE
+	// A disk with a write overlay (T27) stays writable while a whole track still fits in the overlay: when the pool is nearly full the
+	// drive reports the disk write protected, which a guest sees as /WPRO and as a protected-disk error instead of a write that is lost.
+	if (!currprefs.floppy_read_only && !drv->wrprot && !drv->forcedwrprot && drv->diskfile != NULL)
+		return !p6_blob_overlay_room(11);
+#endif
 #ifdef FLOPPYBRIDGE
 	if (drv->bridge) {
 		bool v = drv->bridge->isWriteProtected();
@@ -959,6 +980,64 @@ void DISK_get_path_text(struct uae_prefs *p, int n, TCHAR *text)
 
 int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num, TCHAR *outfname, int leave_open, bool *wrprot, uae_u32 *crc32, struct zfile **zf)
 {
+#ifdef P6_PORTABLE
+	// M1 takes explicit immutable ADF assets, never a host/configuration path.
+	(void)p;
+	(void)num;
+	if (zf) *zf = NULL;
+	if (crc32) *crc32 = 0;
+	if (wrprot) *wrprot = true;
+	if (outfname) outfname[0] = 0;
+	// A medium the session made writable (T27) is opened over its write overlay; the base itself is never written.
+	const bool writable = p6_blob_overlay_writable(fname_in) != 0;
+	struct zfile *f = zfile_fopen(fname_in, writable ? _T("r+b") : _T("rb"), 0);
+	if (!f)
+		return 0;
+	if (zfile_gettype(f) != ZFILE_DISKIMAGE) {
+		zfile_fclose(f);
+		errno = ENOTSUP;
+		return 0;
+	}
+	// drive_insert would convert an Amiga executable into a dated ADF. Like the
+	// legacy probe, missing bytes read as zero.
+	uae_u8 header[sizeof exeheader] = { 0 };
+	zfile_fread(header, 1, sizeof header, f);
+	int header_error = zfile_ferror(f);
+	if (!header_error && zfile_fseek(f, 0, SEEK_SET))
+		header_error = EIO;
+	if (header_error) {
+		zfile_fclose(f);
+		errno = header_error;
+		return 0;
+	}
+	if (memcmp(header, exeheader, sizeof header) == 0) {
+		zfile_fclose(f);
+		errno = ENOTSUP;
+		return 0;
+	}
+	// The legacy caller supplies a distinct MAX_DPATH output buffer.
+	const TCHAR *name = zfile_getname(f);
+	if (_tcslen(name) >= MAX_DPATH) {
+		zfile_fclose(f);
+		errno = ENAMETOOLONG;
+		return 0;
+	}
+	uae_u32 crc = crc32 ? zfile_crc32(f) : 0;
+	int error = zfile_ferror(f);
+	if (error) {
+		zfile_fclose(f);
+		errno = error;
+		return 0;
+	}
+	if (outfname) _tcscpy(outfname, name);
+	if (crc32) *crc32 = crc;
+	if (wrprot) *wrprot = !writable;
+	if (zf && leave_open)
+		*zf = f;
+	else
+		zfile_fclose(f);
+	return 1;
+#else
 	TCHAR outname[MAX_DPATH];
 
 	if (zf)
@@ -1012,6 +1091,7 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
 			return 0;
 		}
 	}
+#endif
 }
 
 static void updatemfmpos (drive *drv)
@@ -1068,6 +1148,7 @@ static int read_header_ext2 (struct zfile *diskfile, trackid *trackdata, int *nu
 	return 1;
 }
 
+#ifndef P6_PORTABLE
 static void saveimagecutpathpart(TCHAR *name)
 {
 	int i;
@@ -1305,6 +1386,7 @@ static bool diskfile_iswriteprotect (struct uae_prefs *p, const TCHAR *fname_in,
 		return wrprot2;
 	return wrprot1;
 }
+#endif
 
 static bool isrecognizedext(const TCHAR *name)
 {
@@ -1318,6 +1400,8 @@ static bool isrecognizedext(const TCHAR *name)
 	return false;
 }
 
+#ifndef P6_PORTABLE
+// OSD status line text; the profile has no OSD.
 static void update_disk_statusline(int num)
 {
 	drive *drv = &floppy[num];
@@ -1342,6 +1426,7 @@ static void update_disk_statusline(int num)
 	else
 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: %s"), num, my_getfilepart(fname));
 }
+#endif
 
 static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR *fname_in, bool fake, bool forcedwriteprotect)
 {
@@ -1394,15 +1479,20 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 	}
 
 	if (!fake) {
+#ifndef P6_PORTABLE
+		// Input recording is not part of the A500 profile.
 		inprec_recorddiskchange (dnum, fname_in, drv->wrprot);
+#endif
 
 		if (currprefs.floppyslots[dnum].df != fname_in) {
 			_tcsncpy (currprefs.floppyslots[dnum].df, fname_in, 255);
 			currprefs.floppyslots[dnum].df[255] = 0;
 		}
+		if (changed_prefs.floppyslots[dnum].df != fname_in) {
+			_tcsncpy (changed_prefs.floppyslots[dnum].df, fname_in, 255);
+			changed_prefs.floppyslots[dnum].df[255] = 0;
+		}
 		currprefs.floppyslots[dnum].forcedwriteprotect = forcedwriteprotect;
-		_tcsncpy (changed_prefs.floppyslots[dnum].df, fname_in, 255);
-		changed_prefs.floppyslots[dnum].df[255] = 0;
 		changed_prefs.floppyslots[dnum].forcedwriteprotect = forcedwriteprotect;
 		if (drv->newname != fname_in) {
 			_tcscpy(drv->newname, fname_in);
@@ -1478,6 +1568,14 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 		drv->num_tracks = num_tracks;
 		drv->filetype = ADF_IPF;
 #endif
+#ifndef CAPS
+	} else if (strncmp ((char*)buffer, "CAPS", 4) == 0) {
+		write_log(_T("IPF/CAPS disk images require CAPS support, but "
+			"this build was compiled without CAPS.\n"));
+		zfile_fclose(drv->diskfile);
+		drv->diskfile = NULL;
+		return 0;
+#endif
 #ifdef SCP
 	} else if (strncmp ((char*)buffer, "SCP", 3) == 0) {
 		drv->wrprot = true;
@@ -1531,6 +1629,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 			offs += tid->len;
 		}
 
+#ifndef P6_PORTABLE
 	} else if (memcmp (exeheader, buffer, sizeof exeheader) == 0 && !canauto && size <= 512 * (1760 * 2 - 7)) {
 		bool ffs = false;
 		int hd = 1;
@@ -1570,6 +1669,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 			drv->useturbo = 1;
 		}
 
+#endif
 	} else if (canauto && (
 
 		// 320k double sided
@@ -1757,7 +1857,9 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 			}
 		}
 	}
+#ifndef P6_PORTABLE
 	openwritefile(p, drv, 0);
+#endif
 	drive_settype_id(drv); /* Set DD or HD drive */
 	drive_fill_bigbuf(drv, side, 1);
 	drv->mfmpos = uaerand();
@@ -1771,7 +1873,9 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR 
 			driveclick_insert(drv->drvnum, 0);
 #endif
 		update_drive_gui(drv->drvnum, false);
+#ifndef P6_PORTABLE
 		update_disk_statusline(drv->drvnum);
+#endif
 	}
 	return 1;
 }
@@ -2409,6 +2513,11 @@ static void drive_fill_bigbuf(drive *drv, int tside, int force)
 		}
 		if (disk_debug_logging > 0)
 			write_log(_T("track %d, length %d read from \"saveimage\"\n"), tr, drv->tracklen);
+#ifdef P6_PORTABLE
+	} else if (drv->diskfile && p6_blob_raw_read(zfile_getname(drv->diskfile), tr, drv->bigmfmbuf, (unsigned int *)&drv->tracklen)) {
+		// A custom-format track the guest wrote (T27): the MFM words it wrote, not a track made from the sectors.
+		drv->revolutions = 1;
+#endif
 #ifdef FLOPPYBRIDGE
 	} else if (drv->filetype == ADF_FLOPPYBRIDGE) {
 		if (drv->bridge) {
@@ -2835,31 +2944,39 @@ static int drive_write_adf_amigados (drive *drv)
 }
 
 /* write raw track to disk file */
-static int drive_write_ext2 (uae_u16 *bigmfmbuf, struct zfile *diskfile, trackid *ti, int tracklen)
+static int drive_write_ext2(uae_u16 *bigmfmbuf, struct zfile *diskfile, trackid *ti, int tracklen)
 {
-	int len, i, offset;
-
-	offset = 0;
-	len = (tracklen + 7) / 8;
-	if (len > ti->len) {
-		write_log (_T("disk raw write: image file's track %d is too small (%d < %d)!\n"), ti->track, ti->len, len);
-		offset = (len - ti->len) / 2;
-		len = ti->len;
+	int len;
+	if (floppy_writemode <= 0) {
+		len = FLOPPY_WRITE_LEN * 2;
+		tracklen = len * 8;
+	} else {
+		len = (tracklen + 7) / 8;
+		if (len > ti->len) {
+			write_log(_T("disk raw write: image file's track %d is too small (%d < %d)!\n"), ti->track, ti->len, len);
+		}
 	}
-	diskfile_update (diskfile, ti, tracklen, TRACK_RAW);
-	for (i = 0; i < ti->len / 2; i++) {
-		uae_u16 *mfm = bigmfmbuf + ((i + offset) % MAXMFMBUF);
-		uae_u16 *mfmw = bigmfmbufw + ((i + offset) % MAXMFMBUF);
-		uae_u8 *data = (uae_u8 *) mfm;
-		*mfmw = 256 * *data + *(data + 1);
+	if (len > 0) {
+		if (len > ti->len) {
+			len = ti->len;
+		}
+		int maxlen = len > MAXMFMBUF ? MAXMFMBUF : len;
+		for (int i = 0; i < ti->len / 2; i++) {
+			uae_u16 *mfm = bigmfmbuf + (i % maxlen);
+			uae_u16 *mfmw = bigmfmbufw + (i % maxlen);
+			uae_u8 *data = (uae_u8*)mfm;
+			*mfmw = 256 * *data + *(data + 1);
+		}
+		diskfile_update(diskfile, ti, tracklen, TRACK_RAW);
+		zfile_fseek(diskfile, ti->offs, SEEK_SET);
+		zfile_fwrite(bigmfmbufw, 1, maxlen, diskfile);
 	}
-	zfile_fseek (diskfile, ti->offs, SEEK_SET);
-	zfile_fwrite (bigmfmbufw, 1, len, diskfile);
 	return 1;
 }
 
 static void drive_write_data (drive * drv);
 
+#ifndef P6_PORTABLE
 static bool convert_adf_to_ext2 (drive *drv, int mode)
 {
 	TCHAR name[MAX_DPATH];
@@ -2911,8 +3028,9 @@ static bool convert_adf_to_ext2 (drive *drv, int mode)
 
 	return true;
 }
+#endif
 
-static void drive_write_data (drive * drv)
+static void drive_write_data (drive *drv)
 {
 	int ret = -1;
 	int tr = drv->cyl * 2 + side;
@@ -2934,6 +3052,13 @@ static void drive_write_data (drive * drv)
 			drv->buffered_side = 2;
 		} else {
 			if (drive_write_adf_amigados (drv)) {
+#ifdef P6_PORTABLE
+				// A track that is not eleven AmigaDOS sectors (a custom format) has no place in a plain ADF: keep it as the guest wrote it (T27),
+				// and read it back from there, instead of dropping it.
+				if (drv->diskfile)
+					p6_blob_raw_write(zfile_getname(drv->diskfile), tr, drv->bigmfmbuf, drv->tracklen);
+#endif
+#ifndef P6_PORTABLE
 				if (currprefs.floppy_auto_ext2) {
 					convert_adf_to_ext2 (drv, currprefs.floppy_auto_ext2);
 				} else {
@@ -2942,7 +3067,12 @@ static void drive_write_data (drive * drv)
 						notify_user (NUMSG_NEEDEXT2);
 					warned = 1;
 				}
+#endif
 			}
+#ifdef P6_PORTABLE
+			else if (drv->diskfile)
+				p6_blob_raw_clear(zfile_getname(drv->diskfile), tr);	// the track is AmigaDOS again: the raw copy is out of date
+#endif
 		}
 		return;
 	case ADF_EXT1:
@@ -2984,8 +3114,10 @@ static void drive_eject (drive * drv)
 	if (isfloppysound (drv))
 		driveclick_insert(drv->drvnum, 1);
 #endif
+#ifndef P6_PORTABLE
 	if (drv->diskfile || drv->filetype >= 0)
 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: -"), drv - floppy);
+#endif
 	drive_image_free(drv);
 	drv->dskeject = false;
 	drv->dskchange = true;
@@ -3004,9 +3136,12 @@ static void drive_eject (drive * drv)
 #ifdef RETROPLATFORM
 	gui_disk_image_change(drv->drvnum, NULL, drv->wrprot);
 #endif
+#ifndef P6_PORTABLE
 	inprec_recorddiskchange (drv->drvnum, NULL, false);
+#endif
 }
 
+#ifndef P6_PORTABLE
 static void floppy_get_bootblock (uae_u8 *dst, bool ffs, bool bootable)
 {
 	strcpy ((char*)dst, "DOS");
@@ -3183,6 +3318,7 @@ static void diskfile_readonly (const TCHAR *name, bool readonly)
 	}
 	write_log(_T("'%s': new mode = %x\n"), name, mode);
 }
+#endif
 
 static void setdskchangetime (drive *drv, int dsktime)
 {
@@ -3206,6 +3342,7 @@ void DISK_reinsert (int num)
 	setdskchangetime (&floppy[num], 2 * 50 * 312);
 }
 
+#ifndef P6_PORTABLE
 int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, bool writeprotected)
 {
 	int needwritefile, oldprotect;
@@ -3255,6 +3392,7 @@ int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, b
 
 	return 1;
 }
+#endif
 
 void disk_eject (int num)
 {
@@ -3282,9 +3420,12 @@ int DISK_history_add(const TCHAR *name, int idx, int type, int nopathfix)
 	if (name[0] == 0)
 		return 0;
 	_tcscpy(path, name);
+#ifndef P6_PORTABLE
+	// Host path normalisation; history entries are logical asset ids here.
 	if (!nopathfix) {
 		fullpath(path, sizeof(path) / sizeof(TCHAR));
 	}
+#endif
 	if (idx >= 0) {
 		if (idx >= MAX_PREVIOUS_IMAGES)
 			return 0;
@@ -3352,14 +3493,19 @@ static void disk_insert_2 (int num, const TCHAR *name, bool forced, bool forcedw
 void disk_insert (int num, const TCHAR *name, bool forcedwriteprotect)
 {
 	set_config_changed ();
+#ifndef P6_PORTABLE
+	// Desktop recent-documents list.
 	target_addtorecent (name, 0);
+#endif
 	disk_insert_2 (num, name, 0, forcedwriteprotect);
 }
 
 void disk_insert (int num, const TCHAR *name)
 {
 	set_config_changed ();
+#ifndef P6_PORTABLE
 	target_addtorecent (name, 0);
+#endif
 	disk_insert_2 (num, name, 0, false);
 }
 void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
@@ -3367,8 +3513,10 @@ void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
 	disk_insert_2 (num, name, 1, forcedwriteprotect);
 }
 
+#ifdef FLOPPYBRIDGE
 static void floppybridge_getsetprofile(int i)
 {
+#ifdef FLOPPYBRIDGE
 	if (currprefs.floppyslots[i].dfxsubtype == 0 || currprefs.floppyslots[i].dfxsubtypeid[0] == 0) {
 		int sub = currprefs.floppyslots[i].dfxsubtype;
 		if (sub == 0) {
@@ -3383,7 +3531,9 @@ static void floppybridge_getsetprofile(int i)
 			_tcscpy(currprefs.floppyslots[i].dfxsubtypeid, changed_prefs.floppyslots[i].dfxsubtypeid);
 		}
 	}
+#endif
 }
+#endif
 
 static void DISK_check_change (void)
 {
@@ -4044,9 +4194,12 @@ static int disk_doupdate_write(int floppybits, int trackspeed)
 					for (dr = 0; dr < MAX_FLOPPY_DRIVES; dr++) {
 						drive *drv2 = &floppy[dr];
 						if (drives[dr]) {
+							if (!drv2->writtento) {
+								drv2->bigmfmbuf[((drv2->mfmpos >> 4) - 1) % drv2->tracklen] = 0x5555;
+								drv2->writtento = 1;
+							}
 							drv2->bigmfmbuf[drv2->mfmpos >> 4] = w;
-							drv2->bigmfmbuf[(drv2->mfmpos >> 4) + 1] = 0x5555;
-							drv2->writtento = 1;
+							drv2->bigmfmbuf[((drv2->mfmpos >> 4) + 1) % drv2->tracklen] = 0x5555;
 #ifdef FLOPPYBRIDGE
 							if (drv2->bridge) {
 								wasBridge = true;
@@ -4077,10 +4230,10 @@ static int disk_doupdate_write(int floppybits, int trackspeed)
 							if ((selected | disabled) & (1 << dr))
 								continue;
 							drive_write_data(drv);
+							}
 						}
 					}
 				}
-			}
 			if (canloaddskbytr()) {
 				dskbytr_val = 0x8000;
 			}
@@ -4287,8 +4440,8 @@ static void wordsync_detected(bool startup)
 {
 	// wordsync interrupt is edge triggered
 	if (!dsksync_on) {
-		// wordsync interrupt is inhibited if DSKLEN write bit is set
-		if (!(dsklen & 0x4000)) {
+		// wordsync interrupt is inhibited if writing is active.
+		if (dskdmaen != DSKDMA_WRITE) {
 			INTREQ_INT(12, 0);
 		}
 		dsksync_on = true;
@@ -4637,13 +4790,17 @@ static void DISK_start(void)
 			if (drv->dskchange_time == -1) {
 				drv->dskchange_time = -2;
 				write_log(_T("Accessing state restored non-existing disk '%s'!\n"), drv->newname);
-				if (gui_ask_disk(dr, drv->newname)) {
+#ifndef P6_PORTABLE
+				// Interactive replacement-disk prompt; the drive stays in the faked-disk state.
+				if (gui_ask_disk(dr, drv->newname,
+					sizeof drv->newname / sizeof drv->newname[0])) {
 					if (drive_insert(drv, &currprefs, dr, drv->newname, false, false)) {
 						write_log(_T("Replacement disk '%s' inserted.\n"), drv->newname);
 						drv->dskready_up_time = 0;
 						drv->dskchange_time = 0;
 					}
 				}
+#endif
 			}
 
 			if (dskdmaen == DSKDMA_WRITE) {
@@ -4744,11 +4901,13 @@ void DISK_hsync (void)
 	DISK_update (maxhpos);
 	DISK_update_predict();
 
+#ifndef P6_PORTABLE
 	// show insert disk in df0: when booting
 	if (initial_disk_statusline) {
 		initial_disk_statusline = false;
 		update_disk_statusline(0);
 	}
+#endif
 }
 
 void DISK_update (int tohpos)
@@ -4761,7 +4920,7 @@ void DISK_update (int tohpos)
 		return;
 	}
 
-	cycles = (tohpos << 8) - disk_hpos;
+	cycles = (tohpos * 256) - disk_hpos;
 	if (cycles <= 0) {
 		return;
 	}
@@ -5177,9 +5336,16 @@ uae_u16 disk_dmal(void)
 				dmal >>= 2;
 			}
 		} else {
-			dmal = 16 * (fifo_inuse[0] ? 1 : 0) + 4 * (fifo_inuse[1] ? 1 : 0) + 1 * (fifo_inuse[2] ? 1 : 0);
+			dmal = 32 * (fifo_inuse[0] ? 1 : 0) + 8 * (fifo_inuse[1] ? 1 : 0) + 2 * (fifo_inuse[2] ? 1 : 0);
 		}
 	}
+
+	// RW bits directly follow DSKLEN WRITE bit
+	bool write = (dsklen & 0x4000) != 0;
+	if (write) {
+		dmal |= 1 | 4 | 16;
+	}
+
 	disk_strobe = true;
 	return dmal;
 }
@@ -5190,6 +5356,13 @@ uaecptr *disk_getpt(void)
 	dskpt &= ~1;
 	return &dskpt;
 }
+#ifdef P6_PORTABLE
+/* The pointer disk_getpt returns, without its side effect (see p6_audio_pt). */
+uaecptr *p6_disk_pt(void)
+{
+	return &dskpt;
+}
+#endif
 
 void DSKPTH(uae_u16 v)
 {
@@ -5450,6 +5623,10 @@ void DISK_init (void)
 	for (int dr = MAX_FLOPPY_DRIVES - 1; dr >= 0; dr--) {
 		drive *drv = &floppy[dr];
 		drv->drvnum = dr;
+#ifdef P6_PORTABLE
+		// A load is a new power-on: the head starts on track 0 whatever a previous session left. A reset does not move it.
+		drv->cyl = 0;
+#endif
 		/* reset all drive types to 3.5 DD */
 		drive_settype_id (drv);
 		if (!drive_insert (drv, &currprefs, dr, currprefs.floppyslots[dr].df, false, currprefs.floppyslots[dr].forcedwriteprotect))
@@ -5500,6 +5677,7 @@ static void load_track (int num, int cyl, int dside, int *sectable)
 	drv->buffered_cyl = -1;
 }
 
+#ifndef P6_PORTABLE
 using namespace tinyxml2;
 
 static bool abr_loaded;
@@ -5633,6 +5811,7 @@ static void abrcheck(struct diskinfo *di)
 		}
 	}
 }
+#endif
 
 #ifdef FLOPPYBRIDGE
 static void get_floppybridgeinfo(struct uae_prefs *prefs, TCHAR *infotext, int num)
@@ -5746,9 +5925,11 @@ int DISK_examine_image(struct uae_prefs *p, int num, struct diskinfo *di, bool d
 		crc += v;
 	}
 	di->bootblockcrc32 = get_crc32(di->bootblock, 1024);
+#ifndef P6_PORTABLE
 	if (deepcheck) {
 		abrcheck(di);
 	}
+#endif
 	if (dos == 0x4b49434b) { /* KICK */
 		ret = 10;
 		goto end;
@@ -5806,7 +5987,7 @@ end2:
 
 /* Disk save/restore code */
 
-#if defined SAVESTATE || defined DEBUGGER
+#if defined SAVESTATE || defined DEBUGGER || defined P6_STATE_BODIES
 
 void DISK_save_custom (uae_u32 *pdskpt, uae_u16 *pdsklength, uae_u16 *pdsksync, uae_u16 *pdskbytr)
 {
@@ -5820,7 +6001,7 @@ void DISK_save_custom (uae_u32 *pdskpt, uae_u16 *pdsklength, uae_u16 *pdsksync, 
 		*pdskbytr = dskbytr_val;
 }
 
-#endif /* SAVESTATE || DEBUGGER */
+#endif /* SAVESTATE || DEBUGGER || P6_STATE_BODIES */
 
 static uae_u32 getadfcrc (drive *drv)
 {
@@ -5842,7 +6023,7 @@ static uae_u32 getadfcrc (drive *drv)
 	return crc32;
 }
 
-#ifdef SAVESTATE
+#if defined SAVESTATE || defined P6_STATE_BODIES
 
 void DISK_restore_custom (uae_u32 pdskpt, uae_u16 pdsklength, uae_u16 pdskbytr)
 {
@@ -5869,6 +6050,52 @@ void restore_disk_finish (void)
 #endif
 }
 
+#ifdef P6_PORTABLE
+/* The native state (bridge/state_upstream.cpp) has no path in it: the medium of a drive is the one the envelope's media manifest names, so the body
+ * carries no image name, and restoring never inserts or ejects (drive_insert, zfile_exists, the delayed-change fake) and never writes the preferences (the
+ * drive type and the number of floppies are the configuration, which is part of the identity: the bridge refuses a body whose drive id or disabled bit is not
+ * the one of its configuration, so there is nothing to adapt). save_disk writes the flag that
+ * the upstream reader takes at the end of the body whatever it asks for, and the CRC of the image as drive_insert measured it. */
+uae_u8 *restore_disk (int num,uae_u8 *src)
+{
+	drive *drv = &floppy[num];
+	int state;
+
+	disabled &= ~(1 << num);
+	drv->drive_id = restore_u32 ();
+	drv->motoroff = 1;
+	drv->idbit = 0;
+	state = restore_u8 ();
+	if (state & 2) {
+		disabled |= 1 << num;
+	} else {
+		drv->motoroff = (state & 1) ? 0 : 1;
+		drv->idbit = (state & 4) ? 1 : 0;
+	}
+	drv->dskchange = (state & 8) != 0;
+	side = (state & 16) ? 1 : 0;
+	drv->indexhackmode = 0;
+	if (num == 0 && currprefs.floppyslots[num].dfxtype == 0)
+		drv->indexhackmode = 1;
+	drv->buffered_cyl = -1;
+	drv->buffered_side = -1;
+	drv->cyl = restore_u8 ();
+	drv->dskready = restore_u8 () != 0;
+	drv->drive_id_scnt = restore_u8 ();
+	int mfmpos = restore_u32 ();
+	drv->dskchange_time = 0;
+	restore_u32 ();	/* CRC of the image: the identity of the state says which disk it is */
+	int dskready_up_time = restore_u16 ();
+	int dskready_down_time = restore_u16 ();
+	restore_u32 ();	/* the path flag */
+	drv->mfmpos = mfmpos;
+	drv->prevtracklen = drv->tracklen;
+	drv->dskready_up_time = dskready_up_time;
+	drv->dskready_down_time = dskready_down_time;
+	reset_drive_gui (num);
+	return src;
+}
+#else
 uae_u8 *restore_disk (int num,uae_u8 *src)
 {
 	drive *drv;
@@ -5961,6 +6188,8 @@ uae_u8 *restore_disk (int num,uae_u8 *src)
 	return src;
 }
 
+#endif /* P6_PORTABLE */
+
 uae_u8 *restore_disk2 (int num,uae_u8 *src)
 {
 	drive *drv = &floppy[num];
@@ -5983,6 +6212,34 @@ uae_u8 *restore_disk2 (int num,uae_u8 *src)
 	return src;
 }
 
+#ifdef P6_PORTABLE
+/* 24 bytes whatever the drive holds: no image name and no full path (see restore_disk), the CRC is the one drive_insert measured (getadfcrc would read the
+ * whole image through the zfile on every save) and the flag the reader takes is always written, as zero. `usepath` has no meaning here. */
+uae_u8 *save_disk (int num, size_t*len, uae_u8 *dstptr, bool usepath)
+{
+	uae_u8 *dstbak,*dst;
+	drive *drv = &floppy[num];
+
+	(void)usepath;
+	if (dstptr)
+		dstbak = dst = dstptr;
+	else
+		dstbak = dst = xmalloc (uae_u8, 24);
+	save_u32 (drv->drive_id);	    /* drive type ID */
+	save_u8 ((drv->motoroff ? 0 : 1) | ((disabled & (1 << num)) ? 2 : 0) | (drv->idbit ? 4 : 0) | (drive_diskchange(drv) ? 8 : 0) | (side ? 16 : 0) | (drv->wrprot ? 32 : 0));
+	save_u8 (drv->cyl);				/* cylinder */
+	save_u8 (drive_diskready(drv));	/* dskready */
+	save_u8 (drv->drive_id_scnt);   /* id mode position */
+	save_u32 (drv->mfmpos);			/* disk position */
+	save_u32 (drv->diskfile ? drv->crc32 : 0);	/* CRC of disk image */
+	save_u16 (drv->dskready_up_time);
+	save_u16 (drv->dskready_down_time);
+	save_u32 (0);
+
+	*len = dst - dstbak;
+	return dstbak;
+}
+#else
 uae_u8 *save_disk (int num, size_t*len, uae_u8 *dstptr, bool usepath)
 {
 	uae_u8 *dstbak,*dst;
@@ -6010,6 +6267,8 @@ uae_u8 *save_disk (int num, size_t*len, uae_u8 *dstptr, bool usepath)
 	*len = dst - dstbak;
 	return dstbak;
 }
+
+#endif /* P6_PORTABLE */
 
 uae_u8 *save_disk2 (int num, size_t *len, uae_u8 *dstptr)
 {
@@ -6094,8 +6353,73 @@ uae_u8 *save_floppy (size_t *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
-#endif /* SAVESTATE */
+/* Native state (bridge/state_upstream.cpp, sub-body DSKX of P6DK): the floppy controller state that DSKn, DSDn and DISK do not carry and the next DMA word, the next
+ * DSKLEN write or a delayed disk change depend on. save_floppy keeps the low byte of disk_hpos (the fraction of a colour clock), so a machine that had been brought up to
+ * the middle of a line by a CPU access to DSKBYTR or DSKDAT was brought up from the start of it after a load; DSKLEN2 is the previous value of DSKLEN, which decides whether
+ * one write or two start a transfer; restore_disk zeroes dskchange_time (a delayed insert that was counting down never lands: the drive stays empty for good) and leaves the
+ * motor-off latch and the step limiter of the live machine as they are. Not carried, and why: dsklength2, dskpt_start
+ * and the debugging variables (written, never read by the machine), dskbytr_val_prev and dskbytr_delay (only read when the delayed load, which is compiled out, set them),
+ * syncoffset and disk_strobe (never read), disk_jitter (drawn again by every DISK_update, from the
+ * generator P6SC carries), and per drive selected_delay and state (the LED), dskeject (consumed by the DISK_vsync of the unit that set it), dskeject_time (only a change of
+ * drive type sets it), indexhack (only drive types of indexhackmode > 1), revolution_check and the track-access bookkeeping (images that load several revolutions).
+ * Values only, in 32-bit words in the order of the list below; it never runs the drives and never schedules anything. The newname of a delayed insert is the bridge's.
+ * prev_data is the last value written to CIA-B port B as DISK_select saw it, and the drive-select mask, the step line, the direction and the side are all derived from it by
+ * fetch_DISK_select. None of them is in a body of upstream (restore_cia_finish rebuilds them with DISK_select_set, which is never called here), so a machine that loaded a state
+ * had every drive deselected and the step line low: the first write to port B did not step the drive that the original stepped (the previous mask picks which drives step), drew
+ * no random shifter bits (rand_shifter does nothing for a selected drive) and so drew other values from the generator, and the head of the DOS load went to another track.
+ * The apply puts them back with DISK_select_set (the same call upstream makes), so one word carries them all.
+ * linecounter (T62) is the two lines that the turbo floppy (floppy_speed 0: DSKLEN_2 does the whole transfer at once) waits before disk_dmafinished raises the DSKBLK interrupt:
+ * DISK_hsync returns before DISK_update while it counts, so a state taken in them that did not carry it never ended the transfer. Only the turbo path sets it.
+ *  0 disk_hpos  1 dsklen2  2 dsksync_on  3 indexdecay  4 prev_data  5 linecounter
+ *  then 9 words per drive: 0 dskchange_time  1 motordelay  2 steplimit  3 the age of the last step in cycles (get_cycles () - steplimitcycle, 0 when steplimit is 0)
+ *  4 floppybitcounter  5 tracklen  6 trackspeed  7 skipoffset  8 indexoffset */
+#define P6_DISK_PHASE_GLOBAL 6
+#define P6_DISK_PHASE_DRIVE 9
+#define P6_DISK_PHASE_WORDS (P6_DISK_PHASE_GLOBAL + MAX_FLOPPY_DRIVES * P6_DISK_PHASE_DRIVE)
 
+bool p6_disk_phase_get(int32_t *out, unsigned n)
+{
+	if (!out || n != P6_DISK_PHASE_WORDS) return false;
+	out[0] = disk_hpos; out[1] = dsklen2; out[2] = dsksync_on ? 1 : 0; out[3] = indexdecay; out[4] = prev_data; out[5] = linecounter;
+	for (int i = 0; i < MAX_FLOPPY_DRIVES; i++) {
+		const drive *drv = &floppy[i];
+		int32_t *w = out + P6_DISK_PHASE_GLOBAL + i * P6_DISK_PHASE_DRIVE;
+		const evt_t age = drv->steplimit ? get_cycles () - drv->steplimitcycle : 0;
+		w[0] = drv->dskchange_time; w[1] = drv->motordelay ? 1 : 0; w[2] = drv->steplimit;
+		w[3] = age < 0 ? 0 : age > 0x7fffffff ? 0x7fffffff : int32_t(age);
+		w[4] = drv->floppybitcounter; w[5] = drv->tracklen; w[6] = drv->trackspeed; w[7] = drv->skipoffset; w[8] = drv->indexoffset;
+	}
+	return true;
+}
+
+bool p6_disk_phase_set(const int32_t *in, unsigned n)
+{
+	if (!in || n != P6_DISK_PHASE_WORDS) return false;
+	disk_hpos = in[0]; dsklen2 = in[1]; dsksync_on = in[2] != 0; indexdecay = in[3];
+	DISK_select_set (uae_u8 (in[4]));
+	linecounter = in[5];
+	for (int i = 0; i < MAX_FLOPPY_DRIVES; i++) {
+		drive *drv = &floppy[i];
+		const int32_t *w = in + P6_DISK_PHASE_GLOBAL + i * P6_DISK_PHASE_DRIVE;
+		drv->dskchange_time = w[0]; drv->motordelay = w[1] != 0; drv->steplimit = w[2];
+		drv->steplimitcycle = get_cycles () - w[3];
+		drv->floppybitcounter = w[4]; drv->tracklen = w[5]; drv->trackspeed = w[6]; drv->skipoffset = w[7]; drv->indexoffset = w[8];
+	}
+	return true;
+}
+
+/* The image a delayed insert is waiting to put in the drive: disk_insert_2 sets it with the preferences' name when it starts the countdown, and the bridge knows it from the
+ * medium the state says the drive holds (the manifest names it by content, a state stores no path). Values only: nothing is inserted. */
+bool p6_disk_newname_set(int num, const TCHAR *name)
+{
+	if (num < 0 || num >= MAX_FLOPPY_DRIVES || !name || _tcslen (name) >= sizeof floppy[num].newname / sizeof (TCHAR)) return false;
+	_tcscpy (floppy[num].newname, name);
+	floppy[num].newnamewriteprotected = true;
+	return true;
+}
+#endif /* SAVESTATE || P6_STATE_BODIES */
+
+#ifndef P6_PORTABLE
 #define MAX_DISKENTRIES 4
 int disk_prevnext_name (TCHAR *imgp, int dir)
 {
@@ -6265,6 +6589,7 @@ int disk_prevnext (int drive, int dir)
 	_tcscpy (changed_prefs.floppyslots[drive].df, img);
 	return 1;
 }
+#endif
 
 static int getdebug(void)
 {
@@ -6387,3 +6712,11 @@ void disk_reserved_reset_disk_change(int num)
 		drv->dskchange = false;
 	}
 }
+
+#ifdef P6_PORTABLE
+// Native state (bridge/state_cpu.cpp): the secondary event that ends the motor-off delay, named by an id in a state.
+evfunc2 p6_disk_motordelay_handler(void)
+{
+	return motordelay_func;
+}
+#endif

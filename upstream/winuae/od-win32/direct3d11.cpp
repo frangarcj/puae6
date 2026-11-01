@@ -3,6 +3,11 @@
 
 #include <windows.h>
 
+#include "sysconfig.h"
+#include "sysdeps.h"
+
+#ifdef WITH_DIRECT3D11
+
 #include <DXGI1_5.h>
 #include <dxgi1_6.h>
 #include <d3d11.h>
@@ -10,9 +15,6 @@
 
 #include <wrl/client.h>
 using Microsoft::WRL::ComPtr;
-
-#include "sysconfig.h"
-#include "sysdeps.h"
 
 #include "options.h"
 #include "xwin.h"
@@ -3413,6 +3415,7 @@ static float xD3D_getrefreshrate(int monid)
 static int xD3D11_initvals(HWND ahwnd, int monid, int w_w, int w_h, int t_w, int t_h, int *freq, int mmulth, int mmultv, bool doalloc)
 {
 	struct d3d11struct *d3d = &d3d11data[monid];
+	struct amigadisplay *ad = &adisplays[monid];
 	int changed = 0;
 
 	if (d3d->m_screenWidth != w_w || d3d->m_screenHeight != w_h) {
@@ -3430,6 +3433,9 @@ static int xD3D11_initvals(HWND ahwnd, int monid, int w_w, int w_h, int t_w, int
 	if (d3d->m_device) {
 		target_graphics_buffer_update(monid, false);
 	}
+
+	d3d->filterd3didx = ad->gf_index;
+	d3d->filterd3d = &currprefs.gf[d3d->filterd3didx];
 
 	return changed;
 }
@@ -5053,21 +5059,27 @@ static bool D3D11_resize_do(struct d3d11struct *d3d, int monid)
 static bool recheck(struct d3d11struct *d3d, int monid)
 {
 	bool r = false;
-	if (xD3D11_quit(d3d))
+	if (xD3D11_quit(d3d)) {
 		return r;
+	}
 	r = D3D11_resize_do(d3d, monid);
 	if (d3d->resizeretry) {
 		resizemode(d3d, monid);
 		return r;
 	}
-	if (!d3d->delayedfs)
+	if (!d3d->delayedfs) {
 		return r;
-	xD3D11_free(d3d->num, true);
+	}
 	d3d->delayedfs = 0;
+	xD3D11_free(d3d->num, true);
 	ShowWindow(d3d->ahwnd, SW_SHOWNORMAL);
+	if (isfullscreen() <= 0) {
+		return r;
+	}
 	int freq = 0;
-	if (!xxD3D11_init2(d3d->ahwnd, d3d->num, d3d->m_screenWidth, d3d->m_screenHeight, d3d->m_bitmapWidth2, d3d->m_bitmapHeight2, &freq, d3d->dmultxh, d3d->dmultxv))
+	if (!xxD3D11_init2(d3d->ahwnd, d3d->num, d3d->m_screenWidth, d3d->m_screenHeight, d3d->m_bitmapWidth2, d3d->m_bitmapHeight2, &freq, d3d->dmultxh, d3d->dmultxv)) {
 		d3d->invalidmode = true;
+	}
 	return false;
 }
 
@@ -5686,15 +5698,37 @@ void d3d11_select(void)
 	D3D_paint = NULL;
 }
 
+#endif
+
+void D3D_getpixelformat(int *rb, int *gb, int *bb, int *rs, int *gs, int *bs, int *ab, int *as, int *a)
+{
+	*rb = 8;
+	*gb = 8;
+	*bb = 8;
+	*ab = 8;
+	*rs = 16;
+	*gs = 8;
+	*bs = 0;
+	*as = 24;
+	*a = 0;
+}
+
 void d3d_select(struct uae_prefs *p)
 {
+	bool selected = false;
+
 	for (int i = 0; i < MAX_AMIGAMONITORS; i++) {
 		d3d11data[i].num = i;
 	}
-	if (p->gfx_api == 0)
+	if (p->gfx_api == 0) {
 		gdi_select();
-	else if (p->gfx_api >= 2)
+	} else if (p->gfx_api >= 2) {
+#ifdef WITH_DIRECT3D11
 		d3d11_select();
-	else
+#endif
+	} else {
+#ifdef WITH_DIRECT3D9
 		d3d9_select();
+#endif
+	}
 }

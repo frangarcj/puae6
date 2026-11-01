@@ -12,10 +12,12 @@
 
 #define DRIVESOUND
 #define GFXFILTER
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
+
+#if defined(_M_ARM64)
 #define __arm__
 #define MSVC_LONG_DOUBLE
 #else
+#define SUPPORT_LONG_DOUBLE
 #define X86_MSVC_ASSEMBLY
 //#define OPTIMIZED_FLAGS
 #define MSVC_LONG_DOUBLE
@@ -23,19 +25,18 @@
 #define __i386__
 #endif
 #endif
+
 #define WINDOWS
-#define ZLIB_WINAPI
+#define ZEXPORT _cdecl
 #define PACKAGE_STRING "WinUAE"
 
 #ifndef UAE_MINI
 
-#if !defined(_M_ARM64) && !defined(_M_ARM64EC)
 #define JIT /* JIT compiler support */
 #define USE_JIT_FPU
-#endif
 
 #define DEBUGGER
-//#define GDBSERVER
+#define GDBSERVER
 #define FILESYS /* filesys emulation */
 #define UAE_FILESYS_THREADS
 #define AUTOCONFIG /* autoconfig support, fast ram, harddrives etc.. */
@@ -121,6 +122,11 @@
 #define WITH_DSP
 #define WITH_DRACO
 #define WITH_MIDI
+#define WITH_PORTAUDIO
+#define WITH_OPENAL
+#define WITH_LIBMPEG2
+#define WITH_DIRECT3D11
+#define WITH_DIRECT3D9
 
 #else
 
@@ -138,6 +144,14 @@
 #define CPUEMU_13
 #define CPUEMU_11
 
+#endif
+
+#ifdef ARM64
+
+#undef SERIAL_ENET
+#undef WITH_OPENAL
+#undef WITH_LUA
+#undef WITH_DIRECT3D9
 
 #endif
 

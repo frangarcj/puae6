@@ -19,6 +19,9 @@
 
 #include "sysconfig.h"
 #include "sysdeps.h"
+#ifdef P6_PORTABLE
+#include "rom_status.h"
+#endif
 
 #include "options.h"
 #include "events.h"
@@ -28,11 +31,12 @@
 #include "newcpu.h"
 #include "cpummu.h"
 #include "cpummu030.h"
-#include "cputbl.h"
+#include <cputbl.h>
 #include "cpu_prefetch.h"
 #include "autoconf.h"
 #include "traps.h"
 #include "debug.h"
+#include "gdb_server.h"
 #include "debugmem.h"
 #include "gui.h"
 #include "savestate.h"
@@ -42,12 +46,16 @@
 #include "inputdevice.h"
 #include "audio.h"
 #include "fpp.h"
+#ifndef P6_PORTABLE
 #include "statusline.h"
+#endif
 #ifdef WITH_PPC
 #include "uae/ppc.h"
 #endif
 #include "cpuboard.h"
+#ifdef WITH_THREADED_CPU
 #include "threaddep/thread.h"
+#endif
 #ifdef WITH_X86
 #include "x86.h"
 #endif
@@ -62,6 +70,12 @@
 /* Need to have these somewhere */
 bool check_prefs_changed_comp (bool checkonly) { return false; }
 #endif
+
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+jmp_buf jit_bus_error_jmpbuf;
+volatile bool jit_in_compiled_code = false;
+#endif
+
 /* For faster JIT cycles handling */
 int pissoff = 0;
 
@@ -75,6 +89,11 @@ static uaecptr last_fault_for_exception_3;
 static bool last_writeaccess_for_exception_3;
 /* size */
 static bool last_size_for_exception_3;
+#if defined(DEBUGGER) && defined(GDBSERVER)
+// Keep the original frame-building size flag unchanged.
+static int debug_fault_size = -1;
+static int debug_fault_fc = -1;
+#endif
 /* FC */
 static int last_fc_for_exception_3;
 /* Data (1) or instruction fetch (0) */
@@ -122,7 +141,7 @@ int movem_next[256];
 
 cpuop_func *cpufunctbl[65536];
 cpuop_func_noret *cpufunctbl_noret[65536];
-cpuop_func *loop_mode_table[65536];
+cpuop_func_noret *loop_mode_table[65536];
 
 struct cputbl_data
 {
@@ -284,6 +303,7 @@ static void set_x_cp_funcs(void)
 	x_cp_next_ilong = x_next_ilong;
 	x_cp_get_disp_ea_020 = x_get_disp_ea_020;
 
+#ifdef MMUEMU
 	if (currprefs.mmu_model == 68030) {
 		if (currprefs.cpu_compatible) {
 			x_cp_put_long = put_long_mmu030c_state;
@@ -307,6 +327,8 @@ static void set_x_cp_funcs(void)
 			x_cp_get_disp_ea_020 = get_disp_ea_020_mmu030;
 		}
 	}
+#endif
+
 }
 
 static struct cputracestruct cputrace;
@@ -406,8 +428,8 @@ static bool check_trace (void)
 		return true;
 	if (!cputrace.readcounter && !cputrace.writecounter && !cputrace.cyclecounter) {
 		if (cpu_tracer != -2) {
-			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08x\n"),
-				cputrace.cyclecounter_pre, cputrace.cyclecounter_post, get_cycles ());
+			write_log (_T("CPU trace: dma_cycle() enabled. %08x %08x NOW=%08llx\n"),
+				cputrace.cyclecounter_pre, cputrace.cyclecounter_post, (unsigned long long)get_cycles ());
 			cpu_tracer = -2; // dma_cycle() allowed to work now
 		}
 	}
@@ -443,10 +465,10 @@ static bool get_trace(uaecptr addr, int accessmode, int size, uae_u32 *data)
 		struct cputracememory *ctm = &cputrace.ctm[i];
 		if (ctm->addr == addr && ctm->mode == mode) {
 			ctm->mode = 0;
-			write_log(_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08x)\n"),
+			write_log(_T("CPU trace: GET %d: PC=%08x %08x=%08x %d %d %08x/%08x/%08x %d/%d (%08llx)\n"),
 				i, cputrace.pc, addr, ctm->data, accessmode, size,
 				cputrace.cyclecounter, cputrace.cyclecounter_pre, cputrace.cyclecounter_post,
-				cputrace.readcounter, cputrace.writecounter, get_cycles ());
+				cputrace.readcounter, cputrace.writecounter, (unsigned long long)get_cycles ());
 			if (accessmode == 1)
 				cputrace.writecounter--;
 			else
@@ -482,6 +504,18 @@ static bool get_trace(uaecptr addr, int accessmode, int size, uae_u32 *data)
 				}
 			}
 			check_trace();
+
+#ifndef P6_PORTABLE
+			// Partially fix 6.0.0-6.0.3 statefiles where 68000 word read value was stored as a zero.
+			// This can be only fixed when it was 68000 instruction prefetch.
+			int statefile_version = get_statefile_version();
+			if (statefile_version >= 0x00060000 && statefile_version <= 0x00060003) {
+				if (!ctm->data && accessmode == 2 && currprefs.cpu_model <= 68010 && currprefs.cpu_cycle_exact && addr > regs.pc && addr < regs.pc + 20) {
+					return true;
+				}
+			}
+#endif
+
 			*data = ctm->data;
 			return false;
 		}
@@ -930,6 +964,7 @@ static bool nommu_is_super_access(bool read)
 // indirect memory access functions
 static void set_x_funcs (void)
 {
+#ifndef P6_PORTABLE
 	if (currprefs.cpu_model >= 68010) {
 		if (currprefs.mmu_model == 68030) {
 			is_super_access = mmu030_is_super_access;
@@ -1022,6 +1057,10 @@ static void set_x_funcs (void)
 			x_do_cycles_post = do_cycles_post;
 		}
 	} else if (currprefs.cpu_model < 68020) {
+#else
+	is_super_access = currprefs.cpu_model >= 68010 ? nommu_is_super_access : is_super_access_68000;
+	if (currprefs.cpu_model < 68020) {
+#endif
 		// 68000/010
 		if (currprefs.cpu_cycle_exact) {
 			x_prefetch = get_word_ce000_prefetch;
@@ -1039,6 +1078,7 @@ static void set_x_funcs (void)
 			x_do_cycles = do_cycles_ce;
 			x_do_cycles_pre = do_cycles_ce;
 			x_do_cycles_post = do_cycles_ce_post;
+#ifndef P6_PORTABLE
 		} else if (currprefs.cpu_memory_cycle_exact) {
 			// cpu_memory_cycle_exact + cpu_compatible
 			x_prefetch = get_word_000_prefetch;
@@ -1329,6 +1369,27 @@ static void set_x_funcs (void)
 		x_do_cycles_pre = do_cycles_ce020;
 		x_do_cycles_post = do_cycles_ce020_post;
 	}
+#else
+		}
+	} else if (currprefs.cpu_model == 68020) {
+		// 68020 cycle exact (cpuemu_21): the only 68020 core of the profile (T24a, ADR 0010)
+		x_prefetch = get_word_ce020_prefetch;
+		x_get_ilong = get_long_ce020_prefetch;
+		x_get_iword = get_word_ce020_prefetch;
+		x_get_ibyte = NULL;
+		x_next_iword = next_iword_020ce;
+		x_next_ilong = next_ilong_020ce;
+		x_put_long = put_long_ce020;
+		x_put_word = put_word_ce020;
+		x_put_byte = put_byte_ce020;
+		x_get_long = get_long_ce020;
+		x_get_word = get_word_ce020;
+		x_get_byte = get_byte_ce020;
+		x_do_cycles = do_cycles_ce020;
+		x_do_cycles_pre = do_cycles_ce020;
+		x_do_cycles_post = do_cycles_ce020_post;
+	}
+#endif
 	x2_prefetch = x_prefetch;
 	x2_get_ilong = x_get_ilong;
 	x2_get_iword = x_get_iword;
@@ -1382,8 +1443,10 @@ static void set_x_funcs (void)
 	}
 
 	set_x_cp_funcs();
+#ifdef MMUEMU
 	mmu_set_funcs();
 	mmu030_set_funcs();
+#endif
 
 	dcache_lput = put_long;
 	dcache_wput = put_word;
@@ -1395,7 +1458,13 @@ static void set_x_funcs (void)
 
 	icache_fetch = get_longi;
 	icache_fetch_word = NULL;
-	if (currprefs.cpu_cycle_exact) {
+#ifdef P6_PORTABLE
+	if (currprefs.cpu_model == 68020 && currprefs.cpu_cycle_exact) {
+		icache_fetch = mem_access_delay_longi_read_ce020;
+	}
+#endif
+#ifndef P6_PORTABLE
+	if (currprefs.cpu_memory_cycle_exact) {
 		icache_fetch = mem_access_delay_longi_read_ce020;
 	}
 	if (currprefs.cpu_model >= 68040 && currprefs.cpu_memory_cycle_exact) {
@@ -1491,6 +1560,9 @@ static void set_x_funcs (void)
 		}
 	}
 }
+#else
+}
+#endif
 
 bool can_cpu_tracer (void)
 {
@@ -1506,8 +1578,10 @@ bool set_cpu_tracer (bool state)
 	if (cpu_tracer < 0)
 		return false;
 	int old = cpu_tracer;
+#ifndef P6_PORTABLE // input recording is excluded, input_record is never set
 	if (input_record)
 		state = true;
+#endif
 	cpu_tracer = 0;
 	if (state && can_cpu_tracer ()) {
 		cpu_tracer = 1;
@@ -1608,7 +1682,9 @@ void flush_cpu_caches(bool force)
 		}
 	} else if (currprefs.cpu_model >= 68040) {
 		if (doflush && force) {
+#ifdef MMUEMU
 			mmu_flush_cache();
+#endif
 			icachelinecnt = 0;
 			icachehalfline = 0;
 			for (int i = 0; i < CACHESETS060; i++) {
@@ -1623,6 +1699,7 @@ void flush_cpu_caches(bool force)
 	}
 }
 
+#ifndef P6_PORTABLE
 #if VALIDATE_68040_DATACACHE > 1
 static void validate_dcache040(void)
 {
@@ -1763,9 +1840,15 @@ void flush_cpu_caches_040(uae_u16 opcode)
 	bool pushinv = (regs.cacr & 0x01000000) == 0; // 68060 DPI
 
 	flush_cpu_caches_040_2(cache, scope, addr, push, pushinv);
+#ifdef WITH_PPC
+	if (cache & 2) {
+		uae_ppc_mark_code_cache_dirty();
+	}
+#endif
 	mmu_flush_cache();
 }
 
+#endif
 void cpu_invalidate_cache(uaecptr addr, int size)
 {
 	if (!currprefs.cpu_data_cache)
@@ -1777,13 +1860,16 @@ void cpu_invalidate_cache(uaecptr addr, int size)
 			dcaches030[(addr >> 4) & (CACHELINES030 - 1)].valid[(addr >> 2) & 3] = 0;
 			addr += 4;
 		}
-	} else if (currprefs.cpu_model >= 68040) {
+	}
+#ifndef P6_PORTABLE
+	else if (currprefs.cpu_model >= 68040) {
 		uaecptr end = addr + size;
 		while (addr < end) {
 			flush_cpu_caches_040_2(0, 1, addr, true, true);
 			addr += 16;
 		}
 	}
+#endif
 }
 
 
@@ -1791,7 +1877,9 @@ void set_cpu_caches (bool flush)
 {
 	regs.prefetch020addr = 0xffffffff;
 	regs.cacheholdingaddr020 = 0xffffffff;
+#ifdef MMUEMU
 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
+#endif
 
 	// 68060 FIC 1/2 instruction cache
 	cacheisets04060 = currprefs.cpu_model == 68060 && !(regs.cacr & 0x00002000) ? CACHESETS060 : CACHESETS040;
@@ -1855,6 +1943,16 @@ void REGPARAM2 op_unimpl_1_noret(uae_u32 opcode)
 
 
 // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
+#ifdef P6_PORTABLE
+static const struct cputbl *cputbls[6][8] = {
+	// 68000 cycle exact
+	{ NULL, NULL, NULL, NULL, op_smalltbl_14, NULL, NULL, NULL },
+	// 68010 cycle exact (T52, generated with the 68000 rows in cpuemu_13)
+	{ NULL, NULL, NULL, NULL, op_smalltbl_13, NULL, NULL, NULL },
+	// 68020 cycle exact
+	{ NULL, NULL, NULL, NULL, op_smalltbl_21, NULL, NULL, NULL }
+};
+#else
 static const struct cputbl *cputbls[6][8] =
 {
 	// 68000
@@ -1871,6 +1969,7 @@ static const struct cputbl *cputbls[6][8] =
 	{ op_smalltbl_0, op_smalltbl_40, op_smalltbl_50, op_smalltbl_24, op_smalltbl_24, op_smalltbl_33, op_smalltbl_33, op_smalltbl_33 }
 };
 
+#endif
 #ifdef JIT
 
 const struct cputbl *uaegetjitcputbl(void)
@@ -1946,6 +2045,7 @@ static void build_cpufunctbl (void)
 		cpudatatbl[opcode].branch = tbl[i].branch;
 	}
 
+#if defined(FPUEMU) && !defined(P6_PORTABLE)
 	/* hack fpu to 68000/68010 mode */
 	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
 		tbl = op_smalltbl_3;
@@ -1961,6 +2061,7 @@ static void build_cpufunctbl (void)
 		}
 	}
 
+#endif
 	opcnt = 0;
 	for (opcode = 0; opcode < 65536; opcode++) {
 		struct instr *table = &table68k[opcode];
@@ -2014,10 +2115,26 @@ static void build_cpufunctbl (void)
 		}
 
 		if (opcode_loop_mode(opcode)) {
-			loop_mode_table[opcode] = cpufunctbl[opcode];
+			// The cycle-exact tables (cpuemu_13) have no returning handler: handler_ff is NULL and only the noret one exists, which is what the loop mode of the generated DBcc calls
+			loop_mode_table[opcode] = cpufunctbl_noret[opcode];
 		}
 
 	}
+
+#ifdef P6_PORTABLE
+	if (currprefs.cpu_model >= 68020) {
+		// The profile has no MMU (MMUEMU is off) and cpuemu_21 compiles the PMMU handlers empty, so every F-line opcode takes the line F exception,
+		// as on a 68020 without that coprocessor. The one coprocessor it may have is the FPU (T54, FPUEMU): coprocessor id 1, opcodes $F200-$F3FF
+		// (cpGEN, cpScc, cpDBcc, cpTRAPcc, cpBcc, cpSAVE, cpRESTORE), served by fpp.cpp when currprefs.fpu_model is 68881 or 68882. Without one,
+		// those take the line F exception too.
+		for (opcode = 0xf000; opcode <= 0xffff; opcode++) {
+			if (currprefs.fpu_model && (opcode & 0xfe00) == 0xf200)
+				continue;
+			cpufunctbl[opcode] = op_illg_1;
+			cpufunctbl_noret[opcode] = op_illg_1_noret;
+		}
+	}
+#endif
 
 	need_opcode_swap = 0;
 #ifdef HAVE_GET_WORD_UNSWAPPED
@@ -2057,7 +2174,11 @@ static void build_cpufunctbl (void)
 	m68k_interrupt_delay = false;
 	m68k_accurate_ipl = false;
 	if (currprefs.cpu_cycle_exact) {
-		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21 || tbl == op_smalltbl_23)
+		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13 || tbl == op_smalltbl_21
+#ifndef P6_PORTABLE
+			|| tbl == op_smalltbl_23
+#endif
+		)
 			m68k_interrupt_delay = true;
 		if (tbl == op_smalltbl_14 || tbl == op_smalltbl_13)
 			m68k_accurate_ipl = true;
@@ -2099,7 +2220,10 @@ static void build_cpufunctbl (void)
 	cpuipldelay4 = 4 * cpucycleunit;
 
 	set_cpu_caches (true);
+#ifndef P6_PORTABLE
+	// Restarts the host vblank-wait thread; timing is driven by p6_run_frame only.
 	target_cpu_speed();
+#endif
 }
 
 #define CYCLES_DIV 8192
@@ -2189,6 +2313,7 @@ static void prefs_changed_cpu (void)
 	currprefs.cpu_model = changed_prefs.cpu_model;
 	currprefs.fpu_model = changed_prefs.fpu_model;
 	currprefs.fpu_revision = changed_prefs.fpu_revision;
+#ifdef MMUEMU
 	if (currprefs.mmu_model != changed_prefs.mmu_model) {
 		int oldmmu = currprefs.mmu_model;
 		currprefs.mmu_model = changed_prefs.mmu_model;
@@ -2215,6 +2340,7 @@ static void prefs_changed_cpu (void)
 			fake_crp_030 = crp_030;
 		}
 	}
+#endif
 	currprefs.mmu_ec = changed_prefs.mmu_ec;
 	if (currprefs.cpu_compatible != changed_prefs.cpu_compatible) {
 		currprefs.cpu_compatible = changed_prefs.cpu_compatible;
@@ -2231,7 +2357,9 @@ static void prefs_changed_cpu (void)
 	currprefs.int_no_unimplemented = changed_prefs.int_no_unimplemented;
 	currprefs.fpu_no_unimplemented = changed_prefs.fpu_no_unimplemented;
 	currprefs.blitter_cycle_exact = changed_prefs.blitter_cycle_exact;
+#ifndef P6_PORTABLE // host memory barriers exist only for JIT/natmem
 	mman_set_barriers(false);
+#endif
 }
 
 static int check_prefs_changed_cpu2(void)
@@ -2329,6 +2457,7 @@ STATIC_INLINE int in_rom (uaecptr pc)
 	return (munge24 (pc) & 0xFFF80000) == 0xF80000;
 }
 
+// The trap area (rtarea) is there only while a hard file is mounted: uae_boot_rom_type is 0 otherwise and uaeboard is never selected.
 STATIC_INLINE int in_rtarea (uaecptr pc)
 {
 	return (munge24 (pc) & 0xFFFF0000) == rtarea_base && (uae_boot_rom_type || currprefs.uaeboard > 0);
@@ -2398,8 +2527,9 @@ static void activate_trace(void)
 void checkint(void)
 {
 	doint();
-	if (!m68k_accurate_ipl && !currprefs.cachesize && !(regs.spcflags & SPCFLAG_INT) && (regs.spcflags & SPCFLAG_DOINT))
+	if (!m68k_accurate_ipl && !currprefs.cachesize && !(regs.spcflags & SPCFLAG_INT) && (regs.spcflags & SPCFLAG_DOINT)) {
 		set_special(SPCFLAG_INT);
+	}
 }
 
 void REGPARAM2 MakeSR(void)
@@ -2505,8 +2635,10 @@ static void MakeFromSR_x(int t0trace)
 			}
 		}
 	}
+#ifdef MMUEMU
 	if (currprefs.mmu_model)
 		mmu_set_super (regs.s != 0);
+#endif
 
 #ifdef JIT
 	// if JIT enabled and T1, T0 or M changes: end compile.
@@ -2945,6 +3077,7 @@ kludge_me_do:
 #endif
 
 // 68030 MMU
+#ifdef MMUEMU
 static void Exception_mmu030 (int nr, uaecptr oldpc)
 {
 	uae_u32 currpc = m68k_getpc (), newpc;
@@ -2999,6 +3132,11 @@ static void Exception_mmu030 (int nr, uaecptr oldpc)
 		regs.intmask = nr - 24;
 	m68k_setpci (newpc);
 	fill_prefetch ();
+	// The exception has moved the PC and fill_prefetch() has reloaded the pipe
+	// for it. A stage B opcode captured before the exception belongs to the old
+	// instruction stream, but insretry prefers mmu030_opcode_stageb over
+	// regs.irc, so it would be dispatched at the vector's PC. Drop it.
+	mmu030_opcode_stageb = -1;
 	exception_check_trace (nr);
 }
 
@@ -3015,7 +3153,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 
 	// exception vector fetch and exception stack frame
 	// operations don't allocate new cachelines
+#ifdef MMUEMU
 	cache_default_data |= CACHE_DISABLE_ALLOCATE;
+#endif
 	
 	exception_debug (nr);
 	MakeSR ();
@@ -3067,7 +3207,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 		return;
 	}
 
+#ifdef MMUEMU
 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
+#endif
 
 	m68k_setpci (newpc);
 	if (interrupt)
@@ -3076,6 +3218,7 @@ static void Exception_mmu (int nr, uaecptr oldpc)
 	exception_check_trace (nr);
 }
 
+#endif
 static void add_approximate_exception_cycles(int nr)
 {
 	int cycles;
@@ -3148,7 +3291,9 @@ static void Exception_normal (int nr)
 	int vector_nr = nr;
 	bool g1 = false;
 
+#ifdef MMUEMU
 	cache_default_data |= CACHE_DISABLE_ALLOCATE;
+#endif
 
 	interrupt = nr >= 24 && nr < 24 + 8;
 	if (interrupt)
@@ -3169,8 +3314,10 @@ static void Exception_normal (int nr)
 			m68k_areg (regs, 7) = regs.isp;
 		}
 		regs.s = 1;
+#ifdef MMUEMU
 		if (currprefs.mmu_model)
 			mmu_set_super (regs.s != 0);
+#endif
 	}
 
 	if ((m68k_areg(regs, 7) & 1) && currprefs.cpu_model < 68020) {
@@ -3197,6 +3344,7 @@ static void Exception_normal (int nr)
 	
 	bool used_exception_build_stack_frame = false;
 
+#if !defined(P6_PORTABLE) || defined(CPUEMU_21)
 	if (currprefs.cpu_model > 68000) {
 		uae_u32 oldpc = regs.instruction_pc;
 		nextpc = exception_pc (nr);
@@ -3291,8 +3439,10 @@ static void Exception_normal (int nr)
 				uae_u16 ssw = (sv ? 4 : 0) | last_fc_for_exception_3;
 				ssw |= MMU030_SSW_RW | MMU030_SSW_SIZE_W;
 				regs.mmu_fault_addr = last_fault_for_exception_3;
+#ifdef MMUEMU
 				mmu030_state[0] = mmu030_state[1] = 0;
 				mmu030_data_buffer_out = 0;
+#endif
 				Exception_build_stack_frame(last_fault_for_exception_3, currpc, ssw, vector_nr, 0x0b);
 				used_exception_build_stack_frame = true;
 			} else {
@@ -3331,7 +3481,9 @@ static void Exception_normal (int nr)
 			Exception_build_stack_frame_common(oldpc, currpc, regs.mmu_ssw, nr, vector_nr);
 			used_exception_build_stack_frame = true;
 		}
- 	} else {
+	} else
+#endif
+	{
 		nextpc = m68k_getpc ();
 		if (nr == 2 || nr == 3) {
 			// 68000 bus/address error
@@ -3402,7 +3554,9 @@ kludge_me_do:
 	}
 	add_approximate_exception_cycles(nr);
 	m68k_setpc (newpc);
+#ifdef MMUEMU
 	cache_default_data &= ~CACHE_DISABLE_ALLOCATE;
+#endif
 #ifdef JIT
 	if (currprefs.cachesize) {
 		set_special(SPCFLAG_END_COMPILE);
@@ -3453,12 +3607,15 @@ static void ExceptionX (int nr, uaecptr address, uaecptr oldpc)
 			regs.buscr &= 0xa0000000;
 			regs.buscr |= regs.buscr >> 1;
 		}
+#ifdef MMUEMU
 		if (currprefs.mmu_model) {
 			if (currprefs.cpu_model == 68030)
 				Exception_mmu030(nr, m68k_getpc());
 			else
 				Exception_mmu(nr, m68k_getpc());
-		} else {
+		} else
+#endif
+		{
 			Exception_normal(nr);
 		}
 	}
@@ -3516,12 +3673,14 @@ static void do_interrupt (int nr)
 	if (debug_dma)
 		record_dma_event(DMA_EVENT_CPUIRQ);
 #endif
+#ifndef P6_PORTABLE // input record/playback debugging is excluded
 	if (inputrecord_debug & 2) {
 		if (input_record > 0)
 			inprec_recorddebug_cpu(2, 0);
 		else if (input_play > 0)
 			inprec_playdebug_cpu(2, 0);
 	}
+#endif
 
 	assert (nr < 8 && nr >= 0);
 
@@ -3559,10 +3718,12 @@ static void cpu_halt_clear(void)
 
 static void maybe_disable_fpu(void)
 {
+#ifndef P6_PORTABLE // 68060 only; the A500 profile is 68000/68010 without trap area
 	if (currprefs.cpu_model == 68060 && currprefs.cpuboard_type == 0 && (rtarea_base != 0xf00000 || !need_uae_boot_rom(&currprefs))) {
 		// disable FPU at reset if no 68060 accelerator board and no $f0 ROM.
 		regs.pcr |= 2;
 	}
+#endif
 	if (!currprefs.fpu_model) {
 		regs.pcr |= 2;
 	}
@@ -3616,11 +3777,14 @@ static void m68k_reset2(bool hardreset)
 	}
 #endif
 	regs.s = 1;
+#ifndef P6_PORTABLE // accelerator boards are excluded, reset vectors always come from address 0
 	if (currprefs.cpuboard_type) {
 		uaecptr stack;
 		v = cpuboard_get_reset_pc(&stack);
 		m68k_areg(regs, 7) = stack;
-	} else {
+	} else
+#endif
+	{
 		v = get_long(4);
 		m68k_areg(regs, 7) = get_long(0);
 	}
@@ -3645,7 +3809,9 @@ static void m68k_reset2(bool hardreset)
 	regs.caar = regs.cacr = 0;
 	regs.itt0 = regs.itt1 = regs.dtt0 = regs.dtt1 = 0;
 	regs.tcr = regs.mmusr = regs.urp = regs.srp = regs.buscr = 0;
-	mmu_tt_modified(); 
+#ifdef MMUEMU
+	mmu_tt_modified();
+#endif
 	if (currprefs.cpu_model == 68020) {
 		regs.cacr |= 8;
 		set_cpu_caches (false);
@@ -3653,18 +3819,23 @@ static void m68k_reset2(bool hardreset)
 
 	mmufixup[0].reg = -1;
 	mmufixup[1].reg = -1;
+#ifdef MMUEMU
 	mmu030_cache_state = CACHE_ENABLE_ALL;
 	mmu_cache_state = CACHE_ENABLE_ALL;
+#endif
 	if (currprefs.cpu_model >= 68040) {
 		set_cpu_caches(false);
 	}
+#ifdef MMUEMU
 	if (currprefs.mmu_model >= 68040) {
 		mmu_reset();
 		mmu_set_tc(regs.tcr);
 		mmu_set_super(regs.s != 0);
 	} else if (currprefs.mmu_model == 68030) {
 		mmu030_reset(hardreset || regs.halted);
-	} else {
+	} else
+#endif
+	{
 		a3000_fakekick (0);
 		/* only (E)nable bit is zeroed when CPU is reset, A3000 SuperKickstart expects this */
 		fake_tc_030 &= ~0x80000000;
@@ -3844,7 +4015,7 @@ uae_u32 REGPARAM2 op_illg (uae_u32 opcode)
 		}
 	}
 
-#ifdef AUTOCONFIG
+#if defined(AUTOCONFIG) || defined(P6_FILESYS)
 	if (opcode == 0xFF0D && inrt) {
 		/* User-mode STOP replacement */
 		m68k_setstopped(1);
@@ -4114,21 +4285,27 @@ bool mmu_op30(uaecptr pc, uae_u32 opcode, uae_u16 extra, uaecptr extraa)
 	case 0:
 	case 2:
 	case 3:
+#ifndef P6_PORTABLE
 		if (currprefs.mmu_model)
 			fline = mmu_op30_pmove(pc, opcode, extra, extraa); 
 		else
+#endif
 			fline = mmu_op30fake_pmove(pc, opcode, extra, extraa);
 	break;
 	case 1:
+#ifndef P6_PORTABLE
 		if (currprefs.mmu_model)
 			fline = mmu_op30_pflush(pc, opcode, extra, extraa); 
 		else
+#endif
 			fline = mmu_op30fake_pflush(pc, opcode, extra, extraa);
 	break;
 	case 4:
+#ifndef P6_PORTABLE
 		if (currprefs.mmu_model)
 			fline = mmu_op30_ptest(pc, opcode, extra, extraa);
 		else
+#endif
 			fline = mmu_op30fake_ptest(pc, opcode, extra, extraa);
 	break;
 	}
@@ -4181,10 +4358,12 @@ static int fake_mmu_match_ttr(uaecptr addr, bool super, bool data)
 // 68040+ MMU instructions only
 void mmu_op (uae_u32 opcode, uae_u32 extra)
 {
+#ifndef P6_PORTABLE
 	if (currprefs.mmu_model) {
 		mmu_op_real (opcode, extra);
 		return;
 	}
+#endif
 #if MMUOP_DEBUG > 1
 	write_log (_T("mmu_op %04X PC=%08X\n"), opcode, m68k_getpc ());
 #endif
@@ -4326,6 +4505,7 @@ static void check_uae_int_request(void)
 
 void safe_interrupt_set(int num, int id, bool i6)
 {
+#ifndef P6_PORTABLE
 	if (!is_mainthread()) {
 		set_special_exter(SPCFLAG_UAEINT);
 		volatile uae_atomic *p;
@@ -4336,6 +4516,9 @@ void safe_interrupt_set(int num, int id, bool i6)
 		atomic_or(p, 1 << id);
 		atomic_or(&uae_interrupt, 1);
 	} else {
+#else
+	{ // P6 callers execute on the sole emulation thread.
+#endif
 		if (currprefs.cs_compatible == CP_DRACO || currprefs.cs_compatible == CP_CASABLANCA) {
 #ifdef WITH_DRACO
 			draco_ext_interrupt(i6);
@@ -4393,6 +4576,12 @@ static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
 			ppc_interrupt(intlev());
 			uae_ppc_execute_check();
 #endif
+			#ifndef P6_PORTABLE
+			if (regs.spcflags & SPCFLAG_CALLBACK) {
+				unset_special(SPCFLAG_CALLBACK);
+				device_call_main_thread_callbacks();
+			}
+			#endif
 			if (regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)) {
 				if (regs.spcflags & SPCFLAG_BRK) {
 					unset_special(SPCFLAG_BRK);
@@ -4412,6 +4601,13 @@ static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
 			ppc_interrupt(intlev());
 			uae_ppc_execute_check();
 #endif
+			#ifndef P6_PORTABLE
+			if (regs.spcflags & SPCFLAG_CALLBACK) {
+				unset_special(SPCFLAG_CALLBACK);
+				device_call_main_thread_callbacks();
+			}
+			#endif
+
 			if (event_wait)
 				break;
 			frame_time_t d = read_processor_time() - rpt_end;
@@ -4421,6 +4617,28 @@ static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
 	}
 	return false;
 }
+
+#ifdef P6_UNIT_TRACE
+// Test builds only (never defined by the profile): report each video boundary, and let a run swallow the
+// first p6_unit_skip of them, so the same engine can advance N units with and without returning.
+extern int p6_unit_skip;
+extern void p6_unit_observe(void);
+// The engine's cycle counter restarts at a reset, so the first boundary after it can land on the count of the last one before it.
+static evt_t p6_unit_last_reported = -1;
+static bool p6_unit_swallowed(void)
+{
+	// The wait loop of a CPU held in reset and the tail of do_specialties can both see the same boundary.
+	if (get_cycles() == p6_unit_last_reported)
+		return false;
+	p6_unit_last_reported = get_cycles();
+	p6_unit_observe();
+	if (p6_unit_skip <= 0)
+		return false;
+	--p6_unit_skip;
+	unset_special(SPCFLAG_UNIT_END);
+	return true;
+}
+#endif
 
 static bool haltloop(void)
 {
@@ -4491,8 +4709,12 @@ static bool haltloop(void)
 				prevvpos = 1;
 			x_do_cycles(8 * CYCLE_UNIT);
 
+#ifdef P6_UNIT_TRACE
+			if ((regs.spcflags & SPCFLAG_UNIT_END) && !(regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)) && p6_unit_swallowed())
+				continue;
+#endif
 			if (regs.spcflags) {
-				if ((regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)))
+				if ((regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE | SPCFLAG_UNIT_END)))
 					return true;
 			}
 		}
@@ -4637,7 +4859,7 @@ void doint(void)
 
 	if (m68k_interrupt_delay) {
 		if (!m68k_accurate_ipl && regs.ipl_pin > regs.intmask) {
-			set_special(SPCFLAG_INT);
+			set_special(SPCFLAG_DOINT);
 		}
 		return;
 	}
@@ -4680,11 +4902,24 @@ static int do_specialties (int cycles)
 	if (spcflags & SPCFLAG_MODE_CHANGE)
 		return 1;
 	
+	#ifndef P6_PORTABLE
+	if (spcflags & SPCFLAG_CALLBACK) {
+		unset_special(SPCFLAG_CALLBACK);
+		device_call_main_thread_callbacks();
+	}
+	#endif
+
 	while (spcflags & SPCFLAG_CPUINRESET) {
 		cpu_halt_clear();
 		x_do_cycles(4 * CYCLE_UNIT);
 		spcflags = regs.spcflags;
-		if (!(spcflags & SPCFLAG_CPUINRESET) || (spcflags & SPCFLAG_BRK) || (spcflags & SPCFLAG_MODE_CHANGE)) {
+#ifdef P6_UNIT_TRACE
+		if ((spcflags & SPCFLAG_UNIT_END) && !(spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE)) && p6_unit_swallowed()) {
+			spcflags = regs.spcflags;
+			continue;
+		}
+#endif
+		if (!(spcflags & SPCFLAG_CPUINRESET) || (spcflags & SPCFLAG_BRK) || (spcflags & SPCFLAG_MODE_CHANGE) || (spcflags & SPCFLAG_UNIT_END)) {
 			break;
 		}
 	}
@@ -4734,7 +4969,7 @@ static int do_specialties (int cycles)
 
 		if (action_replay_flag == ACTION_REPLAY_ACTIVATE || action_replay_flag == ACTION_REPLAY_DORESET)
 			action_replay_enter();
-		if ((action_replay_flag == ACTION_REPLAY_HIDE || action_replay_flag == ACTION_REPLAY_ACTIVE) && !is_ar_pc_in_rom()) {
+		if ((action_replay_flag == ACTION_REPLAY_HIDE || action_replay_flag == ACTION_REPLAY_ACTIVE) && !is_ar_pc_in_rom() && !is_ar_pc_in_ram()) {
 			action_replay_hide();
 			unset_special (SPCFLAG_ACTION_REPLAY);
 		}
@@ -4753,7 +4988,7 @@ static int do_specialties (int cycles)
 	}
 #endif
 
-	while ((spcflags & SPCFLAG_BLTNASTY) && dmaen (DMA_BLITTER) && cycles > 0 && ((currprefs.waiting_blits && currprefs.cpu_model >= 68020) || !currprefs.blitter_cycle_exact)) {
+	while ((spcflags & SPCFLAG_BLTNASTY) && dmaen (DMA_BLITTER) && cycles > 0 && ((currprefs.waiting_blits && currprefs.cpu_model >= 68020) || !blitter_cycle_exact)) {
 		int c = blitnasty();
 		if (c < 0) {
 			break;
@@ -4812,7 +5047,7 @@ static int do_specialties (int cycles)
 			unset_special(SPCFLAG_UAEINT);
 		}
 
-		if (m68k_interrupt_delay) {
+		if (m68k_interrupt_delay && m68k_accurate_ipl) {
 			int ipl = time_for_interrupt();
 			if (ipl) {
 				unset_special(SPCFLAG_INT);
@@ -4821,7 +5056,7 @@ static int do_specialties (int cycles)
 		} else {
 			if (spcflags & SPCFLAG_INT) {
 				int intr = intlev();
-				unset_special (SPCFLAG_INT | SPCFLAG_DOINT);
+				unset_special(SPCFLAG_INT | SPCFLAG_DOINT);
 				if (intr > regs.intmask || (intr == 7 && intr > regs.lastipl)) {
 					do_interrupt(intr);
 				}
@@ -4844,6 +5079,15 @@ static int do_specialties (int cycles)
 #endif
 	}
 
+#ifdef P6_UNIT_TRACE
+	if ((regs.spcflags & SPCFLAG_UNIT_END) && p6_unit_swallowed())
+		return 0;
+#endif
+#ifdef P6_PORTABLE
+	// Live read: the flag can arrive while an interrupt is entered above. The caller clears it.
+	if (regs.spcflags & SPCFLAG_UNIT_END)
+		return 1;
+#endif
 	return 0;
 }
 
@@ -5015,7 +5259,7 @@ static void m68k_run_1_ce (void)
 static void m68k_run_1_ce (void)
 {
 	struct regstruct *r = &regs;
-	bool first = true;
+	TRY_VOLATILE bool first = true;
 	bool exit = false;
 
 	while (!exit) {
@@ -5080,12 +5324,14 @@ static void m68k_run_1_ce (void)
 					cputrace.readcounter = cputrace.writecounter = 0;
 				}
 
+#ifndef P6_PORTABLE // input record/playback debugging is excluded
 				if (inputrecord_debug & 4) {
 					if (input_record > 0)
 						inprec_recorddebug_cpu(1, r->opcode);
 					else if (input_play > 0)
 						inprec_playdebug_cpu(1, r->opcode);
 				}
+#endif
 
 #ifdef DEBUGGER
 				if (debug_opcode_watch) {
@@ -5244,10 +5490,15 @@ static void init_cpu_thread(void)
 
 extern addrbank *thread_mem_banks[MEMORY_BANKS];
 
+static bool is_cpu_thread(void)
+{
+	return cpu_thread_tid == uae_thread_get_id();
+}
+
 uae_u32 process_cpu_indirect_memory_read(uae_u32 addr, int size)
 {
 	// Do direct access if call is from filesystem etc thread 
-	if (cpu_thread_tid != uae_thread_get_id()) {
+	if (!is_cpu_thread()) {
 		uae_u32 data = 0;
 		addrbank *ab = thread_mem_banks[bankindex(addr)];
 		switch (size)
@@ -5276,7 +5527,7 @@ uae_u32 process_cpu_indirect_memory_read(uae_u32 addr, int size)
 
 void process_cpu_indirect_memory_write(uae_u32 addr, uae_u32 data, int size)
 {
-	if (cpu_thread_tid != uae_thread_get_id()) {
+	if (!is_cpu_thread()) {
 		addrbank *ab = thread_mem_banks[bankindex(addr)];
 		switch (size)
 		{
@@ -5439,7 +5690,7 @@ static void run_cpu_thread(void (*f)(void *))
 static void custom_reset_cpu(bool hardreset, bool keyboardreset)
 {
 #ifdef WITH_THREADED_CPU
-	if (cpu_thread_tid != uae_thread_get_id()) {
+	if (!is_cpu_thread()) {
 		custom_reset(hardreset, keyboardreset);
 		return;
 	}
@@ -5452,6 +5703,17 @@ static void custom_reset_cpu(bool hardreset, bool keyboardreset)
 }
 
 #ifdef JIT  /* Completely different run_2 replacement */
+
+#ifdef CPU_AARCH64
+void execute_exception(uae_u32 cycles)
+{
+	countdown -= cycles;
+	Exception_cpu(regs.jit_exception);
+	regs.jit_exception = 0;
+	cpu_cycles = adjust_cycles(4 * CYCLE_UNIT / 2);
+	do_cycles(cpu_cycles);
+}
+#endif
 
 void do_nothing (void)
 {
@@ -5524,6 +5786,14 @@ void execute_normal(void)
 		/* Take note: This is the do-it-normal loop */
 		r->opcode = get_jit_opcode();
 
+#if defined(JIT) && defined(CPU_x86_64)
+		/* High x86-64 natmem uses jit_n_addr_unsafe for pointer-clean
+		 * codegen decisions. Keep pc_hist.specmem reserved for real
+		 * special-bank flags. */
+		if (jit_n_addr_unsafe && !jit_n_addr_bank_unsafe) {
+			special_mem = 0;
+		} else
+#endif
 		special_mem = special_mem_default;
 		pc_hist[blocklen].location = (uae_u16*)r->pc_p;
 
@@ -5565,12 +5835,29 @@ static void cpu_thread_run_jit(void *v)
 #endif
 	{
 		for (;;) {
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+			{
+				int bus_error_exc = setjmp(jit_bus_error_jmpbuf);
+				if (bus_error_exc != 0) {
+					jit_in_compiled_code = false;
+					Exception(bus_error_exc);
+					continue;
+				}
+			}
+			jit_in_compiled_code = true;
+#endif
 			((compiled_handler*)(pushall_call_handler))();
 			/* Whenever we return from that, we should check spcflags */
 			if (regs.spcflags || cpu_thread_ilvl > 0) {
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+				jit_in_compiled_code = false;
+#endif
 				if (do_specialties_thread()) {
 					break;
 				}
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+				jit_in_compiled_code = true;
+#endif
 			}
 		}
 	}
@@ -5585,6 +5872,9 @@ static void cpu_thread_run_jit(void *v)
 	}
 #endif
 	cpu_thread_active = 0;
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+	jit_in_compiled_code = false;
+#endif
 }
 #endif
 
@@ -5607,18 +5897,37 @@ static void m68k_run_jit(void)
 #ifdef USE_STRUCTURED_EXCEPTION_HANDLING
 		__try {
 #endif
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+			{
+				int bus_error_exc = setjmp(jit_bus_error_jmpbuf);
+				if (bus_error_exc != 0) {
+					jit_in_compiled_code = false;
+					Exception(bus_error_exc);
+				}
+			}
+			jit_in_compiled_code = true;
+#endif
 			for (;;) {
 				((compiled_handler*)(pushall_call_handler))();
 				/* Whenever we return from that, we should check spcflags */
 				check_uae_int_request();
 				if (regs.spcflags) {
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+					jit_in_compiled_code = false;
+#endif
 					if (do_specialties(0)) {
 						STOPTRY;
 						return;
 					}
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+					jit_in_compiled_code = true;
+#endif
 				}
 				// If T0, T1 or M got set: run normal emulation loop
 				if (regs.t0 || regs.t1 || regs.m) {
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+					jit_in_compiled_code = false;
+#endif
 					flush_icache(3);
 					struct regstruct *r = &regs;
 					bool exit = false;
@@ -5635,6 +5944,9 @@ static void m68k_run_jit(void)
 						}
 					}
 					unset_special(SPCFLAG_END_COMPILE);
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+					jit_in_compiled_code = true;
+#endif
 				}
 			}
 #ifdef USE_STRUCTURED_EXCEPTION_HANDLING
@@ -5703,6 +6015,8 @@ static void check_halt(void)
 		do_specialties (0);
 }
 
+#endif // CPUEMU_0: reset/halt requests are shared by all CPU families.
+
 void cpu_inreset(void)
 {
 	set_special(SPCFLAG_CPUINRESET);
@@ -5730,7 +6044,9 @@ void cpu_halt(int id)
 		if (id >= 0) {
 			regs.intmask = 7;
 			MakeSR();
+#ifndef P6_PORTABLE
 			audio_deactivate();
+#endif // CPU halt leaves Paula/chipset running on the shared emulated clock.
 #ifdef DEBUGGER
 			if (debugging)
 				activate_debugger();
@@ -5740,12 +6056,14 @@ void cpu_halt(int id)
 	set_special(SPCFLAG_CHECK);
 }
 
+#if defined(CPUEMU_0) || defined(CPUEMU_21)
+#ifdef CPUEMU_0
 #ifdef CPUEMU_33
 
 /* MMU 68060  */
 static void m68k_run_mmu060 (void)
 {
-	struct flag_struct f;
+	TRY_VOLATILE struct flag_struct f;
 	int halt = 0;
 
 	check_halt();
@@ -5799,7 +6117,7 @@ static void m68k_run_mmu060 (void)
 /* Aranym MMU 68040  */
 static void m68k_run_mmu040 (void)
 {
-	struct flag_struct f;
+	TRY_VOLATILE struct flag_struct f;
 	int halt = 0;
 
 	check_halt();
@@ -5854,7 +6172,7 @@ static void m68k_run_mmu040 (void)
 // Previous MMU 68030
 static void m68k_run_mmu030 (void)
 {
-	struct flag_struct f;
+	TRY_VOLATILE struct flag_struct f;
 	int halt = 0;
 
 	mmu030_opcode_stageb = -1;
@@ -5963,9 +6281,18 @@ insretry:
 		} CATCH (prb) {
 
 			if (mmu030_opcode == -1) {
-				// full prefetch fill access fault
-				mmufixup[0].reg = -1;
-				mmufixup[1].reg = -1;
+				// Prefetch access fault. Usually raised while filling
+				// the pipe before the instruction starts, but also from
+				// inside an instruction (do_access_or_bus_error() when
+				// the next opcode's fetch lands in an unmapped page) after
+				// it has already adjusted an address register - the
+				// -(sp) of a MOVE that prefetches before its write. The
+				// instruction is restarted from scratch after the RTE,
+				// so undo those adjustments; a completed instruction has
+				// cleared its fixups and this is a no-op for it. The
+				// flags are left alone: a completed RTE/RTR whose target
+				// prefetch faults must keep the CCR it just loaded.
+				cpu_restore_fixup();
 			} else if (mmu030_state[1] & MMU030_STATEFLAG1_LASTWRITE) {
 				mmufixup[0].reg = -1;
 				mmufixup[1].reg = -1;
@@ -5996,7 +6323,7 @@ static void m68k_run_3ce (void)
 {
 	struct regstruct *r = &regs;
 	bool exit = false;
-	int extracycles = 0;
+	TRY_VOLATILE int extracycles = 0;
 
 	while (!exit) {
 		check_debugger();
@@ -6087,13 +6414,15 @@ static void m68k_run_3p(void)
 	}
 }
 
+#endif /* CPUEMU_0 */
+
 /* "cycle exact" 68020/030  */
 
 static void m68k_run_2ce (void)
 {
 	struct regstruct *r = &regs;
 	bool exit = false;
-	bool first = true;
+	TRY_VOLATILE bool first = true;
 
 	while (!exit) {
 		check_debugger();
@@ -6192,12 +6521,14 @@ static void m68k_run_2ce (void)
 					cputrace.readcounter = cputrace.writecounter = 0;
 				}
 
+#ifndef P6_PORTABLE // input record/playback debugging is excluded
 				if (inputrecord_debug & 4) {
 					if (input_record > 0)
 						inprec_recorddebug_cpu(1, r->opcode);
 					else if (input_play > 0)
 						inprec_playdebug_cpu(1, r->opcode);
 				}
+#endif
 #ifdef DEBUGGER
 				if (debug_opcode_watch) {
 					debug_trainer_match();
@@ -6230,6 +6561,7 @@ static void m68k_run_2ce (void)
 	}
 }
 
+#ifdef CPUEMU_0
 #ifdef CPUEMU_20
 
 // full prefetch 020 (more compatible)
@@ -6237,7 +6569,7 @@ static void m68k_run_2p (void)
 {
 	struct regstruct *r = &regs;
 	bool exit = false;
-	bool first = true;
+	TRY_VOLATILE bool first = true;
 
 	while (!exit) {
 		check_debugger();
@@ -6381,7 +6713,6 @@ static void cpu_thread_run_2(void *v)
 	struct regstruct *r = &regs;
 
 	cpu_thread_tid = uae_thread_get_id();
-
 	cpu_thread_active = 1;
 	while (!exit) {
 		TRY(prb)
@@ -6519,8 +6850,14 @@ static void m68k_run_mmu (void)
 #endif
 
 #endif /* CPUEMU_0 */
+#endif /* CPUEMU_0 || CPUEMU_21 */
 
 int in_m68k_go = 0;
+#ifdef P6_PORTABLE
+// Called by the reset head just before the engine's cycle counter starts over at zero, whatever asked for the reset (the API,
+// the keyboard chord, the reset-warning sequence). The bridge keeps the caller's tick count and the clock of the board continuous.
+void (*p6_counter_restart_hook)(void);
+#endif
 
 #if 0
 static void exception2_handle (uaecptr addr, uaecptr fault)
@@ -6556,6 +6893,7 @@ void m68k_run(void)
 {
 	void (*run_func)(void);
 
+#ifndef P6_PORTABLE
 	run_func = currprefs.cpu_cycle_exact && currprefs.cpu_model <= 68010 ? m68k_run_1_ce :
 		currprefs.cpu_compatible && currprefs.cpu_model <= 68010 ? m68k_run_1 :
 #ifdef JIT
@@ -6573,12 +6911,53 @@ void m68k_run(void)
 		currprefs.cpu_model >= 68040 && currprefs.cpu_compatible ? m68k_run_3p :
 
 		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
+#else
+	run_func = currprefs.cpu_model >= 68020 ? m68k_run_2ce : m68k_run_1_ce;
+#endif
 
 	run_func();
+
+#ifdef WITH_THREADED_CPU
+	cpu_thread_tid = 0;
+#endif
 }
 
+#ifdef P6_PORTABLE
+int m68k_go_unit (int mode)
+#else
 void m68k_go (int may_quit)
+#endif
 {
+#ifdef P6_PORTABLE
+	// Static: the reset head runs once per reset, not once per unit; the stack is empty at a unit boundary.
+	static int hardboot = 1;
+	static bool suspended;
+
+	if (mode == M68K_UNIT_BEGIN) {
+		if (in_m68k_go)
+			return M68K_UNIT_QUIT;
+		if (p6_memory_rom_status() != P6_ROM_LOAD_OK)
+			return M68K_UNIT_NO_ROM;
+		hardboot = 1;
+		suspended = false;
+		unset_special(SPCFLAG_UNIT_END);
+		reset_frame_rate_hack ();
+		update_68k_cycles ();
+		start_cycles = 0;
+		set_cpu_tracer (false);
+		cpu_prefs_changed_flag = 0;
+		in_m68k_go++;
+		return M68K_UNIT_DONE;
+	}
+	if (mode == M68K_UNIT_LEAVE) {
+		in_m68k_go = 0;
+		suspended = false;
+		unset_special(SPCFLAG_UNIT_END);
+		return M68K_UNIT_DONE;
+	}
+	if (!in_m68k_go)
+		return M68K_UNIT_QUIT;
+#else
 	int hardboot = 1;
 
 #ifdef WITH_THREADED_CPU
@@ -6597,9 +6976,19 @@ void m68k_go (int may_quit)
 
 	cpu_prefs_changed_flag = 0;
 	in_m68k_go++;
+#endif
 	for (;;) {
 		int restored = 0;
 
+#ifdef P6_PORTABLE
+		if (suspended && quit_program <= 0 && !(regs.spcflags & SPCFLAG_MODE_CHANGE)) {
+			// Continue the unit that was left at an instruction boundary: no reset head, no state reload.
+			if (mode == M68K_UNIT_APPLY)
+				return M68K_UNIT_APPLIED;
+			goto run_cpu;
+		}
+		suspended = false;
+#endif
 		cputrace.state = -1;
 
 		if (regs.halted == CPU_HALT_ACCELERATOR_CPU_FALLBACK) {
@@ -6607,6 +6996,7 @@ void m68k_go (int may_quit)
 			cpu_do_fallback();
 		}
 
+#ifndef P6_PORTABLE // input record/playback is excluded (public config rejects inprecfile)
 		if (currprefs.inprecfile[0] && input_play) {
 			inprec_open (currprefs.inprecfile, NULL);
 			changed_prefs.inprecfile[0] = currprefs.inprecfile[0] = 0;
@@ -6614,6 +7004,7 @@ void m68k_go (int may_quit)
 		}
 		if (input_play || input_record)
 			inprec_startup ();
+#endif
 
 		if (quit_program > 0) {
 			cpu_keyboardreset = quit_program == UAE_RESET_KEYBOARD;
@@ -6625,6 +7016,10 @@ void m68k_go (int may_quit)
 
 			hsync_counter = 0;
 			vsync_counter = 0;
+			if (quit_program) {
+				set_cycles(start_cycles);
+				clear_events();
+			}
 			quit_program = 0;
 
 #ifdef SAVESTATE
@@ -6644,8 +7039,19 @@ void m68k_go (int may_quit)
 			prefs_changed_cpu();
 			build_cpufunctbl();
 			set_x_funcs();
+#ifdef P6_PORTABLE
+			if (p6_counter_restart_hook)
+				p6_counter_restart_hook();
+#endif
 			set_cycles (start_cycles);
+#ifdef P6_UNIT_TRACE
+			p6_unit_last_reported = -1;
+#endif
 			custom_reset (cpu_hardreset != 0, cpu_keyboardreset);
+#ifdef P6_PORTABLE
+			if (p6_memory_rom_status() != P6_ROM_LOAD_OK)
+				break; // Leave before reading reset vectors; retain normal cleanup.
+#endif
 			m68k_reset2 (cpu_hardreset != 0);
 			if (cpu_hardreset) {
 				memory_clear ();
@@ -6676,13 +7082,19 @@ void m68k_go (int may_quit)
 				eventtab[ev_audio].active = 0;
 			m68k_setpc_normal (regs.pc);
 			check_prefs_changed_audio ();
+			gdb_server_restore_complete(restored != 0);
 
 			if (!restored || hsync_counter == 0)
 				savestate_check ();
+#ifndef P6_PORTABLE // input recording is excluded
 			if (input_record == INPREC_RECORD_START)
 				input_record = INPREC_RECORD_NORMAL;
+#endif
+#ifndef P6_PORTABLE
 			statusline_clear();
+#endif
 		} else {
+#ifndef P6_PORTABLE // input recording is excluded
 			if (input_record == INPREC_RECORD_START) {
 				input_record = INPREC_RECORD_NORMAL;
 				savestate_init ();
@@ -6690,10 +7102,13 @@ void m68k_go (int may_quit)
 				vsync_counter = 0;
 				savestate_check ();
 			}
+#endif
 		}
 
+#ifndef P6_PORTABLE // input recording is excluded
 		if (changed_prefs.inprecfile[0] && input_record)
 			inprec_prepare_record (savestate_fname[0] ? savestate_fname : NULL);
+#endif
 #ifdef DEBUGGER
 		if (changed_prefs.trainerfile[0])
 			debug_init_trainer(changed_prefs.trainerfile);
@@ -6708,7 +7123,9 @@ void m68k_go (int may_quit)
 			if (cpu_prefs_changed_flag & 1) {
 				uaecptr pc = m68k_getpc();
 				prefs_changed_cpu();
+#ifdef FPUEMU
 				fpu_modechange();
+#endif
 				custom_cpuchange();
 				build_cpufunctbl();
 				m68k_setpc_normal(pc);
@@ -6721,7 +7138,9 @@ void m68k_go (int may_quit)
 				currprefs.m68k_speed = changed_prefs.m68k_speed;
 				currprefs.m68k_speed_throttle = changed_prefs.m68k_speed_throttle;
 				update_68k_cycles();
+#ifndef P6_PORTABLE
 				target_cpu_speed();
+#endif
 			}
 			cpu_prefs_changed_flag = 0;
 		}
@@ -6729,8 +7148,10 @@ void m68k_go (int may_quit)
 		set_x_funcs();
 		if (hardboot) {
 			custom_prepare();
+#ifndef P6_PORTABLE // host ROM/memory protection exists only for JIT/natmem
 			mman_set_barriers(false);
 			protect_roms(true);
+#endif
 		}
 		if ((cpu_keyboardreset || hardboot) && !restored) {
 			warpmode_reset();
@@ -6738,7 +7159,11 @@ void m68k_go (int may_quit)
 		cpu_hardreset = false;
 		cpu_keyboardreset = false;
 		event_wait = true;
-		unset_special(SPCFLAG_MODE_CHANGE);
+		// A reset requested from the debugger stop above can already have
+		// raised MODE_CHANGE; keep it so that m68k_run() returns for it.
+		if (quit_program <= 0) {
+			unset_special(SPCFLAG_MODE_CHANGE);
+		}
 
 		if (!restored && hardboot) {
 			uaerandomizeseed();
@@ -6766,7 +7191,11 @@ void m68k_go (int may_quit)
 		if (!regs.halted) {
 			// check that PC points to something that looks like memory.
 			uaecptr pc = m68k_getpc();
+#ifdef P6_PORTABLE // get_mem_bank_real() only differs from the plain bank when the debugger's memwatch is active
+			addrbank *ab = &get_mem_bank(pc);
+#else
 			addrbank *ab = get_mem_bank_real(pc);
+#endif
 			if (ab == NULL || ab == &dummy_bank || (!currprefs.cpu_compatible && !valid_address(pc, 2)) || (pc & 1)) {
 				cpu_halt(CPU_HALT_INVALID_START_ADDRESS);
 			}
@@ -6779,7 +7208,36 @@ void m68k_go (int may_quit)
 			}
 		}
 
+#ifdef P6_PORTABLE
+		// A boundary crossed by the reset preamble is not a unit: the first unit starts after the reset.
+		unset_special(SPCFLAG_UNIT_END);
+		suspended = true;
+		if (mode == M68K_UNIT_APPLY)
+			return M68K_UNIT_APPLIED;
+run_cpu:
+		{
+			// Resuming a halted CPU or one held in reset re-enters its wait loop instead of executing.
+			const bool waiting = regs.halted || (regs.spcflags & SPCFLAG_CPUINRESET);
+			if (waiting && regs.halted)
+				set_special(SPCFLAG_CHECK); // haltloop consumed it when the unit was left
+			if (!waiting || !do_specialties (0))
+				m68k_run();
+		}
+	// Beta 21 can raise INT while do_specialties is already handling UNIT_END.
+	// Finish that between-instruction work before publishing the unit boundary;
+	// P6CP deliberately does not serialize a half-consumed INT/DOINT pipeline.
+	while ((regs.spcflags & SPCFLAG_UNIT_END) && (regs.spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)) &&
+			!(regs.spcflags & SPCFLAG_MODE_CHANGE))
+		do_specialties(0);
+		if ((regs.spcflags & SPCFLAG_UNIT_END) && quit_program <= 0 && !(regs.spcflags & SPCFLAG_MODE_CHANGE)) {
+			// Leave before custom_end_drawing(): the frame in progress must stay open.
+			unset_special(SPCFLAG_UNIT_END);
+			return M68K_UNIT_DONE;
+		}
+		suspended = false;
+#else
 		m68k_run();
+#endif
 
 		custom_end_drawing();
 
@@ -6789,15 +7247,24 @@ void m68k_go (int may_quit)
 		if (quit_program == UAE_QUIT)
 			break;
 	}
+#ifndef P6_PORTABLE // host ROM/memory protection exists only for JIT/natmem
 	protect_roms(false);
 	mman_set_barriers(true);
+#endif
+#ifdef P6_PORTABLE
+	in_m68k_go = 0;
+	suspended = false;
+	return p6_memory_rom_status() != P6_ROM_LOAD_OK ? M68K_UNIT_NO_ROM : M68K_UNIT_QUIT;
+#else
 	in_m68k_go--;
+#endif
 }
 
 
 
 void m68k_disasm_ea (uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr, uaecptr lastpc)
 {
+#ifdef DEBUGGER
 	TCHAR *buf;
 
 	if (!cnt)
@@ -6810,9 +7277,13 @@ void m68k_disasm_ea (uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, ua
 	m68k_disasm_2(buf, MAX_LINEWIDTH * pcnt, addr, NULL, 0, nextpc, cnt, seaddr, deaddr, lastpc, 1);
 #endif
 	xfree (buf);
+#else
+	write_log(_T("CPU disassembly requires DEBUGGER.\n"));
+#endif
 }
 void m68k_disasm (uaecptr addr, uaecptr *nextpc, uaecptr lastpc, int cnt)
 {
+#ifdef DEBUGGER
 	TCHAR *buf;
 
 	if (!cnt)
@@ -6826,6 +7297,9 @@ void m68k_disasm (uaecptr addr, uaecptr *nextpc, uaecptr lastpc, int cnt)
 #endif
 	console_out_f (_T("%s"), buf);
 	xfree (buf);
+#else
+	write_log(_T("CPU disassembly requires DEBUGGER.\n"));
+#endif
 }
 
 void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
@@ -6887,22 +7361,23 @@ void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
 			(fpsr & 0x1000000) != 0);
 	}
 #endif
+#ifdef MMUEMU
 	if (currprefs.mmu_model == 68030) {
 		console_out_f (_T("SRP: %llX CRP: %llX\n"), srp_030, crp_030);
 		console_out_f (_T("TT0: %08X TT1: %08X TC: %08X\n"), tt0_030, tt1_030, tc_030);
 	}
+#endif
 	if (currprefs.cpu_compatible) {
 		console_out_f(_T("Prefetch"));
 		if (currprefs.cpu_model == 68020 || currprefs.cpu_model == 68030) {
 			console_out_f(_T(" %08x %08x (%d)"),
 				regs.cacheholdingaddr020, regs.cacheholdingdata020, regs.cacheholdingdata_valid);
 		}
+#ifdef DEBUGGER
 		for (int i = 0; i < 3; i++) {
 			uae_u16 w;
-#ifdef DEBUGGER
 			if (!debug_get_prefetch(i, &w))
 				break;
-#endif
 			struct instr *dp;
 			struct mnemolookup *lookup;
 			dp = table68k + w;
@@ -6910,16 +7385,22 @@ void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
 				;
 			console_out_f(_T(" %04x (%s)"), w, lookup->name);
 		}
+#endif
 		console_out_f (_T(" Chip latch %08X\n"), regs.chipset_latch_rw);
 	}
+#ifdef DEBUGGER
 	if (prevpc != 0xffffffff && pc - prevpc < 100) {
 		while (prevpc < pc) {
 			m68k_disasm(prevpc, &prevpc, 0xffffffff, 1);
 		}
 	}
+#endif
 	m68k_disasm (pc, nextpc, pc, 1);
-	if (nextpc)
+#ifdef DEBUGGER
+	if (nextpc) {
 		console_out_f (_T("Next PC: %08x\n"), *nextpc);
+	}
+#endif
 }
 
 void m68k_dumpcache (bool dc)
@@ -6927,6 +7408,9 @@ void m68k_dumpcache (bool dc)
 	if (!currprefs.cpu_compatible)
 		return;
 	if (currprefs.cpu_model == 68020) {
+		if (dc) {
+			return;
+		}
 		for (int i = 0; i < CACHELINES020; i += 4) {
 			for (int j = 0; j < 4; j++) {
 				int s = i + j;
@@ -7678,6 +8162,44 @@ uae_u8 *restore_mmu(uae_u8 *src)
 
 #endif /* SAVESTATE */
 
+#if defined(DEBUGGER) && defined(GDBSERVER)
+cpu_debug_fault cpu_get_debug_fault(int vector)
+{
+	cpu_debug_fault fault;
+	if (vector != 2 && vector != 3) {
+		return fault;
+	}
+	fault.memory = true;
+#ifndef CPUEMU_68000_ONLY
+	if (vector == 2 && currprefs.mmu_model) {
+		fault.address = regs.mmu_fault_addr;
+		if (currprefs.mmu_model == 68060) {
+			fault.status = regs.mmu_fslw;
+			fault.access = (fault.status & MMU_FSLW_LK) ? 3 :
+				((fault.status & MMU_FSLW_R) ? 1 : 0) | ((fault.status & MMU_FSLW_W) ? 2 : 0);
+			const int sizes[] = {4, 1, 2, 8};
+			fault.size = sizes[(fault.status >> 21) & 3];
+			fault.function_code = (fault.status >> 16) & 7;
+		} else {
+			fault.status = regs.mmu_ssw;
+			bool m030 = currprefs.mmu_model == 68030;
+			fault.access = (fault.status & (m030 ? MMU030_SSW_RM : MMU_SSW_LK)) ? 3 :
+				((fault.status & (m030 ? MMU030_SSW_RW : MMU_SSW_RW)) ? 1 : 2);
+			const int sizes[] = {4, 1, 2, 0};
+			fault.size = sizes[(fault.status >> (m030 ? 4 : 5)) & 3];
+			fault.function_code = fault.status & 7;
+		}
+		return fault;
+	}
+#endif
+	fault.address = last_fault_for_exception_3;
+	fault.access = last_writeaccess_for_exception_3 ? 2 : 1;
+	fault.size = debug_fault_size >= 0 && debug_fault_size <= 2 ? 1 << debug_fault_size : 0;
+	fault.function_code = debug_fault_fc;
+	return fault;
+}
+#endif
+
 static void exception3f(uae_u32 opcode, uaecptr addr, bool writeaccess, bool instructionaccess, bool notinstruction, uaecptr pc, int size, int fc, uae_u16 secondarysr)
 {
 	if (currprefs.cpu_model >= 68040)
@@ -7698,6 +8220,10 @@ static void exception3f(uae_u32 opcode, uaecptr addr, bool writeaccess, bool ins
 	last_fc_for_exception_3 = fc >= 0 ? fc : (instructionaccess ? 2 : 1);
 	last_notinstruction_for_exception_3 = notinstruction;
 	last_size_for_exception_3 = size;
+#if defined(DEBUGGER) && defined(GDBSERVER)
+	debug_fault_size = size;
+	debug_fault_fc = fc >= 0 ? (fc | (currprefs.cpu_model <= 68010 && regs.s ? 4 : 0)) : ((regs.s ? 4 : 0) | (instructionaccess ? 2 : 1));
+#endif
 	last_sr_for_exception3 = secondarysr;
 	Exception (3);
 #if EXCEPTION3_DEBUGGER
@@ -7803,13 +8329,21 @@ void exception3_write(uae_u32 opcode, uaecptr addr, int size, uae_u32 val, int f
 
 void exception2_setup(uae_u32 opcode, uaecptr addr, bool read, int size, uae_u32 fc)
 {
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+	last_addr_for_exception_3 = jit_in_compiled_code ? regs.instruction_pc : m68k_getpc();
+#else
 	last_addr_for_exception_3 = m68k_getpc();
+#endif
 	last_fault_for_exception_3 = addr;
 	last_writeaccess_for_exception_3 = read == 0;
 	last_op_for_exception_3 = opcode;
 	last_fc_for_exception_3 = fc;
 	last_notinstruction_for_exception_3 = exception_in_exception != 0;
 	last_size_for_exception_3 = size & 15;
+#if defined(DEBUGGER) && defined(GDBSERVER)
+	debug_fault_size = size & 15;
+	debug_fault_fc = fc | (currprefs.cpu_model <= 68010 && regs.s ? 4 : 0);
+#endif
 	last_di_for_exception_3 = 1;
 	hardware_bus_error = 0;
 
@@ -7830,14 +8364,18 @@ void hardware_exception2(uaecptr addr, uae_u32 v, bool read, bool ins, int size)
 {
 	if (currprefs.cpu_model <= 68010 && currprefs.cpu_compatible && HARDWARE_BUS_ERROR_EMULATION) {
 		hardware_bus_error = 1;
-	} else if (currprefs.mmu_model) {
+	}
+#ifdef MMUEMU
+	else if (currprefs.mmu_model) {
 		if (currprefs.mmu_model == 68030) {
 			 mmu030_hardware_bus_error(addr, v, read, ins, size);
 		} else {
 			mmu_hardware_bus_error(addr, v, read, ins, size);
 		}
 		return;
-	} else {
+	}
+#endif
+	else {
 		int fc = (regs.s ? 4 : 0) | (ins ? 2 : 1);
 		if (ismoves_nommu) {
 			ismoves_nommu = false;
@@ -7845,6 +8383,11 @@ void hardware_exception2(uaecptr addr, uae_u32 v, bool read, bool ins, int size)
 		}
 		// Non-MMU
 		exception2_setup(regs.opcode, addr, read, size, fc);
+#if defined(JIT_HAS_BUS_ERROR_RECOVERY)
+		if (jit_in_compiled_code) {
+			longjmp(jit_bus_error_jmpbuf, 2);
+		}
+#endif
 		THROW(2);
 	}
 }
@@ -7881,6 +8424,10 @@ static void exception2_fetch_common(uae_u32 opcode, int offset)
 	last_fc_for_exception_3 = 2;
 	last_notinstruction_for_exception_3 = exception_in_exception != 0;
 	last_size_for_exception_3 = sz_word;
+#if defined(DEBUGGER) && defined(GDBSERVER)
+	debug_fault_size = sz_word;
+	debug_fault_fc = (regs.s ? 4 : 0) | 2;
+#endif
 	last_di_for_exception_3 = 0;
 	hardware_bus_error = 0;
 
@@ -7925,11 +8472,13 @@ bool cpureset (void)
 	unset_special(SPCFLAG_CPUINRESET);
 	send_internalevent(INTERNALEVENT_CPURESET);
 	warpmode_reset();
+#ifndef P6_PORTABLE // only BlizzardPPC forces a hard reset; accelerator boards are excluded
 	if (cpuboard_forced_hardreset()) {
 		custom_reset_cpu(false, false);
 		m68k_reset();
 		return true;
 	}
+#endif
 	if (currprefs.cpu_compatible || currprefs.cpu_memory_cycle_exact) {
 		custom_reset_cpu(false, false);
 		return false;
@@ -8595,6 +9144,7 @@ void mem_access_delay_long_write_ce020 (uaecptr addr, uae_u32 v)
 }
 
 
+#ifndef P6_PORTABLE
 // 68030 caches aren't so simple as 68020 cache..
 
 STATIC_INLINE struct cache030 *geticache030 (struct cache030 *cp, uaecptr addr, uae_u32 *tagp, int *lwsp)
@@ -8894,17 +9444,24 @@ void write_dcache030_retry(uaecptr addr, uae_u32 v, uae_u32 fc, int size, int fl
 {
 	regs.fc030 = fc;
 	mmu030_put_generic(addr, v, fc, size, flags);
-	write_dcache030x(addr, v, size, fc);
+	// Without data cache emulation nothing else keeps the cache lines in
+	// step with memory, so they must not be touched here either.
+	if (currprefs.cpu_data_cache)
+		write_dcache030x(addr, v, size, fc);
 }
 
-static void dcache030_maybe_burst(uaecptr addr, struct cache030 *c, int lws)
+static void dcache030_maybe_burst(uaecptr addr, struct cache030 *c, int lws, uae_u32 fc)
 {
 	// Do burst fetch if enabled, cache not frozen, all line slots invalid, and 32-bit CPU local bus (no chip ram).
 	// (See notes about burst fetches in icache routines)
 	if (c->valid[0] + c->valid[1] + c->valid[2] + c->valid[3] == 1) {
 		uaecptr physaddr = addr;
 		if (currprefs.mmu_model) {
-			physaddr = mmu030_translate(addr, regs.s != 0, false, false);
+			// Translate with the function code of the access that missed, not the
+			// CPU's privilege level: MOVES with SFC=user runs in supervisor mode, and
+			// a supervisor translation can match a transparent translation register
+			// and fill the (user-tagged) line from the wrong physical address.
+			physaddr = mmu030_translate(addr, (fc & 4) != 0, (fc & 1) != 0, false);
 		}
 
 		if (ce_banktype[physaddr >> 16] == CE_MEMBANK_FAST32) {
@@ -9033,7 +9590,7 @@ static bool read_dcache030_2(uaecptr addr, uae_u32 size, uae_u32 *valp)
 		v1 = dcache_lget(addr);
 		update_dcache030(c1, v1, tag1, fc, lws1);
 		if ((cs & CACHE_ENABLE_DATA_BURST) && (regs.cacr & 0x1100) == 0x1100)
-			dcache030_maybe_burst(addr, c1, lws1);
+			dcache030_maybe_burst(addr, c1, lws1, fc);
 #if VALIDATE_68030_DATACACHE
 		validate_dcache030();
 #endif
@@ -9063,7 +9620,7 @@ static bool read_dcache030_2(uaecptr addr, uae_u32 size, uae_u32 *valp)
 		v2 = dcache_lget(addr);
 		update_dcache030(c2, v2, tag2, fc, lws2);
 		if ((cs & CACHE_ENABLE_DATA_BURST) && (regs.cacr & 0x1100) == 0x1100)
-			dcache030_maybe_burst(addr, c2, lws2);
+			dcache030_maybe_burst(addr, c2, lws2, fc);
 #if VALIDATE_68030_DATACACHE
 		validate_dcache030();
 #endif
@@ -9105,7 +9662,10 @@ uae_u32 read_dcache030_retry(uaecptr addr, uae_u32 fc, int size, int flags)
 	uae_u32 val;
 	regs.fc030 = fc;
 
-	if (!read_dcache030_2(addr, size, &val)) {
+	// Without data cache emulation the cache lines are not kept in step
+	// with memory (only this retry path would fill them), so read memory,
+	// as the other 68030 MMU paths do.
+	if (!currprefs.cpu_data_cache || !read_dcache030_2(addr, size, &val)) {
 		return mmu030_get_generic(addr, fc, size, flags);
 	}
 	return val;
@@ -9251,13 +9811,22 @@ uae_u32 get_word_030_prefetch (int o)
 {
 	uae_u32 pc = m68k_getpc () + o;
 	uae_u32 v;
+	bool v_valid;
 
 	v = regs.prefetch020[0];
+	v_valid = regs.prefetch020_valid[0];
 	regs.prefetch020[0] = regs.prefetch020[1];
 	regs.prefetch020[1] = regs.prefetch020[2];
 	regs.prefetch020_valid[0] = regs.prefetch020_valid[1];
 	regs.prefetch020_valid[1] = regs.prefetch020_valid[2];
 	regs.prefetch020_valid[2] = false;
+	if (!v_valid) {
+		// The word being consumed never arrived (its prefetch faulted and
+		// was deferred because a branch was in the pipeline). The
+		// instruction needs it after all - a Bcc.L/BSR.L displacement,
+		// for example - so the deferred fault is taken now.
+		do_access_or_bus_error(0xffffffff, pc);
+	}
 	if (!regs.prefetch020_valid[1]) {
 		if (regs.pipeline_stop) {
 			regs.db = regs.prefetch020[0];
@@ -9959,6 +10528,7 @@ uae_u32 get_long_cache_debug(uaecptr addr, bool *cached)
 }
 #endif
 
+#endif
 void check_t0_trace(void)
 {
 	if (regs.t0 && !regs.t1 && currprefs.cpu_model >= 68020) {
@@ -9976,6 +10546,13 @@ static void reset_pipeline_state(void)
 #endif
 }
 
+#ifdef P6_PORTABLE
+// External bus errors are not modelled without an MMU (upstream's own version returns here too): the
+// 68020 profile has no MMU, so a prefetch never faults.
+static void do_access_or_bus_error(uaecptr, uaecptr)
+{
+}
+#endif
 static int add_prefetch_030(int idx, uae_u16 w, uaecptr pc)
 {
 	regs.prefetch020[0] = regs.prefetch020[1];
@@ -10001,6 +10578,7 @@ static int add_prefetch_030(int idx, uae_u16 w, uaecptr pc)
 	return idx + 1;
 }
 
+#ifndef P6_PORTABLE
 void fill_prefetch_030_ntx(void)
 {
 	uaecptr pc = m68k_getpc ();
@@ -10136,6 +10714,7 @@ void fill_prefetch_030_ntx_continue (void)
 		regs.irc = get_word_030_prefetch(0);
 }
 
+#endif
 void fill_prefetch_020_ntx(void)
 {
 	uaecptr pc = m68k_getpc ();
@@ -10178,6 +10757,7 @@ void continue_020_prefetch(void)
 	fill_prefetch_020_ntx();
 }
 
+#ifndef P6_PORTABLE
 void continue_ce030_prefetch(void)
 {
 	fill_prefetch_030_ntx();
@@ -10186,6 +10766,7 @@ void continue_030_prefetch(void)
 {
 	fill_prefetch_030_ntx();
 }
+#endif
 
 void fill_prefetch_020(void)
 {
@@ -10193,6 +10774,7 @@ void fill_prefetch_020(void)
 	check_t0_trace();
 }
 
+#ifndef P6_PORTABLE
 void fill_prefetch_030(void)
 {
 	fill_prefetch_030_ntx();
@@ -10200,6 +10782,7 @@ void fill_prefetch_030(void)
 }
 
 
+#endif
 void fill_prefetch (void)
 {
 	if (currprefs.cachesize)
@@ -10207,6 +10790,7 @@ void fill_prefetch (void)
 	if (!currprefs.cpu_compatible)
 		return;
 	reset_pipeline_state();
+#ifndef P6_PORTABLE
 	if (currprefs.cpu_model >= 68040) {
 		if (currprefs.cpu_compatible || currprefs.cpu_memory_cycle_exact) {
 			fill_icache040(m68k_getpc() + 16);
@@ -10217,6 +10801,11 @@ void fill_prefetch (void)
 	} else if (currprefs.cpu_model == 68030) {
 		fill_prefetch_030 ();
 	} else if (currprefs.cpu_model <= 68010) {
+#else
+	if (currprefs.cpu_model == 68020) {
+		fill_prefetch_020 ();
+	} else if (currprefs.cpu_model <= 68010) {
+#endif
 		uaecptr pc = m68k_getpc ();
 		regs.ir = x_get_word (pc);
 		regs.ird = regs.ir;
@@ -10229,7 +10818,9 @@ uae_u32 sfc_nommu_get_byte(uaecptr addr)
 {
 	uae_u32 v;
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE // accelerator boards are excluded; cpuboard_fc_check() is a no-op without one
 	if (!cpuboard_fc_check(addr, &v, 0, false))
+#endif
 		v = x_get_byte(addr);
 	ismoves_nommu = false;
 	return v;
@@ -10238,7 +10829,9 @@ uae_u32 sfc_nommu_get_word(uaecptr addr)
 {
 	uae_u32 v;
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE
 	if (!cpuboard_fc_check(addr, &v, 1, false))
+#endif
 		v = x_get_word(addr);
 	ismoves_nommu = false;
 	return v;
@@ -10247,7 +10840,9 @@ uae_u32 sfc_nommu_get_long(uaecptr addr)
 {
 	uae_u32 v;
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE
 	if (!cpuboard_fc_check(addr, &v, 2, false))
+#endif
 		v = x_get_long(addr);
 	ismoves_nommu = false;
 	return v;
@@ -10255,21 +10850,83 @@ uae_u32 sfc_nommu_get_long(uaecptr addr)
 void dfc_nommu_put_byte(uaecptr addr, uae_u32 v)
 {
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE
 	if (!cpuboard_fc_check(addr, &v, 0, true))
+#endif
 		x_put_byte(addr, v);
 	ismoves_nommu = false;
 }
 void dfc_nommu_put_word(uaecptr addr, uae_u32 v)
 {
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE
 	if (!cpuboard_fc_check(addr, &v, 1, true))
+#endif
 		x_put_word(addr, v);
 	ismoves_nommu = false;
 }
 void dfc_nommu_put_long(uaecptr addr, uae_u32 v)
 {
 	ismoves_nommu = true;
+#ifndef P6_PORTABLE
 	if (!cpuboard_fc_check(addr, &v, 2, true))
+#endif
 		x_put_long(addr, v);
 	ismoves_nommu = false;
 }
+
+#ifdef P6_PORTABLE
+// Native state (bridge/state_cpu.cpp): the instruction cache of the 68020 (a file-local table, like the random generator of patch 0076): n lines of
+// {data, tag, valid}. A count other than CACHELINES020 is refused, so that the bridge and the engine cannot disagree on the size.
+bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n)
+{
+	if (n != CACHELINES020)
+		return false;
+	for (unsigned i = 0; i < n; i++) {
+		data[i] = caches020[i].data;
+		tag[i] = caches020[i].tag;
+		valid[i] = caches020[i].valid ? 1 : 0;
+	}
+	return true;
+}
+
+bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n)
+{
+	if (n != CACHELINES020)
+		return false;
+	for (unsigned i = 0; i < n; i++) {
+		caches020[i].data = data[i];
+		caches020[i].tag = tag[i];
+		caches020[i].valid = valid[i] != 0;
+	}
+	return true;
+}
+
+// Native state (bridge/state_cpu.cpp): true at an instruction boundary of a machine whose CPU loop is started and that is in a mode the profile
+// can be in; otherwise `why` names the first thing that is not. Everything tested here is written before it is read, or never written in the
+// profile, so it is a check and not a part of the state. A 68010 has VBR, SFC, DFC and its loop mode, a 68020 those and more (T0, M, MSP): they are
+// state there and are carried by the CPU chunk; a 68000 never has them set.
+bool p6_cpu_boundary(const char **why)
+{
+	const char *w = NULL;
+	if (!in_m68k_go)
+		w = "the CPU loop is not started";
+	else if (regs.exception || exception_in_exception)
+		w = "an exception is in flight";
+	else if ((regs.loop_mode && currprefs.cpu_model != 68010) ||
+#if UAEMAJOR == 6 && UAEMINOR == 1
+			 (regs.lastipl < 0 || regs.lastipl > 7) ||
+#else
+			 regs.lastipl ||
+#endif
+			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+		w = "a register or mode that the CPU of this machine does not have is set";
+	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
+		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
+	else if (cpu_tracer || cpu_prefs_changed_flag || m68k_reset_delay || pissoff)
+		w = "a file-local CPU counter is not at its boundary value";
+	if (why)
+		*why = w;
+	return w == NULL;
+}
+#endif

@@ -109,7 +109,8 @@ static inline floatx80 floatx80_default_nan(float_status *status)
 | should be simply `float_exception_flags |= flags;'.
 *----------------------------------------------------------------------------*/
 
-static inline void float_raise(uint8_t flags, float_status *status)
+/* PUAE6 derivative: match the external declaration in softfloat.h. */
+inline void float_raise(uint8_t flags, float_status *status)
 {
     status->float_exception_flags |= flags;
 }

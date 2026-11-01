@@ -126,7 +126,7 @@ static volatile int shellexecute2_queued;
 static uae_u32 filesys_shellexecute2_process(int mode, TrapContext *ctx);
 static void filesys_shellexecute2_run_queue(void);
 static void shellexecute2_free(struct ShellExecute2 *se2);
-
+static bool exter_added;
 static int bootrom_header;
 
 static uae_u32 dlg (uae_u32 a)
@@ -359,6 +359,10 @@ static struct uaedev_mount_info mountinfo;
 
 /* OS4 64-bit filesize packets */
 #define ACTION_FILESYSTEM_ATTR         3005
+#define ACTION_EXAMINEDATA             3030
+#define ACTION_EXAMINEDATA_FH          3031
+#define ACTION_EXAMINEDATA_OBJ         3032
+#define ACTION_EXAMINEDATA_DIR         3040
 #define ACTION_CHANGE_FILE_POSITION64  8001
 #define ACTION_GET_FILE_POSITION64     8002
 #define ACTION_CHANGE_FILE_SIZE64      8003
@@ -511,6 +515,24 @@ typedef struct _unit {
 	int newflags;
 
 } Unit;
+
+#ifdef P6_PORTABLE
+// atol of the digits at p: the guest imports from libc only what ports/waterbox/imports.json lists, and this reads text a disk brings (the version of a file system in an RDB).
+static long p6_atol (const char *p)
+{
+	long v = 0;
+	bool neg = false;
+	while (*p == ' ' || *p == '\t')
+		p++;
+	if (*p == '-' || *p == '+')
+		neg = *p++ == '-';
+	while (*p >= '0' && *p <= '9' && v < 100000000)
+		v = v * 10 + (*p++ - '0');
+	return neg ? -v : v;
+}
+#else
+#define p6_atol atol
+#endif
 
 int nr_units (void)
 {
@@ -969,6 +991,15 @@ static int set_filesys_unit_1 (int nr, struct uaedev_config_info *ci, bool custo
 	struct uaedev_config_info c;
 
 	memcpy (&c, ci, sizeof (struct uaedev_config_info));
+
+#ifdef P6_PORTABLE
+	// The profile mounts hard files on the UAE controller and nothing else: a host directory (volname), an archive, a CD, a tape or a unit on some
+	// other controller has no provider here (hostfs_unsupported.cpp), so it is refused instead of being opened as if it were there.
+	if (c.type != UAEDEV_HDF || c.controller_type != HD_CONTROLLER_TYPE_UAE || c.volname[0]) {
+		error_log (_T("'%s': only hard files on the UAE controller are supported."), c.rootdir);
+		return -1;
+	}
+#endif
 
 	if (nr < 0) {
 		for (nr = 0; nr < MAX_FILESYSTEM_UNITS; nr++) {
@@ -1432,6 +1463,7 @@ static void initialize_mountinfo (void)
 
 }
 
+#ifndef P6_PORTABLE // GUI text of a unit; nothing in the profile calls it
 int sprintf_filesys_unit (TCHAR *buffer, int num)
 {
 	UnitInfo *uip = mountinfo.ui;
@@ -1444,6 +1476,7 @@ int sprintf_filesys_unit (TCHAR *buffer, int num)
 		uip[num].rootdir, (int)(uip[num].hf.virtsize / (1024 * 1024)));
 	return 0;
 }
+#endif
 
 static void free_mountinfo (void)
 {
@@ -1928,38 +1961,30 @@ int filesys_eject(int nr)
 }
 
 static uae_u32 heartbeat;
-static int heartbeat_count, heartbeat_count_cont;
-static int heartbeat_task;
+static int heartbeat_count_cont;
+static bool clock_sync_pending;
 
 bool filesys_heartbeat(void)
 {
 	return heartbeat_count_cont > 0;
 }
 
-// This uses filesystem process to reduce resource usage
 void setsystime (void)
 {
-	write_log("SETSYSTIME\n");
-	if (!currprefs.tod_hack || !rtarea_bank.baseaddr)
+	if (!currprefs.tod_hack || !rtarea_bank.baseaddr) {
 		return;
-	write_log("SETSYSTIME2\n");
-	heartbeat = get_long_host(rtarea_bank.baseaddr + RTAREA_HEARTBEAT);
-	heartbeat_task = 1;
-	heartbeat_count = 10;
-}
-
-static void setsystime_vblank (void)
-{
-	Unit *u;
-	TrapContext *ctx = NULL;
-
-	for (u = units; u; u = u->next) {
-		if (is_virtual(u->unit) && filesys_isvolume(u)) {
-			put_byte(u->volume + 173 - 32, get_byte(u->volume + 173 - 32) | 1);
-			uae_Signal(get_long(u->volume + 176 - 32), 1 << 13);
-			break;
-		}
 	}
+	if (!exter_added) {
+		return;
+	}
+	/*
+	 * Clock sync is handled by the UAE external interrupt server. Wait for
+	 * the heartbeat to advance before raising its level-2 PORTS interrupt:
+	 * WHDLoad and similar software can temporarily replace the OS interrupt
+	 * handlers and cannot safely service UAE's external interrupt then.
+	 */
+	heartbeat = get_long_host(rtarea_bank.baseaddr + RTAREA_HEARTBEAT);
+	clock_sync_pending = true;
 }
 
 static uae_u32 REGPARAM2 debugger_helper(TrapContext *ctx)
@@ -2612,6 +2637,29 @@ static void move_aino_children (Unit *unit, a_inode *from, a_inode *to)
 	update_child_names (unit, to->child, to);
 }
 
+/* Dispose of the cached a_inodes below a directory, except those that are
+   still in use, and those above them.  Returns true if none is left.  */
+static bool dispose_children (Unit *unit, a_inode *dir)
+{
+	a_inode **aip = &dir->child;
+	bool all = true;
+
+	if (dir->exnext_count > 0)
+		return dir->child == 0;
+	while (*aip) {
+		a_inode *aino = *aip;
+		aino_test (aino);
+		if (aino->shlock > 0 || aino->elock || !dispose_children (unit, aino)) {
+			all = false;
+			aip = &aino->sibling;
+			continue;
+		}
+		de_recycle_aino (unit, aino);
+		dispose_aino (unit, aip, aino);
+	}
+	return all;
+}
+
 static void delete_aino (Unit *unit, a_inode *aino)
 {
 	a_inode **aip;
@@ -2622,6 +2670,14 @@ static void delete_aino (Unit *unit, a_inode *aino)
 	aino->dirty = 1;
 	aino->deleted = 1;
 	de_recycle_aino (unit, aino);
+
+	/* A directory that disappeared on the host can still have cached
+	   children, which point back to it as their parent.  Dispose of them
+	   with it, or, if any of them is still in use, keep it.  */
+	if (aino->child && !dispose_children (unit, aino)) {
+		write_log (_T("FILESYS: keeping deleted directory '%s', its contents are in use\n"), aino->nname);
+		return;
+	}
 
 	/* If any ExKeys are currently pointing at us, advance them.  */
 	if (aino->parent->exnext_count > 0) {
@@ -3603,6 +3659,20 @@ static Key *new_key (Unit *unit)
 	return k;
 }
 
+static bool filedir_exists(Unit *unit, a_inode *aino)
+{
+	struct mystat statbuf;
+	bool ok = true;
+	if (unit->volflags & MYVOLUMEINFO_ARCHIVE)
+		ok = zfile_stat_archive(aino->nname, &statbuf) != 0;
+	else if (unit->volflags & MYVOLUMEINFO_CDFS)
+		ok = isofs_stat(unit->ui.cdfs_superblock, aino->uniq_external, &statbuf);
+	else {
+		ok = my_existsfiledir(aino->nname);
+	}
+	return ok;
+}
+
 #if TRACING_ENABLED
 static void dumplock(TrapContext *ctx, Unit *unit, uaecptr lock)
 {
@@ -3896,12 +3966,19 @@ static void action_lock(TrapContext *ctx, Unit *unit, dpacket *packet)
 	if (err == 0 && (a->elock || (mode != SHARED_LOCK && a->shlock > 0))) {
 		err = ERROR_OBJECT_IN_USE;
 	}
+	if (err == 0) {
+		if (!filedir_exists(unit, a)) {
+			delete_aino(unit, a);
+			err = ERROR_OBJECT_NOT_AROUND;
+		}
+	}
 	/* Lock() doesn't do access checks. */
 	if (err != 0) {
 		PUT_PCK_RES1 (packet, DOS_FALSE);
 		PUT_PCK_RES2 (packet, err);
 		return;
 	}
+
 	if (mode == SHARED_LOCK)
 		a->shlock++;
 	else
@@ -6290,6 +6367,17 @@ static void	action_rename_object(TrapContext *ctx, Unit *unit, dpacket *packet)
 	a2->db_offset = a1->db_offset;
 	a2->dirty = 0;
 	a2->vfso = a1->vfso;
+	/* Files still open under the old name (for reading: renaming a file
+	 * open for writing fails above) keep valid host handles when the
+	 * host rename succeeds, as it does on Unix. Their keys must follow
+	 * the object, since a1 is freed below. */
+	for (k1 = unit->keys; k1; k1 = knext) {
+		knext = k1->next;
+		if (k1->aino == a1) {
+			k1->aino = a2;
+			wehavekeys++;
+		}
+	}
 	move_exkeys (unit, a1, a2);
 	move_aino_children (unit, a1, a2);
 	delete_aino (unit, a1);
@@ -6826,12 +6914,14 @@ static uae_sem_t shellexec_sem;
 
 #define SHELLEXEC_MAX_CMD_LEN 512
 
+static int exter_int_unit_no; // where the walk over the units of the interrupt in progress has got to; native state (p6_filesys_state_get)
+
 static uae_u32 REGPARAM2 exter_int_helper(TrapContext *ctx)
 {
 	UnitInfo *uip = mountinfo.ui;
 	uaecptr port;
 	int n = trap_get_dreg(ctx, 0);
-	static int unit_no;
+	int &unit_no = exter_int_unit_no;
 
 	if (n == 20) {
 		// d1 = shellexec process
@@ -6925,7 +7015,7 @@ static uae_u32 REGPARAM2 exter_int_helper(TrapContext *ctx)
 		*        d0 = 5: Send FileNofication message, port in a0, notifystruct in a1
 		*/
 
-#ifdef SUPPORT_THREADS
+#if defined(SUPPORT_THREADS) || defined(P6_NATIVE2AMIGA)
 		/* First, check signals/messages */
 		while (comm_pipe_has_data(&native2amiga_pending)) {
 			int cmd = read_comm_pipe_int_blocking(&native2amiga_pending);
@@ -6978,6 +7068,12 @@ static uae_u32 REGPARAM2 exter_int_helper(TrapContext *ctx)
 				{
 					trap_set_areg(ctx, 0, read_comm_pipe_u32_blocking(&native2amiga_pending));
 					return 7;
+				}
+
+				case 7: /* clocksync */
+				{
+					trap_set_areg(ctx, 0, read_comm_pipe_u32_blocking(&native2amiga_pending));
+					return 8;
 				}
 
 				default:
@@ -7096,6 +7192,13 @@ static int handle_packet(TrapContext *ctx, Unit *unit, dpacket *pck, uae_u32 msg
 	case ACTION_GET_FILE_POSITION64: action_get_file_position64 (ctx, unit, pck); break;
 	case ACTION_CHANGE_FILE_SIZE64: action_change_file_size64 (ctx, unit, pck); break;
 	case ACTION_GET_FILE_SIZE64: action_get_file_size64 (ctx, unit, pck); break;
+	case ACTION_EXAMINEDATA:
+	case ACTION_EXAMINEDATA_FH:
+	case ACTION_EXAMINEDATA_OBJ:
+	case ACTION_EXAMINEDATA_DIR:
+		PUT_PCK_RES1(pck, DOS_FALSE);
+		PUT_PCK_RES2(pck, ERROR_ACTION_NOT_KNOWN);
+		break;
 
 		/* MOS packet types */
 	case ACTION_SEEK64: action_seek64(ctx, unit, pck); break;
@@ -7385,6 +7488,8 @@ static void filesys_reset2 (void)
 
 void filesys_reset (void)
 {
+	exter_added = false;
+	clock_sync_pending = false;
 	if (isrestore ())
 		return;
 	load_injected_icons();
@@ -8161,18 +8266,28 @@ static uae_u16 rw (uae_u8 *p)
 	return (p[0] << 8) | (p[1]);
 }
 
-static int rdb_checksum (const uae_char *id, uae_u8 *p, int block)
+static int rdb_checksum (const uae_char *id, uae_u8 *p, int block, int size)
 {
 	uae_u32 sum = 0;
-	int i, blocksize;
+	int i;
 
 	if (memcmp (id, p, 4))
 		return 0;
-	blocksize = rl (p + 4);
+#ifdef P6_PORTABLE
+	// `size` is how many bytes of the block the caller read. A block says how many longs it has, and a disk can say anything: the sum covers the longs that were read and no more (upstream summed
+	// up to FILESYS_MAX_BLOCKSIZE / 4 of them out of a buffer of one block, past its end, and 573671350 * 4 overflowed an int).
+	const uae_u32 longs = rl (p + 4);
+	if (longs < 1 || longs > (uae_u32)size / 4)
+		return 0;
+	for (i = 0; i < (int)longs; i++)
+		sum += rl (p + i * 4);
+#else
+	int blocksize = rl (p + 4);
 	if (blocksize < 1 || blocksize * 4 > FILESYS_MAX_BLOCKSIZE)
 		return 0;
 	for (i = 0; i < blocksize; i++)
 		sum += rl (p + i * 4);
+#endif
 	sum = 0 - sum;
 	if (sum) {
 		TCHAR *s = au (id);
@@ -8238,7 +8353,7 @@ static const TCHAR *dostypes(TCHAR *dt, uae_u32 dostype)
 			dt[j++] = c;
 		} else {
 			dt[j++] = '\\';
-			_stprintf (&dt[j], _T("%d"), c);
+			snprintf (&dt[j], 5, "%d", c); // at most "255" and the NUL: dt holds 32
 			j += uaetcslen (&dt[j]);
 		}
 	}
@@ -8248,6 +8363,12 @@ static const TCHAR *dostypes(TCHAR *dt, uae_u32 dostype)
 
 static void dump_partinfo (struct hardfiledata *hfd, uae_u8 *pp)
 {
+#ifdef P6_PORTABLE
+	// Diagnostic for the log, which nothing reads in the profile, made of arithmetic on fields of the disk: a partition that says 2^28 longs of 32 sectors overflows the int products (UBSan) and one
+	// whose block size is zero divides by it. Not run.
+	(void)hfd; (void)pp;
+	return;
+#endif
 	TCHAR *s;
 	uae_u32 dostype;
 	uae_u64 size;
@@ -8306,7 +8427,7 @@ static void dumprdbblock(const uae_u8 *buf, int block)
 		TCHAR outbuf[81];
 		for (int j = 0; j < w; j++) {
 			uae_u8 v = buf[i + j];
-			_stprintf(outbuf + 2 * j, _T("%02X"), v);
+			snprintf(outbuf + 2 * j, 3, "%02X", v);
 			outbuf[2 * w + 1 + j] = (v >= 32 && v <= 126) ? v : '.';
 		}
 		outbuf[2 * w] = ' ';
@@ -8317,6 +8438,10 @@ static void dumprdbblock(const uae_u8 *buf, int block)
 
 static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, uae_u8 *buf, int readblocksize)
 {
+#ifdef P6_PORTABLE
+	(void)uip; (void)hfd; (void)bufrdb; (void)buf; (void)readblocksize;      // the log dump of the whole RDB: see dump_partinfo
+	return;
+#endif
 	TCHAR dt[32];
 	uae_u32 error = 0;
 
@@ -8339,8 +8464,8 @@ static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, u
 			break;
 		}
 		memset (buf, 0, readblocksize);
-		hdf_read (hfd, buf, partblock * hfd->ci.blocksize, readblocksize, &error);
-		if (!rdb_checksum ("PART", buf, partblock)) {
+		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
+		if (!rdb_checksum ("PART", buf, partblock, readblocksize)) {
 			write_log (_T("RDB: checksum error PART block %d\n"), partblock);
 			dumprdbblock(buf, partblock);
 			break;
@@ -8363,7 +8488,7 @@ static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, u
 		}
 		memset (buf, 0, readblocksize);
 		hdf_read (hfd, buf, fileblock * hfd->ci.blocksize, readblocksize, &error);
-		if (!rdb_checksum ("FSHD", buf, fileblock)) {
+		if (!rdb_checksum ("FSHD", buf, fileblock, readblocksize)) {
 			write_log (_T("RDB: checksum error FSHD block %d\n"), fileblock);
 			dumprdbblock(buf, fileblock);
 			break;
@@ -8512,6 +8637,13 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
 	uae_u32 error = 0;
 
 	blocksize = rl (bufrdb + 16);
+#ifdef P6_PORTABLE
+	// The block size is a field of the disk and sizes the buffer below: a power of two that the buffers of the engine hold, or the RDB is refused.
+	if (blocksize < 256 || blocksize > FILESYS_MAX_BLOCKSIZE || (blocksize & (blocksize - 1))) {
+		write_log (_T("RDB: unsupported block size %d\n"), blocksize);
+		return -2;
+	}
+#endif
 	readblocksize = blocksize > hfd->ci.blocksize ? blocksize : hfd->ci.blocksize;
 
 	badblock = rl (bufrdb + 24);
@@ -8565,8 +8697,8 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
 			goto error;
 		}
 		memset (buf, 0, readblocksize);
-		hdf_read (hfd, buf, partblock * hfd->ci.blocksize, readblocksize, &error);
-		if (!rdb_checksum ("PART", buf, partblock)) {
+		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
+		if (!rdb_checksum ("PART", buf, partblock, readblocksize)) {
 			err = -2;
 			write_log(_T("RDB: checksum error in PART block %d\n"), partblock);
 			dumprdbblock(buf, partblock);
@@ -8632,7 +8764,7 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
 		fsnode = 0;
 	}
 
-	for (;;) {
+	for (int fshd_blocks = 0;; fshd_blocks++) {
 		if (fileblock == -1) {
 			if (!fsnode)
 				write_log (_T("RDB: FS %08X (%s) not in FileSystem.resource or in RDB\n"), dostype, dostypes (dt, dostype));
@@ -8642,9 +8774,16 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
 			write_log (_T("RDB: corrupt FSHD pointer %d\n"), fileblock);
 			goto error;
 		}
+#ifdef P6_PORTABLE
+		// The chain of file system headers ends at -1, and nothing in the disk says it does: a loop ends here, after more headers than any RDB holds.
+		if (fshd_blocks >= 1024) {
+			write_log (_T("RDB: FSHD chain too long or looping\n"));
+			goto error;
+		}
+#endif
 		memset (buf, 0, readblocksize);
-		hdf_read (hfd, buf, fileblock * hfd->ci.blocksize, readblocksize, &error);
-		if (!rdb_checksum ("FSHD", buf, fileblock)) {
+		hdf_read (hfd, buf, (uae_u64)fileblock * hfd->ci.blocksize, readblocksize, &error);
+		if (!rdb_checksum ("FSHD", buf, fileblock, readblocksize)) {
 			write_log (_T("RDB: checksum error in FSHD block %d\n"), fileblock);
 			dumprdbblock(buf, fileblock);
 			goto error;
@@ -8678,8 +8817,8 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
 		if (!legalrdbblock (uip, lsegblock))
 			goto error;
 		memset (buf, 0, readblocksize);
-		hdf_read (hfd, buf, lsegblock * hfd->ci.blocksize, readblocksize, &error);
-		if (!rdb_checksum("LSEG", buf, lsegblock)) {
+		hdf_read (hfd, buf, (uae_u64)lsegblock * hfd->ci.blocksize, readblocksize, &error);
+		if (!rdb_checksum("LSEG", buf, lsegblock, readblocksize)) {
 			write_log(_T("RDB: checksum error in LSEG block %d\n"), lsegblock);
 			dumprdbblock(buf, lsegblock);
 			goto error;
@@ -8747,7 +8886,7 @@ static int rdb_mount (TrapContext *ctx, UnitInfo *uip, int unit_no, int partnum,
 					return v;
 				continue;
 		}
-		if (rdb_checksum ("RDSK", bufrdb, rdblock) || rdb_checksum ("CDSK", bufrdb, rdblock)) {
+		if (rdb_checksum ("RDSK", bufrdb, rdblock, hfd->ci.blocksize) || rdb_checksum ("CDSK", bufrdb, rdblock, hfd->ci.blocksize)) {
 			return pt_rdsk(ctx, bufrdb, rdblock, uip, unit_no, partnum, parmpacket);
 		}
 		if (!memcmp ("RDSK", bufrdb, 4)) {
@@ -8756,7 +8895,7 @@ static int rdb_mount (TrapContext *ctx, UnitInfo *uip, int unit_no, int partnum,
 			bufrdb[0xdd] = 0;
 			bufrdb[0xde] = 0;
 			bufrdb[0xdf] = 0;
-			if (rdb_checksum ("RDSK", bufrdb, rdblock)) {
+			if (rdb_checksum ("RDSK", bufrdb, rdblock, hfd->ci.blocksize)) {
 				write_log (_T("Windows 95/98/ME trashed RDB detected, fixing..\n"));
 				hdf_write (hfd, bufrdb, rdblock * hfd->ci.blocksize, hfd->ci.blocksize, &error);
 				return pt_rdsk(ctx, bufrdb, rdblock, uip, unit_no, partnum, parmpacket);
@@ -8923,7 +9062,7 @@ static int dofakefilesys (TrapContext *ctx, UnitInfo *uip, uaecptr parmpacket, s
 					while (*p && (ver < 0 || rev < 0)) {
 						if (*p == ' ') {
 							p++;
-							ver = atol ((char*)p);
+							ver = p6_atol ((char*)p);
 							if (ver < 0)
 								ver = 0;
 							while (*p) {
@@ -8931,7 +9070,7 @@ static int dofakefilesys (TrapContext *ctx, UnitInfo *uip, uaecptr parmpacket, s
 									break;
 								if (*p == '.') {
 									p++;
-									rev = atol ((char*)p);
+									rev = p6_atol ((char*)p);
 									if (rev < 0)
 										rev = 0;
 								} else {
@@ -9130,6 +9269,7 @@ static uae_u32 REGPARAM2 mousehack_done (TrapContext *ctx)
 		uaecptr diminfo = trap_get_areg(ctx, 2);
 		uaecptr dispinfo = trap_get_areg(ctx, 3);
 		uaecptr vp = trap_get_areg(ctx, 4);
+		exter_added = true;
 		return input_mousehack_status(ctx, mode, diminfo, dispinfo, vp, trap_get_dreg(ctx, 2));
 	} else if (mode == 10) {
 		amiga_clipboard_die(ctx);
@@ -9340,14 +9480,17 @@ void filesys_vsync (void)
 	}
 
 	if (heartbeat == get_long_host(rtarea_bank.baseaddr + RTAREA_HEARTBEAT)) {
-		if (heartbeat_count > 0)
-			heartbeat_count--;
 		if (heartbeat_count_cont > 0)
 			heartbeat_count_cont--;
 		return;
 	}
 	heartbeat = get_long_host(rtarea_bank.baseaddr + RTAREA_HEARTBEAT);
 	heartbeat_count_cont = 10;
+	if (clock_sync_pending) {
+		clock_sync_pending = false;
+		if (currprefs.tod_hack)
+			uae_ClockSync();
+	}
 	cia_heartbeat ();
 
 	for (u = units; u; u = u->next) {
@@ -9379,14 +9522,6 @@ void filesys_vsync (void)
 				hardfile_media_change (hfd, &hfd->delayedci, true, true);
 			}
 		}
-	}
-
-	if (heartbeat_count <= 0)
-		return;
-
-	if (heartbeat_task & 1) {
-		setsystime_vblank ();
-		heartbeat_task &= ~1;
 	}
 }
 
@@ -9449,7 +9584,7 @@ void filesys_install (void)
 	org (rtarea_base + RTAREA_HEARTBEAT);
 	dl (0);
 	heartbeat = 0;
-	heartbeat_task = 0;
+	clock_sync_pending = false;
 
 	org (rtarea_base + 0xFF18);
 	calltrap (deftrap2 (filesys_dev_bootfilesys, 0, _T("filesys_dev_bootfilesys")));
@@ -9477,7 +9612,8 @@ void filesys_install (void)
 	dw (RTS);
 
 	org (rtarea_base + 0xFF48);
-	calltrap (deftrap2 (filesys_init_storeinfo, TRAPFLAG_EXTRA_STACK, _T("filesys_init_storeinfo")));
+	// P6: the body only reads the 68k state and allocates in the board's memory; the extra stack of an extended trap (a thread) is not needed.
+	calltrap (deftrap2 (filesys_init_storeinfo, 0, _T("filesys_init_storeinfo")));
 	dw (RTS);
 
 	org (rtarea_base + 0xFF50);
@@ -9527,9 +9663,13 @@ void filesys_install_code (void)
 	// Fill struct resident
 	TCHAR buf[256];
 	TCHAR *s = au(UAEFS_VERSION);
+#ifdef P6_PORTABLE // the build date of the host is in the id string upstream: the guest must not see it
+	_stprintf(buf, _T("%s\r\n"), s);
+#else
 	int y, m, d;
 	target_getdate(&y, &m, &d);
 	_stprintf(buf, _T("%s (%d.%d.%d)\r\n"), s, d, m, y);
+#endif
 	uaecptr idstring = ds(buf);
 	xfree(s);
 
@@ -9558,6 +9698,7 @@ void filesys_install_code (void)
 #include "od-win32/win32_filesys.cpp"
 #endif
 
+#ifdef SAVESTATE // P6: the state of the filesystem is T29c; these bodies keep host paths and name savestate.cpp helpers the profile does not build
 static uae_u8 *restore_filesys_hardfile (UnitInfo *ui, uae_u8 *src)
 {
 	struct hardfiledata *hfd = &ui->hf;
@@ -10309,6 +10450,7 @@ int save_filesys_cando (void)
 		return -1;
 	return filesys_in_interrupt ? 0 : 1;
 }
+#endif /* SAVESTATE */
 
 static void shellexecute2_free(struct ShellExecute2 *se2)
 {
@@ -10369,11 +10511,11 @@ static uae_u32 filesys_shellexecute2_process(int mode, TrapContext *ctx)
 		if (se2->bin) {
 			xfree(se2->file);
 			if (oldks) {
-				sprintf(tmp, "cd \"%s\"\nT:__uae_out_%08X_%08x", se2->currentdir, se2->process, se2->id);
+				snprintf(tmp, sizeof tmp, "cd \"%s\"\nT:__uae_out_%08X_%08x", se2->currentdir, se2->process, se2->id);
 			} else {
-				sprintf(tmp, "T:__uae_bin_%08X_%08x", se2->process, se2->id);
+				snprintf(tmp, sizeof tmp, "T:__uae_bin_%08X_%08x", se2->process, se2->id);
 			}
-			se2->file = strdup(tmp);
+			se2->file = my_strdup(tmp);
 		}
 		int size = ShellExecute2_Struct_Start + ShellExecute2_Struct_Start2;
 		size += 2 * (uaestrlen(se2->file) + 1);
@@ -10409,8 +10551,8 @@ static uae_u32 filesys_shellexecute2_process(int mode, TrapContext *ctx)
 		trap_put_long(ctx, se2->buffer + 4, dptr);
 		if (se2->bin) {
 			xfree(se2->file);
-			sprintf(tmp, "T:__uae_bin_%08X_%08x", se2->process, se2->id);
-			se2->file = strdup(tmp);
+			snprintf(tmp, sizeof tmp, "T:__uae_bin_%08X_%08x", se2->process, se2->id);
+			se2->file = my_strdup(tmp);
 			trap_put_long(ctx, se2->buffer + 52, dptr);
 		}
 		dptr += trap_put_string(ctx, se2->file, dptr, -1) + 1;
@@ -10421,7 +10563,7 @@ static uae_u32 filesys_shellexecute2_process(int mode, TrapContext *ctx)
 
 		trap_put_long(ctx, se2->buffer + 16, dptr);
 		if (oldks) {
-			sprintf(tmp, "cd \"%s\"\n%s", se2->currentdir, se2->file);
+			snprintf(tmp, sizeof tmp, "cd \"%s\"\n%s", se2->currentdir, se2->file);
 		} else {
 			strcpy(tmp, se2->file);
 		}
@@ -10433,7 +10575,7 @@ static uae_u32 filesys_shellexecute2_process(int mode, TrapContext *ctx)
 
 		if (se2->flags & 2) {
 			trap_put_long(ctx, se2->buffer + 44, dptr);
-			sprintf(tmp, "T:__uae_out_%08X_%08x", se2->process, se2->id);
+			snprintf(tmp, sizeof tmp, "T:__uae_out_%08X_%08x", se2->process, se2->id);
 			dptr += trap_put_string(ctx, tmp, dptr, -1) + 1;
 			se2->aoutbuf = dptr;
 			trap_put_long(ctx, se2->buffer + 48, dptr);
@@ -10598,9 +10740,9 @@ int filesys_shellexecute2(TCHAR *file, TCHAR *currentdir, TCHAR *parms, uae_u32 
 	for (int i = 0; i < SHELLEXEC_MAX; i++) {
 		struct ShellExecute2 *se2 = &shellexecute2[i];
 		if (!se2->state) {
-			se2->file = file ? ua(file) : strdup("");
-			se2->currentdir = currentdir ? ua(currentdir) : strdup("");
-			se2->parms = parms ? ua(parms) : strdup("");
+			se2->file = file ? ua(file) : my_strdup("");
+			se2->currentdir = currentdir ? ua(currentdir) : my_strdup("");
+			se2->parms = parms ? ua(parms) : my_strdup("");
 			se2->id = id;
 			se2->stack = stack;
 			se2->priority = priority;
@@ -10635,3 +10777,130 @@ end:
 
 	return ret;
 }
+
+#ifdef P6_FILESYS
+/* Native state of the UAEFS controller (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0181). The configuration of the units (what set_filesys_unit_1 builds
+ * from the mount configuration) is rebuilt by every load; what the guest and the boot code have done to them since is values, listed here in order, none of them a host pointer.
+ * Globals: 0 filesys_configdev, 1 mountertask, 2 automountunit, 3 filesys_in_interrupt, 4 the walk of the interrupt in progress, 5 whether that interrupt holds
+ * singlethread_int_sem (0/1), 6 trackdisk_hack_state, 7 putmsg_hack_state, 8 putmsg_hack_filesystemtask, 9 ks12hack_deviceproc, 10 ROM_filesys_doio_original,
+ * 11 ROM_filesys_putmsg_original, 12 ROM_filesys_hack_remove, 13 shell_execute_data, 14 shell_execute_process, 15 a_uniq, 16 key_uniq. Per unit: 0 devname_amiga, 1 startup,
+ * 2 devicenode, 3 parmpacket, 4 devno, 5 rdb_lowcyl, 6 rdb_highcyl, 7 rdb_cylblocks, 8 rdb_filesyssize, 9 filesysseg, 10 rdb_dostype, 11..42 rdb_devname_amiga; and the bytes of the
+ * file system handler the RDB brought (rdb_filesysstore, at most 262144, which pt_rdsk caps) while the guest has not taken them yet. */
+#define P6_FILESYS_GLOBAL_WORDS 17
+#define P6_FILESYS_UNIT_WORDS (11 + DEVNAMES_PER_HDF)
+#define P6_FILESYS_STORE_MAX 262144
+
+bool p6_filesys_state_get(uint32_t *g, unsigned n)
+{
+	if (!g || n != P6_FILESYS_GLOBAL_WORDS || singlethread_int_sem.p6_count < 0 || singlethread_int_sem.p6_count > 1)
+		return false;
+	g[0] = filesys_configdev;
+	g[1] = mountertask;
+	g[2] = (uae_u32)automountunit;
+	g[3] = (uae_u32)filesys_in_interrupt;
+	g[4] = (uae_u32)exter_int_unit_no;
+	g[5] = singlethread_int_sem.p6_count ? 0 : 1;
+	g[6] = (uae_u32)trackdisk_hack_state;
+	g[7] = (uae_u32)putmsg_hack_state;
+	g[8] = (uae_u32)putmsg_hack_filesystemtask;
+	g[9] = ks12hack_deviceproc;
+	g[10] = ROM_filesys_doio_original;
+	g[11] = ROM_filesys_putmsg_original;
+	g[12] = ROM_filesys_hack_remove;
+	g[13] = shell_execute_data;
+	g[14] = shell_execute_process;
+	g[15] = a_uniq;
+	g[16] = key_uniq;
+	return true;
+}
+
+bool p6_filesys_state_set(const uint32_t *g, unsigned n)
+{
+	if (!g || n != P6_FILESYS_GLOBAL_WORDS || g[5] > 1 || (int32_t)g[3] < 0 || (int32_t)g[4] < 0 || (int32_t)g[4] > MAX_FILESYSTEM_UNITS || (int32_t)g[2] < -2 || (int32_t)g[2] >= MAX_FILESYSTEM_UNITS)
+		return false;
+	if ((g[5] != 0) != ((int32_t)g[3] > 0))
+		return false; // the interrupt holds the semaphore exactly while it is in progress
+	filesys_configdev = g[0];
+	mountertask = g[1];
+	automountunit = (int)g[2];
+	filesys_in_interrupt = (int)g[3];
+	exter_int_unit_no = (int)g[4];
+	singlethread_int_sem.p6_count = g[5] ? 0 : 1;
+	trackdisk_hack_state = (int)g[6];
+	putmsg_hack_state = (int)g[7];
+	putmsg_hack_filesystemtask = (int)g[8];
+	ks12hack_deviceproc = g[9];
+	ROM_filesys_doio_original = g[10];
+	ROM_filesys_putmsg_original = g[11];
+	ROM_filesys_hack_remove = g[12];
+	shell_execute_data = g[13];
+	shell_execute_process = g[14];
+	a_uniq = g[15];
+	key_uniq = g[16];
+	return true;
+}
+
+/* Whether unit `unit` is a mounted hard file of this image (a property of the configuration: the same in every machine of the image). */
+bool p6_filesys_unit_mounted(unsigned unit)
+{
+	return unit < MAX_FILESYSTEM_UNITS && mountinfo.ui[unit].open > 0 && (is_hardfile((int)unit) == FILESYS_HARDFILE || is_hardfile((int)unit) == FILESYS_HARDFILE_RDB);
+}
+
+bool p6_filesys_unit_state_get(unsigned unit, uint32_t *w, unsigned n, uint8_t *store, uint32_t *store_size)
+{
+	if (!w || n != P6_FILESYS_UNIT_WORDS || !store || !store_size || !p6_filesys_unit_mounted(unit))
+		return false;
+	const UnitInfo *ui = &mountinfo.ui[unit];
+	if (ui->rdb_filesyssize < 0 || ui->rdb_filesyssize > P6_FILESYS_STORE_MAX || (ui->rdb_filesyssize > 0) != (ui->rdb_filesysstore != NULL))
+		return false;
+	w[0] = ui->devname_amiga;
+	w[1] = ui->startup;
+	w[2] = ui->devicenode;
+	w[3] = ui->parmpacket;
+	w[4] = (uae_u32)ui->devno;
+	w[5] = (uae_u32)ui->rdb_lowcyl;
+	w[6] = (uae_u32)ui->rdb_highcyl;
+	w[7] = (uae_u32)ui->rdb_cylblocks;
+	w[8] = (uae_u32)ui->rdb_filesyssize;
+	w[9] = ui->filesysseg;
+	w[10] = ui->rdb_dostype;
+	for (int i = 0; i < DEVNAMES_PER_HDF; ++i)
+		w[11 + i] = ui->rdb_devname_amiga[i];
+	if (ui->rdb_filesyssize)
+		memcpy(store, ui->rdb_filesysstore, (size_t)ui->rdb_filesyssize);
+	*store_size = (uae_u32)ui->rdb_filesyssize;
+	return true;
+}
+
+bool p6_filesys_unit_state_set(unsigned unit, const uint32_t *w, unsigned n, const uint8_t *store, uint32_t store_size)
+{
+	if (!w || n != P6_FILESYS_UNIT_WORDS || (store_size && !store) || store_size != w[8] || store_size > P6_FILESYS_STORE_MAX || !p6_filesys_unit_mounted(unit))
+		return false;
+	if ((int32_t)w[4] < 0 || (int32_t)w[5] < 0 || (int32_t)w[6] < 0 || (int32_t)w[7] < 0)
+		return false;
+	UnitInfo *ui = &mountinfo.ui[unit];
+	uae_u8 *copy = NULL;
+	if (store_size) {
+		copy = xmalloc(uae_u8, store_size);
+		if (!copy)
+			return false;
+		memcpy(copy, store, store_size);
+	}
+	xfree(ui->rdb_filesysstore);
+	ui->rdb_filesysstore = copy;
+	ui->rdb_filesyssize = (int)store_size;
+	ui->devname_amiga = w[0];
+	ui->startup = w[1];
+	ui->devicenode = w[2];
+	ui->parmpacket = w[3];
+	ui->devno = (int)w[4];
+	ui->rdb_lowcyl = (int)w[5];
+	ui->rdb_highcyl = (int)w[6];
+	ui->rdb_cylblocks = (int)w[7];
+	ui->filesysseg = w[9];
+	ui->rdb_dostype = w[10];
+	for (int i = 0; i < DEVNAMES_PER_HDF; ++i)
+		ui->rdb_devname_amiga[i] = w[11 + i];
+	return true;
+}
+#endif

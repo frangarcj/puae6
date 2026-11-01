@@ -1,19 +1,12 @@
 {
   "schema_version": 1,
   "observed_date": "2026-09-26",
-  "status": "source_snapshots_and_build_toolchains_verified",
+  "status": "source_snapshots_verified_build_toolchain_lock_pending",
   "sources": [
     {
       "id": "winuae",
-      "role": "engine",
       "repository": "https://github.com/tonioni/WinUAE.git",
-      "version": "6.0.3",
-      "tag": "6030",
-      "tag_object": "88e3c2c6eac57d6dfc2ed688455a35e2e3a86a59",
-      "commit": "857f48fcb09399d4d95527e29a2fdeaedb41f827",
-      "required": true,
-      "verified": "T01a: fetched exact commit and annotated tag/peeled commit checked with Git; 1134 pristine blobs/modes imported and SHA-256 verified offline; no build/emulation tested",
-      "snapshot_manifest": "manifests/upstream-files.json"
+      "commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0"
     },
     {
       "id": "machawk",
@@ -266,98 +259,11 @@
           "compiler-rt/lib/builtins/int_endianness.h"
         ]
       }
-    },
-    {
-      "id": "cdi2nero_fixture_producer",
-      "role": "offline_test_fixture_producer_not_product_dependency",
-      "repository": "https://github.com/sizious/cdi2nero",
-      "commit": "f43561d27e9a75061171f0e69a872c9439ccf898",
-      "required": true,
-      "verified": "Original eight source files and GPL-2.0 LICENSE retained byte exact with per-file hashes; own CDI fixture converted offline, ETNF payload and global coordinates checked by T66w1. Host adaptations apply only to temporary test copies.",
-      "fixture_directory": "tests/fixtures/cdi2nero",
-      "fixture_manifest": "tests/fixtures/cdi2nero/source.json"
-    },
-    {
-      "id": "mame_ipf",
-      "role": "vendored_free_ipf_decoder",
-      "repository": "https://github.com/mamedev/mame",
-      "commit": "7870bf4b4a562b63d1f048d5b1cf8b3250ba45e8",
-      "required": true,
-      "verified": "T58a retained original decoder and BSD-3-Clause notice; SRC01 verifies pinned PROVENANCE, originals, compiled derivation, local changes, host shims and notice hashes offline.",
-      "vendored": {
-        "destination": "third_party/mame-ipf",
-        "provenance": "PROVENANCE.json",
-        "sha256": "e2599c8149fe6cd5dec89fe0148520f713dbb9d9e94c38a2dd2a79de36a6ff50"
-      }
-    },
-    {
-      "id": "ruby_macho",
-      "role": "host_tool_source_for_exact_Homebrew_bottle_relocation_not_guest_dependency",
-      "repository": "https://github.com/Homebrew/ruby-macho.git",
-      "version": "7.0.0",
-      "commit": "2c3fdf705e0a77cd83a68363a83ec3d855e2a0d1",
-      "required": true,
-      "verified": "Upstream lightweight tag v7.0.0 resolves directly to this commit; capture verified by the source importer. Host tool source only; no Ruby gem installation.",
-      "snapshot": {
-        "destination": "references/ruby-macho",
-        "manifest": "references/ruby-macho.manifest.json",
-        "include": [
-          "lib",
-          "LICENSE"
-        ]
-      }
     }
   ],
-  "unresolved": [],
-  "reference_tools": {
-    "nero_2025": {
-      "purpose": "temporary portable help probe for the original NRG producer; not an emulator dependency",
-      "version": "27.0.1000",
-      "component_version": "27.0.1.3",
-      "url": "https://ecloud.nero.com/public.php/dav/files/pBxLJzgPaNtAJBi",
-      "filename": "Nero-Burning-ROM-2025-Full-27.0.1000.exe",
-      "bytes": 275434744,
-      "sha256": "3fbc9dd234eb1dec0d5a51bd2c9df2dfad0144c5cdb3d1d353ba91c9f2618f94",
-      "payload": {
-        "path": "NeroInstaller/NeroBurningROM.zip",
-        "bytes": 80677840,
-        "sha256": "9fffbea66c939f3933cd4c1efe5b6e44491f21865a35035e8eb75a10611ebd52"
-      },
-      "command_path": "Nero Burning ROM/NeroCmd.exe",
-      "registration": {
-        "hive": "ClassesRoot",
-        "view": "Registry32",
-        "key": "CLSID\\{8c3eda3f-f182-4617-a352-00b48a8e49f2}\\InprocServer32",
-        "value_name": "",
-        "value_kind": "REG_SZ",
-        "filename": "AdvrCntr6.dll",
-        "bytes": 12027720,
-        "sha256": "05580111f2f7604b3c468badc1c2519a5664168c9371aabc2a66b620372e4f9c",
-        "export_ordinal": 5,
-        "source_payload": {
-          "path": "NeroInstaller/AdvrCntr6.zip",
-          "bytes": 11150970,
-          "sha256": "561d672e263a26732dadf23f79c8f32a544e8286010bc371071a6bb9a4f2f1fc",
-          "member": "AdvrCntr6/AdvrCntr6.dll"
-        }
-      },
-      "components": [
-        {
-          "path": "Nero Burning ROM/NeroAPIEngine.dll",
-          "bytes": 1999184,
-          "sha256": "5c09c57a441d34af2a75d82e74acce412c1bbeb6d31af7645849a7f060039879"
-        },
-        {
-          "path": "Nero Burning ROM/uimage.dll",
-          "bytes": 79696,
-          "sha256": "59522845afe8a67110b5934cb8583b1e172994f948420b67c2abcbbbd77ba623"
-        },
-        {
-          "path": "Nero Burning ROM/uImageGen.dll",
-          "bytes": 46928,
-          "sha256": "5d6523cf6dc558667ea3546a9b893d2b0cf4e1ee413aaf4586d3e92e1133587c"
-        }
-      ]
-    }
-  }
+  "unresolved": [
+    "T02: decide selected dependencies from actual WinUAE 6.0.3 source graph",
+    "T03/T09: pin native generators and Waterbox sysroot/toolchain build recipes",
+    "T09: pin and validate final Waterbox sysroot/LLVM/container inputs and provision registry packages from captured descriptors; selected local source closure is captured"
+  ]
 }

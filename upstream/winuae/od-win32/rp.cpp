@@ -165,6 +165,7 @@ static const TCHAR *getmsg (int msg)
 	case RP_IPC_TO_GUEST_EXECUTE: return _T("RP_IPC_TO_GUEST_EXECUTE");
 	case RP_IPC_TO_GUEST_DEVICEWRITEBYTE: return _T("RP_IPC_TO_GUEST_DEVICEWRITEBYTE");
 	case RP_IPC_TO_GUEST_DEVICESETSIGNALS: return _T("RP_IPC_TO_GUEST_DEVICESETSIGNALS");
+	case RP_IPC_TO_GUEST_SCREEN1X: return _T("RP_IPC_TO_GUEST_SCREEN1X");
 	default: return _T("UNKNOWN");
 	}
 }
@@ -738,6 +739,30 @@ static int shift (int val, int shift)
 	return val;
 }
 
+static void get_wh(int *wp, int *hp)
+{
+	struct AmigaMonitor *mon = &AMonitors[0];
+	int rtg = WIN32GFX_IsPicassoScreen(mon) != 0;
+	int w, h;
+
+	if (rtg) {
+
+		w = picasso96_state[mon->monitor_id].Width;
+		h = picasso96_state[mon->monitor_id].Height;
+
+	} else {
+
+		int rw, rh, rx, ry;
+		get_custom_raw_limits(&rw, &rh, &rx, &ry);
+		w = rw;
+		h = rh;
+
+	}
+
+	*wp = w;
+	*hp = h;
+}
+
 static int gfx_height_original;
 static bool ntsc_extended;
 
@@ -751,7 +776,7 @@ static void get_screenmode (struct RPScreenMode *sm, struct uae_prefs *p, bool g
 	int totalhdbl = -1, totalvdbl = -1;
 	float hmult, vmult;
 	bool half;
-	bool rtg;
+	int rtg;
 	int scalemode = p->gf[0].gfx_filter_autoscale;
 
 	hres = p->gfx_resolution;
@@ -771,8 +796,8 @@ static void get_screenmode (struct RPScreenMode *sm, struct uae_prefs *p, bool g
 		full = p->gfx_apmode[1].gfx_fullscreen;
 		sm->lClipTop = -1;
 		sm->lClipLeft = -1;
-		sm->lClipWidth = -1;//picasso96_state.Width;
-		sm->lClipHeight = -1;//picasso96_state.Height;
+		sm->lClipWidth = -1;
+		sm->lClipHeight = -1;
 
 		for (int i = RP_SCREENMODE_SCALE_MAX_X; i >= RP_SCREENMODE_SCALE_2X; i--) {
 			if (hmult >= (float)i + 0.5) {
@@ -1194,11 +1219,11 @@ static void set_screenmode (struct RPScreenMode *sm, struct uae_prefs *p)
 		if (keepaspect) {
 			p->gf[0].gfx_filter_aspect = ntsc_extended ? 0 : -1;
 			p->gf[0].gfx_filter_keep_autoscale_aspect = ntsc_extended || fs ? 0 : 1;
-			p->gf[0].gfx_filter_keep_aspect = 0;
+			p->gf[0].gfx_filter_aspect_type = 0;
 		} else {
 			p->gf[0].gfx_filter_aspect = 0;
 			p->gf[0].gfx_filter_keep_autoscale_aspect = 0;
-			p->gf[0].gfx_filter_keep_aspect = 0;
+			p->gf[0].gfx_filter_aspect_type = 0;
 		}
 
 		p->gf[0].gfx_filter_horiz_zoom_mult = hmult;
@@ -1243,7 +1268,7 @@ static void set_screenmode (struct RPScreenMode *sm, struct uae_prefs *p)
 				p->gf[0].gfx_filter_horiz_zoom_mult, p->gf[0].gfx_filter_vert_zoom_mult,
 				p->gfx_xcenter_pos, p->gfx_ycenter_pos,
 				p->gfx_xcenter_size, p->gfx_ycenter_size,
-				p->gf[0].gfx_filter_autoscale, p->gf[0].gfx_filter_aspect, p->gf[0].gfx_filter_keep_aspect,
+				p->gf[0].gfx_filter_autoscale, p->gf[0].gfx_filter_aspect, p->gf[0].gfx_filter_aspect_type,
 				gfx_height_original, p->gfx_ntscpixels);
 		}
 	}
@@ -1258,7 +1283,7 @@ static void set_screenmode (struct RPScreenMode *sm, struct uae_prefs *p)
 		p->gf[0].gfx_filter_horiz_zoom_mult, p->gf[0].gfx_filter_vert_zoom_mult,
 		p->gfx_xcenter_pos, p->gfx_ycenter_pos,
 		p->gfx_xcenter_size, p->gfx_ycenter_size,
-		p->gf[0].gfx_filter_autoscale, p->gf[0].gfx_filter_aspect, p->gf[0].gfx_filter_keep_aspect);
+		p->gf[0].gfx_filter_autoscale, p->gf[0].gfx_filter_aspect, p->gf[0].gfx_filter_aspect_type);
 	write_log (_T("AFTER W=%d (%d) H=%d (%d)\n"), gm->gfx_size.width, currprefs.gfx_size.width, gm->gfx_size.height, currprefs.gfx_size.height);
 #endif
 }
@@ -1624,6 +1649,15 @@ static LRESULT CALLBACK RPHostMsgFunction2 (UINT uMessage, WPARAM wParam, LPARAM
 			screenmode_request = 1;
 			write_log (_T("RP_IPC_TO_GUEST_QUERYSCREENMODE -> RP_IPC_TO_HOST_SCREENMODE screenmode_request started\n"));
 			return 1;
+		}
+	case RP_IPC_TO_GUEST_SCREEN1X:
+		{
+			int w = 0, h = 0;
+			get_wh(&w, &h);
+			if (w > 0 && h > 0) {
+				return MAKELONG(w, h);
+			}
+			return MAKELONG(-1, -1);
 		}
 	case RP_IPC_TO_GUEST_GUESTAPIVERSION:
 		{
@@ -2312,8 +2346,10 @@ void rp_set_hwnd (HWND hWnd)
 	RPSendMessagex (RP_IPC_TO_HOST_SCREENMODE, 0, 0, &sm, sizeof sm, &guestinfo, NULL); 
 }
 
-void rp_screenmode_changed (void)
+void rp_screenmode_changed(void)
 {
+	if (!initialized)
+		return;
 	if (log_rp)
 		write_log (_T("rp_screenmode_changed\n"));
 	if (!screenmode_request && !hwndset_delay) {

@@ -22,6 +22,41 @@
 int getregidx(TCHAR **c);
 uae_u32 returnregx(int regid);
 
+/* Access source tags are also passed by emulation paths without a debugger. */
+#define MW_MASK_CPU_I			0x00000001
+#define MW_MASK_CPU_D_R			0x00000002
+#define MW_MASK_CPU_D_W			0x00000004
+#define MW_MASK_BLITTER_A		0x00000008
+#define MW_MASK_BLITTER_B		0x00000010
+#define MW_MASK_BLITTER_C		0x00000020
+#define MW_MASK_BLITTER_D_N		0x00000040
+#define MW_MASK_BLITTER_D_L		0x00000080
+#define MW_MASK_BLITTER_D_F		0x00000100
+#define MW_MASK_COPPER			0x00000200
+#define MW_MASK_DISK			0x00000400
+#define MW_MASK_AUDIO_0			0x00000800
+#define MW_MASK_AUDIO_1			0x00001000
+#define MW_MASK_AUDIO_2			0x00002000
+#define MW_MASK_AUDIO_3			0x00004000
+#define MW_MASK_BPL_0			0x00008000
+#define MW_MASK_BPL_1			0x00010000
+#define MW_MASK_BPL_2			0x00020000
+#define MW_MASK_BPL_3			0x00040000
+#define MW_MASK_BPL_4			0x00080000
+#define MW_MASK_BPL_5			0x00100000
+#define MW_MASK_BPL_6			0x00200000
+#define MW_MASK_BPL_7			0x00400000
+#define MW_MASK_SPR_0			0x00800000
+#define MW_MASK_SPR_1			0x01000000
+#define MW_MASK_SPR_2			0x02000000
+#define MW_MASK_SPR_3			0x04000000
+#define MW_MASK_SPR_4			0x08000000
+#define MW_MASK_SPR_5			0x10000000
+#define MW_MASK_SPR_6			0x20000000
+#define MW_MASK_SPR_7			0x40000000
+#define MW_MASK_NONE			0x80000000
+#define MW_MASK_ALL				(MW_MASK_NONE - 1)
+
 #ifdef DEBUGGER
 
 #define	MAX_HIST 500
@@ -109,16 +144,17 @@ extern void debug_smc_clear(uaecptr addr, int size);
 #define BREAKPOINT_REG_FPIAR 34
 #define BREAKPOINT_REG_FPCR 35
 #define BREAKPOINT_REG_FPSR 36
-#define BREAKPOINT_REG_END 37
+#define BREAKPOINT_REG_FPx 37
+#define BREAKPOINT_REG_END 45
 
 #define BREAKPOINT_CMP_EQUAL 0
 #define BREAKPOINT_CMP_NEQUAL 1
 #define BREAKPOINT_CMP_SMALLER_EQUAL 2
 #define BREAKPOINT_CMP_LARGER_EQUAL 3
-#define BREAKPOINT_CMP_SMALLER 2
-#define BREAKPOINT_CMP_LARGER 3
-#define BREAKPOINT_CMP_RANGE 4
-#define BREAKPOINT_CMP_NRANGE 5
+#define BREAKPOINT_CMP_SMALLER 4
+#define BREAKPOINT_CMP_LARGER 5
+#define BREAKPOINT_CMP_RANGE 6
+#define BREAKPOINT_CMP_NRANGE 7
 
 struct breakpoint_node {
 	uae_u32 value1;
@@ -132,40 +168,6 @@ struct breakpoint_node {
 	int chain;
 };
 extern struct breakpoint_node bpnodes[BREAKPOINT_TOTAL];
-
-#define MW_MASK_CPU_I			0x00000001
-#define MW_MASK_CPU_D_R			0x00000002
-#define MW_MASK_CPU_D_W			0x00000004
-#define MW_MASK_BLITTER_A		0x00000008
-#define MW_MASK_BLITTER_B		0x00000010
-#define MW_MASK_BLITTER_C		0x00000020
-#define MW_MASK_BLITTER_D_N		0x00000040
-#define MW_MASK_BLITTER_D_L		0x00000080
-#define MW_MASK_BLITTER_D_F		0x00000100
-#define MW_MASK_COPPER			0x00000200
-#define MW_MASK_DISK			0x00000400
-#define MW_MASK_AUDIO_0			0x00000800
-#define MW_MASK_AUDIO_1			0x00001000
-#define MW_MASK_AUDIO_2			0x00002000
-#define MW_MASK_AUDIO_3			0x00004000
-#define MW_MASK_BPL_0			0x00008000
-#define MW_MASK_BPL_1			0x00010000
-#define MW_MASK_BPL_2			0x00020000
-#define MW_MASK_BPL_3			0x00040000
-#define MW_MASK_BPL_4			0x00080000
-#define MW_MASK_BPL_5			0x00100000
-#define MW_MASK_BPL_6			0x00200000
-#define MW_MASK_BPL_7			0x00400000
-#define MW_MASK_SPR_0			0x00800000
-#define MW_MASK_SPR_1			0x01000000
-#define MW_MASK_SPR_2			0x02000000
-#define MW_MASK_SPR_3			0x04000000
-#define MW_MASK_SPR_4			0x08000000
-#define MW_MASK_SPR_5			0x10000000
-#define MW_MASK_SPR_6			0x20000000
-#define MW_MASK_SPR_7			0x40000000
-#define MW_MASK_NONE			0x80000000
-#define MW_MASK_ALL				(MW_MASK_NONE - 1)
 
 #define MEMWATCH_TOTAL 20
 struct memwatch_node {
@@ -183,10 +185,18 @@ struct memwatch_node {
 	bool nobreak;
 	bool reportonly;
 	int bus_error;
+	int remote;
 };
 extern struct memwatch_node mwnodes[MEMWATCH_TOTAL];
 
+/* memwatch_node.remote: entries owned by the remote debugger */
+#define MW_REMOTE_LOG 1		// record access evidence for the remote client
+#define MW_REMOTE_EXACT 2	// match complete accesses only, compare old RAM values
+
 extern void memwatch_dump2 (TCHAR *buf, int bufsize, int num);
+extern void initialize_memwatch(int mode);
+extern int deinitialize_memwatch(void);
+extern void memwatch_setup (void);
 
 void debug_getpeekdma_chipram(uaecptr addr, uae_u32 mask, int reg);
 void debug_getpeekdma_value(uae_u32);
@@ -228,7 +238,7 @@ struct dma_rec
 {
 	int hpos, vpos[2];
 	int frame;
-	uae_u32 tick;
+	evt_t tick;
 	int dhpos[2];
     uae_u16 reg;
     uae_u64 dat;
@@ -237,7 +247,7 @@ struct dma_rec
     uae_u32 evt;
 	uae_u32 agnus_evt, agnus_evt_changed;
 	uae_u32 denise_evt[2], denise_evt_changed[2];
-	uae_u32 evtdata;
+	uae_u32 evtdata, evtdata2;
 	bool evtdataset;
     uae_s16 type;
 	uae_u16 extra;
@@ -302,6 +312,7 @@ extern struct dma_rec *last_dma_rec;
 #define DMA_EVENT_MODADD		0x00080000
 #define DMA_EVENT_LOF			0x00100000
 #define DMA_EVENT_LOL			0x00200000
+#define DMA_EVENT_DMAL			0x00400000
 
 #define DMA_EVENT_CIAA_IRQ		0x08000000
 #define DMA_EVENT_CIAB_IRQ		0x10000000
@@ -320,7 +331,9 @@ extern struct dma_rec *last_dma_rec;
 #define DMARECORD_UHRESBPL 9
 #define DMARECORD_UHRESSPR 10
 #define DMARECORD_CONFLICT 11
-#define DMARECORD_MAX 12
+#define DMARECORD_DIW 12
+#define DMARECORD_DDF 13
+#define DMARECORD_MAX 14
 
 extern void record_dma_read(uae_u16 reg, uae_u32 addr, int type, int extra);
 extern void record_dma_write(uae_u16 reg, uae_u32 v, uae_u32 addr, int type, int extra);
@@ -333,6 +346,7 @@ extern void record_dma_event_agnus(uae_u32 evt, bool onoff);
 extern void record_dma_event_denise(struct dma_rec *rd, int h, uae_u32 evt, bool onoff);
 extern void record_dma_event(uae_u32 evt);
 extern void record_dma_event_data(uae_u32 evt, uae_u32 data);
+extern void record_dma_event_data2(uae_u32 evt, uae_u32 data);
 extern void record_dma_clear(void);
 extern bool record_dma_check(void);
 extern void record_cia_access(int r, int mask, uae_u16 value, bool rw, int phase);
@@ -342,6 +356,7 @@ extern void record_dma_ipl_sample(void);
 extern void debug_mark_refreshed(uaecptr);
 extern void debug_draw(uae_u8 *buf, uae_u8 *genlock, int line, int width, int height, uae_u32 *xredcolors, uae_u32 *xgreencolors, uae_u32 *xbluescolors);
 extern struct dma_rec *record_dma_next_cycle(int hpos, int vpos, int vvpos);
+extern int get_dma_debug_color(struct dma_rec *dr, int line, uae_u32 *cp);
 
 #define TRACE_SKIP_INS 1
 #define TRACE_MATCH_PC 2
@@ -349,7 +364,18 @@ extern struct dma_rec *record_dma_next_cycle(int hpos, int vpos, int vvpos);
 #define TRACE_RANGE_PC 4
 #define TRACE_SKIP_LINE 5
 #define TRACE_RAM_PC 6
+#define TRACE_IMMEDIATE 7
 #define TRACE_CHECKONLY 10
+
+#ifdef GDBSERVER
+extern void debug_remote_interrupt(void);
+extern void debug_remote_resume(bool step, bool check);
+extern void debug_remote_run_to(uaecptr pc);
+extern void debug_remote_hold(void);
+extern bool debug_remote_frame_save(bool enable);
+extern int debug_history_size(void);
+extern const struct regstruct *debug_history_get(int index, int *frame, int *vpos, int *hpos);
+#endif
 
 #else
 

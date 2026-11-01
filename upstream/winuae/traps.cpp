@@ -314,6 +314,12 @@ static void trap_thread (void *arg)
 */
 static void trap_HandleExtendedTrap(TrapHandler handler_func, int has_retval)
 {
+#ifdef P6_PORTABLE
+	// An extended trap runs its handler on a thread of its own, which can call back into the 68k. The profile has one thread and registers no extended
+	// trap (filesys_init_storeinfo does not need one); reaching this is a bug of the build, so it stops with a reason instead of hanging.
+	p6_diag_write(P6_DIAG_ERROR, 0, 0, "an extended trap needs a thread, which this build does not have");
+	abort();
+#else
 	struct TrapContext *context = xcalloc(TrapContext, 1);
 
 	if (context) {
@@ -344,6 +350,7 @@ static void trap_HandleExtendedTrap(TrapHandler handler_func, int has_retval)
 			write_log(_T("Exit extended trap PC=%08x\n"), m68k_getpc());
 		}
 	}
+#endif
 }
 
 /*
@@ -486,7 +493,9 @@ static uae_u32 REGPARAM2 exit_trap_handler(TrapContext *dummy_ctx)
 	}
 
 	/* Wait for trap context thread to exit. */
+#ifndef P6_PORTABLE
 	uae_wait_thread(context->thread);
+#endif
 
 	/* Restore 68k state saved at trap entry. */
 	//regs = context->saved_regs;
@@ -560,6 +569,7 @@ static void hardware_trap_ack(TrapContext *ctx)
 	write_log(_T("TRAP SLOT %d: ACK. TASK = %08x\n"), ctx->trap_slot, task);
 #endif
 
+	trap_fence();	// registers and return value before the completion byte
 	put_byte_host(status + 2, 0xff);
 	if (task && trap_mode == 1) {
 		atomic_or(&uae_int_requested, 0x4000);
@@ -683,6 +693,9 @@ static volatile uae_atomic outtrap_alloc[RTAREA_TRAP_DATA_SEND_NUM];
 
 TrapContext *alloc_host_main_trap_context(void)
 {
+#ifdef P6_PORTABLE // the context of a hardware trap (uaeboard > 2) waits for a free slot by sleeping: the profile never selects it
+	return NULL;
+#else
 	if (trap_is_indirect()) {
 		int trap_slot = RTAREA_TRAP_DATA_NUM;
 		if (atomic_inc(&outtrap_alloc[trap_slot - RTAREA_TRAP_DATA_NUM])) {
@@ -695,6 +708,7 @@ TrapContext *alloc_host_main_trap_context(void)
 	} else {
 		return NULL;
 	}
+#endif
 }
 
 void free_host_trap_context(TrapContext *ctx)
@@ -736,6 +750,7 @@ static uae_u32 call_hardware_trap_back(TrapContext *ctx, uae_u16 cmd, uae_u32 p1
 	put_long_host(data + 12, p3);
 	put_long_host(data + 16, p4);
 	put_word_host(status, cmd);
+	trap_fence();	// command, parameters and MULTI/copy data before the status byte
 
 	volatile uae_u8 *d = status + 3;
 
@@ -762,6 +777,7 @@ static uae_u32 call_hardware_trap_back(TrapContext *ctx, uae_u16 cmd, uae_u32 p1
 		}
 		uae_u8 v = *d;
 		if (v == 0x01 || v == 0x02 || v == 0x03) {
+			trap_fence();	// the result and copied data only after the status byte
 			break;
 		}
 		if (uae_sem_trywait_delay(&hardware_trap_event[trap_slot], 100) == -2) {
@@ -837,6 +853,7 @@ TrapContext *alloc_host_thread_trap_context(void)
 void init_traps(void)
 {
 	trap_count = 0;
+#ifndef P6_PORTABLE // the hardware-trap threads belong to uaeboard > 2, which the profile never selects
 	if (!trap_thread_id[0] && trap_is_indirect()) {
 		for (size_t i = 0; i < TRAP_THREADS; i++) {
 			init_comm_pipe(&trap_thread_pipe[i], 100, 1);
@@ -844,10 +861,12 @@ void init_traps(void)
 			uae_start_thread_fast(hardware_trap_thread, (void *)i, &trap_thread_id[i]);
 		}
 	}
+#endif
 }
 
 void reset_traps(void)
 {
+#ifndef P6_PORTABLE
 	for (int i = 0; i < TRAP_THREADS; i++) {
 		if (trap_thread_id[i]) {
 			int htk = hardware_trap_kill[i];
@@ -868,10 +887,12 @@ void reset_traps(void)
 		uae_sem_unpost(&hardware_trap_event[j]);
 		uae_sem_unpost(&hardware_trap_event2[j]);
 	}
+#endif
 }
 
 void free_traps(void)
 {
+#ifndef P6_PORTABLE
 	for (int i = 0; i < TRAP_THREADS; i++) {
 		hardware_trap_state[i] = 0;
 		if (trap_thread_id[i]) {
@@ -887,6 +908,7 @@ void free_traps(void)
 			trap_thread_id[i] = NULL;
 		}
 	}
+#endif
 }
 
 /*

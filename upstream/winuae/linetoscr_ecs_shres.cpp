@@ -29,7 +29,7 @@ static void lts_ecs_shres_dhires(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -78,7 +78,7 @@ static void lts_ecs_shres_dhires(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_2x) {
 				#ifdef DEBUGGER
 				if (decode_specials_debug) {
 					dpix_val0 = decode_denise_specials_debug(dpix_val0, cnt + 0);
@@ -151,7 +151,7 @@ static void lts_ecs_shres_dhires_filtered(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -200,7 +200,7 @@ static void lts_ecs_shres_dhires_filtered(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_2x) {
 				dpix_val0 = filter_pixel(dpix_val0, dpix_val1);
 				dpix_val2 = filter_pixel(dpix_val2, dpix_val3);
 				#ifdef DEBUGGER
@@ -275,7 +275,7 @@ static void lts_ecs_shres_dshres(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -324,7 +324,7 @@ static void lts_ecs_shres_dshres(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_4x) {
 				#ifdef DEBUGGER
 				if (decode_specials_debug) {
 					dpix_val0 = decode_denise_specials_debug(dpix_val0, cnt + 0);
@@ -424,7 +424,7 @@ static void lts_ecs_shres_dhires_genlock(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -473,7 +473,7 @@ static void lts_ecs_shres_dhires_genlock(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_2x) {
 				#ifdef DEBUGGER
 				if (decode_specials_debug) {
 					dpix_val0 = decode_denise_specials_debug(dpix_val0, cnt + 0);
@@ -552,7 +552,7 @@ static void lts_ecs_shres_dhires_genlock_filtered(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -601,7 +601,7 @@ static void lts_ecs_shres_dhires_genlock_filtered(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_2x) {
 				dpix_val0 = filter_pixel(dpix_val0, dpix_val1);
 				dpix_val2 = filter_pixel(dpix_val2, dpix_val3);
 				gpix0 = filter_pixel_genlock(gpix0, gpix1);
@@ -684,7 +684,7 @@ static void lts_ecs_shres_dshres_genlock(void)
 				dpix_val1 = bordercolor_ecs_shres;
 				dpix_val2 = bordercolor_ecs_shres;
 				dpix_val3 = bordercolor_ecs_shres;
-				if (denise_hdiw && bpl1dat_trigger) {
+				if (denise_hdiw && bpl1dat_trigger && !diw_disable) {
 					shifted = true;
 					pix0 = getbpl2();
 					shiftbpl2();
@@ -733,7 +733,7 @@ static void lts_ecs_shres_dshres_genlock(void)
 					dpix_val3 = dpix_val2;
 				}
 			}
-			if (denise_pixtotal >= 0 && denise_pixtotal < denise_pixtotal_max) {
+			if (denise_pixtotal >= 0 && buf1 < denise_pixtotal_max_buf_4x) {
 				#ifdef DEBUGGER
 				if (decode_specials_debug) {
 					dpix_val0 = decode_denise_specials_debug(dpix_val0, cnt + 0);

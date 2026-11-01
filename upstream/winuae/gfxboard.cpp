@@ -34,15 +34,7 @@ static bool memlogw = true;
 #include "options.h"
 #include "uae.h"
 
-#include "pcem/device.h"
-#include "pcem/vid_s3_virge.h"
-#include "pcem/vid_cl5429.h"
-#include "pcem/vid_s3.h"
-#include "pcem/vid_voodoo_banshee.h"
-#include "pcem/vid_ncr.h"
-#include "pcem/vid_permedia2.h"
-#include "pcem/vid_inmos.h"
-#include "pcem/vid_et4000.h"
+#include "86box/winuae/86box_video.h"
 
 #include "memory.h"
 #include "debug.h"
@@ -59,15 +51,9 @@ static bool memlogw = true;
 #include "flashrom.h"
 #include "pci.h"
 #include "pci_hw.h"
-#include "pcem/pcemglue.h"
 #include "qemuvga/qemuuaeglue.h"
 #include "draco.h"
 #include "autoconf.h"
-
-extern void put_io_pcem(uaecptr, uae_u32, int);
-extern uae_u32 get_io_pcem(uaecptr, int);
-extern void put_mem_pcem(uaecptr, uae_u32, int);
-extern uae_u32 get_mem_pcem(uaecptr, int);
 
 
 #define MONITOR_SWITCH_DELAY 25
@@ -145,7 +131,7 @@ static const struct gfxboard boards[] =
 		GFXBOARD_ID_A2410,
 		_T("A2410 [Zorro II]"), _T("Commodore"), _T("A2410"),
 		1030, 0, 0, 0,
-		0x00000000, 0x00200000, 0x00200000, 0x10000, 0, 2, 2, false, false,
+		0x00000000, 0x00100000, 0x00100000, 0x10000, 0, 2, 2, false, false,
 		0, 0xc1, &a2410_func
 	},
 	{
@@ -841,11 +827,6 @@ void gfxboard_free_vram(int index)
 		vram_ram_a8 = 0;
 }
 
-extern uae_u8 *getpcembuffer32(int, int, int);
-extern int svga_get_vtotal(void *p);
-extern int svga_poll(void *p);
-extern void voodoo_callback(void *p);
-
 // PCEM
 static void pcem_flush(struct rtggfxboard* gb, int index)
 {
@@ -854,7 +835,7 @@ static void pcem_flush(struct rtggfxboard* gb, int index)
 		uae_u8 *start;
 		int cnt = picasso_getwritewatch(index, gb->vram_start_offset, &buf, &start);
 		if (cnt < 0) {
-			gb->pcemdev->force_redraw(gb->pcemobject);
+			pcem_device_force_redraw(gb->pcemdev, gb->pcemobject);
 		} else {
 			for (int i = 0; i < cnt; i++) {
 				int offset = (int)(buf[i] - start);
@@ -913,12 +894,12 @@ static int gfxboard_pcem_poll(struct rtggfxboard *gb)
 	if (!gb->vram)
 		return 0;
 	// 1, 3, 1, 3,.. because some software needs to see hsync period.
-	int v = svga_poll(gb->pcemobject2);
+	int v = svga_poll_eod(gb->pcemobject2);
 	if (toggle) {
 		if (!v) {
-			v |= svga_poll(gb->pcemobject2);
+			v |= svga_poll_eod(gb->pcemobject2);
 			if (!v) {
-				v |= svga_poll(gb->pcemobject2);
+				v |= svga_poll_eod(gb->pcemobject2);
 			}
 		}
 		toggle = 0;
@@ -1030,10 +1011,8 @@ static void reinit_vram(struct rtggfxboard *gb, uaecptr vram, bool direct)
 	gb->vram += gb->vram_start_offset;
 	gb->vramend += gb->vram_start_offset;
 	if (gb->pcemdev) {
-		void svga_setvram(void *p, uint8_t *vram);
 		svga_setvram(gb->pcemobject2, gb->vram);
 		if (gb->rbc->rtgmem_type == GFXBOARD_ID_VOODOO3_PCI || gb->rbc->rtgmem_type == GFXBOARD_ID_VOODOO5_PCI) {
-			void voodoo_update_vram(void *p);
 			voodoo_update_vram(gb->pcemobject);
 		}
 	}
@@ -1125,11 +1104,7 @@ static void init_board (struct rtggfxboard *gb)
 	gb->pcemdev = gb->board->pcemdev;
 	gb->pcem_pci_configured = false;
 	if (gb->pcemdev) {
-		extern void initpcemvideo(void*, bool);
-		extern void *svga_get_object(void);
-		initpcemvideo(gb, gb->board->swap);
-		gb->pcemobject = gb->pcemdev->init(gb->pcemdev);
-		gb->pcemobject2 = svga_get_object();
+		gb->pcemobject = pcem_device_init(gb->pcemdev, gb, gb->board->swap, &gb->pcemobject2);
 	}
 	picasso_allocatewritewatch(gb->rbc->rtg_index, gb->rbc->rtgmem_size);
 
@@ -1220,8 +1195,7 @@ static void gfxboard_free_slot2(struct rtggfxboard *gb)
 	}
 	if (gb->pcemdev) {
 		if (gb->pcemobject) {
-			pcemfreeaddeddevices();
-			gb->pcemdev->close(gb->pcemobject);
+			pcem_device_close(gb->pcemdev, gb->pcemobject);
 			gb->pcemobject = NULL;
 		}
 	}
@@ -1424,17 +1398,20 @@ bool gfxboard_set(int monid, bool rtg)
 	return r;
 }
 
-int gfxboard_monitor_visible(int monid)
+int gfxboard_monitor_visible(struct rtgboardconfig *rbc)
 {
-	if (gfxboard_isgfxboardscreen(monid)) {
-		return 1;
-	}
-	if (currprefs.monitoremu && currprefs.monitoremu_mon == monid) {
-		if (rtg_visible[monid] > 0) {
-			return -1;
+	if (rbc->rtgmem_type < GFXBOARD_HARDWARE) {
+		struct amigadisplay *ad = &adisplays[rbc->monitor_id];
+		if (ad->picasso_on) {
+			return rbc->monitor_id;
+		}
+	} else {
+		int monid = rbc->monitor_id;
+		if (rtg_visible[monid] >= 0) {
+			return monid;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 void gfxboard_rtg_disable(int monid, int index)
@@ -1773,7 +1750,6 @@ void gfxboard_vsync_handler(bool full_redraw_required, bool redraw_required)
 				}
 #endif
 				if (((!gb->board->hasswitcher && gb->rbc->autoswitch) || gb->board->id == GFXBOARD_ID_ALTAIS_Z3) && gb->vram) {
-					bool svga_on(void *p);
 					bool on = svga_on(gb->pcemobject2);
 					set_monswitch(gb, on);
 				}
@@ -1883,7 +1859,7 @@ void gfxboard_vsync_handler(bool full_redraw_required, bool redraw_required)
 			} else {
 				if (gb->pcemobject) {
 					if (gb->fullrefresh) {
-						gb->pcemdev->force_redraw(gb->pcemobject);
+						pcem_device_force_redraw(gb->pcemdev, gb->pcemobject);
 					} else {
 						pcem_flush(gb, i);
 					}
@@ -2057,7 +2033,6 @@ static void picassoiv_checkswitch (struct rtggfxboard *gb)
 		bool rtg_active = (gb->picassoiv_flifi & 1) == 0;
 		if (gb->pcemdev) {
 			if (gb->pcemobject) {
-				extern uae_u8 pcem_read_io(int, int);
 				v = pcem_read_io(0x3d5, 0x51);
 			}
 		} else {
@@ -3535,8 +3510,7 @@ static void gfxboard_free_board(struct rtggfxboard *gb)
 	}
 	if (gb->pcemdev) {
 		if (gb->pcemobject) {
-			pcemfreeaddeddevices();
-			gb->pcemdev->close(gb->pcemobject);
+			pcem_device_close(gb->pcemdev, gb->pcemobject);
 			gb->pcemobject = NULL;
 			gb->pcemobject2 = NULL;
 		}
@@ -4293,8 +4267,6 @@ static uae_u32 REGPARAM2 voodoo3_bios_lget(struct pci_board_state *pcibs, uaecpt
 	return (voodoo3_bios_wget(pcibs, addr + 0) << 24) | (voodoo3_bios_wget(pcibs, addr + 1) << 16) | (voodoo3_bios_wget(pcibs, addr + 2) << 8) | (voodoo3_bios_wget(pcibs, addr + 3) << 0);
 }
 
-uae_u8 get_pci_pcem(uaecptr addr);
-void put_pci_pcem(uaecptr addr, uae_u8 v);
 static const struct pci_config voodoo3_pci_config =
 {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, { 0, 0, 1, 0, 0, 0, 0 }
@@ -4638,7 +4610,9 @@ static const struct pci_board s3virge_pci_board =
 		{ NULL },
 		{ NULL },
 		{ voodoo3_bios_lget, voodoo3_bios_wget, voodoo3_bios_bget, NULL, NULL, NULL },
-		{ s3virge_io_lget, s3virge_io_wget, s3virge_io_bget, s3virge_io_lput, s3virge_io_wput, s3virge_io_bput }
+		{ s3virge_io_lget, s3virge_io_wget, s3virge_io_bget, s3virge_io_lput, s3virge_io_wput, s3virge_io_bput },
+		// Legacy VGA window (0xa0000-0xbffff), decoded by the VGA core without a BAR
+		{ voodoo3_mb0_lget, voodoo3_mb0_wget, voodoo3_mb0_bget, voodoo3_mb0_lput, voodoo3_mb0_wput, voodoo3_mb0_bput }
 	},
 	true,
 	get_pci_pcem, put_pci_pcem, pci_change_config
@@ -4661,7 +4635,9 @@ static const struct pci_board s3trio_pci_board =
 		{ NULL },
 		{ NULL },
 		{ voodoo3_bios_lget, voodoo3_bios_wget, voodoo3_bios_bget, NULL, NULL, NULL },
-		{ s3virge_io_lget, s3virge_io_wget, s3virge_io_bget, s3virge_io_lput, s3virge_io_wput, s3virge_io_bput }
+		{ s3virge_io_lget, s3virge_io_wget, s3virge_io_bget, s3virge_io_lput, s3virge_io_wput, s3virge_io_bput },
+		// Legacy VGA window, the Trio32/64 MMIO registers are at 0xa8000
+		{ voodoo3_mb0_lget, voodoo3_mb0_wget, voodoo3_mb0_bget, voodoo3_mb0_lput, voodoo3_mb0_wput, voodoo3_mb0_bput }
 	},
 	true,
 	get_pci_pcem, put_pci_pcem, pci_change_config
@@ -5003,6 +4979,7 @@ bool gfxboard_init_memory (struct autoconfig_info *aci)
 				gb->p4rom = flashromfile_open(_T("picasso_iv_flash.rom"));
 		}
 		if (gb->p4rom) {
+			zfile_fseek (gb->p4rom, 0, SEEK_SET);
 			zfile_fread (gb->p4autoconfig, sizeof gb->p4autoconfig, 1, gb->p4rom);
 			copyp4autoconfig (gb, gb->board->configtype == 3 ? 192 : 0);
 			if (gb->board->configtype == 3) {
@@ -5908,8 +5885,6 @@ static void REGPARAM2 gfxboard_bput_io_swap2_pcem(uaecptr addr, uae_u32 b)
 }
 
 
-void put_pci_pcem(uaecptr addr, uae_u8 v);
-uae_u8 get_pci_pcem(uaecptr addr);
 
 static uae_u32 REGPARAM2 gfxboard_bget_pci_pcem(uaecptr addr)
 {

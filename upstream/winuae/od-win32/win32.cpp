@@ -43,6 +43,7 @@
 #include <pktdef.h>
 
 #include "sysdeps.h"
+#include "gdb_server.h"
 #include "options.h"
 #include "audio.h"
 #include "sound.h"
@@ -110,17 +111,17 @@ extern int rawinput_enabled_hid, rawinput_log;
 extern int log_filesys;
 extern int forcedframelatency;
 extern int log_dsp;
-int log_scsi;
-int log_net;
-int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
+extern int log_scsi;
+extern int log_net;
+extern int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
 static int log_winmouse;
-int uaelib_debug;
-int pissoff_value = 15000 * CYCLE_UNIT;
-int pissoff_nojit_value = 160 * CYCLE_UNIT;
+extern int uaelib_debug;
+extern int pissoff_value;
+extern int pissoff_nojit_value;
 unsigned int fpucontrol;
 int extraframewait, extraframewait2;
 int busywait;
-int multithread_enabled = 1;
+extern int multithread_enabled;
 static int noNtDelayExecution;
 
 extern FILE *debugfile;
@@ -375,7 +376,7 @@ void target_calibrate_spin(void)
 		uae_u64 v1;
 		int vp2;
 		for (;;) {
-			v1 = __rdtsc();
+			v1 = read_processor_time_rdtsc();
 			vp2 = target_get_display_scanline(-1);
 			if (vp2 <= -10)
 				goto fail;
@@ -389,7 +390,7 @@ void target_calibrate_spin(void)
 			if (vp2 <= -10)
 				goto fail;
 			if (vp2 == vp + cntlines * 2) {
-				uae_u64 scd = (__rdtsc() - v1) / cntlines;
+				uae_u64 scd = (read_processor_time_rdtsc() - v1) / cntlines;
 				if (sc > scd)
 					sc = scd;
 			}
@@ -703,6 +704,8 @@ void resumesoundpaused (void)
 	resume_sound ();
 #ifdef AHI
 	ahi_open_sound ();
+#endif
+#ifdef AHI_V2
 	ahi2_pause_sound (0);
 #endif
 }
@@ -711,6 +714,8 @@ void setsoundpaused (void)
 	pause_sound ();
 #ifdef AHI
 	ahi_close_sound ();
+#endif
+#ifdef AHI_V2
 	ahi2_pause_sound (1);
 #endif
 }
@@ -2002,8 +2007,7 @@ static void StartCustomResize(AmigaMonitor *mon, HWND hWindow, int nEdge, int x,
 	inresizefirst = TRUE;
 	SetCapture(hWindow);
 	nSizingEdge = nEdge;
-	ptResizePos.x = x;
-	ptResizePos.y = y;
+	GetCursorPos(&ptResizePos);
 	GetWindowRect(hWindow, &rcResizeStartWindowRect);
 	getsizemove(mon);
 }
@@ -2224,6 +2228,7 @@ static LRESULT CALLBACK AmigaWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 			ignorelbutton = true;
 		break;
 	case WM_ACTIVATEAPP:
+		reset_drawing();
 		D3D_restore(0, false);
 		//write_log(_T("WM_ACTIVATEAPP %08x\n"), wParam);
 		if (!wParam && isfullscreen() > 0 && D3D_resize && !gui_active) {
@@ -2529,6 +2534,9 @@ static LRESULT CALLBACK AmigaWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 	case WM_KILLFOCUS:
 		//write_log(_T("killfocus\n"));
 		focus = 0;
+		if (inresizing) {
+			EndCustomResize(hWnd, FALSE);
+		}
 		return 0;
 
 	case WM_MOUSELEAVE:
@@ -2538,9 +2546,7 @@ static LRESULT CALLBACK AmigaWindowProc(HWND hWnd, UINT message, WPARAM wParam, 
 
 	case WM_MOUSEMOVE:
 	{
-		if (inresizing) {
-			CustomResizeMouseMove(mon, hWnd);
-		} else {
+		if (!inresizing) {
 			int wm = dinput_winmouse();
 
 			monitor_off = 0;
@@ -2943,6 +2949,10 @@ static LRESULT CALLBACK MainWindowProc (HWND hWnd, UINT message, WPARAM wParam, 
 	if (all_events_disabled)
 		return 0;
 
+	if (inresizing && message == WM_MOUSEMOVE) {
+		CustomResizeMouseMove(mon, hWnd);
+	}
+
 	switch (message)
 	{
 	case WM_SETCURSOR:
@@ -3304,7 +3314,15 @@ static LRESULT CALLBACK HiddenWindowProc (HWND hWnd, UINT message, WPARAM wParam
 			DiskSelection(isfullscreen() > 0 ? NULL : hWnd, IDC_DF3, 0, &changed_prefs, NULL, NULL);
 			disk_insert(3, changed_prefs.floppyslots[3].df);
 			break;
-
+		case ID_ST_DISPLAYS_CHIPSET:
+			toggle_rtg(0, 0);
+			break;
+		case ID_ST_MONITORS_PREVIOUSDISPLAY:
+			toggle_rtg(0, MAX_RTG_BOARDS + 1);
+			break;
+		case ID_ST_MONITORS_NEXTDISPLAY:
+			toggle_rtg(0, -1);
+			break;
 		}
 		break;
 	}
@@ -3340,6 +3358,7 @@ int handle_msgpump(bool vblank)
 
 bool handle_events (void)
 {
+	gdb_server_poll();
 	struct AmigaMonitor *mon = &AMonitors[0];
 	static int was_paused = 0;
 	static int cnt1, cnt2;
@@ -4504,6 +4523,7 @@ void target_default_options (struct uae_prefs *p, int type)
 		p->gf[GF_RTG].gfx_filter_autoscale = RTG_MODE_SCALE;
 		p->win32_rtgallowscaling = 0;
 		p->win32_rtgscaleaspectratio = -1;
+		p->win32_rtgnonsquarepixels = false;
 		p->win32_rtgvblankrate = 0;
 		p->rtg_hardwaresprite = true;
 		p->rtg_overlay = true;
@@ -4613,7 +4633,8 @@ void target_save_options (struct zfile *f, struct uae_prefs *p)
 			
 	cfgfile_target_dwrite_bool(f, _T("rtg_scale_small"), p->gf[GF_RTG].gfx_filter_autoscale == 1);
 	cfgfile_target_dwrite_bool(f, _T("rtg_scale_center"), p->gf[GF_RTG].gfx_filter_autoscale == 2);
-	cfgfile_target_dwrite_bool (f, _T("rtg_scale_allow"), p->win32_rtgallowscaling);
+	cfgfile_target_dwrite_bool(f, _T("rtg_scale_allow"), p->win32_rtgallowscaling);
+	cfgfile_target_dwrite_bool(f, _T("rtg_scale_nonsquarepixels"), p->win32_rtgnonsquarepixels);
 	cfgfile_target_dwrite (f, _T("rtg_scale_aspect_ratio"), _T("%d:%d"),
 		p->win32_rtgscaleaspectratio >= 0 ? (p->win32_rtgscaleaspectratio / ASPECTMULT) : -1,
 		p->win32_rtgscaleaspectratio >= 0 ? (p->win32_rtgscaleaspectratio & (ASPECTMULT - 1)) : -1);
@@ -4856,6 +4877,8 @@ static int target_parse_option_host(struct uae_prefs *p, const TCHAR *option, co
 	}
 	if (cfgfile_yesno(option, value, _T("rtg_scale_allow"), &p->win32_rtgallowscaling))
 		return 1;
+	if (cfgfile_yesno(option, value, _T("rtg_scale_nonsquarepixels"), &p->win32_rtgnonsquarepixels))
+		return 1;
 
 	if (cfgfile_intval(option, value, _T("soundcard"), &p->win32_soundcard, 1)) {
 		if (p->win32_soundcard < 0 || p->win32_soundcard >= MAX_SOUND_DEVICES || sound_devices[p->win32_soundcard] == NULL)
@@ -5004,21 +5027,22 @@ static int target_parse_option_host(struct uae_prefs *p, const TCHAR *option, co
 		return 1;
 	}
 
-	if (cfgfile_string_escape(option, value, _T("parallel_port"), &p->prtname[0], 256)) {
+	if (cfgfile_string_escape(option, value, _T("parallel_port"), &p->prtname[0], sizeof(p->prtname) / sizeof(TCHAR))) {
 		if (!_tcscmp(p->prtname, _T("none")))
 			p->prtname[0] = 0;
 		if (!_tcscmp(p->prtname, _T("default"))) {
 			p->prtname[0] = 0;
-			DWORD size = 256;
+			DWORD size = sizeof(p->prtname) / sizeof(TCHAR);
 			GetDefaultPrinter(p->prtname, &size);
 		}
 		return 1;
 	}
 
-	if (cfgfile_string_escape(option, value, _T("midiout_device_name"), tmpbuf, 256)) {
+	if (cfgfile_string_escape(option, value, _T("midiout_device_name"), tmpbuf, sizeof(tmpbuf) / sizeof(TCHAR))) {
 		p->win32_midioutdev = -2;
-		if (!_tcsicmp (tmpbuf, _T("default")) || (midioutportinfo[0] && !_tcsicmp (tmpbuf, midioutportinfo[0]->name)))
+		if (!_tcsicmp (tmpbuf, _T("default"))) {
 			p->win32_midioutdev = -1;
+		}
 		for (int i = 0; i < MAX_MIDI_PORTS && midioutportinfo[i]; i++) {
 			if (!_tcsicmp (midioutportinfo[i]->name, tmpbuf)) {
 				p->win32_midioutdev = midioutportinfo[i]->devid;
@@ -5026,7 +5050,7 @@ static int target_parse_option_host(struct uae_prefs *p, const TCHAR *option, co
 		}
 		return 1;
 	}
-	if (cfgfile_string_escape(option, value, _T("midiin_device_name"), tmpbuf, 256)) {
+	if (cfgfile_string_escape(option, value, _T("midiin_device_name"), tmpbuf, sizeof(tmpbuf) / sizeof(TCHAR))) {
 		p->win32_midiindev = -1;
 		for (int i = 0; i < MAX_MIDI_PORTS && midiinportinfo[i]; i++) {
 			if (!_tcsicmp (midiinportinfo[i]->name, tmpbuf)) {
@@ -5914,8 +5938,11 @@ static void WIN32_HandleRegistryStuff (void)
 
 	if (regexists (NULL, _T("SoundDriverMask"))) {
 		regqueryint (NULL, _T("SoundDriverMask"), &sounddrivermask);
+		if (!sounddrivermask) {
+			sounddrivermask = SOUNDDRIVER_WASAPI;
+		}
 	} else {
-		sounddrivermask = 2;
+		sounddrivermask = SOUNDDRIVER_WASAPI;
 		regsetint (NULL, _T("SoundDriverMask"), sounddrivermask);
 	}
 
@@ -6633,16 +6660,20 @@ static void makeverstr (TCHAR *s)
 			_stprintf (BetaStr, _T(" (%sBeta %s, %d.%02d.%02d)"), WINUAEPUBLICBETA > 0 ? _T("Public ") : _T(""), WINUAEBETA,
 				GETBDY(WINUAEDATE), GETBDM(WINUAEDATE), GETBDD(WINUAEDATE));
 		}
-#ifdef _WIN64
-		_tcscat (BetaStr, _T(" 64-bit"));
+#if defined _M_ARM64
+		_tcscat(BetaStr, _T(" ARM64"));
+#elif defined _WIN64
+		_tcscat (BetaStr, _T(" x64"));
 #endif
 		_stprintf (s, _T("WinUAE %d.%d.%d%s%s"),
 			UAEMAJOR, UAEMINOR, UAESUBREV, WINUAEREV, BetaStr);
 	} else {
 		_stprintf (s, _T("WinUAE %d.%d.%d%s (%d.%02d.%02d)"),
 			UAEMAJOR, UAEMINOR, UAESUBREV, WINUAEREV, GETBDY(WINUAEDATE), GETBDM(WINUAEDATE), GETBDD(WINUAEDATE));
-#ifdef _WIN64
-		_tcscat (s, _T(" 64-bit"));
+#if defined _M_ARM64
+		_tcscat(s, _T(" ARM64"));
+#elif defined _WIN64
+		_tcscat(s, _T(" x64"));
 #endif
 	}
 	if (_tcslen (WINUAEEXTRA) > 0) {
@@ -7744,8 +7775,10 @@ static void create_dump (struct _EXCEPTION_POINTERS *pExceptionPointers)
 		if (WINUAEPUBLICBETA > 0)
 			_stprintf (beta, _T("b%s"), WINUAEBETA);
 		_stprintf (dumpfilename, _T("winuae%s_%d.%d.%d_%s_%d.%02d.%02d_%02d.%02d.%02d.dmp"),
-#ifdef _WIN64
+#if defined __amd64__
 			_T("_x64"),
+#elif defined _M_ARM64
+			_T("_ARM64"),
 #else
 			_T(""),
 #endif
@@ -7949,7 +7982,7 @@ void registertouch(HWND hwnd)
 #if TOUCH_SUPPORT
 	REGISTERTOUCHWINDOW pRegisterTouchWindow;
 
-	if (!os_touch)
+	if (!os_touch || rp_isactive())
 		return;
 	pRegisterTouchWindow = (REGISTERTOUCHWINDOW)GetProcAddress(userdll, "RegisterTouchWindow");
 	pGetTouchInputInfo = (GETTOUCHINPUTINFO)GetProcAddress(userdll, "GetTouchInputInfo");
@@ -8120,14 +8153,22 @@ HMODULE WIN32_LoadLibrary_2 (const TCHAR *name, int expand)
 		case 1:
 			p = _tcschr (newname, '.');
 			if (p) {
+#ifdef _M_ARM64
+				_tcscpy(p, _T("_arm64"));
+#else
 				_tcscpy(p, _T("_x64"));
+#endif
 				_tcscat(p, _tcschr(name, '.'));
 			}
 			break;
 		case 2:
 			p = _tcschr (newname, '.');
 			if (p) {
+#ifdef _M_ARM64
+				_tcscpy(p, _T("arm64"));
+#else
 				_tcscpy(p, _T("x64"));
+#endif
 				_tcscat(p, _tcschr(name, '.'));
 			}
 			break;

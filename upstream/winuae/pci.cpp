@@ -45,7 +45,9 @@ static struct pci_bridge *bridges[PCI_BRIDGE_MAX + 1];
 static int last_bridge_index;
 static struct pci_board_state *hsyncs[MAX_PCI_BOARDS + 1];
 
+namespace {
 extern addrbank pci_config_bank, pci_io_bank, pci_mem_bank, pci_bridge_bank;
+}
 
 static void pci_board_free(struct pci_board_state *pcibs)
 {
@@ -392,10 +394,20 @@ static struct pci_board_state *get_pci_board_state(struct pci_bridge *pcib, uaec
 	if (io && addr2 < 0x400) {
 		for (int i = 0; i < MAX_PCI_BOARDS; i++) {
 			struct pci_board_state *pcibs = &pcib->boards[i];
-			if (pcibs->board && pcibs->board->bars[MAX_PCI_BARS].bget) {
+			if (pcibs->board && pcibs->board->bars[PCI_LEGACY_IO].bget) {
 				stored_board = i;
-				stored_bar = MAX_PCI_BARS;
+				stored_bar = PCI_LEGACY_IO;
 				*bar = stored_bar;
+				return pcibs;
+			}
+		}
+	}
+	// VGA cards also decode the legacy VGA memory window without a BAR
+	if (!io && addr2 >= 0xa0000 && addr2 < 0xc0000) {
+		for (int i = 0; i < MAX_PCI_BOARDS; i++) {
+			struct pci_board_state *pcibs = &pcib->boards[i];
+			if (pcibs->board && pcibs->board->bars[PCI_LEGACY_VGA].bget && pcibs->memory_map_active) {
+				*bar = PCI_LEGACY_VGA;
 				return pcibs;
 			}
 		}
@@ -707,7 +719,7 @@ static uae_u32 REGPARAM2 pci_config_lget(uaecptr addr)
 }
 static uae_u32 REGPARAM2 pci_config_wget(uaecptr addr)
 {
-	uae_u32 v = 0xffff;
+	uae_u32 v = 0xffffffff;
 	int endianswap;
 	uae_u8 *config = get_pci_config(addr, -2, v, &endianswap);
 	if (config) {
@@ -729,9 +741,9 @@ static uae_u32 REGPARAM2 pci_config_wget(uaecptr addr)
 }
 static uae_u32 REGPARAM2 pci_config_bget(uaecptr addr)
 {
-	uae_u8 v = 0xff;
+	uae_u32 v = 0xffffffff;
 	int endianswap;
-	uae_u8 *config = get_pci_config(addr, -1, 0, &endianswap);
+	uae_u8 *config = get_pci_config(addr, -1, v, &endianswap);
 	if (config) {
 		uae_u32 offset = addr & 0xff;
 		if (!endianswap) {
@@ -1245,13 +1257,13 @@ static void mediator_set_window_offset_window(struct pci_bridge *pcib, int windo
 
 static void mediator_set_window_offset(struct pci_bridge *pcib, uae_u16 v)
 {
-	v = do_byteswap_16(v);
 	if (pcib->bank_2_zorro == 3) {
-		// 4000
+		// 4000: the byte register selects PCI address bits 31..28.
 		pcib->window[0] = v & 0xf0;
-		pcib->memory_start_offset[0] = pcib->window[0] << 18;
+		pcib->memory_start_offset[0] = pcib->baseaddress - ((uae_u32)pcib->window[0] << 24);
 	} else {
-		// 1200
+		// 1200: window selection is a little-endian word register.
+		v = do_byteswap_16(v);
 		if (pcib->multiwindow) {
 			// TX has 2x4M banks
 			if (v & 0x0010) {
@@ -1461,34 +1473,36 @@ static void REGPARAM2 pci_bridge_lput_2(uaecptr addr, uae_u32 b)
 	pci_bridge_wput_2(addr + 2, b >>  0);
 }
 
-static addrbank pci_config_bank = {
+namespace {
+addrbank pci_config_bank = {
 	pci_config_lget, pci_config_wget, pci_config_bget,
 	pci_config_lput, pci_config_wput, pci_config_bput,
 	default_xlate, default_check, NULL, NULL, _T("PCI CONFIG"),
 	pci_config_lget, pci_config_wget,
 	ABFLAG_IO | ABFLAG_SAFE, S_READ, S_WRITE
 };
-static addrbank pci_io_bank = {
+addrbank pci_io_bank = {
 	pci_io_lget, pci_io_wget, pci_io_bget,
 	pci_io_lput, pci_io_wput, pci_io_bput,
 	default_xlate, default_check, NULL, NULL, _T("PCI IO"),
 	pci_io_lget, pci_io_wget,
 	ABFLAG_IO | ABFLAG_SAFE, S_READ, S_WRITE
 };
-static addrbank pci_mem_bank = {
+addrbank pci_mem_bank = {
 	pci_mem_lget, pci_mem_wget, pci_mem_bget,
 	pci_mem_lput, pci_mem_wput, pci_mem_bput,
 	default_xlate, default_check, NULL, NULL, _T("PCI MEMORY"),
 	pci_mem_lget, pci_mem_wget,
 	ABFLAG_IO | ABFLAG_SAFE, S_READ, S_WRITE
 };
-static addrbank pci_bridge_bank = {
+addrbank pci_bridge_bank = {
 	pci_bridge_lget, pci_bridge_wget, pci_bridge_bget,
 	pci_bridge_lput, pci_bridge_wput, pci_bridge_bput,
 	default_xlate, default_check, NULL, NULL, _T("PCI BRIDGE"),
 	pci_bridge_lget, pci_bridge_wget,
 	ABFLAG_IO | ABFLAG_SAFE, S_READ, S_WRITE
 };
+}
 static addrbank pci_bridge_bank_2 = {
 	pci_bridge_lget_2, pci_bridge_wget_2, pci_bridge_bget_2,
 	pci_bridge_lput_2, pci_bridge_wput_2, pci_bridge_bput_2,
