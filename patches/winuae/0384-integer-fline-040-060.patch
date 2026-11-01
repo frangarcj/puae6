@@ -1,7 +1,7 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2153,13 +2153,24 @@
+@@ -2182,13 +2182,24 @@
  
  #ifdef P6_PORTABLE
  	if (currprefs.cpu_model >= 68020) {
