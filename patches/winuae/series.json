@@ -2528,7 +2528,7 @@
     {
       "id": "0430-portable-rtg-prefs",
       "file": "patches/winuae/0430-portable-rtg-prefs.patch",
-      "sha256": "78af13bdd48c447355019eaf34b6961bfdc74bc55415923905489e5b93270a56",
+      "sha256": "2d8bf36e04ad7825d50c9eb28ec67243ece09a1b2d528a0b2cc0c2350f812025",
       "title": "Preserve the bounded portable RTG board through preference fixup",
       "reason": "T85n configures one UAE Zorro III board without enabling the upstream AUTOCONFIG feature. The portable fixup therefore preserves board zero when P6_PORTABLE_RTG is linked while continuing to erase every unsupported additional RTG slot.",
       "category": "portable RTG preferences",
@@ -2542,8 +2542,8 @@
       "files": [
         {
           "path": "main.cpp",
-          "before_sha256": "923832bcff7f4f44b4c6d8b5bdd4fb2dbb8ad3e9017f89a2841e04f528c68ef1",
-          "after_sha256": "fe353c60249e9bebe4a29a9934d11d10f723b962ec27ddbd4ba38ee7b2c9f9c7"
+          "before_sha256": "7e93c7adf28a2e8f84ebe4f142d16e19d19b498803394b5f94d15a585791d5fb",
+          "after_sha256": "a738a20c57feb7f4bd829face7487f717cf6410d499b960a78bcb8d00b2658c9"
         }
       ]
     },

@@ -1,7 +1,7 @@
 diff --git a/main.cpp b/main.cpp
 --- a/main.cpp
 +++ b/main.cpp
-@@ -805,9 +805,15 @@ int fixup_prefs (struct uae_prefs *p, bool userconfig)
+@@ -800,9 +800,15 @@ int fixup_prefs (struct uae_prefs *p, bool userconfig)
  		if (i > 0)
  			p->fastmem[i].size = 0;
  	}
