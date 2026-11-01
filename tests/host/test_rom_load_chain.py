@@ -10,18 +10,24 @@ from tests.host.test_cpu_rom_guard import function
 from tests.host import ensure_generated
 
 ROOT = Path(__file__).resolve().parents[2]
+SOURCE_TREE = None
 
 
 class RomLoadChainTests(unittest.TestCase):
     def test_real_rommgr_to_memory_loader(self):
         ensure_generated()
-        tree = ROOT / "build/upstream"
+        tree = Path(SOURCE_TREE) if SOURCE_TREE else ROOT / "build/upstream"
+        support_tree = ROOT / "build/upstream"
         memory = (tree / "memory.cpp").read_text()
-        rommgr = (tree / "rommgr.cpp").read_text()
+        rommgr = (support_tree / "rommgr.cpp").read_text()
         memory_bodies = memory[memory.index("static int rom_load_status"):
                                 memory.index("#endif", memory.index("static int rom_load_status"))]
+        if "\nbool rom_write_enabled;" in memory:
+            memory_bodies += "\nbool rom_write_enabled;\n"
         memory_bodies += "\n".join(line for line in memory.splitlines()
                                      if line.startswith("#define EXTENDED_ROM_")) + "\n"
+        if "static bool is_builtin_aros_rom(" in memory:
+            memory_bodies += function(memory, "static bool is_builtin_aros_rom(")
         memory_bodies += function(memory, "static const uae_u8 romend[20]") + ";\n"
         for signature in (
             "static struct zfile *get_kickstart_filehandle(", "static int read_kickstart(",
@@ -55,8 +61,8 @@ class RomLoadChainTests(unittest.TestCase):
             (tmp / "rom_input_under_test.h").write_text(rom_input)
             common = ["-UNDEBUG", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
                       "-I" + str(tmp), "-I" + str(ROOT / "ports/portable"),
-                      "-I" + str(ROOT / "build/generated"), "-I" + str(tree / "include"),
-                      "-I" + str(tree)]
+                      "-I" + str(ROOT / "build/generated"), "-I" + str(support_tree / "include"),
+                      "-I" + str(support_tree)]
             for optimization in ("-O0", "-O2"):
                 blob, exe = tmp / "blob.o", tmp / "probe"
                 subprocess.run(["clang", "-std=c11", *common, optimization, "-c",
@@ -64,7 +70,7 @@ class RomLoadChainTests(unittest.TestCase):
                                check=True, timeout=30)
                 subprocess.run(["clang++", "-std=c++17", *common, optimization,
                                 str(ROOT / "tests/host/rom_load_chain_probe.cpp"),
-                                str(tree / "zfile.cpp"), str(tree / "crc32.cpp"),
+                                str(support_tree / "zfile.cpp"), str(support_tree / "crc32.cpp"),
                                 str(ROOT / "ports/portable/diagnostics.cpp"), str(blob),
                                 "-o", str(exe)], check=True, timeout=120)
                 subprocess.run([str(exe)], check=True, timeout=60,

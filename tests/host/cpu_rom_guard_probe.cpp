@@ -28,6 +28,7 @@
 #include "devices.h"
 #include "custom.h"
 #include "rom_status.h"
+#include "gdb_server.h"
 
 uae_prefs currprefs{}, changed_prefs{};
 // The front door of the FPU (T54, FPUEMU) that newcpu.cpp calls; these probes run a 68000 (fpu_model 0), which never reaches it, and fpp.cpp is not part of them.
@@ -85,6 +86,7 @@ uae_atomic atomic_or(volatile uae_atomic *p, uae_u32 v) { return __atomic_fetch_
 void reset_frame_rate_hack() { ++prelude_calls; }
 void update_68k_cycles() { ++prelude_calls; }
 bool set_cpu_tracer(bool) { ++prelude_calls; return false; }
+void clear_events() {}
 void init_custom() { std::abort(); }
 int inprec_open(const TCHAR *, const TCHAR *) { std::abort(); }
 void memory_clear() { ++memory_clear_calls; }

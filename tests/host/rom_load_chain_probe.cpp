@@ -184,8 +184,18 @@ static void cpu_metadata_rejection()
     changed_prefs.cs_ramseyrev = -1;
     changed_prefs.cs_fatgaryrev = -1;
     changed_prefs.cs_ide = 0;
+    currprefs.cpu_model = changed_prefs.cpu_model = 68000;
+    currprefs.address_space_24 = changed_prefs.address_space_24 = true;
     for (unsigned flag : {1u, 2u, 3u, 4u, 8u})
         expect_load("knownrom", P6_ROM_UNSUPPORTED, nullptr, false, true, flag);
+
+    currprefs.cpu_model = changed_prefs.cpu_model = 68020;
+    expect_load("knownrom", P6_ROM_LOAD_OK, &raw, false, true, 1);       // 68EC020
+    for (unsigned flag : {2u, 3u, 4u, 8u})
+        expect_load("knownrom", P6_ROM_UNSUPPORTED, nullptr, false, true, flag);
+
+    currprefs.address_space_24 = changed_prefs.address_space_24 = false;
+    expect_load("knownrom", P6_ROM_LOAD_OK, &raw, false, true, 2);       // full 68020
     assert(currprefs.cs_compatible == 1 && currprefs.cs_ramseyrev == -1 &&
            currprefs.cs_fatgaryrev == -1 && currprefs.cs_ide == 0);
     assert(changed_prefs.cs_compatible == 1 && changed_prefs.cs_ramseyrev == -1 &&
