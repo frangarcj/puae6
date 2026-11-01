@@ -109,9 +109,9 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-157855f9)
-es la descarga para los probadores. El [PR #20](https://github.com/frangarcj/BizHawk/pull/20)
-esta fusionado en `main` como `157855f9`. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-d54cb741)
+es la descarga para los probadores. El [PR #21](https://github.com/frangarcj/BizHawk/pull/21)
+esta fusionado en `main` como `d54cb741`. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
@@ -154,7 +154,7 @@ gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
 formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
 juegos. El ZIP Windows tiene SHA-256
-`7a1da49322036131bcc6ff8ce810ffa57d21ce76a0bbdd1f6991d92f23e4ff4e`.
+`d4be7754bf1a4516587be2ce2b2860a184069e38c630f545cac44ae337ca8712`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene
@@ -165,23 +165,27 @@ CAPSImg; el EmuTOS libre se conserva.
 
 La candidata ejecuta en Windows real la ABI de quince slots, callback/reentrada,
 restauracion exacta del estado completo en otro sandbox, comparacion A/V, cuatro
-pruebas CHD nativas y una tercera sandbox A4000/040 con CPU/FPU 68040,
-multiplicador X8 y RTG4 que avanza con lienzo 1024x768. La prueba GUI abre
+pruebas CHD nativas y sandboxes A4000/030, LC040 y 68040 con FPU. Las consultas
+arquitectonicas de CPU/MMU del 68030 funcionan con la traduccion MMU deshabilitada;
+LC040 sin FPU entrega la excepcion Line-F correcta y 040+FPU conserva sus consultas.
+El mismo programa propio mide mas trabajo con X8 que con X2 sin usar reloj de pared.
+La prueba RTG usa A4000/040, CPU/FPU 68040, multiplicador X8 y RTG4 con lienzo
+1024x768. La prueba GUI abre
 contenido propio, reconoce PUAE6 en la ventana visible y la cierra normalmente.
 Solo esa configuracion temporal usa el fallback de audio Dummy de BizHawk porque
 el runner no tiene dispositivo; no cambia la configuracion distribuida ni
 elimina la comparacion del PCM emulado. La ejecucion dirigida
-[41247454978](https://github.com/frangarcj/BizHawk/actions/runs/41247454978)
-supera todas esas etapas sobre el commit probado `a5e68d684`. Las matrices de
-`main` de [solucion](https://github.com/frangarcj/BizHawk/actions/runs/41248063696)
-y [Waterbox](https://github.com/frangarcj/BizHawk/actions/runs/41248063609)
-terminan correctamente sobre el merge `157855f9`; la release PUAE6 apunta a ese
+[41293783929](https://github.com/frangarcj/BizHawk/actions/runs/41293783929)
+supera todas esas etapas sobre el merge probado `d54cb741`. Las matrices de
+`main` de [solucion](https://github.com/frangarcj/BizHawk/actions/runs/41291831919)
+y [Waterbox](https://github.com/frangarcj/BizHawk/actions/runs/41291832037)
+terminan correctamente sobre el mismo merge; la release PUAE6 apunta a ese
 contenido probado. El guest x64 es
-`fc5ceecd3ad85f7a65ae12f67a76f7d062a4f9c9c5d3e7f7a70502a2b138f48e`.
+`0f9f99dfcf462277538755b356ef65c7dd06dd6b046b72f95bbb8e5e15e81087`.
 El paquete Darwin ARM64 separado de esta candidata fija el guest
-`4d9d8cf0936a943d8b38503eb22eb8761bf067566991780563a42406da0c8b38`;
+`ae086e70e6b1396c16bb57b04c1fba1dcb981842b119c442546cb12d03476c5b`;
 su archivo tiene SHA-256
-`39bddac35f70a16f2e554b0fdb3eeded776783d46db7e9ab8cc29a3fc0b5637e`,
+`1080ccb0f01229906d57d35da01015406ac756557af079cddbb7e830bf5e3c8e`,
 su `manifest.json` registra revision, runtime y hashes exactos, y supera la
 comprobacion instalada. Sigue siendo un paquete FFI, no un frontend WinForms
 para macOS.
@@ -196,7 +200,7 @@ cambiar el reloj ni el buffer causal, y CD32/CDTV publican la actividad optica e
 el indicador de unidad. Esto no generaliza compatibilidad a todo el catalogo ni
 promete estados entre builds.
 
-## Preview publicada A4000/040 T96
+## Preview historica A4000/040 T96
 
 La preview de [la release `puae6-preview-157855f9`](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-157855f9),
 integrada mediante el [PR #20](https://github.com/frangarcj/BizHawk/pull/20),

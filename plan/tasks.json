@@ -28114,7 +28114,7 @@
       "title": "Publicar preview con consultas CPU y uaescsi automatico",
       "milestone": "M4",
       "required": false,
-      "status": "in_progress",
+      "status": "done",
       "blocked_reason": "",
       "depends": [
         "T96",
@@ -28132,12 +28132,18 @@
         "build/machawk-puae6/.github/workflows/hatari-waterbox-preview.yml",
         "build/machawk-puae6/waterbox/puae6/README.md",
         "build/machawk-puae6/waterbox/puae6/prepare.py",
-        "build/machawk-puae6/waterbox/puae6/windows-smoke.py"
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/test_machawk_windows.py"
       ],
       "touch": [
         "build/machawk-puae6/**",
         "docs/user/waterbox-preview.md",
         "docs/user/release-notes.md",
+        "tests/test_machawk_windows.py",
         "tools/check.py",
         "plan/tasks.json"
       ],

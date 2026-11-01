@@ -31,11 +31,19 @@ class WindowsCandidateTests(unittest.TestCase):
         record = records[0]
         guest = ROOT / 'build/waterbox-x64/release/puae6.wbx'
         self.assertEqual(record['native']['puae6.wbx'], hashlib.sha256(guest.read_bytes()).hexdigest())
-        for key, value in dict(abi_slots=15, callbacks=1, reentries=1, sandboxes=2, advanced_frames=10, baseline_frame=3, future_frame=6, restored_frames=3).items():
+        for key, value in dict(abi_slots=15, callbacks=1, reentries=1, sandboxes=7, advanced_frames=19, baseline_frame=3, future_frame=6, restored_frames=3).items():
             self.assertEqual(record[key], value)
+        self.assertEqual(record['uaescsi_default'], 'Auto')
+        self.assertEqual(record['uaescsi_policy'], {
+            'uaescsi_auto_without_cd': 'Disabled', 'uaescsi_auto_with_cd': 'Enabled',
+            'uaescsi_enabled_without_cd_rejected': True, 'uaescsi_enabled_ide_rejected': True})
+        cpu = record['cpu_queries']
+        self.assertEqual((cpu['a4030_query'], cpu['lc040_query_frame'], cpu['fpu040_query_result']),
+                         ('0300c0de/80000000', '402c', '3ffd0000'))
+        self.assertGreater(cpu['a4030_x8_loops'], cpu['a4030_x2_loops'])
         self.assertNotEqual(record['baseline_sha256'], record['future_sha256'])
         self.assertIn('Ran 4 tests', log)
-        print('Windows candidate:', commit, run_id, 'actual ABI, full restore and four native CHD checks PASS')
+        print('Windows candidate:', commit, run_id, 'CPU queries, uaescsi policy, ABI, full restore and four native CHD checks PASS')
 
 
 class WindowsGuiTests(WindowsCandidateTests):

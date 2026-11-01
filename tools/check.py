@@ -1520,6 +1520,11 @@ TASK_SUITES[('BUILD01', 'T96')] = {
         'tests.ffi.test_bizhawk_tree.BizHawkTreeTests.test_preferred_puae6_is_strict_for_amiga_adf_and_hdf',
     'rtg_a4040_sync_setting_compiles_against_machawk':
         'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('BUILD01', 'T101')] = {
+    'real_windows_cpu_queries_uaescsi_restore_chd':
+        'tests.test_machawk_windows.WindowsCandidateTests',
+    'real_windows_product_gui':
+        'tests.test_machawk_windows.WindowsGuiTests.test_real_windows_frontend_loads_puae6_and_closes_normally'}
 TASK_SUITES[('WB03', 'T95b')] = {
     'rtg_a4040_wrapper_new_sandbox_restore':
         'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_a4040_internal_fpu_rtg_restores_in_another_sandbox'}

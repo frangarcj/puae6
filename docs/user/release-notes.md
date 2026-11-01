@@ -1,4 +1,54 @@
-# PUAE6: primera entrega utilizable local
+# PUAE6: preview CPU/uaescsi T101
+
+Decision: **READY para el alcance de preview declarado**. La prerelease
+[`puae6-preview-d54cb741`](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-d54cb741)
+corresponde al merge MacHawk `d54cb7416cd8396d03335b950c902b5957f624c9`
+del [PR #21](https://github.com/frangarcj/BizHawk/pull/21).
+
+## Paquetes publicados
+
+| Producto | Archivo | SHA-256 |
+| --- | --- | --- |
+| EmuHawk Windows x64 | `BizHawk-PUAE6-preview-windows-x64-d54cb741.zip` | `d4be7754bf1a4516587be2ce2b2860a184069e38c630f545cac44ae337ca8712` |
+| Waterbox standalone macOS ARM64 | `puae6-waterbox-macos-arm64-preview-d8efc52f.zip` | `1080ccb0f01229906d57d35da01015406ac756557af079cddbb7e830bf5e3c8e` |
+
+El ZIP Windows contiene el guest x64
+`0f9f99dfcf462277538755b356ef65c7dd06dd6b046b72f95bbb8e5e15e81087`,
+el lector CHD, las fuentes `source.tar.gz`
+`5d6a53df58a312372f7e419663ddf3aff874f6bf2095f1c31dce962d7808e727`
+y `source-x64.tar.gz`
+`0d5878b5720f76d4a269e5183ff5264896f5445f6966474710a0a52ba3f89b3a`,
+licencias y avisos. El paquete Darwin fija el guest
+`ae086e70e6b1396c16bb57b04c1fba1dcb981842b119c442546cb12d03476c5b`.
+Los dos assets descargados de la release coinciden byte a byte con los paquetes
+auditados. No contienen Kickstart, juegos, HDF ni los medios privados de prueba.
+
+## Cambios y comprobaciones
+
+Las consultas arquitectonicas del 68030 ya funcionan con traduccion MMU
+deshabilitada; LC040 sin FPU recibe la excepcion Line-F correcta y 040+FPU
+conserva sus consultas. El presupuesto determinista de CPU distingue X2 y X8.
+`uaescsi.device` ofrece `Disabled`, `Auto` y `Enabled`: Auto sin CD se resuelve
+a deshabilitado y con CD en una topologia compatible se habilita sin cambiar la
+maquina ni el controlador elegidos.
+
+Las matrices integradas de
+[solucion](https://github.com/frangarcj/BizHawk/actions/runs/41291831919) y
+[Waterbox](https://github.com/frangarcj/BizHawk/actions/runs/41291832037)
+terminan correctamente sobre el merge. La puerta
+[Windows real](https://github.com/frangarcj/BizHawk/actions/runs/41293783929)
+compila EmuHawk Release y comprueba consultas 030/LC040/040+FPU, multiplicador,
+politica uaescsi, ABI/reentrada, restauracion entre sandboxes, CHD y apertura y
+cierre de la GUI antes de generar el artefacto publicado.
+
+## Limites
+
+JIT y MMU permanecen deshabilitados. SysInfo 3.24 puede mostrar campos nulos o
+incompletos con LC040 sin FPU aunque esa combinacion ya no se cuelga; para esa
+utilidad antigua se recomienda 040 con FPU. Estados y peliculas dependen del
+build, configuracion y medios y no son intercambiables con UAE ni otros builds.
+
+## Entrega historica inicial
 
 Decision: **READY para el alcance declarado abajo**. Los paquetes quedan locales
 para revision; esta decision no publica una release ni modifica MacHawk.
