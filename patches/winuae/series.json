@@ -1026,9 +1026,9 @@
     {
       "id": "0368-akiko-state-aggregate",
       "file": "patches/winuae/0368-akiko-state-aggregate.patch",
-      "sha256": "a92186ff887411d7012dd75effdd82ca43a0469469f7cd0df680b291ff40fa57",
-      "title": "Aggregate private Akiko state and validate candidates without owners",
-      "reason": "T66m3b preflights controller, transport and backend/player together before applying; callback bindings are reconstructed without replaying device work. Value-only validators accept candidate scheduler/configuration/CDA period before destination owners exist.",
+      "sha256": "4420e62fcf2c728c1a6b8c2dd453fc6732bdb5bfdd4adeeca1069b584879f622",
+      "title": "Aggregate private Akiko state with owner-independent validation",
+      "reason": "T95dg validates controller, transport and CD backend/player by value before a transactional apply to an initialized destination. It preserves cold DMA mapping and exact RX/TX, subcode, EEPROM/C2P and PCM continuation without I/O, callbacks, allocation or time advance.",
       "category": "host hooks",
       "order": 39,
       "symbols": [
@@ -1039,19 +1039,19 @@
         "p6_akiko_transport_validate",
         "p6_cda::validate"
       ],
-      "test": "tests/media/test_akiko_state.py",
+      "test": "tests/media/test_cd_device_state.py; tests/media/test_akiko_state.py",
       "upstream_candidate": false,
       "removal_version": null,
       "files": [
         {
           "path": "akiko.cpp",
-          "before_sha256": "98d45d056c61dbfca951e47b336ca0519c9b48b3aa5877f4bbe0aa15b978644e",
-          "after_sha256": "0c63c8a3e63240e0b07a6a0e0e516eea1eb35ca694fa336ca04e51b14ec8f207"
+          "before_sha256": "cfa52b0ba847ac3af36ffd831c59196d26784ef709f77c0baa77d594c874c4f9",
+          "after_sha256": "4aa3380e1fe944a92b6d1e0b5ea7edc152966d083e35f41ff3231f66639d64f6"
         },
         {
           "path": "audio.cpp",
-          "before_sha256": "36d7dfb5c432ca70ac22f5d30b75e2d6b7eebecabea46f46932bdf521e203e69",
-          "after_sha256": "2d2eb3492fd1d3a2f9ea4b02db43dc2643eceef90e7ef6cafd882c003bd62357"
+          "before_sha256": "2b9c88706bf17800b98b2fe0f59b16ad0fa238918892437226342090fccd3a50",
+          "after_sha256": "01bbf017584ecd94ee737586909079bd0b1b32002de8de1e624b2b4716eed2b6"
         }
       ]
     },

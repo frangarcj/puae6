@@ -47,7 +47,7 @@ diff --git a/akiko.cpp b/akiko.cpp
  #define P6_AKIKO_CAPTURE(type, name) s->name = name;
      P6_AKIKO_CONTROL_FIELDS(P6_AKIKO_CAPTURE)
  #undef P6_AKIKO_CAPTURE
-@@ -2391,9 +2399,50 @@
+@@ -2391,8 +2399,49 @@
      }
      const auto &c = s->clock;
      akiko_clock = {c.cycle, c.rate, c.sector, c.qcode, c.media, bool(c.first), bool(c.q_due), bool(c.media_due), int(c.speed)};
@@ -98,11 +98,10 @@ diff --git a/akiko.cpp b/akiko.cpp
 +        p6_akiko_controller_apply(&s->controller, c.cycle) && p6_akiko_transport_apply(&s->transport);
  }
  #endif
- 
 diff --git a/audio.cpp b/audio.cpp
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -3175,7 +3175,6 @@
+@@ -3184,7 +3184,6 @@
  {
      return base && reinterpret_cast<uintptr_t>(base) % alignof(int16_t) == 0 && frames && frames <= kMaxFrames;
  }
@@ -110,7 +109,7 @@ diff --git a/audio.cpp b/audio.cpp
  bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, State *out)
  {
      if (!out || !geometry(base, frames) || !available(cas)) return false;
-@@ -3198,12 +3197,13 @@
+@@ -3207,12 +3206,13 @@
              s.channel[i] = {ch.current_sample, ch.last_sample, ch.sample_accum, ch.sample_accum_time};
          }
      }
@@ -128,7 +127,7 @@ diff --git a/audio.cpp b/audio.cpp
      for (int i = 0; i < 2; ++i) {
          if (s.volume[i] < 0 || s.volume[i] > 32768) return false;
          const auto &ch = s.channel[i];
-@@ -3217,7 +3217,7 @@
+@@ -3226,7 +3226,7 @@
  }
  bool can_restore(const cd_audio_state &cas, const int16_t *base, uint32_t frames, const State &s)
  {
