@@ -2477,7 +2477,7 @@
     {
       "id": "0428-portable-uaegfx-bootstrap",
       "file": "patches/winuae/0428-portable-uaegfx-bootstrap.patch",
-      "sha256": "42cc3c692bb82f84f251f3f5315d5c9cc928fb4c825642f12bc3ebbe13b9117c",
+      "sha256": "51b2a2583572c24f12a5e4158d322a60b4f283c7d14e4163bb9e9ca7f05d96fd",
       "title": "Bootstrap the bounded uaegfx resident through RTAREA and the filesystem resident list",
       "reason": "T85i compiles the portable RTG closure without enabling upstream PICASSO96 or its Win32 backend. T97 additionally proves that filesys_init_storeinfo is a simple trap with no TrapContext, so it cannot call back into Exec to construct uaegfx.card. The DiagArea path now publishes the fixed resident into Exec's ResModules list; AmigaOS performs its normal AUTOINIT after the bounded Z3 bank maps, without a host thread or nested CPU scheduler.",
       "category": "portable RTG guest bootstrap",
@@ -2492,13 +2492,13 @@
       "files": [
         {
           "path": "autoconf.cpp",
-          "before_sha256": "927960fc3e4ba04157a8d368d11958af6fa533874d95d1818a72642be4c1dd9d",
-          "after_sha256": "d29226c0f193c3b684128cdb78fba4444d23822dfe581146eefca8081827f760"
+          "before_sha256": "a4d415ebe1bb16ca9770e6d16f6b013fe547a56c627b74821d9961fd08c6137f",
+          "after_sha256": "f6211e05269582c02efc3c79d86f3803e967dc91ce1c286fdf255b5d231cea76"
         },
         {
           "path": "filesys.cpp",
-          "before_sha256": "9461942d28bbcc4520fbe40ef2627d77e65dd13efb5decbfd5f098d814b73aab",
-          "after_sha256": "ada11b08871d8478f8a7adff7f380eb7b29d27dc666a839d25318cc9d9ce8877"
+          "before_sha256": "3e9a4176927e11fd56002d571115edd32095e8b0bd8247e515f761609236746f",
+          "after_sha256": "c04f67fa007ad870dd674591248cf6fbb5f230e7c6a313847807fa65b74638d2"
         }
       ]
     },
