@@ -123,7 +123,7 @@ public sealed class Puae6Settings
 /// The settings that change what the machine does, so they are part of a movie and of a save state's identity (docs/02-contracts.md, "Configuracion"):
 /// the same normalized values feed the guest, and a change needs a reboot of the core. No hardware option is exposed that the profile cannot run.
 /// </summary>
-public sealed class Puae6SyncSettings
+public sealed partial class Puae6SyncSettings
 {
 	/// <summary>Restart option: Auto builds the three-volume WHDLoad bundle from one installed pack; Disabled keeps the generic volume loader.</summary>
 	public Puae6WhdLoadMode WhdLoad { get; set; } = Puae6WhdLoadMode.Auto;

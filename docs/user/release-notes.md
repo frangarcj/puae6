@@ -1,3 +1,36 @@
+# PUAE6: preview de perfiles MacHawk T102
+
+Decision: **READY para el alcance de preview declarado**. La prerelease
+[`puae6-preview-9b50966e`](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-9b50966e)
+corresponde al merge MacHawk `9b50966e10101b98b75e772e7b000924f2835bf0`
+del [PR #22](https://github.com/frangarcj/BizHawk/pull/22).
+
+El archivo `BizHawk-PUAE6-preview-windows-x64-9b50966e.zip` mide
+123548753 bytes y tiene SHA-256
+`1bd646514b3cc7652366df63d08212a986154c6693c3ad5075813593675aa94e`.
+El asset descargado de la release coincide byte a byte con el paquete auditado;
+no contiene Kickstart, juegos, HDF ni los medios privados de prueba.
+
+MacHawk ofrece 16 perfiles completos, incluidos los seis presets del esquema.
+A4040 Normal y A4060 Normal aplican CPU, FPU y compatibilidad coherentes. El
+PropertyGrid muestra en fuente normal los valores del perfil y en negrita solo
+los overrides; cada fila puede volver a su baseline. El selector es virtual:
+las configuraciones existentes se infieren desde sus valores concretos y no se
+añade identidad serializada ni se cambian ABI, guest, estados o peliculas.
+
+La matriz de la candidata paso
+[Waterbox completo](https://github.com/frangarcj/BizHawk/actions/runs/41297886001)
+y [solucion con analizadores](https://github.com/frangarcj/BizHawk/actions/runs/41297886077).
+Sobre el merge pasaron la
+[solucion Linux/Windows](https://github.com/frangarcj/BizHawk/actions/runs/41299992665)
+y el [gate Windows real](https://github.com/frangarcj/BizHawk/actions/runs/41300012208),
+que compila EmuHawk Release y comprueba perfiles/overrides, ABI, RomLoader,
+restore entre sandboxes y CHD antes de producir el ZIP publicado.
+
+MMU, JIT, PPC y red permanecen fuera del perfil determinista. Las restantes
+diferencias funcionales se inventarian por separado; no se presentan como
+regresiones de esta vertical de interfaz.
+
 # PUAE6: preview CPU/uaescsi T101
 
 Decision: **READY para el alcance de preview declarado**. La prerelease

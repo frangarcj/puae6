@@ -64,6 +64,13 @@ se modifican. Darwin ARM64 conserva su carril FFI; la preview de producto para
 los probadores utiliza EmuHawk Windows x64. No se anuncia GUI WinForms macOS por compilar o
 ejecutar pruebas CLI.
 
+En Config > Cores > PUAE6, `Machine profile` aplica de una vez los defaults de
+cada maquina y los seis presets del esquema. A4040 Normal incluye 68040 y FPU
+interna; A4060 Normal incluye 68060 y FPU interna. Los valores normales aparecen
+sin resaltar y cada override en negrita; restablecer una fila recupera el valor
+del perfil. El selector no se serializa ni cambia por si mismo estados o peliculas:
+solo escribe los Sync Settings concretos que ya formaban su identidad.
+
 La prueba dirigida de la aplicacion real compara BK2/TAS, A/V, estado final y
 sandboxes aislados de UAE/PUAE6 con una micro-ROM propia y la referencia UAE
 compilada desde fuentes (incluye la correccion setjmp ya validada). El
@@ -109,9 +116,10 @@ el sysroot reconstruido desde fuentes fijadas; compilar el guest no sustituye su
 
 ## Descarga de EmuHawk Windows con PUAE6
 
-La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-d54cb741)
-es la descarga para los probadores. El [PR #21](https://github.com/frangarcj/BizHawk/pull/21)
-esta fusionado en `main` como `d54cb741`. Extraer la preview PUAE6 Windows x64 completa en una
+La [preview PUAE6 actual](https://github.com/frangarcj/BizHawk/releases/tag/puae6-preview-9b50966e)
+es la descarga para los probadores. El [PR #22](https://github.com/frangarcj/BizHawk/pull/22)
+esta fusionado en `main` como `9b50966e`; incorpora los perfiles de maquina sobre
+la base CPU/uaescsi del PR #21. Extraer la preview PUAE6 Windows x64 completa en una
 carpeta nueva e iniciar EmuHawk.exe con los requisitos habituales de BizHawk
 (.NET Framework 4.8 y Visual C++ x64). No requiere SDK, Python ni compilador.
 Elegir PUAE6 entre los cores preferidos de Amiga, configurar una Kickstart propia
@@ -154,7 +162,7 @@ gestor de firmware una ROM propia autorizada bajo `CD32FMV`. Se reconocen los
 dumps raw conocidos r40.22/r40.30 de 256 KiB y el contenedor r40.30 de 512 KiB
 formado por dos mitades identicas. La descarga no incluye ROM del cartucho ni
 juegos. El ZIP Windows tiene SHA-256
-`d4be7754bf1a4516587be2ce2b2860a184069e38c630f545cac44ae337ca8712`.
+`1bd646514b3cc7652366df63d08212a986154c6693c3ad5075813593675aa94e`.
 
 Los ajustes, exportacion HDF, Soft/Hard Reset, estados y herramientas generales
 se usan desde los menus existentes. Conservar PUAE6/ junto al programa: contiene

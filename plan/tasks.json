@@ -28163,6 +28163,61 @@
       "stop": "No publicar desde un guest anterior a T99/T100, no sustituir el gate Windows por pruebas locales y no empaquetar ni subir los inputs privados autorizados solo para comprobacion."
     },
     {
+      "id": "T102",
+      "title": "Perfiles PUAE6 y overrides visibles en MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T101"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/options.md",
+        "docs/parity-puae5.md",
+        "docs/07-machawk.md",
+        "docs/user/release-notes.md",
+        "config/schema/options.json",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "build/machawk-puae6/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Settings.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/config/GenericCoreConfig.cs",
+        "build/machawk-puae6/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs",
+        "build/machawk-puae6/waterbox/puae6/windows-smoke.py",
+        "tests/test_machawk_windows.py"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/core/EmuHawk/**",
+        "integration/bizhawk/patches/**",
+        "build/machawk-puae6/**",
+        "tests/test_machawk_windows.py",
+        "tools/check.py",
+        "docs/options.md",
+        "docs/user/release-notes.md",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Exponer en MacHawk los perfiles de maquina y los seis presets ya definidos por el schema, aplicando de forma atomica sus valores concretos de CPU, FPU, memoria y compatibilidad sin añadir identidad serializada ni cambiar el ABI.",
+        "Especializar el PropertyGrid de PUAE6 para mostrar en fuente normal los valores efectivos del perfil seleccionado y en negrita solo los overrides, refrescando todas las filas al cambiar de perfil y preservando configuraciones existentes.",
+        "Cubrir la aplicacion e inferencia de perfiles y ShouldSerializeValue en el smoke de producto Windows; documentar por separado las diferencias funcionales restantes, sin incorporarlas en esta vertical."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "MacHawk permite seleccionar cada maquina base y los presets a1200_fast8, a600_puae5, a4030_normal, cd32_fast8, a4040_normal y a4060_normal; A4040/A4060 quedan con CPU/FPU coherentes y los valores bajos siguen editables como overrides.",
+        "El editor muestra normal cada valor igual al perfil e imprime en negrita cada override; cambiar el perfil actualiza inmediatamente el aspecto y los valores, mientras una configuracion existente se abre con un perfil inferido sin perder datos.",
+        "La prueba Windows real pasa sin cambiar ABI, guest, estados ni hashes; las funciones ausentes se entregan como listado separado y las restricciones deliberadas no se anuncian como soporte."
+      ],
+      "stop": "No habilitar MMU, JIT, PPC, red, tags de filename ni overrides arbitrarios del chipset; no cambiar el PropertyGrid de otros cores ni serializar el nombre del perfil."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

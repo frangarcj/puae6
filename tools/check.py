@@ -1525,6 +1525,9 @@ TASK_SUITES[('BUILD01', 'T101')] = {
         'tests.test_machawk_windows.WindowsCandidateTests',
     'real_windows_product_gui':
         'tests.test_machawk_windows.WindowsGuiTests.test_real_windows_frontend_loads_puae6_and_closes_normally'}
+TASK_SUITES[('BUILD01', 'T102')] = {
+    'real_windows_profiles_and_bold_overrides':
+        'tests.test_machawk_windows.WindowsCandidateTests.test_settings_profiles_and_bold_overrides'}
 TASK_SUITES[('WB03', 'T95b')] = {
     'rtg_a4040_wrapper_new_sandbox_restore':
         'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_a4040_internal_fpu_rtg_restores_in_another_sandbox'}

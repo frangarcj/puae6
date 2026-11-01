@@ -11,6 +11,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.environ.get('P6_WINDOWS_GITHUB_RUN'), 'explicit completed Windows candidate run required')
 class WindowsCandidateTests(unittest.TestCase):
+    def test_settings_profiles_and_bold_overrides(self):
+        run_id = os.environ['P6_WINDOWS_GITHUB_RUN']
+        self.assertTrue(run_id.isdecimal())
+        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT / 'build/machawk-puae6', text=True).strip()
+        run = json.loads(subprocess.check_output(['gh', 'run', 'view', run_id, '--repo', 'frangarcj/BizHawk',
+            '--json', 'headSha,status,conclusion,jobs'], text=True, timeout=60))
+        self.assertEqual((run['headSha'], run['status'], run['conclusion']), (commit, 'completed', 'success'))
+        jobs = [j for j in run['jobs'] if j['conclusion'] != 'skipped']
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual((jobs[0]['name'], jobs[0]['conclusion']), ('puae6-windows', 'success'))
+        log = subprocess.check_output(['gh', 'run', 'view', run_id, '--repo', 'frangarcj/BizHawk', '--log'], text=True, timeout=60)
+        records = [json.loads(line.split('P6_EMUHAWK_WINDOWS ', 1)[1]) for line in log.splitlines() if 'P6_EMUHAWK_WINDOWS ' in line]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]['settings_profiles'], {
+            'count': 16, 'schema_presets': 6, 'a4040_fpu': 'M68040',
+            'a4060_fpu': 'M68060', 'overrides_bold': True})
+        print('Windows settings profiles: inference, six schema presets and bold overrides PASS')
+
     def test_current_application_guest_abi_restore_and_chd(self):
         run_id = os.environ['P6_WINDOWS_GITHUB_RUN']
         self.assertTrue(run_id.isdecimal())
@@ -37,6 +55,9 @@ class WindowsCandidateTests(unittest.TestCase):
         self.assertEqual(record['uaescsi_policy'], {
             'uaescsi_auto_without_cd': 'Disabled', 'uaescsi_auto_with_cd': 'Enabled',
             'uaescsi_enabled_without_cd_rejected': True, 'uaescsi_enabled_ide_rejected': True})
+        self.assertEqual(record['settings_profiles'], {
+            'count': 16, 'schema_presets': 6, 'a4040_fpu': 'M68040',
+            'a4060_fpu': 'M68060', 'overrides_bold': True})
         cpu = record['cpu_queries']
         self.assertEqual((cpu['a4030_query'], cpu['lc040_query_frame'], cpu['fpu040_query_result']),
                          ('0300c0de/80000000', '402c', '3ffd0000'))
