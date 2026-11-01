@@ -22,8 +22,6 @@ class RomLoadChainTests(unittest.TestCase):
         rommgr = (support_tree / "rommgr.cpp").read_text()
         memory_bodies = memory[memory.index("static int rom_load_status"):
                                 memory.index("#endif", memory.index("static int rom_load_status"))]
-        if "\nbool rom_write_enabled;" in memory:
-            memory_bodies += "\nbool rom_write_enabled;\n"
         memory_bodies += "\n".join(line for line in memory.splitlines()
                                      if line.startswith("#define EXTENDED_ROM_")) + "\n"
         if "static bool is_builtin_aros_rom(" in memory:
