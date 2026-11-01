@@ -2,6 +2,7 @@
 // boundaries are supplied by this probe; the custom raster loop is not run.
 #include <cia.cpp>
 #include "uae.h"
+#include "blitter.h"
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
@@ -18,7 +19,9 @@ float vblank_hz;
 uae_u8 agnus_hpos;
 uae_u16 bplcon0, beamcon0, hsstop, hsstrt, vsstop, hcenter;
 bool lof_store;
+bool ecs_agnus;
 static bool genlockhtoggle, genlockvtoggle, linetoggle;
+static bool ciahsyncs, ciavsyncs;
 static int cia_hsync;
 extern volatile uae_atomic uae_int_requested;  // defined by ports/portable/atomic.cpp
 static unsigned irq_count[2], pending_count;
@@ -27,7 +30,17 @@ static unsigned trace;
 #ifndef TEST_REFERENCE
 uae_u16 dmacon;
 int quit_program;
+bltinfo blt_info{};
+enum class diw_states { DIW_waiting_start, DIW_waiting_stop };
+static diw_states vdiwstate = diw_states::DIW_waiting_start;
+static uae_u16 ddfstrt, ddfstop;
+static int fetchmode;
+static uae_s8 cycle_diagram_free_cycles[3][3][9];
+static uae_s8 cycle_diagram_total_cycles[3][3][9];
+static int GET_PLANES_LIMIT(uae_u16) { abort(); }
+void blitter_slowdown(int, int, int, int) { abort(); }
 static evt_t copper_dma_change_cycle;
+static bool copper_dma_change_cycle_pending;
 static bool custom_disabled, inside_hsync, toggle_before;
 static unsigned line_stage;
 static void check_irq_order();
@@ -82,6 +95,11 @@ static void line_post(bool vsync)
     inside_hsync = true;
     hsync_handler_post(vsync);
     inside_hsync = false;
+    // beta21 computes the next-line Copper eligibility after the post-handler.
+    if (custom_disabled && !vsync)
+        copper_enabled_thisline = 0;
+    else
+        compute_spcflag_copper();
     assert(line_stage == 3 && pending_count == 2);
     assert(pending_levels[0] && !pending_levels[1]);
     assert(copper_enabled_thisline == 0 || copper_enabled_thisline == 1);
@@ -96,6 +114,7 @@ static void setup(bool ntsc, bool lof, int todmode, int syncmode)
     currprefs.ntscmode = ntsc;
     currprefs.cs_ciaatod = todmode;
     currprefs.cpu_compatible = currprefs.cpu_memory_cycle_exact = true;
+    currprefs.blitter_cycle_exact = true;
     currprefs.keyboard_mode = 0;
     maxvpos = maxvpos_nom = ntsc ? 262 : 312;
     maxhpos = 227;
@@ -140,6 +159,19 @@ static void waveform(bool ntsc, bool lof, int todmode, int syncmode)
 #else
             line_post(vpos == 0);
 #endif
+            // The probe supplies raster boundaries: beta21 moved CIA-B's TOD
+            // edge out of cia_hsync_do and into this real pulse-end helper.
+            if (syncmode != 2)
+                ciab_tod_maybe_inc(syncmode == 1 ? hsstop : 35);
+            if (todmode == 0) {
+                // Supply the fixed/programmed VSYNC end at the same raster
+                // coordinates used by beta21; the real helper owns gating and TOD.
+                const int line = syncmode == 1 || syncmode == 2 ? vsstop : (ntsc ? 6 : 5);
+                const int delay = syncmode == 1 || syncmode == 2
+                    ? (lof ? hcenter : hsstrt)
+                    : (ntsc ? (lof ? 18 : 132) : (lof ? 132 : 18));
+                if (vpos == line) ciaa_tod_maybe_inc(delay);
+            }
             do_cycles_normal(maxhpos * CYCLE_UNIT);
             agnus_hpos = maxhpos - 1;
             CIA_tod_event_check(0); CIA_tod_event_check(1);
@@ -166,27 +198,29 @@ static void copper_and_reset()
 {
     setup(false, false, 0, 0);
     dmacon = DMA_MASTER | DMA_COPPER;
-    for (auto state : {COP_stop, COP_waitforever, COP_bltwait, COP_bltwait2,
-                       COP_read1, COP_wait1}) {
+    for (int inst : {COP_INS_MOVE, COP_INS_SKIP, COP_INS_WAIT}) {
         for (int ahead : {0, 1}) {
-            cop_state.state = state; cop_state.strobe_next = COP_stop;
+            cop_state = {}; cop_state.inst = inst;
             cop_state.ir[1] = 0xff80; cop_state.vcmp = vpos + ahead;
             line_post(false);
-            const bool expected = state == COP_read1 || (state == COP_wait1 && !ahead);
+            const bool expected = inst != COP_INS_WAIT || !ahead;
             assert(copper_enabled_thisline == expected);
         }
     }
-    cop_state.state = COP_read1;
+    cop_state = {}; cop_state.inst = COP_INS_WAIT; cop_state.start = 1;
+    cop_state.vcmp = vpos + 1; line_post(false); assert(copper_enabled_thisline);
+    cop_state = {}; cop_state.inst = COP_INS_MOVE;
     custom_disabled = true; line_post(false); assert(!copper_enabled_thisline);
     custom_disabled = false;
     dmacon = 0; line_post(false); assert(!copper_enabled_thisline);
     // DMA changes take effect after their CCK; preserve upstream's inversion.
-    copper_dma_change_cycle = get_cycles();
+    copper_dma_change_cycle = get_cycles() + CYCLE_UNIT;
+    copper_dma_change_cycle_pending = true;
     line_post(false); assert(copper_enabled_thisline);
     dmacon = DMA_MASTER | DMA_COPPER;
     line_post(false); assert(!copper_enabled_thisline);
-    copper_dma_change_cycle = -1;
-    cop_state.strobe_next = COP_strobe_vbl_delay;
+    copper_dma_change_cycle_pending = false;
+    cop_state.startstrobe = 1;
     custom_disabled = true; line_post(true); assert(copper_enabled_thisline);
     for (int request : {-UAE_RESET, -UAE_RESET_HARD, -UAE_RESET_KEYBOARD, 0, -UAE_QUIT}) {
         // Host scheduling knobs cannot add waits/extra cycles to this boundary.

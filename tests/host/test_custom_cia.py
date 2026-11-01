@@ -29,10 +29,14 @@ class CustomCIATests(unittest.TestCase):
                                        (False, tree / "custom.cpp")):
                     source = path.read_text()
                     bodies = ''.join(function(source, signature) for signature in
-                                     ("static void cia_hsync_do(void)", "void rethink_uae_int(void)"))
+                                     ("static void set_cia_syncs(void)",
+                                      "static void ciab_tod_maybe_inc(int delay)",
+                                      "static void ciaa_tod_maybe_inc(int delay)",
+                                      "static void cia_hsync_do(void)",
+                                      "void rethink_uae_int(void)"))
                     if not baseline:
                         # Keep the real copper state layout and decision helpers.
-                        begin = source.index("enum copper_states {")
+                        begin = source.index("#define COP_INS_MOVE")
                         end = source.index("static int copper_enabled_thisline;", begin)
                         bodies += source[begin:end] + "static int copper_enabled_thisline;\n"
                         for signature in ("static bool is_copper_dma(bool checksame)",
@@ -53,8 +57,12 @@ class CustomCIATests(unittest.TestCase):
                         for forbidden in ("uae_time", "sleep", "isvsync", "audio_pull",
                                           "audio_finish_pull", "target_get_display_scanline"):
                             self.assertNotIn(forbidden, imports)
-                    outputs.append(subprocess.run([str(exe)], check=True, capture_output=True,
-                                                  text=True, timeout=30).stdout)
+                    run = subprocess.run([str(exe)], check=False, capture_output=True,
+                                         text=True, timeout=30)
+                    self.assertEqual(run.returncode, 0,
+                                     f"{'reference' if baseline else 'portable'}{optimization} failed:\n"
+                                     f"{run.stdout}{run.stderr}")
+                    outputs.append(run.stdout)
                 self.assertEqual(outputs[0], outputs[1])
                 obj = tmp / "custom.o"
                 subprocess.run([*common, optimization, "-c", str(tree / "custom.cpp"),
