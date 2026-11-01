@@ -122,13 +122,14 @@ class A600GeometryTests(FastCase):
     def test_beta21_carries_denises_selected_horizontal_blank_interval_in_geom(self):
         blob, _ = self.saved("a600-hblank", "a600", "chain8", 3, A600_PUAE5)
         geom = upstream_bodies(blob)[b"P6VD"]["GEOM"]
-        self.assertEqual(26 * 4, len(geom))
-        self.assertEqual((-52, 256), struct.unpack(">2i", geom[-8:]))
+        self.assertEqual(27 * 4, len(geom))
+        self.assertEqual((-52, 256), struct.unpack(">2i", geom[-12:-4]))
+        self.assertIn(struct.unpack(">i", geom[-4:])[0], (0, 1))
 
         def outside_buffer(subs):
             for sub in subs:
                 if sub[0] == "GEOM":
-                    sub[1] = sub[1][:-8] + struct.pack(">i", 3649) + sub[1][-4:]
+                    sub[1] = sub[1][:-12] + struct.pack(">i", 3649) + sub[1][-8:]
 
         corrupt = with_subs(blob, b"P6VD", outside_buffer)
         self.refusals([("a selected horizontal blank limit beyond two drawing-buffer widths", corrupt, CORRUPT,
