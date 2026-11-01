@@ -1,7 +1,7 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -130,6 +130,7 @@
+@@ -142,6 +142,7 @@
  cpuop_func *cpufunctbl[65536];
  cpuop_func_noret *cpufunctbl_noret[65536];
  cpuop_func_noret *loop_mode_table[65536];
@@ -9,7 +9,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  struct cputbl_data
  {
-@@ -1346,6 +1347,38 @@
+@@ -1370,6 +1371,38 @@
  		x_do_cycles_post = do_cycles_ce020_post;
  	}
  #else
@@ -48,7 +48,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		}
  	} else if (currprefs.cpu_model == 68020) {
  		// 68020 cycle exact (cpuemu_21): the only 68020 core of the profile (T24a, ADR 0010)
-@@ -1916,8 +1949,8 @@
+@@ -1945,8 +1978,8 @@
  // generic+direct, generic+direct+jit, generic+indirect, more compatible, cycle-exact, mmu, mmu+more compatible, mmu+mc+ce
  #ifdef P6_PORTABLE
  static const struct cputbl *cputbls[6][8] = {
@@ -59,7 +59,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	// 68010 cycle exact (T52, generated with the 68000 rows in cpuemu_13)
  	{ NULL, NULL, NULL, NULL, op_smalltbl_13, NULL, NULL, NULL },
  	// 68020 cycle exact
-@@ -2088,6 +2121,7 @@
+@@ -2117,6 +2150,7 @@
  		if (opcode_loop_mode(opcode)) {
  			// The cycle-exact tables (cpuemu_13) have no returning handler: handler_ff is NULL and only the noret one exists, which is what the loop mode of the generated DBcc calls
  			loop_mode_table[opcode] = cpufunctbl_noret[opcode];
@@ -67,7 +67,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		}
  
  	}
-@@ -5849,6 +5883,7 @@
+@@ -5978,6 +6012,7 @@
  
  #else
  
@@ -75,7 +75,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  static void opcodedebug (uae_u32 pc, uae_u16 opcode, bool full)
  {
  	struct mnemolookup *lookup;
-@@ -5879,6 +5914,8 @@
+@@ -6008,6 +6043,8 @@
  #endif
  	}
  }
@@ -84,7 +84,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  static void check_halt(void)
  {
-@@ -6775,7 +6812,9 @@
+@@ -6912,7 +6949,9 @@
  
  		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
  #else
@@ -95,12 +95,18 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #endif
  
  	run_func();
-@@ -10675,7 +10714,7 @@
+@@ -10913,11 +10952,11 @@
  		w = "the CPU loop is not started";
  	else if (regs.exception || exception_in_exception)
  		w = "an exception is in flight";
--	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || regs.lastipl ||
-+	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || (regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7 ||
+ 	else if ((regs.loop_mode && currprefs.cpu_model != 68010) ||
+ #if UAEMAJOR == 6 && UAEMINOR == 1
+-			 (regs.lastipl < 0 || regs.lastipl > 7) ||
++			 ((regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7) ||
+ #else
+-			 regs.lastipl ||
++			 (regs.lastipl && currprefs.cpu_cycle_exact) ||
+ #endif
  			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
  		w = "a register or mode that the CPU of this machine does not have is set";
  	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
@@ -118,7 +124,16 @@ diff --git a/include/newcpu.h b/include/newcpu.h
 diff --git a/gencpu.cpp b/gencpu.cpp
 --- a/gencpu.cpp
 +++ b/gencpu.cpp
-@@ -8004,7 +8004,7 @@
+@@ -124,7 +124,8 @@
+ static int *opcode_next_clev;
+ static int *opcode_last_postfix;
+ static unsigned long *counts;
+ static int generate_stbl;
++static bool profile_68000_only;
+ static int mmufixupcnt;
+ static int mmufixupstate;
+ static int disp020cnt;
+@@ -8011,7 +8012,7 @@
  		// 68010 loop mode handling
  		if (cpu_level == 1 && using_prefetch) {
  			push_ins_cnt();
@@ -127,7 +142,7 @@ diff --git a/gencpu.cpp b/gencpu.cpp
  			// first loop takes as many cycles as normal DBcc branch
  			// because it does 2xprefetch
  			out("if(!was_loop_mode) {\n");
-@@ -8029,7 +8029,7 @@
+@@ -8036,7 +8037,7 @@
  			if (using_ce) {
  				out("loop_mode_table[regs.ird](regs.ird);\n");
  			} else if (!using_nocycles) {
@@ -136,3 +151,54 @@ diff --git a/gencpu.cpp b/gencpu.cpp
  			}
  
  			out(" // quick exit if condition false and count expired\n");
+@@ -10096,7 +10097,9 @@
+ 		if (freopen (fname, "wb", stdout) == NULL) {
+ 			abort();
+ 		}
+ 		generate_includes (stdout, id);
++		if (profile_68000_only && (id == 0 || id == 11))
++			printf("#define CPUEMU_68000_ONLY 1\n\n");
+ 	}
+ 
+ 	using_exception_3 = 1;
+@@ -10267,13 +10270,19 @@
+ 		using_indirect = using_ce || using_ce020 || using_prefetch_020 || id >= 50;
+ 
+ 	if (generate_stbl) {
++		if (profile_68000_only && (id == 0 || id == 11))
++			fprintf(stblfile, "#define CPUEMU_68000_ONLY 1\n");
+-		if ((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56))
++		if (((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56)) &&
++			!(profile_68000_only && id == 5) || (profile_68000_only && id == 11))
+ 			fprintf(stblfile, "#ifndef CPUEMU_68000_ONLY\n");
+ 		fprintf(stblfile, "const struct cputbl op_smalltbl_%d%s[] = {\n", postfix, extra);
+ 	}
+ 	generate_func (extra);
+ 	if (generate_stbl) {
+-		if ((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56))
++		if (((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56)) &&
++			!(profile_68000_only && id == 5) || (profile_68000_only && id == 11))
+ 			fprintf(stblfile, "#endif /* CPUEMU_68000_ONLY */\n");
++		if (profile_68000_only && (id == 5 || id == 12))
++			fprintf(stblfile, "#undef CPUEMU_68000_ONLY\n");
+ 		if (postfix2 >= 0)
+ 			fprintf(stblfile, "#endif /* CPUEMU_%d%s */\n", postfix2, extraup);
+@@ -10290,12 +10299,18 @@
+ 	for (int a = 1; a < argc; a++) {
+ 		char *end;
+ 		long n = strtol(argv[a], &end, 10);
+ 		if (end == argv[a] || *end || n < 0 || n > 55) {
+ 			fprintf(stderr, "gencpu: invalid model number '%s'\n", argv[a]);
+ 			return 1;
+ 		}
+ 		selected[n] = true;
+ 		restricted = true;
+ 	}
++	profile_68000_only = restricted;
++	for (int i = 0; i <= 55; i++) {
++		const bool profile_model = i <= 5 || (i >= 11 && i <= 14) || i == 21;
++		if (selected[i] != profile_model)
++			profile_68000_only = false;
++	}
+ 
+ 	init_table68k();
