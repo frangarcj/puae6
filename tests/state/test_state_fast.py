@@ -10,11 +10,12 @@ What is decided here (docs/adr/0009-state-format.md, validation = hash + identit
   * DET02: the program walks the chain slowly (a delay between the steps), so that the unit boundaries fall before the card is read, between the reads, with the low byte of the base
     written and the high one not, after the board is configured, and after it is shut up; the state put back gives the future of the original in this process and in a new one.
 """
+import struct
 import unittest
 
 from tests.state import envelope as e
 from tests.state import test_det02 as d
-from tests.state.harness import FieldTable, ProbeCase, parse_chunks
+from tests.state.harness import FieldTable, ProbeCase, parse_chunks, reforge
 
 RAM = 2
 CORRUPT, INCOMPATIBLE = 9, 10
@@ -69,6 +70,34 @@ def identity_flags(chip, slow, fast, flags=0):
     return flags | 0x80000000 | (chip // 64) << 17 | (slow // 64) << 12 | (fast // 1024) << 8
 
 
+def sub_bodies(body):
+    """The tagged bodies within an upstream-state chunk."""
+    out, at = [], 0
+    while at < len(body):
+        tag = body[at:at + 4].decode("ascii")
+        (length,) = struct.unpack_from("<I", body, at + 4)
+        assert at + 8 + length <= len(body), (tag, length, len(body))
+        out.append((tag, body[at + 8:at + 8 + length]))
+        at += 8 + length
+    assert at == len(body)
+    return out
+
+
+def upstream_bodies(blob):
+    chunks = {tag: body for tag, _, body in parse_chunks(blob)}
+    return {tag: dict(sub_bodies(chunks[tag])) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK")}
+
+
+def with_subs(blob, chunk_tag, change):
+    def edit(chunks):
+        for chunk in chunks:
+            if chunk[0] == chunk_tag:
+                subs = [[name, bytes(data)] for name, data in sub_bodies(chunk[2])]
+                change(subs)
+                chunk[2] = b"".join(name.encode("ascii") + struct.pack("<I", len(data)) + data for name, data in subs)
+    return reforge(blob, edit)
+
+
 class FastCase(ProbeCase):
     """Helpers: a state is taken at `unit` of `rom` on `machine` with `extra` arguments, and its RAM chunk is read."""
 
@@ -85,6 +114,26 @@ class FastCase(ProbeCase):
         path = self.dir / f"{name}.state"
         run = self.probe_on(machine, rom, "--units", str(unit), "--save-fields-at", str(unit), str(path), *extra)
         return path.read_bytes(), FieldTable(path.read_bytes(), RAM, run.fields)
+
+
+class A600GeometryTests(FastCase):
+    MACHINE = "a600"
+
+    def test_beta21_carries_denises_selected_horizontal_blank_interval_in_geom(self):
+        blob, _ = self.saved("a600-hblank", "a600", "chain8", 3, A600_PUAE5)
+        geom = upstream_bodies(blob)[b"P6VD"]["GEOM"]
+        self.assertEqual(26 * 4, len(geom))
+        self.assertEqual((-52, 256), struct.unpack(">2i", geom[-8:]))
+
+        def outside_buffer(subs):
+            for sub in subs:
+                if sub[0] == "GEOM":
+                    sub[1] = sub[1][:-8] + struct.pack(">i", 3649) + sub[1][-4:]
+
+        corrupt = with_subs(blob, b"P6VD", outside_buffer)
+        self.refusals([("a selected horizontal blank limit beyond two drawing-buffer widths", corrupt, CORRUPT,
+                        "a selected horizontal blank limit is outside two drawing-buffer widths")],
+                      rom="chain8", extra=A600_PUAE5, unit=3, units=6)
 
 
 class LayoutTests(FastCase):
