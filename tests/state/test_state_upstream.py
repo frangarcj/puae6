@@ -569,7 +569,10 @@ loop:
                 self.assertEqual(saved.pictures[unit + 1], run.pictures[1], "and so is the whole picture")
                 original, loaded = saved.dumps[(unit + 1, "video")], run.dumps[(1, "video")]
                 pixels = lambda dump: struct.unpack_from("<%dI" % 64, dump, 9)        # the rows of the buffer, after the flag and the allocation
-                self.assertEqual(0x112233, pixels(original)[10], "the border of the original is COLOR00 = $0123")
+                if name == "pal":
+                    self.assertEqual(0x112233, pixels(original)[10], "the PAL border of the original is COLOR00 = $0123")
+                else:
+                    self.assertEqual({0}, set(pixels(original)), "beta 21 keeps the first NTSC row blank before the COLOR00 border begins")
                 self.assertEqual(pixels(original), pixels(loaded), "the first line is the same, pixel for pixel")
 
     # -- T15j: the rows of the picture, the mode the presentation refused and the vertical window (patch 0103) -----------------------------------------------

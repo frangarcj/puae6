@@ -157,8 +157,11 @@ p6_result describe_video(p6_frame &frame, bool deliver, p6_error *error)
         frame.flags |= P6_FRAME_NO_VIDEO;
         return P6_OK;
     }
-    frame.active = p6_rect{(width - active_width) / 2, (height - active_height) / 2,
-                           active_width, active_height};
+    // The chipset renderer writes its raster at the top-left of the portable buffer.
+    // Only the RTG canvas compositor centres its input and guarantees zero padding.
+    frame.active = rtg_profile
+        ? p6_rect{(width - active_width) / 2, (height - active_height) / 2, active_width, active_height}
+        : p6_rect{0, 0, active_width, active_height};
     if (!deliver) {
         frame.flags |= P6_FRAME_NO_VIDEO;
         return P6_OK;
