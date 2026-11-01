@@ -1702,7 +1702,7 @@
       "title": "Serve the private stock CDTV controller cooperatively at hsync",
       "reason": "T67a: original DMAC/6525 and command protocol over the common CD backend, with bounded FIFO, emulated SEEK delay, synchronous lifecycle and no host threads or file persistence. Public CDTV profile and causal state remain gated.",
       "category": "CDTV host service boundary",
-      "order": 68,
+      "order": 72,
       "symbols": [
         "CDTV_hsync_handler",
         "cdtv_service",
@@ -1730,7 +1730,7 @@
       "title": "Capture validate and apply the private typed CDTV component",
       "reason": "T67b1: explicit value-only CDTV inventory, buffers, cached TOC/Q, NVRAM and shared CD owner state. Validation precedes application; no clock, callbacks or IRQ effects. Full native P6CT remains disabled until T67b2.",
       "category": "CDTV state component boundary",
-      "order": 69,
+      "order": 73,
       "symbols": [
         "p6_cdtv_state_get",
         "p6_cdtv_state_validate",
