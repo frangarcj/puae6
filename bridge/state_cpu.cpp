@@ -685,8 +685,18 @@ void visit_scheduler(Archive &a)
             }
         }
     }
-    // ev_misc is armed for the earliest of the slots (MISC_handler), or earlier when a slot was removed without re-arming it.
-    if (checks) a.require(!any || (main_active[ev_misc] && main_time[ev_misc] <= earliest), "secondary events are pending but ev_misc is not armed for them");
+    // Beta 21 rebuilds ev_misc from the secondary table in p6_events_set, including oldcycles. Its body must name that exact derived event;
+    // accepting an earlier time or another origin would serialize bytes that Apply immediately discards. WinUAE 6.0 can retain an earlier wake-up
+    // after removing a slot without re-arming it, so preserve that version's looser but causal relation.
+    if (checks && any) {
+#if UAEMAJOR == 6 && UAEMINOR == 1
+        a.require(main_active[ev_misc] && main_time[ev_misc] == earliest && main_old[ev_misc] == now,
+                  "secondary events are pending but ev_misc is not armed for them");
+#else
+        a.require(main_active[ev_misc] && main_time[ev_misc] <= earliest,
+                  "secondary events are pending but ev_misc is not armed for them");
+#endif
+    }
 
     if (a.reading() && a.ok()) publish_scheduler_cycle(now);
     if (a.applying() && a.ok()) {

@@ -168,7 +168,11 @@ class SchedulerChunkTests(ProbeCase):
         index = int(index.rstrip("]")) if index else None
         n = table.get(label, signed=name in ("sched.currcycle", "ev.evtime", "ev.oldcycles", "ev2.evtime"))
         if name == "sched.currcycle":
-            return [{label: n + 1}, {label: n + 2}, {label: n - 1}]
+            values = [{label: n + 1}, {label: n + 2}, {label: n - 1}]
+            if "ev2.max" in table.order:
+                for candidate in values:
+                    candidate[f"ev.oldcycles[{MISC}]"] = candidate[label]
+            return values
         if name in ("sched.hsync_counter", "sched.vsync_counter"):
             return [{label: n + 1}, {label: n ^ 1}]
         if name in ("sched.extra_cycle", "sched.cycles_to_add_remain"):
@@ -197,12 +201,21 @@ class SchedulerChunkTests(ProbeCase):
         slot = f"[{index}]"
         if name == "ev2.active":
             if n:
-                return [{label: 0, "ev2.handler" + slot: 0, "ev2.evtime" + slot: 0, "ev2.data" + slot: 0}]
+                values = {label: 0, "ev2.handler" + slot: 0, "ev2.evtime" + slot: 0, "ev2.data" + slot: 0}
+                if "ev2.max" in table.order:
+                    active = [(table.get(f"ev2.evtime[{i}]", signed=True), i) for i in range(16) if i != index and table.get(f"ev2.active[{i}]")]
+                    if active and index == min((table.get(f"ev2.evtime[{i}]", signed=True), i) for i in range(16) if table.get(f"ev2.active[{i}]"))[1]:
+                        values[f"ev.evtime[{MISC}]"] = min(active)[0]
+                return [values]
             return [{label: 1, "ev2.handler" + slot: 2, "ev2.evtime" + slot: now + 10_000_000, "ev2.data" + slot: 7}]
         if name == "ev2.handler":
             return [{label: 2 + (n - 1) % 10}, {label: 2 + n % 10}, {label: 3}]
         if name == "ev2.evtime":
-            return [{label: n + 1}, {label: n + 5}]
+            values = [{label: n + 1}, {label: n + 5}]
+            if "ev2.max" in table.order and n == min(table.get(f"ev2.evtime[{i}]", signed=True) for i in range(16) if table.get(f"ev2.active[{i}]")):
+                for candidate in values:
+                    candidate[f"ev.evtime[{MISC}]"] = candidate[label]
+            return values
         if name == "ev2.data":
             return [{label: n ^ 1}, {label: n + 1}]
         raise AssertionError(label)
@@ -248,6 +261,8 @@ class SchedulerChunkTests(ProbeCase):
                 tied.add(label)
             if name == "ev.evtime" and not table.get(f"ev.active[{index}]"):
                 tied.add(label)
+            if "ev2.max" in table.order and index == MISC and name in ("ev.evtime", "ev.oldcycles"):
+                tied.add(label)       # beta 21 rebuilds both from the earliest secondary event
             if name == "ev2.handler" and index == 0 and "ev2.idx" in table.order:
                 tied.add(label)
             if name in ("ev2.handler", "ev2.evtime", "ev2.data") and not table.get(f"ev2.active[{index}]"):
@@ -312,7 +327,6 @@ class SchedulerChunkTests(ProbeCase):
             (("a secondary range of 3" if beta else "a secondary round of 17"),
              forge({"ev2.max" if beta else "ev2.idx": 3 if beta else 17}), 9,
              "ev2.max: the allocated range is not a power-of-two scheduler range" if beta else rng_range),
-            ("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
             ("a next slot of 16", forge({"ev2.next": 16}), 9, rng_range),
             ("a handler id of 16", forge({"ev2.handler[1]": 16}), 9, rng_range),
             ("CDTV event without a device", forge({"ev2.handler[1]": 14, "ev2.data[1]": 0}), 9, "CDTV subcode event has no owner or invalid data"),
@@ -329,7 +343,8 @@ class SchedulerChunkTests(ProbeCase):
             attempts += [("the private blitter id", forge({"ev2.handler[1]": 1}), 9, "beta 21 cannot name the private non-CE blitter handler"),
                          ("an active slot beyond a smaller allocation", forge({"ev2.max": 8, "ev2.next": 2}), 9, "a secondary event is active outside the allocated range")]
         else:
-            attempts += [("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
+            attempts += [("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
+                         ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
                          ("another id in slot 0", forge({"ev2.handler[0]": 2}), 9, "slot 0 holds the blitter's event and nothing else does")]
         if free is not None:
             attempts += [("an inactive slot with a handler", forge({f"ev2.handler[{free}]": 2}), 9, "an inactive secondary event has data"),
