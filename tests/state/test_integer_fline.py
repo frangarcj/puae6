@@ -42,15 +42,22 @@ fline:
     RTE
 """
 ABSENT = PRELUDE + """    LEA $3000.W,A0
-    .word $F010,$4000           ; PMOVE (A0),TC: no PMMU
-    .word $F518,$4E71           ; PFLUSHA ; NOP: no integrated MMU
-    .word $F200,$4000           ; FMOVE.L D0,FP0: depends on the explicit FPU
+    .word $F010,$4000           ; MMUOP030 is absent and takes the generic Line-F frame
+    .word $F518,$4E71           ; PFLUSHA is architectural on 040/060; the second word is a NOP
+    .word $F200,$4000           ; absent FPU takes a format-4 frame whose saved PC follows the extension
     MOVE.L D7,$2000.L
 loop:
     BRA.S loop
 fline:
+    .word $3C2F,$0006           ; MOVE.W 6(A7),D6: format/vector word
+    .word $33C6,$0000,$2004     ; MOVE.W D6,$2004.L
+    .word $0C46,$402C           ; CMPI.W #$402C,D6
+    .word $6708                 ; BEQ.S resumed
     ADDQ.L #1,D7
-    .word $58AF,$0002           ; default skip four bytes
+    .word $58AF,$0002           ; generic Line-F leaves the PC at the two-word instruction
+    RTE
+resumed:
+    ADDQ.L #1,D7
     RTE
 """
 LPSTOP = PRELUDE + """    MOVE.L #irq,$6C.L
@@ -97,13 +104,15 @@ class IntegerFlineTests(d.Det02Case):
                     for mode in (d.SAME, d.NEW):
                         self.assertIsNone(self.first_divergence(rom, flags, 3, mode))
 
-    def test_pmmu_and_absent_fpu_still_raise_fline(self):
+    def test_pmmu_and_absent_fpu_raise_their_own_fline_frames(self):
         for cpu in ('68040', '68060'):
             for fpu in ('0', cpu):
                 with self.subTest(cpu=cpu, fpu=fpu):
                     ram = self.dir / 'absent.ram'
-                    self.probe('absent', '--cpu', cpu, '--fpu', fpu, '--units', '3', '--ramout-at', '3', '0x2000', '4', str(ram))
-                    self.assertEqual(3 if fpu == '0' else 2, struct.unpack('>I', ram.read_bytes())[0])
+                    self.probe('absent', '--cpu', cpu, '--fpu', fpu, '--units', '3', '--ramout-at', '3', '0x2000', '6', str(ram))
+                    exceptions, frame = struct.unpack('>IH', ram.read_bytes())
+                    self.assertEqual(2 if fpu == '0' else 1, exceptions)
+                    self.assertEqual(0x402c if fpu == '0' else 0x002c, frame)
 
     def test_lpstop060_wakes_from_vertb_and_restores_while_stopped(self):
         ram, fields = self.dir / 'lpstop.ram', self.dir / 'lpstop.fields'
