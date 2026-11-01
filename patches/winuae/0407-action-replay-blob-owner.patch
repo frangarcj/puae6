@@ -1,7 +1,7 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
-@@ -1296,7 +1296,13 @@
+@@ -1333,7 +1333,13 @@
  	/* Search for first non-zero Long starting from the end of the rom. */
  	/* Assume long alignment, (will always be true for AR2 and AR3 and the AR1 rom i've got). */
  	/* If anyone finds an AR1 rom with a word-aligned checksum, then this code will have to be modified. */
@@ -15,7 +15,7 @@ diff --git a/ar.cpp b/ar.cpp
  
  	if (armodel == 1)
  	{
-@@ -1325,7 +1331,11 @@
+@@ -1362,7 +1368,11 @@
  
  	stored_checksum = do_get_mem_long (checksum_end);
  
@@ -27,7 +27,7 @@ diff --git a/ar.cpp b/ar.cpp
  }
  
  /* Returns 0 on error. */
-@@ -1341,8 +1351,13 @@
+@@ -1378,8 +1388,13 @@
  	checksum_end = (uae_u32*)&armemory_rom[ar_rom_file_size];
  
  	/* Search for first non-zero Long starting from the end of the rom. */
@@ -42,7 +42,7 @@ diff --git a/ar.cpp b/ar.cpp
  	return (uae_u8*)checksum_end;
  }
  
-@@ -1408,6 +1423,9 @@
+@@ -1445,6 +1460,9 @@
  
  	uae_u8* start_addr = armemory_rom;
  	uae_u8* end_addr = get_checksum_location();
@@ -52,7 +52,7 @@ diff --git a/ar.cpp b/ar.cpp
  
  	/*
  	* To see what the routine below is doing. Here is some code from the Action replay rom where it does the
-@@ -1424,6 +1442,9 @@
+@@ -1461,6 +1479,9 @@
  	if (armodel == 1) {
  		uae_u16 search_value_rel = addrdiff(end_addr, start_addr);
  		addr = find_relative_word(start_addr, end_addr, search_value_rel);
@@ -62,7 +62,7 @@ diff --git a/ar.cpp b/ar.cpp
  
  		if (addr) {
  			if (do_get_mem_word((uae_u16*)(addr-6)) == 0x6100 && /* bsr.w */
-@@ -1436,6 +1457,9 @@
+@@ -1473,6 +1494,9 @@
  	} else {
  		uae_u32 search_value_abs = arrom_start + addrdiff(end_addr, start_addr);
  		addr = find_absolute_long (start_addr, end_addr, search_value_abs);
@@ -72,7 +72,7 @@ diff --git a/ar.cpp b/ar.cpp
  
  		if (addr) {
  			if (do_get_mem_word((uae_u16*)(addr-6)) == 0x6100 && /* bsr.w */
-@@ -1683,7 +1707,13 @@
+@@ -1732,7 +1756,13 @@
  	zfile_fseek(f, 0, SEEK_END);
  	ar_rom_file_size = zfile_ftell32(f);
  	zfile_fseek(f, 0, SEEK_SET);
@@ -86,7 +86,7 @@ diff --git a/ar.cpp b/ar.cpp
  	zfile_fseek (f, 0, SEEK_SET);
  	if (!memcmp (header, "ATZ!HRT!", 8)) {
  		zfile_fclose (f);
-@@ -1696,7 +1726,13 @@
+@@ -1745,7 +1775,13 @@
  	}
  	action_replay_flag = ACTION_REPLAY_INACTIVE;
  	armemory_rom = xmalloc (uae_u8, ar_rom_file_size);
@@ -97,11 +97,11 @@ diff --git a/ar.cpp b/ar.cpp
 +#else
  	zfile_fread (armemory_rom, 1, ar_rom_file_size, f);
 +#endif
- 	zfile_fclose (f);
+-
++
  	if (ar_rom_file_size == 65536) {
  		// AR1 and Pro Access
-@@ -1715,7 +1751,16 @@
- 	}
+@@ -1788,7 +1824,16 @@
  	arram_mask = arram_size - 1;
  	arrom_mask = arrom_size - 1;
 +
@@ -114,10 +114,12 @@ diff --git a/ar.cpp b/ar.cpp
 +#ifdef P6_PORTABLE
 +	if (!armemory_ram) { action_replay_cleanup(); return 0; }
 +#endif
+-
++
  	write_log (_T("Action Replay %d installed at %08X, size %08X\n"), armodel, arrom_start, arrom_size);
  	action_replay_version();
  	return armodel;
-@@ -1765,6 +1810,12 @@
+@@ -1843,6 +1888,12 @@
  	hrtmon_flag = action_replay_flag = ACTION_REPLAY_INACTIVE;
  	unset_special(SPCFLAG_ACTION_REPLAY);
  	triggered_once = armodel = ar_mapped = ar_hidden = 0;
@@ -130,7 +132,7 @@ diff --git a/ar.cpp b/ar.cpp
  	action_replay_hardreset = false;
  	wait_for_pc = 0;
  	hrtmem_start = hrtmem2_start = hrtmem3_start = 0;
-@@ -1975,6 +2026,10 @@
+@@ -2053,6 +2104,10 @@
  
  void action_replay_version(void)
  {

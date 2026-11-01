@@ -1,7 +1,7 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
-@@ -2107,6 +2107,52 @@
+@@ -2185,6 +2185,52 @@
  }
  
  #ifdef P6_PORTABLE
@@ -57,7 +57,7 @@ diff --git a/ar.cpp b/ar.cpp
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -10756,7 +10756,8 @@
+@@ -10999,7 +10999,8 @@
  			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
  		w = "a register or mode that the CPU of this machine does not have is set";
  	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
