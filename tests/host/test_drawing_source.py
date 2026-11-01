@@ -22,7 +22,8 @@ class DrawingSourceTests(unittest.TestCase):
                                       capture_output=True, text=True, timeout=60).stdout
         # AGA is compiled in (T24b): the 7/8-plane helpers are defined and now also called and selected by the fetch code.
         helpers = re.findall(r'\b(?:shiftbpl|getbpl|copybpl)[78]\w*\b', preprocessed)
-        self.assertEqual(len(set(helpers)), 30)
+        # Beta 21 has the six 32-bit shiftbpl7/8 even/odd variants.
+        self.assertEqual(len(set(helpers)), 34)
         self.assertGreater(len(helpers), len(set(helpers)))
         # Keep only drawing's own preprocessed tokens, not unused host declarations
         # inherited from general upstream headers. Do not remove any function bodies.
