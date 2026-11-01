@@ -17,16 +17,22 @@ bool aga_mode, ecs_agnus, ecs_denise, ecs_denise_only;
 bool lof_store, lof_display;
 static bool linetoggle;
 int interlace_seen, current_linear_vpos, current_linear_vpos_nom;
-int current_linear_hpos_short, maxhpos, maxvpos, doublescan;
+int current_linear_hpos_short, maxhpos, maxhpos_short, maxhpos_display;
+int maxvpos, maxvpos_nom, minfirstline, doublescan, doublescan2x;
 int minfirstline_linear, hsync_end_left_border;
-static int display_hstart_cyclewait, display_hstart_cyclewait_end;
-static int display_hstart_cyclewait_skip, display_hstart_cyclewait_skip2;
+static int display_hstart_cyclewait_skip_start, display_hstart_cyclewait_skip_end;
+static int current_linear_vblank_lines, current_linear_vpos_vb_start;
+static int current_linear_vpos_vb_end, display_vblankstart_skip;
+static int display_vblankend_skip, vsync_lines;
+int linear_vpos_vb_start, linear_vpos_vb_end;
+static bool ntscpixelspal;
+int programmedmode;
 uae_u16 beamcon0, bplcon0;
 float vblank_hz, fake_vblank_hz, hblank_hz;
 static float vblank_hz_lace, vblank_hz_lof, vblank_hz_shf;
 frame_time_t syncbase, vsynctimebase, vsynctimebase_orig, cputimebase;
 static float sound_clock, sound_adjust, sync_vpos, sync_adjust;
-static int sound_calls, sync_calls, buffer_calls, ext_calls, config_calls;
+static int sound_calls, sync_calls, buffer_calls, config_calls;
 static int drawing_calls, nocustom_calls, reset_calls;
 
 void devices_update_sound(float clk, float adjust)
@@ -35,13 +41,14 @@ void devices_update_sync(float vpos, float adjust)
 { ++sync_calls; sync_vpos = vpos; sync_adjust = adjust; }
 void write_log(const TCHAR *, ...) {}
 void set_drawbuffer() { adisplays[0].gfxvidinfo.inbuffer = &adisplays[0].gfxvidinfo.drawbuffer; }
-static void updateextblk() { ++ext_calls; }
 static void check_nocustom() { ++nocustom_calls; }
 void set_config_changed(int) { ++config_calls; }
 void custom_end_drawing() { ++drawing_calls; }
+void draw_denise_line_queue_flush() {}
 bool target_graphics_buffer_update(int monid, bool force)
 { assert(monid == 0 && !force); ++buffer_calls; return false; }
 void resetfulllinestate() { ++reset_calls; }
+static bool line_is_doubled() { return false; }
 
 #include "custom_timing_under_test.h"
 
@@ -58,8 +65,13 @@ static void run(bool ntsc, bool lace, bool lof, bool half, float refresh,
     currprefs.gfx_overscanmode = OVERSCANMODE_ULTRA;
     currprefs.gfx_resolution = currprefs.gfx_vresolution = 0;
     currprefs.monitoremu_mon = 0;
-    current_linear_vpos = current_linear_vpos_nom = maxvpos = ntsc ? 262 : 312;
-    current_linear_hpos_short = maxhpos = 227;
+    current_linear_vpos_nom = maxvpos_nom = ntsc ? 262 : 312;
+    current_linear_vpos = current_linear_vpos_nom + (!lace && lof ? 1 : 0);
+    maxvpos = current_linear_vpos;
+    current_linear_hpos_short = maxhpos = maxhpos_short = 227;
+    maxhpos_display = current_linear_hpos_short * 2;
+    vsync_lines = current_linear_vpos;
+    current_linear_vblank_lines = LINES_AFTER_VSYNC;
     beamcon0 = ntsc ? 0 : BEAMCON0_PAL;
     interlace_seen = lace;
     lof_store = lof_display = lof;
@@ -76,7 +88,7 @@ static void run(bool ntsc, bool lace, bool lof, bool half, float refresh,
     vsynctimebase = 731; vsynctimebase_orig = 947; cputimebase = 1291;
     auto &vb = adisplays[0].gfxvidinfo.drawbuffer;
     vb.width_allocated = 1024; vb.height_allocated = 1024;
-    sound_calls = sync_calls = buffer_calls = ext_calls = config_calls = 0;
+    sound_calls = sync_calls = buffer_calls = config_calls = 0;
     drawing_calls = nocustom_calls = reset_calls = 0;
     compute_framesync();
     assert(vblank_hz == field_rate);
@@ -88,10 +100,11 @@ static void run(bool ntsc, bool lace, bool lof, bool half, float refresh,
     assert(sound_calls == 1);
     assert(sound_clock == clock && sound_adjust == 1);
     assert(sync_calls == 1 && sync_adjust == 1);
-    assert(sync_vpos == current_linear_vpos_nom + (lace ? 0.5f : lof ? 1.0f : 0));
-    assert(buffer_calls == 1 && ext_calls == 1 && config_calls == 1);
+    assert(sync_vpos == (lace ? current_linear_vpos_nom + 0.5f : current_linear_vpos));
+    assert(buffer_calls == 1 && config_calls == 1);
     assert(drawing_calls == 1 && nocustom_calls == 1 && reset_calls == 1);
-    assert(vb.inwidth == 454 && vb.inheight == current_linear_vpos);
+    assert(vb.inwidth == 454);
+    assert(vb.inheight == current_linear_vpos);
     assert(vb.outwidth == vb.inwidth && vb.outheight == vb.inheight);
     // Notifications before/after a refresh recalculation must agree as well.
     compute_vsynctime();

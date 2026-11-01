@@ -15,13 +15,15 @@ class CustomTimingTests(unittest.TestCase):
         ensure_generated()
         source = (ROOT / "build/upstream/custom.cpp").read_text()
         vsync = function(source, "void compute_vsynctime(void)")
+        display = function(source, "static void update_display_vars(void)")
         framesync = function(source, "void compute_framesync(void)")
         self.assertIn("devices_update_sound", vsync)
         self.assertIn("devices_update_sync", vsync)
-        self.assertIn("compute_vsynctime();", framesync)
+        self.assertIn("compute_vsynctime();", display)
+        self.assertIn("update_display_vars();", framesync)
         # The probe includes real upstream declarations before these exact bodies.
         # P6_PORTABLE removes monitor negotiation and host pacing at compilation.
-        header = vsync + framesync
+        header = vsync + display + framesync
         with tempfile.TemporaryDirectory(prefix="p6-custom-timing-", dir=ROOT / "build") as tmp:
             tmp = Path(tmp)
             (tmp / "custom_timing_under_test.h").write_text(header)
