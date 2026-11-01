@@ -1,25 +1,25 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -10859,6 +10859,8 @@
- 	memset(out, 0, sizeof *out);
- 	out->potgo_value = potgo_value;
+@@ -10983,6 +10983,8 @@
+ 	out->reset_seq = keyboard_reset_seq;
+ 	out->reset_seq_mode = keyboard_reset_seq_mode;
  	out->second_mouse_enabled = mouse_port[1];
 +	out->parallel_enabled = parport_joystick_enabled;
 +	for (int p = 0; p < 2; p++) { out->parallel_buttons[p] = joybutton[p + 2]; out->parallel_dirs[p] = joydir[p + 2]; }
  	out->pointer_enabled = lightpen_enabled;
  	out->pointer_port = lightpen_port[1] ? 1 : 0;
  	out->pointer_cx = lightpen_cx[0];
-@@ -10911,6 +10913,8 @@
- {
- 	potgo_value = in->potgo_value;
+@@ -11035,6 +11037,8 @@
+ 	keyboard_reset_seq = in->reset_seq;
+ 	keyboard_reset_seq_mode = in->reset_seq_mode;
  	mouse_port[1] = in->second_mouse_enabled;
 +	parport_joystick_enabled = in->parallel_enabled;
 +	for (int p = 0; p < 2; p++) { joybutton[p + 2] = in->parallel_buttons[p]; joydir[p + 2] = in->parallel_dirs[p]; }
  	lightpen_enabled = in->pointer_enabled;
  	lightpen_enabled2 = lightpen_active = 0;
  	for (int p = 0; p < 2; p++) lightpen_port[p] = in->pointer_enabled && in->pointer_port == unsigned(p);
-@@ -10985,7 +10989,7 @@
+@@ -11067,7 +11071,7 @@
  	if (!w && keyboard_reset_seq_mode > 4)
  		w = "the keyboard reset chord is in a state the profile does not have";
  	for (int p = 2; p < MAX_JPORTS && !w; p++) {
@@ -28,7 +28,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  			w = "a gameport that the profile does not have has input";
  		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++)
  			if (mouse_delta[p][k] || mouse_deltanoreset[p][k])
-@@ -11069,3 +11073,14 @@
+@@ -11151,3 +11155,14 @@
  	if (!lightpen_enabled) lightpen_cx[0] = lightpen_cy[0] = -1;
  }
  #endif
@@ -46,7 +46,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
 diff --git a/include/inputdevice.h b/include/inputdevice.h
 --- a/include/inputdevice.h
 +++ b/include/inputdevice.h
-@@ -270,7 +270,8 @@
+@@ -271,7 +271,8 @@
  // Reads of the input registers by the emulated CPU, one bit each. Write-only for the engine: the bridge clears the
  // mask at the start of a unit and reads it at the end, and the unit is a lag frame when nothing was read.
  enum { P6_POLL_JOY0DAT = 1, P6_POLL_JOY1DAT = 2, P6_POLL_POT0DAT = 4, P6_POLL_POT1DAT = 8, P6_POLL_POTGOR = 16,
@@ -59,7 +59,7 @@ diff --git a/include/inputdevice.h b/include/inputdevice.h
 diff --git a/cia.cpp b/cia.cpp
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -1917,6 +1917,9 @@
+@@ -1966,6 +1966,9 @@
  		return v;
  	}
  	case 1:
@@ -69,7 +69,7 @@ diff --git a/cia.cpp b/cia.cpp
  		tmp = (c->prb & c->drb) | (c->drb ^ 0xff);
  #ifdef PARALLEL_PORT
  		if (isprinter() > 0) {
-@@ -2037,6 +2040,22 @@
+@@ -2086,6 +2089,22 @@
  			}
  			tmp = handle_parport_joystick(1, tmp);
  		}
