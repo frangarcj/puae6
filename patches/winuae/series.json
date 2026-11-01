@@ -634,7 +634,7 @@
       "file": "patches/winuae/0355-cdrom-mode1-sync.patch",
       "sha256": "cbdfe950e0839a62b5b3c8a67a7ed32f421bfcd058347aada300e1c6f55ba733",
       "title": "Encode the ECMA-130 Mode1 synchronization field exactly",
-      "reason": "T66b: ECMA-130 section14.1 requires00, tenFF and00. The old elevenFF changed both the synchronization field and the EDC/ECC computed from it. Only the pinned pure encoder is used by the CD probe; no CD32 device is enabled.",
+      "reason": "T66b beta21 vertical follows ECMA-130 section 14.1: 00, ten FF bytes and 00. The former eleven FF bytes changed the synchronization field and the EDC/ECC computed from it; only the pinned pure encoder is used by the CD probe.",
       "category": "host hooks",
       "order": 24,
       "symbols": [
