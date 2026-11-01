@@ -1,0 +1,38 @@
+diff --git a/drawing.cpp b/drawing.cpp
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -8443,19 +8443,22 @@
+-// Native state (bridge/state_upstream.cpp, the last two words of GEOM): beta 21 keeps the horizontal-blank interval selected after a stable half-frame in Denise. Agnus reads it
++// Native state (bridge/state_upstream.cpp, the last three words of GEOM): beta 21 keeps the horizontal-blank interval selected after a stable half-frame in Denise. Agnus reads it
+ // through denise_get_hboffsets() when it derives the next display window. A new image otherwise keeps 0/0 until its own detector settles and redraws a different border several
+-// frames after a load. Values only; the bridge validates them before calling set.
+-#define P6_DENISE_HBLANK_WORDS 2
++// frames after a load. denise_blanking_changed is the pending notification consumed by vsync_check_vsyncmode; a fresh owner can hold one that the saved machine had already consumed.
++// Values only; the bridge validates them before calling set.
++#define P6_DENISE_HBLANK_WORDS 3
+ bool p6_denise_hblank_get(int32_t *out, unsigned n)
+ {
+-	if (!out || n != P6_DENISE_HBLANK_WORDS) return false;
+-	out[0] = linear_denise_frame_hbstrt_sel;
+-	out[1] = linear_denise_frame_hbstop_sel;
+-	return true;
++	if (!out || n != P6_DENISE_HBLANK_WORDS) return false;
++	out[0] = linear_denise_frame_hbstrt_sel;
++	out[1] = linear_denise_frame_hbstop_sel;
++	out[2] = denise_blanking_changed;
++	return true;
+ }
+-
++
+ bool p6_denise_hblank_set(const int32_t *in, unsigned n)
+ {
+-	if (!in || n != P6_DENISE_HBLANK_WORDS) return false;
+-	linear_denise_frame_hbstrt_sel = in[0];
+-	linear_denise_frame_hbstop_sel = in[1];
+-	return true;
++	if (!in || n != P6_DENISE_HBLANK_WORDS) return false;
++	linear_denise_frame_hbstrt_sel = in[0];
++	linear_denise_frame_hbstop_sel = in[1];
++	denise_blanking_changed = in[2] != 0;
++	return true;
+ }

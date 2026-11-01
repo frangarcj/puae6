@@ -6,7 +6,7 @@
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (248), the last ours and not upstream's
 //   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (692), COPR (88) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each), AUDP (356) and DCLK (160), the last two portable extensions
-//   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (kGeometryBytes; 104 in beta 21) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
+//   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (kGeometryBytes; 108 in beta 21) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
 // BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
 // restore_custom runs it, but custom_reset does not, so a machine that never wrote DIWSTRT has other lines than the one that loaded its state, and the vertical window bit that DIWHIGH
@@ -61,7 +61,8 @@
 // refused it handed over pictures the original never did), the allocation of the last mode it accepted and the flags of the drawing: the three requests to clear the buffer that wait
 // for the first line of the next frame (display_redraw, erase_next_draw, center_y_erase) and whether the frame being drawn holds the buffer (thread_debug_lock): a machine that loaded a
 // state without them wiped the other field of an interlaced weave that the original kept, kept it where a restart of its own had left a request, or drew lines in a refused mode. Beta 21
-// appends Denise's selected horizontal blank start and stop: Agnus reads them when it derives the next display window, but a fresh image otherwise keeps its unrelated initial pair.
+// appends Denise's selected horizontal blank start and stop and its pending-change latch: Agnus reads them when it derives the next display window, but a fresh image otherwise
+// keeps its unrelated initial pair and can request a mode change the saved owner had already consumed.
 //
 // PIXL (the eighth) (patch 0103, p6_frame_raster): the rows of the drawing buffer, which the renderer writes only where it draws, so that a unit without drawing, or the other field of an
 // interlaced picture, hands over what the history before the state left there. It has no length of its own: its width and height are the allocation GEOM names, the pixels travel as the
@@ -583,14 +584,14 @@ enum GeometryWord : unsigned {
     kGeoRefused, kGeoAllocWidth, kGeoAllocHeight,        // patch 0103: the mode the presentation refused as too large and the allocation of the last one it accepted
     kGeoDisplayRedraw, kGeoEraseNext, kGeoCenterErase, kGeoLocked,      // and the flags of the drawing: the requests to clear the buffer, and whether the frame being drawn holds it
 #if UAEMAJOR == 6 && UAEMINOR == 1
-    kGeoHbStart, kGeoHbStop,                             // beta 21: the stable horizontal blank interval selected by Denise
+    kGeoHbStart, kGeoHbStop, kGeoHbChanged,              // beta 21: the stable horizontal blank interval selected by Denise and its pending notification
 #endif
     kGeometryWords
 };
 constexpr uint32_t kGeometryBytes = kGeometryWords * 4;
 #if UAEMAJOR == 6 && UAEMINOR == 1
 constexpr unsigned kEngineGeometryWords = kGeoHbStart;
-static_assert(kEngineGeometryWords == 24 && kGeometryWords == 26, "GEOM must append Denise's beta-21 blanking interval");
+static_assert(kEngineGeometryWords == 24 && kGeometryWords == 27, "GEOM must append Denise's beta-21 blanking state");
 #else
 constexpr unsigned kEngineGeometryWords = kGeometryWords;
 #endif
@@ -1080,6 +1081,7 @@ const char *check_geom(const Sub &, const Body &b, Seen &)
 #if UAEMAJOR == 6 && UAEMINOR == 1
     for (unsigned w : {kGeoHbStart, kGeoHbStop})
         if (at(w) < -2 * P6_VIDEO_MAX_WIDTH || at(w) > 2 * P6_VIDEO_MAX_WIDTH) return "a selected horizontal blank limit is outside two drawing-buffer widths";
+    if (at(kGeoHbChanged) < 0 || at(kGeoHbChanged) > 1) return "the pending horizontal blank change is not a flag";
 #endif
     if (at(kGeoAllocWidth) < 1 || at(kGeoAllocWidth) > P6_VIDEO_MAX_WIDTH || at(kGeoAllocHeight) < 1 || at(kGeoAllocHeight) > P6_VIDEO_MAX_HEIGHT)
         return "the allocation of the drawing buffer is empty or larger than the presentation buffer";

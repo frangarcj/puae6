@@ -2815,6 +2815,30 @@
           "after_sha256": "4bdc906dbd6ae664a6aa0632e938c1cd8ebd210f1e0422c8a0192bd72c182473"
         }
       ]
+    },
+    {
+      "id": "0442-denise-hblank-change-state",
+      "file": "patches/winuae/0442-denise-hblank-change-state.patch",
+      "sha256": "b575e683d8ef7c02ff20c9c28878df5e467c73d460b0fe8f39c9987455fc3085",
+      "title": "Preserve the pending Denise horizontal-blank notification",
+      "reason": "A fresh beta21 display owner can retain denise_blanking_changed after GEOM restores the selected HBlank interval. Its next vsync then schedules a raster change already consumed by the saved owner. Carry the flag as a value with the interval so restoration neither invents nor drops the pending transition.",
+      "category": "state corrections",
+      "order": 111,
+      "symbols": [
+        "p6_denise_hblank_get",
+        "p6_denise_hblank_set",
+        "denise_blanking_changed"
+      ],
+      "test": "tests/state/test_state_upstream.py; tests/state/test_state_ricoh.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "drawing.cpp",
+          "before_sha256": "c6c3a24fcd94847d40fdc381b939824ca2692702602c626e87ff6b42fd142dad",
+          "after_sha256": "54514236ba3c01a21516c26c2eb78248e29cbe2f840340da3b7d1ea1c64ff63c"
+        }
+      ]
     }
   ]
 }

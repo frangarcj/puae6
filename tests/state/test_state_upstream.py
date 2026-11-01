@@ -36,7 +36,7 @@ T15j, what the first picture after a load and the next state need (patch 0103):
   - PIXL (the last of P6VD, 4 + 4 + the groups of pixels that the rows of the drawing buffer take) is the buffer itself: a unit in which the engine draws no line hands over the rows as
     the units before left them, so a load that did not put them back showed the picture of the abandoned history, or the black of a machine that had not drawn; it is tagged and measured like
     the others and decoded here, with the format of the C++ and not its code, against the picture the unit handed over;
-  - GEOM (104 bytes in beta 21) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
+  - GEOM (108 bytes in beta 21) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
     fits): a machine that had not refused it handed over pictures that the original never did; and the flags of the drawing (the three requests to clear the buffer that wait for the first line of the next frame, and whether the frame being drawn holds the buffer);
   - BEAM (692 bytes in beta 21) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
     load runs, derives 0 and 256 from the same zero registers, so a state saved, loaded and saved again differed from one saved without the load in the vertical window bit of DIWHIGH.
@@ -59,7 +59,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 692, "COPR": 88, "BLTP": 72, "AUDP": 356, "DCLK": 160, "DNSP": 64, "GEOM": 104, "DSKX": 248, "LPEN": 16,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 692, "COPR": 88, "BLTP": 72, "AUDP": 356, "DCLK": 160, "DNSP": 64, "GEOM": 108, "DSKX": 248, "LPEN": 16,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP", "LPEN"],
@@ -113,7 +113,7 @@ AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dma
 # The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100, three words more in patch 0103) and of the enum of bridge/state_upstream.cpp.
 GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "out_width", "out_height",
               "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset", "refused", "alloc_width", "alloc_height", "display_redraw", "erase_next_draw", "center_y_erase", "locked",
-              "hblank_start", "hblank_stop"]
+              "hblank_start", "hblank_stop", "hblank_changed"]
 PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a channel audio_reset leaves and nothing has written since
 
 
@@ -972,6 +972,7 @@ loop:
         ("GEOM with a countdown of 3", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("temp_change"), struct.pack(">i", 3), "the countdown of the candidate raster is not between 0 and 2"),
         ("GEOM with a flag of the refused mode of 2", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("refused"), struct.pack(">i", 2), "a flag of the presentation is not a flag"),
         ("GEOM with a request to erase of 2", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("erase_next_draw"), struct.pack(">i", 2), "a flag of the presentation is not a flag"),
+        ("GEOM with a pending horizontal blank change of 2", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("hblank_changed"), struct.pack(">i", 2), "the pending horizontal blank change is not a flag"),
         ("GEOM with an empty allocation", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("alloc_width"), struct.pack(">i", 0),
          "the allocation of the drawing buffer is empty or larger than the presentation buffer"),
         ("GEOM with an allocation taller than the buffer", b"P6VD", "GEOM", 4 * GEOM_WORDS.index("alloc_height"), struct.pack(">i", 627),

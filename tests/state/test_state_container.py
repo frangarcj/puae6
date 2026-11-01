@@ -22,7 +22,7 @@ BRIDGE_BODY = 40        # P6BR (T15h) with no media event queued: 40 bytes plus 
 INPUT_BODY = 170 + 4    # P6IN: empty keyboard ring, plus T70d's two parallel types and two button bytes
 CHIPSET_SUB_BODIES = (360, 226, 63, 245, *(25 for _ in range(8)), 692, 88, 72, 16)  # CHIP, BLTX, BLIT, CHSL, sprites, BEAM, COPR, BLTP, LPEN
 CHIPSET_BODY = sum(CHIPSET_SUB_BODIES) + 8 * len(CHIPSET_SUB_BODIES)  # P6CH on A500: each beta21 sub-body has a tag and u32 length
-VIDEO_FIXED = 484       # P6VD (T15j): BPLX 292, DNSP (64) and GEOM (104), each with its tag and length, and then PIXL, the rows of the picture, whose length is the picture's
+VIDEO_FIXED = 488       # P6VD (T15j): BPLX 292, DNSP (64) and GEOM (108), each with its tag and length, and then PIXL, the rows of the picture, whose length is the picture's
 AUDIO_BODY = 496 + 168  # P6AU: four channels of 25 and AUDP (356), plus T74a's DCLK (160 + 8 header)
 DISK_BODY = 441         # P6DK with no medium: four DSKn of 24, four absent DSDn, DISK 17 and DSKX 248, each with its tag and length
 
