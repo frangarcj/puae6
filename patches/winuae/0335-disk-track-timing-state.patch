@@ -1,7 +1,7 @@
 diff --git a/disk.cpp b/disk.cpp
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -6195,11 +6195,22 @@
+@@ -6225,11 +6225,22 @@
  		drv->indexoffset = restore_u32 ();
  		drv->buffered_cyl = drv->cyl;
  		drv->buffered_side = side;
@@ -24,7 +24,7 @@ diff --git a/disk.cpp b/disk.cpp
  		drv->revolutions = restore_u16 ();
  	}
  	return src;
-@@ -6292,11 +6303,19 @@
+@@ -6322,11 +6333,19 @@
  	save_u16 (drv->trackspeed);
  	save_u32 (drv->skipoffset);
  	save_u32 (drv->indexoffset);

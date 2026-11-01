@@ -187,7 +187,7 @@
     {
       "id": "0335-disk-track-timing-state",
       "file": "patches/winuae/0335-disk-track-timing-state.patch",
-      "sha256": "96e7662fa84fdc2c8bd92873d5a2c1bf7aa25e9da3b7cc133f617442e84d0fe6",
+      "sha256": "9cacb7073777db30d99275c706fce7b84e2b929ed25710503f93cc1f01350c3d",
       "title": "The timing of a buffered track is one value per byte in the state",
       "reason": "T57b: DISK_update reads the timing of a track (FDI, IPF) as tracktiming[mfmpos / 8], one value per byte of the track, and upstream's save_disk2/restore_disk2 write one per 16-bit word: the second half of the timing array was never carried, and a machine that loaded the state read that half of the track at the speed the buffer left there (the first revolution's, after an insert). DSDn with the timing bit now holds the words and then (tracklen + 7) / 8 values.",
       "category": "host hooks",
@@ -202,8 +202,8 @@
       "files": [
         {
           "path": "disk.cpp",
-          "before_sha256": "a34200e4d0c793ddc13cd76211c487d308e3c4ea4516d3a3926ac8d9dc6034e9",
-          "after_sha256": "f505d36d2243f6be29e2aea81141537344be3deb6d23338c4e4d3cfd5a5d835e"
+          "before_sha256": "e837a4ad25fc5258bc60495dc7b3ec11c63189afa9889841d510479d514205f9",
+          "after_sha256": "78a3ea42eb971bb266529d2fb7e0ca6a678d1013edfe0f1000d9becc7a687ab3"
         }
       ]
     },
