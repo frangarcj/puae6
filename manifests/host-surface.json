@@ -829,7 +829,8 @@
             "hardfile.cpp",
             "gayle.cpp",
             "akiko.cpp",
-            "cdtv.cpp"
+            "cdtv.cpp",
+            "cd32_fmv.cpp"
           ],
           "zfile_fwrite": [
             "cia.cpp",
@@ -842,7 +843,8 @@
             "gayle.cpp",
             "akiko.cpp",
             "cdtv.cpp",
-            "flashrom.cpp"
+            "flashrom.cpp",
+            "cd32_fmv.cpp"
           ],
           "zfile_fread": [
             "cia.cpp",
@@ -874,6 +876,10 @@
             "akiko.cpp",
             "cdtv.cpp",
             "ar.cpp"
+          ],
+          "zfile_ferror": [
+            "disk.cpp",
+            "savestate.cpp"
           ],
           "zfile_size32": [
             "cia.cpp",
@@ -940,7 +946,9 @@
             "savestate.cpp"
           ],
           "zfile_size": [
-            "disk.cpp"
+            "memory.cpp",
+            "disk.cpp",
+            "rommgr.cpp"
           ],
           "zfile_getoriginalname": [
             "disk.cpp"
@@ -987,6 +995,7 @@
             "main.cpp"
           ],
           "zfile_gettype": [
+            "disk.cpp",
             "main.cpp"
           ],
           "zfile_zuncompress": [
