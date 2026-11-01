@@ -1,7 +1,7 @@
 diff --git a/memory.cpp b/memory.cpp
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -1705,7 +1705,7 @@
+@@ -1750,7 +1750,7 @@
  
  static const uae_char *kickstring = "exec.library";
  
@@ -10,7 +10,7 @@ diff --git a/memory.cpp b/memory.cpp
  {
  	uae_char buffer[11];
  	int i, j, oldpos;
-@@ -1758,8 +1758,14 @@
+@@ -1803,8 +1803,14 @@
  	}
  #endif
  #ifdef P6_PORTABLE
@@ -27,7 +27,7 @@ diff --git a/memory.cpp b/memory.cpp
  		((i != ROM_SIZE_256 && i != ROM_SIZE_512) ||
  		(i != size && (noalias || i != size / 2))))
  		return 0;
-@@ -2117,7 +2123,35 @@
+@@ -2171,7 +2177,35 @@
  	if (f != NULL) {
  #ifdef P6_PORTABLE
  		const uae_s64 length = zfile_size(f);

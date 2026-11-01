@@ -1,7 +1,7 @@
 diff --git a/expansion.cpp b/expansion.cpp
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -4192,17 +4192,22 @@
+@@ -4197,17 +4197,22 @@
  	return b.allocated_size && b.start >= 0x10000000 && b.start < 0xf0000000 && &get_mem_bank(b.start) == &b;
  }
  
@@ -27,7 +27,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	w[5] = expamem_autoconfig_mode;
  	w[6] = expamem_hi;
  	w[7] = expamem_lo;
-@@ -4228,8 +4233,9 @@
+@@ -4233,8 +4238,9 @@
  		return false;
  	const uint32_t size = fastmem_bank[0].allocated_size;
  	const uint32_t start = w[10];
@@ -38,7 +38,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	if (!size && (w[10] || w[12]))
  		return false; // no Fast RAM board (T29c: the chain of a machine with only the UAEFS board): words 10 to 12 are zero
  	if (w[0] >= w[1] && (w[3] || w[4] || w[5]))
-@@ -4286,7 +4292,7 @@
+@@ -4291,7 +4297,7 @@
  		if (!currprefs.address_space_24)
  			map_banks(z3 ? &expamemz3_bank : &dummy_bank, AUTOCONFIG_Z3 >> 16, 1, 0);
  	}
@@ -47,7 +47,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	return true;
  }
  
-@@ -4580,6 +4586,11 @@
+@@ -4585,6 +4591,11 @@
  		false, EXPANSIONTYPE_INTERNAL | EXPANSIONTYPE_IDE,
  		0, 0, 0, false, NULL, false, 1
  	},
@@ -158,7 +158,7 @@ diff --git a/custom.cpp b/custom.cpp
 diff --git a/devices.cpp b/devices.cpp
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -515,7 +515,7 @@
+@@ -575,7 +575,7 @@
  #elif defined(P6_PORTABLE)
  	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit
  	// T56: and the IDE port of Gayle
@@ -170,7 +170,7 @@ diff --git a/devices.cpp b/devices.cpp
 diff --git a/memory.cpp b/memory.cpp
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -3480,7 +3480,7 @@
+@@ -3546,7 +3546,7 @@
  #elif defined(P6_PORTABLE)
  	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
  	// T29a: and while a hard file is mounted (the UAEFS board is on the chain)

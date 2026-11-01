@@ -1752,11 +1752,11 @@
     {
       "id": "0401-cdtv-combined-firmware",
       "file": "patches/winuae/0401-cdtv-combined-firmware.patch",
-      "sha256": "c6a7d49f9b6c1a45cc823bfd4fee2dbf9e0890378d50a2210f047925c377f0f4",
+      "sha256": "c08aae6a792fefd0e589ccca79bcdc5cecef7e340d56bcff550349efafdc9a7f",
       "title": "Load the verified private CDTV extended and main ROM through bounded views",
       "reason": "T67c1: fixed ID22 extended256KiB plus ID6 main256KiB, with original extended bank padding and independent bounded views. No public CDTV profile, autoconfig or state claim.",
       "category": "CDTV firmware boundary",
-      "order": 70,
+      "order": 74,
       "symbols": [
         "read_kickstart",
         "load_kickstart"
@@ -1767,19 +1767,19 @@
       "files": [
         {
           "path": "memory.cpp",
-          "before_sha256": "cc517c3ddde5e90be06711d7610df446f513e5dea89ec7b40b8a029bce32567c",
-          "after_sha256": "84478829180bf5e6b42fdb90b7375e5c8424f3be1df5b0b186ec592af841cfcb"
+          "before_sha256": "57d223f424f1f7e3ff301117306229537fcd930ad6ddaf6a8c2b0e9daa78eec3",
+          "after_sha256": "c4253b1344a1a822516b94128fd5ec94f9175ed474e5c767ea59a784c7f46a78"
         }
       ]
     },
     {
       "id": "0402-cdtv-autoconfig-state",
       "file": "patches/winuae/0402-cdtv-autoconfig-state.patch",
-      "sha256": "0267bdd104a4527af14226824e04d0346815961ca65788f03a19a61d8e46a364",
+      "sha256": "d0fb4f271cb8653804279ff5f9766ee3141c4baf9598e57adf24e5c1206f5497",
       "title": "Restore original CDTV autoconfig chain and empty unit without host effects",
       "reason": "T67c2: retain the original DMAC card and forwarding, capture pending/assigned/shut-up phases, validate candidate phase and destination before mutation, and restore the real empty unit. Native private profile only; public CD boot and Waterbox remain gated.",
       "category": "CDTV autoconfig state boundary",
-      "order": 71,
+      "order": 75,
       "symbols": [
         "p6_cdtv_current_card",
         "p6_expansion_state_get",
@@ -1795,8 +1795,8 @@
       "files": [
         {
           "path": "expansion.cpp",
-          "before_sha256": "83ff9a79f6b04d189f4a961284ddf5104e3e6a057d3bf62681efd348ec3eb227",
-          "after_sha256": "d23cacab6bef85d307be7a2e8d7b15646f2701aa5a5f3dbc42b6cc8880cb17b4"
+          "before_sha256": "8a4934d7bf53a238bf568687bb32a02145e2c62ca90288df72686ca6c15f7681",
+          "after_sha256": "f38fc9f135db7cff35285581e02065a58ec311e406ce91578f4c2fbe4e8b2ad5"
         },
         {
           "path": "cdtv.cpp",
@@ -1805,18 +1805,18 @@
         },
         {
           "path": "custom.cpp",
-          "before_sha256": "dff70c94ec68d8d4c3029d61ffea9e0ed1363e708e7294aefc29f4e59f0f27a0",
-          "after_sha256": "f45fb70d4fe86a37f075266803a0ea4015b8c4bf5e16f68bae567da7f0832668"
+          "before_sha256": "d624b6f69ad43e319a4ac9a7f98ae5af5d068f4c335a2d134ec435f3cec58b87",
+          "after_sha256": "3421de8fbc78706b437f90d70cfbb65e007c982039837fd1be4b61515cc90f12"
         },
         {
           "path": "devices.cpp",
-          "before_sha256": "daaef6e12c5c714b89b9bfbbcd39d750dcbe1d7ad1c056e3a98d36ca313e4e93",
-          "after_sha256": "f73ea6810e32c9ba8f389327f2a3c7815076289824d97738b82cf61518ed1071"
+          "before_sha256": "f23eb6a4f44ecb1b3626451f67e9925c61cabb1d687f62bcdbd30af217d59024",
+          "after_sha256": "0084b997e56849b8f35dbd9cd9243673f0331c9814f5659305f71ca5c334152d"
         },
         {
           "path": "memory.cpp",
-          "before_sha256": "84478829180bf5e6b42fdb90b7375e5c8424f3be1df5b0b186ec592af841cfcb",
-          "after_sha256": "02208997a8771e9d85f584682f64ee07c546622a8b5adfb825917d13f79e591a"
+          "before_sha256": "c4253b1344a1a822516b94128fd5ec94f9175ed474e5c767ea59a784c7f46a78",
+          "after_sha256": "5b46e41eeaa13e619d8ba4b86f22daba37a79d34fa050cb5ee55ab53992bdfe3"
         }
       ]
     },
