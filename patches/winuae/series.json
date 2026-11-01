@@ -1429,9 +1429,9 @@
       "file": "patches/winuae/0386-frestore040-fpsp-cu06-double-normal.patch",
       "sha256": "d8f0bf9b955a1fddf83a3e75067bb39446603f4b2a35e6bf829e36544e9a2d23",
       "title": "Resume FPSP CU06 double commands reconstructed from normal single sources",
-      "reason": "T55c: Motorola FPSP op2_xi/op2_com preserves a converted normal SINGLE ETEMP while rewriting CMD1 to double. Decode only that documented rev40/CU06 shape and use live FPn; retain exception priority, and leave double-native and special/denormal variants explicitly pending.",
+      "reason": "T95dx decodes only the documented rev40 CU06 normal-SINGLE shape retained by FPSP op2_xi/op2_com, using live FPn and preserving exception priority; double-native and special/denormal variants remain pending.",
       "category": "FPU correctness",
-      "order": 57,
+      "order": 56,
       "symbols": [
         "fpuop_restore"
       ],
