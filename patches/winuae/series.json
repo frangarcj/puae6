@@ -2780,6 +2780,41 @@
           "after_sha256": "0eb4742f9c726b9417f9aa0e081ff4c70cf0bc70e6d30b20f903718bb95effcf"
         }
       ]
+    },
+    {
+      "id": "0441-portable-030-architectural-pmmu",
+      "file": "patches/winuae/0441-portable-030-architectural-pmmu.patch",
+      "sha256": "850484acc89edcabb129d7699c60826bb7ec30fac186fd815f477ef7e6e7affc",
+      "title": "Keep 68030 PMMU queries architectural without enabling translation",
+      "reason": "The portable beta21 profile turns every 68030 PMMU opcode into Line-F even though the processor integrates the architectural PMMU registers independently of page-table translation. Retain beta21's fake PMOVE, PTEST, PLOAD and PFLUSH register model while translation stays excluded. On 68040 and 68060 retain generated FPU handlers without a configured unit so the processor builds its specific absent-unit frame instead of a generic illegal opcode.",
+      "category": "portable 68030 control registers",
+      "order": 110,
+      "symbols": [
+        "mmu_op30",
+        "fp_unimp_instruction_exception_pending",
+        "p6_mmu030_fake_get",
+        "p6_mmu030_fake_set"
+      ],
+      "test": "tests/state/test_a4030.py; tests/state/test_a4040.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "cc16eeb4e53dd8395aafb51a8c56a4a9c1eb51b2865af1a35fcd59ba382ae3d4",
+          "after_sha256": "64b065941678e823e113802aef8bc5ac52d553001cd9c52996b1bddf97c32f05"
+        },
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "7d8cf296312f7676e1c140ac3c1493994105ebb9d2ad6bd3beda6c3314e17a30",
+          "after_sha256": "ade61065199598c634501debc5ef2fe4e93bf841b7aa4e8ce6babe17e05b8ab3"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "052a99933ce6b89a116fa8c3f90da90934015caf32d5a68599ddf65f07cfa7f1",
+          "after_sha256": "4bdc906dbd6ae664a6aa0632e938c1cd8ebd210f1e0422c8a0192bd72c182473"
+        }
+      ]
     }
   ]
 }

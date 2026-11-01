@@ -1,6 +1,6 @@
-"""T55b first core vertical: real A4000 motherboard, normal 68030, no PMMU.
+"""T55b/T95h17: real A4000 motherboard and normal 68030 without translation.
 
-The UI and real Waterbox acceptance remain separate gates; this is a directed core test.
+The integrated PMMU remains architecturally queryable; page-table translation is absent.
 """
 import struct
 import subprocess
@@ -15,7 +15,7 @@ SETUP = """    MOVE.B #$00,$E8004A.L
     MOVE.B #$20,$E80048.L       ; configure the 8 MiB Zorro II board
     MOVE.L #$12345678,$200000.L
     MOVE.L #$9ABCDEF0,$9FFFFC.L
-    MOVE.L #$13572468,$2008.L
+    MOVE.L #$13572468,$2014.L
     MOVE.L #$FFFFFFFF,$01002008.L ; 32-bit map: must not alias Chip RAM
     MOVE.B #$96,$DE0003.L       ; Ramsey config
     MOVE.B #0,$DE0002.L         ; clear Gary cold boot
@@ -36,7 +36,15 @@ SETUP = """    MOVE.B #$00,$E8004A.L
     .word $1039,$00DC,$0001     ; Ricoh high nibble
     .word $13C0,$0000,$2013
 """
-PROGRAM = cpu.PMMU.replace("    MOVE.L #$4000,D0", SETUP + "    MOVE.L #$4000,D0", 1)
+PROGRAM = cpu.PMMU.replace("    MOVE.L #$4000,D0", SETUP + "    MOVE.L #$4000,D0", 1).replace(
+    "    LEA $3000.W,A0\n    MOVE.L #0,D0\nloop:\n    .word $F010,$4000           ; PMOVE (A0),TC: no 68851 is present\n",
+    "    LEA $3000.W,A0\n"
+    "    .word $F010,$4000           ; PMOVE (A0),TC: integrated 030 PMMU register\n"
+    "    LEA $2008.W,A0\n"
+    "    MOVE.L #0,D0\n"
+    "    MOVE.L #0,D1\n"
+    "loop:\n"
+    "    .word $F010,$4200           ; PMOVE TC,(A0): must survive public state restore\n")
 
 
 class A4030Tests(d.Det02Case):
@@ -53,16 +61,19 @@ class A4030Tests(d.Det02Case):
         path = self.dir / "a4030.state"
         ram = self.dir / "a4030.ram"
         run = self.probe("a4030", "--units", "3", "--save-fields-at", "3", str(path),
-                         "--ramout-at", "3", "0x2000", "20", str(ram))
+                         "--ramout-at", "3", "0x2000", "24", str(ram))
         self.assertFalse(run.save_errors)
         data = ram.read_bytes()
-        resumed, fline, alias = struct.unpack_from(">III", data)
-        self.assertGreater(min(resumed, fline), 0)
-        self.assertLessEqual(abs(resumed - fline), 1, "PMMU must enter vector 11 and return after the extension")
+        resumed, fline, tc = struct.unpack_from(">III", data)
+        self.assertGreater(resumed, 0)
+        self.assertEqual(0, fline, "the integrated 68030 PMMU query must not enter vector 11")
+        self.assertEqual(0x80000000, tc)
+        alias = struct.unpack_from(">I", data, 20)[0]
         self.assertEqual(0x13572468, alias, "A4000 has a 32-bit address map")
         self.assertEqual(bytes([15, 0x96, 0x7f, 10]), data[16:20])
         table = FieldTable(path.read_bytes(), 0, run.fields)
         self.assertEqual(0x3113, table.get("cpu.cacr"))
+        self.assertEqual(0x80000000, table.get("cpu.pmmu030.tc"))
         table = FieldTable(path.read_bytes(), 2, run.fields)
         self.assertEqual((8192 * 1024, 0x200000), (table.get("ram.fast_size"), table.get("ram.fast_start")))
         self.assertEqual(0x96, table.get("mbres.ramsey_config"))
