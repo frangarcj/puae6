@@ -1473,9 +1473,9 @@
       "file": "patches/winuae/0388-mds-metadata-only.patch",
       "sha256": "dc0fc963fe5c6b37c98ae4ed11566cf14b0ecaaabe511534f090f1f8d48bebf1",
       "title": "Export bounded MDS v1 metadata without handles or payload reads",
-      "reason": "T66s1: preserve the pinned parsemds layout with explicit endian, bounded reads, exact signature and raw pregap/length/offset/name fields. No filesystem, index inference or public MDS claim; malformed/unsupported inputs leave output intact.",
+      "reason": "T95dz preserves the pinned parsemds layout with explicit endian, bounded reads and raw TOC/geometry/name fields; it neither resolves files nor claims public MDS loading.",
       "category": "media parser portability",
-      "order": 59,
+      "order": 58,
       "symbols": [
         "parsemds",
         "mds_metadata"
