@@ -805,7 +805,7 @@
       "file": "patches/winuae/0360-akiko-emulated-clock.patch",
       "sha256": "73f00711ec1c022e3067adf761fbd77a173802aa37f3531ab24ac3c09f94f054",
       "title": "Anchor Akiko service phases to integer emulated cycles and real reset",
-      "reason": "T66h2 replaces persistent float/line periods with PAL/NTSC cycle accumulators. Turbo never accelerates hardware, zero elapsed cycles do no work, and reset anchors phase and clears pending commands. Complete Akiko state and machine integration remain pending.",
+      "reason": "T95cr ports the PAL/NTSC cycle accumulators to beta21: turbo cannot accelerate hardware, zero elapsed cycles do no work, and reset anchors phase and clears pending commands.",
       "category": "host hooks",
       "order": 31,
       "symbols": [
@@ -820,8 +820,8 @@
       "files": [
         {
           "path": "akiko.cpp",
-          "before_sha256": "3285d462928e7d0cc2d237078df99735886df63b1243095a5988aac4139606a9",
-          "after_sha256": "93c12f89c40dbca0c4489320774e0103a10fccf0e3ef2a6ab433778b9b44eaf8"
+          "before_sha256": "27a8b16d9d2fa77640945370523f995eba13fa1c45eb330f65bc7699470a6b2a",
+          "after_sha256": "876e95498067f518a9831accd161b65d2a1b094c640cc2f2fc4a497b4314fbeb"
         }
       ]
     },
