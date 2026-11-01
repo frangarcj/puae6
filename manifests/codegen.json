@@ -65,14 +65,27 @@
       "outputs": [
         "cputbl.h",
         "cpustbl.cpp",
+        "cpuemu_0.cpp",
+        "cpuemu_11.cpp",
         "cpuemu_13.cpp",
+        "cpuemu_20.cpp",
         "cpuemu_21.cpp"
       ],
       "runs": [
         {
           "args": [
+            "--no-mmu",
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "11",
+            "12",
             "13",
             "14",
+            "20",
             "21"
           ],
           "cwd": "generated"
