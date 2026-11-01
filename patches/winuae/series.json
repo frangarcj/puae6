@@ -2247,7 +2247,7 @@
     {
       "id": "0420-cd32-fmv-decoder-journal",
       "file": "patches/winuae/0420-cd32-fmv-decoder-journal.patch",
-      "sha256": "538aa3721579c9d2c03f7c9f5c825f3ebcc5b235ddfff2bb19515f3e5876cae8",
+      "sha256": "56a462b30f1d4289ab37e24fdb1ba1cad64cce7b99753cfe746e2064975ad41b",
       "title": "Record a bounded address-free FMV decoder journal",
       "reason": "T43d1 routes portable CL450 input through stable journal-owned bytes and records exact scalar parse results. A sequence-to-I checkpoint permits bounded reconstruction in a fresh decoder without serializing libmpeg2 pointers, raw structs or host timing.",
       "category": "portable state reconstruction",
@@ -2263,8 +2263,8 @@
       "files": [
         {
           "path": "cd32_fmv.cpp",
-          "before_sha256": "ddf6da0bc65761e070d91343d128aed43296f331aaff58ba7a78aa0a134463a1",
-          "after_sha256": "66d41ecb9bd5bd85f9fe84be49d67148d966ef085fff1d32b1a9a76a1ad77b4f"
+          "before_sha256": "ebe5e14190cfff9ab3a6149d8b369b3797ac7e35b6970b95d6db3e2058a0403d",
+          "after_sha256": "3eed44784cee297d839035ae41f96ee684b78491927507178ce9ec31aea23ea0"
         }
       ]
     },
