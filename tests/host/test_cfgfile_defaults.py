@@ -46,8 +46,12 @@ static char fake_token;
 static struct zfile *const fake_file = reinterpret_cast<struct zfile *>(&fake_token);
 static struct zfile *default_file;
 static int uaeconfig;
+static bool gfx_keep_aspect_seen;
 int savestate_state;
 static size_t cfg_write(const void *, struct zfile *);
+#ifndef P6_EXCLUDED_HOOKS
+#undef P6_PORTABLE
+#endif
 #include "default_prefs_under_test.h"
 static void event(int n) { assert(event_count < 32); events[event_count++] = n; }
 void reset_inputdevice_config(struct uae_prefs *p, bool reset)
@@ -63,7 +67,8 @@ void inputdevice_default_prefs(struct uae_prefs *p) { assert(p == &prefs); event
 void blkdev_default_prefs(struct uae_prefs *p) { assert(p == &prefs); event(15); }
 void target_default_options(struct uae_prefs *p, int type)
 { assert(p == &prefs && type == 7); event(16); }
-void zfile_fclose(struct zfile *z) { assert(z == nullptr); ++cache_count; event(20); }
+int zfile_fclose(struct zfile *z)
+{ assert(z == nullptr); ++cache_count; event(20); return 0; }
 struct zfile *zfile_fopen_empty(struct zfile *prev, const TCHAR *name)
 { assert(prev == nullptr && !_tcscmp(name, _T("configstore"))); ++cache_count; event(21); return fake_file; }
 void cfgfile_save_options(struct zfile *z, struct uae_prefs *p, int type)
@@ -133,9 +138,11 @@ class CfgfileDefaultsTests(unittest.TestCase):
                                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
                                     *includes, str(tmp / "probe.cpp"), "-o", str(exe)],
                                    check=True, timeout=120)
-                    run = subprocess.run([str(exe)], check=True, capture_output=True,
+                    run = subprocess.run([str(exe)], check=False, capture_output=True,
                                          text=True, env={**os.environ, "ASAN_OPTIONS": "detect_leaks=0"},
                                          timeout=30)
+                    self.assertEqual(run.returncode, 0,
+                                     f"{label}{opt} failed:\n{run.stdout}{run.stderr}")
                     pair.append(run.stdout)
                 outputs.append(pair)
             for reference_out, patched_out in outputs:
