@@ -36,7 +36,7 @@ diff --git a/devices.cpp b/devices.cpp
 diff --git a/drawing.cpp b/drawing.cpp
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -2179,7 +2179,7 @@
+@@ -2178,7 +2178,7 @@
  	}
  #endif
  

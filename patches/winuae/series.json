@@ -2046,29 +2046,6 @@
       ]
     },
     {
-      "id": "0412-native-drawing-cache-cleanup",
-      "file": "patches/winuae/0412-native-drawing-cache-cleanup.patch",
-      "sha256": "ab198756e872eb0d3d21c29f739d6f8db91abcef171229f5fdbd9507bd2758ed",
-      "title": "Release native drawing geometry caches and rebuild them after reload",
-      "reason": "T39b: hosted Linux LSan reports leaked aspect-map allocations at libretro dlclose. Free the drawing-owned maps on teardown and do not let unchanged cached dimensions bypass their reconstruction on a new load. Live frame and snapshot behavior is unchanged.",
-      "category": "host lifecycle",
-      "order": 82,
-      "symbols": [
-        "drawing_free",
-        "init_row_map"
-      ],
-      "test": "tests/ci/test_linux_native.py; tools/ci/linux_native.py",
-      "upstream_candidate": true,
-      "removal_version": null,
-      "files": [
-        {
-          "path": "drawing.cpp",
-          "before_sha256": "3d54012b1b7981909d757d931433dd47e653a1a5a0707dfcfa7b50586c437bc2",
-          "after_sha256": "d51578040a49410ce19de92f5f8eda660414761e39a4de16ef08bbf61ae825ff"
-        }
-      ]
-    },
-    {
       "id": "0413-nrg-etnf-global-sessions",
       "file": "patches/winuae/0413-nrg-etnf-global-sessions.patch",
       "sha256": "07f554ca35667f238cb71f181b4e3394e809a7845543f6e1afba9b7abc7c4a61",
@@ -2159,7 +2136,7 @@
     {
       "id": "0417-cd32-fmv-portable-graph",
       "file": "patches/winuae/0417-cd32-fmv-portable-graph.patch",
-      "sha256": "a0b79dccd4c34f1510bef8a2f4758216c7cf532d814c8031f57c117a4f8e39e7",
+      "sha256": "ce3c6413be303a91d75e4548207c0afa52c072425b600322b09780daae8dcaf9",
       "title": "Connect the bounded CD32 FMV board to the portable expansion and video graph",
       "reason": "T43b1 enables WinUAE's real FMV sync, compositor and Zorro II catalog only after the scalar decoder and bounded portable audio owner have been selected. The board still requires an authenticated pre-load ROM owner; stock CD32 without one keeps the previous graph.",
       "category": "portable device graph",
@@ -2187,8 +2164,8 @@
         },
         {
           "path": "drawing.cpp",
-          "before_sha256": "d51578040a49410ce19de92f5f8eda660414761e39a4de16ef08bbf61ae825ff",
-          "after_sha256": "78f55255f91c7bffc1a331f0197053597d48a438e45a3a6f70c8cf8ba9bc1b45"
+          "before_sha256": "3d54012b1b7981909d757d931433dd47e653a1a5a0707dfcfa7b50586c437bc2",
+          "after_sha256": "c6c3a24fcd94847d40fdc381b939824ca2692702602c626e87ff6b42fd142dad"
         },
         {
           "path": "expansion.cpp",
