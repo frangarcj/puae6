@@ -851,9 +851,9 @@
     {
       "id": "0362-cd32-without-fmv",
       "file": "patches/winuae/0362-cd32-without-fmv.patch",
-      "sha256": "dd6cc62db0fb2eb909826aa950ef6e8c8252e040bff0d85a19f8c48f71280141",
-      "title": "Bounded portable CD32 FMV and stock accelerator-ROM policy",
-      "reason": "T43b1 links WinUAE's real CL450/L64111 device with the pinned scalar decoder. The cooperative build removes only its host semaphore, rejects dimensions above the fixed 352x288x4 buffers before conversion/copy and validates genlock inputs; audio remains on the emulated-time CDA stream. Portable CD32 is stock 68EC020, so the unrelated accelerator ROM speed workaround and unavailable protect_roms host hook stay excluded.",
+      "sha256": "c34d0c375e130c4608ec24d13b3a64811ec55aaa791f6cb95a90bf3a0b7bb41c",
+      "title": "Bound portable CD32 FMV hooks and stock ROM policy",
+      "reason": "T95da rebases the cumulative portable guards on beta21: host semaphore/render hooks stay excluded, stock 68EC020 needs no accelerator ROM patch, and fixed FMV buffers reject invalid dimensions and depths before copy.",
       "category": "host hooks",
       "order": 33,
       "symbols": [
@@ -864,29 +864,29 @@
         "fmv_next_cd_audio_buffer_callback",
         "cd32_fmv_new_image"
       ],
-      "test": "tests/media/test_akiko_link.py",
+      "test": "tests/media/test_fmv_patch.py",
       "upstream_candidate": false,
       "removal_version": null,
       "files": [
         {
           "path": "devices.cpp",
-          "before_sha256": "e033bc47534ca080e07941668e9acf212cf8e11c7152508376f2e26c25180e05",
-          "after_sha256": "2c81d00baff43a49bf525ab2935f03026e78b330a333ac961f218ad9d3023e71"
+          "before_sha256": "f2e256cf804724da818765a0246f243d76194d48dd2a68ba0c9de2f96cc288df",
+          "after_sha256": "10d1e6335483ea7f0f93fbad0eec6775f9abbd2ce3af44d63d4d5b2e99533fdd"
         },
         {
           "path": "akiko.cpp",
-          "before_sha256": "93c12f89c40dbca0c4489320774e0103a10fccf0e3ef2a6ab433778b9b44eaf8",
-          "after_sha256": "c51fb47459bbf8b8d2942cf518b5d8051996dc6cc60421db100899dde752ab66"
+          "before_sha256": "876e95498067f518a9831accd161b65d2a1b094c640cc2f2fc4a497b4314fbeb",
+          "after_sha256": "4286c0e2a53c55c83af1e2876bd394724b558ebf708c376057e153769cb2fee2"
         },
         {
           "path": "drawing.cpp",
-          "before_sha256": "5d2765d69ed4a10232aa6c5f99f14e272c50bdb5a865b8c47ba05ba212678986",
-          "after_sha256": "19793828365bcc4de3f0fe9a04669f4cbd5ab8c220c44f16531feb6cd36bf52a"
+          "before_sha256": "eba1fe8e17a6caa05bfe715c707f4a88ac12af7658d24b6f4e4773d26e3d8416",
+          "after_sha256": "e8b1c9a0571a681d784a7a8d42fb1f983c9e9e106a6996750d53ded162db17b5"
         },
         {
           "path": "cd32_fmv.cpp",
-          "before_sha256": "6adf6612277bff79f2e3620870c895270e28c0fcf9659afd617c909db567a536",
-          "after_sha256": "d55e1ae8c0fab1c3b2be56cc17ad2aa9b97ad9effbabbaf635fba3b914395aad"
+          "before_sha256": "8cb87f1651f85efa2fce52d4d0bf6c3c903665d7898c9290d057c600fdb70b75",
+          "after_sha256": "ebe5e14190cfff9ab3a6149d8b369b3797ac7e35b6970b95d6db3e2058a0403d"
         },
         {
           "path": "cd32_fmv_genlock.cpp",
