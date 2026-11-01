@@ -237,12 +237,19 @@ internal static unsafe partial class Program
 			Firmware = [1], SyncSettings = settings, Media = media ?? [], HardFiles = hard ?? [],
 			CdInfo = new P6CdInfo { Version = 1, Size = (uint)sizeof(P6CdInfo) }, ReadCd = (_, _, _) => false,
 		};
+		Puae6SyncSettings RequestedSettings(Puae6Parameters parameters) => (Puae6SyncSettings)(typeof(Puae6Parameters)
+			.GetProperty("RequestedSyncSettings", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+			.GetValue(parameters) ?? throw new InvalidOperationException("requested sync settings were not retained"));
 		var cdOnly = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings()));
 		Require(cdOnly.SyncSettings.Machine == Puae6Machine.CD32 && cdOnly.SyncSettings.CdController == Puae6CdController.Auto,
 			"Auto preserves the historical CD32 topology for CD-only content");
+		Require(RequestedSettings(cdOnly).Machine != Puae6Machine.CD32 && RequestedSettings(cdOnly).CdController == Puae6CdController.Auto,
+			"CD-only resolution retains the frontend's requested machine and Auto controller policy");
 		var mixed = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A600 }, [new byte[P6.AdfBytes]]));
 		Require(mixed.SyncSettings.Machine == Puae6Machine.A600 && mixed.SyncSettings.CdController == Puae6CdController.Ide,
 			"Auto resolves mixed CD and ADF to IDE without changing a compatible machine");
+		Require(RequestedSettings(mixed).Machine == Puae6Machine.A600 && RequestedSettings(mixed).CdController == Puae6CdController.Auto,
+			"mixed-media resolution retains the frontend's Auto controller policy");
 		var explicitIde = Puae6WhdLoad.Resolve(WithCd(new Puae6SyncSettings { Machine = Puae6Machine.A1200, CdController = Puae6CdController.Ide }, hard: [new byte[512]]));
 		Require(explicitIde.SyncSettings.Machine == Puae6Machine.A1200 && explicitIde.SyncSettings.CdController == Puae6CdController.Ide,
 			"explicit IDE keeps the selected machine and hard file");
@@ -251,9 +258,14 @@ internal static unsafe partial class Program
 		Require(scsi.SyncSettings.Machine == Puae6Machine.A500 && scsi.SyncSettings.HdfController == Puae6HdfController.Uae
 			&& scsi.SyncSettings.CdController == Puae6CdController.None && scsi.SyncSettings.UaeScsi == Puae6UaeScsi.Enabled && scsi.HardFiles.Count == 2,
 			"Auto enables uaescsi for CD plus None and keeps two HDF on the UAE controller");
+		Require(RequestedSettings(scsi).UaeScsi == Puae6UaeScsi.Auto && RequestedSettings(scsi).CdController == Puae6CdController.None,
+			"uaescsi Auto remains the frontend policy while the live CD session uses Enabled");
 		var noCdAuto = Puae6WhdLoad.Resolve(new Puae6Parameters { Firmware = [1], SyncSettings = new Puae6SyncSettings { CdController = Puae6CdController.None, WhdLoad = Puae6WhdLoadMode.Disabled } });
 		Require(noCdAuto.SyncSettings.UaeScsi == Puae6UaeScsi.Disabled && noCdAuto.SyncSettings.CdController == Puae6CdController.None,
 			"Auto without a CD resolves disabled without changing the controller");
+		var reopenedWithoutCd = Puae6WhdLoad.Resolve(new Puae6Parameters { Firmware = [1], SyncSettings = RequestedSettings(scsi) });
+		Require(reopenedWithoutCd.SyncSettings.UaeScsi == Puae6UaeScsi.Disabled && RequestedSettings(reopenedWithoutCd).UaeScsi == Puae6UaeScsi.Auto,
+			"a saved Auto policy reopens without CD instead of persisting Enabled and throwing");
 		bool Refused(Puae6SyncSettings settings, IReadOnlyList<byte[]>? hard = null)
 		{
 			try { Puae6WhdLoad.Resolve(WithCd(settings, hard: hard)); return false; }

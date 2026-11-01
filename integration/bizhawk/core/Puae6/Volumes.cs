@@ -83,7 +83,7 @@ public static class Puae6Volumes
 			CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3, ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
 			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
 			CdSlots = (int[])parameters.CdSlots.Clone(), CdNames = (string[])parameters.CdNames.Clone(),
-			SyncSettings = parameters.SyncSettings.Clone(), Settings = parameters.Settings, Media = parameters.Media, MediaNames = parameters.MediaNames,
+			SyncSettings = parameters.SyncSettings.Clone(), RequestedSyncSettings = parameters.RequestedSyncSettings?.Clone(), Settings = parameters.Settings, Media = parameters.Media, MediaNames = parameters.MediaNames,
 			HardFiles = images, HardFileNames = names, Volumes = new List<byte[]>(), VolumeNames = new List<string>(),
 			WhdLoadProvider = parameters.WhdLoadProvider, WhdLoadKickstarts = parameters.WhdLoadKickstarts,
 		};

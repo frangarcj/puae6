@@ -25,6 +25,7 @@ public static class Puae6WhdLoad
 	public static Puae6Parameters Resolve(Puae6Parameters p, Func<Puae6Machine, byte[]>? firmware = null, Func<byte[]>? provider = null)
 	{
 		p.ValidateCdBinding();
+		var requestedSettings = p.RequestedSyncSettings?.Clone() ?? p.SyncSettings.Clone();
 		var settings = p.SyncSettings.Clone();
 		if (!Enum.IsDefined(typeof(Puae6WhdLoadMode), settings.WhdLoad)) throw new VolumeException("unknown WHDLoad mode");
 		var trees = settings.WhdLoad == Puae6WhdLoadMode.Disabled ? new List<List<VolumeFile>>() : p.Volumes.Select(Puae6Volumes.ReadArchive).ToList();
@@ -46,7 +47,7 @@ public static class Puae6WhdLoad
 			Firmware = rom, CartridgeFirmware = p.CartridgeFirmware, CdInfo = p.CdInfo, CdInfoV2 = p.CdInfoV2, CdInfoV3 = p.CdInfoV3, CdOwner = p.CdOwner,
 			CdCatalog = p.CdCatalog?.ToArray(), CdCatalogV2 = p.CdCatalogV2?.ToArray(), CdCatalogV3 = p.CdCatalogV3?.ToArray(), ReadCdCatalog = p.ReadCdCatalog,
 			CdSlots = (int[])p.CdSlots.Clone(), CdNames = (string[])p.CdNames.Clone(),
-			ReadCd = p.ReadCd, SyncSettings = settings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
+			ReadCd = p.ReadCd, SyncSettings = settings, RequestedSyncSettings = requestedSettings, Settings = p.Settings, Media = p.Media, MediaNames = p.MediaNames,
 			HardFiles = p.HardFiles, HardFileNames = p.HardFileNames, Volumes = p.Volumes, VolumeNames = p.VolumeNames,
 		};
 		if (pack)
