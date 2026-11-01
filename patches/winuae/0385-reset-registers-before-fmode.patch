@@ -1,7 +1,7 @@
 diff --git a/custom.cpp b/custom.cpp
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -7030,6 +7030,17 @@
+@@ -7028,6 +7028,17 @@
  			refptr = 0x1ffffe;
  		}
  		refptr_p = refptr;
@@ -19,9 +19,9 @@ diff --git a/custom.cpp b/custom.cpp
  		FMODE(0);
  		CLXCON(0);
  		CLXCON2(0);
-@@ -7047,14 +7058,6 @@
+@@ -7045,14 +7056,6 @@
+ 		maxhpos_short = maxhpos;
  		maxhpos_lol = lol;
- 		updateextblk();
  
 -		bplcon0_saved = bplcon0;
 -		bplcon1_saved = bplcon1;
