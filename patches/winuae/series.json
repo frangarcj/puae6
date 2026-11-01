@@ -2733,6 +2733,28 @@
           "after_sha256": "95750e004709ceef5ce38032b9ea73a12ce915deb46b3b5b8008652be90335c6"
         }
       ]
+    },
+    {
+      "id": "0439-softfloat-case-exact-include",
+      "file": "patches/winuae/0439-softfloat-case-exact-include.patch",
+      "sha256": "f92ce5e64ebea0f601cc199b187d4b5b90186405e44b238d34e819f83789f281",
+      "title": "Use the renamed beta21 SoftFloat header",
+      "reason": "The imported beta21 snapshot retained the old 0021 uppercase include, while beta21 renamed the file itself to softfloat-macros.h. Match the real case so case-sensitive hosts and Apple Clang's nonportable-include-path check compile the same source; SoftFloat arithmetic and float_raise linkage remain unchanged.",
+      "category": "build/portability",
+      "order": 108,
+      "symbols": [
+        "include resolution"
+      ],
+      "test": "tests.host.test_audio_math; BUILD01",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "softfloat/softfloat.cpp",
+          "before_sha256": "813b24494c29f8a93e80f4fcb5a535a3d6012318b3e1a9ea2bc97bb0ecea881d",
+          "after_sha256": "65390609bae569fa7b95bb0322a5e0875485b643b85dd53aaec580adac3c99ba"
+        }
+      ]
     }
   ]
 }
