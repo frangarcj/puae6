@@ -395,9 +395,9 @@
     {
       "id": "0351-second-mouse-boundary",
       "file": "patches/winuae/0351-second-mouse-boundary.patch",
-      "sha256": "b5a98709830f6c5cc0fe4aa36587cdc8cb1af922b34da39b1303641317818c0e",
+      "sha256": "d3d447715e8089bbc6211877030705398eb49efa095215aeb241c32a51149c73",
       "title": "Apply the second mouse at the video boundary",
-      "reason": "T70b adds an independent pointer without rebuilding host mappings or dropping keyboard edges. Its existing counters, deltas and buttons already belong to P6IN; mouse_port[1] is derived from the applied device on restore.",
+      "reason": "T70b beta21 vertical: an independent second pointer uses the existing per-port counters, deltas and buttons without rebuilding host mappings. Its mode is derived from the applied device on restore, preserving the existing P6IN body and bound.",
       "category": "host hooks",
       "order": 16,
       "symbols": [
@@ -411,8 +411,8 @@
       "files": [
         {
           "path": "inputdevice.cpp",
-          "before_sha256": "bdc9f698adf78b9bc9f273e90eb4554e36af8d2ddfba8073e1a5fd088c89440e",
-          "after_sha256": "1b4d8a6eaf62000a13e6d564fe412b3d7f593f2c82b0aca5393465ff4c16de2d"
+          "before_sha256": "e5d72d485fc44be535d12396de328d12b30afe8ccf471df9a22b30caf3e86a71",
+          "after_sha256": "5f16cd3b872e10b2a56756c870428d1c3978ae1867f8ffe6cb4fc84ce6003d95"
         }
       ]
     },
