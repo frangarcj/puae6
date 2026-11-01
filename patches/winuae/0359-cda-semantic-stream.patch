@@ -11,7 +11,7 @@ diff --git a/audio.cpp b/audio.cpp
  #include "sounddep/sound.h"
  #include "events.h"
  #include "savestate.h"
-@@ -357,7 +360,7 @@
+@@ -360,7 +363,7 @@
  
  static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
  static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
@@ -20,7 +20,7 @@ diff --git a/audio.cpp b/audio.cpp
  int sound_available = 0;
  void (*sample_handler) (void);
  static void(*sample_prehandler) (unsigned long best_evtime);
-@@ -3016,6 +3019,7 @@
+@@ -3025,6 +3028,7 @@
  			audio_data[index++] = &audio_stream[i].data[j];
  		}
  	}
@@ -28,7 +28,7 @@ diff --git a/audio.cpp b/audio.cpp
  	set_extra_prehandler();
  }
  
-@@ -3096,13 +3100,20 @@
+@@ -3105,13 +3109,20 @@
  static bool audio_state_cda(int streamid, void *state)
  {
  	struct cd_audio_state *cas = (struct cd_audio_state*)state;
@@ -50,7 +50,7 @@ diff --git a/audio.cpp b/audio.cpp
  	int samples[2];
  	samples[0] = cas->cda_bufptr[0] * cas->cda_volume[0] / 32768;
  	samples[1] = cas->cda_bufptr[1] * cas->cda_volume[1] / 32768;
-@@ -3120,6 +3131,9 @@
+@@ -3129,6 +3140,9 @@
  	if (length < 0 && cas->cda_streamid > 0) {
  		audio_enable_stream(false, cas->cda_streamid, 0, NULL, cas);
  		cas->cda_streamid = 0;
@@ -60,7 +60,7 @@ diff --git a/audio.cpp b/audio.cpp
  		return;
  	}
  	if (!buffer) {
-@@ -3129,11 +3143,103 @@
+@@ -3138,11 +3152,103 @@
  		cas->cda_bufptr = buffer;
  		cas->cda_length = length;
  		cas->cda_userdata = userdata;
