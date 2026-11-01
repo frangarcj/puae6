@@ -23,7 +23,8 @@ class MemoryRomStatusTests(unittest.TestCase):
                             if line.startswith("#define EXTENDED_ROM_")) + "\n"
         bodies += function(source, "static const uae_u8 romend[20]") + ";\n"
         for signature in ("static struct zfile *get_kickstart_filehandle(",
-                          "static int read_kickstart(", "static int load_kickstart (void)",
+                          "static int read_kickstart(", "static bool is_builtin_aros_rom(",
+                          "static int load_kickstart (void)",
                           "static void restore_roms(void)", "bool read_kickstart_version(",
                           "void reload_roms(void)", "static void kickmem_init(void)",
                           "void memory_init (void)", "void memory_cleanup (void)",

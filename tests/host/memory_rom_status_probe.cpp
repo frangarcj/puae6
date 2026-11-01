@@ -20,7 +20,7 @@
 #include <initializer_list>
 
 uae_prefs currprefs{}, changed_prefs{};
-bool cloanto_rom, kickstart_rom;
+bool cloanto_rom, kickstart_rom, rom_write_enabled;
 uae_u16 kickstart_version;
 addrbank kickmem_bank{}, extendedkickmem_bank{}, extendedkickmem2a_bank{}, extendedkickmem2b_bank{};
 addrbank chipmem_bank{}, bogomem_bank{}, mem25bit_bank{}, a3000lmem_bank{}, a3000hmem_bank{};
@@ -169,6 +169,7 @@ int main()
     for (unsigned i = 0; i < 80; ++i) { // Also detects leaked streams on error.
         restore("absent.rom", P6_ROM_OPEN_ERROR);
         restore(":AROS", P6_ROM_UNSUPPORTED);
+        restore("builtin:AROS", P6_ROM_UNSUPPORTED);
         restore("short.rom", P6_ROM_READ_ERROR);
     }
     assert(!memcmp(kickmem_bank.baseaddr, payload, sizeof payload));
