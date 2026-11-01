@@ -2,7 +2,7 @@ diff --git a/audio.cpp b/audio.cpp
 index 805feb5d..30c0191e 100644
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -3021,11 +3021,12 @@ bool p6_audio_phase_set(const int32_t *in, unsigned n)
+@@ -3030,11 +3030,12 @@ bool p6_audio_phase_set(const int32_t *in, unsigned n)
  #ifdef P6_PORTABLE
  namespace p6_cda {
  static bool available(const cd_audio_state &);
@@ -17,7 +17,7 @@ index 805feb5d..30c0191e 100644
      return p6_audio_phase_geometry(n) && (!audio_total_extra_streams || available(owner));
  }
  bool phase_get(const cd_audio_state &owner, int32_t *out, unsigned n)
-@@ -3170,6 +3171,24 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
+@@ -3179,6 +3180,24 @@ static bool audio_cda_owned(const struct cd_audio_state *cas)
  		&& audio_stream[slot].cb_data == cas;
  }
  
@@ -42,7 +42,7 @@ index 805feb5d..30c0191e 100644
  void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int length, int userdata, CDA_CALLBACK next_cd_audio_buffer_callback, void *cb_data)
  {
  	if (!cas)
-@@ -3221,13 +3240,13 @@ static bool available(const cd_audio_state &cas)
+@@ -3230,13 +3249,13 @@ static bool available(const cd_audio_state &cas)
  {
      if (currprefs.sound_interpol == 2 || currprefs.sound_volcnt || currprefs.sound_mixed_stereo_delay) return false;
      if (!audio_total_extra_streams) return cas.cda_streamid <= 0;
@@ -59,7 +59,7 @@ index 805feb5d..30c0191e 100644
  {
      if (!out || !geometry(base, frames) || !available(cas)) return false;
      State s{};
-@@ -3241,7 +3260,7 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
+@@ -3250,7 +3269,7 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
          s.offset = cas.cda_bufptr == dummy_buffer ? 0 : uint32_t((at - begin) / 4);
          s.remaining = uint32_t(cas.cda_length); s.userdata = cas.cda_userdata;
          if (s.remaining > frames - s.offset) return false;
@@ -68,7 +68,7 @@ index 805feb5d..30c0191e 100644
          s.event_cycles = stream.evtime;
          for (int i = 0; i < 2; ++i) {
              const auto &ch = stream.data[i];
-@@ -3252,9 +3271,13 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
+@@ -3261,9 +3280,13 @@ bool capture(const cd_audio_state &cas, const int16_t *base, uint32_t frames, St
      if (!validate(s, frames, cda_evt)) return false;
      *out = s; return true;
  }
@@ -83,7 +83,7 @@ index 805feb5d..30c0191e 100644
          s.active > 1 || s.paused > 1 || s.frames != frames || s.period != period) return false;
      for (int i = 0; i < 2; ++i) {
          if (s.volume[i] < 0 || s.volume[i] > 32768) return false;
-@@ -3267,19 +3290,29 @@ bool validate(const State &s, uint32_t frames, uint32_t period)
+@@ -3276,19 +3299,29 @@ bool validate(const State &s, uint32_t frames, uint32_t period)
      if (!s.active) return !s.paused && !s.offset && !s.remaining && !s.event_cycles && !s.userdata;
      return s.offset <= frames && s.remaining <= frames - s.offset && s.event_cycles <= s.period;
  }
@@ -120,7 +120,7 @@ index 805feb5d..30c0191e 100644
      stream = {}; stream.evtime = s.active ? s.event_cycles : MAX_EV;
      stream.cb = audio_state_cda; stream.cb_data = &cas;
      for (int i = 0; i < 2; ++i) {
-@@ -3289,9 +3322,43 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
+@@ -3298,9 +3331,43 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
          ch.sample_accum = in.accumulator; ch.sample_accum_time = in.cycles;
          ch.mixvol = 1; ch.adk_mask = ~0u;
      }
@@ -185,7 +185,7 @@ index 9a7e04de..87c60aad 100644
  #endif
  #include "archivers/mp2/kjmp2.h"
  
-@@ -1507,6 +1509,195 @@ static void cd32_fmv_audio_handler(void)
+@@ -1519,6 +1521,195 @@ static void cd32_fmv_audio_handler(void)
  	l64111_regs[A_CB_STATUS] -= PCM_SECTORS;
  }
  
@@ -381,7 +381,7 @@ index 9a7e04de..87c60aad 100644
  static void cd32_fmv_hsync_handler(void)
  {
  	if (!fmv_ram_bank.baseaddr)
-@@ -1622,9 +1813,9 @@ addrbank *cd32_fmv_init (struct autoconfig_info *aci)
+@@ -1636,9 +1827,9 @@ addrbank *cd32_fmv_init (struct autoconfig_info *aci)
  		return &expamem_null;
  	}
  	if (!audioram)
@@ -462,7 +462,7 @@ diff --git a/custom.cpp b/custom.cpp
 index dac17abd..343417e6 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13437,8 +13437,8 @@ extern void p6_draw_flags_set(int erase, int center, int locked);
+@@ -13510,8 +13510,8 @@ extern void p6_draw_flags_set(int erase, int center, int locked);
  bool p6_frame_geometry_get(int32_t *out, unsigned n)
  {
  	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
@@ -473,7 +473,7 @@ index dac17abd..343417e6 100644
  	int erase, center, locked;
  	p6_draw_flags_get(&erase, &center, &locked);
  	const int32_t words[] = {
-@@ -13455,8 +13455,10 @@ bool p6_frame_geometry_get(int32_t *out, unsigned n)
+@@ -13528,8 +13528,10 @@ bool p6_frame_geometry_get(int32_t *out, unsigned n)
  bool p6_frame_geometry_set(const int32_t *in, unsigned n)
  {
  	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
@@ -485,16 +485,16 @@ index dac17abd..343417e6 100644
 +	vi->inbuffer = vb;
  	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
  	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
- 	vb->inwidth = in[7]; vb->inheight = in[8]; vb->inwidth2 = in[9]; vb->inheight2 = in[10]; vb->outwidth = in[11]; vb->outheight = in[12];
-@@ -13470,6 +13472,7 @@ bool p6_frame_geometry_set(const int32_t *in, unsigned n)
- 	vb->outwidth = in[11]; vb->outheight = in[12];
- 	display_redraw = in[22] != 0;
- 	p6_draw_flags_set(in[23], in[24], in[25]);
+ 	vb->inwidth = in[7]; vb->inheight = in[8]; vb->outwidth = in[9]; vb->outheight = in[10];
+@@ -13543,6 +13545,7 @@ bool p6_frame_geometry_set(const int32_t *in, unsigned n)
+ 	vb->outwidth = in[9]; vb->outheight = in[10];
+ 	display_redraw = in[20] != 0;
+ 	p6_draw_flags_set(in[21], in[22], in[23]);
 +	vi->inbuffer = selected;
  	return true;
  }
  
-@@ -13481,7 +13484,7 @@ bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first)
+@@ -13554,7 +13557,7 @@ bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first)
  {
  	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
  	struct vidbuffer *vb = &vi->drawbuffer;

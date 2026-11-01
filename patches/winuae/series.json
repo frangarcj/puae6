@@ -2271,7 +2271,7 @@
     {
       "id": "0421-cd32-fmv-state-owner",
       "file": "patches/winuae/0421-cd32-fmv-state-owner.patch",
-      "sha256": "6f9a5c70575ed128eefcbdb8f8001faefd0d06f7cb9e129f440099ce09d3f95d",
+      "sha256": "5a895e3624e190e8b1e07cf4079658d658269b60e44ffdb186f7eb90a206e02b",
       "title": "Expose the complete CD32 FMV device as bounded value state",
       "reason": "T43d2 captures the real CL450, L64111, PCM, video and genlock owners without pointers, reconstructs libmpeg2 from the bounded journal and restores its distinct audio stream only after candidate validation. A fresh image reconstructs the bound cartridge owner and fixed banks without guest execution; the public state registry remains unchanged for stock CD32 images.",
       "category": "portable state ownership",
@@ -2290,13 +2290,13 @@
       "files": [
         {
           "path": "audio.cpp",
-          "before_sha256": "ab07d3b5cd029878d3ab93ed2ce6fdbf239ff357079a544f4f9a1c6419d3a3ce",
-          "after_sha256": "0ab6525284f16f81dfda9bc750031319d256c0f0416a54780c44a4a182cff85a"
+          "before_sha256": "a712ac35eec9601192f69a0f4979eb964bf77b1c8c0bdf5d4997cc0fb846ca0f",
+          "after_sha256": "80717208393d8dacc9082c05e01645f03ab61a8d4909784bd4fe45c1656ffe78"
         },
         {
           "path": "cd32_fmv.cpp",
-          "before_sha256": "66d41ecb9bd5bd85f9fe84be49d67148d966ef085fff1d32b1a9a76a1ad77b4f",
-          "after_sha256": "a996cc767bc67661b285dc3648268542fa9543f8f0f31dc0e66fa69d5a0ed386"
+          "before_sha256": "3eed44784cee297d839035ae41f96ee684b78491927507178ce9ec31aea23ea0",
+          "after_sha256": "0888ec3df41c9f3a1266fd54dc060d0cebd5af09c5be984bdf16d801a82a738e"
         },
         {
           "path": "cd32_fmv_genlock.cpp",
@@ -2305,8 +2305,8 @@
         },
         {
           "path": "custom.cpp",
-          "before_sha256": "a5b33ff92b7678b83235168d046789790855d413cc838bf51ab04ff87bcd9450",
-          "after_sha256": "aab4e511a5015a961620e01ba28c266e8bc0a721470fa51fc5c22a127f4ed9dc"
+          "before_sha256": "262bdfbef81eeed9a332eab848d1b85454a9d6545391ab6834edb917e6738a1c",
+          "after_sha256": "de63e09dc3de8d62e44f7f1186d1fa49a27d9a34bb34df8bb7138a0a834f43b4"
         }
       ]
     },
