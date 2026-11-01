@@ -1,7 +1,7 @@
 diff --git a/cia.cpp b/cia.cpp
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -3511,14 +3511,22 @@
+@@ -3593,14 +3593,22 @@
  	oldovl = in->oldovl != 0;
  }
  
@@ -30,7 +30,7 @@ diff --git a/cia.cpp b/cia.cpp
  }
  
  // True when the CIAs are in a state a save can describe by their fields alone: nothing the profile does not have, and the events the CIA relies on
-@@ -3528,11 +3536,11 @@
+@@ -3610,11 +3618,11 @@
  	const char *w = NULL;
  	if (resetwarning_phase || resetwarning_timer)
  		w = "a reset warning is in progress";

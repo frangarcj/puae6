@@ -1109,9 +1109,9 @@
     {
       "id": "0371-cd32-overlay-state",
       "file": "patches/winuae/0371-cd32-overlay-state.patch",
-      "sha256": "3004bcd77d2613e17e5eef17f0d55df38dbb6c0ff8daa4df6dac753015358180",
+      "sha256": "173218d84b7c250845920b5b683a530aaa0eb498d3263c4b7c90e538907106b4",
       "title": "Preserve CD32 one-shot overlay latch during native CIA restore",
-      "reason": "T66m6 carries oldovl only for the CD32 auto-overlay profile; existing CIA-overlay profiles still derive OVL from PRA/DDRA with their unchanged body. Unsupported auto-overlay profiles remain rejected.",
+      "reason": "T95dj carries oldovl only for the private CD32 auto-overlay profile; existing CIA-overlay profiles still derive OVL from PRA/DDRA with their unchanged body. Unsupported auto-overlay profiles remain rejected.",
       "category": "host hooks",
       "order": 42,
       "symbols": [
@@ -1125,8 +1125,8 @@
       "files": [
         {
           "path": "cia.cpp",
-          "before_sha256": "e7e3a38cf3e74f5330468958d135ebac422ace2ea22ee179317275aac39d8581",
-          "after_sha256": "eab05e8a67725060268be47db99739e55137657be74713ef36b054c0e85928cd"
+          "before_sha256": "6346899bae7150779330fd0274bb7f02769f0ebd48b9bc6ac88cc7cfafa3e0b8",
+          "after_sha256": "38c172834579613080be72f349245ece66fffe1dfb8d982f78605265b3bc55c8"
         }
       ]
     },
