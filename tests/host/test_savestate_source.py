@@ -82,7 +82,7 @@ int main()
     check_direct_writer_borders();
     expected_file = reinterpret_cast<struct zfile *>(uintptr_t(1));
     const int len = save_state_prefix(expected_file, _T("probe description"), 0, false);
-    const std::string expected = std::string("\0\0\0\0UAE\0" "6.0.3\0" "probe description\0", 8 + 6 + 18);
+    const std::string expected = std::string("\0\0\0\0UAE\0" "6.1.0\0" "probe description\0", 8 + 6 + 18);
     check(len == (int)expected.size(), "ASF header payload length");
     check(chunk_name == "ASF ", "header chunk identifier");
     check(asf.size() == expected.size() &&
@@ -94,7 +94,7 @@ int main()
     chunk_name.clear();
     logged.clear();
     const int empty_len = save_state_prefix(expected_file, _T(""), 0, false);
-    const std::string empty_expected("\0\0\0\0UAE\0" "6.0.3\0\0", 8 + 6 + 1);
+    const std::string empty_expected("\0\0\0\0UAE\0" "6.1.0\0\0", 8 + 6 + 1);
     check(empty_len == (int)empty_expected.size() && chunk_name == "ASF " &&
           asf.size() == empty_expected.size() &&
           memcmp(asf.data(), empty_expected.data(), empty_expected.size()) == 0,
