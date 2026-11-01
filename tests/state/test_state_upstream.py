@@ -541,19 +541,20 @@ loop:
         return dict(zip(GEOM_WORDS, struct.unpack(">%di" % len(GEOM_WORDS), body)))
 
     def test_the_raster_a_machine_has_adopted_is_the_one_a_new_image_loads_and_draws(self):
-        # The long frame of lof_stuck (313 lines, 576 rows of picture) is adopted by the engine after a few frames and nothing but GEOM carries it: a fresh image that loads the
-        # state used to keep the size of its own reset (574) and switch units later with a blank picture. Now the state it saves right after the load is the one it loaded, and
-        # the pictures of the units that follow are the original's, the size and the pixels.
+        # The long frame of lof_stuck (313 lines, 576 rows of picture) is adopted after beta 21's two-pass vertical debounce: two three-frame candidate windows, with a new
+        # window started after the first confirms that the difference is persistent. Nothing but GEOM carries the adopted raster: a fresh image that loads the state used to
+        # keep the size of its own reset (574) and switch units later with a blank picture. The state it saves right after the load is the one it loaded, and the following
+        # pictures are the original's, size and pixels.
         first, again = self.dir / "geom.first", self.dir / "geom.again"
-        saved = self.probe("lof_stuck", "--units", "7", "--every", "1", "--save-at", "4", str(first))
+        saved = self.probe("lof_stuck", "--units", "15", "--every", "1", "--save-at", "12", str(first))
         geometry = self.geometry_of(first.read_bytes())
-        self.assertEqual((313, 576, 756), (geometry["vpos"], geometry["out_height"], geometry["out_width"]), "the long frame has been adopted at unit 4")
+        self.assertEqual((313, 576, 752), (geometry["vpos"], geometry["out_height"], geometry["out_width"]), "the long frame has passed beta 21's debounce at unit 12")
         self.assertEqual(geometry["out_height"], geometry["in_height"])
         run = self.probe("lof_stuck", "--units", "3", "--every", "1", "--load-at", "0", str(first), "--save-at", "0", str(again))
         self.assertEqual([(0, 0, "")], run.loads)
         self.assertEqual(upstream_bodies(first.read_bytes())[b"P6VD"], upstream_bodies(again.read_bytes())[b"P6VD"], "a fresh image has the raster of the state")
         for unit in (1, 2, 3):
-            self.assertEqual(saved.digests[(4 + unit, "video")], run.digests[(unit, "video")], f"the picture of unit {unit} after the load")
+            self.assertEqual(saved.digests[(12 + unit, "video")], run.digests[(unit, "video")], f"the picture of unit {unit} after the load")
 
     def test_the_border_and_the_pipeline_of_the_first_picture_after_a_load_are_the_originals(self):
         # busy draws a border of COLOR00 = $0123 (written by its Copper list). A new image has the colour table of the state (restore_custom rebuilds it) but drew its first border
