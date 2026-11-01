@@ -1643,9 +1643,9 @@
       "file": "patches/winuae/0396-chd-mode2-form2-edc.patch",
       "sha256": "2dba1c0e595622475af10679670f7d87ebe65961d304c6ada147ca0f23149d5d",
       "title": "Encode Mode2 Form2 EDC without modifying payload or adding P/Q",
-      "reason": "T66t8: CHD cooked Form2 requires EDC over subheader plus2324 payload bytes. Reuse the original build_edc polynomial, write only trailing four bytes; normalized XA duplicated subheader is selected explicitly by the provider.",
+      "reason": "T95ee exposes the pinned Form2 EDC helper over caller-supplied header, subheader and 2324-byte payload; provider selection and public CHD support remain outside this patch.",
       "category": "CD media normalization",
-      "order": 66,
+      "order": 64,
       "symbols": [
         "encode_l2_mode2_form2"
       ],
