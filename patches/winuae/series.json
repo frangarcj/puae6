@@ -482,9 +482,9 @@
     {
       "id": "0352-optical-pointer-boundary-and-latch",
       "file": "patches/winuae/0352-optical-pointer-boundary-and-latch.patch",
-      "sha256": "e69c1cf62021bfefd3ef9a83320541b2aead33a0b97fa8da97ed274ca7e4dd5f",
+      "sha256": "3d6f4768559b447e3167a55a9df98ee49bd4b154aebbe7a09a4a4cbd4541f304",
       "title": "Apply an absolute optical sensor at the boundary and expose its hardware latch",
-      "reason": "T70c feeds normalized optical input without host MMIO callbacks or drawing-dependent conversions. The photodiode event remains in the emulated scheduler; its beam latch is explicit causal state.",
+      "reason": "T70c beta21 vertical: feed normalized optical input without host MMIO callbacks or drawing-dependent conversions. The photodiode event remains in the emulated scheduler and its beam latch is explicit causal state.",
       "category": "host hooks",
       "order": 19,
       "symbols": [
@@ -500,18 +500,18 @@
       "files": [
         {
           "path": "inputdevice.cpp",
-          "before_sha256": "1b4d8a6eaf62000a13e6d564fe412b3d7f593f2c82b0aca5393465ff4c16de2d",
-          "after_sha256": "54af7c707f8947929aed180e581e1c94f62ae544923abd34a495813e158c0ecb"
+          "before_sha256": "5f16cd3b872e10b2a56756c870428d1c3978ae1867f8ffe6cb4fc84ce6003d95",
+          "after_sha256": "ce60c310dd04e89e8a4027639b798cb6d07282b313e4bcbc33794f9ddf731084"
         },
         {
           "path": "custom.cpp",
-          "before_sha256": "c29320d477ac40348bae076d4354a04b899e448ec4e1d317a9ac005ccd0b5c3b",
-          "after_sha256": "4d525abfde88ae592c145d872393ab91d19db81f2fa29c0fc6d1eab25528d047"
+          "before_sha256": "420e7119783f1bf5b28ccbdb15294e17495c8743b642be6ffce9e83a5ef6248a",
+          "after_sha256": "e204fb387e4efefd96ab222293b21fe48bca25fa78986afece330e706b8fa2af"
         },
         {
           "path": "drawing.cpp",
-          "before_sha256": "34061fa7b8d4df62ae3fcf87fd0fe69a71c060ca95ed7c51ce7c28633c4aa4cb",
-          "after_sha256": "d858b216d6b183c29b993b5c2572d6c555de541dc1743c7f39f171bf1e8895c5"
+          "before_sha256": "f4c5dd43021a20afdf494d142f330f3a6486974fd2bc2c004128ec4b6f5f0237",
+          "after_sha256": "54790c032346bf28b87801cb0d4937a94480be773364a57395df2a57ee84eef2"
         }
       ]
     },

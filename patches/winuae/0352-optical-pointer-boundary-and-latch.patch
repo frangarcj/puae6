@@ -1,20 +1,20 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -10859,6 +10859,10 @@
- 	memset(out, 0, sizeof *out);
- 	out->potgo_value = potgo_value;
+@@ -10983,6 +10983,10 @@
+ 	out->reset_seq = keyboard_reset_seq;
+ 	out->reset_seq_mode = keyboard_reset_seq_mode;
  	out->second_mouse_enabled = mouse_port[1];
 +	out->pointer_enabled = lightpen_enabled;
 +	out->pointer_port = lightpen_port[1] ? 1 : 0;
 +	out->pointer_cx = lightpen_cx[0];
 +	out->pointer_cy = lightpen_cy[0];
- 	for (int p = 0; p < 2; p++) {
- 		out->cd32_enabled[p] = cd32_pad_enabled[p];
- 		out->cd32_shifter[p] = cd32_shifter[p];
-@@ -10907,6 +10911,12 @@
- {
- 	potgo_value = in->potgo_value;
+ }
+ 
+ void p6_input_set(const p6_input_raw *in)
+@@ -11031,6 +11035,12 @@
+ 	keyboard_reset_seq = in->reset_seq;
+ 	keyboard_reset_seq_mode = in->reset_seq_mode;
  	mouse_port[1] = in->second_mouse_enabled;
 +	lightpen_enabled = in->pointer_enabled;
 +	lightpen_enabled2 = lightpen_active = 0;
@@ -22,10 +22,10 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
 +	lightpen_cx[0] = in->pointer_cx;
 +	lightpen_cy[0] = in->pointer_cy;
 +	lightpen_x[0] = lightpen_y[0] = -1; // coordinates already converted; rendering must not transform them again
- 	for (int p = 0; p < 2; p++) {
- 		cd32_pad_enabled[p] = in->cd32_enabled[p];
- 		cd32_shifter[p] = in->cd32_shifter[p];
-@@ -11037,3 +11047,25 @@
+ }
+ 
+ // True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
+@@ -11119,3 +11129,25 @@
  	}
  }
  #endif
@@ -54,7 +54,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
 diff --git a/custom.cpp b/custom.cpp
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13165,6 +13165,8 @@
+@@ -13220,6 +13220,8 @@
  		return event_doint_delay_do_intena;
  	case 3:
  		return setup_fmodes_delayed;
@@ -63,7 +63,7 @@ diff --git a/custom.cpp b/custom.cpp
  	default:
  		return fakehsync_handler;
  	}
-@@ -13438,3 +13440,19 @@
+@@ -13516,3 +13518,19 @@
  	return true;
  }
  #endif
@@ -86,24 +86,23 @@ diff --git a/custom.cpp b/custom.cpp
 diff --git a/drawing.cpp b/drawing.cpp
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -8068,3 +8068,20 @@
+@@ -8480,3 +8480,19 @@
  	thread_debug_lock = locked != 0;
  	adisplays[0].gfxvidinfo.drawbuffer.locked = locked != 0;
  }
 +
 +#ifdef P6_PORTABLE
-+// Same raster-to-beam transform as lightpen_update, evaluated at the input
-+// boundary. No float, draw pass, crosshair or host desktop geometry is involved.
++// Convert normalized raster coordinates at the input boundary. The hardware
++// nominal beam range is configuration; no draw-buffer adoption, float or host
++// geometry.
 +void p6_pointer_beam(int x, int y, int *cx, int *cy)
 +{
-+	const auto *vb = adisplays[0].gfxvidinfo.inbuffer;
 +	*cx = *cy = -1;
-+	if (!vb || vb->inwidth < 1 || vb->inheight < 1) return;
-+	const int px = int((int64_t(x) + 32767) * (vb->inwidth - 1) / 65534);
-+	const int py = int((int64_t(y) + 32767) * (vb->inheight - 1) / 65534);
-+	const int hx = ((px + visible_left_border) >> (1 + currprefs.gfx_resolution)) + 29;
-+	const int vy = (py >> linedbl) + minfirstline;
-+	if (hx <= 0x17 || hx >= maxhpos || vy < minfirstline_linear || vy >= current_linear_vpos) return;
-+	*cx = hx; *cy = vy;
++	const int left = 0x18, right = (currprefs.ntscmode ? MAXHPOS_NTSC : MAXHPOS_PAL) - 1;
++	const int top = (currprefs.ntscmode ? VBLANK_ENDLINE_NTSC : VBLANK_ENDLINE_PAL) - 1 - LINES_AFTER_VSYNC;
++	const int bottom = (currprefs.ntscmode ? MAXVPOS_NTSC : MAXVPOS_PAL) - 1;
++	if (right < left || bottom < top) return;
++	*cx = left + int((int64_t(x) + 32767) * (right - left) / 65534);
++	*cy = top + int((int64_t(y) + 32767) * (bottom - top) / 65534);
 +}
 +#endif
