@@ -2372,7 +2372,7 @@
     {
       "id": "0424-cdda-presentation-gain",
       "file": "patches/winuae/0424-cdda-presentation-gain.patch",
-      "sha256": "1e9cc2fd420270f67c83a51ab89622b133a11edc46e2530d4fbde854a0dcdb72",
+      "sha256": "bc0a5ba598bd0a312c234f5f94217717ec8c9f975d580b8d91c623ebb2956c77",
       "title": "Apply a transient presentation gain to the CDDA owner",
       "reason": "T84b needs a live frontend CD-audio volume after the hardware CD mixer but before the common Paula/extra-stream mix. Bind the gain to the portable CDDA owner, leave simultaneous FMV untouched, consume samples while muted, and keep the preference outside the semantic CDA state codec.",
       "category": "portable audio presentation",
@@ -2386,8 +2386,8 @@
       "files": [
         {
           "path": "audio.cpp",
-          "before_sha256": "8afb4a956611677a2e1e3f6b77712bd276dc4743902e192aadfadf26c4655692",
-          "after_sha256": "0a46bcb7a8496363907035dd9f7e1f36154ee674009d5fa4fe379bdf55edcfae"
+          "before_sha256": "94e35cc1871abc1c0c868200e93a7dd76decd5a309a2ddc29080e23387821422",
+          "after_sha256": "dfec98380f539d9b892d0e0278a582824149165b88ed4cf84c7001a3e736c2b9"
         }
       ]
     },
