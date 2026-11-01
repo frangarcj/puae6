@@ -2602,7 +2602,7 @@
     {
       "id": "0433-cooperative-uaescsi-device",
       "file": "patches/winuae/0433-cooperative-uaescsi-device.patch",
-      "sha256": "08e7d53c6b8191f9b52cc903cbabcd3a4780fa5831daf5b094b4f8e89ba71b6f",
+      "sha256": "d9901231dec99ca18185a575ead1c81748320a1779e8499ee315267192a959a9",
       "title": "Run uaescsi.device I/O cooperatively in the calling trap",
       "reason": "T84g1 exposes only the deterministic CD catalog through uaescsi.device. Portable BeginIO therefore completes ordinary requests synchronously and retains only explicit guest change/frame interrupt requests; no worker, sleep, semaphore, comm pipe, background TrapContext, tape directory or physical SCSI enumeration exists.",
       "category": "cooperative guest device",
@@ -2619,13 +2619,13 @@
       "files": [
         {
           "path": "devices.cpp",
-          "before_sha256": "76eadcaf3b11c67eeccf2dd78402148157f4bcd7e55aa2b06ec6f63dc2edc531",
-          "after_sha256": "3acc0ea9209baabb3f8c6d813d3208d6527f6a401c16d4911b90c132b7081940"
+          "before_sha256": "382eab8e27d2cbc651bd005ce8a45162f4e062e79cdbe0798ac476c71fecc6d7",
+          "after_sha256": "a54336a49160794665a0bdae7ee9e58463cfd1ce9231a5915f479d2969eb9137"
         },
         {
           "path": "scsiemul.cpp",
-          "before_sha256": "31ce286e129b79a54bd2654bd178fd6c4114f9bb1ec05211999cf99142095874",
-          "after_sha256": "16a77ac1d01b5092d57df09a7c933087c7d0d13d4bd3f8293d1f58e2cea1b0d0"
+          "before_sha256": "2c73f78fcead29a75163ab4b80922cf2a2e5d4ec89b85adc28dcd7204c28d38a",
+          "after_sha256": "d27d0cd4225503bd6edb2c29bcdc67aa8be8918ea44433eeab9963ac74ace832"
         }
       ]
     },

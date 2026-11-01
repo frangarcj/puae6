@@ -2,7 +2,7 @@ diff --git a/devices.cpp b/devices.cpp
 index 3eb3a80d..800744b7 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -260,8 +260,10 @@ void devices_reset(int hardreset)
+@@ -303,8 +303,10 @@ void devices_reset(int hardreset)
  	if (P6_WITH_RTAREA)
  		native2amiga_reset();
  #endif
@@ -13,7 +13,7 @@ index 3eb3a80d..800744b7 100644
  	scsidev_reset();
  	scsidev_start_threads();
  #endif
-@@ -507,6 +509,8 @@ void virtualdevice_init (void)
+@@ -567,6 +569,8 @@ void virtualdevice_init (void)
  	}
  #endif
  #ifdef SCSIEMU
@@ -26,7 +26,7 @@ diff --git a/scsiemul.cpp b/scsiemul.cpp
 index 4546079c..8bf52f2c 100644
 --- a/scsiemul.cpp
 +++ b/scsiemul.cpp
-@@ -135,6 +135,12 @@ static const TCHAR *getdevname (int type)
+@@ -137,6 +137,12 @@ static const TCHAR *getdevname (int type)
  static void dev_thread(void *devs);
  static int start_thread(struct devstruct *dev)
  {
@@ -39,7 +39,7 @@ index 4546079c..8bf52f2c 100644
  	if (dev->thread_running)
  		return 1;
  	init_comm_pipe (&dev->requests, 300, 3);
-@@ -142,6 +148,7 @@ static int start_thread(struct devstruct *dev)
+@@ -144,6 +150,7 @@ static int start_thread(struct devstruct *dev)
  	uae_start_thread (_T("uaescsi"), dev_thread, dev, NULL);
  	uae_sem_wait (&dev->sync_sem);
  	return dev->thread_running;
@@ -47,7 +47,7 @@ index 4546079c..8bf52f2c 100644
  }
  
  static void dev_close_3(struct devstruct *dev, struct priv_devstruct *pdev)
-@@ -151,9 +158,11 @@ static void dev_close_3(struct devstruct *dev, struct priv_devstruct *pdev)
+@@ -153,9 +160,11 @@ static void dev_close_3(struct devstruct *dev, struct priv_devstruct *pdev)
  	if (!dev->opencnt) {
  		sys_command_close (dev->unitnum);
  		pdev->inuse = 0;
@@ -59,7 +59,7 @@ index 4546079c..8bf52f2c 100644
  	}
  }
  
-@@ -330,9 +339,11 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
+@@ -332,9 +341,11 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
  	int i, j, ret;
  
  	ret = -1;
@@ -71,7 +71,7 @@ index 4546079c..8bf52f2c 100644
  	for (i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) {
  		struct devstruct *dev = &devst[i];
  		if (dev->di.unitnum == unitnum + 1) {
-@@ -363,7 +374,9 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
+@@ -365,7 +376,9 @@ int scsi_do_disk_change(int unitnum, int insert, int *pollmode)
  			}
  		}
  	}
@@ -81,7 +81,7 @@ index 4546079c..8bf52f2c 100644
  	return ret;
  }
  
-@@ -420,6 +433,7 @@ static int release_async_request(struct devstruct *dev, uaecptr request)
+@@ -422,6 +435,7 @@ static int release_async_request(struct devstruct *dev, uaecptr request)
  static void abort_async(struct devstruct *dev, uaecptr request, int errcode, int type)
  {
  	int i;
@@ -89,7 +89,7 @@ index 4546079c..8bf52f2c 100644
  	i = 0;
  	while (i < MAX_ASYNC_REQUESTS) {
  		if (dev->d_request[i] == request && dev->d_request_type[i] == ASYNC_REQUEST_TEMP) {
-@@ -430,6 +444,7 @@ static void abort_async(struct devstruct *dev, uaecptr request, int errcode, int
+@@ -432,6 +446,7 @@ static void abort_async(struct devstruct *dev, uaecptr request, int errcode, int
  		}
  		i++;
  	}
@@ -97,7 +97,7 @@ index 4546079c..8bf52f2c 100644
  	i = release_async_request (dev, request);
  	if (i >= 0 && log_scsi)
  		write_log (_T("asyncronous request=%08X aborted, error=%d\n"), request, errcode);
-@@ -1057,7 +1072,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+@@ -1059,7 +1074,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
  	int command = get_word_host(iobuf + 28);
  	struct priv_devstruct *pdev = getpdevstruct(ctx, request);
  	struct devstruct *dev;
@@ -107,7 +107,7 @@ index 4546079c..8bf52f2c 100644
  
  	put_byte_host(iobuf + 8, NT_MESSAGE);
  	if (!pdev) {
-@@ -1077,8 +1094,12 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+@@ -1079,8 +1096,12 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
  	}
  
  	put_byte_host(iobuf + 31, 0);
@@ -120,7 +120,7 @@ index 4546079c..8bf52f2c 100644
  		bool async = dev_do_io(ctx, dev, iobuf, request) != 0;
  		uae_u8 v = get_byte_host(iobuf + 31);
  		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
-@@ -1087,7 +1108,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+@@ -1089,7 +1110,9 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
  		if (!(flags & 1) && !async)
  			uae_ReplyMsg (request);
  		return v;
@@ -131,7 +131,7 @@ index 4546079c..8bf52f2c 100644
  		add_async_request (dev, iobuf, request, ASYNC_REQUEST_TEMP, 0);
  		put_byte_host(iobuf + 30, get_byte_host(iobuf + 30) & ~1);
  		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
-@@ -1097,8 +1120,10 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
+@@ -1099,8 +1122,10 @@ static uae_u32 REGPARAM2 dev_beginio(TrapContext *ctx)
  		write_comm_pipe_u32(&dev->requests, request, 1);
  		return 0;
  	}
@@ -142,7 +142,7 @@ index 4546079c..8bf52f2c 100644
  static void dev_thread (void *devs)
  {
  	struct devstruct *dev = (struct devstruct*)devs;
-@@ -1130,6 +1155,7 @@ static void dev_thread (void *devs)
+@@ -1132,6 +1157,7 @@ static void dev_thread (void *devs)
  		uae_sem_post (&change_sem);
  	}
  }
@@ -150,7 +150,7 @@ index 4546079c..8bf52f2c 100644
  
  static uae_u32 REGPARAM2 dev_init_2(TrapContext *ctx, int type)
  {
-@@ -1196,6 +1222,12 @@ uae_u32 scsi_get_cd_drive_media_mask (void)
+@@ -1198,6 +1224,12 @@ uae_u32 scsi_get_cd_drive_media_mask (void)
  }
  int scsi_add_tape (struct uaedev_config_info *uci)
  {
@@ -163,7 +163,7 @@ index 4546079c..8bf52f2c 100644
  	for (int i = 4; i < MAX_TOTAL_SCSI_DEVICES; i++) {
  		struct devstruct *dev = &devst[i];
  		if (dev->unitnum >= 0 || dev->drivetype > 0)
-@@ -1210,6 +1242,7 @@ int scsi_add_tape (struct uaedev_config_info *uci)
+@@ -1212,6 +1244,7 @@ int scsi_add_tape (struct uaedev_config_info *uci)
  		}
  	}
  	return -1;
@@ -171,7 +171,7 @@ index 4546079c..8bf52f2c 100644
  }
  static void dev_reset (void)
  {
-@@ -1222,7 +1255,7 @@ static void dev_reset (void)
+@@ -1224,7 +1257,7 @@ static void dev_reset (void)
  		if (dev->opencnt > 0) {
  			for (j = 0; j < MAX_ASYNC_REQUESTS; j++) {
  				uaecptr request;
@@ -180,7 +180,7 @@ index 4546079c..8bf52f2c 100644
  					abort_async (dev, request, 0, 0);
  			}
  			dev->opencnt = 1;
-@@ -1236,7 +1269,9 @@ static void dev_reset (void)
+@@ -1238,7 +1271,9 @@ static void dev_reset (void)
  	for (i = 0; i < MAX_OPEN_DEVICES; i++)
  		memset (&pdevst[i], 0, sizeof (struct priv_devstruct));
  
@@ -190,7 +190,7 @@ index 4546079c..8bf52f2c 100644
  	i = 0;
  	while (i < MAX_TOTAL_SCSI_DEVICES) {
  		dev = &devst[i];
-@@ -1524,7 +1559,9 @@ void scsidev_start_threads (void)
+@@ -1526,7 +1561,9 @@ void scsidev_start_threads (void)
  		return;
  	if (log_scsi)
  		write_log (_T("scsidev_start_threads()\n"));
