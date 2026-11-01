@@ -12,13 +12,11 @@ T15i1, what is saved:
     (save_custom reads JOY0DAT and JOY1DAT; STATE_DOSAVE keeps getjoystate from polling the host's input, which in this profile has nothing to poll, so this scenario
     cannot tell the guard from its absence: it pins that nothing visible moves) and DMACONR's derived bits set (the live dmacon must not take them).
 
-T15f1, the body that is not WinUAE's: BEAM (244 bytes, the last of P6CH; patch 0094) holds what restore_custom throws away (VPOSR and VHPOSR) and what no body names: the beam and the
-line history, the counters of the frame phase, the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches of Agnus, as 61 words of 32 bits.
+T15f1, the body that is not WinUAE's: beta 21 BEAM (692 bytes, the last of P6CH; patch 0094) holds its rewritten beam, linear-display, sync-event and split Agnus/Paula DMAL phases,
+plus the four logical RGA slots' omitted fields, as 173 words of 32 bits. A boundary with a pending host-function pipeline is refused.
 
-T15f2, the other body that is not WinUAE's: COPR (60 bytes, after BEAM; patch 0095) holds the Copper between two of its cycles, which CHSL does not carry (it keeps ip and the two
-instruction words and puts the state back as stopped, or as the last cycle of a MOVE): the state and state_prev, the strobe in flight, the compare values of a WAIT or SKIP, the
-latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps, as 15 words of 32 bits. It is applied as values: the Copper does not run on load. The
-refusals include the one that makes CHSL and COPR one machine (a Copper in the last cycles of a MOVE has to be so in both).
+T15f2, the other body that is not WinUAE's: beta 21 COPR (88 bytes, after BEAM; patch 0095) holds the Copper between two cycles: compare and strobe state, decoded instruction,
+two-cycle load/start latches, dummy pointer and delayed DMA-enable stamp, as 22 words. It is applied as values: the Copper does not run on load.
 
 T15f3, the third: BLTP (72 bytes, after COPR; patch 0097) holds the phase of the blitter that BLTX does not carry (restore_blitter_new sets blit_queued to a constant, derives
 blt_change_cycles from the cycle of the load and drops blit_dmacount and blit_cyclecount): blit_queued, blit_count_done, blt_change_cycles, the pending BLTCON/modulo flag, the held
@@ -38,9 +36,9 @@ T15j, what the first picture after a load and the next state need (patch 0103):
   - PIXL (the last of P6VD, 4 + 4 + the groups of pixels that the rows of the drawing buffer take) is the buffer itself: a unit in which the engine draws no line hands over the rows as
     the units before left them, so a load that did not put them back showed the picture of the abandoned history, or the black of a machine that had not drawn; it is tagged and measured like
     the others and decoded here, with the format of the C++ and not its code, against the picture the unit handed over;
-  - GEOM (104 bytes) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
+  - GEOM (104 bytes in beta 21) also says whether the presentation refused the mode as larger than its buffer and the allocation of the last mode it accepted (the sizes it clamped to look like a mode that
     fits): a machine that had not refused it handed over pictures that the original never did; and the flags of the drawing (the three requests to clear the buffer that wait for the first line of the next frame, and whether the frame being drawn holds the buffer);
-  - BEAM (268 bytes; 260 before patch 0104, which added the two programmed-beam flags) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
+  - BEAM (692 bytes in beta 21) also carries the interlace the display has seen, the first and last line of the vertical display window and the flag that tests them: custom_reset leaves the lines at 0 and 0 and calcvdiw, which the
     load runs, derives 0 and 256 from the same zero registers, so a state saved, loaded and saved again differed from one saved without the load in the vertical window bit of DIWHIGH.
 
 T15i2, what is loaded:
@@ -61,7 +59,7 @@ from tests.state.harness import ProbeCase, SUBSYSTEMS, parse_chunks, reforge, wi
 CHIPSET, VIDEO, AUDIO, DISK = (e.TAGS.index(tag) for tag in (b"P6CH", b"P6VD", b"P6AU", b"P6DK"))
 
 # Confirmed against a real save of this build (CHIP is 360, not the 424 the research counted: with full=0 the 32 words of 0x0A0-0x0DE are not written).
-FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 364, "COPR": 60, "BLTP": 72, "AUDP": 356, "DCLK": 160, "DNSP": 64, "GEOM": 104, "DSKX": 248, "LPEN": 16,
+FIXED = {"CHIP": 360, "BLTX": 226, "BLIT": 63, "CHSL": 245, "BPLX": 292, "DISK": 17, "BEAM": 692, "COPR": 88, "BLTP": 72, "AUDP": 356, "DCLK": 160, "DNSP": 64, "GEOM": 104, "DSKX": 248, "LPEN": 16,
          **{f"SPR{i}": 25 for i in range(8)}, **{f"AUD{i}": 25 for i in range(4)}, **{f"DSK{i}": 24 for i in range(4)}}
 ORDER = {
     b"P6CH": ["CHIP", "BLTX", "BLIT", "CHSL"] + [f"SPR{i}" for i in range(8)] + ["BEAM", "COPR", "BLTP", "LPEN"],
@@ -71,22 +69,40 @@ ORDER = {
 }
 DSD_FIXED = 4 + 2 + 4 + 2 + 4 + 4 + 2       # mode, bit counter, track length, speed, skip offset, index offset, revolutions
 
-# The words of BEAM, in the order of p6_custom_beam_get (custom.cpp, patch 0094, four words more in patch 0103) and of the enum of bridge/state_upstream.cpp: 41 words, the twenty sync
-# latches of Agnus, the first and last line of the vertical display window with the flag that tests them, and the interlace the display has seen.
+# The words of beta 21's BEAM, in the order of p6_custom_beam_get and BeamWord.
 BEAM_WORDS = ["vpos", "vpos_prev", "agnus_hpos", "agnus_hpos_prev", "agnus_hpos_next", "agnus_vpos_next", "agnus_pos_change", "hhpos",
               "linear_vpos", "linear_hpos", "linear_vpos_prev0", "linear_vpos_prev1", "linear_vpos_prev2", "linear_hpos_prev0", "linear_hpos_prev1", "linear_hpos_prev2",
-              "linear_vpos_vsync", "linear_display_vpos", "linear_vpos_visible", "current_linear_vpos_visible",
+              "linear_vpos_vb_start", "linear_vpos_vb_end", "linear_vb_offset", "linear_vpos_start", "linear_vpos_start_prev",
+              "current_linear_vpos", "current_linear_hpos", "current_linear_hblen", "current_linear_hblen_temp", "current_linear_vpos_nom", "current_linear_hpos_short",
+              "linear_vpos_vblank_end", "linear_vpos_vblank_start", "linear_vpos_vblank_vsync", "linear_vpos_vblank_lines_cnt", "linear_vpos_vblank_lines",
+              "vb_start_detect", "vb_end_detect", "vb_detect_cnt", "current_linear_vblank_lines",
+              "current_linear_vpos_vb_start", "current_linear_vpos_vb_end", "current_linear_vpos_vb_vsync", "current_linear_vpos_temp", "current_linear_hpos_temp",
+              "current_linear_temp_change", "linear_vpos_values_changed", "display_hstart_cyclewait_start", "display_hstart_cyclewait_cnt", "display_hstart_cyclewait_end",
+              "display_hstart_cyclewait_skip_start", "display_hstart_cyclewait_skip_end", "display_vblankstart_skip", "display_vblankend_skip",
+              "display_hstart_cyclewait_started", "linear_vpos_changes", "nextline_how",
               "display_hsync_counter", "display_vsync_counter", "maxvpos_display_vsync_next", "linetoggle", "lof_display",
               "lof_detect", "lof_pdetect", "lof_detect_vsync", "prevlof0", "prevlof1", "prevlof2",
-              "display_last_hsync_low", "display_last_hsync_high", "display_last_vsync_low", "display_last_vsync_high",
-              "agnus_vb", "agnus_pvb", "prev_strobe", "dmal_shifter", "dmal", "dmal_next"] + [f"latch{i}" for i in range(20)] + ["plffirstline", "plflastline", "need_vdiw_check", "interlace_seen",
-              "programmed_register_accessed_h", "programmed_register_accessed_v", "nosignal_cnt", "nosignal_status", "nosignal_trigger", "lines_after_beamcon_change", "syncs_stopped"] + [f"rga_bltadd{i}" for i in range(4)] + [f"rga_conflictaddr{i}" for i in range(4)] + [
+              "last_hsync_evt_low", "last_hsync_evt_high", "last_vsync_evt_low", "last_vsync_evt_high",
+              "agnus_vb", "agnus_pvb", "prev_strobe", "agnus_dmal_shifter", "paula_dmal_shifter", "paula_dmal_shifter_fast",
+              "agnus_dmal_sprite_enable", "agnus_dmal_sprite_enable2", "agnus_dmal_alloc", "dmal_next",
+              "agnus_even_prev", "vb_fast", "vb_fast_prev", "agnus_trigger_cck_low", "agnus_trigger_cck_high", "init_beamcon_delay", "agnus_afterreset",
+              "display_redraw", "ciahsyncs", "ciavsyncs"] + [f"latch{i}" for i in range(20)] + [
+              "agnus_phblank_start_tmp_low", "agnus_phblank_start_tmp_high", "agnus_phblank_start_low", "agnus_phblank_start_high",
+              "agnus_phblank_end_low", "agnus_phblank_end_high", "agnus_hsync_start_low", "agnus_hsync_start_high", "agnus_vsync_start_low", "agnus_vsync_start_high",
+              "hsync_ccks", "current_linear_hs_hb_dist", "agnus_hsstrt_cck_low", "agnus_hsstrt_cck_high", "agnus_hsstop_cck_low", "agnus_hsstop_cck_high",
+              "agnus_hslen_cck", "agnus_hslen_cck_prev", "agnus_hslen_cck_cnt", "current_agnus_hslen_cck",
+              "agnus_phsstrt_cck_low", "agnus_phsstrt_cck_high", "agnus_phsstop_cck_low", "agnus_phsstop_cck_high",
+              "agnus_pchsstrt_cck_low", "agnus_pchsstrt_cck_high", "agnus_pchsstop_cck_low", "agnus_pchsstop_cck_high",
+              "vsync_lines", "vsync_linecnt", "vsync_active_count", "vsyncp_active_count", "hsync_change_count", "hblen_display_tmp", "hblen_cnt",
+              "plffirstline", "plflastline", "need_vdiw_check", "interlace_seen",
+              "programmed_register_accessed_h", "programmed_register_accessed_v", "nosignal_cnt", "nosignal_status", "nosignal_trigger", "lines_after_beamcon_change", "syncs_stopped"] + [f"rga_bltadd{i}" for i in range(4)] + [f"rga_conflict2_{i}" for i in range(4)] + [
     "bprun", "bprun_cycle", "ddf_stopping", "ddf_enable_on", "ddf_limit_in", "ddf_limit", "ddfstrt_match", "hwi_old", "ddfstrt_val",       # patch 0261: bitplane sequencer
     "config_changed", "config_changed_flags"]       # patch 0383: the pending preference check and its complete flag word
 
 # The words of COPR, in the order of p6_custom_copper_get (custom.cpp, patch 0095) and of the enum of bridge/state_upstream.cpp.
-COPR_WORDS = ["state", "state_prev", "strobe_next", "strobeip", "vblankip", "ignore_next", "vcmp", "hcmp", "strobe", "strobetype", "enabled_thisline",
-              "strobe_cycles_low", "strobe_cycles_high", "dma_change_cycle_low", "dma_change_cycle_high"]
+COPR_WORDS = ["vcmp", "hcmp", "vblankip", "strobe", "prev_strobe", "inst", "load1", "load2", "skiplatch", "start", "irload1", "irload2",
+              "startstrobe", "prelatch", "blitwait", "cycle_alloc", "validmove", "dummyip", "enabled_thisline",
+              "dma_change_cycle_low", "dma_change_cycle_high", "dma_change_pending"]
 # The words of BLTP, in the order of p6_blitter_phase_get (blitter.cpp, patch 0097) and of the enum of bridge/state_upstream.cpp.
 BLTP_WORDS = ["queued", "count_done", "change_cycles_low", "change_cycles_high", "delayed_update", "dmacount", "cyclecount", "ahold2", "bhold2", "chold2", "bhold",
               "ddatl", "dptl", "linepixel2", "apt_prev", "bpt_prev", "cpt_prev", "dpt_prev"]
@@ -95,8 +111,9 @@ AUDP_GLOBAL = ["next_sample_evtime", "pending_cycles_low", "pending_cycles_high"
 AUDP_CHANNEL = ["flags", "irqcheck", "per", "dat2", "ptx", "dmaoff_active", "dmaoff_cpu_count", "dmaoff_pc", "minperloop", "current_sample", "last_sample", "new_sample",
                 "sample_accum", "sample_accum_time", "adk_mask", "mixvol"]
 # The words of GEOM, in the order of p6_frame_geometry_get (custom.cpp, patch 0100, three words more in patch 0103) and of the enum of bridge/state_upstream.cpp.
-GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "in_width2", "in_height2", "out_width", "out_height",
-              "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset", "refused", "alloc_width", "alloc_height", "display_redraw", "erase_next_draw", "center_y_erase", "locked"]
+GEOM_WORDS = ["hpos", "vpos", "hpos_short", "vpos_nom", "hpos_temp", "vpos_temp", "temp_change", "in_width", "in_height", "out_width", "out_height",
+              "extra_width", "extra_height", "x_offset", "y_offset", "in_x_offset", "in_y_offset", "refused", "alloc_width", "alloc_height", "display_redraw", "erase_next_draw", "center_y_erase", "locked",
+              "hblank_start", "hblank_stop"]
 PERIOD_SENTINEL = -2            # PERIOD_MAX - 1 as an int: the period of a channel audio_reset leaves and nothing has written since
 
 
@@ -888,9 +905,9 @@ loop:
         ("BEAM with a flag of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("maxvpos_display_vsync_next"), struct.pack(">i", 2), "a flag of the frame phase is not a flag"),
         ("BEAM with a vertical blank latch of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_vb"), struct.pack(">i", 3), "the vertical blank latch is not off, on or starting"),
         ("BEAM with a strobe that is none of the four", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("prev_strobe"), struct.pack(">i", 0x3d), "the strobe of the last line is not one of the four"),
-        ("BEAM with a DMA list of 17 bits", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("dmal"), struct.pack(">i", 0x10000), "the DMA list of the line is not 16 bits"),
+        ("BEAM with an invalid sprite DMA phase", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("agnus_dmal_sprite_enable2"), struct.pack(">i", 2), "a sprite phase of the DMA list is out of range"),
         ("BEAM with a sync latch of 2", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("latch7"), struct.pack(">i", 2), "a sync latch is not a flag"),
-        ("BEAM with a negative time stamp", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("display_last_vsync_high"), struct.pack(">i", -1), "a time stamp of the display is negative"),
+        ("BEAM with a negative time stamp", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("last_vsync_evt_high"), struct.pack(">i", -1), "a time stamp of the display is negative"),
         ("BEAM with a bitplane sequencer in state 4", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("bprun"), struct.pack(">i", 4), "the bitplane sequencer is not in one of its states"),
         ("BEAM with a DDF passed of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("ddf_stopping"), struct.pack(">i", 3), "the bitplane sequencer is not in one of its states"),
         ("BEAM with a negative fetch cycle", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("bprun_cycle"), struct.pack(">i", -1), "the bitplane sequencer is not in one of its states"),
@@ -898,21 +915,17 @@ loop:
         ("BEAM with a fetch start beyond the line", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("ddfstrt_val"), struct.pack(">i", 0x100), "the colour clock at which a fetch may start is beyond the line"),
         ("BEAM with a preference countdown of 3", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("config_changed"), struct.pack(">i", 3), "the pending preference check is not a countdown from 2 to 0"),
         ("BEAM with a negative preference countdown", b"P6CH", "BEAM", 4 * BEAM_WORDS.index("config_changed"), struct.pack(">i", -1), "the pending preference check is not a countdown from 2 to 0"),
-        ("COPR in state 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),
-        ("COPR in a negative state", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", -1), "a state of the Copper is not one of its states"),
-        ("COPR with a previous state of 24", b"P6CH", "COPR", 4 * COPR_WORDS.index("state_prev"), struct.pack(">i", 24), "a state of the Copper is not one of its states"),
-        ("COPR with a next strobe state that the strobe never sets", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe_next"), struct.pack(">i", 9),
-         "the state after the strobe is not one the strobe leads to"),
-        ("COPR in the last cycles of a MOVE that CHSL does not know", b"P6CH", "COPR", 4 * COPR_WORDS.index("state"), struct.pack(">i", 2),
-         "the state of the Copper is not the one CHSL says"),
-        ("COPR with an odd strobe pointer", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobeip"), struct.pack(">i", 0x2001), "the strobe pointer is odd"),
+        ("COPR with an unknown instruction", b"P6CH", "COPR", 4 * COPR_WORDS.index("inst"), struct.pack(">i", 3), "the decoded Copper instruction is not MOVE, WAIT or SKIP"),
         ("COPR with an odd vertical blank pointer", b"P6CH", "COPR", 4 * COPR_WORDS.index("vblankip"), struct.pack(">i", 0x2001), "the pointer latched at the vertical blank is odd"),
-        ("COPR with a skip flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("ignore_next"), struct.pack(">i", 2), "the flag that skips the next register write"),
         ("COPR with a line to wait for beyond 255", b"P6CH", "COPR", 4 * COPR_WORDS.index("vcmp"), struct.pack(">i", 256), "a compare value of the Copper is beyond what a WAIT writes"),
         ("COPR with an odd colour clock to wait for", b"P6CH", "COPR", 4 * COPR_WORDS.index("hcmp"), struct.pack(">i", 5), "a compare value of the Copper is beyond what a WAIT writes"),
-        ("COPR with a strobe of 4", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe"), struct.pack(">i", 4), "the strobe of the Copper is out of range"),
-        ("COPR with a strobe type of 3", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobetype"), struct.pack(">i", 3), "the strobe of the Copper is out of range"),
-        ("COPR with a line flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("enabled_thisline"), struct.pack(">i", 2), "the flag that lets the Copper run this line is not a flag"),
+        ("COPR with a strobe of 128", b"P6CH", "COPR", 4 * COPR_WORDS.index("strobe"), struct.pack(">i", 128), "the strobe of the Copper is out of range"),
+        ("COPR with a load flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("load1"), struct.pack(">i", 2), "a latch of the Copper is not a flag"),
+        ("COPR with a start phase of 3", b"P6CH", "COPR", 4 * COPR_WORDS.index("start"), struct.pack(">i", 3), "a two-cycle Copper latch is outside its three phases"),
+        ("COPR with a 17-bit prelatch", b"P6CH", "COPR", 4 * COPR_WORDS.index("prelatch"), struct.pack(">i", 0x10000), "the chipset data prelatch is wider than 16 bits"),
+        ("COPR with an odd dummy pointer", b"P6CH", "COPR", 4 * COPR_WORDS.index("dummyip"), struct.pack(">i", 0x2001), "the dummy Copper pointer is odd"),
+        ("COPR with a line flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("enabled_thisline"), struct.pack(">i", 2), "a latch of the Copper is not a flag"),
+        ("COPR with a pending DMA flag of 2", b"P6CH", "COPR", 4 * COPR_WORDS.index("dma_change_pending"), struct.pack(">i", 2), "a latch of the Copper is not a flag"),
         ("BLTP with a queue of 5", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("queued"), struct.pack(">i", 5), "the blitter queue is deeper than its pipeline"),
         ("BLTP with a negative queue", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("queued"), struct.pack(">i", -1), "the blitter queue is deeper than its pipeline"),
         ("BLTP with a count of cycles after the end of 16", b"P6CH", "BLTP", 4 * BLTP_WORDS.index("count_done"), struct.pack(">i", 16), "the count of cycles after the end of a blit"),
