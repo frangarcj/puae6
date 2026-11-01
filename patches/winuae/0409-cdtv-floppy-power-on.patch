@@ -1,7 +1,7 @@
 diff --git a/disk.cpp b/disk.cpp
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -5669,6 +5669,16 @@
+@@ -5699,6 +5699,16 @@
  
  #endif //FLOPPYBRIDGE
  

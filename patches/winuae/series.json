@@ -1951,7 +1951,7 @@
       "title": "Reset retained CDTV display latches only on a new power-on",
       "reason": "T67c3d: two long independent owners diverge by1024ticks at169; transplanting the display/Copper state reproduces it, blitter does not. Restore BSS-zero display state before custom_init only on CDTV power-on, preserving warm reset and first-owner behavior.",
       "category": "cold session boundary",
-      "order": 77,
+      "order": 78,
       "symbols": [
         "p6_custom_display_power_on"
       ],
@@ -1961,19 +1961,19 @@
       "files": [
         {
           "path": "custom.cpp",
-          "before_sha256": "f45fb70d4fe86a37f075266803a0ea4015b8c4bf5e16f68bae567da7f0832668",
-          "after_sha256": "65d6df9088b7c1117852b06da495183f0bb0b30decca4db693832121e9a56f9b"
+          "before_sha256": "3421de8fbc78706b437f90d70cfbb65e007c982039837fd1be4b61515cc90f12",
+          "after_sha256": "e42cb318f5bf8f76cccccbd7ba6efd8ce4539883eef1365c574aec2d1a14cda9"
         }
       ]
     },
     {
       "id": "0409-cdtv-floppy-power-on",
       "file": "patches/winuae/0409-cdtv-floppy-power-on.patch",
-      "sha256": "ba59609fc59a64f08debd3ecd89cddb4e49160f2c9e0e9e55431b7f057aba8da",
+      "sha256": "5f51a9824d5a024d531d1fa6efd72e3a0af60d644d4ca840efed0c635f266fac",
       "title": "Start the CDTV disk read shifter at its cold BSS phase",
       "reason": "T67c3d: DMA remains active without a physical drive. Exact cold622 replay proves the disk phase domain causes the4096tick return difference; scheduler cursor transplant does not. Reset only bitoffset at new CDTV power-on, preserving hardware RESET and state restore.",
       "category": "cold session boundary",
-      "order": 78,
+      "order": 79,
       "symbols": [
         "p6_disk_power_on"
       ],
@@ -1983,8 +1983,8 @@
       "files": [
         {
           "path": "disk.cpp",
-          "before_sha256": "140dd76f57c2f0a8ea3f025efbedc30f63b9ee055918f97c506bb9f5c89973bc",
-          "after_sha256": "ce03deb72a5e8d305b171875acdc1bb22a7bdaa0bb7f6e27bc0e0e03953a9e81"
+          "before_sha256": "53f34ef2338dfbff440de5a68d0839ecfcd83f44f3fbe17ce5dfa2d7cc9b8f39",
+          "after_sha256": "eb22c65289f34b5a958148576b9f215f4008f82659fb113b4469ff3661ab9a91"
         }
       ]
     },
