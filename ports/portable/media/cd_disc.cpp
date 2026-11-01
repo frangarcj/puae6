@@ -138,7 +138,7 @@ Result Disc::read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity
     if (described != Result::Ok) return described;
     const auto &t = info.effective;
     const bool cooked = t.mode == Mode::Mode1_2048, gap = info.synthetic;
-    if ((view == 2048 && (t.mode == Mode::Audio || t.mode == Mode::Mode2Raw)) ||
+    if ((view == 2048 && t.mode == Mode::Audio) ||
         (view == 2448 && !info.stored_subs)) return Result::Unsupported;
     if (view == 2352 && (cooked || (gap && t.mode != Mode::Audio)) && lba > 100 * 60 * 75 - 151)
         return Result::Unsupported; // synthesized MSF has two BCD digits, validated before I/O
@@ -160,9 +160,15 @@ Result Disc::read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity
         sector[14] = bcd(absolute % 75); sector[15] = 2;
     }
     const uint8_t *data = sector;
-    if (view == 2048 && t.mode == Mode::Mode1Raw && !gap) {
-        if (sector[15] != 1) return Result::ReadError;
-        data += 16;
+    if (view == 2048 && !cooked) {
+        if (t.mode == Mode::Mode1Raw) {
+            if (!gap && sector[15] != 1) return Result::ReadError;
+            data += 16;
+        } else if (t.mode == Mode::Mode2Raw) {
+            if (sector[15] != 2 || memcmp(sector + 16, sector + 20, 4)) return Result::ReadError;
+            if (sector[18] & 0x20) return Result::Unsupported;
+            data += 24;
+        }
     }
     memcpy(out, data, view);
     return Result::Ok;

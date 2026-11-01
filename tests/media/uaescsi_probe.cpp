@@ -3,6 +3,29 @@
 #undef main
 #include "execio.h"
 
+struct Mode2Provider { uint32_t calls = 0; };
+static uint8_t mode2_value(uint64_t at)
+{
+    const uint32_t pos = at % 2352, lba = at / 2352;
+    if (pos == 15) return 2;
+    if (pos >= 16 && pos < 24) {
+        static const uint8_t subheader[] = {1, 2, 0, 4};
+        return subheader[(pos - 16) & 3];
+    }
+    if (lba == 16 && pos >= 24 && pos < 31) {
+        static const uint8_t pvd[] = {1, 'C', 'D', '0', '0', '1', 1};
+        return pvd[pos - 24];
+    }
+    return uint8_t(at * 19 + at / 251);
+}
+static bool mode2_read(const void *ctx, uint64_t at, void *out, size_t count, size_t *got)
+{
+    auto &p = *const_cast<Mode2Provider *>(static_cast<const Mode2Provider *>(ctx)); ++p.calls;
+    if (at > 17 * UINT64_C(2352) || count > 17 * UINT64_C(2352) - at) { *got = 0; return false; }
+    for (size_t n = 0; n < count; ++n) static_cast<uint8_t *>(out)[n] = mode2_value(at + n);
+    *got = count; return true;
+}
+
 static int uaescsi_commands()
 {
     int16_t dummy[1176]{};
@@ -82,7 +105,36 @@ static int uaescsi_commands()
     return 0;
 }
 
+static int mode2_commands()
+{
+    Mode2Provider provider;
+    Binding binding{{{0x42}, 17 * UINT64_C(2352), 1}, mode2_read, &provider};
+    Layout layout{}; layout.tracks = 1; layout.leadout = 17; layout.content_id[0] = 0x42;
+    layout.track[0] = {0, 0, 17, 0, 2352, 0, Mode::Mode2Raw, 1, 4, true};
+    Disc disc; CHECK(disc.bind(layout, &binding, 1) == Result::Ok);
+    CHECK(device_bind(&disc) == Result::Ok && sys_command_open(0) == 1);
+
+    uint8_t packet[12]{}, atapi[2048], scsi[2048];
+    packet[0] = 0x28; packet[5] = 16; packet[8] = 1;
+    AtapiState state{}; atapi_reset(&state);
+    const auto reply = atapi_execute(&state, packet, atapi, sizeof atapi);
+    CHECK(!reply.check_condition && reply.bytes == sizeof atapi);
+
+    amigascsi command{}; command.data = scsi; command.flags = 1;
+    memcpy(command.cmd, packet, sizeof packet); command.cmd_len = 10;
+    command.len = sizeof scsi; command.sense_len = sizeof command.sensedata;
+    CHECK(sys_command_scsi_direct_native(0, INQ_ROMD, &command) == 0);
+    CHECK(command.actual == sizeof scsi && command.cmdactual == 10 && !command.status && !command.sactual);
+    CHECK(!memcmp(atapi, scsi, sizeof atapi));
+    for (unsigned n = 0; n < sizeof atapi; ++n) CHECK(atapi[n] == mode2_value(16 * UINT64_C(2352) + 24 + n));
+    CHECK(atapi[0] == 1 && !memcmp(atapi + 1, "CD001", 5) && atapi[6] == 1);
+
+    sys_command_close(0); CHECK(!device_open_count()); device_unbind();
+    return 0;
+}
+
 int main()
 {
-    return uaescsi_commands();
+    const int commands = uaescsi_commands();
+    return commands ? commands : mode2_commands();
 }

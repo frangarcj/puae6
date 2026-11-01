@@ -909,6 +909,12 @@ P6DK guarda handles privados, open counts, change/frame interrupts y sus IOReque
 
 BizHawk expone `UaeScsi` como `Disabled`, `Auto` o `Enabled`. `Auto` es el valor de interfaz y se resuelve antes de abrir la sandbox: solo se convierte en `Enabled` si hay un catalogo CD fijo y el controlador pedido es `None`; en cualquier otro caso se convierte en `Disabled`, sin cambiar maquina ni controlador. `Enabled` conserva errores explicitos cuando falta CD o el controlador no es `None`; `Disabled` no permite dejar un CD sin controlador. Solo el resultado concreto llega al bit ABI, a la identidad, estados y peliculas: por eso Auto y Enabled compatibles pueden compartir un estado, mientras una topologia distinta se rechaza. `tests/state/test_uaescsi_state.py` cubre una solicitud pendiente, reset y cuerpos hostiles; el escenario Waterbox usa dos HDF UAE mas CD, restore local y sandbox nuevo.
 
+T95h44 completa la vista canonica que comparten ATAPI y `uaescsi.device`: una
+pista `MODE2/2352` Form 1 publica sus 2048 bytes de usuario desde offset 24. Antes
+de publicar se comprueban modo 2, subcabeceras duplicadas y bit Form 2; un fallo
+deja intacto el destino y se traduce al sense existente de modo ilegal o lectura
+no recuperada. No cambia TOC, identidad, estado, ABI, CDDA ni las vistas raw.
+
 ## ROMs, discos y persistencia
 
 Firmware y cada medio tienen content ID (SHA-256 de contenido normalizado segun
@@ -1097,8 +1103,10 @@ pregap sintetico. Fuentes opacas (`sector_bytes=1`) admiten contenedores no
 alineados y solo `read_at`; `Source::read_sector` sigue siendo ISO2048.
 Bind valida orden/rangos/overflow; rebind compara identidad del disco, toda TOC
 y cada ID/longitud/geometria de fuente antes de cambiar callbacks/contextos.
-Una lectura entrega2048 de Mode1,2352 raw o2448 con subcanales ya almacenados;
-Mode2/audio en2048 y subcanales ausentes devuelven `Unsupported`, sin inventarlos.
+Una lectura entrega2048 de Mode1 o Mode2 Form 1,2352 raw o2448 con subcanales ya
+almacenados. Mode2 Form 1 valida byte de modo y las dos copias de la subcabecera,
+y extrae exactamente 24..2071; Form 2/audio en2048 y subcanales ausentes devuelven
+`Unsupported`, sin inventarlos. Un modo o subcabecera incoherente es `ReadError`.
 El audio conserva los bytes del proveedor; su interpretacion CDDA es trabajo posterior.
 ISO2048 a2352 reutiliza `encode_l2` fijado, con parche0355 de sync conforme
 a [ECMA-130 §14.1](https://ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf):

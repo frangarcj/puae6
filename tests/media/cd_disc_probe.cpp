@@ -16,8 +16,20 @@ struct Provider { uint64_t bytes, offset, last = 0; uint32_t stride, mode, calls
 static uint8_t byte(const Provider &p, uint64_t at)
 {
     const auto pos = (at - p.offset) % p.stride;
-    if (p.mode && pos == 15) return uint8_t((at-p.offset)/p.stride < p.boundary ? p.prefix_mode : p.mode);
-    if (p.mode == 2 && pos == 18) return 0x20; // Mode2 Form2, never 2048-byte user data
+    const auto sector = (at - p.offset) / p.stride;
+    const auto mode = sector < p.boundary ? p.prefix_mode : p.mode;
+    if (mode && pos == 15) return uint8_t(mode >= 4 ? (mode == 7 ? 1 : 2) : mode);
+    if ((mode == 2 || (mode >= 4 && mode <= 6)) && pos >= 16 && pos < 24) {
+        static const uint8_t subheader[] = {1, 2, 0, 4};
+        uint8_t value = subheader[(pos - 16) & 3];
+        if ((mode == 2 || mode == 5) && ((pos - 16) & 3) == 2) value |= 0x20;
+        if (mode == 6 && pos >= 20) value ^= 0x40;
+        return value;
+    }
+    if (mode == 4 && sector == 16 && pos >= 24 && pos < 31) {
+        static const uint8_t pvd[] = {1, 'C', 'D', '0', '0', '1', 1};
+        return pvd[pos - 24];
+    }
     return uint8_t(at ^ (at >> 32) ^ (at >> 7));
 }
 static bool provide(const void *context, uint64_t offset, void *out, size_t length, size_t *got)
@@ -117,7 +129,7 @@ static int failures_and_rebind()
         memset(out, 0xa5, sizeof out);
         CHECK(disc.read_sector(args.first, args.second, out, sizeof out) != Result::Ok && filled(out, sizeof out, 0xa5));
     }
-    CHECK(!f.p[0].calls && !f.p[1].calls && !f.p[3].calls);
+    CHECK(!f.p[0].calls && !f.p[1].calls && f.p[3].calls == 1); // Form2 is known only after staging its subheader.
     for (int fault = 1; fault <= 3; ++fault) {
         f.p[2].fault = fault;
         CHECK(disc.read_sector(7, 2448, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
@@ -294,7 +306,9 @@ static int mode2_gaps()
             CHECK(canonical_read(disc, 4502, 2448, out, sizeof out) == Result::ReadError && filled(out, sizeof out, 0xa5));
         }
         memset(out, 0xa5, sizeof out);
-        CHECK(disc.read_sector(4501, 2048, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
+        CHECK(disc.read_sector(4501, 2048, out + 8, 2048) == Result::Ok);
+        CHECK(filled(out, 8, 0xa5) && filled(out + 8, 2048, 0) && filled(out + 2056, sizeof out - 2056, 0xa5));
+        memset(out, 0xa5, sizeof out);
         CHECK(disc.read_sector(4501, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
         layout.track[0].index1 = layout.track[0].synthetic_pregap = 449851;
         layout.leadout = layout.track[0].end = 449853;
@@ -307,6 +321,32 @@ static int mode2_gaps()
             CHECK(canonical_read(limit, lba, 2448, out, sizeof out) == Result::Unsupported && filled(out, sizeof out, 0xa5));
         }
         CHECK(p.calls == calls);
+    }
+    return 0;
+}
+
+static int mode2_form1()
+{
+    Provider p{17 * 2352, 0, 0, 2352, 4};
+    Binding binding{{{0x42}, p.bytes, 1}, provide, &p};
+    Layout layout{}; layout.tracks = 1; layout.leadout = 17;
+    layout.track[0] = {0, 0, 17, 0, 2352, 0, Mode::Mode2Raw, 1, 4, true};
+    Disc disc; CHECK(disc.bind(layout, &binding, 1) == Result::Ok);
+    uint8_t out[2464]; memset(out, 0xa5, sizeof out);
+    CHECK(disc.read_sector(16, 2048, out + 8, 2048) == Result::Ok);
+    CHECK(filled(out, 8, 0xa5) && filled(out + 2056, sizeof out - 2056, 0xa5));
+    for (unsigned n = 0; n < 2048; ++n) CHECK(out[8 + n] == byte(p, 16 * 2352 + 24 + n));
+    CHECK(out[8] == 1 && !memcmp(out + 9, "CD001", 5) && out[14] == 1);
+    CHECK(disc.read_sector(16, 2352, out, sizeof out) == Result::Ok);
+    for (unsigned n = 0; n < 2352; ++n) CHECK(out[n] == byte(p, 16 * 2352 + n));
+
+    for (auto failure : {std::pair<unsigned,Result>{5,Result::Unsupported}, {6,Result::ReadError}, {7,Result::ReadError}}) {
+        Provider bad = p; bad.mode = failure.first;
+        Binding other = binding; other.context = &bad;
+        Disc malformed; CHECK(malformed.bind(layout, &other, 1) == Result::Ok);
+        memset(out, 0xa5, sizeof out);
+        CHECK(malformed.read_sector(16, 2048, out + 8, 2048) == failure.second);
+        CHECK(filled(out, sizeof out, 0xa5));
     }
     return 0;
 }
@@ -558,7 +598,8 @@ static int explicit_regions()
                 info.synthetic==synthetic && info.stored_subs==has_sub && (synthetic||info.source_offset==at));
             CHECK(describe_sector(disc,lba,&info)==Result::Ok && p.calls==calls);
             for (unsigned view : {2048u,2352u,2448u}) {
-                memset(out,0xa5,sizeof out); const bool reject=view==2048&&mode!=Mode::Mode1Raw;
+                memset(out,0xa5,sizeof out); const bool reject=view==2048&&
+                    (mode==Mode::Audio || (mode==Mode::Mode2Raw&&!synthetic));
                 CHECK(canonical_read(disc,lba,view,out+8,view)==(reject?Result::Unsupported:Result::Ok));
                 CHECK(filled(out,8,0xa5)&&filled(out+8+view,sizeof out-8-view,0xa5));
                 if (reject) CHECK(filled(out,sizeof out,0xa5));
@@ -751,5 +792,6 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "akiko")) return akiko();
     if (!strcmp(argv[1], "canonical")) return canonical();
     if (!strcmp(argv[1], "mode2-gaps")) return mode2_gaps();
+    if (!strcmp(argv[1], "mode2-form1")) return mode2_form1();
     return 2;
 }

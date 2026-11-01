@@ -137,6 +137,13 @@ juegos pueden seguir en `Uae` mientras el CD queda en uaescsi. `Enabled` exige
 contenido CD y `None`, y muestra un error ante otra topologia; `Disabled` con
 CD y `None` tambien se rechaza porque el medio quedaria sin controlador. Una eleccion incompatible se detiene antes
 de abrir el medio y muestra el motivo, sin cambiar silenciosamente de maquina.
+Los valores `Auto` se conservan al guardar la configuracion: `Enabled`,
+`Disabled`, `Ide` o `CD32` son solo la topologia efectiva de la sesion viva.
+Por ello abrir una sesion con CD no convierte `uaescsi.device` en `Enabled` para
+el siguiente arranque sin CD.
+Las pistas CUE `MODE2/2352` Form 1 se leen ahora como sectores logicos de 2048
+bytes tanto por IDE/ATAPI como por `uaescsi.device`; Form 2 o una subcabecera
+incoherente siguen produciendo un error explicito sin datos parciales.
 Estados, BK2 y TAS vuelven a abrir la misma topologia; si cambia el CD, ADF,
 HDF o volumen se rechaza la carga sin tocar la sesion. UAE sigue siendo el core
 predeterminado y sus estados y peliculas no se convierten a PUAE6.
