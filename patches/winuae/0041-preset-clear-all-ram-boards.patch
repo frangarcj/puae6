@@ -1,7 +1,8 @@
 diff --git a/cfgfile.cpp b/cfgfile.cpp
+index e4bff305..b4220196 100644
 --- a/cfgfile.cpp
 +++ b/cfgfile.cpp
-@@ -8909,8 +8909,8 @@
+@@ -9048,8 +9048,8 @@ static void buildin_default_prefs (struct uae_prefs *p)
  	p->mbresmem_high.size = 0;
  	p->z3chipmem.size = 0;
  	for (int i = 0; i < MAX_RAM_BOARDS; i++) {

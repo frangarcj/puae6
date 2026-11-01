@@ -61,7 +61,7 @@
           "sha256": "1047b589a2307ee5d921357bc104f1749b9b6e4072494cea51a2e7b615f78ad2"
         },
         {
-          "path": "upstream/winuae/softfloat/SOFTFLOAT-MACROS.H",
+          "path": "upstream/winuae/softfloat/softfloat-macros.h",
           "sha256": "a3302fceb7b9084bb6b17203d14026b491154f8ee21797bb7dc6c111f93f4e08"
         },
         {

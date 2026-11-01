@@ -1,12 +1,11 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index b71298fd..5c245070 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -4518,7 +4518,23 @@
- 		}
- 	}
+@@ -4562,6 +4562,22 @@ static bool haltloop_do(int vsynctimeline, frame_time_t rpt_end, int lines)
  	return false;
-+}
-+
+ }
+ 
 +#ifdef P6_UNIT_TRACE
 +// Test builds only (never defined by the profile): report each video boundary, and let a run swallow the
 +// first p6_unit_skip of them, so the same engine can advance N units with and without returning.
@@ -20,12 +19,13 @@ diff --git a/newcpu.cpp b/newcpu.cpp
 +	--p6_unit_skip;
 +	unset_special(SPCFLAG_UNIT_END);
 +	return true;
- }
++}
 +#endif
- 
++
  static bool haltloop(void)
  {
-@@ -4589,6 +4605,10 @@
+ #ifdef WITH_PPC
+@@ -4631,6 +4647,10 @@ static bool haltloop(void)
  				prevvpos = 1;
  			x_do_cycles(8 * CYCLE_UNIT);
  
@@ -36,7 +36,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  			if (regs.spcflags) {
  				if ((regs.spcflags & (SPCFLAG_BRK | SPCFLAG_MODE_CHANGE | SPCFLAG_UNIT_END)))
  					return true;
-@@ -4782,6 +4802,12 @@
+@@ -4829,6 +4849,12 @@ static int do_specialties (int cycles)
  		cpu_halt_clear();
  		x_do_cycles(4 * CYCLE_UNIT);
  		spcflags = regs.spcflags;
@@ -49,7 +49,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		if (!(spcflags & SPCFLAG_CPUINRESET) || (spcflags & SPCFLAG_BRK) || (spcflags & SPCFLAG_MODE_CHANGE) || (spcflags & SPCFLAG_UNIT_END)) {
  			break;
  		}
-@@ -4942,6 +4968,10 @@
+@@ -4989,6 +5015,10 @@ static int do_specialties (int cycles)
  #endif
  	}
  

@@ -9,7 +9,7 @@
 
 #include "uae/types.h"
 
-#if defined(SUPPORT_THREADS) || defined(P6_NATIVE2AMIGA)
+#ifdef SUPPORT_THREADS
 typedef void(*UAE_PROCESSED)(int);
 
 void uae_Cause(uaecptr interrupt);

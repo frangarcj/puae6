@@ -1,7 +1,8 @@
 diff --git a/main.cpp b/main.cpp
+index 4393eac9..9af9e86d 100644
 --- a/main.cpp
 +++ b/main.cpp
-@@ -61,13 +61,17 @@
+@@ -62,13 +62,17 @@ long int version = 256 * 65536L * UAEMAJOR + 65536L * UAEMINOR + UAESUBREV;
  struct uae_prefs currprefs, changed_prefs;
  int config_changed, config_changed_flags;
  

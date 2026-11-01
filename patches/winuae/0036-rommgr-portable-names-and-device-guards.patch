@@ -1,7 +1,8 @@
 diff --git a/rommgr.cpp b/rommgr.cpp
+index d8bb5015..577ecc84 100644
 --- a/rommgr.cpp
 +++ b/rommgr.cpp
-@@ -1845,12 +1845,32 @@
+@@ -1861,12 +1861,32 @@ void getromname	(const struct romdata *rd, TCHAR *name)
  	while (rd->group)
  		rd--;
  	_tcscat (name, rd->name);
@@ -34,7 +35,7 @@ diff --git a/rommgr.cpp b/rommgr.cpp
  }
  
  struct romlist *getromlistbyromdata (const struct romdata *rd)
-@@ -2561,6 +2581,11 @@
+@@ -2607,6 +2627,11 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
  			romwarning(rom);
  		return 0;
  	}
@@ -46,7 +47,7 @@ diff --git a/rommgr.cpp b/rommgr.cpp
  	if (rd->type & (ROMTYPE_KICK | ROMTYPE_KICKCD32))
  		_tcscpy (p->romfile, path);
  	if ((rd->type & (ROMTYPE_EXTCD32 | ROMTYPE_EXTCDTV | ROMTYPE_ARCADIABIOS | ROMTYPE_ALG)) && !(rd->type & ROMTYPE_KICKCD32))
-@@ -2577,6 +2602,7 @@
+@@ -2625,6 +2650,7 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
  	if (rd->type & ROMTYPE_CPUBOARD)
  		set_device_rom(p, path, ROMTYPE_CPUBOARD, 0);
  
@@ -54,7 +55,7 @@ diff --git a/rommgr.cpp b/rommgr.cpp
  	if (rd->type & (ROMTYPE_ARCADIAGAME | ROMTYPE_ALG)) {
  		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
  		_stprintf(p->flashfile + _tcslen(p->flashfile), _T("%s.nvr"), rd->name);
-@@ -2588,6 +2614,7 @@
+@@ -2636,6 +2662,7 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
  		_stprintf(p->genlock_video_file + _tcslen(p->genlock_video_file), _T("%s.avi"), rd->name);
  		clean_path(p->genlock_video_file);
  	}
@@ -62,16 +63,15 @@ diff --git a/rommgr.cpp b/rommgr.cpp
  #endif
  	return 1;
  }
-@@ -3108,13 +3135,15 @@
+@@ -3173,13 +3200,15 @@ struct romdata *scan_single_rom_file(struct zfile *f)
  struct romdata *scan_single_rom(const TCHAR *path)
  {
  	struct zfile *z;
-+	struct romdata *rd;
-+
+-	TCHAR tmp[MAX_DPATH];
+ 	struct romdata *rd;
+ 
 +#ifdef ARCADIA
- 	TCHAR tmp[MAX_DPATH];
--	struct romdata *rd;
--
++	TCHAR tmp[MAX_DPATH];
  	_tcscpy(tmp, path);
  	rd = scan_arcadia_rom(tmp, 0);
  	if (rd)

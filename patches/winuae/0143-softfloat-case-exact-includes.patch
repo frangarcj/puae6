@@ -1,4 +1,5 @@
 diff --git a/fpp_softfloat.cpp b/fpp_softfloat.cpp
+index e647cb12..9f53320c 100644
 --- a/fpp_softfloat.cpp
 +++ b/fpp_softfloat.cpp
 @@ -23,7 +23,7 @@
@@ -11,9 +12,10 @@ diff --git a/fpp_softfloat.cpp b/fpp_softfloat.cpp
  
  #define	FPCR_ROUNDING_MODE	0x00000030
 diff --git a/softfloat/softfloat_decimal.cpp b/softfloat/softfloat_decimal.cpp
+index ea63d206..82b2fcc0 100644
 --- a/softfloat/softfloat_decimal.cpp
 +++ b/softfloat/softfloat_decimal.cpp
-@@ -19,7 +19,7 @@
+@@ -19,7 +19,7 @@ Arithmetic Package, Release 2a.
  #endif
  
  #include "softfloat.h"

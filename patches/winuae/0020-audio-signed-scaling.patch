@@ -1,7 +1,8 @@
 diff --git a/audio.cpp b/audio.cpp
+index 41b89491..2314159d 100644
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -381,7 +381,7 @@
+@@ -384,7 +384,7 @@ STATIC_INLINE int FINISH_DATA (int data, int bits, int ch)
  {
  	if (bits < 16) {
  		int shift = 16 - bits;
@@ -10,7 +11,7 @@ diff --git a/audio.cpp b/audio.cpp
  	} else {
  		int shift = bits - 16;
  		data >>= shift;
-@@ -654,7 +654,7 @@
+@@ -657,7 +657,7 @@ static void samplexx_sinc_handler (int *datasp, int ch_start, int ch_num)
  		int j, v;
  		struct audio_channel_data2 *acd = audio_data[i];
  		/* The sum rings with harmonic components up to infinity... */

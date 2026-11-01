@@ -43,9 +43,7 @@
 #ifdef WITH_SPECIALMONITORS
 #include "specialmonitors.h"
 #endif
-#ifndef P6_PORTABLE
 #include "ide.h"
-#endif
 
 #define cfgfile_warning write_log
 #define cfgfile_warning_obsolete write_log
@@ -56,16 +54,13 @@
 #define strcasecmp _tcsicmp
 #endif
 
-static struct strlist *error_lines;
-static bool gfx_keep_aspect_seen;
-
-#ifndef P6_PORTABLE
-// Desktop text configuration is not an input to the fixed P6 profile.
 static int config_newfilesystem;
 static struct strlist *temp_lines;
+static struct strlist *error_lines;
 static struct zfile *default_file, *configstore;
 static int uaeconfig;
 static int unicode_config = 0;
+static bool gfx_keep_aspect_seen;
 
 /* @@@ need to get rid of this... just cut part of the manual and print that
 * as a help text.  */
@@ -480,8 +475,6 @@ static TCHAR *cfgfile_unescape_min(const TCHAR *s)
 	return cfgfile_unescape(s, NULL, 0, true);
 }
 
-#endif // !P6_PORTABLE
-
 static void clearmountitems(struct uae_prefs *p)
 {
 	p->mountitems = 0;
@@ -509,7 +502,6 @@ void discard_prefs(struct uae_prefs *p, int type)
 	clearmountitems(p);
 }
 
-#ifndef P6_PORTABLE
 static TCHAR *cfgfile_option_find_it(const TCHAR *s, const TCHAR *option, bool checkequals)
 {
 	TCHAR buf[MAX_DPATH];
@@ -1266,10 +1258,6 @@ void cfgfile_resolve_path_save(TCHAR *path, int size, int type)
 
 static void write_filesys_config (struct uae_prefs *p, struct zfile *f)
 {
-#ifdef P6_PORTABLE
-	if (p->mountitems != 0)
-		cfgfile_warning(_T("P6 A500: filesystem/hardfile config export is not supported.\n"));
-#else
 	TCHAR tmp[MAX_DPATH], tmp2[MAX_DPATH], tmp3[MAX_DPATH], str1[MAX_DPATH], hdcs[MAX_DPATH];
 
 	for (int i = 0; i < p->mountitems; i++) {
@@ -1445,7 +1433,6 @@ static void write_filesys_config (struct uae_prefs *p, struct zfile *f)
 		xfree (str1c);
 		xfree (str2b);
 	}
-#endif
 }
 
 static void write_compatibility_cpu (struct zfile *f, struct uae_prefs *p)
@@ -5932,8 +5919,6 @@ static bool cfgfile_read_board_rom(struct uae_prefs *p, const TCHAR *option, con
 	return false;
 }
 
-#endif // !P6_PORTABLE
-
 static void addbcromtype(struct uae_prefs *p, int romtype, bool add, const TCHAR *romfile, int devnum)
 {
 	if (!add) {
@@ -5946,7 +5931,6 @@ static void addbcromtype(struct uae_prefs *p, int romtype, bool add, const TCHAR
 	}
 }
 
-#ifndef P6_PORTABLE
 static void addbcromtypenet(struct uae_prefs *p, int romtype, const TCHAR *netname, int devnum)
 {
 	int is = is_device_rom(p, romtype, devnum);
@@ -6728,8 +6712,6 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, const TCHAR *option, TCH
 	return 0;
 }
 
-#endif // !P6_PORTABLE
-
 static void romtype_restricted(struct uae_prefs *p, const int *list)
 {
 	for (int i = 0; list[i]; i++) {
@@ -6749,8 +6731,6 @@ static void romtype_restricted(struct uae_prefs *p, const int *list)
 	}
 }
 
-#ifndef P6_PORTABLE
-// Graphics boards are not part of the A500 profile.
 void cfgfile_compatibility_rtg(struct uae_prefs *p)
 {
 	int uaegfx = -1;
@@ -6855,7 +6835,6 @@ void cfgfile_compatibility_rtg(struct uae_prefs *p)
 		}
 	}
 }
-#endif
 
 void cfgfile_compatibility_romtype(struct uae_prefs *p)
 {
@@ -6883,15 +6862,12 @@ void cfgfile_compatibility_romtype(struct uae_prefs *p)
 	}
 	p->cs_cd32fmv = get_device_romconfig(p, ROMTYPE_CD32CART, 0) != NULL;
 
-#ifndef P6_PORTABLE
 	if (p->config_version < ((3 << 16) | (4 << 8) | (0 << 0))) {
 		// 3.3.0 or older
 		addbcromtypenet(p, ROMTYPE_A2065, p->a2065name, 0);
 		addbcromtypenet(p, ROMTYPE_NE2KPCMCIA, p->ne2000pcmcianame, 0);
 		addbcromtypenet(p, ROMTYPE_NE2KPCI, p->ne2000pciname, 0);
 	}
-
-#endif
 
 	static const int restricted_net[] = {
 		ROMTYPE_A2065, ROMTYPE_NE2KPCMCIA, ROMTYPE_NE2KPCI, ROMTYPE_NE2KISA,
@@ -6927,7 +6903,6 @@ void cfgfile_compatibility_romtype(struct uae_prefs *p)
 
 }
 
-#ifndef P6_PORTABLE
 static int getconfigstoreline (const TCHAR *option, TCHAR *value);
 
 static void calcformula (struct uae_prefs *prefs, TCHAR *in)
@@ -8526,8 +8501,6 @@ uae_u8 *save_configuration (size_t *len, bool fullconfig)
 	return dstbak;
 }
 
-#endif // !P6_PORTABLE
-
 #ifdef UAE_MINI
 static void default_prefs_mini (struct uae_prefs *p, int type)
 {
@@ -8547,12 +8520,6 @@ static void default_prefs_mini (struct uae_prefs *p, int type)
 
 static void copy_inputdevice_settings(struct uae_input_device *src, struct uae_input_device *dst)
 {
-#ifdef P6_PORTABLE
-	// name and configname belong to each preference set: the memcpy of the caller made dst point at src's strings, and the ones
-	// dst owned before were dropped by it.
-	dst->name = src->name ? my_strdup(src->name) : NULL;
-	dst->configname = src->configname ? my_strdup(src->configname) : NULL;
-#endif
 	for (int l = 0; l < MAX_INPUT_DEVICE_EVENTS; l++) {
 		for (int i = 0; i < MAX_INPUT_SUB_EVENT_ALL; i++) {
 			if (src->custom[l][i]) {
@@ -8566,15 +8533,6 @@ static void copy_inputdevice_settings(struct uae_input_device *src, struct uae_i
 
 static void copy_inputdevice_settings_free(struct uae_input_device *src, struct uae_input_device *dst)
 {
-#ifdef P6_PORTABLE
-	// Release what dst owns before the caller overwrites it; a string shared with src is only separated.
-	if (dst->name != src->name)
-		xfree(dst->name);
-	dst->name = NULL;
-	if (dst->configname != src->configname)
-		xfree(dst->configname);
-	dst->configname = NULL;
-#endif
 	for (int l = 0; l < MAX_INPUT_DEVICE_EVENTS; l++) {
 		for (int i = 0; i < MAX_INPUT_SUB_EVENT_ALL; i++) {
 			if (dst->custom[l][i] == NULL && src->custom[l][i] == NULL)
@@ -8954,10 +8912,7 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
 
 	inputdevice_default_prefs (p);
 
-#ifndef P6_PORTABLE
-	// CD/SCSI slots: the memset above already yields the SCSI_UNIT_DEFAULT (0) state.
 	blkdev_default_prefs (p);
-#endif
 
 	p->cr_selected = -1;
 	struct chipset_refresh *cr;
@@ -8997,13 +8952,8 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
 	savestate_state = 0;
 	gfx_keep_aspect_seen = false;
 
-#ifndef P6_PORTABLE
-	// Host (win32_*, rtg_*) defaults belong to the desktop target.
 	target_default_options (p, type);
-#endif
 
-#ifndef P6_PORTABLE
-	// Desktop cache used to omit unchanged options from text config exports.
 	zfile_fclose (default_file);
 	default_file = NULL;
 	f = zfile_fopen_empty (NULL, _T("configstore"));
@@ -9014,7 +8964,6 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
 		cfg_write (&zero, f);
 		default_file = f;
 	}
-#endif
 }
 
 static void buildin_default_prefs_68020 (struct uae_prefs *p)
@@ -9094,8 +9043,8 @@ static void buildin_default_prefs (struct uae_prefs *p)
 	p->mbresmem_high.size = 0;
 	p->z3chipmem.size = 0;
 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
-		memset(&p->fastmem[i], 0, sizeof(struct ramboard));
-		memset(&p->z3fastmem[i], 0, sizeof(struct ramboard));
+		memset(p->fastmem, 0, sizeof(struct ramboard));
+		memset(p->z3fastmem, 0, sizeof(struct ramboard));
 	}
 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
 		p->rtgboards[i].rtgmem_size = 0x00000000;
@@ -9147,10 +9096,7 @@ static void buildin_default_prefs (struct uae_prefs *p)
 	p->gdb_port = 2345;
 #endif
 
-#ifndef P6_PORTABLE
-	// Type 1 only sets host drive, SCSI, MIDI and RTG defaults.
 	target_default_options (p, 1);
-#endif
 	cfgfile_compatibility_romtype(p);
 }
 
@@ -9415,11 +9361,8 @@ static int bip_cdtvcr (struct uae_prefs *p, int config, int compa, int romcheck)
 	set_68000_compa (p, compa);
 	p->cs_compatible = CP_CDTVCR;
 	built_in_chipset_prefs (p);
-#ifndef P6_PORTABLE
-	// NVRAM files live in a host directory; only non-A500 presets name one.
 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
 	_tcscat (p->flashfile, _T("cdtv-cr.nvr"));
-#endif
 	roms[0] = 9;
 	roms[1] = 10;
 	roms[2] = -1;
@@ -9456,10 +9399,8 @@ static int bip_cdtv (struct uae_prefs *p, int config, int compa, int romcheck)
 	set_68000_compa (p, compa);
 	p->cs_compatible = CP_CDTV;
 	built_in_chipset_prefs (p);
-#ifndef P6_PORTABLE
 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
 	_tcscat (p->flashfile, _T("cdtv.nvr"));
-#endif
 	roms[0] = 6;
 	roms[1] = 32;
 	roms[2] = -1;
@@ -9487,10 +9428,8 @@ static int bip_cd32 (struct uae_prefs *p, int config, int compa, int romcheck)
 	set_68020_compa (p, compa, 1);
 	p->cs_compatible = CP_CD32;
 	built_in_chipset_prefs (p);
-#ifndef P6_PORTABLE
 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
 	_tcscat (p->flashfile, _T("cd32.nvr"));
-#endif
 	roms[0] = 64;
 	roms[1] = -1;
 	if (!configure_rom (p, roms, 0)) {
@@ -9511,10 +9450,8 @@ static int bip_cd32 (struct uae_prefs *p, int config, int compa, int romcheck)
 			return 0;
 	} else if (config > 1) {
 		addbcromtype(p, ROMTYPE_CUBO, true, NULL, 0);
-#ifndef P6_PORTABLE
 		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
 		_tcscat(p->flashfile, _T("cd32cubo.nvr"));
-#endif
 	}
 	return 1;
 }
@@ -9748,10 +9685,8 @@ static int bip_arcadia (struct uae_prefs *p, int config, int compa, int romcheck
 	set_68000_compa (p, compa);
 	p->cs_compatible = CP_A500;
 	built_in_chipset_prefs (p);
-#ifndef P6_PORTABLE
 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
 	_tcscat(p->flashfile, _T("arcadia.nvr"));
-#endif
 	roms[0] = 5;
 	roms[1] = 4;
 	roms[2] = -1;
@@ -9792,10 +9727,8 @@ static int bip_alg(struct uae_prefs *p, int config, int compa, int romcheck)
 	set_68000_compa(p, compa);
 	p->cs_compatible = CP_A500;
 	built_in_chipset_prefs(p);
-#ifndef P6_PORTABLE
 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
 	_tcscat(p->flashfile, _T("alg.nvr"));
-#endif
 	roms[0] = 5;
 	roms[1] = 4;
 	roms[2] = -1;
@@ -9884,10 +9817,8 @@ static int bip_draco(struct uae_prefs *p, int config, int compa, int romcheck)
 	p->rtgboards[0].rtgmem_type = GFXBOARD_ID_ALTAIS_Z3;
 	p->rtgboards[0].rtgmem_size = 4 * 1024 * 1024;
 	built_in_chipset_prefs(p);
-#ifndef P6_PORTABLE
 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
 	_tcscat(p->flashfile, _T("draco.nvr"));
-#endif
 	roms[0] = 61;
 	roms[1] = -1;
 	if (!configure_rom(p, roms, romcheck)) {
@@ -10345,28 +10276,6 @@ void error_log (const TCHAR *format, ...)
 
 	va_start (parms, format);
 	bufp = buffer;
-#ifdef P6_PORTABLE
-	// C99 reports the required size; each formatting pass owns its va_list.
-	va_list copy;
-	va_copy(copy, parms);
-	int count = vsnprintf(buffer, sizeof(buffer), format, copy);
-	va_end(copy);
-	if (count < 0) {
-		va_end(parms);
-		write_log(_T("Config error formatting failed.\n"));
-		return;
-	}
-	if ((size_t)count >= sizeof(buffer)) {
-		size_t needed = (size_t)count + 1;
-		bufp = xmalloc(TCHAR, needed);
-		if (!bufp) {
-			va_end(parms);
-			write_log(_T("Config error allocation failed.\n"));
-			return;
-		}
-		vsnprintf(bufp, needed, format, parms);
-	}
-#else
 	for (;;) {
 		int count = _vsntprintf (bufp, bufsize - 1, format, parms);
 		if (count < 0) {
@@ -10379,7 +10288,6 @@ void error_log (const TCHAR *format, ...)
 		break;
 	}
 	bufp[bufsize - 1] = 0;
-#endif
 	write_log (_T("%s\n"), bufp);
 	va_end (parms);
 

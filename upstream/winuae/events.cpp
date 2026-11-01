@@ -30,9 +30,7 @@ int pissoff_value = 15000 * CYCLE_UNIT;
 int pissoff_nojit_value = 160 * CYCLE_UNIT;
 evt_t currcycle_cck;
 int is_syncline;
-#ifndef P6_PORTABLE
 static int syncline_cnt;
-#endif
 frame_time_t is_syncline_end;
 int cycles_to_next_event;
 int max_cycles_to_next_event;
@@ -72,7 +70,6 @@ void events_schedule(void)
 	}
 }
 
-#ifndef P6_PORTABLE
 extern int vsync_activeheight;
 
 static bool event_check_vsync(void)
@@ -263,8 +260,6 @@ static bool event_check_vsync(void)
 	return false;
 }
 
-#endif /* !P6_PORTABLE: display/clock pacing belongs to the frontend */
-
 void do_cycles_normal(int cycles_to_add)
 {
 	while ((nextevent - currcycle) <= cycles_to_add) {
@@ -300,7 +295,6 @@ void do_cycles_slow(int cycles_to_add)
 #endif
 #endif
 
-#ifndef P6_PORTABLE
 	if (is_syncline) {
 		if (syncline_cnt > 0) {
 			syncline_cnt--;
@@ -313,8 +307,6 @@ void do_cycles_slow(int cycles_to_add)
 			return;
 		}
 	}
-
-#endif
 
 	cycles_to_add += cycles_to_add_remain;
 	cycles_to_add_remain = 0;
@@ -419,7 +411,7 @@ void MISC_handler(void)
 	mintime = EVT_MAX;
 	for (int i = 0; i < event2max; i++) {
 		ev2 *e = &eventtab2[i];
-		if (e->active && e->evtime == ct) {
+		if (e->evtime == ct) {
 			e->active = false;
 			event2cnt++;
 			e->handler(e->data);
@@ -582,34 +574,4 @@ void clear_events(void)
 	}
 	event2next = 0;
 	firstvent2idx = -1;
-#ifdef P6_PORTABLE
-	// The secondary-event cursor and re-entry counters are scheduler state: only a cold process has them at zero.
-	event2cnt = 0;
-	event2restart = 0;
-	// Where event2_newevent_xx starts looking for a free slot is part of the same round.
-	event2next = ev2_misc;
-#endif
 }
-
-#ifdef P6_PORTABLE
-// Native state (bridge/state_cpu.cpp): beta 21 replaced event2idx with a dynamically grown active range. Keep the
-// five-integer interface and carry that range in the former idx field; firstvent2idx/event2total are derived from the table.
-void p6_events_get(int *max, int *next, int *cnt, int *restart, int *remain)
-{
-	*max = event2max;
-	*next = event2next;
-	*cnt = event2cnt;
-	*restart = event2restart;
-	*remain = cycles_to_add_remain;
-}
-
-void p6_events_set(int max, int next, int remain)
-{
-	event2max = max;
-	event2next = next;
-	event2cnt = 0;
-	event2restart = 0;
-	cycles_to_add_remain = remain;
-	events_schedule_misc();
-}
-#endif

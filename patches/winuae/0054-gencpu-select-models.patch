@@ -1,7 +1,8 @@
 diff --git a/gencpu.cpp b/gencpu.cpp
+index 6959afdc..ea944fb6 100644
 --- a/gencpu.cpp
 +++ b/gencpu.cpp
-@@ -10275,6 +10275,21 @@
+@@ -10283,6 +10283,21 @@ static void generate_cpu (int id, int mode)
  
  int main(int argc, char *argv[])
  {
@@ -23,7 +24,7 @@ diff --git a/gencpu.cpp b/gencpu.cpp
  	init_table68k();
  
  	opcode_map =  xmalloc (int, nr_cpuop_funcs);
-@@ -10314,6 +10329,8 @@
+@@ -10322,6 +10337,8 @@ int main(int argc, char *argv[])
  	for (int i = 0; i <= 55; i++) {
  		if ((i >= 6 && i < 11) || (i > 14 && i < 20) || (i > 25 && i < 31) || (i > 35 && i < 40))
  			continue;

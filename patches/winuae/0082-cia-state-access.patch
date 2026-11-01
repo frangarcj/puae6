@@ -1,12 +1,11 @@
 diff --git a/cia.cpp b/cia.cpp
+index 03cb1dd1..72717b48 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -3381,5 +3381,147 @@
- 	rtc_msm.clock_control_d = in[0];
- 	rtc_msm.clock_control_e = in[1];
+@@ -3465,3 +3465,145 @@ void p6_rtc_msm_set(const uae_u8 in[3])
  	rtc_msm.clock_control_f = in[2];
-+}
-+#endif
+ }
+ #endif
 +
 +#ifdef P6_PORTABLE
 +#include "p6_state_access.h"
@@ -92,7 +91,7 @@ diff --git a/cia.cpp b/cia.cpp
 +	out->powerled = gui_data.powerled;
 +	out->powerled_brightness = gui_data.powerled_brightness;
 +	out->oldovl = oldovl;
- }
++}
 +
 +void p6_cia_misc_set(const p6_cia_misc_raw *in)
 +{
@@ -148,4 +147,4 @@ diff --git a/cia.cpp b/cia.cpp
 +		*why = w;
 +	return w == NULL;
 +}
- #endif
++#endif

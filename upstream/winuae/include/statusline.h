@@ -45,9 +45,7 @@ void statusline_getpos(int monid, int *x, int *y, int width, int height);
 #define STATUSTYPE_CD 4
 #define STATUSTYPE_OTHER 5
 
-#ifndef P6_PORTABLE
 bool createstatusline(HWND, int);
-#endif
 void deletestatusline(int);
 void statusline_render(int, uae_u8 *buf, int pitch, int width, int height, uae_u32 *rc, uae_u32 *gc, uae_u32 *bc, uae_u32 *alpha);
 void statusline_add_message(int statustype, const TCHAR *format, ...);

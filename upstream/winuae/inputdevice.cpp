@@ -171,9 +171,7 @@ static struct teststore testmode_wait[TESTMODE_MAX];
 
 static int bouncy;
 static frame_time_t bouncy_cycles;
-#ifndef P6_PORTABLE
 static int autopause;
-#endif
 static int keyboard_reset_seq, keyboard_reset_seq_mode;
 
 #define HANDLE_IE_FLAG_CANSTOPPLAYBACK 1
@@ -223,12 +221,9 @@ static void osk_control(int x, int y, int button, int buttonstate)
 	if (!osk_state) {
 		return;
 	}
-#ifndef P6_PORTABLE // no on-screen keyboard: osk_state can never become nonzero
 	target_osk_control(x, y, button, buttonstate);
-#endif
 }
 
-#ifndef P6_PORTABLE // the on-screen keyboard is a desktop overlay drawn by the host
 void osk_setup(int monid, int state)
 {
 	if (monid) {
@@ -258,7 +253,6 @@ void osk_setup(int monid, int state)
 		return;
 	}
 }
-#endif
 
 static int isdevice (struct uae_input_device *id)
 {
@@ -288,7 +282,6 @@ int inputdevice_geteventid(const TCHAR *s)
 	return 0;
 }
 
-#ifndef P6_PORTABLE
 int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
 {
 	//write_log(_T("%s: %s\n"), s, parm);
@@ -344,7 +337,6 @@ int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
 	}
 	return 0;
 }
-#endif
 
 int inputdevice_uaelib(const TCHAR *s, int parm, int max, bool autofire)
 {
@@ -761,7 +753,6 @@ static bool isemptykey(int keyboard, int scancode)
 	return true;
 }
 
-#ifndef P6_PORTABLE
 static void out_config (struct zfile *f, int id, int num, const TCHAR *s1, const TCHAR *s2)
 {
 	TCHAR tmp[MAX_DPATH];
@@ -854,11 +845,9 @@ static bool write_slot (TCHAR *p, struct uae_input_device *uid, int i, int j)
 	}
 	return ok;
 }
-#endif
 
 static struct inputdevice_functions *getidf (int devnum);
 
-#ifndef P6_PORTABLE
 static void kbrlabel (TCHAR *s)
 {
 	while (*s) {
@@ -1051,11 +1040,9 @@ static void write_config (struct zfile *f, int idnum, int devnum, const TCHAR *n
 	for (i = 0; i < ID_BUTTON_TOTAL; i++)
 		write_config2 (f, idnum, i, ID_BUTTON_OFFSET, tmp1, id);
 }
-#endif
 
 static const TCHAR *kbtypes[] = { _T("amiga"), _T("pc"), NULL };
 
-#ifndef P6_PORTABLE
 void write_inputdevice_config (struct uae_prefs *p, struct zfile *f)
 {
 	int i, id;
@@ -1166,7 +1153,6 @@ static TCHAR *getstring (const TCHAR **pp)
 	*pp = p;
 	return str;
 }
-#endif
 
 static void reset_inputdevice_settings (struct uae_input_device *uid)
 {
@@ -1387,15 +1373,7 @@ static void gethidvals2(const TCHAR *devname, int *id, const TCHAR *str)
 	TCHAR *s = _tcsstr(dv, str);
 	if (s) {
 		int val = -1;
-#ifdef P6_PORTABLE
-		const TCHAR *digits = s + _tcslen(str);
-		TCHAR *digits_end;
-		long parsed = _tcstol(digits, &digits_end, 16);
-		if (digits_end != digits && parsed >= 0 && parsed <= INT_MAX)
-			val = (int)parsed;
-#else
 		_stscanf(s + _tcslen(str), _T("%X"), &val);
-#endif
 		*id = val;
 	}
 	xfree(dv);
@@ -1554,7 +1532,6 @@ static int matchdevice(struct uae_prefs *p, struct inputdevice_functions *inf, c
 	return match;
 }
 
-#ifndef P6_PORTABLE
 static bool read_slot (const TCHAR *parm, int num, int joystick, int button, struct uae_input_device *id, int keynum, int subnum, const struct inputevent *ie, uae_u64 flags, int port, TCHAR *custom)
 {
 	int mask;
@@ -2104,12 +2081,10 @@ void inputdevice_generate_jport_custom(struct uae_prefs *pr, int port)
 		generate_jport_custom_item(pr->keyboard_settings[pr->input_selected_setting], l, port, IDTYPE_KEYBOARD, jpc->custom);
 	}
 }
-#endif
 
 static int custom_autoswitch_joy[MAX_JPORTS_CUSTOM];
 static int custom_autoswitch_mouse[MAX_JPORTS_CUSTOM];
 
-#ifndef P6_PORTABLE
 void inputdevice_jportcustom_fixup(struct uae_prefs *p, TCHAR *data, int cnum)
 {
 	TCHAR olddata[MAX_DPATH];
@@ -2468,7 +2443,6 @@ void inputdevice_parse_jport_custom(struct uae_prefs *pr, int index, int port, T
 	}
 
 }
-#endif
 
 static int mouseedge_alive, mousehack_alive_cnt;
 static int lastmx, lastmy;
@@ -2488,11 +2462,8 @@ int mousehack_alive (void)
 
 static uaecptr get_base (const uae_char *name)
 {
-#ifndef P6_PORTABLE
-	// Indirect trap mode (uaeboard) is not part of the A500 profile.
 	if (trap_is_indirect())
 		return 0;
-#endif
 
 	uaecptr v = get_long (4);
 	addrbank *b = &get_mem_bank(v);
@@ -2530,34 +2501,26 @@ fail:
 	return 0xffffffff;
 }
 
-#ifndef P6_PORTABLE
-// Only the excluded magic mouse edge detector needs the Intuition base.
 static uaecptr get_intuitionbase (void)
 {
 	if (magicmouse_ibase == 0xffffffff)
 		return 0;
 	if (magicmouse_ibase)
 		return magicmouse_ibase;
-#ifndef P6_PORTABLE
-	// The uaelib RTAREA does not exist in the A500 profile.
 	if (rtarea_bank.baseaddr)
 		magicmouse_ibase = get_long_host(rtarea_bank.baseaddr + RTAREA_INTBASE);
-#endif
 	if (!magicmouse_ibase)
 		magicmouse_ibase = get_base("intuition.library");
 	return magicmouse_ibase;
 }
-#endif
 static uaecptr get_gfxbase (void)
 {
 	if (magicmouse_gfxbase == 0xffffffff)
 		return 0;
 	if (magicmouse_gfxbase)
 		return magicmouse_gfxbase;
-#ifndef P6_PORTABLE
 	if (rtarea_bank.baseaddr)
 		magicmouse_gfxbase = get_long_host(rtarea_bank.baseaddr + RTAREA_GFXBASE);
-#endif
 	if (!magicmouse_gfxbase)
 		magicmouse_gfxbase = get_base("graphics.library");
 	return magicmouse_gfxbase;
@@ -2616,13 +2579,11 @@ static void mousehack_reset (void)
 	mousehack_alive_cnt = 0;
 	vp_xoffset = vp_yoffset = 0;
 	tablet_data = 0;
-#ifndef P6_PORTABLE
 	if (rtarea_bank.baseaddr) {
 		put_long_host(rtarea_bank.baseaddr + RTAREA_INTXY, 0xffffffff);
 		if (mousehack_address && mousehack_address >= rtarea_bank.baseaddr && mousehack_address < rtarea_bank.baseaddr + 0x10000)
 			put_byte_host(mousehack_address + MH_E, 0);
 	}
-#endif
 	mousehack_address = 0;
 	mousehack_enabled = false;
 	lastmx = -1;
@@ -2647,13 +2608,11 @@ static bool mousehack_enable (void)
 		mode |= 1;
 	if (inputdevice_is_tablet () > 0)
 		mode |= 2;
-#ifndef P6_PORTABLE
 	if (mousehack_address && rtarea_bank.baseaddr) {
 		write_log (_T("Mouse driver enabled (%s)\n"), ((mode & 3) == 3 ? _T("tablet+mousehack") : ((mode & 3) == 2) ? _T("tablet") : _T("mousehack")));
 		put_byte_host(mousehack_address + MH_E, mode);
 		mousehack_enabled = true;
 	}
-#endif
 	return true;
 }
 
@@ -2695,9 +2654,7 @@ static bool get_mouse_position(int *xp, int *yp, int inx, int iny)
 	int monid = 0;
 	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
 	struct amigadisplay *ad = &adisplays[monid];
-#ifdef PICASSO96
 	struct picasso96_state_struct *state = &picasso96_state[monid];
-#endif
 	int x, y;
 	float fdy, fdx, fmx, fmy;
 	bool ob = false;
@@ -2771,8 +2728,6 @@ void mousehack_wakeup(void)
 	}
 }
 
-#ifndef P6_PORTABLE
-// Mouse driver trap entry (uaelib); the A500 profile has no traps.
 int input_mousehack_status(TrapContext *ctx, int mode, uaecptr diminfo, uaecptr dispinfo, uaecptr vp, uae_u32 moffset)
 {
 	if (mode == 4) {
@@ -2816,7 +2771,6 @@ int input_mousehack_status(TrapContext *ctx, int mode, uaecptr diminfo, uaecptr 
 	}
 	return 1;
 }
-#endif
 
 void inputdevice_tablet_strobe (void)
 {
@@ -2844,8 +2798,6 @@ int inputdevice_get_lightpen_id(void)
 #endif
 }
 
-#ifndef P6_PORTABLE
-// Maps host desktop coordinates to the Amiga display (desktop_coords); the bridge feeds relative input only.
 void tablet_lightpen(int tx, int ty, int tmaxx, int tmaxy, int touch, int buttonmask, bool touchmode, int devid, int lpnum)
 {
 	int monid = 0;
@@ -2933,19 +2885,14 @@ end:
 	}
 
 }
-#endif
 
 void inputdevice_tablet (int x, int y, int z, int pressure, uae_u32 buttonbits, int inproximity, int ax, int ay, int az, int devid)
 {
-#ifndef P6_PORTABLE
-	// Touch lightpen goes through tablet_lightpen.
 	if (is_touch_lightpen()) {
 
 		tablet_lightpen(x, y, tablet_maxx, tablet_maxy, inproximity ? 1 : -1, buttonbits, false, devid, -1);
 
-	} else
-#endif
-	{
+	} else {
 		uae_u8 *p;
 		uae_u8 tmp[MH_END];
 
@@ -3347,8 +3294,6 @@ static int mouseedge_x, mouseedge_y, mouseedge_time;
 #define MOUSEEDGE_RANGE 100
 #define MOUSEEDGE_TIME 2
 
-#ifndef P6_PORTABLE
-// Releases the host pointer at the Amiga screen edge (magic mouse); needs a host pointer.
 static int mouseedge(int monid)
 {
 	struct amigadisplay *ad = &adisplays[monid];
@@ -3371,17 +3316,13 @@ static int mouseedge(int monid)
 	ib = get_intuitionbase ();
 	if (!ib)
 		return 0;
-#ifndef P6_PORTABLE
-	// Indirect trap mode (uaeboard) is not part of the A500 profile.
 	if (trap_is_indirect()) {
 		uae_u32 xy = get_long_host(rtarea_bank.baseaddr + RTAREA_INTXY);
 		if (xy == 0xffffffff)
 			return 0;
 		y = xy >> 16;
 		x = xy & 0xffff;
-	} else
-#endif
-	{
+	} else {
 		if (get_word(ib + 20) < 31) // version < 31
 			return 0;
 		x = get_word(ib + 70);
@@ -3464,7 +3405,6 @@ end:
 	}
 	return 1;
 }
-#endif
 
 int magicmouse_alive (void)
 {
@@ -3739,8 +3679,6 @@ static int inputread;
 
 void inputdevice_read_msg(bool vblank)
 {
-#ifndef P6_PORTABLE
-	// Win32 message pump; the bridge delivers input at the frame boundary.
 	int got2 = 0;
 	for (;;) {
 		int got = handle_msgpump(vblank);
@@ -3748,7 +3686,6 @@ void inputdevice_read_msg(bool vblank)
 			break;
 		got2 = 1;
 	}
-#endif
 }
 
 static void inputdevice_read(void)
@@ -3768,12 +3705,7 @@ static void maybe_read_input(void)
 	if (inputread >= 0 && (vpos - inputread) <= maxvpos_display / 3) {
 		return;
 	}
-#ifdef P6_PORTABLE
-	// Input recording is not part of the A500 profile.
-	if (savestate_state == STATE_DOSAVE) {
-#else
 	if (input_record || savestate_state == STATE_DOSAVE) {
-#endif
 		return;
 	}
 	inputread = vpos;
@@ -3805,14 +3737,9 @@ void pulse_joydat(int joy, int xy, int dir)
 	}
 }
 
-#ifdef P6_PORTABLE
-unsigned p6_input_poll_mask;
-#endif
-
 uae_u16 JOY0DAT (void)
 {
 	uae_u16 v;
-	P6_INPUT_POLL(P6_POLL_JOY0DAT);
 	readinput ();
 	v = getjoystate (0);
 	v = dongle_joydat (0, v);
@@ -3825,7 +3752,6 @@ uae_u16 JOY0DAT (void)
 uae_u16 JOY1DAT (void)
 {
 	uae_u16 v;
-	P6_INPUT_POLL(P6_POLL_JOY1DAT);
 	readinput ();
 	v = getjoystate (1);
 	v = dongle_joydat (1, v);
@@ -4297,7 +4223,6 @@ struct delayed_event
 };
 static struct delayed_event *delayed_events;
 
-#ifndef P6_PORTABLE
 int handle_custom_event (const TCHAR *custom, int append)
 {
 	TCHAR *p, *buf, *nextp;
@@ -4441,10 +4366,7 @@ int handle_custom_event (const TCHAR *custom, int append)
 	xfree (buf);
 	return 0;
 }
-#endif
 
-#ifndef P6_PORTABLE
-// Input playback; only reached from the input recording module.
 void inputdevice_playevents(void)
 {
 	inprec_playdiskchange();
@@ -4452,7 +4374,6 @@ void inputdevice_playevents(void)
 	while (inprec_playevent(&nr, &state, &max, &autofire))
 		handle_input_event(nr, state, max, (autofire ? HANDLE_IE_FLAG_AUTOFIRE : 0) | HANDLE_IE_FLAG_PLAYBACKEVENT);
 }
-#endif
 
 // strobe slot is clock for pot counters
 void inputdevice_hsync_strobe(void)
@@ -4479,9 +4400,7 @@ void inputdevice_hsync(bool forceread)
 			if (de->event_string) {
 				TCHAR *s = de->event_string;
 				de->event_string = NULL;
-#ifndef P6_PORTABLE
 				handle_custom_event (s, 0);
-#endif
 				xfree (s);
 			}
 		}
@@ -4515,10 +4434,8 @@ void inputdevice_hsync(bool forceread)
 					iq->state = 0;
 				else
 					iq->state = iq->storedstate;
-#ifndef P6_PORTABLE
 				if (iq->custom)
 					handle_custom_event (iq->custom, 0);
-#endif
 				if (iq->evt)
 					handle_input_event (iq->evt, iq->state, iq->max, HANDLE_IE_FLAG_PLAYBACKEVENT);
 				iq->linecnt = iq->nextlinecnt;
@@ -4529,7 +4446,6 @@ void inputdevice_hsync(bool forceread)
 	if (bouncy && get_cycles () > bouncy_cycles)
 		bouncy = 0;
 
-#ifndef P6_PORTABLE
 	if (input_record && input_record != INPREC_RECORD_PLAYING) {
 		if (vpos == 0)
 			inputdevice_read();
@@ -4539,9 +4455,7 @@ void inputdevice_hsync(bool forceread)
 		if (vpos == 0)
 			handle_msgpump(true);
 	}
-	if (!input_record && !input_play)
-#endif
-	{
+	if (!input_record && !input_play) {
 		if (forceread) {
 			inputread = maxvpos + 1;
 			inputdevice_read();
@@ -4574,12 +4488,10 @@ static uae_u16 POTDAT (int joy)
 
 uae_u16 POT0DAT (void)
 {
-	P6_INPUT_POLL(P6_POLL_POT0DAT);
 	return POTDAT (0);
 }
 uae_u16 POT1DAT (void)
 {
-	P6_INPUT_POLL(P6_POLL_POT1DAT);
 	return POTDAT (1);
 }
 
@@ -4624,8 +4536,6 @@ void POTGO (uae_u16 v)
 uae_u16 POTGOR (void)
 {
 	uae_u16 v;
-
-	P6_INPUT_POLL(P6_POLL_POTGOR);
 
 	v = handle_joystick_potgor (potgo_value) & 0x5500;
 	v = dongle_potgor (v);
@@ -4690,46 +4600,6 @@ static void queue_input_event (int evt, const TCHAR *custom, int state, int max,
 }
 
 static uae_u8 keybuf[256];
-#ifdef P6_PORTABLE
-// The keyboard controller starts over with a reset requested through the API: no key is down and no reset chord is in
-// progress. The chord path does the same by hand when it fires; keyboard_reset_seq_mode was never cleared otherwise.
-void p6_input_reset_keys(void)
-{
-	memset(keybuf, 0, sizeof keybuf);
-	keyboard_reset_seq = 0;
-	keyboard_reset_seq_mode = 0;
-	release_keys();
-}
-
-// A load is a new process, and a process that has not seen any input has every counter below at zero. A session that moved the
-// mouse leaves the quadrature counters behind (JOY0DAT/JOY1DAT would start from them), the pending movement and the frame counters
-// getvelocity() divides by, and the host edge detector. The in-session reset keeps them, as the hardware and upstream do.
-void p6_input_session_begin(void)
-{
-	memset(mouse_axis, 0, sizeof mouse_axis);
-	memset(oldm_axis, 0, sizeof oldm_axis);
-	memset(mouse_x, 0, sizeof mouse_x);
-	memset(mouse_y, 0, sizeof mouse_y);
-	memset(mouse_frame_x, 0, sizeof mouse_frame_x);
-	memset(mouse_frame_y, 0, sizeof mouse_frame_y);
-	memset(mouse_delta, 0, sizeof mouse_delta);
-	memset(mouse_deltanoreset, 0, sizeof mouse_deltanoreset);
-	memset(lightpen_delta, 0, sizeof lightpen_delta);
-	memset(lightpen_deltanoreset, 0, sizeof lightpen_deltanoreset);
-	memset(joybutton, 0, sizeof joybutton);
-	memset(joydir, 0, sizeof joydir);
-	memset(joydirpot, 0, sizeof joydirpot);
-	memset(oleft, 0, sizeof oleft);
-	memset(oright, 0, sizeof oright);
-	memset(otop, 0, sizeof otop);
-	memset(obot, 0, sizeof obot);
-	memset(horizclear, 0, sizeof horizclear);
-	memset(vertclear, 0, sizeof vertclear);
-	memset(relativecount, 0, sizeof relativecount);
-	mouseedge_x = mouseedge_y = mouseedge_time = 0;
-	prev_input_vpos = input_frame = prev_input_frame = 0;
-}
-#endif
 #define MAX_PENDING_EVENTS 20
 struct inputcode
 {
@@ -4899,8 +4769,6 @@ void inputdevice_do_kb_reset(void)
 // these need cpu trace data
 static bool needcputrace (int code)
 {
-#ifndef P6_PORTABLE
-	// Every listed action (GUI, quick and dialog state saves) is excluded here.
 	switch (code)
 	{
 	case AKS_ENTERGUI:
@@ -4918,7 +4786,6 @@ static bool needcputrace (int code)
 	case AKS_STATESAVEDIALOG:
 		return true;
 	}
-#endif
 	return false;
 }
 
@@ -4936,14 +4803,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 
 	if (code == 0)
 		goto end;
-	if (state && needcputrace(code) && can_cpu_tracer() == true && is_cpu_tracer() == false
-#ifndef P6_PORTABLE
-		&& !input_play && !input_record
-#endif
-#ifdef DEBUGGER
-		&& !debugging
-#endif
-		) {
+	if (state && needcputrace(code) && can_cpu_tracer() == true && is_cpu_tracer() == false && !input_play && !input_record && !debugging) {
 		if (set_cpu_tracer (true)) {
 			tracer_enable = 1;
 			return true; // wait for next frame
@@ -5060,7 +4920,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	}
 #endif
 	if (!state) {
-#ifndef P6_PORTABLE
 		switch(code)
 		{
 			case AKS_SCREENSHOT_FILE:
@@ -5068,19 +4927,14 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 			screenshot(-1, 4, 1);
 			break;
 		}
-#endif
 		return false;
 	}
 
 	switch (code)
 	{
-#ifndef P6_PORTABLE
 	case AKS_OSK:
 		osk_setup(0, -1);
 		break;
-#endif
-#ifndef P6_PORTABLE
-	// Desktop GUI and screenshots; presentation belongs to the bridge.
 	case AKS_ENTERGUI:
 		gui_display (-1);
 		setsystime ();
@@ -5095,7 +4949,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_SCREENSHOT_CLIPBOARD:
 		screenshot(-1, 0, 1);
 		break;
-#endif
 #ifdef AVIOUTPUT
 	case AKS_VIDEORECORD:
 		AVIOutput_Toggle(newstate, true);
@@ -5116,8 +4969,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 		action_replay_freeze ();
 		break;
 #endif
-#ifndef P6_PORTABLE
-	// Disk selector by name or GUI; s only comes from the excluded uaelib and custom-event text.
 	case AKS_FLOPPY0:
 		if (s) {
 			_tcsncpy(changed_prefs.floppyslots[0].df, s, MAX_DPATH);
@@ -5158,7 +5009,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 			setsystime ();
 		}
 		break;
-#endif
 	case AKS_EFLOPPY0:
 		disk_eject (0);
 		break;
@@ -5171,8 +5021,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_EFLOPPY3:
 		disk_eject (3);
 		break;
-#ifndef P6_PORTABLE
-	// The A500 profile has no CD; the else arm opens the desktop GUI.
 	case AKS_CD0:
 		if (s) {
 			_tcsncpy(changed_prefs.cdslots[0].name, s, MAX_DPATH);
@@ -5185,7 +5033,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 			setsystime();
 		}
 		break;
-#endif
 	case AKS_ECD0:
 		changed_prefs.cdslots[0].name[0] = 0;
 		changed_prefs.cdslots[0].inuse = false;
@@ -5193,8 +5040,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_IRQ7:
 		IRQ_forced(7, -1);
 		break;
-#ifndef P6_PORTABLE
-	// Host pause flag; the bridge pauses by not calling p6_run_frame.
 	case AKS_PAUSE:
 		pausemode(newstate > 0 ? 1 : newstate);
 		break;
@@ -5203,7 +5048,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 			pausemode(0);
 		autopause = 1;
 		break;
-#endif
 	case AKS_WARP:
 		warpmode (newstate);
 		break;
@@ -5216,13 +5060,9 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_STATECURRENT:
 		savestate_dorewind (-1);
 		break;
-#ifndef P6_PORTABLE
 	case AKS_STATECAPTURE:
 		savestate_capture (1);
 		break;
-#endif
-#ifndef P6_PORTABLE
-	// Host mixer volume and mute.
 	case AKS_VOLDOWN:
 		sound_volume (newstate <= 0 ? -1 : 1);
 		break;
@@ -5241,7 +5081,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_MVOLMUTE:
 		master_sound_volume (0);
 		break;
-#endif
 	case AKS_QUIT:
 		uae_quit ();
 		break;
@@ -5254,8 +5093,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_RESTART:
 		uae_restart(&currprefs, -1, NULL);
 		break;
-#ifndef P6_PORTABLE
-	// Quick slots need savestate_quick (excluded until the native serializer, T15); the rest is host window and pointer grab.
 	case AKS_STATESAVEQUICK:
 	case AKS_STATESAVEQUICK1:
 	case AKS_STATESAVEQUICK2:
@@ -5295,18 +5132,15 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_TOGGLEMOUSEGRAB:
 		toggle_mousegrab();
 		break;
-#endif
 	case AKS_SWAPJOYPORTS:
 		if (state == 1)
 			inputdevice_swap_compa_ports(&changed_prefs, 0);
 		else if (state == 2)
 			inputdevice_swap_compa_ports(&changed_prefs, 2);
 		break;
-#ifndef P6_PORTABLE
 	case AKS_PASTE:
 		target_paste_to_keyboard();
 		break;
-#endif
 	case AKS_SWITCHINTERPOL:
 		changed_prefs.sound_interpol++;
 		if (changed_prefs.sound_interpol > 4)
@@ -5318,8 +5152,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 		activate_debugger ();
 #endif
 		break;
-#ifndef P6_PORTABLE
-	// File and GUI state dialogs: the .uss handlers are excluded, and STATE_DORESTORE would never be served.
 	case AKS_STATESAVEDIALOG:
 		if (s) {
 			savestate_initsave (s, 1, true, true);
@@ -5336,7 +5168,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 			gui_display (4);
 		}
 		break;
-#endif
 	case AKS_DECREASEREFRESHRATE:
 	case AKS_INCREASEREFRESHRATE:
 		{
@@ -5384,7 +5215,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 		changed_prefs.input_selected_setting = currprefs.input_selected_setting = code - AKS_INPUT_CONFIG_1;
 		inputdevice_updateconfig (&changed_prefs, &currprefs);
 		break;
-#ifndef P6_PORTABLE
 	case AKS_DISK_PREV0:
 	case AKS_DISK_PREV1:
 	case AKS_DISK_PREV2:
@@ -5397,9 +5227,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 	case AKS_DISK_NEXT3:
 		disk_prevnext (code - AKS_DISK_NEXT0, 1);
 		break;
-#endif
-#ifndef P6_PORTABLE
-	// Graphics boards and the host video grabber are not part of the A500 profile.
 	case AKS_RTG_PREV:
 		toggle_rtg(0, -1);
 		break;
@@ -5437,7 +5264,6 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const 
 		getsetpositionvideograb(pos);
 		break;
 	}
-#endif
 
 #ifdef CDTV
 	case AKS_CDTV_FRONT_PANEL_STOP:
@@ -5534,8 +5360,6 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
 		}
 	}
 #endif
-#ifndef P6_PORTABLE
-	// Input recording and playback are not part of the A500 profile.
 	if (!isaks) {
 		if (input_record && input_record != INPREC_RECORD_PLAYING)
 			inprec_recordevent (nr, state, max, autofire);
@@ -5548,7 +5372,6 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
 		if (!(flags & HANDLE_IE_FLAG_PLAYBACKEVENT) && input_play)
 			return 0;
 	}
-#endif
 
 	if (flags & HANDLE_IE_FLAG_ALLOWOPPOSITE) {
 		if (ie->unit >= 1 && ie->unit <= 4) {
@@ -5557,11 +5380,7 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
 		}
 	}
 
-#ifdef P6_PORTABLE
-	if (inputdevice_logging & 1)
-#else
 	if ((inputdevice_logging & 1) || input_record || input_play)
-#endif
 		write_log (_T("STATE=%05d MAX=%05d AF=%d QUAL=%06x '%s' \n"), state, max, autofire, (uae_u32)(qualifiers >> 32), ie->name);
 	if (autofire) {
 		if (state)
@@ -5599,10 +5418,7 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
 				if (x <= 0 || x >= 65535 || y <= 0 || y >= 65535) {
 					x = y = -1;
 				}
-#ifndef P6_PORTABLE
-				// Absolute pointers need desktop geometry; the value is recorded but not applied.
 				tablet_lightpen(x, y, 65535, 65535, 0, 0, false, -1, lpnum);
-#endif
 			} else if (ie->type == 0) {
 				int delta = 0;
 				if (max == 0) {
@@ -5681,11 +5497,7 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
 				}
 
 				if (ie->data == 0 && old != (joybutton[joy] & (1 << ie->data)) && currprefs.cpu_cycle_exact) {
-#ifdef P6_PORTABLE
-					if (currprefs.input_contact_bounce) {
-#else
 					if (!input_record && !input_play && currprefs.input_contact_bounce) {
-#endif
 						// emulate contact bounce, 1st button only, others have capacitors
 						bouncy = 1;
 						bouncy_cycles = get_cycles () + CYCLE_UNIT * currprefs.input_contact_bounce;
@@ -6063,20 +5875,16 @@ static void inputdevice_checkconfig (void)
 
 void inputdevice_vsync (void)
 {
-#ifndef P6_PORTABLE
 	int monid = 0;
-#endif
 	if (inputdevice_logging & 32)
 		write_log (_T("*\n"));
 
-#ifndef P6_PORTABLE
 	if (autopause > 0 && pause_emulation == 0) {
 		autopause--;
 		if (!autopause) {
 			pausemode(1);
 		}
 	}
-#endif
 	if (keyboard_reset_seq_mode) {
 		keyboard_reset_seq++;
 	}
@@ -6089,24 +5897,17 @@ void inputdevice_vsync (void)
 	inputdevice_handle_inputcode ();
 	if (mouseedge_alive > 0)
 		mouseedge_alive--;
-#ifndef P6_PORTABLE
 	if (mouseedge(monid))
 		mouseedge_alive = 10;
-#endif
 	if (mousehack_alive_cnt > 0) {
 		mousehack_alive_cnt--;
-#ifndef P6_PORTABLE
-		// Re-grabs the host pointer when the Amiga mouse driver stops; there is no host pointer.
 		if (mousehack_alive_cnt == 0)
 			setmouseactive(0, -1);
-#endif
 	} else if (mousehack_alive_cnt < 0) {
 		mousehack_alive_cnt++;
 		if (mousehack_alive_cnt == 0) {
 			mousehack_alive_cnt = 100;
-#ifndef P6_PORTABLE
 			setmouseactive(0, -1);
-#endif
 		}
 	}
 	inputdevice_checkconfig ();
@@ -6146,14 +5947,6 @@ void inputdevice_reset (void)
 	}
 	lightpen_trigger2 = 0;
 	cubo_flag = 0;
-#ifdef P6_PORTABLE
-	// POTGO's data and direction bits and the charge model of the pot lines are chip state that only a cold process has at zero;
-	// a reset (and so a new load) must put them back or POTGOR and the pot counters would depend on the previous session.
-	potgo_value = 0;
-	memset(pot_cap, 0, sizeof pot_cap);
-	memset(pot_dat, 0, sizeof pot_dat);
-	memset(pot_dat_act, 0, sizeof pot_dat_act);
-#endif
 #ifdef ARCADIA
 	alg_flag &= 1;
 #endif
@@ -6164,8 +5957,6 @@ void inputdevice_reset (void)
 	lastmy = -1;
 }
 
-#ifndef P6_PORTABLE
-// Host input-device autoswitch and its OSD messages; devices are logical here.
 static int getoldport (struct uae_input_device *id)
 {
 	int i, j;
@@ -6469,8 +6260,6 @@ static int switchdevice (struct uae_input_device *id, int num, bool buttonmode)
 	return 0;
 }
 
-#endif
-
 uae_u64 input_getqualifiers (void)
 {
 	return qualifiers;
@@ -6613,14 +6402,12 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
 		uae_u64 flags2 = id->flags[offset][slotoffset + sub];
 		if (checkqualifiers (evt2, flags2, qualmask, NULL)) {
 			custom = id->custom[offset][slotoffset + sub];
-#ifndef P6_PORTABLE
 			if (state && custom) {
 				if (autofire)
 					queue_input_event (-1, custom, 1, 1, currprefs.input_autofire_linecnt, 1);
 				handle_custom_event (custom, 0);
 				return true;
 			}
-#endif
 		}
 		return false;
 	}
@@ -6660,10 +6447,8 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
 		custom = id->custom[offset][slotoffset + idx];
 		if (autofire)
 			queue_input_event (-1, custom, 1, 1, currprefs.input_autofire_linecnt, 1);
-#ifndef P6_PORTABLE
 		if (custom)
 			handle_custom_event (custom, 0);
-#endif
 	}
 
 	id->flags[offset][slotoffset] &= ~(ID_FLAG_CUSTOMEVENT_TOGGLED1 | ID_FLAG_CUSTOMEVENT_TOGGLED2);
@@ -6675,9 +6460,7 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
 
 static void setbuttonstateall (struct uae_input_device *id, struct uae_input_device2 *id2, int button, int buttonstate)
 {
-#ifndef P6_PORTABLE
 	static frame_time_t switchdevice_timeout;
-#endif
 	int i;
 	uae_u32 mask = 1 << button;
 	uae_u32 omask = id2 ? id2->buttonmask & mask : 0;
@@ -6686,20 +6469,16 @@ static void setbuttonstateall (struct uae_input_device *id, struct uae_input_dev
 	bool qualonly;
 	bool doit = true;
 
-#ifndef P6_PORTABLE
 	if (input_play && buttonstate)
 		inprec_realtime ();
 	if (input_play)
 		return;
-#endif
 
 #if INPUT_DEBUG
 	write_log(_T("setbuttonstateall %d %d\n"), button, buttonstate);
 #endif
 
 	if (!id->enabled) {
-#ifndef P6_PORTABLE
-		// Wall-clock hold (1 s) picks the port of a host device; core time never advances from the host.
 		frame_time_t t = read_processor_time ();
 		if (!t)
 			t++;
@@ -6715,7 +6494,6 @@ static void setbuttonstateall (struct uae_input_device *id, struct uae_input_dev
 			}
 			switchdevice_timeout = 0;
 		}
-#endif
 		return;
 	}
 	if (button >= ID_BUTTON_TOTAL)
@@ -8086,12 +7864,9 @@ static void compatibility_copy (struct uae_prefs *prefs, bool gameports)
 	}
 	for (int i = 0; i < MAX_JPORTS; i++) {
 		for (int j = 0; j < MAX_JPORT_DEVS; j++) {
-#ifndef P6_PORTABLE
 			if (JSEM_ISCUSTOM(i, j, prefs)) {
 				inputdevice_parse_jport_custom(prefs, prefs->jports[i].jd[j].id - JSEM_CUSTOM, i, NULL);
-			} else
-#endif
-			if (gameports && prefs->jports[i].jd[j].id >= 0) {
+			} else if (gameports && prefs->jports[i].jd[j].id >= 0) {
 				// TODO: handle sub item autofire correctly
 				setautofires(prefs, i, j, prefs->jports[i].jd[j].autofire, true);
 			}
@@ -8308,10 +8083,8 @@ bool inputdevice_set_gameports_mapping (struct uae_prefs *prefs, int devnum, int
 
 static void resetinput (void)
 {
-#ifndef P6_PORTABLE
 	if ((input_play || input_record) && hsync_counter > 0)
 		return;
-#endif
 	cd32_shifter[0] = cd32_shifter[1] = 8;
 	for (int i = 0; i < MAX_JPORTS; i++) {
 		oleft[i] = 0;
@@ -8390,11 +8163,9 @@ void inputdevice_updateconfig_internal (struct uae_prefs *srcprefs, struct uae_p
 		mice[i].enabled = 0;
 	}
 
-#ifndef P6_PORTABLE
 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
 		inputdevice_parse_jport_custom(dstprefs, i, -1, NULL);
 	}
-#endif
 
 	compatibility_copy (dstprefs, true);
 
@@ -8586,11 +8357,9 @@ bool inputdevice_devicechange (struct uae_prefs *prefs)
 			fixedports[i][j] = false;
 		}
 	}
-#ifndef P6_PORTABLE
 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
 		inputdevice_jportcustom_fixup(prefs, prefs->jports_custom[i].custom, i);
 	}
-#endif
 
 	for (int i = 0; i < MAX_JPORTS; i++) {
 		bool found = true;
@@ -9000,9 +8769,7 @@ void inputdevice_close (void)
 	idev[IDTYPE_MOUSE].close ();
 	idev[IDTYPE_KEYBOARD].close ();
 	idev[IDTYPE_INTERNALEVENT].close ();
-#ifndef P6_PORTABLE
 	inprec_close (true);
-#endif
 }
 
 static struct uae_input_device *get_uid (const struct inputdevice_functions *id, int devnum)
@@ -9288,11 +9055,7 @@ int inputdevice_get_mapping (int devnum, int num, uae_u64 *pflags, int *pport, T
 	TCHAR *customp = NULL;
 
 	if (name)
-#ifdef P6_PORTABLE
-		name[0] = 0; // No resource table; an empty label matches no event name.
-#else
 		translate_message(NUMSG_INPUT_NONE, name);
-#endif
 	if (custom)
 		custom[0] = 0;
 	if (pflags)
@@ -9400,13 +9163,11 @@ int inputdevice_get_widget_type (int devnum, int num, TCHAR *name, bool inccode)
 	uae_u32 code = 0;
 	const struct inputdevice_functions *idf = getidf (devnum);
 	int r = idf->get_widget_type (inputdevice_get_device_index (devnum), num, name, &code);
-#ifndef P6_PORTABLE
 	if (r && inccode && &idev[IDTYPE_KEYBOARD] == idf) {
 		TCHAR *p = name + _tcslen(name);
 		if (_tcsncmp(name, _T("KEY_"), 4))
 			_stprintf(p, _T(" [0x%02X]"), code);
 	}
-#endif
 	return r;
 }
 
@@ -10011,16 +9772,13 @@ void setjoystickstate (int joy, int axis, int state, int max)
 
 	//write_log (_T("%d:%d new=%d old=%d state=%d max=%d\n"), joy, axis, v1, v2, state, max);
 
-#ifndef P6_PORTABLE
 	if (input_play && state) {
 		if (v1 != v2)
 			inprec_realtime ();
 	}
 	if (input_play)
 		return;
-#endif
 	if (!joysticks[joy].enabled) {
-#ifndef P6_PORTABLE
 		if (currprefs.input_autoswitchleftright) {
 			if (v1 > 0)
 				v1 = 1;
@@ -10047,7 +9805,6 @@ void setjoystickstate (int joy, int axis, int state, int max)
 				}
 			}
 		}
-#endif
 		return;
 	}
 	for (i = 0; i < MAX_INPUT_SUB_EVENT; i++) {
@@ -10094,14 +9851,12 @@ void setmousestate (int mouse, int axis, int data, int isabs)
 #endif
 		return;
 	}
-#ifndef P6_PORTABLE
 	if (input_play) {
 #if OUTPUTDEBUG
 		OutputDebugString(_T("-> exit5\n"));
 #endif
 		return;
 	}
-#endif
 	if (!mice[mouse].enabled) {
 		if (isabs && currprefs.input_tablet > 0) {
 			if (axis == 0)
@@ -10222,13 +9977,9 @@ void warpmode(int mode)
 #endif
 	changed_prefs.turbo_emulation = currprefs.turbo_emulation;
 	set_config_changed ();
-#ifndef P6_PORTABLE
-	// Resyncs the host time-of-day (tod_hack), which the profile rejects.
 	setsystime ();
-#endif
 }
 
-#ifndef P6_PORTABLE
 void pausemode (int mode)
 {
 	if (mode < 0)
@@ -10238,7 +9989,6 @@ void pausemode (int mode)
 	set_config_changed ();
 	setsystime ();
 }
-#endif
 
 int jsem_isjoy (int port, int sub, const struct uae_prefs *p)
 {
@@ -10689,7 +10439,6 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
 		return;
 
 	bool defaultports = userconfig == false;
-#ifndef P6_PORTABLE
 	// Convert old style custom mapping to new style
 	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
 		struct jport_custom *jpc = &p->jports_custom[i];
@@ -10700,7 +10449,6 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
 			inputdevice_generate_jport_custom(p, i);
 		}
 	}
-#endif
 	bool matched[MAX_JPORTS][MAX_JPORT_DEVS];
 	// configname+friendlyname first
 	for (int i = 0; i < MAX_JPORTS; i++) {
@@ -10927,145 +10675,3 @@ void inputdevice_draco_key(int kc)
 	}
 #endif
 }
-
-#ifdef P6_PORTABLE
-#include "p6_state_access.h"
-// Native state of the input (bridge/state_devices.cpp). Everything here is a plain copy in or out: nothing calls inputdevice_do_keyboard, resetinput or
-// inputdevice_updateconfig (a key press would reach the keyboard ring, and the other two erase the configuration), setmousestate or any setter that
-// handles an event, because the events of a restored machine are not sent again: the host's edge memory (joysticks2, mice2 and the bridge's Applied) comes back
-// with the rest, so that the next packet sends only what differs.
-void p6_input_get(p6_input_raw *out)
-{
-	memset(out, 0, sizeof *out);
-	out->potgo_value = potgo_value;
-	for (int p = 0; p < 2; p++) {
-		for (int i = 0; i < 2; i++) {
-			out->pot_cap[p][i] = pot_cap[p][i];
-			out->pot_dat[p][i] = pot_dat[p][i];
-			out->pot_dat_act[p][i] = pot_dat_act[p][i];
-		}
-		p6_input_port_raw &r = out->port[p];
-		r.joybutton = joybutton[p];
-		r.joydir = joydir[p];
-		r.oleft = oleft[p];
-		r.oright = oright[p];
-		r.otop = otop[p];
-		r.obot = obot[p];
-		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++) {
-			r.mouse_delta[k] = mouse_delta[p][k];
-			r.mouse_deltanoreset[k] = mouse_deltanoreset[p][k];
-		}
-		r.mouse_x = mouse_x[p];
-		r.mouse_y = mouse_y[p];
-		r.mouse_frame_x = mouse_frame_x[p];
-		r.mouse_frame_y = mouse_frame_y[p];
-	}
-	out->input_frame = input_frame;
-	out->prev_input_frame = prev_input_frame;
-	out->prev_input_vpos = prev_input_vpos;
-	for (int j = 0; j < 2; j++) {
-		out->joy_buttonmask[j] = joysticks2[j].buttonmask;
-		for (int a = 0; a < 2; a++)
-			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++)
-				out->joy_states[j][a][i] = joysticks2[j].states[a][i];
-	}
-	out->mouse_buttonmask = mice2[0].buttonmask;
-	for (int k = 0; k < 128; k++)
-		if (keybuf[k])
-			out->keys[k >> 3] |= 1 << (k & 7);
-	out->reset_seq = keyboard_reset_seq;
-	out->reset_seq_mode = keyboard_reset_seq_mode;
-}
-
-void p6_input_set(const p6_input_raw *in)
-{
-	potgo_value = in->potgo_value;
-	for (int p = 0; p < 2; p++) {
-		for (int i = 0; i < 2; i++) {
-			pot_cap[p][i] = in->pot_cap[p][i];
-			pot_dat[p][i] = in->pot_dat[p][i];
-			pot_dat_act[p][i] = in->pot_dat_act[p][i];
-		}
-		const p6_input_port_raw &r = in->port[p];
-		joybutton[p] = r.joybutton;
-		joydir[p] = r.joydir;
-		oleft[p] = r.oleft;
-		oright[p] = r.oright;
-		otop[p] = r.otop;
-		obot[p] = r.obot;
-		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++) {
-			mouse_delta[p][k] = (uae_s16)r.mouse_delta[k];
-			mouse_deltanoreset[p][k] = (uae_s16)r.mouse_deltanoreset[k];
-		}
-		mouse_x[p] = (uae_s16)r.mouse_x;
-		mouse_y[p] = (uae_s16)r.mouse_y;
-		mouse_frame_x[p] = (uae_s16)r.mouse_frame_x;
-		mouse_frame_y[p] = (uae_s16)r.mouse_frame_y;
-	}
-	input_frame = in->input_frame;
-	prev_input_frame = in->prev_input_frame;
-	prev_input_vpos = in->prev_input_vpos;
-	for (int j = 0; j < 2; j++) {
-		joysticks2[j].buttonmask = in->joy_buttonmask[j];
-		for (int a = 0; a < 2; a++)
-			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++)
-				joysticks2[j].states[a][i] = in->joy_states[j][a][i];
-	}
-	mice2[0].buttonmask = in->mouse_buttonmask;
-	memset(keybuf, 0, sizeof keybuf);
-	for (int k = 0; k < 128; k++)
-		keybuf[k] = (in->keys[k >> 3] >> (k & 7)) & 1;
-	keyboard_reset_seq = in->reset_seq;
-	keyboard_reset_seq_mode = in->reset_seq_mode;
-}
-
-// True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
-// nothing outside the profile (the A500's keyboard, two gameports with a mouse or a joystick, no CD32 pad, light pen, on screen keyboard or key injection).
-bool p6_input_boundary(const char **why)
-{
-	const char *w = NULL;
-	for (int i = 0; i < INPUT_QUEUE_SIZE && !w; i++)
-		if (input_queue[i].linecnt >= 0)
-			w = "an input event is queued with a delay";
-	for (int i = 0; i < MAX_PENDING_EVENTS && !w; i++)
-		if (inputcode_pending[i].code)
-			w = "an input code is pending";
-	if (!w && (bouncy || delayed_events))
-		w = "an input event is delayed";
-	if (!w && (qualifiers || qualifiers_r))
-		w = "an input qualifier is held";
-	if (!w && (osk_state || lightpen_enabled2))
-		w = "the on screen keyboard or a light pen is active";
-	if (!w && (cd32_pad_enabled[0] || cd32_pad_enabled[1]))
-		w = "a CD32 pad is configured";
-	if (!w && (currprefs.keyboard_mode || currprefs.cs_resetwarning))
-		w = "a keyboard mode or a reset warning that is not the A500's";
-	if (!w && (currprefs.turbo_emulation || currprefs.input_mouse_speed != 100))
-		w = "turbo emulation or a mouse speed other than 100";
-	if (!w && keyboard_reset_seq_mode > 4)
-		w = "the keyboard reset chord is in a state the profile does not have";
-	for (int p = 2; p < MAX_JPORTS && !w; p++) {
-		if (joybutton[p] || joydir[p] || oleft[p] || oright[p] || otop[p] || obot[p] || mouse_x[p] || mouse_y[p] || mouse_frame_x[p] || mouse_frame_y[p])
-			w = "a gameport that the profile does not have has input";
-		for (int k = 0; k < MOUSE_AXIS_TOTAL; k++)
-			if (mouse_delta[p][k] || mouse_deltanoreset[p][k])
-				w = "a gameport that the profile does not have has input";
-	}
-	for (int d = 0; d < MAX_INPUT_DEVICES && !w; d++) {
-		if (d >= 2 && joysticks2[d].buttonmask)
-			w = "a joystick that the profile does not have has a button down";
-		if (d >= 1 && mice2[d].buttonmask)
-			w = "a mouse that the profile does not have has a button down";
-		for (int a = 0; a < MAX_INPUT_DEVICE_EVENTS / 2 && !w; a++)
-			for (int i = 0; i <= MAX_INPUT_SUB_EVENT; i++) {
-				if ((d >= 2 || a >= 2) && joysticks2[d].states[a][i])
-					w = "an axis that the profile does not have has a state";
-				if (mice2[d].states[a][i])
-					w = "a mouse axis has a state";
-			}
-	}
-	if (why)
-		*why = w;
-	return w == NULL;
-}
-#endif

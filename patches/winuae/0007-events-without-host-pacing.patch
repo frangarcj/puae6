@@ -1,9 +1,10 @@
 diff --git a/events.cpp b/events.cpp
+index 0c618ad4..bfceb862 100644
 --- a/events.cpp
 +++ b/events.cpp
-@@ -28,7 +28,9 @@
- evt_t event_cycles, nextevent, currcycle;
- uae_u32 currcycle_cck;
+@@ -30,7 +30,9 @@ int pissoff_value = 15000 * CYCLE_UNIT;
+ int pissoff_nojit_value = 160 * CYCLE_UNIT;
+ evt_t currcycle_cck;
  int is_syncline;
 +#ifndef P6_PORTABLE
  static int syncline_cnt;
@@ -11,7 +12,7 @@ diff --git a/events.cpp b/events.cpp
  frame_time_t is_syncline_end;
  int cycles_to_next_event;
  int max_cycles_to_next_event;
-@@ -68,6 +70,7 @@
+@@ -70,6 +72,7 @@ void events_schedule(void)
  	}
  }
  
@@ -19,7 +20,7 @@ diff --git a/events.cpp b/events.cpp
  extern int vsync_activeheight;
  
  static bool event_check_vsync(void)
-@@ -258,6 +261,8 @@
+@@ -260,6 +263,8 @@ static bool event_check_vsync(void)
  	return false;
  }
  
@@ -28,7 +29,7 @@ diff --git a/events.cpp b/events.cpp
  void do_cycles_normal(int cycles_to_add)
  {
  	while ((nextevent - currcycle) <= cycles_to_add) {
-@@ -293,6 +298,7 @@
+@@ -295,6 +300,7 @@ void do_cycles_slow(int cycles_to_add)
  #endif
  #endif
  
@@ -36,12 +37,12 @@ diff --git a/events.cpp b/events.cpp
  	if (is_syncline) {
  		if (syncline_cnt > 0) {
  			syncline_cnt--;
-@@ -305,6 +311,8 @@
- 			return;
+@@ -308,6 +314,8 @@ void do_cycles_slow(int cycles_to_add)
  		}
  	}
-+
-+#endif
  
++#endif
++
  	cycles_to_add += cycles_to_add_remain;
  	cycles_to_add_remain = 0;
+ 

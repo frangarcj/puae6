@@ -1,7 +1,8 @@
 diff --git a/blitter.cpp b/blitter.cpp
+index 13884a77..10b1c4a7 100644
 --- a/blitter.cpp
 +++ b/blitter.cpp
-@@ -2748,4 +2748,41 @@
+@@ -2766,4 +2766,41 @@ uae_u8 *save_blitter_new(size_t *len, uae_u8 *dstptr)
  	return dstbak;
  }
  

@@ -12,7 +12,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 #include <assert.h>
-#include <limits.h>
 
 #include "options.h"
 #include "events.h"
@@ -56,13 +55,8 @@
 #include "rommgr.h"
 #include "scsi.h"
 #include "rtc.h"
-#ifdef P6_PORTABLE
-#include "rtc_time.h"
-#endif
 #include "devices.h"
-#ifndef P6_PORTABLE
 #include "keyboard_mcu.h"
-#endif
 
 #define CIAA_DEBUG_R 0
 #define CIAA_DEBUG_W 0
@@ -77,9 +71,7 @@
 #define CLOCK_DEBUG 0
 #define CIA_EVERY_CYCLE_DEBUG 0
 
-#ifndef P6_PORTABLE
 #define TOD_HACK
-#endif
 
 #define CIA_IRQ_PROCESS_DELAY 0
 
@@ -405,8 +397,8 @@ static void compute_passed_time_cia(int num, uae_u32 ciaclocks)
 static void compute_passed_time(void)
 {
 	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
-	if (ccount > INT_MAX) {
-		ccount = INT_MAX;
+	if (ccount > MAXINT) {
+		ccount = MAXINT;
 	}
 	uae_u32 ciaclocks = (uae_u32)ccount / DIV10;
 
@@ -506,8 +498,8 @@ in the same cycle.  */
 static void CIA_update_check(void)
 {
 	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
-	if (ccount > INT_MAX) {
-		ccount = INT_MAX;
+	if (ccount > MAXINT) {
+		ccount = MAXINT;
 	}
 	int ciaclocks = (uae_u32)(ccount / DIV10);
 	if (!ciaclocks) {
@@ -910,7 +902,6 @@ void cia_heartbeat(void)
 	heartbeat_cnt = 10;
 }
 
-#ifdef TOD_HACK
 static void do_tod_hack(bool dotod)
 {
 	struct timeval tv;
@@ -986,8 +977,6 @@ static void do_tod_hack(bool dotod)
 	}
 }
 
-#endif
-
 static int resetwarning_phase, resetwarning_timer;
 
 static void setcode(uae_u8 keycode)
@@ -1023,7 +1012,7 @@ static void keyboard_handshake_write(struct CIA *c, uae_u8 val)
 		if (kblostsynccnt > 0 && currprefs.cs_kbhandshake) {
 			evt_t len = get_cycles() - kbhandshakestart;
 			if (len < currprefs.cs_kbhandshake * CYCLE_UNIT) {
-				write_log(_T("Keyboard handshake pulse length %lld < %d (CCKs)\n"), (long long)(len / CYCLE_UNIT), currprefs.cs_kbhandshake);
+				write_log(_T("Keyboard handshake pulse length %d < %d (CCKs)\n"), len / CYCLE_UNIT, currprefs.cs_kbhandshake);
 			}
 		}
 		kblostsynccnt = 0;
@@ -1230,13 +1219,11 @@ void keyboard_connected(bool connect)
 {
 	if (connect) {
 		write_log(_T("Keyboard connected\n"));
-#ifndef P6_PORTABLE
 		if (currprefs.keyboard_mode > 0) {
 			keymcu_reset();
 			keymcu2_reset();
 			keymcu3_reset();
 		}
-#endif
 	} else {
 		write_log(_T("Keyboard disconnected\n"));
 	}
@@ -1245,7 +1232,6 @@ void keyboard_connected(bool connect)
 	resetwarning_phase = 0;
 }
 
-#ifndef P6_PORTABLE
 static bool keymcu_execute(void)
 {
 	bool handshake = (cia[0].t[0].cr & 0x40) != 0 && (cia[0].sdr_buf & 0x80) == 0;
@@ -1290,7 +1276,6 @@ static void keymcu_do(void)
 	keymcu_event(0);
 }
 
-#endif
 static void check_keyboard(void)
 {
 	if (currprefs.keyboard_mode >= 0) {
@@ -1342,18 +1327,13 @@ void CIA_hsync_posthandler(bool ciahsync, bool dotod)
 		// CIA-B HSync pulse
 		// Delayed previous line TOD increase.
 		cia_delayed_tod(1);
-#ifdef TOD_HACK
 		if (currprefs.tod_hack && cia[0].todon) {
 			do_tod_hack(dotod);
 		}
-#endif
 	} else {
-#ifndef P6_PORTABLE
 		if (currprefs.keyboard_mode > 0) {
 			keymcu_do();
-		} else
-#endif
-		{
+		} else {
 			if (currprefs.keyboard_mode == 0) {
 				// custom hsync
 				if (resetwarning_phase) {
@@ -1494,9 +1474,7 @@ static void bfe001_change(void)
 			map_overlay(0);
 		}
 	}
-#ifndef P6_PORTABLE
 	akiko_mute((v & 1) == 0);
-#endif
 }
 
 static uae_u32 getciatod(uae_u32 tod)
@@ -1933,7 +1911,6 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
 	{
 		if (flags) {
 			*flags |= 1;
-			P6_INPUT_POLL(P6_POLL_CIAA_PRA); // a CPU access, not a state dump
 		}
 		uae_u8 v = DISK_status_ciaa() & 0x3c;
 		v |= handle_joystick_buttons(c->pra, c->dra);
@@ -1954,14 +1931,12 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
 			write_log(_T("BFE001 R %02X %s\n"), v, debuginfo(0));
 #endif
 
-#ifndef P6_PORTABLE
 		if (flags && (inputrecord_debug & 2)) {
 			if (input_record > 0)
 				inprec_recorddebug_cia(v, 0, m68k_getpc ());
 			else if (input_play > 0)
 				inprec_playdebug_cia(v, 0, m68k_getpc ());
 		}
-#endif
 
 		return v;
 	}
@@ -1983,18 +1958,15 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
 			if (flags) {
 				tmp = sampler_getsample((c->pra & 4) ? 1 : 0);
 			}
-		} else
 #endif
-#ifndef P6_PORTABLE
-		if (parallel_port_scsi) {
+
+		} else if (parallel_port_scsi) {
 
 			if (flags) {
 				tmp = parallel_port_scsi_read(0, c->prb, c->drb);
 			}
 
-		} else
-#endif
-		{
+		} else {
 			tmp = handle_parport_joystick (0, tmp);
 			tmp = dongle_cia_read (1, reg, c->drb, tmp);
 #if DONGLE_DEBUG > 0
@@ -2033,8 +2005,6 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
 	case 13:
 	case 14:
 	case 15:
-		if (reg == 12 && flags)
-			P6_INPUT_POLL(P6_POLL_CIAA_SDR); // the keyboard byte
 		return ReadCIAReg(0, reg);
 	}
 	return 0;
@@ -2069,15 +2039,11 @@ static uae_u8 ReadCIAB(uae_u32 addr, uae_u32 *flags)
 				parallel_direct_read_status(&v);
 			}
 			tmp |= v & 7;
-		}
-#ifndef P6_PORTABLE
-		else if (parallel_port_scsi) {
+		} else if (parallel_port_scsi) {
 			if (flags) {
 				tmp = parallel_port_scsi_read(1, c->pra, c->dra);
 			}
-		}
-#endif
-		else {
+		} else {
 			// serial port in output mode
 			if (c->t[0].cr & 0x40) {
 				tmp &= ~3;
@@ -2238,11 +2204,9 @@ static void WriteCIAA(uae_u16 addr, uae_u8 val, uae_u32 *flags)
 	case 13:
 	case 15:
 		CIA_update();
-#ifndef P6_PORTABLE
 		if (currprefs.keyboard_mode > 0 && reg == 12 && currprefs.cs_compatible != CP_VELVET) {
 			keymcu_do();
 		}
-#endif
 		WriteCIAReg(0, reg, val);
 		CIA_calctimers();
 		break;
@@ -2255,11 +2219,9 @@ static void WriteCIAA(uae_u16 addr, uae_u8 val, uae_u32 *flags)
 			}
 			WriteCIAReg(0, reg, val);
 			CIA_calctimers();
-#ifndef P6_PORTABLE
 			if (currprefs.keyboard_mode > 0 && handshake && currprefs.cs_compatible != CP_VELVET) {
 				keymcu_do();
 			}
-#endif
 		}
 		break;
 	}
@@ -2366,11 +2328,9 @@ static void WriteCIAB(uae_u16 addr, uae_u8 val, uae_u32 *flags)
 			}
 			WriteCIAReg(1, reg, val);
 			CIA_calctimers();
-#ifndef P6_PORTABLE
 			if (currprefs.keyboard_mode > 0 && handshake && currprefs.cs_compatible == CP_VELVET) {
 				keymcu_do();
 			}
-#endif
 		}
 		break;
 	case 4:
@@ -2385,11 +2345,9 @@ static void WriteCIAB(uae_u16 addr, uae_u8 val, uae_u32 *flags)
 	case 13:
 	case 15:
 		CIA_update();
-#ifndef P6_PORTABLE
 		if (currprefs.keyboard_mode > 0 && reg == 12 && currprefs.cs_compatible == CP_VELVET) {
 			keymcu_do();
 		}
-#endif
 		WriteCIAReg(1, reg, val);
 		CIA_calctimers();
 		break;
@@ -2401,30 +2359,8 @@ void cia_set_overlay(bool overlay)
 	oldovl = overlay;
 }
 
-#ifdef P6_PORTABLE
-// cia_cycle_accurate is worked out once per frame, at the end of CIA_vsync_prehandler, so a process that has not finished a frame yet
-// has it false and runs its first frame with CIA interrupts that do not wait for the E clock. A load is a new process: without this,
-// a reload would start that frame with the value the last session left (true) and every keyboard interrupt of unit 1 would come 8 to
-// 11 colour clocks later than in a clean process.
-void p6_cia_session_begin(void)
-{
-	cia_cycle_accurate = false;
-	// The power LED and what the audio filter took from it: CIA_reset does not put them back and p6_gui_reset leaves gui_data alone, so a session
-	// that ended with the LED lit (a Kickstart) started the next load with powerled set and the filter of the first unit on. A clean process
-	// has all three at zero.
-	led_old_brightness = 0;
-	gui_data.powerled = false;
-	gui_data.powerled_brightness = 0;
-}
-#endif
-
 void CIA_reset(int hardreset)
 {
-#ifdef P6_PORTABLE
-	// The instant of the last CIA service is compared with regs.ipl_evt when an interrupt is recognised. The engine's cycle
-	// counter starts over at a reset, so a value left by the previous timeline (or session) would only match by accident.
-	cia_now_evt = 0;
-#endif
 #ifdef TOD_HACK
 	tod_hack_tv = 0;
 	tod_hack_tod = 0;
@@ -3040,24 +2976,14 @@ static void write_battclock(void)
 {
 	if (!currprefs.rtcfile[0] || currprefs.cs_rtc == 0)
 		return;
-#ifndef P6_PORTABLE
 	TCHAR path[MAX_DPATH];
 	cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
 	struct zfile *f = zfile_fopen(path, _T("wb"));
 	if (f) {
-#ifdef P6_PORTABLE
-		struct tm civil;
-		if (p6_rtc_read(&civil, currprefs.cs_rtc_adjust)) {
-			zfile_fclose(f);
-			return;
-		}
-		struct tm *ct = &civil;
-#else
 		struct tm *ct;
 		time_t t = time(0);
 		t += currprefs.cs_rtc_adjust;
 		ct = localtime(&t);
-#endif
 		uae_u8 od;
 		if (currprefs.cs_rtc == 2) {
 			od = rtc_ricoh.clock_control_d;
@@ -3086,7 +3012,6 @@ static void write_battclock(void)
 		}
 		zfile_fclose(f);
 	}
-#endif
 }
 
 void rtc_hardreset(void)
@@ -3107,7 +3032,6 @@ void rtc_hardreset(void)
 		rtc_ricoh.rtc_alarm[10] = 1; /* 24H mode */
 		rtc_ricoh.delayed_write = 0;
 	}
-#ifndef P6_PORTABLE
 	if (currprefs.rtcfile[0]) {
 		TCHAR path[MAX_DPATH];
 		cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
@@ -3130,7 +3054,6 @@ void rtc_hardreset(void)
 			zfile_fclose(f);
 		}
 	}
-#endif
 }
 
 static uae_u32 REGPARAM2 clock_lget(uaecptr addr)
@@ -3166,16 +3089,9 @@ static uae_u32 REGPARAM2 clock_bget(uaecptr addr)
 	if ((addr & 3) == 2 || (addr & 3) == 0 || currprefs.cs_rtc == 0) {
 		return dummy_get_safe(addr, 1, false, v);
 	}
-#ifdef P6_PORTABLE
-	struct tm civil;
-	if (p6_rtc_read(&civil, currprefs.cs_rtc_adjust))
-		return 0xff;
-	ct = &civil;
-#else
 	time_t t = time(0);
 	t += currprefs.cs_rtc_adjust;
 	ct = localtime(&t);
-#endif
 	addr >>= 2;
 	return getclockreg(addr, ct);
 }
@@ -3453,163 +3369,3 @@ uae_u8 *restore_keyboard(uae_u8 *src)
 }
 
 #endif /* SAVESTATE */
-
-#ifdef P6_PORTABLE
-// Native state (bridge/state_devices.cpp): the control registers D, E and F of the MSM6242B, which are file-static here. A copy in and a copy out,
-// nothing else: delayed_write only schedules a write to a battery-clock file that the profile does not have.
-void p6_rtc_msm_get(uae_u8 out[3])
-{
-	out[0] = rtc_msm.clock_control_d;
-	out[1] = rtc_msm.clock_control_e;
-	out[2] = rtc_msm.clock_control_f;
-}
-
-void p6_rtc_msm_set(const uae_u8 in[3])
-{
-	rtc_msm.clock_control_d = in[0];
-	rtc_msm.clock_control_e = in[1];
-	rtc_msm.clock_control_f = in[2];
-}
-#endif
-
-#ifdef P6_PORTABLE
-#include "p6_state_access.h"
-// Native state (bridge/state_devices.cpp). Everything here is a plain copy in or out: nothing calls CIA_update, CIA_calctimers, CIA_check_ICR or
-// anything else that schedules an event or raises an interrupt, because the scheduler's chunk owns the event tables and a restore must not fire a handler.
-// compute_passed_time and save_cia_prepare (what upstream's own save does first) are not called either: they change the live CIA.
-void p6_cia_get(int num, p6_cia_raw *out)
-{
-	const struct CIA &c = cia[num & 1];
-	out->pra = c.pra;
-	out->prb = c.prb;
-	out->dra = c.dra;
-	out->drb = c.drb;
-	for (int i = 0; i < 2; i++) {
-		out->t[i].timer = c.t[i].timer;
-		out->t[i].latch = c.t[i].latch;
-		out->t[i].inputpipe = c.t[i].inputpipe;
-		out->t[i].loaddelay = c.t[i].loaddelay;
-		out->t[i].preovfl = c.t[i].preovfl;
-		out->t[i].cr = c.t[i].cr;
-	}
-	out->tod = c.tod;
-	out->tol = c.tol;
-	out->alarm = c.alarm;
-	out->tlatch = c.tlatch;
-	out->todon = c.todon;
-	out->tod_event_state = c.tod_event_state;
-	out->tod_offset = c.tod_offset;
-	out->icr1 = c.icr1;
-	out->icr2 = c.icr2;
-	out->icr_change = c.icr_change;
-	out->imask = c.imask;
-	out->sdr = c.sdr;
-	out->sdr_buf = c.sdr_buf;
-	out->sdr_load = c.sdr_load;
-	out->sdr_cnt = c.sdr_cnt;
-}
-
-void p6_cia_set(int num, const p6_cia_raw *in)
-{
-	struct CIA &c = cia[num & 1];
-	c.pra = in->pra;
-	c.prb = in->prb;
-	c.dra = in->dra;
-	c.drb = in->drb;
-	for (int i = 0; i < 2; i++) {
-		c.t[i].timer = in->t[i].timer;
-		c.t[i].latch = in->t[i].latch;
-		c.t[i].inputpipe = in->t[i].inputpipe;
-		c.t[i].loaddelay = in->t[i].loaddelay;
-		c.t[i].preovfl = in->t[i].preovfl;
-		c.t[i].cr = in->t[i].cr;
-		c.t[i].passed = 0;		// a cache: every read recomputes it before use
-	}
-	c.tod = in->tod;
-	c.tol = in->tol;
-	c.alarm = in->alarm;
-	c.tlatch = in->tlatch;
-	c.todon = in->todon;
-	c.tod_event_state = in->tod_event_state;
-	c.tod_offset = in->tod_offset;
-	c.icr1 = in->icr1;
-	c.icr2 = in->icr2;
-	c.icr_change = in->icr_change != 0;
-	c.imask = in->imask;
-	c.sdr = in->sdr;
-	c.sdr_buf = in->sdr_buf;
-	c.sdr_load = in->sdr_load;
-	c.sdr_cnt = in->sdr_cnt;
-}
-
-void p6_cia_misc_get(p6_cia_misc_raw *out)
-{
-	out->cia_cycle_accurate = cia_cycle_accurate;
-	out->kbstate = kbstate;
-	out->kblostsynccnt = kblostsynccnt;
-	out->internaleclockphase = internaleclockphase;
-	out->led = led;
-	out->led_old_brightness = led_old_brightness;
-	out->led_cycle = led_cycle;
-	out->led_cycles_on = led_cycles_on;
-	out->led_cycles_off = led_cycles_off;
-	out->powerled = gui_data.powerled;
-	out->powerled_brightness = gui_data.powerled_brightness;
-	out->oldovl = oldovl;
-}
-
-void p6_cia_misc_set(const p6_cia_misc_raw *in)
-{
-	cia_cycle_accurate = in->cia_cycle_accurate != 0;
-	kbstate = in->kbstate;
-	kblostsynccnt = in->kblostsynccnt;
-	internaleclockphase = in->internaleclockphase;
-	led = in->led;
-	led_old_brightness = in->led_old_brightness;
-	led_cycle = in->led_cycle;
-	led_cycles_on = in->led_cycles_on;
-	led_cycles_off = in->led_cycles_off;
-	gui_data.powerled = in->powerled != 0;
-	gui_data.powerled_brightness = in->powerled_brightness;
-	oldovl = in->oldovl != 0;
-}
-
-// The overlay is derived: the ROM is at address 0 while OVL (PRA bit 0, high when CIA-A's pin is an input) is set. bfe001_change maps it only when the
-// bit changes; after a restore the map is whatever memory_reset left, so it is made again from PRA and DDRA, after every chunk is applied.
-void p6_cia_overlay_rebuild(void)
-{
-	const uae_u8 v = cia[0].pra | ~cia[0].dra;
-	oldovl = (v & 1) != 0;
-	if (currprefs.cs_ciaoverlay)
-		map_overlay(oldovl ? 0 : 1);
-}
-
-// True when the CIAs are in a state a save can describe by their fields alone: nothing the profile does not have, and the events the CIA relies on
-// are in the scheduler's tables (they are restored with it, never created again here).
-bool p6_cia_boundary(const char **why)
-{
-	const char *w = NULL;
-	if (resetwarning_phase || resetwarning_timer)
-		w = "a reset warning is in progress";
-	else if (!currprefs.cs_ciaoverlay)
-		w = "the profile has the CIA overlay";
-	else if (currprefs.keyboard_mode)
-		w = "a keyboard mode other than the A500's own";
-	else if (oldovl != (((cia[0].pra | ~cia[0].dra) & 1) != 0))
-		w = "the overlay latch disagrees with CIA-A";
-	else {
-		for (int n = 0; n < 2 && !w; n++) {
-			if (cia[n].tod_event_state != 2)
-				continue;
-			bool found = false;
-			for (int i = 0; i < ev2_max; i++)
-				found |= eventtab2[i].active && eventtab2[i].handler == event_CIA_tod_inc_event && eventtab2[i].data == (uae_u32)n;
-			if (!found)
-				w = "a TOD increment is pending in a CIA and its event is not scheduled";
-		}
-	}
-	if (why)
-		*why = w;
-	return w == NULL;
-}
-#endif

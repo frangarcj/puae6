@@ -1,7 +1,105 @@
+diff --git a/custom.cpp b/custom.cpp
+index d508d352..517a8d7a 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -8372,8 +8372,6 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
+ 
+ #if defined SAVESTATE || defined P6_STATE_BODIES
+ 
+-#ifdef SAVESTATE
+-
+ uae_u8 *restore_custom_agacolors(uae_u8 *src)
+ {
+ 	int i;
+@@ -8429,8 +8427,6 @@ uae_u8 *save_custom_agacolors(size_t *len, uae_u8 *dstptr)
+ 	return dstbak;
+ }
+ 
+-#endif /* SAVESTATE */
+-
+ uae_u8 *restore_custom_sprite(int num, uae_u8 *src)
+ {
+ 	struct sprite *s = &spr[num];
+@@ -13060,15 +13056,16 @@ void do_cycles_ce(int cycles)
+ 	extra_cycle = cycles;
+ }
+ 
++static int ce020_extra;		/* the sub-CCK remainder of the cycle-exact 68020 (it was a function-local static): p6_custom_ce020_extra_get/set */
++
+ void do_cycles_ce020(int cycles)
+ {
+ #if 0
+ 	evt_t cc;
+ #endif
+-	static int extra;
+ 
+-	cycles += extra;
+-	extra = 0;
++	cycles += ce020_extra;
++	ce020_extra = 0;
+ 	if (!cycles) {
+ 		return;
+ 	}
+@@ -13079,7 +13076,7 @@ void do_cycles_ce020(int cycles)
+ 		do_cck(true);
+ 		cycles -= CYCLE_UNIT;
+ 	}
+-	extra += cycles;
++	ce020_extra += cycles;
+ #if 0
+ 	if (cycles > 0) {
+ 		cc = get_cycles();
+@@ -13148,7 +13145,7 @@ void custom_end_drawing(void)
+ 
+ #ifdef P6_PORTABLE
+ // Native state (bridge/state_cpu.cpp): the half-CCK remainder of the cycle-exact CPU, and the secondary events whose handlers are static
+-// here, so that a state can name them by an id of its own instead of a pointer. which: 0 intreq, 1 intena, 2 fakehsync.
++// here, so that a state can name them by an id of its own instead of a pointer. which: 0 intreq, 1 intena, 2 fakehsync, 3 setup_fmodes_delayed (AGA).
+ int p6_custom_extra_cycle_get(void)
+ {
+ 	return extra_cycle;
+@@ -13159,6 +13156,17 @@ void p6_custom_extra_cycle_set(int v)
+ 	extra_cycle = v;
+ }
+ 
++/* The same for the 68020 cycle-exact core (patch 0108). */
++int p6_custom_ce020_extra_get(void)
++{
++	return ce020_extra;
++}
++
++void p6_custom_ce020_extra_set(int v)
++{
++	ce020_extra = v;
++}
++
+ evfunc2 p6_custom_event2_handler(int which)
+ {
+ 	switch (which) {
+@@ -13166,6 +13174,8 @@ evfunc2 p6_custom_event2_handler(int which)
+ 		return event_doint_delay_do_intreq;
+ 	case 1:
+ 		return event_doint_delay_do_intena;
++	case 3:
++		return setup_fmodes_delayed;
+ 	default:
+ 		return fakehsync_handler;
+ 	}
+@@ -13357,6 +13367,9 @@ void p6_custom_rebuild_derived(void)
+ 	sprite_width = GET_SPRITEWIDTH(fmode);
+ 	fmode_inuse = fmode;
+ 	setup_fmodes(bplcon0);
++	/* setup_fmodes sets the size of a fetch only when fmode_inuse differs from FMODE, which was just made equal: derive it here (it is 16 bits for FMODE 0 and 32 or 64 for the wider modes) */
++	fetchmode_size = 16 << fetchmode;
++	fetchmode_mask = fetchmode_size - 1;
+ 	setup_fmodes_delayed(fmode);
+ 	for (int i = 0; i < MAX_SPRITES; i++) {
+ 		SPRxCTLPOS(i);
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 1fff20b9..83a55165 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -10636,9 +10636,36 @@
+@@ -10868,9 +10868,36 @@ void dfc_nommu_put_long(uaecptr addr, uae_u32 v)
  }
  
  #ifdef P6_PORTABLE
@@ -41,106 +139,12 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  bool p6_cpu_boundary(const char **why)
  {
  	const char *w = NULL;
-@@ -10646,7 +10673,7 @@
+@@ -10878,7 +10905,7 @@ bool p6_cpu_boundary(const char **why)
  		w = "the CPU loop is not started";
  	else if (regs.exception || exception_in_exception)
  		w = "an exception is in flight";
 -	else if (regs.loop_mode || regs.t0 || regs.m || regs.vbr || regs.sfc || regs.dfc || regs.msp || regs.lastipl)
-+	else if (regs.loop_mode || regs.lastipl || (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.vbr || regs.sfc || regs.dfc || regs.msp)))
++	else if (regs.loop_mode || (currprefs.cpu_model < 68020 && (regs.lastipl || regs.t0 || regs.m || regs.vbr || regs.sfc || regs.dfc || regs.msp)))
  		w = "a register or mode that only a 68010 or later has is set";
  	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))
  		w = "a special flag is pending that the profile never leaves pending at a unit boundary";
-diff --git a/custom.cpp b/custom.cpp
---- a/custom.cpp
-+++ b/custom.cpp
-@@ -8364,8 +8364,6 @@
- #endif /* SAVESTATE || DEBUGGER || P6_STATE_BODIES */
- 
- #if defined SAVESTATE || defined P6_STATE_BODIES
--
--#ifdef SAVESTATE
- 
- uae_u8 *restore_custom_agacolors(uae_u8 *src)
- {
-@@ -8422,8 +8420,6 @@
- 	return dstbak;
- }
- 
--#endif /* SAVESTATE */
--
- uae_u8 *restore_custom_sprite(int num, uae_u8 *src)
- {
- 	struct sprite *s = &spr[num];
-@@ -13017,13 +13013,14 @@
- 	extra_cycle = cycles;
- }
- 
-+static int ce020_extra;		/* the sub-CCK remainder of the cycle-exact 68020 (it was a function-local static): p6_custom_ce020_extra_get/set */
-+
- void do_cycles_ce020(int cycles)
- {
- 	evt_t cc;
--	static int extra;
- 
--	cycles += extra;
--	extra = 0;
-+	cycles += ce020_extra;
-+	ce020_extra = 0;
- 	if (!cycles) {
- 		return;
- 	}
-@@ -13032,7 +13029,7 @@
- 		do_cck(true);
- 		cycles -= CYCLE_UNIT;
- 	}
--	extra += cycles;
-+	ce020_extra += cycles;
- #if 0
- 	if (cycles > 0) {
- 		cc = get_cycles();
-@@ -13101,7 +13098,7 @@
- 
- #ifdef P6_PORTABLE
- // Native state (bridge/state_cpu.cpp): the half-CCK remainder of the cycle-exact CPU, and the secondary events whose handlers are static
--// here, so that a state can name them by an id of its own instead of a pointer. which: 0 intreq, 1 intena, 2 fakehsync.
-+// here, so that a state can name them by an id of its own instead of a pointer. which: 0 intreq, 1 intena, 2 fakehsync, 3 setup_fmodes_delayed (AGA).
- int p6_custom_extra_cycle_get(void)
- {
- 	return extra_cycle;
-@@ -13112,6 +13109,17 @@
- 	extra_cycle = v;
- }
- 
-+/* The same for the 68020 cycle-exact core (patch 0108). */
-+int p6_custom_ce020_extra_get(void)
-+{
-+	return ce020_extra;
-+}
-+
-+void p6_custom_ce020_extra_set(int v)
-+{
-+	ce020_extra = v;
-+}
-+
- evfunc2 p6_custom_event2_handler(int which)
- {
- 	switch (which) {
-@@ -13119,6 +13127,8 @@
- 		return event_doint_delay_do_intreq;
- 	case 1:
- 		return event_doint_delay_do_intena;
-+	case 3:
-+		return setup_fmodes_delayed;
- 	default:
- 		return fakehsync_handler;
- 	}
-@@ -13244,6 +13254,9 @@
- 	sprite_width = GET_SPRITEWIDTH(fmode);
- 	fmode_inuse = fmode;
- 	setup_fmodes(bplcon0);
-+	/* setup_fmodes sets the size of a fetch only when fmode_inuse differs from FMODE, which was just made equal: derive it here (it is 16 bits for FMODE 0 and 32 or 64 for the wider modes) */
-+	fetchmode_size = 16 << fetchmode;
-+	fetchmode_mask = fetchmode_size - 1;
- 	setup_fmodes_delayed(fmode);
- 	for (int i = 0; i < MAX_SPRITES; i++) {
- 		SPRxCTLPOS(i);

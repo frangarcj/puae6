@@ -671,7 +671,7 @@ class PlanTests(unittest.TestCase):
     def test_cli_unknown_task_has_nonzero_exit(self):
         self.write_inputs()
         with contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(2, plan.main(["show", "T99"], self.root))
+            self.assertEqual(2, plan.main(["show", "T999"], self.root))
 
     def test_cli_malformed_json_has_nonzero_exit(self):
         self.write_inputs()

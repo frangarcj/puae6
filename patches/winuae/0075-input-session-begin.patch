@@ -1,7 +1,8 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index d92bdfbd..b3c5ddbf 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -4680,6 +4680,35 @@
+@@ -4700,6 +4700,35 @@ void p6_input_reset_keys(void)
  	keyboard_reset_seq_mode = 0;
  	release_keys();
  }

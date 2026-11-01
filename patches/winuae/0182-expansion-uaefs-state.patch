@@ -1,12 +1,11 @@
 diff --git a/expansion.cpp b/expansion.cpp
+index dbb05e97..b122f343 100644
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -1916,6 +1916,70 @@
- 	map_banks_z2(&filesys_bank, filesys_bank.start >> 16, 1);
- 	expamem_map_filesys_update();
+@@ -1922,6 +1922,70 @@ static addrbank *expamem_map_filesys (struct autoconfig_info *aci)
  	return &filesys_bank;
-+}
-+
+ }
+ 
 +/* Native state of the UAEFS board (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0182): where the board is and the 64 KiB it holds. The autoconfig chain it
 + * sits on is the one p6_expansion_state_get describes. Values: 0 the base of the board (0 before the guest gave it one, $FFFFFFFF after a shut-up, else a multiple of 64 KiB
 + * inside the Zorro II space), 1 whether the board has its memory (the guest configured it), 2 whether it answers at that base, 3 where the next uaeboard_alloc_ram starts
@@ -69,10 +68,12 @@ diff --git a/expansion.cpp b/expansion.cpp
 +	if (w[2])
 +		map_banks_z2(&filesys_bank, start >> 16, 1);
 +	return true;
- }
- 
++}
++
  #if KS12_BOOT_HACK
-@@ -4125,8 +4189,10 @@
+ static uaecptr ks12_resident;
+ static void set_ks12_boot_hack(void)
+@@ -4130,8 +4194,10 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
  		return false;
  	const uint32_t size = fastmem_bank[0].allocated_size;
  	const uint32_t start = w[10];
@@ -84,7 +85,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	if (w[0] >= w[1] && (w[3] || w[4] || w[5]))
  		return false;
  	if (w[12] && (start & 0xffff || start < 0x200000 || (start >> 16) + (size >> 16) > 0xa0))
-@@ -4134,15 +4200,17 @@
+@@ -4139,15 +4205,17 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
  	if (start != 0 && start != 0xffffffff && (start & 0xffff))
  		return false;
  

@@ -1,7 +1,8 @@
 diff --git a/keybuf.cpp b/keybuf.cpp
+index 75b015ef..eeec309c 100644
 --- a/keybuf.cpp
 +++ b/keybuf.cpp
-@@ -389,3 +389,50 @@
+@@ -389,3 +389,50 @@ void keybuf_inject(const uae_char *txt)
  	keyinject_offset = 0;
  	keyinject = newbuf;
  }

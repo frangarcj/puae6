@@ -1,7 +1,8 @@
 diff --git a/include/newcpu.h b/include/newcpu.h
+index 80723cab..a09b6d83 100644
 --- a/include/newcpu.h
 +++ b/include/newcpu.h
-@@ -114,6 +114,9 @@
+@@ -114,6 +114,9 @@ typedef long double fptype;
  #else
  typedef double fptype;
  #endif

@@ -1,9 +1,10 @@
 diff --git a/devices.cpp b/devices.cpp
+index db8b3585..2aa6c294 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -408,8 +408,8 @@
- 	memory_cleanup();
+@@ -458,8 +458,8 @@ void virtualdevice_free(void)
  #ifndef P6_PORTABLE
+ 	rtarea_free();
  	free_shm();
 -#endif
  	cfgfile_addcfgparam(0);
@@ -12,9 +13,10 @@ diff --git a/devices.cpp b/devices.cpp
  	driveclick_free();
  #endif
 diff --git a/main.cpp b/main.cpp
+index 254e47ba..a5207e7d 100644
 --- a/main.cpp
 +++ b/main.cpp
-@@ -835,7 +835,9 @@
+@@ -846,7 +846,9 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
  	blkdev_fix_prefs (p);
  	inputdevice_fix_prefs(p, userconfig);
  	target_fixup_options (p);

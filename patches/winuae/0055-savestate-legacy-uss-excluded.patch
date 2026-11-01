@@ -1,8 +1,9 @@
 diff --git a/savestate.cpp b/savestate.cpp
+index 526580f8..97cd2755 100644
 --- a/savestate.cpp
 +++ b/savestate.cpp
-@@ -69,7 +69,10 @@
- int savestate_state = 0;
+@@ -70,7 +70,10 @@ int savestate_state = 0;
+ int savestate_last_save_result = -1;
  static int savestate_first_capture;
  
 +#ifndef P6_PORTABLE
@@ -12,18 +13,19 @@ diff --git a/savestate.cpp b/savestate.cpp
  
  static int replaycounter;
  
-@@ -81,7 +84,10 @@
+@@ -82,8 +85,11 @@ struct zfile *savestate_file;
  #define SAVESTATE_SPECIALDUMP2 8
  #define SAVESTATE_ALWAYSUSEPATH 16
  #define SAVESTATE_SPECIALDUMP (SAVESTATE_SPECIALDUMP1 | SAVESTATE_SPECIALDUMP2)
 +#ifndef P6_PORTABLE
 +// Used only by the excluded .uss entry points (savestate_initsave, save_state, savestate_quick).
  static int savestate_flags;
+ static uae_u32 statefile_version;
 +#endif
  
  TCHAR savestate_fname[MAX_DPATH];
  TCHAR path_statefile[MAX_DPATH];
-@@ -210,6 +216,8 @@
+@@ -213,6 +219,8 @@ void save_u8_func(uae_u8 **dstp, uae_u8 v)
  	*dst++ = v;
  	*dstp = dst;
  }
@@ -32,7 +34,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  void save_string_func (uae_u8 **dstp, const TCHAR *from)
  {
  	uae_u8 *dst = *dstp;
-@@ -236,6 +244,7 @@
+@@ -239,6 +247,7 @@ void save_path_full_func(uae_u8 **dstp, const TCHAR *spath, int type)
  	fullpath(path, MAX_DPATH, true);
  	save_string_func(dstp, path);
  }
@@ -40,7 +42,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  
  uae_u32 restore_u32_func (uae_u8 **dstp)
  {
-@@ -270,6 +279,8 @@
+@@ -273,6 +282,8 @@ uae_u8 restore_u8_func (uae_u8 **dstp)
  	*dstp = dst + 1;
  	return v;
  }
@@ -49,7 +51,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  TCHAR *restore_string_func (uae_u8 **dstp)
  {
  	int len;
-@@ -1329,6 +1340,7 @@
+@@ -1366,6 +1377,7 @@ int save_state (const TCHAR *filename, const TCHAR *description)
  	savestate_state = 0;
  	return v;
  }
@@ -57,7 +59,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  
  #ifndef P6_PORTABLE
  void savestate_quick(int slot, int save)
-@@ -1384,6 +1396,8 @@
+@@ -1421,6 +1433,8 @@ bool savestate_check(void)
  		savestate_capture (0);
  	}
  #endif
@@ -66,15 +68,15 @@ diff --git a/savestate.cpp b/savestate.cpp
  	if (savestate_state == STATE_DORESTORE) {
  		savestate_state = STATE_RESTORE;
  		return true;
-@@ -1395,6 +1409,7 @@
- 		save_state(savestate_fname, STATE_SAVE_DESCRIPTION);
+@@ -1433,6 +1447,7 @@ bool savestate_check(void)
+ 		savestate_state = 0;
  		return false;
  	}
 +#endif
  	return false;
  }
  
-@@ -1453,6 +1468,8 @@
+@@ -1491,6 +1506,8 @@ void savestate_listrewind (void)
  }
  #endif
  
@@ -83,7 +85,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  void savestate_rewind (void)
  {
  	int len, i;
-@@ -1580,6 +1597,7 @@
+@@ -1618,6 +1635,7 @@ void savestate_rewind (void)
  	}
  
  }
@@ -91,7 +93,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  
  #define BS 10000
  
-@@ -1590,6 +1608,8 @@
+@@ -1628,6 +1646,8 @@ STATIC_INLINE int bufcheck(struct staterecord *sr, uae_u8 *p, size_t len)
  	return 0;
  }
  
@@ -100,7 +102,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  void savestate_memorysave (void)
  {
  	new_blitter = true;
-@@ -1599,6 +1619,7 @@
+@@ -1637,6 +1657,7 @@ void savestate_memorysave (void)
  	if (staterecord_statefile)
  		save_state_internal (staterecord_statefile, _T("rerecording"), 1, false);
  }

@@ -1,7 +1,8 @@
 diff --git a/custom.cpp b/custom.cpp
+index 4f1e4f2d..ac0ca10b 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -7946,11 +7946,18 @@
+@@ -7948,11 +7948,18 @@ uae_u8 *restore_custom(uae_u8 *src)
  	int dskpt;
  	int i;
  
@@ -20,7 +21,7 @@ diff --git a/custom.cpp b/custom.cpp
  	blt_info.bltddat = RW;	/* 000 BLTDDAT */
  	RW;						/* 002 DMACONR */
  	RW;						/* 004 VPOSR */
-@@ -8088,9 +8095,11 @@
+@@ -8090,9 +8097,11 @@ uae_u8 *restore_custom(uae_u8 *src)
  	RW;						/* 1F6 ? */
  	RW;						/* 1F8 ? */
  	i = RW;					/* 1FA ? */
@@ -32,7 +33,7 @@ diff --git a/custom.cpp b/custom.cpp
  	fmode = RW;				/* 1FC FMODE */
  	last_custom_value = RW; /* 1FE ? */
  	refptr = RL;			/* full refresh pointer */
-@@ -8147,7 +8156,10 @@
+@@ -8154,7 +8163,10 @@ uae_u8 *restore_custom(uae_u8 *src)
  	lof_display = lof_detect = lof_store;
  
  	DISK_restore_custom(dskpt, dsklen, dskbytr);

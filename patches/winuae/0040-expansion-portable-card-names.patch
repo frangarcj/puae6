@@ -1,4 +1,28 @@
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+index 012757e4..e4bff305 100644
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -1258,6 +1258,10 @@ void cfgfile_resolve_path_save(TCHAR *path, int size, int type)
+ 
+ static void write_filesys_config (struct uae_prefs *p, struct zfile *f)
+ {
++#ifdef P6_PORTABLE
++	if (p->mountitems != 0)
++		cfgfile_warning(_T("P6 A500: filesystem/hardfile config export is not supported.\n"));
++#else
+ 	TCHAR tmp[MAX_DPATH], tmp2[MAX_DPATH], tmp3[MAX_DPATH], str1[MAX_DPATH], hdcs[MAX_DPATH];
+ 
+ 	for (int i = 0; i < p->mountitems; i++) {
+@@ -1433,6 +1437,7 @@ static void write_filesys_config (struct uae_prefs *p, struct zfile *f)
+ 		xfree (str1c);
+ 		xfree (str2b);
+ 	}
++#endif
+ }
+ 
+ static void write_compatibility_cpu (struct zfile *f, struct uae_prefs *p)
 diff --git a/expansion.cpp b/expansion.cpp
+index 5b1308ff..de5cb4f3 100644
 --- a/expansion.cpp
 +++ b/expansion.cpp
 @@ -23,7 +23,9 @@
@@ -11,7 +35,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  #ifdef A2091
  #include "a2091.h"
  #endif
-@@ -3144,7 +3146,13 @@
+@@ -3149,7 +3151,13 @@ static void expansion_parse_cards(struct uae_prefs *p, bool log)
  			}
  			if (aci->devnum > 0) {
  				TCHAR *s = label + _tcslen(label);
@@ -25,7 +49,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  			}
  
  			if ((aci->zorro == 1 || aci->zorro == 2 || aci->zorro == 3) && aci->addrbank != &expamem_none && (aci->autoconfig_raw[0] != 0xff || aci->autoconfigp)) {
-@@ -3880,7 +3888,9 @@
+@@ -3885,7 +3893,9 @@ void expamem_reset (int hardreset)
  			}
  		}
  
@@ -35,7 +59,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  		call_card_init(0);
  	}
  }
-@@ -3993,6 +4003,7 @@
+@@ -3998,6 +4008,7 @@ void expansion_map(void)
  	if (currprefs.z3chipmem.size) {
  		map_banks_z3(&z3chipmem_bank, z3chipmem_bank.start >> 16, currprefs.z3chipmem.size >> 16);
  	}
@@ -43,15 +67,15 @@ diff --git a/expansion.cpp b/expansion.cpp
  	if (do_mount < 0 && ks11orolder()) {
  		filesys_bank.start = 0xe90000;
  		mapped_free(&filesys_bank);
-@@ -4001,6 +4012,7 @@
- 		expamem_init_filesys(NULL);
- 		expamem_map_filesys_update();
+@@ -4007,6 +4018,7 @@ void expansion_map(void)
+ 			expamem_map_filesys_update();
+ 		}
  	}
 +#endif
  }
- 
  static void clear_bank (addrbank *ab)
-@@ -4301,6 +4313,15 @@
+ {
+@@ -4306,6 +4318,15 @@ void restore_expansion_finish(void)
  
  #endif /* SAVESTATE */
  
@@ -67,7 +91,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  #if 0
  static const struct expansionsubromtype a2090_sub[] = {
  	{
-@@ -7287,6 +7308,8 @@
+@@ -7330,6 +7351,8 @@ const struct cpuboardtype cpuboards[] = {
  	}
  };
  
@@ -77,9 +101,10 @@ diff --git a/expansion.cpp b/expansion.cpp
  {
  	// z2
 diff --git a/rommgr.cpp b/rommgr.cpp
+index 577ecc84..5dc5380a 100644
 --- a/rommgr.cpp
 +++ b/rommgr.cpp
-@@ -2637,12 +2637,26 @@
+@@ -2685,12 +2685,26 @@ void set_device_rom(struct uae_prefs *p, const TCHAR *path, int romtype, int dev
  
  const struct expansionromtype *get_unit_expansion_rom(int hdunit)
  {
@@ -106,25 +131,3 @@ diff --git a/rommgr.cpp b/rommgr.cpp
  	return NULL;
  }
  
-diff --git a/cfgfile.cpp b/cfgfile.cpp
---- a/cfgfile.cpp
-+++ b/cfgfile.cpp
-@@ -1238,6 +1238,10 @@
- 
- static void write_filesys_config (struct uae_prefs *p, struct zfile *f)
- {
-+#ifdef P6_PORTABLE
-+	if (p->mountitems != 0)
-+		cfgfile_warning(_T("P6 A500: filesystem/hardfile config export is not supported.\n"));
-+#else
- 	TCHAR tmp[MAX_DPATH], tmp2[MAX_DPATH], tmp3[MAX_DPATH], str1[MAX_DPATH], hdcs[MAX_DPATH];
- 
- 	for (int i = 0; i < p->mountitems; i++) {
-@@ -1413,6 +1417,7 @@
- 		xfree (str1c);
- 		xfree (str2b);
- 	}
-+#endif
- }
- 
- static void write_compatibility_cpu (struct zfile *f, struct uae_prefs *p)

@@ -1,7 +1,211 @@
+diff --git a/cfgfile.cpp b/cfgfile.cpp
+index 28df3902..be6f7983 100644
+--- a/cfgfile.cpp
++++ b/cfgfile.cpp
+@@ -9400,8 +9400,11 @@ static int bip_cdtvcr (struct uae_prefs *p, int config, int compa, int romcheck)
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_CDTVCR;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
++	// NVRAM files live in a host directory; only non-A500 presets name one.
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cdtv-cr.nvr"));
++#endif
+ 	roms[0] = 9;
+ 	roms[1] = 10;
+ 	roms[2] = -1;
+@@ -9438,8 +9441,10 @@ static int bip_cdtv (struct uae_prefs *p, int config, int compa, int romcheck)
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_CDTV;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cdtv.nvr"));
++#endif
+ 	roms[0] = 6;
+ 	roms[1] = 32;
+ 	roms[2] = -1;
+@@ -9467,8 +9472,10 @@ static int bip_cd32 (struct uae_prefs *p, int config, int compa, int romcheck)
+ 	set_68020_compa (p, compa, 1);
+ 	p->cs_compatible = CP_CD32;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat (p->flashfile, _T("cd32.nvr"));
++#endif
+ 	roms[0] = 64;
+ 	roms[1] = -1;
+ 	if (!configure_rom (p, roms, 0)) {
+@@ -9489,8 +9496,10 @@ static int bip_cd32 (struct uae_prefs *p, int config, int compa, int romcheck)
+ 			return 0;
+ 	} else if (config > 1) {
+ 		addbcromtype(p, ROMTYPE_CUBO, true, NULL, 0);
++#ifndef P6_PORTABLE
+ 		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 		_tcscat(p->flashfile, _T("cd32cubo.nvr"));
++#endif
+ 	}
+ 	return 1;
+ }
+@@ -9724,8 +9733,10 @@ static int bip_arcadia (struct uae_prefs *p, int config, int compa, int romcheck
+ 	set_68000_compa (p, compa);
+ 	p->cs_compatible = CP_A500;
+ 	built_in_chipset_prefs (p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
+ 	_tcscat(p->flashfile, _T("arcadia.nvr"));
++#endif
+ 	roms[0] = 5;
+ 	roms[1] = 4;
+ 	roms[2] = -1;
+@@ -9766,8 +9777,10 @@ static int bip_alg(struct uae_prefs *p, int config, int compa, int romcheck)
+ 	set_68000_compa(p, compa);
+ 	p->cs_compatible = CP_A500;
+ 	built_in_chipset_prefs(p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 	_tcscat(p->flashfile, _T("alg.nvr"));
++#endif
+ 	roms[0] = 5;
+ 	roms[1] = 4;
+ 	roms[2] = -1;
+@@ -9856,8 +9869,10 @@ static int bip_draco(struct uae_prefs *p, int config, int compa, int romcheck)
+ 	p->rtgboards[0].rtgmem_type = GFXBOARD_ID_ALTAIS_Z3;
+ 	p->rtgboards[0].rtgmem_size = 4 * 1024 * 1024;
+ 	built_in_chipset_prefs(p);
++#ifndef P6_PORTABLE
+ 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
+ 	_tcscat(p->flashfile, _T("draco.nvr"));
++#endif
+ 	roms[0] = 61;
+ 	roms[1] = -1;
+ 	if (!configure_rom(p, roms, romcheck)) {
+diff --git a/custom.cpp b/custom.cpp
+index 541acffe..61eaa1f9 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -6805,7 +6805,10 @@ void custom_reset(bool hardreset, bool keyboardreset)
+ 		initial_frame = true;
+ 	}
+ 
++#ifndef P6_PORTABLE
++	// Host clipboard sharing reset; the A500 profile has no clipboard bridge.
+ 	target_reset();
++#endif
+ 	devices_reset(hardreset);
+ 	write_log(_T("Reset at %08X. Chipset mask = %08X\n"), M68K_GETPC, currprefs.chipset_mask);
+ #ifdef DEBUGGER
+diff --git a/disk.cpp b/disk.cpp
+index 02d936eb..f8399cef 100644
+--- a/disk.cpp
++++ b/disk.cpp
+@@ -1384,6 +1384,8 @@ static bool isrecognizedext(const TCHAR *name)
+ 	return false;
+ }
+ 
++#ifndef P6_PORTABLE
++// OSD status line text; the profile has no OSD.
+ static void update_disk_statusline(int num)
+ {
+ 	drive *drv = &floppy[num];
+@@ -1408,6 +1410,7 @@ static void update_disk_statusline(int num)
+ 	else
+ 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: %s"), num, my_getfilepart(fname));
+ }
++#endif
+ 
+ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR *fname_in, bool fake, bool forcedwriteprotect)
+ {
+@@ -1854,7 +1857,9 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
+ 			driveclick_insert(drv->drvnum, 0);
+ #endif
+ 		update_drive_gui(drv->drvnum, false);
++#ifndef P6_PORTABLE
+ 		update_disk_statusline(drv->drvnum);
++#endif
+ 	}
+ 	return 1;
+ }
+@@ -3078,8 +3083,10 @@ static void drive_eject (drive * drv)
+ 	if (isfloppysound (drv))
+ 		driveclick_insert(drv->drvnum, 1);
+ #endif
++#ifndef P6_PORTABLE
+ 	if (drv->diskfile || drv->filetype >= 0)
+ 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: -"), drv - floppy);
++#endif
+ 	drive_image_free(drv);
+ 	drv->dskeject = false;
+ 	drv->dskchange = true;
+@@ -3382,9 +3389,12 @@ int DISK_history_add(const TCHAR *name, int idx, int type, int nopathfix)
+ 	if (name[0] == 0)
+ 		return 0;
+ 	_tcscpy(path, name);
++#ifndef P6_PORTABLE
++	// Host path normalisation; history entries are logical asset ids here.
+ 	if (!nopathfix) {
+ 		fullpath(path, sizeof(path) / sizeof(TCHAR));
+ 	}
++#endif
+ 	if (idx >= 0) {
+ 		if (idx >= MAX_PREVIOUS_IMAGES)
+ 			return 0;
+@@ -3452,14 +3462,19 @@ static void disk_insert_2 (int num, const TCHAR *name, bool forced, bool forcedw
+ void disk_insert (int num, const TCHAR *name, bool forcedwriteprotect)
+ {
+ 	set_config_changed ();
++#ifndef P6_PORTABLE
++	// Desktop recent-documents list.
+ 	target_addtorecent (name, 0);
++#endif
+ 	disk_insert_2 (num, name, 0, forcedwriteprotect);
+ }
+ 
+ void disk_insert (int num, const TCHAR *name)
+ {
+ 	set_config_changed ();
++#ifndef P6_PORTABLE
+ 	target_addtorecent (name, 0);
++#endif
+ 	disk_insert_2 (num, name, 0, false);
+ }
+ void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
+@@ -4744,6 +4759,8 @@ static void DISK_start(void)
+ 			if (drv->dskchange_time == -1) {
+ 				drv->dskchange_time = -2;
+ 				write_log(_T("Accessing state restored non-existing disk '%s'!\n"), drv->newname);
++#ifndef P6_PORTABLE
++				// Interactive replacement-disk prompt; the drive stays in the faked-disk state.
+ 				if (gui_ask_disk(dr, drv->newname,
+ 					sizeof drv->newname / sizeof drv->newname[0])) {
+ 					if (drive_insert(drv, &currprefs, dr, drv->newname, false, false)) {
+@@ -4752,6 +4769,7 @@ static void DISK_start(void)
+ 						drv->dskchange_time = 0;
+ 					}
+ 				}
++#endif
+ 			}
+ 
+ 			if (dskdmaen == DSKDMA_WRITE) {
+@@ -4852,11 +4870,13 @@ void DISK_hsync (void)
+ 	DISK_update (maxhpos);
+ 	DISK_update_predict();
+ 
++#ifndef P6_PORTABLE
+ 	// show insert disk in df0: when booting
+ 	if (initial_disk_statusline) {
+ 		initial_disk_statusline = false;
+ 		update_disk_statusline(0);
+ 	}
++#endif
+ }
+ 
+ void DISK_update (int tohpos)
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index 68e4048e..e011e8e4 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -170,7 +170,9 @@
+@@ -171,7 +171,9 @@ static struct teststore testmode_wait[TESTMODE_MAX];
  
  static int bouncy;
  static frame_time_t bouncy_cycles;
@@ -11,7 +215,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static int keyboard_reset_seq, keyboard_reset_seq_mode;
  
  #define HANDLE_IE_FLAG_CANSTOPPLAYBACK 1
-@@ -2520,6 +2522,8 @@
+@@ -2524,6 +2526,8 @@ fail:
  	return 0xffffffff;
  }
  
@@ -20,7 +224,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static uaecptr get_intuitionbase (void)
  {
  	if (magicmouse_ibase == 0xffffffff)
-@@ -2535,6 +2539,7 @@
+@@ -2539,6 +2543,7 @@ static uaecptr get_intuitionbase (void)
  		magicmouse_ibase = get_base("intuition.library");
  	return magicmouse_ibase;
  }
@@ -28,7 +232,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static uaecptr get_gfxbase (void)
  {
  	if (magicmouse_gfxbase == 0xffffffff)
-@@ -2819,6 +2824,8 @@
+@@ -2835,6 +2840,8 @@ int inputdevice_get_lightpen_id(void)
  #endif
  }
  
@@ -37,7 +241,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  void tablet_lightpen(int tx, int ty, int tmaxx, int tmaxy, int touch, int buttonmask, bool touchmode, int devid, int lpnum)
  {
  	int monid = 0;
-@@ -2906,14 +2913,19 @@
+@@ -2922,14 +2929,19 @@ end:
  	}
  
  }
@@ -58,7 +262,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		uae_u8 *p;
  		uae_u8 tmp[MH_END];
  
-@@ -3311,6 +3323,8 @@
+@@ -3331,6 +3343,8 @@ static int mouseedge_x, mouseedge_y, mouseedge_time;
  #define MOUSEEDGE_RANGE 100
  #define MOUSEEDGE_TIME 2
  
@@ -67,7 +271,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static int mouseedge(int monid)
  {
  	struct amigadisplay *ad = &adisplays[monid];
-@@ -3426,6 +3440,7 @@
+@@ -3446,6 +3460,7 @@ end:
  	}
  	return 1;
  }
@@ -75,7 +279,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  int magicmouse_alive (void)
  {
-@@ -3700,6 +3715,8 @@
+@@ -3720,6 +3735,8 @@ static int inputread;
  
  void inputdevice_read_msg(bool vblank)
  {
@@ -84,7 +288,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	int got2 = 0;
  	for (;;) {
  		int got = handle_msgpump(vblank);
-@@ -3707,6 +3724,7 @@
+@@ -3727,6 +3744,7 @@ void inputdevice_read_msg(bool vblank)
  			break;
  		got2 = 1;
  	}
@@ -92,7 +296,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  }
  
  static void inputdevice_read(void)
-@@ -4800,6 +4818,8 @@
+@@ -4827,6 +4845,8 @@ void inputdevice_do_kb_reset(void)
  // these need cpu trace data
  static bool needcputrace (int code)
  {
@@ -101,7 +305,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	switch (code)
  	{
  	case AKS_ENTERGUI:
-@@ -4817,6 +4837,7 @@
+@@ -4844,6 +4864,7 @@ static bool needcputrace (int code)
  	case AKS_STATESAVEDIALOG:
  		return true;
  	}
@@ -109,7 +313,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	return false;
  }
  
-@@ -4958,6 +4979,7 @@
+@@ -4985,6 +5006,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	}
  #endif
  	if (!state) {
@@ -117,7 +321,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		switch(code)
  		{
  			case AKS_SCREENSHOT_FILE:
-@@ -4965,6 +4987,7 @@
+@@ -4992,6 +5014,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  			screenshot(-1, 4, 1);
  			break;
  		}
@@ -125,7 +329,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		return false;
  	}
  
-@@ -4973,6 +4996,8 @@
+@@ -5000,6 +5023,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_OSK:
  		osk_setup(0, -1);
  		break;
@@ -134,7 +338,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_ENTERGUI:
  		gui_display (-1);
  		setsystime ();
-@@ -4987,6 +5012,7 @@
+@@ -5014,6 +5039,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_SCREENSHOT_CLIPBOARD:
  		screenshot(-1, 0, 1);
  		break;
@@ -142,7 +346,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  #ifdef AVIOUTPUT
  	case AKS_VIDEORECORD:
  		AVIOutput_Toggle(newstate, true);
-@@ -5007,6 +5033,8 @@
+@@ -5034,6 +5060,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		action_replay_freeze ();
  		break;
  #endif
@@ -151,7 +355,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_FLOPPY0:
  		if (s) {
  			_tcsncpy(changed_prefs.floppyslots[0].df, s, MAX_DPATH);
-@@ -5047,6 +5075,7 @@
+@@ -5074,6 +5102,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  			setsystime ();
  		}
  		break;
@@ -159,7 +363,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_EFLOPPY0:
  		disk_eject (0);
  		break;
-@@ -5059,6 +5088,8 @@
+@@ -5086,6 +5115,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_EFLOPPY3:
  		disk_eject (3);
  		break;
@@ -168,7 +372,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_CD0:
  		if (s) {
  			_tcsncpy(changed_prefs.cdslots[0].name, s, MAX_DPATH);
-@@ -5071,6 +5102,7 @@
+@@ -5098,6 +5129,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  			setsystime();
  		}
  		break;
@@ -176,7 +380,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_ECD0:
  		changed_prefs.cdslots[0].name[0] = 0;
  		changed_prefs.cdslots[0].inuse = false;
-@@ -5078,6 +5110,8 @@
+@@ -5105,6 +5137,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_IRQ7:
  		IRQ_forced(7, -1);
  		break;
@@ -185,7 +389,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_PAUSE:
  		pausemode(newstate > 0 ? 1 : newstate);
  		break;
-@@ -5086,6 +5120,7 @@
+@@ -5113,6 +5147,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  			pausemode(0);
  		autopause = 1;
  		break;
@@ -193,7 +397,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_WARP:
  		warpmode (newstate);
  		break;
-@@ -5103,13 +5138,14 @@
+@@ -5130,13 +5165,14 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		savestate_capture (1);
  		break;
  #endif
@@ -209,7 +413,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_VOLMUTE:
  		sound_mute (newstate);
  		break;
-@@ -5135,6 +5171,8 @@
+@@ -5162,6 +5198,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_RESTART:
  		uae_restart(&currprefs, -1, NULL);
  		break;
@@ -218,7 +422,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_STATESAVEQUICK:
  	case AKS_STATESAVEQUICK1:
  	case AKS_STATESAVEQUICK2:
-@@ -5174,6 +5212,7 @@
+@@ -5201,6 +5239,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_TOGGLEMOUSEGRAB:
  		toggle_mousegrab();
  		break;
@@ -226,7 +430,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_SWAPJOYPORTS:
  		if (state == 1)
  			inputdevice_swap_compa_ports(&changed_prefs, 0);
-@@ -5194,6 +5233,8 @@
+@@ -5221,6 +5260,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		activate_debugger ();
  #endif
  		break;
@@ -235,7 +439,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_STATESAVEDIALOG:
  		if (s) {
  			savestate_initsave (s, 1, true, true);
-@@ -5210,6 +5251,7 @@
+@@ -5237,6 +5278,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  			gui_display (4);
  		}
  		break;
@@ -243,7 +447,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_DECREASEREFRESHRATE:
  	case AKS_INCREASEREFRESHRATE:
  		{
-@@ -5271,6 +5313,8 @@
+@@ -5298,6 +5340,8 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		disk_prevnext (code - AKS_DISK_NEXT0, 1);
  		break;
  #endif
@@ -252,7 +456,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_RTG_PREV:
  		toggle_rtg(0, -1);
  		break;
-@@ -5308,6 +5352,7 @@
+@@ -5335,6 +5379,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		getsetpositionvideograb(pos);
  		break;
  	}
@@ -260,7 +464,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  #ifdef CDTV
  	case AKS_CDTV_FRONT_PANEL_STOP:
-@@ -5469,7 +5514,10 @@
+@@ -5496,7 +5541,10 @@ static int handle_input_event2(int nr, int state, int max, int flags, int extra)
  				if (x <= 0 || x >= 65535 || y <= 0 || y >= 65535) {
  					x = y = -1;
  				}
@@ -271,7 +475,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  			} else if (ie->type == 0) {
  				int delta = 0;
  				if (max == 0) {
-@@ -5909,16 +5957,20 @@
+@@ -5957,16 +6005,20 @@ static void inputdevice_checkconfig (void)
  
  void inputdevice_vsync (void)
  {
@@ -289,10 +493,10 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		}
  	}
 +#endif
- 	if (keyboard_reset_seq_mode && keyboard_reset_seq > 0) {
+ 	if (keyboard_reset_seq_mode) {
  		keyboard_reset_seq++;
  	}
-@@ -5930,17 +5982,24 @@
+@@ -5979,17 +6031,24 @@ void inputdevice_vsync (void)
  	inputdevice_handle_inputcode ();
  	if (mouseedge_alive > 0)
  		mouseedge_alive--;
@@ -317,8 +521,8 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		}
  	}
  	inputdevice_checkconfig ();
-@@ -5985,6 +6044,8 @@
- #endif
+@@ -6039,6 +6098,8 @@ void inputdevice_reset (void)
+ 	lastmy = -1;
  }
  
 +#ifndef P6_PORTABLE
@@ -326,16 +530,16 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static int getoldport (struct uae_input_device *id)
  {
  	int i, j;
-@@ -6287,6 +6348,8 @@
- 	}
+@@ -6342,6 +6403,8 @@ static int switchdevice (struct uae_input_device *id, int num, bool buttonmode)
  	return 0;
  }
-+
-+#endif
  
++#endif
++
  uae_u64 input_getqualifiers (void)
  {
-@@ -6492,7 +6555,9 @@
+ 	return qualifiers;
+@@ -6546,7 +6609,9 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
  
  static void setbuttonstateall (struct uae_input_device *id, struct uae_input_device2 *id2, int button, int buttonstate)
  {
@@ -345,7 +549,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	int i;
  	uae_u32 mask = 1 << button;
  	uae_u32 omask = id2 ? id2->buttonmask & mask : 0;
-@@ -6513,6 +6578,8 @@
+@@ -6567,6 +6632,8 @@ static void setbuttonstateall (struct uae_input_device *id, struct uae_input_dev
  #endif
  
  	if (!id->enabled) {
@@ -354,7 +558,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		frame_time_t t = read_processor_time ();
  		if (!t)
  			t++;
-@@ -6528,6 +6595,7 @@
+@@ -6582,6 +6649,7 @@ static void setbuttonstateall (struct uae_input_device *id, struct uae_input_dev
  			}
  			switchdevice_timeout = 0;
  		}
@@ -362,7 +566,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		return;
  	}
  	if (button >= ID_BUTTON_TOTAL)
-@@ -9097,7 +9165,11 @@
+@@ -9154,7 +9222,11 @@ int inputdevice_get_mapping (int devnum, int num, uae_u64 *pflags, int *pport, T
  	TCHAR *customp = NULL;
  
  	if (name)
@@ -374,7 +578,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	if (custom)
  		custom[0] = 0;
  	if (pflags)
-@@ -10027,9 +10099,13 @@
+@@ -10084,9 +10156,13 @@ void warpmode(int mode)
  #endif
  	changed_prefs.turbo_emulation = currprefs.turbo_emulation;
  	set_config_changed ();
@@ -388,7 +592,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  void pausemode (int mode)
  {
  	if (mode < 0)
-@@ -10039,6 +10115,7 @@
+@@ -10096,6 +10172,7 @@ void pausemode (int mode)
  	set_config_changed ();
  	setsystime ();
  }
@@ -396,224 +600,11 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  int jsem_isjoy (int port, int sub, const struct uae_prefs *p)
  {
-diff --git a/disk.cpp b/disk.cpp
---- a/disk.cpp
-+++ b/disk.cpp
-@@ -1384,6 +1384,8 @@
- 	return false;
- }
- 
-+#ifndef P6_PORTABLE
-+// OSD status line text; the profile has no OSD.
- static void update_disk_statusline(int num)
- {
- 	drive *drv = &floppy[num];
-@@ -1408,6 +1410,7 @@
- 	else
- 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: %s"), num, my_getfilepart(fname));
- }
-+#endif
- 
- static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR *fname_in, bool fake, bool forcedwriteprotect)
- {
-@@ -1844,7 +1847,9 @@
- 			driveclick_insert(drv->drvnum, 0);
- #endif
- 		update_drive_gui(drv->drvnum, false);
-+#ifndef P6_PORTABLE
- 		update_disk_statusline(drv->drvnum);
-+#endif
- 	}
- 	return 1;
- }
-@@ -3061,8 +3066,10 @@
- 	if (isfloppysound (drv))
- 		driveclick_insert(drv->drvnum, 1);
- #endif
-+#ifndef P6_PORTABLE
- 	if (drv->diskfile || drv->filetype >= 0)
- 		statusline_add_message(STATUSTYPE_FLOPPY, _T("DF%d: -"), drv - floppy);
-+#endif
- 	drive_image_free(drv);
- 	drv->dskeject = false;
- 	drv->dskchange = true;
-@@ -3365,9 +3372,12 @@
- 	if (name[0] == 0)
- 		return 0;
- 	_tcscpy(path, name);
-+#ifndef P6_PORTABLE
-+	// Host path normalisation; history entries are logical asset ids here.
- 	if (!nopathfix) {
- 		fullpath(path, sizeof(path) / sizeof(TCHAR));
- 	}
-+#endif
- 	if (idx >= 0) {
- 		if (idx >= MAX_PREVIOUS_IMAGES)
- 			return 0;
-@@ -3435,14 +3445,19 @@
- void disk_insert (int num, const TCHAR *name, bool forcedwriteprotect)
- {
- 	set_config_changed ();
-+#ifndef P6_PORTABLE
-+	// Desktop recent-documents list.
- 	target_addtorecent (name, 0);
-+#endif
- 	disk_insert_2 (num, name, 0, forcedwriteprotect);
- }
- 
- void disk_insert (int num, const TCHAR *name)
- {
- 	set_config_changed ();
-+#ifndef P6_PORTABLE
- 	target_addtorecent (name, 0);
-+#endif
- 	disk_insert_2 (num, name, 0, false);
- }
- void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
-@@ -4722,6 +4737,8 @@
- 			if (drv->dskchange_time == -1) {
- 				drv->dskchange_time = -2;
- 				write_log(_T("Accessing state restored non-existing disk '%s'!\n"), drv->newname);
-+#ifndef P6_PORTABLE
-+				// Interactive replacement-disk prompt; the drive stays in the faked-disk state.
- 				if (gui_ask_disk(dr, drv->newname)) {
- 					if (drive_insert(drv, &currprefs, dr, drv->newname, false, false)) {
- 						write_log(_T("Replacement disk '%s' inserted.\n"), drv->newname);
-@@ -4729,6 +4746,7 @@
- 						drv->dskchange_time = 0;
- 					}
- 				}
-+#endif
- 			}
- 
- 			if (dskdmaen == DSKDMA_WRITE) {
-@@ -4829,11 +4847,13 @@
- 	DISK_update (maxhpos);
- 	DISK_update_predict();
- 
-+#ifndef P6_PORTABLE
- 	// show insert disk in df0: when booting
- 	if (initial_disk_statusline) {
- 		initial_disk_statusline = false;
- 		update_disk_statusline(0);
- 	}
-+#endif
- }
- 
- void DISK_update (int tohpos)
-diff --git a/rommgr.cpp b/rommgr.cpp
---- a/rommgr.cpp
-+++ b/rommgr.cpp
-@@ -91,7 +91,12 @@
- 			if (!_tcscmp(path + 1, rd->configname))
- 				return rd;
- 		}
-+#ifdef P6_PORTABLE
-+		// ROM paths are logical asset ids: same id means the same string.
-+		if (!_tcscmp(rl[i].path, path))
-+#else
- 		if (my_issamepath(rl[i].path, path))
-+#endif
- 			return rl[i].rd;
- 	}
- 	return NULL;
-@@ -1891,7 +1896,12 @@
- 			for (int j = 0; j < romlist_cnt; j++) {
- 				if (rl[j].rd->id == rd->id) {
- 					if (romname) {
-+#ifdef P6_PORTABLE
-+						// Logical asset ids compare exactly.
-+						if (!_tcscmp(rl[j].path, romname))
-+#else
- 						if (my_issamepath(rl[j].path, romname))
-+#endif
- 							return &rl[j];
- 					} else {
- 						return &rl[j];
-@@ -1916,7 +1926,12 @@
- 			if (rd) {
- 				for (j = 0; j < romlist_cnt; j++) {
- 					if (rl[j].rd->id == rd->id) {
-+#ifdef P6_PORTABLE
-+						// Logical asset ids compare exactly.
-+						if (!_tcscmp(rl[j].path, romname))
-+#else
- 						if (my_issamepath(rl[j].path, romname))
-+#endif
- 							return &rl[j];
- 					}
- 				}
-@@ -1976,7 +1991,12 @@
- 		}
- 		i++;
- 	}
-+#ifdef P6_PORTABLE
-+	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
-+	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
-+#else
- 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
-+#endif
- 	gui_message (tmp3, tmp2);
- }
- 
-@@ -2003,7 +2023,12 @@
- 		}
- 		i++;
- 	}
-+#ifdef P6_PORTABLE
-+	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
-+	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
-+#else
- 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
-+#endif
- 	gui_message (tmp3, tmp2);
- }
- 
-@@ -3047,7 +3072,9 @@
- struct zfile *flashromfile_open(const TCHAR *name)
- {
- 	struct zfile *f;
-+#ifndef P6_PORTABLE
- 	TCHAR path[MAX_DPATH];
-+#endif
- 	bool rw = true;
- 
- 	if (name == NULL || !name[0])
-@@ -3067,6 +3094,8 @@
- 		if (!f) {
- 			rw = false;
- 			f = zfile_fopen(name, _T("rb"), ZFD_NORMAL);
-+#ifndef P6_PORTABLE
-+			// Retry inside the host ROM directory; assets are found by logical id only.
- 			if (!f) {
- 				fetch_rompath(path, sizeof path / sizeof(TCHAR));
- 				_tcscat(path, name);
-@@ -3077,6 +3106,7 @@
- 					f = zfile_fopen(path, _T("rb"), ZFD_NORMAL);
- 				}
- 			}
-+#endif
- 		}
- 	}
- 	if (f) {
-@@ -3140,10 +3170,13 @@
- 			}
- 		}
- 	}
-+#ifndef P6_PORTABLE
-+	// Name-only identification accepts unhashed content; only excluded boards rely on it.
- 	if (!rd) {
- 		const TCHAR *name = my_getfilepart(zfile_getname(f));
- 		rd = getfrombydefaultname(name, size);
- 	}
-+#endif
- 	if (!rd) {
- 		write_log(_T("!: Name='%s':%d\nCRC32=%08X SHA1=%s\n"),
- 			zfile_getname(f), size, get_crc32(rombuf, size), get_sha1_txt(rombuf, size));
 diff --git a/main.cpp b/main.cpp
+index c2ef3f27..4393eac9 100644
 --- a/main.cpp
 +++ b/main.cpp
-@@ -877,7 +877,10 @@
+@@ -888,7 +888,10 @@ void uae_reset (int hardreset, int keyboardreset)
  	currprefs.quitstatefile[0] = changed_prefs.quitstatefile[0] = 0;
  
  	if (quit_program == 0) {
@@ -624,7 +615,7 @@ diff --git a/main.cpp b/main.cpp
  		quit_program = -UAE_RESET;
  		if (keyboardreset)
  			quit_program = -UAE_RESET_KEYBOARD;
-@@ -892,10 +895,15 @@
+@@ -903,10 +906,15 @@ void uae_quit (void)
  #ifdef DEBUGGER
  	deactivate_debugger ();
  #endif
@@ -640,7 +631,7 @@ diff --git a/main.cpp b/main.cpp
  }
  
  /* 0 = normal, 1 = nogui, -1 = disable nogui, -2 = autorestart */
-@@ -907,7 +915,10 @@
+@@ -918,7 +926,10 @@ void uae_restart(struct uae_prefs *p, int opengui, const TCHAR *cfgfile)
  	default_config = 0;
  	if (cfgfile)
  		_tcscpy (restart_config, cfgfile);
@@ -651,24 +642,32 @@ diff --git a/main.cpp b/main.cpp
  }
  
  #ifndef P6_PORTABLE
-diff --git a/custom.cpp b/custom.cpp
---- a/custom.cpp
-+++ b/custom.cpp
-@@ -6817,7 +6817,10 @@
- 		initial_frame = true;
- 	}
+diff --git a/memory.cpp b/memory.cpp
+index 717cd1eb..6913382d 100644
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -2851,6 +2851,8 @@ static void allocate_memory (void)
+ 
+ 	allocate_memory_custombanks();
  
 +#ifndef P6_PORTABLE
-+	// Host clipboard sharing reset; the A500 profile has no clipboard bridge.
- 	target_reset();
++	// RAM is restored by the native serializer (T15), not from .uss chunks.
+ 	if (savestate_state == STATE_RESTORE) {
+ #ifndef P6_PORTABLE
+ 		// The traps area (rtarea) is not built in the A500 profile: no boot ROM to restore.
+@@ -2879,6 +2881,7 @@ static void allocate_memory (void)
+ 		alg_flag = 0;
+ #endif
+ 	}
 +#endif
- 	devices_reset(hardreset);
- 	write_log(_T("Reset at %08X. Chipset mask = %08X\n"), M68K_GETPC, currprefs.chipset_mask);
- #ifdef DEBUGGER
+ #ifdef AGA
+ 	chipmem_bank_ce2.baseaddr = chipmem_bank.baseaddr;
+ #endif
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 82e5e849..238459f3 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2148,7 +2148,10 @@
+@@ -2175,7 +2175,10 @@ static void build_cpufunctbl (void)
  	cpuipldelay4 = 4 * cpucycleunit;
  
  	set_cpu_caches (true);
@@ -679,7 +678,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  }
  
  #define CYCLES_DIV 8192
-@@ -6847,7 +6850,9 @@
+@@ -6977,7 +6980,9 @@ void m68k_go (int may_quit)
  				currprefs.m68k_speed = changed_prefs.m68k_speed;
  				currprefs.m68k_speed_throttle = changed_prefs.m68k_speed_throttle;
  				update_68k_cycles();
@@ -689,104 +688,113 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  			}
  			cpu_prefs_changed_flag = 0;
  		}
-diff --git a/cfgfile.cpp b/cfgfile.cpp
---- a/cfgfile.cpp
-+++ b/cfgfile.cpp
-@@ -9258,8 +9258,11 @@
- 	set_68000_compa (p, compa);
- 	p->cs_compatible = CP_CDTVCR;
- 	built_in_chipset_prefs (p);
-+#ifndef P6_PORTABLE
-+	// NVRAM files live in a host directory; only non-A500 presets name one.
- 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
- 	_tcscat (p->flashfile, _T("cdtv-cr.nvr"));
+diff --git a/rommgr.cpp b/rommgr.cpp
+index d83b3309..67743f04 100644
+--- a/rommgr.cpp
++++ b/rommgr.cpp
+@@ -91,7 +91,12 @@ struct romdata *getromdatabypath (const TCHAR *path)
+ 			if (!_tcscmp(path + 1, rd->configname))
+ 				return rd;
+ 		}
++#ifdef P6_PORTABLE
++		// ROM paths are logical asset ids: same id means the same string.
++		if (!_tcscmp(rl[i].path, path))
++#else
+ 		if (my_issamepath(rl[i].path, path))
 +#endif
- 	roms[0] = 9;
- 	roms[1] = 10;
- 	roms[2] = -1;
-@@ -9296,8 +9299,10 @@
- 	set_68000_compa (p, compa);
- 	p->cs_compatible = CP_CDTV;
- 	built_in_chipset_prefs (p);
-+#ifndef P6_PORTABLE
- 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
- 	_tcscat (p->flashfile, _T("cdtv.nvr"));
-+#endif
- 	roms[0] = 6;
- 	roms[1] = 32;
- 	roms[2] = -1;
-@@ -9325,8 +9330,10 @@
- 	set_68020_compa (p, compa, 1);
- 	p->cs_compatible = CP_CD32;
- 	built_in_chipset_prefs (p);
-+#ifndef P6_PORTABLE
- 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
- 	_tcscat (p->flashfile, _T("cd32.nvr"));
-+#endif
- 	roms[0] = 64;
- 	roms[1] = -1;
- 	if (!configure_rom (p, roms, 0)) {
-@@ -9347,8 +9354,10 @@
- 			return 0;
- 	} else if (config > 1) {
- 		addbcromtype(p, ROMTYPE_CUBO, true, NULL, 0);
-+#ifndef P6_PORTABLE
- 		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
- 		_tcscat(p->flashfile, _T("cd32cubo.nvr"));
-+#endif
+ 			return rl[i].rd;
  	}
- 	return 1;
+ 	return NULL;
+@@ -1907,7 +1912,12 @@ struct romlist *getromlistbyromtype(uae_u32 romtype, const TCHAR *romname)
+ 			for (int j = 0; j < romlist_cnt; j++) {
+ 				if (rl[j].rd->id == rd->id) {
+ 					if (romname) {
++#ifdef P6_PORTABLE
++						// Logical asset ids compare exactly.
++						if (!_tcscmp(rl[j].path, romname))
++#else
+ 						if (my_issamepath(rl[j].path, romname))
++#endif
+ 							return &rl[j];
+ 					} else {
+ 						return &rl[j];
+@@ -1962,7 +1972,12 @@ struct romlist *getromlistbyids (const int *ids, const TCHAR *romname)
+ 			if (rd) {
+ 				for (j = 0; j < romlist_cnt; j++) {
+ 					if (rl[j].rd->id == rd->id) {
++#ifdef P6_PORTABLE
++						// Logical asset ids compare exactly.
++						if (!_tcscmp(rl[j].path, romname))
++#else
+ 						if (my_issamepath(rl[j].path, romname))
++#endif
+ 							return &rl[j];
+ 					}
+ 				}
+@@ -2022,7 +2037,12 @@ void romwarning(int romtype)
+ 		}
+ 		i++;
+ 	}
++#ifdef P6_PORTABLE
++	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
++	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
++#else
+ 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
++#endif
+ 	gui_message (tmp3, tmp2);
  }
-@@ -9582,8 +9591,10 @@
- 	set_68000_compa (p, compa);
- 	p->cs_compatible = CP_A500;
- 	built_in_chipset_prefs (p);
-+#ifndef P6_PORTABLE
- 	fetch_nvrampath(p->flashfile, sizeof (p->flashfile) / sizeof (TCHAR));
- 	_tcscat(p->flashfile, _T("arcadia.nvr"));
-+#endif
- 	roms[0] = 5;
- 	roms[1] = 4;
- 	roms[2] = -1;
-@@ -9624,8 +9635,10 @@
- 	set_68000_compa(p, compa);
- 	p->cs_compatible = CP_A500;
- 	built_in_chipset_prefs(p);
-+#ifndef P6_PORTABLE
- 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
- 	_tcscat(p->flashfile, _T("alg.nvr"));
-+#endif
- 	roms[0] = 5;
- 	roms[1] = 4;
- 	roms[2] = -1;
-@@ -9714,8 +9727,10 @@
- 	p->rtgboards[0].rtgmem_type = GFXBOARD_ID_ALTAIS_Z3;
- 	p->rtgboards[0].rtgmem_size = 4 * 1024 * 1024;
- 	built_in_chipset_prefs(p);
-+#ifndef P6_PORTABLE
- 	fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
- 	_tcscat(p->flashfile, _T("draco.nvr"));
-+#endif
- 	roms[0] = 61;
- 	roms[1] = -1;
- 	if (!configure_rom(p, roms, romcheck)) {
-diff --git a/memory.cpp b/memory.cpp
---- a/memory.cpp
-+++ b/memory.cpp
-@@ -2795,6 +2795,8 @@
  
- 	allocate_memory_custombanks();
+@@ -2049,7 +2069,12 @@ void romwarning (const int *ids)
+ 		}
+ 		i++;
+ 	}
++#ifdef P6_PORTABLE
++	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
++	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
++#else
+ 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
++#endif
+ 	gui_message (tmp3, tmp2);
+ }
  
+@@ -3112,7 +3137,9 @@ struct zfile *load_rom_rc_zfile(struct romconfig *rc, uae_u32 romtype, int maxfi
+ struct zfile *flashromfile_open(const TCHAR *name)
+ {
+ 	struct zfile *f;
 +#ifndef P6_PORTABLE
-+	// RAM is restored by the native serializer (T15), not from .uss chunks.
- 	if (savestate_state == STATE_RESTORE) {
- #ifndef P6_PORTABLE
- 		// The traps area (rtarea) is not built in the A500 profile: no boot ROM to restore.
-@@ -2823,6 +2825,7 @@
- 		alg_flag = 0;
- #endif
+ 	TCHAR path[MAX_DPATH];
++#endif
+ 	bool rw = true;
+ 
+ 	if (name == NULL || !name[0])
+@@ -3132,6 +3159,8 @@ struct zfile *flashromfile_open(const TCHAR *name)
+ 		if (!f) {
+ 			rw = false;
+ 			f = zfile_fopen(name, _T("rb"), ZFD_NORMAL);
++#ifndef P6_PORTABLE
++			// Retry inside the host ROM directory; assets are found by logical id only.
+ 			if (!f) {
+ 				fetch_rompath(path, sizeof path / sizeof(TCHAR));
+ 				_tcscat(path, name);
+@@ -3142,6 +3171,7 @@ struct zfile *flashromfile_open(const TCHAR *name)
+ 					f = zfile_fopen(path, _T("rb"), ZFD_NORMAL);
+ 				}
+ 			}
++#endif
+ 		}
+ 	}
+ 	if (f) {
+@@ -3205,10 +3235,13 @@ struct romdata *scan_single_rom_file(struct zfile *f)
+ 			}
+ 		}
+ 	}
++#ifndef P6_PORTABLE
++	// Name-only identification accepts unhashed content; only excluded boards rely on it.
+ 	if (!rd) {
+ 		const TCHAR *name = my_getfilepart(zfile_getname(f));
+ 		rd = getfrombydefaultname(name, size);
  	}
 +#endif
- #ifdef AGA
- 	chipmem_bank_ce2.baseaddr = chipmem_bank.baseaddr;
- #endif
+ 	if (!rd) {
+ 		write_log(_T("!: Name='%s':%d\nCRC32=%08X SHA1=%s\n"),
+ 			zfile_getname(f), size, get_crc32(rombuf, size), get_sha1_txt(rombuf, size));

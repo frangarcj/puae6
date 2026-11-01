@@ -1,7 +1,8 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index e011e8e4..c7ff881d 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -222,9 +222,12 @@
+@@ -223,9 +223,12 @@ static void osk_control(int x, int y, int button, int buttonstate)
  	if (!osk_state) {
  		return;
  	}
@@ -14,7 +15,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  void osk_setup(int monid, int state)
  {
  	if (monid) {
-@@ -254,6 +257,7 @@
+@@ -255,6 +258,7 @@ void osk_setup(int monid, int state)
  		return;
  	}
  }
@@ -22,7 +23,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  static int isdevice (struct uae_input_device *id)
  {
-@@ -4993,9 +4997,11 @@
+@@ -5020,9 +5024,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  
  	switch (code)
  	{
@@ -34,7 +35,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  #ifndef P6_PORTABLE
  	// Desktop GUI and screenshots; presentation belongs to the bridge.
  	case AKS_ENTERGUI:
-@@ -5219,9 +5225,11 @@
+@@ -5246,9 +5252,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		else if (state == 2)
  			inputdevice_swap_compa_ports(&changed_prefs, 2);
  		break;
@@ -47,9 +48,10 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		changed_prefs.sound_interpol++;
  		if (changed_prefs.sound_interpol > 4)
 diff --git a/keybuf.cpp b/keybuf.cpp
+index f6d4bc03..f1a2a67f 100644
 --- a/keybuf.cpp
 +++ b/keybuf.cpp
-@@ -268,8 +268,10 @@
+@@ -268,8 +268,10 @@ void keybuf_vsync(void)
  
  int record_key(int kc, bool direct)
  {
@@ -60,7 +62,7 @@ diff --git a/keybuf.cpp b/keybuf.cpp
  	return record_key_direct(kc, direct);
  }
  
-@@ -307,10 +309,12 @@
+@@ -307,10 +309,12 @@ int record_key_direct(int kc, bool direct)
  			// $0D <> $0C
  			keyswap(&kcd, &kc, 0x0d, 0x0c);
  		}

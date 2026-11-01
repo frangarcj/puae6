@@ -1,17 +1,18 @@
 diff --git a/devices.cpp b/devices.cpp
+index 6924079d..db8b3585 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -4,7 +4,9 @@
- #include "devices.h"
+@@ -6,7 +6,9 @@
  
  #include "options.h"
+ #include "uae.h"
 +#ifndef P6_PORTABLE
  #include "threaddep/thread.h"
 +#endif
  #include "memory.h"
  #include "audio.h"
  #ifdef GFXBOARD
-@@ -18,7 +20,9 @@
+@@ -20,7 +22,9 @@
  #ifdef WITH_SNDBOARD
  #include "sndboard.h"
  #endif
@@ -21,7 +22,7 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef WITH_PPC
  #include "uae/ppc.h"
  #endif
-@@ -40,7 +44,9 @@
+@@ -42,7 +46,9 @@
  #ifdef SERIAL_PORT
  #include "serial.h"
  #endif
@@ -31,7 +32,42 @@ diff --git a/devices.cpp b/devices.cpp
  #include "uaeserial.h"
  #include "uaeresource.h"
  #include "native2amiga.h"
-@@ -184,11 +190,15 @@
+@@ -103,7 +109,9 @@ static void execute_device_items(DEVICE_VOID *pp, int cnt)
+ 	}
+ }
+ 
++#ifndef P6_PORTABLE
+ static uae_sem_t thread_sema;
++#endif
+ static int device_configs_cnt;
+ static DEVICE_VOID device_configs[MAX_DEVICE_ITEMS];
+ static int device_vsync_pre_cnt;
+@@ -121,6 +129,7 @@ static DEVICE_VOID device_leaves_early[MAX_DEVICE_ITEMS];
+ static int device_resets_cnt;
+ static DEVICE_INT device_resets[MAX_DEVICE_ITEMS];
+ static bool device_reset_done[MAX_DEVICE_ITEMS];
++#ifndef P6_PORTABLE
+ static int device_callbacks_cnt;
+ static DEVICE_VOID device_callbacks[MAX_DEVICE_ITEMS];
+ 
+@@ -147,6 +156,16 @@ void device_add_main_thread_callback(DEVICE_VOID p)
+ 		uae_sem_post(&thread_sema);
+ 	}
+ }
++#else
++void device_call_main_thread_callbacks(void)
++{
++}
++
++void device_add_main_thread_callback(DEVICE_VOID p)
++{
++	p();
++}
++#endif
+ 
+ static void reset_device_items(void)
+ {
+@@ -213,11 +232,15 @@ void device_check_config(void)
  {
  	execute_device_items(device_configs, device_configs_cnt);
  
@@ -47,7 +83,7 @@ diff --git a/devices.cpp b/devices.cpp
  }
  
  void devices_reset_ext(int hardreset)
-@@ -206,7 +216,9 @@
+@@ -236,7 +259,9 @@ void devices_reset(int hardreset)
  	memset(device_reset_done, 0, sizeof(device_reset_done));
  	// must be first
  	init_eventtab();
@@ -57,7 +93,7 @@ diff --git a/devices.cpp b/devices.cpp
  
  #ifdef GFXBOARD
  	// must be before memory_reset()
-@@ -225,7 +237,9 @@
+@@ -255,7 +280,9 @@ void devices_reset(int hardreset)
  #ifdef WITH_PPC
  	uae_ppc_reset(is_hardreset());
  #endif
@@ -67,7 +103,7 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef SCSIEMU
  	scsi_reset();
  	scsidev_reset();
-@@ -234,8 +248,10 @@
+@@ -264,8 +291,10 @@ void devices_reset(int hardreset)
  #ifdef DRIVESOUND
  	driveclick_reset();
  #endif
@@ -78,7 +114,7 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef FILESYS
  	filesys_prepare_reset();
  	filesys_reset();
-@@ -255,27 +271,35 @@
+@@ -285,11 +314,14 @@ void devices_reset(int hardreset)
  	initparallel();
  #endif
  	dongle_reset();
@@ -93,6 +129,11 @@ diff --git a/devices.cpp b/devices.cpp
  	keymcu_reset();
  	keymcu2_reset();
  	keymcu3_reset();
+@@ -297,20 +329,24 @@ void devices_reset(int hardreset)
+ 	uae_sem_wait(&thread_sema);
+ 	device_callbacks_cnt = 0;
+ 	uae_sem_post(&thread_sema);
+-
 +#endif
  	uae_int_requested = 0;
  }
@@ -114,7 +155,7 @@ diff --git a/devices.cpp b/devices.cpp
  
  	execute_device_items(device_vsyncs_pre, device_vsync_pre_cnt);
  }
-@@ -310,8 +334,10 @@
+@@ -346,8 +382,10 @@ void devices_rethink(void)
  	execute_device_items(device_rethinks, device_rethink_cnt);
  
  	rethink_uae_int();
@@ -125,7 +166,7 @@ diff --git a/devices.cpp b/devices.cpp
  }
  
  void devices_update_sound(float clk, float syncadjust)
-@@ -320,7 +346,9 @@
+@@ -356,7 +394,9 @@ void devices_update_sound(float clk, float syncadjust)
  #ifdef WITH_SNDBOARD
  	update_sndboard_sound (clk / syncadjust);
  #endif
@@ -135,7 +176,7 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef WITH_X86
  	x86_update_sound(clk / syncadjust);
  #endif
-@@ -345,15 +373,19 @@
+@@ -382,15 +422,19 @@ void virtualdevice_free(void)
  
  	execute_device_items(device_leaves_early, device_leave_early_cnt);
  
@@ -155,7 +196,7 @@ diff --git a/devices.cpp b/devices.cpp
  	inputdevice_close();
  	DISK_free();
  	dump_counts();
-@@ -363,7 +395,9 @@
+@@ -400,7 +444,9 @@ void virtualdevice_free(void)
  #ifdef AUTOCONFIG
  	expansion_cleanup();
  #endif
@@ -165,11 +206,12 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef WITH_LUA
  	uae_lua_free();
  #endif
-@@ -372,20 +406,26 @@
+@@ -409,20 +455,26 @@ void virtualdevice_free(void)
  #endif
  	savestate_free();
  	memory_cleanup();
 +#ifndef P6_PORTABLE
+ 	rtarea_free();
  	free_shm();
 +#endif
  	cfgfile_addcfgparam(0);
@@ -178,7 +220,6 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
 +#ifndef P6_PORTABLE
  	ethernet_enumerate_free();
- 	rtarea_free();
 +#endif
  	drawing_free();
  #ifdef WITH_DRACO
@@ -192,7 +233,7 @@ diff --git a/devices.cpp b/devices.cpp
  	execute_device_items(device_leaves, device_leave_cnt);
  }
  
-@@ -394,12 +434,16 @@
+@@ -431,24 +483,30 @@ void do_leave_program (void)
  	virtualdevice_free();
  	graphics_leave();
  	close_sound();
@@ -205,11 +246,25 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
 +#ifndef P6_PORTABLE
  	machdep_free();
+ 
+ 	if (thread_sema) {
+ 		uae_sem_destroy(&thread_sema);
+ 		thread_sema = NULL;
+ 	}
 +#endif
  }
  
  void virtualdevice_init (void)
-@@ -447,11 +491,14 @@
+ {
++#ifndef P6_PORTABLE
+ 	if (!thread_sema) {
+ 		uae_sem_init(&thread_sema, 0, 1);
+ 	}
++#endif
+ 
+ 	reset_device_items();
+ 
+@@ -493,11 +551,14 @@ void virtualdevice_init (void)
  #ifdef WITH_DRACO
  	draco_init();
  #endif
@@ -217,16 +272,14 @@ diff --git a/devices.cpp b/devices.cpp
  	keymcu_init();
  	keymcu2_init();
  	keymcu3_init();
--}
--
 +#endif
-+}
-+
+ }
+ 
 +#ifdef SAVESTATE
  void devices_restore_start(void)
  {
  	restore_audio_start();
-@@ -469,6 +516,8 @@
+@@ -515,6 +576,8 @@ void devices_restore_start(void)
  	restore_expansion_boards(NULL);
  }
  
@@ -235,7 +288,7 @@ diff --git a/devices.cpp b/devices.cpp
  void devices_syncchange(void)
  {
  #ifdef WITH_X86
-@@ -484,19 +533,25 @@
+@@ -530,19 +593,25 @@ void devices_pause(void)
  #ifdef WITH_DSP
  	dsp_pause(1);
  #endif
@@ -245,7 +298,7 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef RETROPLATFORM
  	rp_pause(1);
  #endif
- #ifdef AVIOUTPUT
+ #ifdef VIDEOGRAB
  	pausevideograb(1);
  #endif
 +#ifndef P6_PORTABLE
@@ -261,8 +314,8 @@ diff --git a/devices.cpp b/devices.cpp
  #ifdef RETROPLATFORM
  	rp_pause(0);
  #endif
-@@ -509,10 +564,14 @@
- #ifdef AVIOUTPUT
+@@ -555,10 +624,14 @@ void devices_unpause(void)
+ #ifdef VIDEOGRAB
  	pausevideograb(0);
  #endif
 +#ifndef P6_PORTABLE
@@ -274,6 +327,5 @@ diff --git a/devices.cpp b/devices.cpp
  {
 +#ifndef P6_PORTABLE
  	clipboard_unsafeperiod();
--}
 +#endif
-+}
+ }

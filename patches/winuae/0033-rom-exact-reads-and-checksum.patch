@@ -1,7 +1,8 @@
 diff --git a/memory.cpp b/memory.cpp
+index 3838af81..532b9378 100644
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -1735,12 +1735,20 @@
+@@ -1779,12 +1779,20 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
  		return 0;
  	}
  #endif
@@ -22,7 +23,7 @@ diff --git a/memory.cpp b/memory.cpp
  
  	if (!noalias && i == size / 2)
  		memcpy(mem + size / 2, mem, size / 2);
-@@ -1774,6 +1782,10 @@
+@@ -1818,6 +1826,10 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
  		}
  	}
  
@@ -33,7 +34,7 @@ diff --git a/memory.cpp b/memory.cpp
  	for (j = 0; j < 256 && i >= ROM_SIZE_256; j++) {
  		if (!memcmp(mem + j, kickstring, strlen(kickstring) + 1))
  			break;
-@@ -1783,6 +1795,7 @@
+@@ -1827,6 +1839,7 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
  		dochecksum = 0;
  	if (dochecksum)
  		kickstart_checksum(mem, size);
@@ -41,7 +42,7 @@ diff --git a/memory.cpp b/memory.cpp
  	return i;
  }
  
-@@ -3098,7 +3111,14 @@
+@@ -3154,7 +3167,14 @@ bool read_kickstart_version(struct uae_prefs *p)
  	if (!z)
  		return false;
  	uae_u8 mem[32] = { 0 };
@@ -57,9 +58,10 @@ diff --git a/memory.cpp b/memory.cpp
  	kickstart_version = (mem[12] << 8) | mem[13];
  	if (kickstart_version == 0xffff) {
 diff --git a/rommgr.cpp b/rommgr.cpp
+index 1b9b17e0..e071c269 100644
 --- a/rommgr.cpp
 +++ b/rommgr.cpp
-@@ -1329,7 +1329,7 @@
+@@ -1345,7 +1345,7 @@ static int kickstart_checksum_do (uae_u8 *mem, int size)
  	uae_u32 cksum = 0, prevck = 0;
  	int i;
  	for (i = 0; i < size; i += 4) {

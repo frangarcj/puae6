@@ -1,43 +1,23 @@
-diff --git a/native2amiga.cpp b/native2amiga.cpp
---- a/native2amiga.cpp
-+++ b/native2amiga.cpp
-@@ -32,6 +32,14 @@
- 	uae_sem_init (&n2asem, 0, 1);
- }
- 
-+#ifdef P6_NATIVE2AMIGA
-+// The queue is allocated by native2amiga_install, once per load of an image: unloading gives it back.
-+void native2amiga_free (void)
-+{
-+	destroy_comm_pipe (&native2amiga_pending);
-+}
+diff --git a/include/commpipe.h b/include/commpipe.h
+index d764d9bc..8a1f4bfe 100644
+--- a/include/commpipe.h
++++ b/include/commpipe.h
+@@ -54,6 +54,10 @@ STATIC_INLINE void destroy_comm_pipe (smp_comm_pipe *p)
+ 	uae_sem_destroy (&p->lock);
+ 	uae_sem_destroy (&p->reader_wait);
+ 	uae_sem_destroy (&p->writer_wait);
++#ifdef P6_PORTABLE
++	free (p->data); // allocated by init_comm_pipe; an image that is loaded again and again must not leave one behind
++	p->data = NULL;
 +#endif
-+
- void native2amiga_reset (void)
- {
- 	smp_comm_pipe *p = &native2amiga_pending;
-@@ -52,7 +60,7 @@
- 	return comm_pipe_has_data (&native2amiga_pending) == 0;
  }
  
--#ifdef SUPPORT_THREADS
-+#if defined(SUPPORT_THREADS) || defined(P6_NATIVE2AMIGA) // P6: the pending-work queue is kept, with one thread and no waiting
- 
- void uae_nativesem_wait(void)
- {
-@@ -105,7 +113,7 @@
- {
- 	uae_nativesem_wait();
- 	write_comm_pipe_int(&native2amiga_pending, 0 | 0x80, 0);
--	write_comm_pipe_pvoid(&native2amiga_pending, state, 0);
-+	write_comm_pipe_pvoid(&native2amiga_pending, (void*)state, 0);
- 	write_comm_pipe_u32(&native2amiga_pending, task, 0);
- 	write_comm_pipe_int(&native2amiga_pending, mask, 1);
- 	do_uae_int_requested();
+ STATIC_INLINE void maybe_wake_reader (smp_comm_pipe *p, int no_buffer)
 diff --git a/include/native2amiga.h b/include/native2amiga.h
+index ef770c9f..c09fb63a 100644
 --- a/include/native2amiga.h
 +++ b/include/native2amiga.h
-@@ -35,13 +35,17 @@
+@@ -35,13 +35,17 @@ void native2amiga_install (void);
  
  void native2amiga_reset (void);
  
@@ -57,6 +37,7 @@ diff --git a/include/native2amiga.h b/include/native2amiga.h
   * (uae_u32)0/(uaecptr)task/(uae_u32)signal_set,
   * by PutMsg() with (uae_u32)1/(uaecptr)port/(uaecptr)msg and by
 diff --git a/include/native2amiga_api.h b/include/native2amiga_api.h
+index b30984ae..226c4cdb 100644
 --- a/include/native2amiga_api.h
 +++ b/include/native2amiga_api.h
 @@ -9,7 +9,7 @@
@@ -68,17 +49,31 @@ diff --git a/include/native2amiga_api.h b/include/native2amiga_api.h
  typedef void(*UAE_PROCESSED)(int);
  
  void uae_Cause(uaecptr interrupt);
-diff --git a/include/commpipe.h b/include/commpipe.h
---- a/include/commpipe.h
-+++ b/include/commpipe.h
-@@ -54,6 +54,10 @@
- 	uae_sem_destroy (&p->lock);
- 	uae_sem_destroy (&p->reader_wait);
- 	uae_sem_destroy (&p->writer_wait);
-+#ifdef P6_PORTABLE
-+	free (p->data); // allocated by init_comm_pipe; an image that is loaded again and again must not leave one behind
-+	p->data = NULL;
-+#endif
+diff --git a/native2amiga.cpp b/native2amiga.cpp
+index 9aaba92d..fbc619ab 100644
+--- a/native2amiga.cpp
++++ b/native2amiga.cpp
+@@ -32,6 +32,14 @@ void native2amiga_install (void)
+ 	uae_sem_init (&n2asem, 0, 1);
  }
  
- STATIC_INLINE void maybe_wake_reader (smp_comm_pipe *p, int no_buffer)
++#ifdef P6_NATIVE2AMIGA
++// The queue is allocated by native2amiga_install, once per load of an image: unloading gives it back.
++void native2amiga_free (void)
++{
++	destroy_comm_pipe (&native2amiga_pending);
++}
++#endif
++
+ void native2amiga_reset (void)
+ {
+ 	smp_comm_pipe *p = &native2amiga_pending;
+@@ -52,7 +60,7 @@ int native2amiga_isfree (void)
+ 	return comm_pipe_has_data (&native2amiga_pending) == 0;
+ }
+ 
+-#ifdef SUPPORT_THREADS
++#if defined(SUPPORT_THREADS) || defined(P6_NATIVE2AMIGA) // P6: the pending-work queue is kept, with one thread and no waiting
+ 
+ void uae_nativesem_wait(void)
+ {

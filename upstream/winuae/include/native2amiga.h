@@ -35,17 +35,13 @@ void native2amiga_install (void);
 
 void native2amiga_reset (void);
 
-#ifdef P6_NATIVE2AMIGA
-void native2amiga_free (void);
-#endif
-
 /*
  * to be called when the Amiga boots, i.e. by filesys_diagentry()
  */
 void native2amiga_startup (void);
 
 /**** internal stuff ****/
-#if defined(SUPPORT_THREADS) || (defined(P6_NATIVE2AMIGA) && defined(UAE_COMMPIPE_H)) // P6: only for the units that already include the single-thread layer
+#ifdef SUPPORT_THREADS
 /* This pipe is filled by Signal() with pairs of
  * (uae_u32)0/(uaecptr)task/(uae_u32)signal_set,
  * by PutMsg() with (uae_u32)1/(uaecptr)port/(uaecptr)msg and by

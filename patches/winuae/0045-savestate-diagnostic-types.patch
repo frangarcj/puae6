@@ -1,7 +1,8 @@
 diff --git a/savestate.cpp b/savestate.cpp
+index 358cd0ef..f6f32f34 100644
 --- a/savestate.cpp
 +++ b/savestate.cpp
-@@ -452,7 +452,7 @@
+@@ -459,7 +459,7 @@ static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len, const TCHAR
  		zfile_fwrite(zero, 1, len2, f);
  	}
  
@@ -10,7 +11,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  }
  
  static uae_u8 *restore_chunk (struct zfile *f, TCHAR *name, unsigned int *len, unsigned int *totallen, size_t *filepos)
-@@ -1415,7 +1415,7 @@
+@@ -1453,7 +1453,7 @@ int savestate_dorewind (int pos)
  		pos = replaycounter - 1;
  	if (canrewind (pos)) {
  		savestate_state = STATE_DOREWIND;
@@ -19,7 +20,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  		return 1;
  	}
  	return 0;
-@@ -1560,7 +1560,7 @@
+@@ -1598,7 +1598,7 @@ void savestate_rewind (void)
  		return;
  	}
  	inprec_setposition (st->inprecoffset, pos);
@@ -28,7 +29,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  	if (rewind) {
  		replaycounter--;
  		if (replaycounter < 0)
-@@ -1948,7 +1948,7 @@
+@@ -1986,7 +1986,7 @@ retry2:
  			staterecords_first -= staterecords_max;
  	}
  

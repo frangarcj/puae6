@@ -1,12 +1,17 @@
 {
   "schema_version": 1,
-  "observed_date": "2026-09-26",
+  "observed_date": "2026-11-01",
   "status": "source_snapshots_verified_build_toolchain_lock_pending",
   "sources": [
     {
       "id": "winuae",
+      "role": "engine",
       "repository": "https://github.com/tonioni/WinUAE.git",
-      "commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0"
+      "version": "6.1.0 beta 21",
+      "commit": "1fb263778ca0b6a6d02993acf900044522fcb76a",
+      "required": true,
+      "verified": "T99: commit publico 6100b21 verificado en el repositorio oficial; 1704 blobs y modos importados desde el objeto Git, con todo delta PUAE6 separado en patches/winuae",
+      "snapshot_manifest": "manifests/upstream-files.json"
     },
     {
       "id": "machawk",

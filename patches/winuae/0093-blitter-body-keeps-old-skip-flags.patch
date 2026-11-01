@@ -1,7 +1,8 @@
 diff --git a/blitter.cpp b/blitter.cpp
+index 208733e4..13884a77 100644
 --- a/blitter.cpp
 +++ b/blitter.cpp
-@@ -2544,8 +2544,17 @@
+@@ -2562,8 +2562,17 @@ uae_u8 *restore_blitter_new(uae_u8 *src)
  				blit_bltset(0);
  			}
  		}

@@ -576,6 +576,19 @@ TASK_SUITES[('SRC01', 'T37')] = {'import_sources': 'tests.test_import_sources',
                                  'new_snapshot_verification': 'tests.upstream-update.test_update.DirectorySnapshotTests'}
 TASK_SUITES[('GEN01', 'T37')] = {'regeneration_of_the_candidate': 'tests.upstream-update.test_update.GeneratorTests'}
 
+# T99 does not change the materialized engine. It restores the official beta21
+# snapshot as pristine input and moves the already-tested local delta back into
+# the hash-closed series. Reuse the importer/update contracts and the exact
+# materializer tests; the task also compares the full 1704-file output directly.
+TASK_SUITES[('SRC01', 'T99')] = {
+    'import_sources': 'tests.test_import_sources',
+    'materializer': 'tests.codegen.test_materialize',
+    'pinned_snapshot': 'tests.upstream-update.test_update.RealPinnedSnapshotTests',
+}
+TASK_SUITES[('UPD01', 'T99')] = {
+    'update_tool': 'tests.upstream-update.test_update',
+}
+
 # T33 measures. PERF01 is the statistics and summary of tools/bench.py (no emulator), the native and libretro probes in the optimized tree (what a sample is, that the clock does not feed the
 # engine, no allocation in the steady state) and the committed baseline with the budgets derived from it (a function of the raw files, goals apart from observations, everything advisory
 # unless stable). WB12 runs the Waterbox probes (guest ABI and core) in a real sandbox: p50/p95 of a unit and of a snapshot, the dirty unit of Darwin ARM64, the heaps; without a runtime the

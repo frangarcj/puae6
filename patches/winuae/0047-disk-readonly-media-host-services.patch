@@ -1,7 +1,8 @@
 diff --git a/disk.cpp b/disk.cpp
+index 9b42b17e..f68f6940 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -62,7 +62,9 @@
+@@ -62,7 +62,9 @@ int disk_debug_track = -1;
  #include "fsdb.h"
  #include "statusline.h"
  #include "rommgr.h"
@@ -11,7 +12,7 @@ diff --git a/disk.cpp b/disk.cpp
  #ifdef FLOPPYBRIDGE
  #include "floppybridge/floppybridge_abstract.h"
  #include "floppybridge/floppybridge_lib.h"
-@@ -264,6 +266,7 @@
+@@ -264,6 +266,7 @@ static drive floppy[MAX_FLOPPY_DRIVES];
  static TCHAR dfxhistory[HISTORY_MAX][MAX_PREVIOUS_IMAGES][MAX_DPATH];
  
  static uae_u8 exeheader[]={0x00,0x00,0x03,0xf3,0x00,0x00,0x00,0x00};
@@ -19,7 +20,7 @@ diff --git a/disk.cpp b/disk.cpp
  static uae_u8 bootblock_ofs[]={
  	0x44,0x4f,0x53,0x00,0xc0,0x20,0x0f,0x19,0x00,0x00,0x03,0x70,0x43,0xfa,0x00,0x18,
  	0x4e,0xae,0xff,0xa0,0x4a,0x80,0x67,0x0a,0x20,0x40,0x20,0x68,0x00,0x16,0x70,0x00,
-@@ -278,6 +281,7 @@
+@@ -278,6 +281,7 @@ static uae_u8 bootblock_ffs[]={
  	0x64, 0x6F, 0x73, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x65, 0x78, 0x70, 0x61,
  	0x6E, 0x73, 0x69, 0x6F, 0x6E, 0x2E, 0x6C, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x00, 0x00, 0x00,
  };
@@ -27,7 +28,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  #define FS_OFS_DATABLOCKSIZE 488
  #define FS_FLOPPY_BLOCKSIZE 512
-@@ -285,11 +289,13 @@
+@@ -285,11 +289,13 @@ static uae_u8 bootblock_ffs[]={
  #define FS_FLOPPY_TOTALBLOCKS 1760
  #define FS_FLOPPY_RESERVED 2
  
@@ -41,7 +42,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
  {
-@@ -304,6 +310,7 @@
+@@ -304,6 +310,7 @@ static uae_u32 disk_checksum (uae_u8 *p, uae_u8 *c)
  	return cs;
  }
  
@@ -49,7 +50,7 @@ diff --git a/disk.cpp b/disk.cpp
  static int dirhash (const uae_char *name)
  {
  	uae_u32 hash;
-@@ -618,6 +625,7 @@
+@@ -618,6 +625,7 @@ static int createimagefromexe(struct zfile *src, struct zfile *dst, int hd, bool
  
  	return 1;
  }
@@ -57,7 +58,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  #ifdef FLOPPYBRIDGE
  static FloppyBridgeAPI *bridges[4];
-@@ -975,6 +983,23 @@
+@@ -975,6 +983,23 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
  		errno = ENOTSUP;
  		return 0;
  	}
@@ -81,7 +82,7 @@ diff --git a/disk.cpp b/disk.cpp
  	// The legacy caller supplies a distinct MAX_DPATH output buffer.
  	const TCHAR *name = zfile_getname(f);
  	if (_tcslen(name) >= MAX_DPATH) {
-@@ -1107,6 +1132,7 @@
+@@ -1107,6 +1132,7 @@ static int read_header_ext2 (struct zfile *diskfile, trackid *trackdata, int *nu
  	return 1;
  }
  
@@ -89,7 +90,7 @@ diff --git a/disk.cpp b/disk.cpp
  static void saveimagecutpathpart(TCHAR *name)
  {
  	int i;
-@@ -1344,6 +1370,7 @@
+@@ -1344,6 +1370,7 @@ static bool diskfile_iswriteprotect (struct uae_prefs *p, const TCHAR *fname_in,
  		return wrprot2;
  	return wrprot1;
  }
@@ -97,7 +98,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  static bool isrecognizedext(const TCHAR *name)
  {
-@@ -1570,6 +1597,7 @@
+@@ -1580,6 +1607,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
  			offs += tid->len;
  		}
  
@@ -105,7 +106,7 @@ diff --git a/disk.cpp b/disk.cpp
  	} else if (memcmp (exeheader, buffer, sizeof exeheader) == 0 && !canauto && size <= 512 * (1760 * 2 - 7)) {
  		bool ffs = false;
  		int hd = 1;
-@@ -1609,6 +1637,7 @@
+@@ -1619,6 +1647,7 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
  			drv->useturbo = 1;
  		}
  
@@ -113,7 +114,7 @@ diff --git a/disk.cpp b/disk.cpp
  	} else if (canauto && (
  
  		// 320k double sided
-@@ -1796,7 +1825,9 @@
+@@ -1806,7 +1835,9 @@ static int drive_insert (drive *drv, struct uae_prefs *p, int dnum, const TCHAR
  			}
  		}
  	}
@@ -123,7 +124,7 @@ diff --git a/disk.cpp b/disk.cpp
  	drive_settype_id(drv); /* Set DD or HD drive */
  	drive_fill_bigbuf(drv, side, 1);
  	drv->mfmpos = uaerand();
-@@ -2899,6 +2930,7 @@
+@@ -2916,6 +2947,7 @@ static int drive_write_ext2(uae_u16 *bigmfmbuf, struct zfile *diskfile, trackid
  
  static void drive_write_data (drive * drv);
  
@@ -131,15 +132,15 @@ diff --git a/disk.cpp b/disk.cpp
  static bool convert_adf_to_ext2 (drive *drv, int mode)
  {
  	TCHAR name[MAX_DPATH];
-@@ -2950,6 +2982,7 @@
+@@ -2967,6 +2999,7 @@ static bool convert_adf_to_ext2 (drive *drv, int mode)
  
  	return true;
  }
 +#endif
  
- static void drive_write_data (drive * drv)
+ static void drive_write_data (drive *drv)
  {
-@@ -2973,6 +3006,7 @@
+@@ -2990,6 +3023,7 @@ static void drive_write_data (drive *drv)
  			drv->buffered_side = 2;
  		} else {
  			if (drive_write_adf_amigados (drv)) {
@@ -147,7 +148,7 @@ diff --git a/disk.cpp b/disk.cpp
  				if (currprefs.floppy_auto_ext2) {
  					convert_adf_to_ext2 (drv, currprefs.floppy_auto_ext2);
  				} else {
-@@ -2981,6 +3015,7 @@
+@@ -2998,6 +3032,7 @@ static void drive_write_data (drive *drv)
  						notify_user (NUMSG_NEEDEXT2);
  					warned = 1;
  				}
@@ -155,7 +156,7 @@ diff --git a/disk.cpp b/disk.cpp
  			}
  		}
  		return;
-@@ -3046,6 +3081,7 @@
+@@ -3063,6 +3098,7 @@ static void drive_eject (drive * drv)
  	inprec_recorddiskchange (drv->drvnum, NULL, false);
  }
  
@@ -163,7 +164,7 @@ diff --git a/disk.cpp b/disk.cpp
  static void floppy_get_bootblock (uae_u8 *dst, bool ffs, bool bootable)
  {
  	strcpy ((char*)dst, "DOS");
-@@ -3222,6 +3258,7 @@
+@@ -3239,6 +3275,7 @@ static void diskfile_readonly (const TCHAR *name, bool readonly)
  	}
  	write_log(_T("'%s': new mode = %x\n"), name, mode);
  }
@@ -171,7 +172,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  static void setdskchangetime (drive *drv, int dsktime)
  {
-@@ -3245,6 +3282,7 @@
+@@ -3262,6 +3299,7 @@ void DISK_reinsert (int num)
  	setdskchangetime (&floppy[num], 2 * 50 * 312);
  }
  
@@ -179,7 +180,7 @@ diff --git a/disk.cpp b/disk.cpp
  int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, bool writeprotected)
  {
  	int needwritefile, oldprotect;
-@@ -3294,6 +3332,7 @@
+@@ -3311,6 +3349,7 @@ int disk_setwriteprotect (struct uae_prefs *p, int num, const TCHAR *fname_in, b
  
  	return 1;
  }
@@ -187,23 +188,23 @@ diff --git a/disk.cpp b/disk.cpp
  
  void disk_eject (int num)
  {
-@@ -3406,6 +3445,7 @@
+@@ -3423,6 +3462,7 @@ void disk_insert_force (int num, const TCHAR *name, bool forcedwriteprotect)
  	disk_insert_2 (num, name, 1, forcedwriteprotect);
  }
  
 +#ifdef FLOPPYBRIDGE
  static void floppybridge_getsetprofile(int i)
  {
- 	if (currprefs.floppyslots[i].dfxsubtype == 0 || currprefs.floppyslots[i].dfxsubtypeid[0] == 0) {
-@@ -3423,6 +3463,7 @@
- 		}
+ #ifdef FLOPPYBRIDGE
+@@ -3442,6 +3482,7 @@ static void floppybridge_getsetprofile(int i)
  	}
+ #endif
  }
 +#endif
  
  static void DISK_check_change (void)
  {
-@@ -5539,6 +5580,7 @@
+@@ -5569,6 +5610,7 @@ static void load_track (int num, int cyl, int dside, int *sectable)
  	drv->buffered_cyl = -1;
  }
  
@@ -211,7 +212,7 @@ diff --git a/disk.cpp b/disk.cpp
  using namespace tinyxml2;
  
  static bool abr_loaded;
-@@ -5672,6 +5714,7 @@
+@@ -5702,6 +5744,7 @@ static void abrcheck(struct diskinfo *di)
  		}
  	}
  }
@@ -219,7 +220,7 @@ diff --git a/disk.cpp b/disk.cpp
  
  #ifdef FLOPPYBRIDGE
  static void get_floppybridgeinfo(struct uae_prefs *prefs, TCHAR *infotext, int num)
-@@ -5785,9 +5828,11 @@
+@@ -5815,9 +5858,11 @@ int DISK_examine_image(struct uae_prefs *p, int num, struct diskinfo *di, bool d
  		crc += v;
  	}
  	di->bootblockcrc32 = get_crc32(di->bootblock, 1024);
@@ -231,7 +232,7 @@ diff --git a/disk.cpp b/disk.cpp
  	if (dos == 0x4b49434b) { /* KICK */
  		ret = 10;
  		goto end;
-@@ -6135,6 +6180,7 @@
+@@ -6165,6 +6210,7 @@ uae_u8 *save_floppy (size_t *len, uae_u8 *dstptr)
  
  #endif /* SAVESTATE */
  
@@ -239,7 +240,7 @@ diff --git a/disk.cpp b/disk.cpp
  #define MAX_DISKENTRIES 4
  int disk_prevnext_name (TCHAR *imgp, int dir)
  {
-@@ -6304,6 +6350,7 @@
+@@ -6334,6 +6380,7 @@ int disk_prevnext (int drive, int dir)
  	_tcscpy (changed_prefs.floppyslots[drive].df, img);
  	return 1;
  }

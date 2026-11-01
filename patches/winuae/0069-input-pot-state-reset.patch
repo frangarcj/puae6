@@ -1,7 +1,8 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index 63dcc6f8..d92bdfbd 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -6065,6 +6065,14 @@
+@@ -6117,6 +6117,14 @@ void inputdevice_reset (void)
  	}
  	lightpen_trigger2 = 0;
  	cubo_flag = 0;

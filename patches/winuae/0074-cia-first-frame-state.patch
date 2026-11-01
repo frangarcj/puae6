@@ -1,7 +1,8 @@
 diff --git a/cia.cpp b/cia.cpp
+index 4109c868..90b4af3c 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -2354,6 +2354,17 @@
+@@ -2401,6 +2401,17 @@ void cia_set_overlay(bool overlay)
  	oldovl = overlay;
  }
  

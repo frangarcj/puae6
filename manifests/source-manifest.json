@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "host-contracts-planned",
-  "commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0",
+  "commit": "1fb263778ca0b6a6d02993acf900044522fcb76a",
   "profile": "deterministic-a500",
   "preset": "cfgfile.cpp: built_in_prefs(model=0, config=0, compa=0) = A500: 68000 CE, OCS, Chip512K/Slow512K, RTC MSM6242B; built_in_prefs(model=2, config=0, compa=0) = A600: 68000 CE, ECS Agnus+Denise, Chip1M, sin Slow, sin RTC, sin Gayle (cs_ide=cs_pcmcia=cs_compatible=0, cs_ciaoverlay=1; config/profiles/a600-ecs.json); built_in_prefs(model=4, config=0, compa=0) = A1200: 68EC020 CE (cpuemu_21), AGA Alice+Lisa, Chip2M, sin Slow/Fast, sin RTC, sin Gayle (mismos overrides cs_*, waiting_blits=0; config/profiles/a1200-aga.json, T24b); PAL/NTSC explicito",
   "audit_sources": [

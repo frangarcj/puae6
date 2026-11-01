@@ -1,8 +1,9 @@
 diff --git a/custom.cpp b/custom.cpp
+index e94e5f66..e570271f 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -6463,6 +6463,8 @@
- #endif
+@@ -6430,6 +6430,8 @@ static void hsync_handler_post(bool onvsync)
+ 
  	bool input_read_done = false;
  
 +#ifndef P6_PORTABLE
@@ -10,12 +11,12 @@ diff --git a/custom.cpp b/custom.cpp
  	if (currprefs.cpu_thread) {
  
  		maybe_process_pull_audio();
-@@ -6586,6 +6588,8 @@
- 			}
+@@ -6554,6 +6556,8 @@ static void hsync_handler_post(bool onvsync)
  		}
  	}
-+
-+#endif
  
++#endif
++
  	if (!input_read_done) {
  		inputdevice_hsync(false);
+ 	}

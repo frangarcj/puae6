@@ -171,7 +171,6 @@ static int samplecnt;
 static int extrasamples, outputsample, doublesample;
 #endif
 
-#ifndef P6_PORTABLE
 int sampleripper_enabled;
 struct ripped_sample
 {
@@ -356,8 +355,6 @@ static void do_samplerip (struct audio_channel_data *adp)
 	audio_sampleripper (0);
 }
 
-#endif
-
 static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
 static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
 static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH];
@@ -384,7 +381,7 @@ STATIC_INLINE int FINISH_DATA (int data, int bits, int ch)
 {
 	if (bits < 16) {
 		int shift = 16 - bits;
-		data *= 1 << shift;
+		data <<= shift;
 	} else {
 		int shift = bits - 16;
 		data >>= shift;
@@ -657,7 +654,7 @@ static void samplexx_sinc_handler (int *datasp, int ch_start, int ch_num)
 		int j, v;
 		struct audio_channel_data2 *acd = audio_data[i];
 		/* The sum rings with harmonic components up to infinity... */
-		int sum = acd->sinc_output_state * 131072;
+		int sum = acd->sinc_output_state << 17;
 		/* ...but we cancel them through mixing in BLEPs instead */
 		int offsetpos = acd->sinc_queue_head & (SINC_QUEUE_LENGTH - 1);
 		for (j = 0; j < SINC_QUEUE_LENGTH; j += 1) {
@@ -1878,10 +1875,8 @@ static bool audio_state_channel2 (int nr, bool perfin)
 		if (cdp->wlen != 1)
 			cdp->wlen = (cdp->wlen - 1) & 0xffff;
 		cdp->state = 5;
-#ifndef P6_PORTABLE
 		if (sampleripper_enabled)
 			do_samplerip(cdp);
-#endif
 		break;
 	case 5:
 		cdp->evtime = MAX_EV;
@@ -2167,10 +2162,6 @@ void check_prefs_changed_audio (void)
 		}
 		if (ch) {
 			set_audio ();
-#ifdef P6_PORTABLE
-			if (p6_sound_status() != P6_PCM_OK)
-				return;
-#endif
 			audio_activate ();
 		}
 	}
@@ -2190,10 +2181,6 @@ static void set_extra_prehandler(void)
 
 void set_audio (void)
 {
-#ifdef P6_PORTABLE
-	if (!p6_sound_validate_config(changed_prefs))
-		return;
-#endif
 	int old_mixed_size = mixed_stereo_size;
 	int sep, delay;
 	int ch;
@@ -2234,10 +2221,6 @@ void set_audio (void)
 	if (1) { // always reset if (1 || ch >= 0) {
 		if (currprefs.produce_sound >= 2) {
 			if (!init_audio ()) {
-#ifdef P6_PORTABLE
-				// The bridge reports the backend error; never negotiate prefs here.
-				return;
-#else
 				if (! sound_available) {
 					write_log (_T("Sound is not supported.\n"));
 				} else {
@@ -2246,14 +2229,11 @@ void set_audio (void)
 					/* So we don't do this every frame */
 					changed_prefs.produce_sound = 1;
 				}
-#endif
 			}
 		}
 		next_sample_evtime = scaled_sample_evtime;
 		last_cycles = get_cycles ();
-#ifndef P6_PORTABLE
 		compute_vsynctime ();
-#endif // P6 init_sound already sets the physical clock; no host pacing here.
 	} else {
 		sound_volume (0);
 	}
@@ -2569,10 +2549,8 @@ void event_audxdat_func(uae_u32 v)
 				if (!(v & 0x80000000)) {
 					cdp->intreq2 = true;
 				}
-#ifndef P6_PORTABLE
 				if (sampleripper_enabled)
 					do_samplerip(cdp);
-#endif
 #if DEBUG_AUDIO > 0
 				if (debugchannel(nr))
 					write_log(_T("AUD%d looped, IRQ=%d, LC=%08X LEN=%d DSR=%d IRQ2=%d\n"), nr, isirq(nr) ? 1 : 0, cdp->pt, cdp->wlen, cdp->dsr, cdp->intreq2);
@@ -2667,13 +2645,6 @@ uaecptr *audio_getpt(int nr)
 	cdp->pt &= ~1;
 	return &cdp->pt;
 }
-#ifdef P6_PORTABLE
-/* The pointer audio_getpt returns, without its side effects: the native state names the pointer of an RGA slot (custom.cpp getregfrompt). */
-uaecptr *p6_audio_pt(int nr)
-{
-	return &audio_channel[nr].pt;
-}
-#endif
 uaecptr audio_getloadpt(int nr)
 {
 	struct audio_channel_data *cdp = audio_channel + nr;
@@ -2936,82 +2907,6 @@ uae_u8 *save_audio (int nr, size_t *len, uae_u8 *dstptr)
 	save_u8 (acd->drhpos);
 	*len = dst - dstbak;
 	return dstbak;
-}
-
-// Native state (bridge/state_upstream.cpp, sub-body AUDP of P6AU): what AUDn does not carry and the next samples depend on. restore_audio puts back the state, volume,
-// lengths, data word, pointers and evtime of a channel, rounds the period to whole colour clocks (so PERIOD_MAX - 1, the sentinel of a channel whose period was never
-// written, comes back as PERIOD_MAX), copies dat into dat2, derives dmaenstore from DMACON and zeroes the rest (zerostate); restore_audio_finish sets last_cycles to the
-// cycle of the load. Not carried there: the phase of the resampler (next_sample_evtime, the cycles Paula has not integrated yet), whether audio has been activated at all
-// (audio_work_to_do: update_audio does nothing until then), the state of the output filters and of the LED filter, the integrator of the interpolation (the sample, its
-// predecessor, the accumulator and its time) and the per-channel latches of the DMA state machine (pbufldl, dat_written, dat2, irqcheck, the DMA enable the channel
-// stored, the low-period loop counter and the pointer and DMA-off latches of the fast CPU fix) and the ADKCON modulation masks, which restore_custom does not rebuild.
-// Values only, in 32-bit words in the order of the list below; it never runs Paula and never schedules anything. The bridge applies it after restore_audio_finish.
-// The sinc queue (sound_interpol 2), the volume counter buffers (sound_volcnt), the delayed crossfeed (sound_mixed_stereo_delay) and extra streams are not in it: with
-// any of them configured both calls refuse.
-//  0 next_sample_evtime (float bits)  1-2 get_cycles () - last_cycles (low, high)  3 audio_work_to_do  4 led_filter_on  5-24 sound_filter_state[0..3] rc1..rc5 (float bits)
-//  then 16 words per channel: 0 flags (1 dmaenstore, 2 pbufldl, 4 dat_written, 8 ptx_written, 16 ptx_tofetch)  1 irqcheck  2 per  3 dat2  4 ptx
-//  5 dmaofftime_active  6 dmaofftime_cpu_cnt  7 dmaofftime_pc  8 minperloop  9 current_sample  10 last_sample  11 new_sample  12 sample_accum  13 sample_accum_time
-//  14 adk_mask  15 data.mixvol (the volume the mixer uses, latched from AUDxVOL when the period is loaded; restore_audio sets it to the current AUDxVOL)
-#define P6_AUDIO_PHASE_GLOBAL 25
-#define P6_AUDIO_PHASE_CHANNEL 16
-#define P6_AUDIO_PHASE_WORDS (P6_AUDIO_PHASE_GLOBAL + AUDIO_CHANNELS_PAULA * P6_AUDIO_PHASE_CHANNEL)
-static bool p6_audio_phase_supported(unsigned n)
-{
-	return n == P6_AUDIO_PHASE_WORDS && currprefs.sound_interpol != 2 && !currprefs.sound_volcnt && currprefs.sound_mixed_stereo_delay == 0
-		&& audio_total_extra_streams == 0;
-}
-
-static int32_t p6_float_bits(float f) { int32_t w; memcpy(&w, &f, sizeof w); return w; }
-static float p6_bits_float(int32_t w) { float f; memcpy(&f, &w, sizeof f); return f; }
-
-bool p6_audio_phase_get(int32_t *out, unsigned n)
-{
-	static_assert(sizeof(float) == sizeof(int32_t), "the audio phase carries floats as 32-bit words");
-	if (!out || !p6_audio_phase_supported(n)) return false;
-	out[0] = p6_float_bits(next_sample_evtime);
-	const uint64_t pending = uint64_t(get_cycles () - last_cycles);
-	out[1] = int32_t(pending); out[2] = int32_t(pending >> 32);
-	out[3] = audio_work_to_do;
-	out[4] = led_filter_on;
-	for (int i = 0; i < 4; i++) {
-		const struct filter_state *fs = &sound_filter_state[i];
-		const float rc[] = { fs->rc1, fs->rc2, fs->rc3, fs->rc4, fs->rc5 };
-		for (int j = 0; j < 5; j++) out[5 + i * 5 + j] = p6_float_bits(rc[j]);
-	}
-	for (int i = 0; i < AUDIO_CHANNELS_PAULA; i++) {
-		const struct audio_channel_data *c = &audio_channel[i];
-		int32_t *w = out + P6_AUDIO_PHASE_GLOBAL + i * P6_AUDIO_PHASE_CHANNEL;
-		w[0] = (c->dmaenstore ? 1 : 0) | (c->pbufldl ? 2 : 0) | (c->dat_written ? 4 : 0) | (c->ptx_written ? 8 : 0) | (c->ptx_tofetch ? 16 : 0);
-		w[1] = c->irqcheck; w[2] = c->per; w[3] = c->dat2; w[4] = int32_t(c->ptx);
-		w[5] = c->dmaofftime_active; w[6] = c->dmaofftime_cpu_cnt; w[7] = int32_t(c->dmaofftime_pc); w[8] = c->minperloop;
-		w[9] = c->data.current_sample; w[10] = c->data.last_sample; w[11] = c->data.new_sample; w[12] = c->data.sample_accum; w[13] = c->data.sample_accum_time;
-		w[14] = int32_t(c->data.adk_mask); w[15] = c->data.mixvol;
-	}
-	return true;
-}
-
-bool p6_audio_phase_set(const int32_t *in, unsigned n)
-{
-	if (!in || !p6_audio_phase_supported(n)) return false;
-	next_sample_evtime = p6_bits_float(in[0]);
-	last_cycles = get_cycles () - evt_t(uint64_t(uint32_t(in[1])) | uint64_t(uint32_t(in[2])) << 32);
-	audio_work_to_do = in[3];
-	led_filter_on = in[4];
-	for (int i = 0; i < 4; i++) {
-		struct filter_state *fs = &sound_filter_state[i];
-		const int32_t *w = in + 5 + i * 5;
-		fs->rc1 = p6_bits_float(w[0]); fs->rc2 = p6_bits_float(w[1]); fs->rc3 = p6_bits_float(w[2]); fs->rc4 = p6_bits_float(w[3]); fs->rc5 = p6_bits_float(w[4]);
-	}
-	for (int i = 0; i < AUDIO_CHANNELS_PAULA; i++) {
-		struct audio_channel_data *c = &audio_channel[i];
-		const int32_t *w = in + P6_AUDIO_PHASE_GLOBAL + i * P6_AUDIO_PHASE_CHANNEL;
-		c->dmaenstore = (w[0] & 1) != 0; c->pbufldl = (w[0] & 2) != 0; c->dat_written = (w[0] & 4) != 0; c->ptx_written = (w[0] & 8) != 0; c->ptx_tofetch = (w[0] & 16) != 0;
-		c->irqcheck = w[1]; c->per = w[2]; c->dat2 = uae_u16(w[3]); c->ptx = uaecptr(w[4]);
-		c->dmaofftime_active = w[5]; c->dmaofftime_cpu_cnt = w[6]; c->dmaofftime_pc = uaecptr(w[7]); c->minperloop = w[8];
-		c->data.current_sample = w[9]; c->data.last_sample = w[10]; c->data.new_sample = uae_u8(w[11]); c->data.sample_accum = w[12]; c->data.sample_accum_time = w[13];
-		c->data.adk_mask = unsigned(w[14]); c->data.mixvol = w[15];
-	}
-	return true;
 }
 
 static void audio_set_extra_channels(void)

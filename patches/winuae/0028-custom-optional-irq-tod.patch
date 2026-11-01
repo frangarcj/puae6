@@ -1,7 +1,8 @@
 diff --git a/custom.cpp b/custom.cpp
+index 6b1c5ef1..e94e5f66 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -3384,6 +3384,7 @@
+@@ -3282,6 +3282,7 @@ void rethink_uae_int(void)
  		}
  	}
  
@@ -9,7 +10,7 @@ diff --git a/custom.cpp b/custom.cpp
  	{
  		extern void bsdsock_fake_int_handler(void);
  		extern int volatile bsd_int_requested;
-@@ -3391,6 +3392,7 @@
+@@ -3289,6 +3290,7 @@ void rethink_uae_int(void)
  			bsdsock_fake_int_handler();
  		}
  	}
@@ -17,30 +18,15 @@ diff --git a/custom.cpp b/custom.cpp
  	if (irq6) {
  		safe_interrupt_set(IRQ_SOURCE_UAE, 0, true);
  	}
-@@ -6361,10 +6363,13 @@
- 	bool ciavsyncs = !(bplcon0 & 2) || ((bplcon0 & 2) && currprefs.genlock && genlockvtoggle);
+@@ -6373,6 +6375,7 @@ static void cia_hsync_do(void)
  
  	CIA_hsync_posthandler(false, false);
-+#ifdef CD32
- 	if (currprefs.cs_cd32cd) {
- 		CIA_hsync_posthandler(true, true);
- 		CIAB_tod_handler(35);
--	} else if (ciahsyncs) {
-+	} else
-+#endif
-+	if (ciahsyncs) {
- 		CIA_hsync_posthandler(true, ciahsyncs);
- 		if (beamcon0 & BEAMCON0_VARHSYEN) {
- 			if (hsstop < (maxhpos & ~1) && hsstrt < maxhpos) {
-@@ -6375,6 +6380,7 @@
- 		}
- 	}
  
 +#ifdef CD32
  	if (currprefs.cs_cd32cd) {
  
  		if (cia_hsync < maxhpos) {
-@@ -6384,7 +6390,9 @@
+@@ -6382,7 +6385,9 @@ static void cia_hsync_do(void)
  			cia_hsync -= maxhpos;
  		}
  
@@ -48,6 +34,6 @@ diff --git a/custom.cpp b/custom.cpp
 +	} else
 +#endif
 +	if (currprefs.cs_ciaatod > 0) {
- #if 0
- 		static uae_s32 oldtick;
- 		uae_s32 tick = read_system_time(); // milliseconds
+ 		if (cia_hsync < maxhpos) {
+ 			int newcount;
+ 			CIAA_tod_handler(cia_hsync);

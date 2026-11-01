@@ -1,7 +1,8 @@
 diff --git a/include/sysdeps.h b/include/sysdeps.h
+index 2a1cd6b6..7aac898f 100644
 --- a/include/sysdeps.h
 +++ b/include/sysdeps.h
-@@ -522,7 +522,9 @@
+@@ -527,7 +527,9 @@ extern bool use_long_double;
   */
  #define CPU_EMU_SIZE 0
  
@@ -13,9 +14,10 @@ diff --git a/include/sysdeps.h b/include/sysdeps.h
  #define xmalloc(T, N) malloc(sizeof (T) * (N))
  #define xcalloc(T, N) calloc(sizeof (T), N)
 diff --git a/memory.cpp b/memory.cpp
+index f413c743..c8011cc0 100644
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -2188,7 +2188,12 @@
+@@ -2243,7 +2243,12 @@ bool mapped_malloc (addrbank *ab)
  {
  	ab->startmask = ab->start;
  	ab->startaccessmask = ab->start & ab->mask;

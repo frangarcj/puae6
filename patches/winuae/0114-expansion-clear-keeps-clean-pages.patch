@@ -1,7 +1,8 @@
 diff --git a/expansion.cpp b/expansion.cpp
+index d47ad0cc..b0bb208f 100644
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -4055,6 +4055,24 @@
+@@ -4060,7 +4060,25 @@ static void clear_bank (addrbank *ab)
  {
  	if (!ab->baseaddr || !ab->allocated_size)
  		return;
@@ -21,8 +22,9 @@ diff --git a/expansion.cpp b/expansion.cpp
 +		if (ab->baseaddr[i])
 +			ab->baseaddr[i] = 0;
 +	}
-+	return;
-+#endif
++#else
  	memset (ab->baseaddr, 0, ab->allocated_size > 0x800000 ? 0x800000 : ab->allocated_size);
++#endif
  }
  
+ void expansion_clear (void)

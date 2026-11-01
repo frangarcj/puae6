@@ -1,27 +1,8 @@
-diff --git a/zfile.cpp b/zfile.cpp
---- a/zfile.cpp
-+++ b/zfile.cpp
-@@ -12,6 +12,10 @@
- 
- #include "sysconfig.h"
- #include "sysdeps.h"
-+
-+#ifdef P6_PORTABLE
-+#include <zfile_port.inc>
-+#else
- 
- #include "options.h"
- #include "zfile.h"
-@@ -3611,3 +3615,5 @@
- {
- }
- #endif
-+
-+#endif /* P6_PORTABLE */
 diff --git a/include/zfile.h b/include/zfile.h
+index 7e0b6804..1aadc587 100644
 --- a/include/zfile.h
 +++ b/include/zfile.h
-@@ -98,11 +98,19 @@
+@@ -98,11 +98,19 @@ extern int zfile_truncate(struct zfile *z, uae_s64 size);
  #define ZFD_UNPACK 8 //gzip,dms
  #define ZFD_RAWDISK 16  //fdi->adf,ipf->adf etc..
  #define ZFD_CD 32 //cue/iso, cue has priority over iso
@@ -41,3 +22,24 @@ diff --git a/include/zfile.h b/include/zfile.h
  #define ZFD_ALL 0x0000ffff
  
  #define ZFD_RAWDISK_AMIGA 0x10000
+diff --git a/zfile.cpp b/zfile.cpp
+index 79175b0d..06519db4 100644
+--- a/zfile.cpp
++++ b/zfile.cpp
+@@ -13,6 +13,10 @@
+ #include "sysconfig.h"
+ #include "sysdeps.h"
+ 
++#ifdef P6_PORTABLE
++#include <zfile_port.inc>
++#else
++
+ #include "uae.h"
+ #include "options.h"
+ #include "zfile.h"
+@@ -3642,3 +3646,5 @@ void zfile_seterror (const TCHAR *format, ...)
+ {
+ }
+ #endif
++
++#endif /* P6_PORTABLE */

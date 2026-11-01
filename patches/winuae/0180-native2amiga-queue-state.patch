@@ -1,7 +1,8 @@
 diff --git a/native2amiga.cpp b/native2amiga.cpp
+index fbc619ab..85be81fa 100644
 --- a/native2amiga.cpp
 +++ b/native2amiga.cpp
-@@ -165,3 +165,67 @@
+@@ -174,3 +174,67 @@ void uae_FreeMem (TrapContext *ctx, uaecptr memory, uae_u32 size, uaecptr sysbas
  	trap_set_areg(ctx, 1, memory);
  	CallLib(ctx, sysbase, -0xD2); /* FreeMem */
  }

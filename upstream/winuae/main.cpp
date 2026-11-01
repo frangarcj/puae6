@@ -11,9 +11,7 @@
 #include <assert.h>
 
 #include "options.h"
-#ifndef P6_PORTABLE
 #include "threaddep/thread.h"
-#endif
 #include "uae.h"
 #include "gensound.h"
 #include "audio.h"
@@ -62,17 +60,13 @@ long int version = 256 * 65536L * UAEMAJOR + 65536L * UAEMINOR + UAESUBREV;
 struct uae_prefs currprefs, changed_prefs;
 int config_changed, config_changed_flags;
 
-#ifndef P6_PORTABLE // GUI observation state (no_gui, quit_to_gui, gui_data) is owned by ports/portable/gui.cpp
 bool no_gui = 0, quit_to_gui = 0;
-#endif
 bool cloanto_rom = 0;
 bool kickstart_rom = 1;
 bool console_emulation = 0;
 TCHAR console_path[MAX_DPATH] = { 0 };
 
-#ifndef P6_PORTABLE
 struct gui_info gui_data;
-#endif
 
 TCHAR warning_buffer[256];
 
@@ -115,16 +109,12 @@ uae_u32 uaerandgetseed(void)
 
 void uaerandomizeseed(void)
 {
-#ifdef P6_PORTABLE
-	uaesetrandseed(currprefs.seed);
-#else
 	if (currprefs.seed == 0) {
 		uae_u32 t = getlocaltime();
 		uaesetrandseed(t);
 	} else {
 		uaesetrandseed(currprefs.seed);
 	}
-#endif
 }
 
 uae_u32 uaesetrandseed(uae_u32 seed)
@@ -136,20 +126,6 @@ uae_u32 uaesetrandseed(uae_u32 seed)
 	xorshiftstate = seed;
 	return randseed;
 }
-
-#ifdef P6_PORTABLE
-// Native state (bridge/state_cpu.cpp): the live generator. randseed is the configuration's seed (uaerandomizeseed() sets it at load and at
-// every hard boot) and is bound by the envelope's config_hash, so only the state of the generator travels.
-uae_u32 p6_rng_get(void)
-{
-	return xorshiftstate;
-}
-
-void p6_rng_set(uae_u32 state)
-{
-	xorshiftstate = state;
-}
-#endif
 
 void my_trim(TCHAR *s)
 {
@@ -271,13 +247,10 @@ void fixup_cpu (struct uae_prefs *p)
 	if (p->cpu_frequency == 1000000)
 		p->cpu_frequency = 0;
 
-#ifndef P6_PORTABLE
-	// Accelerator boards are not part of the A500 profile.
 	if (p->cpu_model >= 68020 && p->cpuboard_type && p->address_space_24 && cpuboard_32bit(p)) {
 		error_log (_T("24-bit address space is not supported with selected accelerator board configuration."));
 		p->address_space_24 = 0;
 	}
-#endif
 	if (p->cpu_model >= 68040 && p->address_space_24) {
 		error_log (_T("24-bit address space is not supported with 68040/060 configurations."));
 		p->address_space_24 = 0;
@@ -452,16 +425,11 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 
 	built_in_chipset_prefs (p);
 	fixup_cpu (p);
-#ifndef P6_PORTABLE
-	// Graphics boards are not part of the A500 profile.
 	cfgfile_compatibility_rtg(p);
-#endif
 	cfgfile_compatibility_romtype(p);
 
 	read_kickstart_version(p);
 
-#ifndef P6_PORTABLE
-	// Accelerator board memory sizing: no cpuboard in the A500 profile.
 	if (p->cpuboard_type && p->cpuboardmem1.size > cpuboard_maxmemory(p)) {
 		error_log(_T("Unsupported accelerator board memory size %d (0x%x).\n"), p->cpuboardmem1.size, p->cpuboardmem1.size);
 		p->cpuboardmem1.size = cpuboard_maxmemory(p);
@@ -475,7 +443,6 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 	} else if (cpuboard_memorytype(p) == BOARD_MEMORY_CUSTOM_32) {
 		p->mem25bit.size = 0;
 	}
-#endif
 
 	if (((p->chipmem.size & (p->chipmem.size - 1)) != 0 && p->chipmem.size != 0x180000)
 		|| p->chipmem.size < 0x20000
@@ -511,8 +478,6 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 	}
 #endif
 
-#ifndef P6_PORTABLE
-	// Graphics boards and their Zorro III memory limit are not part of the A500 profile.
 	bool initial_monitor = false;
 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
 		struct rtgboardconfig *rbc = &p->rtgboards[i];
@@ -560,7 +525,6 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 			}
 		}
 	}
-#endif
 	
 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
 		if ((p->z3fastmem[i].size & (p->z3fastmem[i].size - 1)) != 0 || (p->z3fastmem[i].size != 0 && p->z3fastmem[i].size < 0x100000))
@@ -575,14 +539,11 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 	if (p->z3autoconfig_start < 0x1000000)
 		p->z3autoconfig_start = 0x1000000;
 
-#ifndef P6_PORTABLE
-	// max_z3fastmem is the host Zorro III address-space reservation; there is none here.
 	if (p->z3chipmem.size > max_z3fastmem) {
 		error_log (_T("Zorro III fake chipmem size %d (0x%x) larger than max reserved %d (0x%x)."), p->z3chipmem.size, p->z3chipmem.size, max_z3fastmem, max_z3fastmem);
 		p->z3chipmem.size = max_z3fastmem;
 		err = 1;
 	}
-#endif
 	if (((p->z3chipmem.size & (p->z3chipmem.size - 1)) != 0 &&  p->z3chipmem.size != 0x18000000 && p->z3chipmem.size != 0x30000000) || (p->z3chipmem.size != 0 && p->z3chipmem.size < 0x100000))
 	{
 		error_log (_T("Unsupported 32-bit chipmem size %d (0x%x)."), p->z3chipmem.size, p->z3chipmem.size);
@@ -629,7 +590,6 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 		error_log (_T("Unsupported CPU Board RAM size."));
 	}
 
-#ifndef P6_PORTABLE
 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
 		struct rtgboardconfig *rbc = &p->rtgboards[i];
 		if (p->chipmem.size > 0x200000 && rbc->rtgmem_size && gfxboard_get_configtype(rbc) == 2) {
@@ -660,7 +620,6 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 			rbc->rtgmem_size = 0;
 		}
 	}
-#endif
 
 	if (p->cs_z3autoconfig && p->address_space_24) {
 		p->cs_z3autoconfig = false;
@@ -789,21 +748,9 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 	p->chipset_mask &= ~CSMASK_AGA;
 #endif
 #ifndef AUTOCONFIG
-#ifdef P6_PORTABLE
-	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
-		p->z3fastmem[i].size = 0;
-		// T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the others stay absent
-		if (i > 0)
-			p->fastmem[i].size = 0;
-	}
-	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
-		p->rtgboards[i].rtgmem_size = 0;
-	}
-#else
 	p->z3fastmem_size = 0;
 	p->fastmem_size = 0;
 	p->rtgmem_size = 0;
-#endif
 #endif
 #if !defined (BSDSOCKET)
 	p->socket_emu = 0;
@@ -880,16 +827,10 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
 	}
 
 	built_in_chipset_prefs (p);
-#ifndef P6_PORTABLE
 	blkdev_fix_prefs (p);
-#endif
 	inputdevice_fix_prefs(p, userconfig);
-#ifndef P6_PORTABLE
 	target_fixup_options (p);
-#endif
-#ifndef P6_PORTABLE
 	cfgfile_createconfigstore(p);
-#endif
 }
 
 int quit_program = 0;
@@ -908,10 +849,7 @@ void uae_reset (int hardreset, int keyboardreset)
 	currprefs.quitstatefile[0] = changed_prefs.quitstatefile[0] = 0;
 
 	if (quit_program == 0) {
-#ifndef P6_PORTABLE
-		// Amiga console hook is a host filesystem feature; the A500 profile has none.
 		consolehook_shutdown();
-#endif
 		quit_program = -UAE_RESET;
 		if (keyboardreset)
 			quit_program = -UAE_RESET_KEYBOARD;
@@ -926,15 +864,10 @@ void uae_quit (void)
 #ifdef DEBUGGER
 	deactivate_debugger ();
 #endif
-#ifndef P6_PORTABLE
 	consolehook_shutdown();
-#endif
 	if (quit_program != -UAE_QUIT)
 		quit_program = -UAE_QUIT;
-#ifndef P6_PORTABLE
-	// Wakes the host UI thread; the bridge polls quit_program instead.
 	target_quit ();
-#endif
 }
 
 /* 0 = normal, 1 = nogui, -1 = disable nogui, -2 = autorestart */
@@ -946,13 +879,9 @@ void uae_restart(struct uae_prefs *p, int opengui, const TCHAR *cfgfile)
 	default_config = 0;
 	if (cfgfile)
 		_tcscpy (restart_config, cfgfile);
-#ifndef P6_PORTABLE
-	// Host relaunch request; the bridge owns lifecycle and sees quit_program.
 	target_restart ();
-#endif
 }
 
-#ifndef P6_PORTABLE
 #ifndef DONT_PARSE_CMDLINE
 
 void usage (void)
@@ -1426,5 +1355,3 @@ int main (int argc, TCHAR **argv)
 uae_u8 singlefile_config[50000] = { "_CONFIG_STARTS_HERE" };
 uae_u8 singlefile_data[1500000] = { "_DATA_STARTS_HERE" };
 #endif
-
-#endif /* desktop launcher */

@@ -1,67 +1,147 @@
 diff --git a/custom.cpp b/custom.cpp
+index 42823731..3a1b27d3 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13122,4 +13122,63 @@
+@@ -13170,4 +13170,142 @@ evfunc2 p6_custom_event2_handler(int which)
  		return fakehsync_handler;
  	}
  }
-+// Native state (bridge/state_upstream.cpp, sub-body BEAM of P6CH): the position of the beam and the phase of the frame, which WinUAE's own bodies do not carry
-+// (restore_custom reads VPOSR and VHPOSR and throws them away; the counters of the frame and the sync latches are not in any body). Values only, in 32-bit words in
-+// the order of the list below; the line length is the one thing derived (setmaxhpos, from the saved lol, linetoggle and the standard of the configuration).
-+// A word count other than P6_BEAM_WORDS is refused, so that the bridge and the engine cannot disagree on the list. Never schedules an event or runs a handler.
-+//  0 vpos  1 vpos_prev  2 agnus_hpos  3 agnus_hpos_prev  4 agnus_hpos_next  5 agnus_vpos_next  6 agnus_pos_change  7 hhpos
-+//  8 linear_vpos  9 linear_hpos  10-12 linear_vpos_prev  13-15 linear_hpos_prev  16 linear_vpos_vsync  17 linear_display_vpos  18 linear_vpos_visible
-+//  19 current_linear_vpos_visible  20 display_hsync_counter  21 display_vsync_counter  22 maxvpos_display_vsync_next  23 linetoggle  24 lof_display
-+//  25 lof_detect  26 lof_pdetect  27 lof_detect_vsync  28-30 prevlofs  31-32 display_last_hsync (low, high)  33-34 display_last_vsync (low, high)
-+//  35 agnus_vb  36 agnus_pvb  37 prev_strobe (the strobe slot of the last line: VERTB is raised when it goes from STRHOR to another)
-+//  38 dmal_shifter  39 dmal  40 dmal_next (the DMA list of the line in flight: it also paces the input's per-line tick)
-+//  41-60 the twenty sync latches of Agnus (phsync, phblank, pvsync, pcsync, csync, vb_active, vb_start_line, pvb_start_line,
-+//  vb_active_start_line, vb_end_line, pvb_end_line, vb_active_end_line, equzone, hsync, vsync, ve, p_ve, bsvb, bsvb_prev, equdis)
-+#define P6_BEAM_WORDS 61
++// Native state (bridge/state_upstream.cpp, sub-body BEAM of P6CH): beta 21's
++// beam, linear-display and DMAL phases. WinUAE's register body does not carry
++// these file statics. Event times travel as low/high 32-bit words. Values in the
++// private CCK epoch travel as zero-or-ZigZag-encoded displacements from its
++// current origin, so a process with another currcycle_cck restores the same phase
++// while zero still means that an edge has never occurred. CHSL restores
++// the RGA ring at offset zero, so its remaining fields use logical ring order.
++// A pending pfunc contains a host function pointer and is not a valid boundary.
++#define P6_BEAM_WORDS 173
 +bool p6_custom_beam_get(int32_t *out, unsigned n)
 +{
-+	if (!out || n != P6_BEAM_WORDS) return false;
-+	const int32_t head[] = {
++	if (!out || n != P6_BEAM_WORDS || pfunc_active_count) return false;
++	const evt_t cck_origin = get_cck_cycles();
++	const auto cck_delta = [cck_origin](evt_t stamp) {
++		if (!stamp) return uint64_t(0); // zero means that this edge has never occurred
++		const int64_t delta = stamp - cck_origin;
++		const uint64_t zigzag = delta >= 0 ? uint64_t(delta) * 2 : uint64_t(-(delta + 1)) * 2 + 1;
++		return zigzag + 1;
++	};
++	const int32_t words[] = {
 +		vpos, vpos_prev, agnus_hpos, agnus_hpos_prev, agnus_hpos_next, agnus_vpos_next, agnus_pos_change, hhpos,
 +		linear_vpos, linear_hpos, linear_vpos_prev[0], linear_vpos_prev[1], linear_vpos_prev[2], linear_hpos_prev[0], linear_hpos_prev[1], linear_hpos_prev[2],
-+		linear_vpos_vsync, linear_display_vpos, linear_vpos_visible, current_linear_vpos_visible,
++		linear_vpos_vb_start, linear_vpos_vb_end, linear_vb_offset, linear_vpos_start, linear_vpos_start_prev,
++		current_linear_vpos, current_linear_hpos, current_linear_hblen, current_linear_hblen_temp, current_linear_vpos_nom, current_linear_hpos_short,
++		linear_vpos_vblank_end, linear_vpos_vblank_start, linear_vpos_vblank_vsync, linear_vpos_vblank_lines_cnt, linear_vpos_vblank_lines,
++		vb_start_detect, vb_end_detect, vb_detect_cnt, current_linear_vblank_lines,
++		current_linear_vpos_vb_start, current_linear_vpos_vb_end, current_linear_vpos_vb_vsync,
++		current_linear_vpos_temp, current_linear_hpos_temp, current_linear_temp_change, linear_vpos_values_changed,
++		display_hstart_cyclewait_start, display_hstart_cyclewait_cnt, display_hstart_cyclewait_end,
++		display_hstart_cyclewait_skip_start, display_hstart_cyclewait_skip_end, display_vblankstart_skip, display_vblankend_skip,
++		display_hstart_cyclewait_started, linear_vpos_changes, nextline_how,
 +		display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next, linetoggle, lof_display,
 +		lof_detect, lof_pdetect, lof_detect_vsync, prevlofs[0], prevlofs[1], prevlofs[2],
-+		int32_t(uint64_t(display_last_hsync)), int32_t(uint64_t(display_last_hsync) >> 32), int32_t(uint64_t(display_last_vsync)), int32_t(uint64_t(display_last_vsync) >> 32),
-+		agnus_vb, agnus_pvb, prev_strobe, int32_t(dmal_shifter), dmal, dmal_next,
++		int32_t(uint64_t(last_hsync_evt)), int32_t(uint64_t(last_hsync_evt) >> 32), int32_t(uint64_t(last_vsync_evt)), int32_t(uint64_t(last_vsync_evt) >> 32),
++		agnus_vb, agnus_pvb, prev_strobe,
++		int32_t(agnus_dmal_shifter), int32_t(paula_dmal_shifter), int32_t(paula_dmal_shifter_fast),
++		agnus_dmal_sprite_enable, agnus_dmal_sprite_enable2, agnus_dmal_alloc, dmal_next,
++		agnus_even_prev, vb_fast, vb_fast_prev,
++		int32_t(cck_delta(agnus_trigger_cck)), int32_t(cck_delta(agnus_trigger_cck) >> 32),
++		init_beamcon_delay, agnus_afterreset, display_redraw, ciahsyncs, ciavsyncs,
 +		agnus_phsync, agnus_phblank, agnus_pvsync, agnus_pcsync, agnus_csync, agnus_vb_active, agnus_vb_start_line, agnus_pvb_start_line,
 +		agnus_vb_active_start_line, agnus_vb_end_line, agnus_pvb_end_line, agnus_vb_active_end_line, agnus_equzone, agnus_hsync, agnus_vsync, agnus_ve,
-+		agnus_p_ve, agnus_bsvb, agnus_bsvb_prev, agnus_equdis
++		agnus_p_ve, agnus_bsvb, agnus_bsvb_prev, agnus_equdis,
++		int32_t(cck_delta(agnus_phblank_start_tmp)), int32_t(cck_delta(agnus_phblank_start_tmp) >> 32),
++		int32_t(cck_delta(agnus_phblank_start)), int32_t(cck_delta(agnus_phblank_start) >> 32),
++		int32_t(cck_delta(agnus_phblank_end)), int32_t(cck_delta(agnus_phblank_end) >> 32),
++		int32_t(cck_delta(agnus_hsync_start)), int32_t(cck_delta(agnus_hsync_start) >> 32),
++		int32_t(cck_delta(agnus_vsync_start)), int32_t(cck_delta(agnus_vsync_start) >> 32),
++		hsync_ccks, current_linear_hs_hb_dist,
++		int32_t(cck_delta(agnus_hsstrt_cck)), int32_t(cck_delta(agnus_hsstrt_cck) >> 32),
++		int32_t(cck_delta(agnus_hsstop_cck)), int32_t(cck_delta(agnus_hsstop_cck) >> 32),
++		agnus_hslen_cck, agnus_hslen_cck_prev, agnus_hslen_cck_cnt, current_agnus_hslen_cck,
++		int32_t(cck_delta(agnus_phsstrt_cck)), int32_t(cck_delta(agnus_phsstrt_cck) >> 32),
++		int32_t(cck_delta(agnus_phsstop_cck)), int32_t(cck_delta(agnus_phsstop_cck) >> 32),
++		int32_t(cck_delta(agnus_pchsstrt_cck)), int32_t(cck_delta(agnus_pchsstrt_cck) >> 32),
++		int32_t(cck_delta(agnus_pchsstop_cck)), int32_t(cck_delta(agnus_pchsstop_cck) >> 32),
++		vsync_lines, vsync_linecnt, vsync_active_count, vsyncp_active_count, hsync_change_count, hblen_display_tmp, hblen_cnt,
++		plffirstline, plflastline, need_vdiw_check, interlace_seen,
++		programmed_register_accessed_h, programmed_register_accessed_v,
++		nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped,
++		rga_pipe[(0 + rga_slot_first_offset) & 3].bltadd, rga_pipe[(1 + rga_slot_first_offset) & 3].bltadd,
++		rga_pipe[(2 + rga_slot_first_offset) & 3].bltadd, rga_pipe[(3 + rga_slot_first_offset) & 3].bltadd,
++		getregfrompt(rga_pipe[(0 + rga_slot_first_offset) & 3].conflict2), getregfrompt(rga_pipe[(1 + rga_slot_first_offset) & 3].conflict2),
++		getregfrompt(rga_pipe[(2 + rga_slot_first_offset) & 3].conflict2), getregfrompt(rga_pipe[(3 + rga_slot_first_offset) & 3].conflict2),
++		bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old, ddfstrt_val,
++		config_changed, config_changed_flags
 +	};
-+	static_assert(sizeof head / sizeof head[0] == P6_BEAM_WORDS, "review the beam word list");
-+	memcpy(out, head, sizeof head);
++	static_assert(sizeof words / sizeof words[0] == P6_BEAM_WORDS, "review the beta 21 beam word list");
++	memcpy(out, words, sizeof words);
 +	return true;
 +}
 +
 +bool p6_custom_beam_set(const int32_t *in, unsigned n)
 +{
 +	if (!in || n != P6_BEAM_WORDS) return false;
-+	vpos = in[0]; vpos_prev = in[1]; agnus_hpos = uae_u8(in[2]); agnus_hpos_prev = in[3]; agnus_hpos_next = in[4]; agnus_vpos_next = in[5];
-+	agnus_pos_change = in[6]; hhpos = uae_u16(in[7]);
-+	linear_vpos = in[8]; linear_hpos = in[9];
-+	for (int i = 0; i < 3; ++i) {
-+		linear_vpos_prev[i] = in[10 + i];
-+		linear_hpos_prev[i] = in[13 + i];
-+		prevlofs[i] = in[28 + i] != 0;
-+	}
-+	linear_vpos_vsync = in[16]; linear_display_vpos = in[17]; linear_vpos_visible = in[18]; current_linear_vpos_visible = in[19];
-+	display_hsync_counter = in[20]; display_vsync_counter = in[21]; maxvpos_display_vsync_next = in[22] != 0; linetoggle = in[23] != 0; lof_display = in[24] != 0;
-+	lof_detect = in[25] != 0; lof_pdetect = in[26] != 0; lof_detect_vsync = in[27] != 0;
-+	display_last_hsync = evt_t(uint64_t(uint32_t(in[31])) | uint64_t(uint32_t(in[32])) << 32);
-+	display_last_vsync = evt_t(uint64_t(uint32_t(in[33])) | uint64_t(uint32_t(in[34])) << 32);
-+	agnus_vb = in[35]; agnus_pvb = in[36]; prev_strobe = uae_u16(in[37]); dmal_shifter = uae_u32(in[38]); dmal = uae_u16(in[39]); dmal_next = in[40] != 0;
++	unsigned w = 0;
++	const auto next = [&]() { return in[w++]; };
++	const auto next_u64 = [&]() {
++		const uint64_t low = uint32_t(next());
++		return low | uint64_t(uint32_t(next())) << 32;
++	};
++	const auto next_event = [&]() { return evt_t(next_u64()); };
++	const evt_t cck_origin = get_cck_cycles();
++	const auto next_cck = [&]() {
++		const uint64_t encoded = next_u64();
++		if (!encoded) return evt_t(0);
++		const uint64_t zigzag = encoded - 1;
++		const int64_t delta = (zigzag & 1) ? -int64_t((zigzag + 1) / 2) : int64_t(zigzag / 2);
++		return cck_origin + delta;
++	};
++	vpos = next(); vpos_prev = next(); agnus_hpos = uae_u8(next()); agnus_hpos_prev = next(); agnus_hpos_next = next(); agnus_vpos_next = next();
++	agnus_pos_change = next(); hhpos = uae_u16(next()); linear_vpos = next(); linear_hpos = next();
++	for (int i = 0; i < 3; ++i) linear_vpos_prev[i] = next();
++	for (int i = 0; i < 3; ++i) linear_hpos_prev[i] = next();
++	linear_vpos_vb_start = next(); linear_vpos_vb_end = next(); linear_vb_offset = next(); linear_vpos_start = next(); linear_vpos_start_prev = next();
++	current_linear_vpos = next(); current_linear_hpos = next(); current_linear_hblen = next(); current_linear_hblen_temp = next();
++	current_linear_vpos_nom = next(); current_linear_hpos_short = next(); linear_vpos_vblank_end = next(); linear_vpos_vblank_start = next();
++	linear_vpos_vblank_vsync = next(); linear_vpos_vblank_lines_cnt = next(); linear_vpos_vblank_lines = next();
++	vb_start_detect = next() != 0; vb_end_detect = next() != 0; vb_detect_cnt = next(); current_linear_vblank_lines = next();
++	current_linear_vpos_vb_start = next(); current_linear_vpos_vb_end = next(); current_linear_vpos_vb_vsync = next();
++	current_linear_vpos_temp = next(); current_linear_hpos_temp = next(); current_linear_temp_change = next(); linear_vpos_values_changed = next();
++	display_hstart_cyclewait_start = next(); display_hstart_cyclewait_cnt = next(); display_hstart_cyclewait_end = next();
++	display_hstart_cyclewait_skip_start = next(); display_hstart_cyclewait_skip_end = next(); display_vblankstart_skip = next(); display_vblankend_skip = next();
++	display_hstart_cyclewait_started = next() != 0; linear_vpos_changes = next(); nextline_how = nln_how(next());
++	display_hsync_counter = next(); display_vsync_counter = next(); maxvpos_display_vsync_next = next() != 0; linetoggle = next() != 0; lof_display = next() != 0;
++	lof_detect = next() != 0; lof_pdetect = next() != 0; lof_detect_vsync = next() != 0;
++	for (int i = 0; i < 3; ++i) prevlofs[i] = next() != 0;
++	last_hsync_evt = next_event(); last_vsync_evt = next_event();
++	agnus_vb = next(); agnus_pvb = next(); prev_strobe = uae_u16(next());
++	agnus_dmal_shifter = uae_u32(next()); paula_dmal_shifter = uae_u32(next()); paula_dmal_shifter_fast = uae_u32(next());
++	agnus_dmal_sprite_enable = next(); agnus_dmal_sprite_enable2 = next(); agnus_dmal_alloc = next() != 0; dmal_next = next() != 0;
++	agnus_even_prev = next() != 0; vb_fast = next() != 0; vb_fast_prev = next() != 0; agnus_trigger_cck = next_cck();
++	init_beamcon_delay = next(); agnus_afterreset = next(); display_redraw = next() != 0; ciahsyncs = next() != 0; ciavsyncs = next() != 0;
 +	bool *const latches[] = {
 +		&agnus_phsync, &agnus_phblank, &agnus_pvsync, &agnus_pcsync, &agnus_csync, &agnus_vb_active, &agnus_vb_start_line, &agnus_pvb_start_line,
 +		&agnus_vb_active_start_line, &agnus_vb_end_line, &agnus_pvb_end_line, &agnus_vb_active_end_line, &agnus_equzone, &agnus_hsync, &agnus_vsync, &agnus_ve,
 +		&agnus_p_ve, &agnus_bsvb, &agnus_bsvb_prev, &agnus_equdis
 +	};
-+	for (unsigned i = 0; i < sizeof latches / sizeof latches[0]; ++i) *latches[i] = in[41 + i] != 0;
++	for (auto *latch : latches) *latch = next() != 0;
++	agnus_phblank_start_tmp = next_cck(); agnus_phblank_start = next_cck(); agnus_phblank_end = next_cck();
++	agnus_hsync_start = next_cck(); agnus_vsync_start = next_cck(); hsync_ccks = next(); current_linear_hs_hb_dist = next();
++	agnus_hsstrt_cck = next_cck(); agnus_hsstop_cck = next_cck();
++	agnus_hslen_cck = next(); agnus_hslen_cck_prev = next(); agnus_hslen_cck_cnt = next(); current_agnus_hslen_cck = next();
++	agnus_phsstrt_cck = next_cck(); agnus_phsstop_cck = next_cck(); agnus_pchsstrt_cck = next_cck(); agnus_pchsstop_cck = next_cck();
++	vsync_lines = next(); vsync_linecnt = next(); vsync_active_count = next(); vsyncp_active_count = next(); hsync_change_count = next();
++	hblen_display_tmp = next(); hblen_cnt = next(); plffirstline = next(); plflastline = next(); need_vdiw_check = next() != 0; interlace_seen = next();
++	programmed_register_accessed_h = next() != 0; programmed_register_accessed_v = next() != 0;
++	nosignal_cnt = next(); nosignal_status = next(); nosignal_trigger = next() != 0; lines_after_beamcon_change = next(); syncs_stopped = next() != 0;
++	for (int i = 0; i < RGA_SLOT_TOTAL + 1; ++i) rga_pipe[i].bltadd = uae_s16(next());
++	for (int i = 0; i < RGA_SLOT_TOTAL + 1; ++i) rga_pipe[i].conflict2 = getptfromreg(next());
++	bprun = next(); bprun_cycle = next(); ddf_stopping = next(); ddf_enable_on = next();
++	ddf_limit_in = next() != 0; ddf_limit = next() != 0; ddfstrt_match = next() != 0; hwi_old = next() != 0; ddfstrt_val = uae_u16(next());
++	config_changed = next(); config_changed_flags = next();
++	memset(pfunc, 0, sizeof pfunc);
++	pfunc_active_count = 0;
 +	setmaxhpos();
-+	return true;
++	return w == P6_BEAM_WORDS;
 +}
  #endif

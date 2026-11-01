@@ -44,9 +44,7 @@
 #if defined(ENFORCER)
 #include "enforcer.h"
 #endif
-#ifndef P6_PORTABLE
 #include "threaddep/thread.h"
-#endif
 #ifdef WITH_LUA
 #include "luascript.h"
 #endif
@@ -191,17 +189,13 @@ static void uae_abort (const TCHAR *format,...)
 	TCHAR buffer[1000];
 
 	va_start (parms, format);
-#ifdef P6_PORTABLE
-	vsnprintf(buffer, sizeof(buffer), format, parms);
-#else
 	_vsntprintf (buffer, sizeof (buffer) / sizeof(TCHAR) - 1, format, parms );
-#endif
 	va_end (parms);
 	if (nomore) {
 		write_log (_T("%s\n"), buffer);
 		return;
 	}
-	gui_message (_T("%s"), buffer);
+	gui_message (buffer);
 	nomore = 1;
 }
 
@@ -868,7 +862,6 @@ uae_u32 get_copper_address(int copno)
 
 void reset_frame_rate_hack(void)
 {
-#ifndef P6_PORTABLE
 	if (currprefs.m68k_speed >= 0) {
 		return;
 	}
@@ -877,7 +870,6 @@ void reset_frame_rate_hack(void)
 	events_reset_syncline();
 	vsyncmintime = read_processor_time() + vsynctimebase;
 	write_log(_T("Resetting frame rate hack\n"));
-#endif
 }
 
 static void setclr(uae_u16 *p, uae_u16 val)
@@ -1227,17 +1219,13 @@ static void set_chipset_mode(bool imm)
 
 static void update_mirrors(void)
 {
-	bool aga_mode_new = false;
-#ifdef AGA
-	aga_mode_new = (currprefs.chipset_mask & CSMASK_AGA) != 0;
+	bool aga_mode_new = (currprefs.chipset_mask & CSMASK_AGA) != 0;
 	if (aga_mode_new && !aga_mode) {
 		memcpy(denise_colors.color_regs_aga, saved_color_regs_aga, sizeof(saved_color_regs_aga));
 		memcpy(agnus_colors.color_regs_aga, saved_color_regs_aga, sizeof(saved_color_regs_aga));
 	} else if (!aga_mode_new && aga_mode) {
 		memcpy(saved_color_regs_aga, agnus_colors.color_regs_aga, sizeof(saved_color_regs_aga));
 	}
-
-#endif
 	aga_mode = aga_mode_new;
 	ecs_agnus = (currprefs.chipset_mask & CSMASK_ECS_AGNUS) != 0;
 	ecs_denise = (currprefs.chipset_mask & CSMASK_ECS_DENISE) != 0;
@@ -1257,13 +1245,11 @@ static void update_mirrors(void)
 	} else {
 		sprite_sprctlmask = 0x01;
 	}
-#ifdef AGA
 	if (aga_mode) {
 		for (int i = 0; i < 256; i++) {
 			agnus_colors.acolors[i] = denise_colors.acolors[i] = getxcolor(denise_colors.color_regs_aga[i]);
 		}
 	}
-#endif
 	ddf_mask = ecs_agnus ? 0xfe : 0xfc;
 	create_cycle_diagram_table();
 	set_chipset_mode(true);
@@ -1385,20 +1371,8 @@ frame_time_t vsynctimebase_orig;
 
 void compute_vsynctime(void)
 {
-	float shpos = current_linear_hpos_short + 0.0f;
-	if (linetoggle) {
-		shpos += 0.5f;
-	}
-	float svpos;
-	if (interlace_seen) {
-		svpos = current_linear_vpos_nom + 0.5f;
-	} else {
-		svpos = current_linear_vpos + 0.0f;
-	}
 	float syncadjust = 1.0;
 
-	// Host refresh negotiation and pacing never advance P6 hardware.
-#ifndef P6_PORTABLE
 	fake_vblank_hz = 0;
 	vblank_hz_mult = 0;
 	vblank_hz_state = 1;
@@ -1430,6 +1404,17 @@ void compute_vsynctime(void)
 	}
 	vsynctimebase_orig = vsynctimebase;
 
+	float shpos = current_linear_hpos_short + 0.0f;
+	if (linetoggle) {
+		shpos += 0.5f;
+	}
+	float svpos;
+	if (interlace_seen) {
+		svpos = current_linear_vpos_nom + 0.5f;
+	} else {
+		svpos = current_linear_vpos + 0.0f;
+	}
+
 	cputimebase = 0;
 	if (svpos > 0 && shpos > 0) {
 		cputimebase = syncbase / ((uae_u32)(svpos * shpos));
@@ -1437,14 +1422,10 @@ void compute_vsynctime(void)
 	if (cputimebase == 0) {
 		cputimebase = 1;
 	}
-#endif
+
 	if (currprefs.produce_sound > 1) {
-#ifdef P6_PORTABLE
-		float clk = currprefs.ntscmode ? CHIPSET_CLOCK_NTSC : CHIPSET_CLOCK_PAL;
-#else
 		float clk = svpos * shpos * fake_vblank_hz;
 		write_log(_T("SNDRATE %.1f*%.1f*%.6f=%.6f\n"), svpos, shpos, fake_vblank_hz, clk);
-#endif
 		devices_update_sound(clk, syncadjust);
 	}
 	devices_update_sync(svpos, syncadjust);
@@ -1792,7 +1773,7 @@ void compute_framesync(void)
 	struct amigadisplay *ad = &adisplays[0];
 	int isntsc = (beamcon0 & BEAMCON0_PAL) ? 0 : 1;
 	int islace = interlace_seen ? 1 : 0;
-	struct chipset_refresh *cr = nullptr;
+	bool found = false;
 
 	if (islace) {
 		vblank_hz = vblank_hz_lace;
@@ -1806,12 +1787,9 @@ void compute_framesync(void)
 	set_drawbuffer();
 	struct vidbuffer *vb = vidinfo->inbuffer;
 
-#ifndef P6_PORTABLE
-	// Preserve the emulated field rate above; monitor modes are frontend policy.
-	bool found = false;
 	vblank_hz = target_adjust_vblank_hz(0, vblank_hz);
 
-	cr = get_chipset_refresh(&currprefs);
+	struct chipset_refresh *cr = get_chipset_refresh(&currprefs);
 	while (cr) {
 		float v = -1;
 		if (!ad->picasso_on && !ad->picasso_requested_on) {
@@ -1873,7 +1851,6 @@ void compute_framesync(void)
 		changed_prefs.chipset_refreshrate = currprefs.chipset_refreshrate = vblank_hz;
 	}
 	stored_chipset_refresh = cr;
-#endif
 	vb->inxoffset = -1;
 	vb->inyoffset = -1;
 
@@ -3284,7 +3261,6 @@ void rethink_uae_int(void)
 		}
 	}
 
-#ifdef BSDSOCKET
 	{
 		extern void bsdsock_fake_int_handler(void);
 		extern int volatile bsd_int_requested;
@@ -3292,7 +3268,6 @@ void rethink_uae_int(void)
 			bsdsock_fake_int_handler();
 		}
 	}
-#endif
 	if (irq6) {
 		safe_interrupt_set(IRQ_SOURCE_UAE, 0, true);
 	}
@@ -4208,11 +4183,8 @@ static uae_u16 COLOR_READ(int num)
 	return cval;
 }
 
-#endif
-
 static void COLOR_WRITE(uae_u16 v, int num)
 {
-#ifdef AGA
 	if (aga_mode) {
 		if (bplcon2 & 0x0100) {
 			return; // RDRAM=1
@@ -4241,9 +4213,7 @@ static void COLOR_WRITE(uae_u16 v, int num)
 		agnus_colors.color_regs_aga[colreg] = cval;
 		agnus_colors.acolors[colreg] = getxcolor(cval);
 
-	} else
-#endif
-	{
+	} else {
 
 		if (!ecs_denise) {
 			v &= 0xfff;
@@ -4251,14 +4221,14 @@ static void COLOR_WRITE(uae_u16 v, int num)
 		agnus_colors.color_regs_ecs[num] = v & 0xfff;
 		agnus_colors.color_regs_genlock[num] = v >> 15;
 		agnus_colors.acolors[num] = getxcolor(v);
-#ifdef AGA
 		agnus_colors.color_regs_aga[num] = agnus_colors.acolors[num];
-#endif
 
 	}
 
 	color_table_changed = true;
 }
+
+#endif
 
 bool get_custom_color_reg(int colreg, uae_u8 *r, uae_u8 *g, uae_u8 *b)
 {
@@ -4270,14 +4240,11 @@ bool get_custom_color_reg(int colreg, uae_u8 *r, uae_u8 *g, uae_u8 *b)
 	if (colreg >= 256) {
 		return false;
 	}
-#ifdef AGA
 	if (aga_mode) {
 		*r = (agnus_colors.color_regs_aga[colreg] >> 16) & 0xFF;
 		*g = (agnus_colors.color_regs_aga[colreg] >> 8) & 0xFF;
 		*b = agnus_colors.color_regs_aga[colreg] & 0xFF;
-	} else
-#endif
-	{
+	} else {
 		*r = (agnus_colors.color_regs_ecs[colreg] >> 8) & 15;
 		*r |= (*r) << 4;
 		*g = (agnus_colors.color_regs_ecs[colreg] >> 4) & 15;
@@ -4519,15 +4486,12 @@ static void cursorsprite(struct sprite *s)
 	if (spr[0].dblscan && (fmode & 0x8000)) {
 		sprite_0_height /= 2;
 	}
-#ifdef AGA
 	if (aga_mode) {
 		int sbasecol = ((bplcon4 >> 4) & 15) << 4;
 		sprite_0_colors[1] = agnus_colors.color_regs_aga[sbasecol + 1] & 0xffffff;
 		sprite_0_colors[2] = agnus_colors.color_regs_aga[sbasecol + 2] & 0xffffff;
 		sprite_0_colors[3] = agnus_colors.color_regs_aga[sbasecol + 3] & 0xffffff;
-	} else
-#endif
-	{
+	} else {
 		sprite_0_colors[1] = xcolors[agnus_colors.color_regs_ecs[17] & 0xfff];
 		sprite_0_colors[2] = xcolors[agnus_colors.color_regs_ecs[18] & 0xfff];
 		sprite_0_colors[3] = xcolors[agnus_colors.color_regs_ecs[19] & 0xfff];
@@ -4595,7 +4559,6 @@ static int calculate_linetype(int vp)
 	return lineno;
 }
 
-#ifndef P6_PORTABLE
 static frame_time_t rpt_vsync(int adjust)
 {
 	frame_time_t curr_time = read_processor_time();
@@ -4606,7 +4569,6 @@ static frame_time_t rpt_vsync(int adjust)
 	}
 	return v;
 }
-#endif
 
 static void rtg_vsync (void)
 {
@@ -4630,7 +4592,6 @@ static void rtg_vsynccheck(void)
 }
 
 
-#ifndef P6_PORTABLE
 static void maybe_process_pull_audio(void)
 {
 	audio_finish_pull();
@@ -4650,8 +4611,6 @@ static bool crender_screen(int monid, int mode, bool immediate)
 	}
 	return v;
 }
-
-#endif
 
 // moving average algorithm
 #define MAVG_MAX_SIZE 128
@@ -4688,7 +4647,6 @@ static frame_time_t mavg(struct mavg_data *md, frame_time_t newval, int size)
 }
 
 #define MAVG_VSYNC_SIZE 128
-#ifndef P6_PORTABLE
 int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
 static bool framewait(void)
 {
@@ -4894,7 +4852,6 @@ static bool framewait(void)
 	}
 	return status != 0;
 }
-#endif
 
 static void reset_cpu_idle(void)
 {
@@ -4913,13 +4870,10 @@ void fpscounter_reset(void)
 	mavg_clear(&fps_mavg);
 	mavg_clear(&idle_mavg);
 	bogusframe = 2;
-#ifndef P6_PORTABLE
 	lastframetime = read_processor_time();
-#endif
 	idletime = 0;
 }
 
-#ifndef P6_PORTABLE
 static void fpscounter(bool frameok)
 {
 	frame_time_t now, last;
@@ -4968,7 +4922,6 @@ static void fpscounter(bool frameok)
 		}
 	}
 }
-#endif
 
 // vsync functions that are not hardware timing related
 // called when vsync starts which is not necessarily last line
@@ -5019,30 +4972,15 @@ static void vsync_handler_render(void)
 #endif
 
 	if (!vsync_rendered) {
-#ifdef P6_PORTABLE
-		// Always finish the buffer: host low-latency VSync cannot select drawing.
-		vsync_handle_redraw(lof_store, bplcon0, bplcon3, true, initial_frame);
-#else
 		frame_time_t start, end;
 		start = read_processor_time();
 		vsync_handle_redraw(lof_store, bplcon0, bplcon3, isvsync_chipset() >= 0, initial_frame);
-#endif
 		initial_frame = false;
 		vsync_rendered = true;
-#ifndef P6_PORTABLE
 		end = read_processor_time();
 		frameskiptime += end - start;
-#endif
 	}
 
-#ifdef P6_PORTABLE
-	// Denise has completed buffer work; retire one clear request per complete
-	// display frame, with the same interlace cadence as crender_screen.
-	if (display_reset > 0 && !(currprefs.gfx_vresolution && interlace_seen > 0
-		&& currprefs.gfx_iscanlines == 0 && !lof_display)) {
-		display_reset--;
-	}
-#else
 	bool frameok = framewait();
 	
 	if (!ad->picasso_on) {
@@ -5074,18 +5012,13 @@ static void vsync_handler_render(void)
 		config_check_vsync();
 	}
 
-#endif
-
 	vsync_rendered = false;
 	frame_shown = false;
 	frame_rendered = false;
 
-#ifndef P6_PORTABLE
 	if (vblank_hz_mult > 0) {
 		vblank_hz_state ^= 1;
-	} else
-#endif
-	{
+	} else {
 		vblank_hz_state = 1;
 	}
 
@@ -5097,9 +5030,7 @@ static bool vsync_display_rendered;
 static void vsync_display_render(void)
 {
 	if (!vsync_display_rendered) {
-#ifndef P6_PORTABLE
 		vsyncmintimepre = read_processor_time();
-#endif
 
 		if (!custom_disabled) {
 			draw_denise_vsync_queue(display_redraw);
@@ -5113,9 +5044,6 @@ static void vsync_display_render(void)
 			start_draw_denise();
 		}
 		vsync_display_rendered = true;
-#ifdef P6_PORTABLE
-		set_special(SPCFLAG_UNIT_END); // once per rendered field, also without sync or before the first frame
-#endif
 	}
 }
 
@@ -5446,12 +5374,10 @@ static void virtual_vsync_check(void)
 static void vsync_handler_post(void)
 {
 	int monid = 0;
-#ifndef P6_PORTABLE
 	static frame_time_t prevtime;
 
 	//write_log (_T("%d %d %d\n"), vsynctimebase, read_processor_time () - vsyncmintime, read_processor_time () - prevtime);
 	prevtime = read_processor_time();
-#endif
 
 	check_nocustom();
 
@@ -5601,7 +5527,6 @@ static void lightpen_trigger_func(uae_u32 v)
 	lightpen_triggered = 1;
 }
 
-#ifndef P6_PORTABLE
 static bool do_render_slice(int mode, int slicecnt, int lastline)
 {
 	draw_denise_line_queue_flush();
@@ -5615,8 +5540,6 @@ static bool do_display_slice(void)
 	inputdevice_hsync(true);
 	return true;
 }
-
-#endif
 
 static void reset_autoscale(void)
 {
@@ -5722,7 +5645,6 @@ static void hsync_handler_pre(bool onvsync)
 #endif
 }
 
-#ifndef P6_PORTABLE
 // low latency vsync
 
 #define LLV_DEBUG 0
@@ -6385,14 +6307,9 @@ static bool linesync_beam_vrr(void)
 	return input_read_done;
 }
 
-#endif
-
 // called when extra CPU wait is done
 void vsync_event_done(void)
 {
-#ifdef P6_PORTABLE
-	events_reset_syncline();
-#else
 	if (!isvsync_chipset()) {
 		events_reset_syncline();
 		return;
@@ -6412,7 +6329,6 @@ void vsync_event_done(void)
 			linesync_beam_multi_single();
 	}
 #endif
-#endif
 }
 
 static void cia_hsync_do(void)
@@ -6425,7 +6341,6 @@ static void cia_hsync_do(void)
 
 	CIA_hsync_posthandler(false, false);
 
-#ifdef CD32
 	if (currprefs.cs_cd32cd) {
 
 		if (cia_hsync < maxhpos) {
@@ -6435,9 +6350,7 @@ static void cia_hsync_do(void)
 			cia_hsync -= maxhpos;
 		}
 
-	} else
-#endif
-	if (currprefs.cs_ciaatod > 0) {
+	} else if (currprefs.cs_ciaatod > 0) {
 		if (cia_hsync < maxhpos) {
 			int newcount;
 			CIAA_tod_handler(cia_hsync);
@@ -6480,8 +6393,6 @@ static void hsync_handler_post(bool onvsync)
 
 	bool input_read_done = false;
 
-#ifndef P6_PORTABLE
-	// Host pacing is frontend policy; hardware line work stays outside this block.
 	if (currprefs.cpu_thread) {
 
 		maybe_process_pull_audio();
@@ -6605,8 +6516,6 @@ static void hsync_handler_post(bool onvsync)
 			}
 		}
 	}
-
-#endif
 
 	if (!input_read_done) {
 		inputdevice_hsync(false);
@@ -6808,10 +6717,7 @@ void custom_reset(bool hardreset, bool keyboardreset)
 		initial_frame = true;
 	}
 
-#ifndef P6_PORTABLE
-	// Host clipboard sharing reset; the A500 profile has no clipboard bridge.
 	target_reset();
-#endif
 	devices_reset(hardreset);
 	write_log(_T("Reset at %08X. Chipset mask = %08X\n"), M68K_GETPC, currprefs.chipset_mask);
 #ifdef DEBUGGER
@@ -6980,10 +6886,8 @@ void custom_reset(bool hardreset, bool keyboardreset)
 					c |= uaerand();
 				}
 				c &= 0xffffff;
-#ifdef AGA
 				denise_colors.color_regs_aga[i] = c;
 				agnus_colors.color_regs_aga[i] = c;
-#endif
 			}
 			if (!aga_mode) {
 				for (int i = 0; i < 32; i++) {
@@ -7192,12 +7096,6 @@ void custom_reset(bool hardreset, bool keyboardreset)
 	// must be last
 #ifdef AUTOCONFIG
 	expamem_reset(hardreset);
-#elif defined(P6_PORTABLE)
-	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
-	// T29a: and while a hard file is mounted
-	// T56: and while Gayle has its IDE port (a card of the chain that is not autoconfig: it resets the drives and registers the hooks of the chip)
-	if (currprefs.fastmem[0].size || currprefs.mountitems || currprefs.cs_ide)
-		expamem_reset(hardreset);
 #endif
 }
 
@@ -7907,9 +7805,8 @@ static void REGPARAM2 custom_lput(uaecptr addr, uae_u32 value)
 	custom_wput((addr + 2) & 0xfffe, (uae_u16)value);
 }
 
-#if defined SAVESTATE || defined P6_STATE_BODIES
-
 #ifdef SAVESTATE
+
 void custom_prepare_savestate(void)
 {
 	if (!currprefs.cpu_cycle_exact) {
@@ -7921,7 +7818,6 @@ void custom_prepare_savestate(void)
 		}
 	}
 }
-#endif /* SAVESTATE */
 
 void restore_custom_finish(void)
 {
@@ -7954,18 +7850,11 @@ uae_u8 *restore_custom(uae_u8 *src)
 	int dskpt;
 	int i;
 
-#ifdef P6_PORTABLE
-	/* Applied on a live machine (bridge/state_upstream.cpp), not on one that custom_reset has just cleared: no audio_reset (it drops Paula's
-	 * channels, the filter and the pending PCM), and no write into the preferences. The chipset and the video standard are part of the identity of
-	 * the state; the bridge refuses a body that names others before it gets here. */
-	custom_state_flags = RL;
-#else
 	audio_reset();
 
 	custom_state_flags = RL;
 	changed_prefs.chipset_mask = currprefs.chipset_mask = custom_state_flags & CSMASK_MASK;
 	update_mirrors();
-#endif
 	blt_info.bltddat = RW;	/* 000 BLTDDAT */
 	RW;						/* 002 DMACONR */
 	RW;						/* 004 VPOSR */
@@ -8044,9 +7933,7 @@ uae_u8 *restore_custom(uae_u8 *src)
 	intreq = RW;			/* 09C INTREQ */
 	adkcon = RW;			/* 09E ADKCON */
 	for (i = 0; i < 8; i++) {
-		uae_u32 pt = RL;
-		if (i < MAX_PLANES)
-			bplpt[i] = pt;
+		bplpt[i] = RL;
 	}
 	bplcon0 = RW;			/* 100 BPLCON0 */
 	bplcon1 = RW;			/* 102 BPLCON1 */
@@ -8064,10 +7951,8 @@ uae_u8 *restore_custom(uae_u8 *src)
 		uae_u16 v = RW;
 		agnus_colors.color_regs_genlock[i] = denise_colors.color_regs_genlock[i] = (v & 0x8000) != 0;
 		agnus_colors.color_regs_ecs[i] = denise_colors.color_regs_ecs[i] = v & 0xfff; /* 180 COLORxx */
-#ifdef AGA
 		agnus_colors.color_regs_aga[i] = denise_colors.color_regs_aga[i] = getxcolor(v);
 		saved_color_regs_aga[i] = getxcolor(v);
-#endif
 	}
 	htotal = RW;			/* 1C0 HTOTAL */
 	hsstop = RW;			/* 1C2 HSTOP ? */
@@ -8103,11 +7988,9 @@ uae_u8 *restore_custom(uae_u8 *src)
 	RW;						/* 1F6 ? */
 	RW;						/* 1F8 ? */
 	i = RW;					/* 1FA ? */
-#ifndef P6_PORTABLE
 	if (i & 0x8000) {
 		currprefs.ntscmode = changed_prefs.ntscmode = i & 1;
 	}
-#endif
 	fmode = RW;				/* 1FC FMODE */
 	last_custom_value = RW; /* 1FE ? */
 	refptr = RL;			/* full refresh pointer */
@@ -8169,17 +8052,14 @@ uae_u8 *restore_custom(uae_u8 *src)
 	lof_display = lof_detect = lof_store;
 
 	DISK_restore_custom(dskpt, dsklen, dskbytr);
-#ifndef P6_PORTABLE
-	/* blitter_reset would clear the machine the BLTX body is about to describe: the blitter's own body restores what it keeps. */
 	restore_blitter_start();
-#endif
 
 	return src;
 }
 
-#endif /* SAVESTATE || P6_STATE_BODIES */
+#endif /* SAVESTATE */
 
-#if defined SAVESTATE || defined DEBUGGER || defined P6_STATE_BODIES
+#if defined SAVESTATE || defined DEBUGGER
 
 #define SB save_u8
 #define SW save_u16
@@ -8204,12 +8084,7 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
 
 	SL(currprefs.chipset_mask | 0x100);
 	SW(blt_info.bltddat);	/* 000 BLTDDAT */
-#ifdef P6_PORTABLE
-	/* DMACONR() stores the derived bits 14 (busy) and 13 (zero) into the live dmacon: a save must not change the machine. */
-	SW((dmacon & ~(0x4000 | 0x2000)) | (blit_busy(true) ? 0x4000 : 0) | (blt_info.blitzero ? 0x2000 : 0)); /* 002 DMACONR */
-#else
 	SW(DMACONR());			/* 002 DMACONR */
-#endif
 	SW(VPOSR());			/* 004 VPOSR */
 	SW(VHPOSR());			/* 006 VHPOSR */
 	SW(0);					/* 008 DSKDATR */
@@ -8294,7 +8169,7 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
 	for (i = 0; full && i < 32; i++)
 		SW(0);
 	for (i = 0; i < 8; i++)
-		SL(i < MAX_PLANES ? bplpt[i] : 0);		/* 0E0-0FE BPLxPT */
+		SL(bplpt[i]);		/* 0E0-0FE BPLxPT */
 	SW(bplcon0);			/* 100 BPLCON0 */
 	SW(bplcon1);			/* 102 BPLCON1 */
 	SW(bplcon2);			/* 104 BPLCON2 */
@@ -8320,7 +8195,6 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
 	}
 	for (i = 0; i < 32; i++) {
 		if (aga_mode) {
-#ifdef AGA
 			uae_u32 v = agnus_colors.color_regs_aga[i];
 			uae_u16 v2;
 			v &= 0x00f0f0f0;
@@ -8328,7 +8202,6 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
 			v2 |= ((v >> 12) & 15) << 4;
 			v2 |= ((v >> 20) & 15) << 8;
 			SW(v2);
-#endif
 		} else {
 			uae_u16 v = agnus_colors.color_regs_ecs[i];
 			if (agnus_colors.color_regs_genlock[i])
@@ -8374,9 +8247,9 @@ uae_u8 *save_custom(size_t *len, uae_u8 *dstptr, int full)
 	return dstbak;
 }
 
-#endif /* SAVESTATE || DEBUGGER || P6_STATE_BODIES */
+#endif /* SAVESTATE || DEBUGGER */
 
-#if defined SAVESTATE || defined P6_STATE_BODIES
+#ifdef SAVESTATE
 
 uae_u8 *restore_custom_agacolors(uae_u8 *src)
 {
@@ -8459,8 +8332,6 @@ uae_u8 *save_custom_sprite(int num, size_t *len, uae_u8 *dstptr)
 	*len = dst - dstbak;
 	return dstbak;
 }
-
-#ifdef SAVESTATE
 
 uae_u8 *restore_custom_extra(uae_u8 *src)
 {
@@ -8608,30 +8479,8 @@ uae_u8 *save_custom_extra(size_t *len, uae_u8 *dstptr)
 	return dstbak;
 }
 
-#endif /* SAVESTATE */
-
-#ifdef P6_PORTABLE
-/* An RGA slot also points at the refresh pointer, at the pointer of an audio channel and at the disk pointer, none of which has a register of its own: restoring
- * a slot that held one with a null pointer crashes handle_rga_out. The native state names them with codes above the register file. */
-extern uaecptr *p6_audio_pt(int nr);
-extern uaecptr *p6_disk_pt(void);
-#define P6_RGA_PT_REFRESH 0x200
-#define P6_RGA_PT_AUDIO0 0x201
-#define P6_RGA_PT_DISK 0x205
-#endif
-
 static int getregfrompt(uaecptr *pt)
 {
-#ifdef P6_PORTABLE
-	if (pt == &refptr)
-		return P6_RGA_PT_REFRESH;
-	for (int i = 0; i < 4; i++) {
-		if (pt == p6_audio_pt(i))
-			return P6_RGA_PT_AUDIO0 + i;
-	}
-	if (pt == p6_disk_pt())
-		return P6_RGA_PT_DISK;
-#endif
 	if (pt == &blt_info.bltdpt)
 		return 0x000;
 	if (pt == &blt_info.bltcpt)
@@ -8652,12 +8501,10 @@ static int getregfrompt(uaecptr *pt)
 		return 0x118;
 	if (pt == &bplpt[5])
 		return 0x11a;
-#if MAX_PLANES > 6
 	if (pt == &bplpt[6])
 		return 0x11c;
 	if (pt == &bplpt[7])
 		return 0x11e;
-#endif
 	if (pt == &spr[0].pt)
 		return 0x140;
 	if (pt == &spr[1].pt)
@@ -8682,17 +8529,6 @@ static uaecptr *getptfromreg(int reg)
 {
 	switch (reg)
 	{
-#ifdef P6_PORTABLE
-	case P6_RGA_PT_REFRESH:
-		return &refptr;
-	case P6_RGA_PT_AUDIO0:
-	case P6_RGA_PT_AUDIO0 + 1:
-	case P6_RGA_PT_AUDIO0 + 2:
-	case P6_RGA_PT_AUDIO0 + 3:
-		return p6_audio_pt(reg - P6_RGA_PT_AUDIO0);
-	case P6_RGA_PT_DISK:
-		return p6_disk_pt();
-#endif
 	case -1:
 	case 0xffff:
 		return NULL;
@@ -8716,12 +8552,10 @@ static uaecptr *getptfromreg(int reg)
 		return &bplpt[4];
 	case 0x11a:
 		return &bplpt[5];
-#if MAX_PLANES > 6
 	case 0x11c:
 		return &bplpt[6];
 	case 0x11e:
 		return &bplpt[7];
-#endif
 	case 0x140:
 		return &spr[0].pt;
 	case 0x142:
@@ -8770,9 +8604,9 @@ uae_u8 *save_custom_slots(size_t *len, uae_u8 *dstptr)
 		save_u16(0);//save_u16(cycle_line_slot[i]);
 	}
 
-	// RGA pipeline: serialize all four physical slots in logical pipeline
-	// order. Restore canonicalizes the ring to a zero first-slot offset.
-	for (int i = 0; i < RGA_SLOT_TOTAL + 1; i++) {
+	// RGA pipeline: save the real slots in pipeline order, without the
+	// rotating extra entry, so they restore with a zero slot offset.
+	for (int i = 0; i < RGA_SLOT_TOTAL; i++) {
 		struct rgabuf *r = &rga_pipe[(i + rga_slot_first_offset) & 3];
 		int regidx;
 		save_u32(r->type);
@@ -8828,7 +8662,7 @@ uae_u8 *restore_custom_slots(uae_u8 *src)
 
 	// RGA pipeline
 	if (v & 8) {
-		for (int i = 0; i < RGA_SLOT_TOTAL + 1; i++) {
+		for (int i = 0; i < RGA_SLOT_TOTAL; i++) {
 			struct rgabuf *r = &rga_pipe[i];
 			int regidx;
 			r->type = restore_u32();
@@ -8857,8 +8691,6 @@ uae_u8 *restore_custom_slots(uae_u8 *src)
 
 	return src;
 }
-
-#ifdef SAVESTATE
 
 uae_u8 *restore_custom_event_delay(uae_u8 *src)
 {
@@ -9016,8 +8848,6 @@ uae_u8 *restore_cycles(uae_u8 *src)
 }
 
 #endif /* SAVESTATE */
-
-#endif /* SAVESTATE || P6_STATE_BODIES */
 
 void check_prefs_changed_custom(void)
 {
@@ -9398,8 +9228,8 @@ static void process_copper(struct rgabuf *r)
 			if (debug_copper && cop_state.irload2) {
 				record_copper(cop_state.ip - 2, cop_state.ip, cop_state.ir[0], cop_state.ir[1], agnus_hpos, vpos);
 			}
-#endif
 		}
+#endif
 	}
 
 }
@@ -10802,7 +10632,7 @@ static bool draw_border_fast(int ldv)
 	}
 	start_draw_denise();
 	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
-	l->color0 = color_reg_get(&agnus_colors, 0);
+	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
 	l->brdblank = brdblank;
 	int dvp = calculate_linetype(ldv);
 	draw_denise_border_line_fast_queue(dvp, false, nextline_how, l);
@@ -10858,12 +10688,9 @@ static bool draw_line_fast(int ldv, uaecptr bplptp[8], bool addbpl)
 		uae_u8 *dpt = l->linecolorstate;
 		memcpy(dpt, agnus_colors.acolors, colors * sizeof(uae_u32));
 		dpt += 256 * sizeof(uae_u32);
-#ifdef AGA
 		if (aga_mode) {
 			memcpy(dpt, agnus_colors.color_regs_aga, colors * sizeof(uae_u32));
-		} else
-#endif
-		{
+		} else {
 			memcpy(dpt, agnus_colors.color_regs_ecs, colors * sizeof(uae_u16));
 		}
 		color_table_changed = false;
@@ -10871,7 +10698,7 @@ static bool draw_line_fast(int ldv, uaecptr bplptp[8], bool addbpl)
 		l->linecolorstate = color_tables + color_table_index * 512 * sizeof(uae_u32);
 	}
 
-	l->color0 = color_reg_get(&agnus_colors, 0);
+	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
 	l->bplcon1 = bplcon1 & bc1mask;
 	l->fetchmode_size = fetchmode_size;
 	l->fetchstart_mask = fetchstart_mask;
@@ -10935,7 +10762,7 @@ static void storelinestate(void)
 	l->diwstrt = diwstrt;
 	l->diwstop = diwstop;
 	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
-	l->color0 = color_reg_get(&agnus_colors, 0);
+	l->color0 = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
 	l->brdblank = brdblank;
 
 	l->bplcon3 = bplcon3;
@@ -10992,7 +10819,7 @@ static bool checkprevfieldlinestateequal(void)
 		} else if (type == LINETYPE_BORDER) {
 			if (1) {
 				bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
-				uae_u32 c = color_reg_get(&agnus_colors, 0);
+				uae_u32 c = aga_mode ? agnus_colors.color_regs_aga[0] : agnus_colors.color_regs_ecs[0];
 				if (!always && c == l->color0 && brdblank == l->brdblank) {
 					ret = true;
 				} else if (always || currprefs.cs_optimizations == DISPLAY_OPTIMIZATIONS_FULL) {
@@ -13062,16 +12889,15 @@ void do_cycles_ce(int cycles)
 	extra_cycle = cycles;
 }
 
-static int ce020_extra;		/* the sub-CCK remainder of the cycle-exact 68020 (it was a function-local static): p6_custom_ce020_extra_get/set */
-
 void do_cycles_ce020(int cycles)
 {
 #if 0
 	evt_t cc;
 #endif
+	static int extra;
 
-	cycles += ce020_extra;
-	ce020_extra = 0;
+	cycles += extra;
+	extra = 0;
 	if (!cycles) {
 		return;
 	}
@@ -13082,7 +12908,7 @@ void do_cycles_ce020(int cycles)
 		do_cck(true);
 		cycles -= CYCLE_UNIT;
 	}
-	ce020_extra += cycles;
+	extra += cycles;
 #if 0
 	if (cycles > 0) {
 		cc = get_cycles();
@@ -13096,12 +12922,7 @@ void do_cycles_ce020(int cycles)
 
 bool is_cycle_ce(uaecptr addr)
 {
-#ifdef P6_PORTABLE
-	// The debugger's memwatch layer is not built: the mapped bank is the real bank.
-	addrbank *ab = &get_mem_bank(addr);
-#else
 	addrbank *ab = get_mem_bank_real(addr);
-#endif
 	if (!ab || (ab->flags & ABFLAG_CHIPRAM) || ab == &custom_bank) {
 		struct rgabuf *r = read_rga_out();
 		if (r->alloc <= 0) {
@@ -13148,363 +12969,3 @@ void custom_end_drawing(void)
 	draw_denise_line_queue_flush();
 	end_draw_denise();
 }
-
-#ifdef P6_PORTABLE
-// Native state (bridge/state_cpu.cpp): the half-CCK remainder of the cycle-exact CPU, and the secondary events whose handlers are static
-// here, so that a state can name them by an id of its own instead of a pointer. which: 0 intreq, 1 intena, 2 fakehsync, 3 setup_fmodes_delayed (AGA).
-int p6_custom_extra_cycle_get(void)
-{
-	return extra_cycle;
-}
-
-void p6_custom_extra_cycle_set(int v)
-{
-	extra_cycle = v;
-}
-
-/* Native state (bridge/state_upstream.cpp, sub-body DRNG of P6VD, AGA machines): the cursors of the ring rga_denise (the slots are public, custom.h) through which Agnus hands Denise
- * the registers and the bitplane and sprite data of the line. The ring is not empty at a boundary when the program writes a Denise register all the time, and what a slot of it still
- * holds from the revolution before is read by the line being drawn (the writers leave the upper half of the data word, the pointer and the flags of a slot as they were), so the
- * state of Denise is the ring and where its cursors are: the write cursor, the first slot of the line, the line counter that tags the slots and the two slot counts of the line.
- * Values only. 0 cycle, 1 cycle_start, 2 cycle_line, 3 cycle_count_start, 4 cycle_count_end. */
-#define P6_DENISE_RING_CURSORS 5
-bool p6_denise_ring_cursors_get(int32_t *out, unsigned n)
-{
-	if (!out || n != P6_DENISE_RING_CURSORS)
-		return false;
-	out[0] = rga_denise_cycle;
-	out[1] = rga_denise_cycle_start;
-	out[2] = int32_t(rga_denise_cycle_line);
-	out[3] = rga_denise_cycle_count_start;
-	out[4] = rga_denise_cycle_count_end;
-	return true;
-}
-
-bool p6_denise_ring_cursors_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != P6_DENISE_RING_CURSORS || in[0] < 0 || in[0] >= DENISE_RGA_SLOT_TOTAL || in[1] < 0 || in[1] >= DENISE_RGA_SLOT_TOTAL)
-		return false;
-	rga_denise_cycle = in[0];
-	rga_denise_cycle_start = in[1];
-	rga_denise_cycle_line = uae_u32(in[2]);
-	rga_denise_cycle_count_start = in[3];
-	rga_denise_cycle_count_end = in[4];
-	return true;
-}
-
-/* The same for the 68020 cycle-exact core (patch 0108). */
-int p6_custom_ce020_extra_get(void)
-{
-	return ce020_extra;
-}
-
-void p6_custom_ce020_extra_set(int v)
-{
-	ce020_extra = v;
-}
-
-evfunc2 p6_custom_event2_handler(int which)
-{
-	switch (which) {
-	case 0:
-		return event_doint_delay_do_intreq;
-	case 1:
-		return event_doint_delay_do_intena;
-	case 3:
-		return setup_fmodes_delayed;
-	default:
-		return fakehsync_handler;
-	}
-}
-// Native state (bridge/state_upstream.cpp, sub-body BEAM of P6CH): beta 21's
-// beam, linear-display and DMAL phases. WinUAE's register body does not carry
-// these file statics. Event times travel as low/high 32-bit words. Values in the
-// private CCK epoch travel as zero-or-ZigZag-encoded displacements from its
-// current origin, so a process with another currcycle_cck restores the same phase
-// while zero still means that an edge has never occurred. CHSL restores
-// the RGA ring at offset zero, so its remaining fields use logical ring order.
-// A pending pfunc contains a host function pointer and is not a valid boundary.
-#define P6_BEAM_WORDS 173
-bool p6_custom_beam_get(int32_t *out, unsigned n)
-{
-	if (!out || n != P6_BEAM_WORDS || pfunc_active_count) return false;
-	const evt_t cck_origin = get_cck_cycles();
-	const auto cck_delta = [cck_origin](evt_t stamp) {
-		if (!stamp) return uint64_t(0); // zero means that this edge has never occurred
-		const int64_t delta = stamp - cck_origin;
-		const uint64_t zigzag = delta >= 0 ? uint64_t(delta) * 2 : uint64_t(-(delta + 1)) * 2 + 1;
-		return zigzag + 1;
-	};
-	const int32_t words[] = {
-		vpos, vpos_prev, agnus_hpos, agnus_hpos_prev, agnus_hpos_next, agnus_vpos_next, agnus_pos_change, hhpos,
-		linear_vpos, linear_hpos, linear_vpos_prev[0], linear_vpos_prev[1], linear_vpos_prev[2], linear_hpos_prev[0], linear_hpos_prev[1], linear_hpos_prev[2],
-		linear_vpos_vb_start, linear_vpos_vb_end, linear_vb_offset, linear_vpos_start, linear_vpos_start_prev,
-		current_linear_vpos, current_linear_hpos, current_linear_hblen, current_linear_hblen_temp, current_linear_vpos_nom, current_linear_hpos_short,
-		linear_vpos_vblank_end, linear_vpos_vblank_start, linear_vpos_vblank_vsync, linear_vpos_vblank_lines_cnt, linear_vpos_vblank_lines,
-		vb_start_detect, vb_end_detect, vb_detect_cnt, current_linear_vblank_lines,
-		current_linear_vpos_vb_start, current_linear_vpos_vb_end, current_linear_vpos_vb_vsync,
-		current_linear_vpos_temp, current_linear_hpos_temp, current_linear_temp_change, linear_vpos_values_changed,
-		display_hstart_cyclewait_start, display_hstart_cyclewait_cnt, display_hstart_cyclewait_end,
-		display_hstart_cyclewait_skip_start, display_hstart_cyclewait_skip_end, display_vblankstart_skip, display_vblankend_skip,
-		display_hstart_cyclewait_started, linear_vpos_changes, nextline_how,
-		display_hsync_counter, display_vsync_counter, maxvpos_display_vsync_next, linetoggle, lof_display,
-		lof_detect, lof_pdetect, lof_detect_vsync, prevlofs[0], prevlofs[1], prevlofs[2],
-		int32_t(uint64_t(last_hsync_evt)), int32_t(uint64_t(last_hsync_evt) >> 32), int32_t(uint64_t(last_vsync_evt)), int32_t(uint64_t(last_vsync_evt) >> 32),
-		agnus_vb, agnus_pvb, prev_strobe,
-		int32_t(agnus_dmal_shifter), int32_t(paula_dmal_shifter), int32_t(paula_dmal_shifter_fast),
-		agnus_dmal_sprite_enable, agnus_dmal_sprite_enable2, agnus_dmal_alloc, dmal_next,
-		agnus_even_prev, vb_fast, vb_fast_prev,
-		int32_t(cck_delta(agnus_trigger_cck)), int32_t(cck_delta(agnus_trigger_cck) >> 32),
-		init_beamcon_delay, agnus_afterreset, display_redraw, ciahsyncs, ciavsyncs,
-		agnus_phsync, agnus_phblank, agnus_pvsync, agnus_pcsync, agnus_csync, agnus_vb_active, agnus_vb_start_line, agnus_pvb_start_line,
-		agnus_vb_active_start_line, agnus_vb_end_line, agnus_pvb_end_line, agnus_vb_active_end_line, agnus_equzone, agnus_hsync, agnus_vsync, agnus_ve,
-		agnus_p_ve, agnus_bsvb, agnus_bsvb_prev, agnus_equdis,
-		int32_t(cck_delta(agnus_phblank_start_tmp)), int32_t(cck_delta(agnus_phblank_start_tmp) >> 32),
-		int32_t(cck_delta(agnus_phblank_start)), int32_t(cck_delta(agnus_phblank_start) >> 32),
-		int32_t(cck_delta(agnus_phblank_end)), int32_t(cck_delta(agnus_phblank_end) >> 32),
-		int32_t(cck_delta(agnus_hsync_start)), int32_t(cck_delta(agnus_hsync_start) >> 32),
-		int32_t(cck_delta(agnus_vsync_start)), int32_t(cck_delta(agnus_vsync_start) >> 32),
-		hsync_ccks, current_linear_hs_hb_dist,
-		int32_t(cck_delta(agnus_hsstrt_cck)), int32_t(cck_delta(agnus_hsstrt_cck) >> 32),
-		int32_t(cck_delta(agnus_hsstop_cck)), int32_t(cck_delta(agnus_hsstop_cck) >> 32),
-		agnus_hslen_cck, agnus_hslen_cck_prev, agnus_hslen_cck_cnt, current_agnus_hslen_cck,
-		int32_t(cck_delta(agnus_phsstrt_cck)), int32_t(cck_delta(agnus_phsstrt_cck) >> 32),
-		int32_t(cck_delta(agnus_phsstop_cck)), int32_t(cck_delta(agnus_phsstop_cck) >> 32),
-		int32_t(cck_delta(agnus_pchsstrt_cck)), int32_t(cck_delta(agnus_pchsstrt_cck) >> 32),
-		int32_t(cck_delta(agnus_pchsstop_cck)), int32_t(cck_delta(agnus_pchsstop_cck) >> 32),
-		vsync_lines, vsync_linecnt, vsync_active_count, vsyncp_active_count, hsync_change_count, hblen_display_tmp, hblen_cnt,
-		plffirstline, plflastline, need_vdiw_check, interlace_seen,
-		programmed_register_accessed_h, programmed_register_accessed_v,
-		nosignal_cnt, nosignal_status, nosignal_trigger, lines_after_beamcon_change, syncs_stopped,
-		rga_pipe[(0 + rga_slot_first_offset) & 3].bltadd, rga_pipe[(1 + rga_slot_first_offset) & 3].bltadd,
-		rga_pipe[(2 + rga_slot_first_offset) & 3].bltadd, rga_pipe[(3 + rga_slot_first_offset) & 3].bltadd,
-		getregfrompt(rga_pipe[(0 + rga_slot_first_offset) & 3].conflict2), getregfrompt(rga_pipe[(1 + rga_slot_first_offset) & 3].conflict2),
-		getregfrompt(rga_pipe[(2 + rga_slot_first_offset) & 3].conflict2), getregfrompt(rga_pipe[(3 + rga_slot_first_offset) & 3].conflict2),
-		bprun, bprun_cycle, ddf_stopping, ddf_enable_on, ddf_limit_in, ddf_limit, ddfstrt_match, hwi_old, ddfstrt_val,
-		config_changed, config_changed_flags
-	};
-	static_assert(sizeof words / sizeof words[0] == P6_BEAM_WORDS, "review the beta 21 beam word list");
-	memcpy(out, words, sizeof words);
-	return true;
-}
-
-bool p6_custom_beam_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != P6_BEAM_WORDS) return false;
-	unsigned w = 0;
-	const auto next = [&]() { return in[w++]; };
-	const auto next_u64 = [&]() {
-		const uint64_t low = uint32_t(next());
-		return low | uint64_t(uint32_t(next())) << 32;
-	};
-	const auto next_event = [&]() { return evt_t(next_u64()); };
-	const evt_t cck_origin = get_cck_cycles();
-	const auto next_cck = [&]() {
-		const uint64_t encoded = next_u64();
-		if (!encoded) return evt_t(0);
-		const uint64_t zigzag = encoded - 1;
-		const int64_t delta = (zigzag & 1) ? -int64_t((zigzag + 1) / 2) : int64_t(zigzag / 2);
-		return cck_origin + delta;
-	};
-	vpos = next(); vpos_prev = next(); agnus_hpos = uae_u8(next()); agnus_hpos_prev = next(); agnus_hpos_next = next(); agnus_vpos_next = next();
-	agnus_pos_change = next(); hhpos = uae_u16(next()); linear_vpos = next(); linear_hpos = next();
-	for (int i = 0; i < 3; ++i) linear_vpos_prev[i] = next();
-	for (int i = 0; i < 3; ++i) linear_hpos_prev[i] = next();
-	linear_vpos_vb_start = next(); linear_vpos_vb_end = next(); linear_vb_offset = next(); linear_vpos_start = next(); linear_vpos_start_prev = next();
-	current_linear_vpos = next(); current_linear_hpos = next(); current_linear_hblen = next(); current_linear_hblen_temp = next();
-	current_linear_vpos_nom = next(); current_linear_hpos_short = next(); linear_vpos_vblank_end = next(); linear_vpos_vblank_start = next();
-	linear_vpos_vblank_vsync = next(); linear_vpos_vblank_lines_cnt = next(); linear_vpos_vblank_lines = next();
-	vb_start_detect = next() != 0; vb_end_detect = next() != 0; vb_detect_cnt = next(); current_linear_vblank_lines = next();
-	current_linear_vpos_vb_start = next(); current_linear_vpos_vb_end = next(); current_linear_vpos_vb_vsync = next();
-	current_linear_vpos_temp = next(); current_linear_hpos_temp = next(); current_linear_temp_change = next(); linear_vpos_values_changed = next();
-	display_hstart_cyclewait_start = next(); display_hstart_cyclewait_cnt = next(); display_hstart_cyclewait_end = next();
-	display_hstart_cyclewait_skip_start = next(); display_hstart_cyclewait_skip_end = next(); display_vblankstart_skip = next(); display_vblankend_skip = next();
-	display_hstart_cyclewait_started = next() != 0; linear_vpos_changes = next(); nextline_how = nln_how(next());
-	display_hsync_counter = next(); display_vsync_counter = next(); maxvpos_display_vsync_next = next() != 0; linetoggle = next() != 0; lof_display = next() != 0;
-	lof_detect = next() != 0; lof_pdetect = next() != 0; lof_detect_vsync = next() != 0;
-	for (int i = 0; i < 3; ++i) prevlofs[i] = next() != 0;
-	last_hsync_evt = next_event(); last_vsync_evt = next_event();
-	agnus_vb = next(); agnus_pvb = next(); prev_strobe = uae_u16(next());
-	agnus_dmal_shifter = uae_u32(next()); paula_dmal_shifter = uae_u32(next()); paula_dmal_shifter_fast = uae_u32(next());
-	agnus_dmal_sprite_enable = next(); agnus_dmal_sprite_enable2 = next(); agnus_dmal_alloc = next() != 0; dmal_next = next() != 0;
-	agnus_even_prev = next() != 0; vb_fast = next() != 0; vb_fast_prev = next() != 0; agnus_trigger_cck = next_cck();
-	init_beamcon_delay = next(); agnus_afterreset = next(); display_redraw = next() != 0; ciahsyncs = next() != 0; ciavsyncs = next() != 0;
-	bool *const latches[] = {
-		&agnus_phsync, &agnus_phblank, &agnus_pvsync, &agnus_pcsync, &agnus_csync, &agnus_vb_active, &agnus_vb_start_line, &agnus_pvb_start_line,
-		&agnus_vb_active_start_line, &agnus_vb_end_line, &agnus_pvb_end_line, &agnus_vb_active_end_line, &agnus_equzone, &agnus_hsync, &agnus_vsync, &agnus_ve,
-		&agnus_p_ve, &agnus_bsvb, &agnus_bsvb_prev, &agnus_equdis
-	};
-	for (auto *latch : latches) *latch = next() != 0;
-	agnus_phblank_start_tmp = next_cck(); agnus_phblank_start = next_cck(); agnus_phblank_end = next_cck();
-	agnus_hsync_start = next_cck(); agnus_vsync_start = next_cck(); hsync_ccks = next(); current_linear_hs_hb_dist = next();
-	agnus_hsstrt_cck = next_cck(); agnus_hsstop_cck = next_cck();
-	agnus_hslen_cck = next(); agnus_hslen_cck_prev = next(); agnus_hslen_cck_cnt = next(); current_agnus_hslen_cck = next();
-	agnus_phsstrt_cck = next_cck(); agnus_phsstop_cck = next_cck(); agnus_pchsstrt_cck = next_cck(); agnus_pchsstop_cck = next_cck();
-	vsync_lines = next(); vsync_linecnt = next(); vsync_active_count = next(); vsyncp_active_count = next(); hsync_change_count = next();
-	hblen_display_tmp = next(); hblen_cnt = next(); plffirstline = next(); plflastline = next(); need_vdiw_check = next() != 0; interlace_seen = next();
-	programmed_register_accessed_h = next() != 0; programmed_register_accessed_v = next() != 0;
-	nosignal_cnt = next(); nosignal_status = next(); nosignal_trigger = next() != 0; lines_after_beamcon_change = next(); syncs_stopped = next() != 0;
-	for (int i = 0; i < RGA_SLOT_TOTAL + 1; ++i) rga_pipe[i].bltadd = uae_s16(next());
-	for (int i = 0; i < RGA_SLOT_TOTAL + 1; ++i) rga_pipe[i].conflict2 = getptfromreg(next());
-	bprun = next(); bprun_cycle = next(); ddf_stopping = next(); ddf_enable_on = next();
-	ddf_limit_in = next() != 0; ddf_limit = next() != 0; ddfstrt_match = next() != 0; hwi_old = next() != 0; ddfstrt_val = uae_u16(next());
-	config_changed = next(); config_changed_flags = next();
-	memset(pfunc, 0, sizeof pfunc);
-	pfunc_active_count = 0;
-	setmaxhpos();
-	return w == P6_BEAM_WORDS;
-}
-
-// Native state (bridge/state_upstream.cpp, sub-body COPR of P6CH): what beta 21's low-level Copper keeps between two cycles and CHSL does not carry
-// (CHSL keeps ip and the two instruction words). Values only, in 32-bit words in the order below; it never runs the Copper, recomputes the line flag or
-// touches the DMA pipeline. copper_access is a call-local guard that is always cleared before returning to the frame boundary, not machine state.
-//  0 vcmp  1 hcmp  2 vblankip  3 strobe  4 prev_strobe  5 inst  6 load1  7 load2  8 skiplatch  9 start  10 irload1  11 irload2
-//  12 startstrobe  13 prelatch  14 blitwait  15 cycle_alloc  16 validmove  17 dummyip  18 copper_enabled_thisline
-//  19-20 copper_dma_change_cycle (low, high)  21 copper_dma_change_cycle_pending
-#define P6_COPPER_WORDS 22
-bool p6_custom_copper_get(int32_t *out, unsigned n)
-{
-	if (!out || n != P6_COPPER_WORDS) return false;
-	const int32_t words[] = {
-		cop_state.vcmp, cop_state.hcmp, int32_t(cop_state.vblankip), cop_state.strobe, cop_state.prev_strobe, cop_state.inst,
-		cop_state.load1, cop_state.load2, cop_state.skiplatch, cop_state.start, cop_state.irload1, cop_state.irload2,
-		int32_t(cop_state.startstrobe), cop_state.prelatch, cop_state.blitwait, cop_state.cycle_alloc, cop_state.validmove,
-		int32_t(cop_state.dummyip), copper_enabled_thisline,
-		int32_t(uint64_t(copper_dma_change_cycle)), int32_t(uint64_t(copper_dma_change_cycle) >> 32), copper_dma_change_cycle_pending
-	};
-	static_assert(sizeof words / sizeof words[0] == P6_COPPER_WORDS, "review the Copper word list");
-	memcpy(out, words, sizeof words);
-	return true;
-}
-
-bool p6_custom_copper_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != P6_COPPER_WORDS) return false;
-	cop_state.vcmp = in[0]; cop_state.hcmp = in[1]; cop_state.vblankip = uae_u32(in[2]);
-	cop_state.strobe = in[3]; cop_state.prev_strobe = in[4]; cop_state.inst = in[5];
-	cop_state.load1 = in[6] != 0; cop_state.load2 = in[7] != 0; cop_state.skiplatch = in[8] != 0;
-	cop_state.start = in[9]; cop_state.irload1 = in[10]; cop_state.irload2 = in[11];
-	cop_state.startstrobe = uae_u32(in[12]); cop_state.prelatch = uae_u16(in[13]); cop_state.blitwait = in[14] != 0;
-	cop_state.cycle_alloc = in[15] != 0; cop_state.validmove = in[16] != 0; cop_state.dummyip = uae_u32(in[17]);
-	copper_enabled_thisline = in[18];
-	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[19])) | uint64_t(uint32_t(in[20])) << 32);
-	copper_dma_change_cycle_pending = in[21] != 0;
-	return true;
-}
-// Native state (bridge/state_upstream.cpp, sub-body CTOD of P6CH, T50): where the CIA-A TOD that the mains drives is in its count. With cs_ciaatod 1 or 2 (50 or 60 Hz: the A1000 and the
-// A2000 of the profile) cia_hsync_do counts the colour clocks to the next tick in cia_hsync, a file static that no body names. vblank_hz is the field rate used for the mains period.
-bool p6_custom_ciatod_get(int32_t *out, unsigned n)
-{
-	if (!out || n != 2) return false;
-	out[0] = cia_hsync;
-	memcpy(&out[1], &vblank_hz, sizeof out[1]);
-	return true;
-}
-
-bool p6_custom_ciatod_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != 2) return false;
-	cia_hsync = in[0];
-	memcpy(&vblank_hz, &in[1], sizeof vblank_hz);
-	return true;
-}
-
-// Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): what the engine derives from the registers and not stores. WinUAE's own load
-// gets it from custom_reset (its isrestore branch writes BPLCON0 and FMODE back and calls setup_fmodes, SPRxCTLPOS and the sprite width), which the bridge never runs on a
-// live machine; the bodies put back the registers but not bplcon0_planes, bplcon0_planes_limit, bpl_sequence and curr_diagram (the bitplane slot sequence of the line), the
-// fetch unit of the mode, fmode_inuse, or the first and last line of each sprite (vstart, vstop, dblscan, from POS and CTL). A machine that had the same values already (the
-// image that saved the state, or one that wrote the same registers again) hides it: an image restarted before the load had the bitplane DMA of the next line drawn from the
-// planes of its reset. Derived values only: no register is written, no event is scheduled (fmode_inuse is set to FMODE first, which is where a steady machine has it, so
-// that setup_fmodes does not queue setup_fmodes_delayed) and nothing runs.
-void p6_custom_rebuild_derived(void)
-{
-	sprite_width = GET_SPRITEWIDTH(fmode);
-	fmode_inuse = fmode;
-	setup_fmodes(bplcon0);
-	/* setup_fmodes sets the size of a fetch only when fmode_inuse differs from FMODE, which was just made equal: derive it here (it is 16 bits for FMODE 0 and 32 or 64 for the wider modes) */
-	fetchmode_size = 16 << fetchmode;
-	fetchmode_mask = fetchmode_size - 1;
-	setup_fmodes_delayed(fmode);
-	for (int i = 0; i < MAX_SPRITES; i++) {
-		SPRxCTLPOS(i);
-	}
-}
-
-// Native state (bridge/state_upstream.cpp, sub-body GEOM of P6VD): the size of the raster the machine has measured and settled on. The engine does not read the size of the frame
-// from the registers: vsync_check_vsyncmode follows the lines and colour clocks the last frames really had (linear_vpos_prev and linear_hpos_prev, which BEAM carries), and only
-// after the same measure has held for a few frames does it adopt it (current_linear_*, with the candidate in current_linear_*_temp and the frames to wait in
-// current_linear_temp_change) and let compute_framesync derive the size of the picture from it (inwidth, inheight and their doublescan twins, the visible out size, the extra
-// width and height and the sync offsets of the drawing buffer). None of it is in a body, and WinUAE's own load gets it from init_hz, which the bridge never runs on a live machine:
-// a machine that had adopted a different frame (a long frame stuck on, a same image that has run on) kept it, a new image adopted the saved one a few units later and put out a
-// blank picture the unit it switched, so the same program showed 576 lines where the original showed 574, or the other way round. Values only, in 32-bit words:
-//  0 current_linear_hpos  1 current_linear_vpos  2 current_linear_hpos_short  3 current_linear_vpos_nom  4 current_linear_hpos_temp  5 current_linear_vpos_temp
-//  6 current_linear_temp_change  then beta 21's drawing buffer: 7 inwidth  8 inheight  9 outwidth  10 outheight  11 extrawidth  12 extraheight
-//  13 xoffset  14 yoffset  15 inxoffset  16 inyoffset. The obsolete inwidth2/inheight2 fields no longer exist.
-//  Then what the presentation made of the size, which the clamped out size above does not tell: 17 whether the mode was refused as larger than the presentation buffer (the engine
-//  asked for a raster of more than max_uae_width x max_uae_height rows: lockscr fails and no picture is handed over until the raster fits again, and compute_framesync then clamps
-//  in and out to the allocation, so the sizes of the words above look like a mode that fits), 18 width_allocated and 19 height_allocated (the last mode that was accepted), and the
-//  flags of the drawing: 20 display_redraw (the request to clear the buffer, which vsync_display_render turns into the next one), 21 erase_next_draw and 22 center_y_erase (the requests
-//  that wait for the first line of the next frame) and 23 whether the frame being drawn holds the buffer (drawing.cpp, p6_draw_flags_get).
-// Set does what compute_framesync does with a new size (target_graphics_buffer_update publishes the allocation of the presentation and clears what the old mode drew), in the same
-// order: the accepted mode first, then the refusal of a larger one when the machine had one, then the sizes the engine clamped to. The rows of the picture are not touched here (the
-// bridge puts them back, PIXL of P6VD, so that a redraw of the buffer is not needed to look like the machine that saved) and nothing is drawn or scheduled. The profile draws into the
-// drawing buffer itself (no auxiliary buffer): the calls refuse otherwise.
-#define P6_FRAME_GEOMETRY_WORDS 24
-extern "C" uint32_t p6_video_status(void);      // ports/portable/video_present.cpp
-extern void p6_draw_flags_get(int *erase, int *center, int *locked);        // drawing.cpp, patch 0103
-extern void p6_draw_flags_set(int erase, int center, int locked);
-bool p6_frame_geometry_get(int32_t *out, unsigned n)
-{
-	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
-	if (!out || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
-	const struct vidbuffer *vb = vi->inbuffer;
-	int erase, center, locked;
-	p6_draw_flags_get(&erase, &center, &locked);
-	const int32_t words[] = {
-		current_linear_hpos, current_linear_vpos, current_linear_hpos_short, current_linear_vpos_nom, current_linear_hpos_temp, current_linear_vpos_temp,
-		current_linear_temp_change, vb->inwidth, vb->inheight, vb->outwidth, vb->outheight, vb->extrawidth, vb->extraheight,
-		vb->xoffset, vb->yoffset, vb->inxoffset, vb->inyoffset,
-		(p6_video_status() & 2u) != 0, vb->width_allocated, vb->height_allocated, display_redraw, erase, center, locked
-	};
-	static_assert(sizeof words / sizeof words[0] == P6_FRAME_GEOMETRY_WORDS, "review the frame geometry word list");
-	memcpy(out, words, sizeof words);
-	return true;
-}
-
-bool p6_frame_geometry_set(const int32_t *in, unsigned n)
-{
-	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
-	if (!in || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
-	struct vidbuffer *vb = vi->inbuffer;
-	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
-	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
-	vb->inwidth = in[7]; vb->inheight = in[8]; vb->outwidth = in[9]; vb->outheight = in[10];
-	vb->extrawidth = in[11]; vb->extraheight = in[12]; vb->xoffset = in[13]; vb->yoffset = in[14]; vb->inxoffset = in[15]; vb->inyoffset = in[16];
-	vb->outwidth = in[18]; vb->outheight = in[19];
-	target_graphics_buffer_update(0, false);
-	if (in[17]) {
-		vb->outwidth = max_uae_width + 1;
-		target_graphics_buffer_update(0, false);
-	}
-	vb->outwidth = in[9]; vb->outheight = in[10];
-	display_redraw = in[20] != 0;
-	p6_draw_flags_set(in[21], in[22], in[23]);
-	return true;
-}
-
-// Native state (bridge/state_upstream.cpp, PIXL of P6VD): the rows of the drawing buffer, which the renderer writes only where it draws. A unit in which the engine draws no line (a
-// frame that spans two units, as the long frame does, or an interlaced field that touches half the rows) hands over what the units before left there, so the picture of the first
-// unit after a load was the one of the history that was abandoned (the same process) or the black of a machine that had not drawn yet (a new one). Pixel storage belongs to the
-// presentation port; this only names it: the width and height of the allocation, the distance between rows and the first pixel, or false when the engine draws elsewhere.
-bool p6_frame_raster(int *width, int *height, int *stride, uint8_t **first)
-{
-	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
-	struct vidbuffer *vb = &vi->drawbuffer;
-	if (!width || !height || !stride || !first || vi->inbuffer != vb || !vb->bufmem || vb->pixbytes != 4 || vb->rowbytes <= 0) return false;
-	*width = vb->width_allocated;
-	*height = vb->height_allocated;
-	*stride = vb->rowbytes;
-	*first = vb->bufmem;
-	return true;
-}
-#endif

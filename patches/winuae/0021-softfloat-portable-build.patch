@@ -1,20 +1,8 @@
-diff --git a/softfloat/softfloat.cpp b/softfloat/softfloat.cpp
---- a/softfloat/softfloat.cpp
-+++ b/softfloat/softfloat.cpp
-@@ -94,7 +94,8 @@
- | division and square root approximations.  (Can be specialized to target if
- | desired.)
- *----------------------------------------------------------------------------*/
--#include "softfloat-macros.h"
-+/* PUAE6 derivative: use the case-exact upstream header on all hosts. */
-+#include "SOFTFLOAT-MACROS.H"
- 
- /*----------------------------------------------------------------------------
-  | Variables for storing sign, exponent and significand of internal extended
 diff --git a/softfloat/softfloat-specialize.h b/softfloat/softfloat-specialize.h
+index d7945090..3e4394ae 100644
 --- a/softfloat/softfloat-specialize.h
 +++ b/softfloat/softfloat-specialize.h
-@@ -109,7 +109,8 @@
+@@ -109,7 +109,8 @@ static inline floatx80 floatx80_default_nan(float_status *status)
  | should be simply `float_exception_flags |= flags;'.
  *----------------------------------------------------------------------------*/
  
@@ -24,3 +12,17 @@ diff --git a/softfloat/softfloat-specialize.h b/softfloat/softfloat-specialize.h
  {
      status->float_exception_flags |= flags;
  }
+diff --git a/softfloat/softfloat.cpp b/softfloat/softfloat.cpp
+index 70ff3c86..7f0301f4 100644
+--- a/softfloat/softfloat.cpp
++++ b/softfloat/softfloat.cpp
+@@ -94,7 +94,8 @@ this code that are retained.
+ | division and square root approximations.  (Can be specialized to target if
+ | desired.)
+ *----------------------------------------------------------------------------*/
+-#include "softfloat-macros.h"
++/* PUAE6 derivative: use the case-exact upstream header on all hosts. */
++#include "SOFTFLOAT-MACROS.H"
+ 
+ /*----------------------------------------------------------------------------
+  | Variables for storing sign, exponent and significand of internal extended

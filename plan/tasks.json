@@ -28008,6 +28008,62 @@
       "stop": "No generar una preview desde un guest antiguo ni publicar un artefacto cuyo gate Windows falle."
     },
     {
+      "id": "T99",
+      "title": "Normalizar la procedencia del snapshot WinUAE beta21",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T96"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/00-sources.md",
+        "docs/05-maintenance.md",
+        "plan/upstream.lock.json",
+        "manifests/upstream-files.json",
+        "manifests/source-manifest.json",
+        "manifests/codegen.json",
+        "manifests/licenses.json",
+        "patches/winuae/series.json",
+        "tools/import_sources.py",
+        "tools/materialize_upstream.py",
+        "tools/update_upstream.py",
+        "tools/check.py",
+        "tests/test_plan.py"
+      ],
+      "touch": [
+        "upstream/winuae/**",
+        "patches/winuae/**",
+        "manifests/upstream-files.json",
+        "manifests/source-manifest.json",
+        "manifests/codegen.json",
+        "manifests/licenses.json",
+        "plan/upstream.lock.json",
+        "docs/00-sources.md",
+        "tools/check.py",
+        "tests/test_plan.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Fijar el commit publico WinUAE 6.1.0 beta21 y volver a importar sus 1704 archivos exactos como upstream prístino.",
+        "Extraer a la cola hash-closed todo el delta PUAE6 que estaba incrustado en 45 archivos, conservando su orden y sus pruebas sin ocultarlo en el snapshot.",
+        "Demostrar que materializar el upstream oficial mas la cola produce exactamente el mismo arbol final que la candidata beta21 previa y que no cambia comportamiento, ABI, estados, peliculas ni hashes.",
+        "Cierre 2026-11-01: el upstream oficial de 1704 archivos mas 258 parches (147 recuperados y 111 ya explicitos) reproduce las 1704 rutas, modos y SHA-256 de la candidata anterior; SRC01 y UPD01 pasan."
+      ],
+      "checks": [
+        "SRC01",
+        "UPD01"
+      ],
+      "acceptance": [
+        "El lock fija el commit oficial 1fb263778ca0b6a6d02993acf900044522fcb76a como fuente requerida y los manifiestos verifican rutas, modos y bytes sin depender de master o de un SHA transitorio.",
+        "upstream/winuae es byte a byte el beta21 oficial; todas las diferencias PUAE6 viven en patches/winuae con cadena before/after verificable.",
+        "El arbol materializado final es byte a byte igual al anterior en las 1704 rutas y pasan SRC01, materializacion exacta y regresiones de mantenimiento dirigidas."
+      ],
+      "stop": "No actualizar a master/beta22, alterar semantica, goldens o identidad, ni modificar ../uae o ../MacHawk; si la equivalencia exacta falla, conservar el primer archivo/hunk divergente y no cerrar."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

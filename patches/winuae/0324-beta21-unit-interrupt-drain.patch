@@ -1,0 +1,17 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+index e787e4f0..b9011dda 100644
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -7223,6 +7223,12 @@ run_cpu:
+ 			if (!waiting || !do_specialties (0))
+ 				m68k_run();
+ 		}
++	// Beta 21 can raise INT while do_specialties is already handling UNIT_END.
++	// Finish that between-instruction work before publishing the unit boundary;
++	// P6CP deliberately does not serialize a half-consumed INT/DOINT pipeline.
++	while ((regs.spcflags & SPCFLAG_UNIT_END) && (regs.spcflags & (SPCFLAG_INT | SPCFLAG_DOINT)) &&
++			!(regs.spcflags & SPCFLAG_MODE_CHANGE))
++		do_specialties(0);
+ 		if ((regs.spcflags & SPCFLAG_UNIT_END) && quit_program <= 0 && !(regs.spcflags & SPCFLAG_MODE_CHANGE)) {
+ 			// Leave before custom_end_drawing(): the frame in progress must stay open.
+ 			unset_special(SPCFLAG_UNIT_END);

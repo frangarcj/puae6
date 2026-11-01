@@ -1,7 +1,45 @@
+diff --git a/custom.cpp b/custom.cpp
+index 3a28e3cf..0e0d742b 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -7194,7 +7194,8 @@ void custom_reset(bool hardreset, bool keyboardreset)
+ 	expamem_reset(hardreset);
+ #elif defined(P6_PORTABLE)
+ 	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
+-	if (currprefs.fastmem[0].size)
++	// T29a: and while a hard file is mounted
++	if (currprefs.fastmem[0].size || currprefs.mountitems)
+ 		expamem_reset(hardreset);
+ #endif
+ }
+diff --git a/memory.cpp b/memory.cpp
+index 9bac11c1..4114281f 100644
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -3500,7 +3500,8 @@ void memory_reset (void)
+ 	expansion_map();
+ #elif defined(P6_PORTABLE)
+ 	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
+-	if (currprefs.fastmem[0].size)
++	// T29a: and while a hard file is mounted (the UAEFS board is on the chain)
++	if (currprefs.fastmem[0].size || currprefs.mountitems)
+ 		expansion_map();
+ #endif
+ 
+@@ -3533,7 +3534,7 @@ void memory_reset (void)
+ 		break;
+ 	}
+ 
+-#ifdef AUTOCONFIG
++#if defined(AUTOCONFIG) || defined(P6_FILESYS)
+ 	if ((need_uae_boot_rom (&currprefs) && currprefs.uaeboard == 0) || currprefs.uaeboard == 1) {
+ 		map_banks_set(&rtarea_bank, rtarea_base >> 16, 1, 0);
+ 	}
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 13c4be45..a82d24a6 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2427,12 +2427,11 @@
+@@ -2456,12 +2456,11 @@ STATIC_INLINE int in_rom (uaecptr pc)
  	return (munge24 (pc) & 0xFFF80000) == 0xF80000;
  }
  
@@ -15,7 +53,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  STATIC_INLINE void wait_memory_cycles (void)
  {
-@@ -3938,9 +3937,7 @@
+@@ -3973,9 +3972,7 @@ uae_u32 REGPARAM2 op_illg (uae_u32 opcode)
  	uaecptr pc = m68k_getpc ();
  	static int warned;
  	int inrom = in_rom (pc);
@@ -25,7 +63,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  	if (opcode == 0x4afc || opcode == 0xfc4a) {
  		if (!valid_address(pc, 4) && valid_address(pc - 4, 4)) {
-@@ -3982,7 +3979,7 @@
+@@ -4017,7 +4014,7 @@ uae_u32 REGPARAM2 op_illg (uae_u32 opcode)
  		}
  	}
  
@@ -34,38 +72,3 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (opcode == 0xFF0D && inrt) {
  		/* User-mode STOP replacement */
  		m68k_setstopped(1);
-diff --git a/memory.cpp b/memory.cpp
---- a/memory.cpp
-+++ b/memory.cpp
-@@ -3435,7 +3435,8 @@
- 	expansion_map();
- #elif defined(P6_PORTABLE)
- 	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
--	if (currprefs.fastmem[0].size)
-+	// T29a: and while a hard file is mounted (the UAEFS board is on the chain)
-+	if (currprefs.fastmem[0].size || currprefs.mountitems)
- 		expansion_map();
- #endif
- 
-@@ -3468,7 +3469,7 @@
- 		break;
- 	}
- 
--#ifdef AUTOCONFIG
-+#if defined(AUTOCONFIG) || defined(P6_FILESYS)
- 	if ((need_uae_boot_rom (&currprefs) && currprefs.uaeboard == 0) || currprefs.uaeboard == 1) {
- 		map_banks_set(&rtarea_bank, rtarea_base >> 16, 1, 0);
- 	}
-diff --git a/custom.cpp b/custom.cpp
---- a/custom.cpp
-+++ b/custom.cpp
-@@ -7194,7 +7194,8 @@
- 	expamem_reset(hardreset);
- #elif defined(P6_PORTABLE)
- 	// T49: the autoconfig chain is walked only while a Zorro II Fast RAM board is configured
--	if (currprefs.fastmem[0].size)
-+	// T29a: and while a hard file is mounted
-+	if (currprefs.fastmem[0].size || currprefs.mountitems)
- 		expamem_reset(hardreset);
- #endif
- }

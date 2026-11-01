@@ -143,38 +143,15 @@ int m68k_move2c (int regno, uae_u32 *regp)
 			/* 68040/060 only */
 		case 3:
 			regs.tcr = *regp & (currprefs.cpu_model == 68060 ? 0xfffe : 0xc000);
-
-#ifdef MMUEMU
 			if (currprefs.mmu_model)
 				regs.tcr = mmu_set_tc (regs.tcr);
-#endif
 			break;
 
 			/* no differences between 68040 and 68060 */
-		case 4:
-			regs.itt0 = *regp & 0xffffe364;
-#ifdef MMUEMU
-			mmu_tt_modified ();
-#endif
-			break;
-		case 5:
-			regs.itt1 = *regp & 0xffffe364;
-#ifdef MMUEMU
-			mmu_tt_modified ();
-#endif
-			break;
-		case 6:
-			regs.dtt0 = *regp & 0xffffe364;
-#ifdef MMUEMU
-			mmu_tt_modified ();
-#endif
-			break;
-		case 7:
-			regs.dtt1 = *regp & 0xffffe364;
-#ifdef MMUEMU
-			mmu_tt_modified ();
-#endif
-			break;
+		case 4: regs.itt0 = *regp & 0xffffe364; mmu_tt_modified (); break;
+		case 5: regs.itt1 = *regp & 0xffffe364; mmu_tt_modified (); break;
+		case 6: regs.dtt0 = *regp & 0xffffe364; mmu_tt_modified (); break;
+		case 7: regs.dtt1 = *regp & 0xffffe364; mmu_tt_modified (); break;
 			/* 68060 only */
 		case 8: regs.buscr &= 0x50000000; regs.buscr |= *regp & 0xa0000000; break;
 
@@ -530,7 +507,6 @@ uae_u32 REGPARAM2 x_get_disp_ea_020 (uae_u32 base, int idx)
 
 #ifndef CPU_TESTER
 
-#ifdef CPUEMU_23
 uae_u32 REGPARAM2 x_get_disp_ea_ce030 (uae_u32 base, int idx)
 {
 	uae_u16 dp = next_iword_030ce ();
@@ -578,9 +554,6 @@ uae_u32 REGPARAM2 x_get_disp_ea_ce030 (uae_u32 base, int idx)
 	return v;
 }
 
-#endif
-
-#ifdef CPUEMU_21
 uae_u32 REGPARAM2 x_get_disp_ea_ce020 (uae_u32 base, int idx)
 {
 	uae_u16 dp = next_iword_020ce ();
@@ -628,9 +601,6 @@ uae_u32 REGPARAM2 x_get_disp_ea_ce020 (uae_u32 base, int idx)
 	return v;
 }
 
-#endif
-
-#ifndef P6_PORTABLE // 68040 EA decoder, uses the 68040 instruction cache (not compiled/used by the A500 profile)
 uae_u32 REGPARAM2 x_get_disp_ea_040(uae_u32 base, int idx)
 {
 	uae_u16 dp = next_iword_cache040();
@@ -667,7 +637,6 @@ uae_u32 REGPARAM2 x_get_disp_ea_040(uae_u32 base, int idx)
 		return base + (uae_s32)((uae_s8)dp) + regd;
 	}
 }
-#endif
 
 #endif
 
@@ -1456,12 +1425,10 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), oldpc);
 		break;
-#ifdef FPUEMU
 	case 0x3: // floating point post-instruction stack frame (68040)
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), regs.fp_ea);
 		break;
-#endif
 	case 0x4: // floating point unimplemented stack frame (68LC040, 68EC040)
 		// or 68060 bus access fault stack frame
 		m68k_areg(regs, 7) -= 4;
@@ -1469,7 +1436,6 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), oldpc);
 		break;
-#ifdef MMUEMU
 	case 0x7: // access error stack frame (68040)
 
 		for (i = 3; i >= 0; i--) {
@@ -1506,7 +1472,6 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), regs.mmu_effective_addr);
 		break;
-#endif
 	case 0x8: // bus/address error (68010)
 	{
 		uae_u16 in = regs.read_buffer;
@@ -1537,7 +1502,6 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		x_put_word(m68k_areg(regs, 7), ssw); // ssw
 		break;
 	}
-#ifdef FPUEMU
 	case 0x9: // coprocessor mid-instruction stack frame (68020, 68030)
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), regs.fp_ea);
@@ -1546,8 +1510,6 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		m68k_areg(regs, 7) -= 4;
 		x_put_long(m68k_areg(regs, 7), oldpc);
 		break;
-#endif
-#ifdef MMUEMU
 	case 0xB: // long bus cycle fault stack frame (68020, 68030)
 		// Store state information to internal register space
 #if MMU030_DEBUG
@@ -1648,57 +1610,6 @@ void Exception_build_stack_frame(uae_u32 oldpc, uae_u32 currpc, uae_u32 ssw, int
 		m68k_areg(regs, 7) -= 2;
 		x_put_word(m68k_areg(regs, 7), regs.wb2_address); // = mmu030_state[1]); 8 0x08
 		break;
-#endif
-#if !defined(MMUEMU) && defined(CPUEMU_21)
-	case 0xB:
-		// Long bus cycle fault frame of the 68020 without an MMU (T24a): the address error of an odd PC. The MMU state
-		// that the frame above copies (mmu030_state, mmu030_ad, mmu030_disp_store, mm030_stageb_address, regs.wb2_*
-		// and wb3_*) is zero without an MMU, so it is written as zero rather than linking cpummu030.
-		for (i = 0; i < MAX_MMU030_ACCESS; i++) {
-			m68k_areg(regs, 7) -= 4;
-			x_put_long(m68k_areg(regs, 7), 0);
-		}
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), 0); // version & internal information
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), 0); // internal registers
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), 0);
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), 0);
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), regs.mmu_fault_addr); // data input buffer = fault address
-		{
-			uae_u32 ps = (regs.prefetch020_valid[0] ? 1 : 0) | (regs.prefetch020_valid[1] ? 2 : 0) | (regs.prefetch020_valid[2] ? 4 : 0);
-			ps |= ((regs.pipeline_r8[0] & 7) << 8);
-			ps |= ((regs.pipeline_r8[1] & 7) << 11);
-			ps |= ((regs.pipeline_pos & 15) << 16);
-			ps |= ((regs.pipeline_stop & 15) << 20);
-			m68k_areg(regs, 7) -= 4;
-			x_put_long(m68k_areg(regs, 7), ps);
-		}
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), 0); // stage B address
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), 0);
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), 0);
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), 0); // data output buffer
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), regs.prefetch020[0] << 16); // internal register (opcode storage)
-		m68k_areg(regs, 7) -= 4;
-		x_put_long(m68k_areg(regs, 7), regs.mmu_fault_addr); // data cycle fault address
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), regs.prefetch020[2]); // instruction pipe stage B
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), regs.prefetch020[1]); // instruction pipe stage C
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), ssw);
-		m68k_areg(regs, 7) -= 2;
-		x_put_word(m68k_areg(regs, 7), 0);
-		break;
-#endif
 	default:
 		write_log(_T("Unknown exception stack frame format: %X\n"), format);
 		return;
@@ -1722,7 +1633,6 @@ void Exception_build_stack_frame_common(uae_u32 oldpc, uae_u32 currpc, uae_u32 s
 			Exception_build_stack_frame(oldpc, currpc, regs.mmu_ssw, vector_nr, 0x2);
 	} else if (nr == 60 || nr == 61) {
 		Exception_build_stack_frame(oldpc, regs.instruction_pc, regs.mmu_ssw, vector_nr, 0x0);
-#ifdef FPUEMU
 	} else if (nr >= 48 && nr <= 55) {
 		if (regs.fpu_exp_pre) {
 			if (currprefs.cpu_model == 68060 && nr == 55 && regs.fp_unimp_pend == 2) { // packed decimal real
@@ -1745,7 +1655,6 @@ void Exception_build_stack_frame_common(uae_u32 oldpc, uae_u32 currpc, uae_u32 s
 		} else {
 			Exception_build_stack_frame(regs.fp_ea, currpc, regs.mmu_ssw, vector_nr, 0x2);
 		}
-#endif
 	} else {
 		Exception_build_stack_frame(oldpc, currpc, regs.mmu_ssw, vector_nr, 0x0);
 	}

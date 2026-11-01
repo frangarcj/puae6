@@ -1,7 +1,8 @@
 diff --git a/custom.cpp b/custom.cpp
+index e570271f..112ee8a9 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -857,6 +857,7 @@
+@@ -868,6 +868,7 @@ uae_u32 get_copper_address(int copno)
  
  void reset_frame_rate_hack(void)
  {
@@ -9,7 +10,7 @@ diff --git a/custom.cpp b/custom.cpp
  	if (currprefs.m68k_speed >= 0) {
  		return;
  	}
-@@ -865,6 +866,7 @@
+@@ -876,6 +877,7 @@ void reset_frame_rate_hack(void)
  	events_reset_syncline();
  	vsyncmintime = read_processor_time() + vsynctimebase;
  	write_log(_T("Resetting frame rate hack\n"));
@@ -17,7 +18,7 @@ diff --git a/custom.cpp b/custom.cpp
  }
  
  static void setclr(uae_u16 *p, uae_u16 val)
-@@ -4695,6 +4697,7 @@
+@@ -4593,6 +4595,7 @@ static int calculate_linetype(int vp)
  	return lineno;
  }
  
@@ -25,7 +26,7 @@ diff --git a/custom.cpp b/custom.cpp
  static frame_time_t rpt_vsync(int adjust)
  {
  	frame_time_t curr_time = read_processor_time();
-@@ -4705,6 +4708,7 @@
+@@ -4603,6 +4606,7 @@ static frame_time_t rpt_vsync(int adjust)
  	}
  	return v;
  }
@@ -33,7 +34,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  static void rtg_vsync (void)
  {
-@@ -4728,6 +4732,7 @@
+@@ -4626,6 +4630,7 @@ static void rtg_vsynccheck(void)
  }
  
  
@@ -41,24 +42,24 @@ diff --git a/custom.cpp b/custom.cpp
  static void maybe_process_pull_audio(void)
  {
  	audio_finish_pull();
-@@ -4747,6 +4752,8 @@
- 	}
+@@ -4646,6 +4651,8 @@ static bool crender_screen(int monid, int mode, bool immediate)
  	return v;
  }
-+
-+#endif
  
++#endif
++
  // moving average algorithm
  #define MAVG_MAX_SIZE 128
-@@ -4786,6 +4793,7 @@
- #ifdef DEBUGGER
- extern int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
- #endif
+ struct mavg_data
+@@ -4681,6 +4688,7 @@ static frame_time_t mavg(struct mavg_data *md, frame_time_t newval, int size)
+ }
+ 
+ #define MAVG_VSYNC_SIZE 128
 +#ifndef P6_PORTABLE
+ int log_vsync, debug_vsync_min_delay, debug_vsync_forced_delay;
  static bool framewait(void)
  {
- 	struct amigadisplay *ad = &adisplays[0];
-@@ -4990,6 +4998,7 @@
+@@ -4886,6 +4894,7 @@ static bool framewait(void)
  	}
  	return status != 0;
  }
@@ -66,7 +67,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  static void reset_cpu_idle(void)
  {
-@@ -5008,10 +5017,13 @@
+@@ -4904,10 +4913,13 @@ void fpscounter_reset(void)
  	mavg_clear(&fps_mavg);
  	mavg_clear(&idle_mavg);
  	bogusframe = 2;
@@ -80,7 +81,7 @@ diff --git a/custom.cpp b/custom.cpp
  static void fpscounter(bool frameok)
  {
  	frame_time_t now, last;
-@@ -5060,6 +5072,7 @@
+@@ -4956,6 +4968,7 @@ static void fpscounter(bool frameok)
  		}
  	}
  }
@@ -88,7 +89,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  // vsync functions that are not hardware timing related
  // called when vsync starts which is not necessarily last line
-@@ -5110,15 +5123,30 @@
+@@ -5006,15 +5019,30 @@ static void vsync_handler_render(void)
  #endif
  
  	if (!vsync_rendered) {
@@ -105,11 +106,9 @@ diff --git a/custom.cpp b/custom.cpp
 +#ifndef P6_PORTABLE
  		end = read_processor_time();
  		frameskiptime += end - start;
--	}
--
 +#endif
-+	}
-+
+ 	}
+ 
 +#ifdef P6_PORTABLE
 +	// Denise has completed buffer work; retire one clear request per complete
 +	// display frame, with the same interlace cadence as crender_screen.
@@ -121,7 +120,7 @@ diff --git a/custom.cpp b/custom.cpp
  	bool frameok = framewait();
  	
  	if (!ad->picasso_on) {
-@@ -5150,13 +5178,18 @@
+@@ -5046,13 +5074,18 @@ static void vsync_handler_render(void)
  		config_check_vsync();
  	}
  
@@ -141,7 +140,7 @@ diff --git a/custom.cpp b/custom.cpp
  		vblank_hz_state = 1;
  	}
  
-@@ -5168,7 +5201,9 @@
+@@ -5064,7 +5097,9 @@ static bool vsync_display_rendered;
  static void vsync_display_render(void)
  {
  	if (!vsync_display_rendered) {
@@ -151,7 +150,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  		if (!custom_disabled) {
  			draw_denise_vsync_queue(display_redraw);
-@@ -5404,10 +5439,12 @@
+@@ -5408,10 +5443,12 @@ static void virtual_vsync_check(void)
  static void vsync_handler_post(void)
  {
  	int monid = 0;
@@ -164,7 +163,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  	check_nocustom();
  
-@@ -5549,6 +5586,7 @@
+@@ -5561,6 +5598,7 @@ static void lightpen_trigger_func(uae_u32 v)
  	lightpen_triggered = 1;
  }
  
@@ -172,16 +171,16 @@ diff --git a/custom.cpp b/custom.cpp
  static bool do_render_slice(int mode, int slicecnt, int lastline)
  {
  	draw_denise_line_queue_flush();
-@@ -5562,6 +5600,8 @@
- 	inputdevice_hsync(true);
+@@ -5575,6 +5613,8 @@ static bool do_display_slice(void)
  	return true;
  }
-+
-+#endif
  
++#endif
++
  static void reset_autoscale(void)
  {
-@@ -5667,6 +5707,7 @@
+ 	first_bpl_vpos = -1;
+@@ -5679,6 +5719,7 @@ static void hsync_handler_pre(bool onvsync)
  #endif
  }
  
@@ -189,7 +188,7 @@ diff --git a/custom.cpp b/custom.cpp
  // low latency vsync
  
  #define LLV_DEBUG 0
-@@ -6329,9 +6370,14 @@
+@@ -6341,9 +6382,14 @@ static bool linesync_beam_vrr(void)
  	return input_read_done;
  }
  
@@ -204,11 +203,21 @@ diff --git a/custom.cpp b/custom.cpp
  	if (!isvsync_chipset()) {
  		events_reset_syncline();
  		return;
-@@ -6350,6 +6396,7 @@
- 		else
+@@ -6363,6 +6409,7 @@ void vsync_event_done(void)
  			linesync_beam_multi_single();
  	}
-+#endif
  #endif
++#endif
  }
  
+ static void cia_hsync_do(void)
+@@ -9271,8 +9318,8 @@ static void process_copper(struct rgabuf *r)
+ 			if (debug_copper && cop_state.irload2) {
+ 				record_copper(cop_state.ip - 2, cop_state.ip, cop_state.ir[0], cop_state.ir[1], agnus_hpos, vpos);
+ 			}
+-		}
+ #endif
++		}
+ 	}
+ 
+ }

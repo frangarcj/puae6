@@ -350,9 +350,7 @@ const TCHAR *get_sha1_txt (void *vinput, int len)
 	p = outtxt;
 	get_sha1 (input, len, out);
 	for (i = 0; i < SHA1_SIZE; i++) {
-		static const TCHAR hex[] = _T("0123456789ABCDEF");
-		p[0] = hex[out[i] >> 4];
-		p[1] = hex[out[i] & 15];
+		_stprintf (p, _T("%02X"), out[i]);
 		p += 2;
 	}
 	*p = 0;

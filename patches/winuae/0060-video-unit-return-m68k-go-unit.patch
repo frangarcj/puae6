@@ -1,7 +1,8 @@
 diff --git a/custom.cpp b/custom.cpp
+index 61eaa1f9..34777cec 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -5217,6 +5217,9 @@
+@@ -5113,6 +5113,9 @@ static void vsync_display_render(void)
  			start_draw_denise();
  		}
  		vsync_display_rendered = true;
@@ -11,10 +12,44 @@ diff --git a/custom.cpp b/custom.cpp
  	}
  }
  
+diff --git a/include/newcpu.h b/include/newcpu.h
+index a09b6d83..540b7b36 100644
+--- a/include/newcpu.h
++++ b/include/newcpu.h
+@@ -374,6 +374,12 @@ extern void safe_interrupt_set(int, int, bool);
+ #define SPCFLAG_CHECK		0x008000
+ #define SPCFLAG_MMURESTART	0x010000
+ #define SPCFLAG_CALLBACK	0x020000
++#ifdef P6_PORTABLE
++// A video unit was rendered: leave the CPU loop at the next instruction boundary.
++#define SPCFLAG_UNIT_END 1
++#else
++#define SPCFLAG_UNIT_END 0
++#endif
+ 
+ STATIC_INLINE void set_special_exter(uae_u32 x)
+ {
+@@ -764,7 +770,15 @@ extern int m68k_divl (uae_u32, uae_u32, uae_u16, uaecptr);
+ extern int m68k_mull (uae_u32, uae_u32, uae_u16);
+ extern void init_m68k (void);
+ extern void m68k_run(void);
++#ifdef P6_PORTABLE
++// m68k_go is replaced by resumable video units: BEGIN once per load, then APPLY (reset preamble only)
++// and RUN (one unit) per frame, LEAVE at unload.
++enum { M68K_UNIT_BEGIN, M68K_UNIT_APPLY, M68K_UNIT_RUN, M68K_UNIT_LEAVE };
++enum { M68K_UNIT_DONE, M68K_UNIT_APPLIED, M68K_UNIT_QUIT, M68K_UNIT_NO_ROM };
++extern int m68k_go_unit (int mode);
++#else
+ extern void m68k_go (int);
++#endif
+ extern void m68k_dumpstate(uaecptr *, uaecptr);
+ extern void m68k_dumpcache(bool);
+ extern int getMulu68kCycles(uae_u16 src);
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 238459f3..b71298fd 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -4590,7 +4590,7 @@
+@@ -4632,7 +4632,7 @@ static bool haltloop(void)
  			x_do_cycles(8 * CYCLE_UNIT);
  
  			if (regs.spcflags) {
@@ -23,7 +58,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  					return true;
  			}
  		}
-@@ -4782,7 +4782,7 @@
+@@ -4829,7 +4829,7 @@ static int do_specialties (int cycles)
  		cpu_halt_clear();
  		x_do_cycles(4 * CYCLE_UNIT);
  		spcflags = regs.spcflags;
@@ -32,7 +67,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  			break;
  		}
  	}
-@@ -4942,6 +4942,11 @@
+@@ -4989,6 +4989,11 @@ static int do_specialties (int cycles)
  #endif
  	}
  
@@ -44,8 +79,8 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	return 0;
  }
  
-@@ -6686,8 +6691,42 @@
- 	run_func();
+@@ -6811,8 +6816,42 @@ void m68k_run(void)
+ #endif
  }
  
 +#ifdef P6_PORTABLE
@@ -87,7 +122,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	int hardboot = 1;
  
  #ifdef WITH_THREADED_CPU
-@@ -6698,10 +6737,6 @@
+@@ -6823,10 +6862,6 @@ void m68k_go (int may_quit)
  		abort ();
  	}
  
@@ -98,7 +133,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	reset_frame_rate_hack ();
  	update_68k_cycles ();
  	start_cycles = 0;
-@@ -6710,9 +6745,19 @@
+@@ -6835,9 +6870,19 @@ void m68k_go (int may_quit)
  
  	cpu_prefs_changed_flag = 0;
  	in_m68k_go++;
@@ -118,7 +153,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		cputrace.state = -1;
  
  		if (regs.halted == CPU_HALT_ACCELERATOR_CPU_FALLBACK) {
-@@ -6916,7 +6961,30 @@
+@@ -7050,7 +7095,30 @@ void m68k_go (int may_quit)
  			}
  		}
  
@@ -149,7 +184,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  		custom_end_drawing();
  
-@@ -6930,7 +6998,13 @@
+@@ -7064,7 +7132,13 @@ void m68k_go (int may_quit)
  	protect_roms(false);
  	mman_set_barriers(true);
  #endif
@@ -163,35 +198,3 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  }
  
  
-diff --git a/include/newcpu.h b/include/newcpu.h
---- a/include/newcpu.h
-+++ b/include/newcpu.h
-@@ -352,6 +352,12 @@
- #endif
- #define SPCFLAG_CHECK 32768
- #define SPCFLAG_MMURESTART 65536
-+#ifdef P6_PORTABLE
-+// A video unit was rendered: leave the CPU loop at the next instruction boundary.
-+#define SPCFLAG_UNIT_END 1
-+#else
-+#define SPCFLAG_UNIT_END 0
-+#endif
- 
- STATIC_INLINE void set_special_exter(uae_u32 x)
- {
-@@ -742,7 +748,15 @@
- extern int m68k_mull (uae_u32, uae_u32, uae_u16);
- extern void init_m68k (void);
- extern void m68k_run(void);
-+#ifdef P6_PORTABLE
-+// m68k_go is replaced by resumable video units: BEGIN once per load, then APPLY (reset preamble only)
-+// and RUN (one unit) per frame, LEAVE at unload.
-+enum { M68K_UNIT_BEGIN, M68K_UNIT_APPLY, M68K_UNIT_RUN, M68K_UNIT_LEAVE };
-+enum { M68K_UNIT_DONE, M68K_UNIT_APPLIED, M68K_UNIT_QUIT, M68K_UNIT_NO_ROM };
-+extern int m68k_go_unit (int mode);
-+#else
- extern void m68k_go (int);
-+#endif
- extern void m68k_dumpstate(uaecptr *, uaecptr);
- extern void m68k_dumpcache(bool);
- extern int getMulu68kCycles(uae_u16 src);

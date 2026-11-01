@@ -1,39 +1,48 @@
 diff --git a/drawing.cpp b/drawing.cpp
+index cf3179c0..58857251 100644
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -4067,18 +4067,19 @@
+@@ -4168,10 +4168,15 @@ static void expand_drga(struct denise_rga *rd)
  			} else {
  				if (!agnus_lol && (!denise_lol_shift_prev || denise_lol_shift_enable)) {
  					int add = 1 << hresolution;
--					buf1 += add;
--					buf2 += add;
--					buf_d += add;
 +					// No line buffer is locked before the first line: NULL plus an offset is undefined.
-+					if (buf1) buf1 += add;
-+					if (buf2) buf2 += add;
-+					if (buf_d) buf_d += add;
- 					if (gbuf) {
- 						gbuf += add;
- 					}
- 					denise_lol_shift_prev = add;
- 					denise_lol_shift_enable = true;
+ 					if (buf1 && buf1 < (uae_u32*)xlinebuffer_end) {
+ 						buf1 += add;
+-						buf2 += add;
+-						buf_d += add;
++						if (buf2) {
++							buf2 += add;
++						}
++						if (buf_d) {
++							buf_d += add;
++						}
+ 						if (gbuf) {
+ 							gbuf += add;
+ 						}
+@@ -4181,8 +4186,12 @@ static void expand_drga(struct denise_rga *rd)
  				} else if (agnus_lol && denise_lol_shift_prev > 0) {
--					buf1 -= denise_lol_shift_prev;
--					buf2 -= denise_lol_shift_prev;
--					buf_d -= denise_lol_shift_prev;
-+					if (buf1) buf1 -= denise_lol_shift_prev;
-+					if (buf2) buf2 -= denise_lol_shift_prev;
-+					if (buf_d) buf_d -= denise_lol_shift_prev;
- 					if (gbuf) {
- 						gbuf -= denise_lol_shift_prev;
- 					}
-@@ -5747,7 +5748,8 @@
- 
- 	if (buf1) {
- 		int maxw = (uae_u32*)xlinebuffer_end - buf1;
--		if ((denise_pixtotal_max << hresolution) > maxw) {
-+		// Unsigned shift: same value as before, but defined for the negative "no pixels" sentinel.
-+		if ((int)((unsigned)denise_pixtotal_max << hresolution) > maxw) {
- 			denise_pixtotal_max = maxw >> hresolution;
+ 					if (buf1 && buf1 > (uae_u32*)xlinebuffer_start) {
+ 						buf1 -= denise_lol_shift_prev;
+-						buf2 -= denise_lol_shift_prev;
+-						buf_d -= denise_lol_shift_prev;
++						if (buf2) {
++							buf2 -= denise_lol_shift_prev;
++						}
++						if (buf_d) {
++							buf_d -= denise_lol_shift_prev;
++						}
+ 						if (gbuf) {
+ 							gbuf -= denise_lol_shift_prev;
+ 						}
+@@ -5640,7 +5649,9 @@ static void set_pixtotal_max(void)
+ 		if (xshift > 0) {
+ 			denise_pixtotal_max -= xshift * 2;
  		}
- 	}
+-		denise_pixtotal_max_buf_1x = ((uae_u32*)xlinebuffer) + (denise_pixtotal_max << lts_hres_shift);
++		// Preserve the signed result without shifting a potentially negative signed value.
++		int pixel_offset = (int)((unsigned)denise_pixtotal_max << lts_hres_shift);
++		denise_pixtotal_max_buf_1x = ((uae_u32*)xlinebuffer) + pixel_offset;
+ 		if (denise_pixtotal_max_buf_1x > (uae_u32*)xlinebuffer_end) {
+ 			denise_pixtotal_max_buf_1x = (uae_u32*)xlinebuffer_end;
+ 		}

@@ -1,7 +1,8 @@
 diff --git a/drawing.cpp b/drawing.cpp
+index 58857251..47ec58d9 100644
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -7582,13 +7582,15 @@
+@@ -7951,13 +7951,15 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
  #define SL save_u32
  #define SQ save_u64
  
@@ -19,7 +20,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  }
  
  uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
-@@ -7602,12 +7604,13 @@
+@@ -7971,12 +7973,13 @@ uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
  
  	SL(1);
  	for (int i = 0; i < 8; i++) {
@@ -39,7 +40,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  	}
  
  	*len = dst - dstbak;
-@@ -7619,12 +7622,16 @@
+@@ -7988,12 +7991,16 @@ uae_u8 *restore_custom_bpl(uae_u8 *src)
  	uae_u32 v = RL;
  
  	for (int i = 0; i < 8; i++) {

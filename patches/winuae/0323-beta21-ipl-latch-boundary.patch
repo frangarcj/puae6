@@ -1,0 +1,18 @@
+diff --git a/newcpu.cpp b/newcpu.cpp
+index 8b1e71f1..e787e4f0 100644
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -10907,7 +10907,12 @@ bool p6_cpu_boundary(const char **why)
+ 		w = "the CPU loop is not started";
+ 	else if (regs.exception || exception_in_exception)
+ 		w = "an exception is in flight";
+-	else if ((regs.loop_mode && currprefs.cpu_model != 68010) || regs.lastipl ||
++	else if ((regs.loop_mode && currprefs.cpu_model != 68010) ||
++#if UAEMAJOR == 6 && UAEMINOR == 1
++			 (regs.lastipl < 0 || regs.lastipl > 7) ||
++#else
++			 regs.lastipl ||
++#endif
+ 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+ 	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK))

@@ -1,7 +1,8 @@
 diff --git a/audio.cpp b/audio.cpp
+index 54e69ccb..41b89491 100644
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -168,6 +168,7 @@
+@@ -171,6 +171,7 @@ static int samplecnt;
  static int extrasamples, outputsample, doublesample;
  #endif
  
@@ -9,7 +10,7 @@ diff --git a/audio.cpp b/audio.cpp
  int sampleripper_enabled;
  struct ripped_sample
  {
-@@ -352,6 +353,8 @@
+@@ -355,6 +356,8 @@ static void do_samplerip (struct audio_channel_data *adp)
  	audio_sampleripper (0);
  }
  
@@ -18,7 +19,7 @@ diff --git a/audio.cpp b/audio.cpp
  static struct audio_channel_data audio_channel[AUDIO_CHANNELS_PAULA];
  static struct audio_stream_data audio_stream[AUDIO_CHANNEL_STREAMS];
  static struct audio_channel_data2 *audio_data[AUDIO_CHANNELS_PAULA + AUDIO_CHANNEL_STREAMS * AUDIO_CHANNEL_MAX_STREAM_CH];
-@@ -1870,8 +1873,10 @@
+@@ -1875,8 +1878,10 @@ static bool audio_state_channel2 (int nr, bool perfin)
  		if (cdp->wlen != 1)
  			cdp->wlen = (cdp->wlen - 1) & 0xffff;
  		cdp->state = 5;
@@ -29,7 +30,7 @@ diff --git a/audio.cpp b/audio.cpp
  		break;
  	case 5:
  		cdp->evtime = MAX_EV;
-@@ -2540,8 +2545,10 @@
+@@ -2549,8 +2554,10 @@ void event_audxdat_func(uae_u32 v)
  				if (!(v & 0x80000000)) {
  					cdp->intreq2 = true;
  				}

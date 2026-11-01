@@ -13,10 +13,6 @@
 #include "sysconfig.h"
 #include "sysdeps.h"
 
-#ifdef P6_PORTABLE
-#include <zfile_port.inc>
-#else
-
 #include "uae.h"
 #include "options.h"
 #include "zfile.h"
@@ -3646,5 +3642,3 @@ void zfile_seterror (const TCHAR *format, ...)
 {
 }
 #endif
-
-#endif /* P6_PORTABLE */

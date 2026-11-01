@@ -1,4 +1,5 @@
 diff --git a/gengenblitter.cpp b/gengenblitter.cpp
+index 8b964bd9..c7ff3668 100644
 --- a/gengenblitter.cpp
 +++ b/gengenblitter.cpp
 @@ -9,11 +9,10 @@

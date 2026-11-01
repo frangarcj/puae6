@@ -1,7 +1,8 @@
 diff --git a/savestate.cpp b/savestate.cpp
+index 9b709e07..358cd0ef 100644
 --- a/savestate.cpp
 +++ b/savestate.cpp
-@@ -971,7 +971,11 @@
+@@ -1001,7 +1001,11 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
  	dst = header;
  	save_u32 (0);
  	save_string (_T("UAE"));
@@ -13,7 +14,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  	save_string (tmp);
  	save_string (description);
  	save_chunk (f, header, dst-header, _T("ASF "), 0);
-@@ -1220,6 +1224,7 @@
+@@ -1250,6 +1254,7 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
  		}
  	}
  
@@ -21,7 +22,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  	for (i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) {
  		dst = save_cd (i, &len);
  		if (dst) {
-@@ -1227,6 +1232,7 @@
+@@ -1257,6 +1262,7 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
  			save_chunk (f, dst, len, name, 0);
  		}
  	}
@@ -29,7 +30,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  
  #ifdef DEBUGGER
  	dst = save_debug_memwatch (&len, NULL);
-@@ -1319,6 +1325,7 @@
+@@ -1356,6 +1362,7 @@ int save_state (const TCHAR *filename, const TCHAR *description)
  	return v;
  }
  
@@ -37,7 +38,7 @@ diff --git a/savestate.cpp b/savestate.cpp
  void savestate_quick(int slot, int save)
  {
  	if (path_statefile[0]) {
-@@ -1360,6 +1367,7 @@
+@@ -1397,6 +1404,7 @@ void savestate_quick(int slot, int save)
  		write_log (_T("staterestore starting '%s'\n"), savestate_fname);
  	}
  }

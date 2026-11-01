@@ -1,19 +1,21 @@
 diff --git a/custom.cpp b/custom.cpp
+index e0bf54ca..24214351 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -8749,8 +8749,9 @@
+@@ -8768,9 +8768,9 @@ uae_u8 *save_custom_slots(size_t *len, uae_u8 *dstptr)
  		save_u16(0);//save_u16(cycle_line_slot[i]);
  	}
  
--	// RGA pipeline
+-	// RGA pipeline: save the real slots in pipeline order, without the
+-	// rotating extra entry, so they restore with a zero slot offset.
 -	for (int i = 0; i < RGA_SLOT_TOTAL; i++) {
-+	// RGA pipeline: rga_pipe has RGA_SLOT_TOTAL + 1 slots (custom_reset clears them all) and which three are live depends on rga_slot_first_offset, so the
-+	// fourth one has to travel too: a blit D write in flight sits in it and a load would leave the one of the live machine.
++	// RGA pipeline: serialize all four physical slots in logical pipeline
++	// order. Restore canonicalizes the ring to a zero first-slot offset.
 +	for (int i = 0; i < RGA_SLOT_TOTAL + 1; i++) {
- 		struct rgabuf *r = &rga_pipe[i];
+ 		struct rgabuf *r = &rga_pipe[(i + rga_slot_first_offset) & 3];
  		int regidx;
  		save_u32(r->type);
-@@ -8804,7 +8805,7 @@
+@@ -8826,7 +8826,7 @@ uae_u8 *restore_custom_slots(uae_u8 *src)
  
  	// RGA pipeline
  	if (v & 8) {

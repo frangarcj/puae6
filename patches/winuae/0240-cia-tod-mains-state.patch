@@ -1,0 +1,29 @@
+diff --git a/custom.cpp b/custom.cpp
+index 0e0d742b..c9d2d396 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13390,6 +13390,24 @@ bool p6_custom_copper_set(const int32_t *in, unsigned n)
+ 	copper_dma_change_cycle_pending = in[21] != 0;
+ 	return true;
+ }
++// Native state (bridge/state_upstream.cpp, sub-body CTOD of P6CH, T50): where the CIA-A TOD that the mains drives is in its count. With cs_ciaatod 1 or 2 (50 or 60 Hz: the A1000 and the
++// A2000 of the profile) cia_hsync_do counts the colour clocks to the next tick in cia_hsync, a file static that no body names. vblank_hz is the field rate used for the mains period.
++bool p6_custom_ciatod_get(int32_t *out, unsigned n)
++{
++	if (!out || n != 2) return false;
++	out[0] = cia_hsync;
++	memcpy(&out[1], &vblank_hz, sizeof out[1]);
++	return true;
++}
++
++bool p6_custom_ciatod_set(const int32_t *in, unsigned n)
++{
++	if (!in || n != 2) return false;
++	cia_hsync = in[0];
++	memcpy(&vblank_hz, &in[1], sizeof vblank_hz);
++	return true;
++}
++
+ // Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): what the engine derives from the registers and not stores. WinUAE's own load
+ // gets it from custom_reset (its isrestore branch writes BPLCON0 and FMODE back and calls setup_fmodes, SPRxCTLPOS and the sprite width), which the bridge never runs on a
+ // live machine; the bodies put back the registers but not bplcon0_planes, bplcon0_planes_limit, bpl_sequence and curr_diagram (the bitplane slot sequence of the line), the

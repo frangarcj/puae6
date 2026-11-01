@@ -1,7 +1,8 @@
 diff --git a/cia.cpp b/cia.cpp
+index 72717b48..f973d436 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -2362,6 +2362,12 @@
+@@ -2409,6 +2409,12 @@ void cia_set_overlay(bool overlay)
  void p6_cia_session_begin(void)
  {
  	cia_cycle_accurate = false;

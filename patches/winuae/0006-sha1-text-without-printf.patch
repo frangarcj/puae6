@@ -1,7 +1,8 @@
 diff --git a/crc32.cpp b/crc32.cpp
+index 200da20b..198e46bb 100644
 --- a/crc32.cpp
 +++ b/crc32.cpp
-@@ -350,7 +350,9 @@
+@@ -350,7 +350,9 @@ const TCHAR *get_sha1_txt (void *vinput, int len)
  	p = outtxt;
  	get_sha1 (input, len, out);
  	for (i = 0; i < SHA1_SIZE; i++) {

@@ -334,7 +334,6 @@ static void rdb_crc (uae_u8 *p)
 	pl (p, 2, sum);
 }
 
-#ifndef P6_PORTABLE // only create_virtual_rdb uses it, for a file system handler read from a host file (excluded above)
 static uae_u32 get_filesys_version(uae_u8 *fs, int size)
 {
 	int ver = -1, rev = -1;
@@ -382,7 +381,6 @@ static uae_u32 get_filesys_version(uae_u8 *fs, int size)
 		rev = 0;
 	return (ver << 16) | rev;
 }
-#endif
 
 // hardware block size is always 256 or 512
 // filesystem block size can be 256, 512 or larger
@@ -402,7 +400,6 @@ static void create_virtual_rdb (struct hardfiledata *hfd)
 	write_log(_T("Creating virtual RDB (RDB size=%d, %d blocks). H=%d S=%d HBS=%d FSBS=%d)\n"),
 		size, size / hardblocksize, hfd->ci.surfaces, hfd->ci.sectors, hardblocksize, fsblocksize);
 
-#ifndef P6_PORTABLE // a file system handler is read from a host file: a hard file has none
 	if (hfd->ci.filesys[0]) {
 		struct zfile *f = NULL;
 		TCHAR fspath[MAX_DPATH];
@@ -419,7 +416,6 @@ static void create_virtual_rdb (struct hardfiledata *hfd)
 			}
 		}
 	}
-#endif
 
 	int filesysblocks = (filesyslen + hardblocksize - 5 * 4 - 1) / (hardblocksize - 5 * 4);
 
@@ -599,7 +595,6 @@ int hdf_hd_open (struct hd_hardfiledata *hfd)
 	return 1;
 }
 
-#ifndef P6_PORTABLE // VHD and CHD containers are host-file formats: an image is a flat byte range (T29a)
 static uae_u32 vhd_checksum (uae_u8 *p, int offset)
 {
 	int i;
@@ -613,7 +608,6 @@ static uae_u32 vhd_checksum (uae_u8 *p, int offset)
 	}
 	return ~sum;
 }
-#endif
 
 static int hdf_write2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error);
 static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error);
@@ -635,22 +629,6 @@ static int hdf_cache_write(struct hardfiledata *hfd, void *buffer, uae_u64 offse
 	return hdf_write2(hfd, buffer, offset, len, error);
 }
 
-#ifdef P6_PORTABLE
-// The name is the blob id of the registered image (bridge/media.cpp): hdf_open_target reads the size from the store and checks nothing the file says about itself.
-int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
-{
-	if ((!pname || pname[0] == 0) && hfd->ci.rootdir[0] == 0)
-		return 0;
-	hfd->adide = 0;
-	hfd->byteswap = 0;
-	hfd->hfd_type = 0;
-	hfd->virtual_size = 0;
-	hfd->virtual_rdb = NULL;
-	if (!pname)
-		pname = hfd->ci.rootdir;
-	return hdf_open_target (hfd, pname);
-}
-#else
 int hdf_open (struct hardfiledata *hfd, const TCHAR *pname)
 {
 	int ret;
@@ -777,16 +755,13 @@ end:
 	hdf_close_target (hfd);
 	return 0;
 }
-#endif
 int hdf_open (struct hardfiledata *hfd)
 {
 	int v = hdf_open (hfd, NULL);
 	if (!v)
 		return v;
-#ifndef P6_PORTABLE // geometry overrides come from a host .ini file
 	get_hd_geometry(&hfd->ci);
 	hfd->geometry = ini_load(hfd->ci.geometry, true);
-#endif
 	return v;
 }
 
@@ -794,11 +769,6 @@ void hdf_close (struct hardfiledata *hfd)
 {
 	hdf_flush_cache (hfd);
 	hdf_close_target (hfd);
-#ifdef P6_PORTABLE
-	xfree(hfd->virtual_rdb);       // upstream frees it only inside the CHD branch below
-	hfd->virtual_rdb = 0;
-	hfd->virtual_size = 0;
-#endif
 #ifdef WITH_CHD
 	if (hfd->hfd_type == HFD_CHD_OTHER) {
 		chd_file *cf = (chd_file*)hfd->chd_handle;
@@ -830,7 +800,6 @@ int hdf_dup (struct hardfiledata *dhfd, const struct hardfiledata *shfd)
 	return hdf_dup_target (dhfd, shfd);
 }
 
-#ifndef P6_PORTABLE
 static uae_u64 vhd_read (struct hardfiledata *hfd, void *v, uae_u64 offset, uae_u64 len)
 {
 	uae_u64 read;
@@ -1117,7 +1086,6 @@ end:
 	zfile_fclose (zf);
 	return ret;
 }
-#endif
 
 static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, uae_u32 *error)
 {
@@ -1140,7 +1108,6 @@ static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int
 	}
 	offset -= hfd->virtual_size;
 
-#ifndef P6_PORTABLE
 	if (hfd->hfd_type == HFD_VHD_DYNAMIC)
 		ret = (int)vhd_read (hfd, buffer, offset, len);
 	else if (hfd->hfd_type == HFD_VHD_FIXED)
@@ -1171,7 +1138,6 @@ static int hdf_read2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int
 	}
 #endif
 	else
-#endif
 		ret = hdf_read_target (hfd, buffer, offset, len, error);
 
 	if (ret <= 0)
@@ -1193,7 +1159,6 @@ static int hdf_write2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, in
 	}
 	offset -= hfd->virtual_size;
 
-#ifndef P6_PORTABLE
 	if (hfd->hfd_type == HFD_VHD_DYNAMIC)
 		ret = (int)vhd_write(hfd, buffer, offset, len);
 	else if (hfd->hfd_type == HFD_VHD_FIXED)
@@ -1222,7 +1187,6 @@ static int hdf_write2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, in
 	}
 #endif
 	else
-#endif
 		ret = hdf_write_target(hfd, buffer, offset, len, error);
 
 	if (ret <= 0)
@@ -1230,7 +1194,6 @@ static int hdf_write2(struct hardfiledata *hfd, void *buffer, uae_u64 offset, in
 	return ret;
 }
 
-#ifndef P6_PORTABLE // AdIDE scrambling needs ide.cpp's word tables: an image that is scrambled is not recognized, and reads as the junk it is
 static void adide_decode (void *v, int len)
 {
 	int i;
@@ -1256,8 +1219,6 @@ static void adide_encode (void *v, int len)
 	}
 }
 
-#endif
-
 static void hdf_byteswap (void *v, int len)
 {
 	int i;
@@ -1277,14 +1238,11 @@ int hdf_read_rdb (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int le
 	if (v > 0 && offset < 16 * 512 && !hfd->byteswap && !hfd->adide)  {
 		uae_u8 *buf = (uae_u8*)buffer;
 		bool changed = false;
-#ifndef P6_PORTABLE
 		if (buf[0] == 0x39 && buf[1] == 0x10 && buf[2] == 0xd3 && buf[3] == 0x12) { // AdIDE encoded "CPRM"
 			hfd->adide = 1;
 			changed = true;
 			write_log (_T("HDF: adide scrambling detected\n"));
-		} else
-#endif
-		if (!memcmp (buf, "DRKS", 4)) {
+		} else if (!memcmp (buf, "DRKS", 4)) {
 			hfd->byteswap = 1;
 			changed = true;
 			write_log (_T("HDF: byteswapped RDB detected\n"));
@@ -1311,12 +1269,10 @@ int hdf_read(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, ua
 
 	if (!hfd->adide) {
 		v = hdf_cache_read(hfd, buffer, offset, len, error);
-#ifndef P6_PORTABLE
 	} else {
 		offset += 512;
 		v = hdf_cache_read(hfd, buffer, offset, len, error);
 		adide_decode(buffer, len);
-#endif
 	}
 	if (hfd->byteswap) {
 		hdf_byteswap(buffer, len);
@@ -1344,13 +1300,11 @@ int hdf_write(struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len, u
 	}
 	if (!hfd->adide) {
 		v = hdf_cache_write(hfd, buffer, offset, len, error);
-#ifndef P6_PORTABLE
 	} else {
 		offset += 512;
 		adide_encode(buffer, len);
 		v = hdf_cache_write(hfd, buffer, offset, len, error);
 		adide_decode(buffer, len);
-#endif
 	}
 	if (hfd->byteswap) {
 		hdf_byteswap(buffer, len);
@@ -1495,7 +1449,6 @@ static void setdrivestring(const TCHAR *s, uae_u8 *d, int start, int length)
 	xfree (ss);
 }
 
-#ifndef P6_PORTABLE // SCSI direct commands (HD_SCSICMD) are not emulated: no scsi.cpp, and the unit answers IOERR_NOCMD
 static const uae_u8 sasi_commands[] =
 {
 	0x00, 0x01, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x12,
@@ -2442,7 +2395,6 @@ static int handle_scsi (TrapContext *ctx, uae_u8 *iobuf, uaecptr request, struct
 	trap_put_bytes(ctx, scsicmd, scsicmdaddr, sizeof scsicmd);
 	return ret;
 }
-#endif
 
 
 void hardfile_send_disk_change (struct hardfiledata *hfd, bool insert)
@@ -2539,14 +2491,12 @@ static void abort_async (struct hardfileprivdata *hfpd, uaecptr request, int err
 	hf_log (_T("aborting async request %p\n"), request);
 	i = 0;
 	while (i < MAX_ASYNC_REQUESTS) {
-#ifndef P6_PORTABLE
 		if (hfpd->d_request[i] == request && hfpd->d_request_type[i] == ASYNC_REQUEST_TEMP) {
 			/* ASYNC_REQUEST_TEMP = request is processing */
 			sleep_millis (1);
 			i = 0;
 			continue;
 		}
-#endif
 		i++;
 	}
 	i = release_async_request (hfpd, request);
@@ -2555,9 +2505,7 @@ static void abort_async (struct hardfileprivdata *hfpd, uaecptr request, int err
 	}
 }
 
-#ifndef P6_PORTABLE
 static void hardfile_thread (void *devs);
-#endif
 static void start_thread (TrapContext *ctx, int unit)
 {
 	struct hardfileprivdata *hfpd = &hardfpd[unit];
@@ -2567,18 +2515,12 @@ static void start_thread (TrapContext *ctx, int unit)
 	write_log("hardfile thread starting, unit %d\n", unit);
 	memset (hfpd, 0, sizeof (struct hardfileprivdata));
 	hfpd->base = trap_get_areg(ctx, 6);
-#ifdef P6_PORTABLE
-	// No thread: BeginIO serves the unit in line, so "running" only says that the unit has been opened.
-	hfpd->thread_running = 1;
-#else
 	init_comm_pipe (&hfpd->requests, 300, 3);
 	uae_start_thread (_T("hardfile"), hardfile_thread, hfpd, NULL);
 	while (hfpd->thread_running == 0) {
 		sleep_millis(1);
 	}
-#endif
 }
-#ifndef P6_PORTABLE
 static void end_thread(TrapContext *ctx, int unit)
 {
 	struct hardfileprivdata *hfpd = &hardfpd[unit];
@@ -2587,7 +2529,6 @@ static void end_thread(TrapContext *ctx, int unit)
 	hfpd->thread_running = 0;
 	write_log("hardfile thread ended, unit %d\n", unit);
 }
-#endif
 
 static int mangleunit (int unit)
 {
@@ -2623,10 +2564,8 @@ static uae_u32 REGPARAM2 hardfile_open (TrapContext *ctx)
 				trap_put_long(ctx, ioreq + 24, unit); /* io_Unit */
 				trap_put_byte(ctx, ioreq + 31, 0); /* io_Error */
 				trap_put_byte(ctx, ioreq + 8, 7); /* ln_type = NT_REPLYMSG */
-#ifndef P6_PORTABLE
 				if (!hfpd->sd)
 					hfpd->sd = scsi_alloc_generic(hfd, UAEDEV_DIR, unit);
-#endif
 				hf_log(_T("virtual hardfile_open, unit %d (%d), OK\n"), unit, trap_get_dreg(ctx, 0));
 				return 0;
 			} else {
@@ -2638,10 +2577,8 @@ static uae_u32 REGPARAM2 hardfile_open (TrapContext *ctx)
 					trap_put_long(ctx, ioreq + 24, unit); /* io_Unit */
 					trap_put_byte(ctx, ioreq + 31, 0); /* io_Error */
 					trap_put_byte(ctx, ioreq + 8, 7); /* ln_type = NT_REPLYMSG */
-#ifndef P6_PORTABLE
 					if (!hfpd->sd)
 						hfpd->sd = scsi_alloc_generic(hfd, UAEDEV_HDF, unit);
-#endif
 					hf_log(_T("hardfile_open, unit %d (%d), OK\n"), unit, trap_get_dreg(ctx, 0));
 					return 0;
 				}
@@ -2958,7 +2895,6 @@ static uae_u32 hardfile_do_io (TrapContext *ctx, struct hardfiledata *hfd, struc
 
 #if HDF_SUPPORT_DS
 	case HD_SCSICMD: /* SCSI */
-#ifndef P6_PORTABLE
 		if (hfpd->sd) {
 			if (vdisk(hfpd)) {
 				error = handle_scsi(ctx, iobuf, request, hfd, hfpd->sd, true);
@@ -2968,9 +2904,7 @@ static uae_u32 hardfile_do_io (TrapContext *ctx, struct hardfiledata *hfd, struc
 				error = handle_scsi(ctx, iobuf, request, hfd, hfpd->sd, true);
 			}
 			actual = 30; // sizeof(struct SCSICmd)
-		} else
-#endif
-		{
+		} else {
 			error = IOERR_NOCMD;
 		}
 		break;
@@ -3122,30 +3056,14 @@ static uae_u32 REGPARAM2 hardfile_beginio (TrapContext *ctx)
 		add_async_request(hfpd, iobuf, request, ASYNC_REQUEST_TEMP, 0);
 		put_byte_host(iobuf + 30, get_byte_host(iobuf + 30) & ~1);
 		trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
-#ifdef P6_PORTABLE
-		// What hardfile_thread does for a queued request, done here: the image is in memory, so the request takes no emulated time and the guest sees it
-		// finished at the next INT2 (ReplyMsg goes through native2amiga_pending). The host thread of upstream made that instant depend on the scheduler.
-		if (hardfile_do_io(ctx, hfd, hfpd, iobuf, request) == 0) {
-			put_byte_host(iobuf + 30, get_byte_host(iobuf + 30) & ~1);
-			trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
-			release_async_request(hfpd, request);
-			uae_ReplyMsg(request);
-		} else {
-			hf_log2 (_T("async request %08X\n"), request);
-			trap_put_bytes(ctx, iobuf + 8, request + 8, 48 - 8);
-		}
-		return 0;
-#else
 		trap_set_background(ctx);
 		write_comm_pipe_pvoid(&hfpd->requests, ctx, 0);
 		write_comm_pipe_pvoid(&hfpd->requests, iobuf, 0);
 		write_comm_pipe_u32(&hfpd->requests, request, 1);
 		return 0;
-#endif
 	}
 }
 
-#ifndef P6_PORTABLE
 static void hardfile_thread (void *devs)
 {
 	struct hardfileprivdata *hfpd = (struct hardfileprivdata*)devs;
@@ -3176,7 +3094,6 @@ static void hardfile_thread (void *devs)
 		uae_sem_post (&change_sem);
 	}
 }
-#endif
 
 void hardfile_reset (void)
 {
@@ -3192,7 +3109,6 @@ void hardfile_reset (void)
 					abort_async (hfpd, request, 0, 0);
 			}
 		}
-#ifndef P6_PORTABLE
 		if (hfpd->thread_running) {
 			write_comm_pipe_pvoid(&hfpd->requests, NULL, 0);
 			write_comm_pipe_pvoid(&hfpd->requests, NULL, 0);
@@ -3201,7 +3117,6 @@ void hardfile_reset (void)
 				sleep_millis(1);
 			}
 		}
-#endif
 		memset (hfpd, 0, sizeof (struct hardfileprivdata));
 	}
 }
@@ -3309,82 +3224,3 @@ void hardfile_install (void)
 	filesys_initcode_real = initcode;
 	dl (initcode);
 }
-
-#ifdef P6_FILESYS
-/* Native state of one uaehf.device unit (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0181): what start_thread and the requests that stay in the table
- * leave in hardfpd. No thread runs (BeginIO serves a request in line), so a unit is a handful of values and the requests that did not finish (CMD_ADDCHANGEINT stays
- * until it is answered): 0 base of the device (the library base the guest opened), 1 changenum, 2 changeint, 3 thread_running (the unit has been opened), 4 all_closed,
- * 5 directorydrive; and for each of the MAX_ASYNC_REQUESTS slots the request (0 = free), its type (ASYNC_REQUEST_TEMP or ASYNC_REQUEST_CHANGEINT), its data and the 48
- * bytes of the IORequest the host copied. Values and guest bytes only: the pointers of the slots are rebuilt on the way back. */
-#define P6_HARDFILE_UNIT_WORDS 6
-#define P6_HARDFILE_REQUESTS MAX_ASYNC_REQUESTS
-#define P6_HARDFILE_IOBUF 48
-
-bool p6_hardfile_state_get(unsigned unit, uint32_t *w, unsigned n, uint32_t *request, uint8_t *iobuf)
-{
-	if (unit >= MAX_FILESYSTEM_UNITS || !w || n != P6_HARDFILE_UNIT_WORDS || !request || !iobuf)
-		return false;
-	const struct hardfileprivdata *h = &hardfpd[unit];
-	if (h->sd)
-		return false;
-	w[0] = h->base;
-	w[1] = (uae_u32)h->changenum;
-	w[2] = h->changeint;
-	w[3] = h->thread_running ? 1 : 0;
-	w[4] = h->all_closed ? 1 : 0;
-	w[5] = h->directorydrive ? 1 : 0;
-	for (int i = 0; i < MAX_ASYNC_REQUESTS; ++i) {
-		request[3 * i + 0] = h->d_request[i];
-		request[3 * i + 1] = (uae_u32)h->d_request_type[i];
-		request[3 * i + 2] = h->d_request_data[i];
-		if (h->d_request[i]) {
-			if (!h->d_request_iobuf[i])
-				return false;
-			memcpy(iobuf + P6_HARDFILE_IOBUF * i, h->d_request_iobuf[i], P6_HARDFILE_IOBUF);
-		} else {
-			memset(iobuf + P6_HARDFILE_IOBUF * i, 0, P6_HARDFILE_IOBUF);
-		}
-	}
-	return true;
-}
-
-bool p6_hardfile_state_set(unsigned unit, const uint32_t *w, unsigned n, const uint32_t *request, const uint8_t *iobuf)
-{
-	if (unit >= MAX_FILESYSTEM_UNITS || !w || n != P6_HARDFILE_UNIT_WORDS || !request || !iobuf || w[3] > 1 || w[4] > 1 || w[5] > 1)
-		return false;
-	for (int i = 0; i < MAX_ASYNC_REQUESTS; ++i) {
-		const uae_u32 type = request[3 * i + 1];
-		if (request[3 * i]) {
-			if (type != ASYNC_REQUEST_TEMP && type != ASYNC_REQUEST_CHANGEINT)
-				return false;
-			for (int j = 0; j < i; ++j)
-				if (request[3 * j] == request[3 * i])
-					return false;
-		} else if (type || request[3 * i + 2]) {
-			return false;
-		}
-	}
-	struct hardfileprivdata *h = &hardfpd[unit];
-	for (int i = 0; i < MAX_ASYNC_REQUESTS; ++i)
-		xfree(h->d_request_iobuf[i]);
-	memset(h, 0, sizeof *h);
-	h->base = w[0];
-	h->changenum = (int)w[1];
-	h->changeint = w[2];
-	h->thread_running = w[3];
-	h->all_closed = w[4] != 0;
-	h->directorydrive = w[5] != 0;
-	for (int i = 0; i < MAX_ASYNC_REQUESTS; ++i) {
-		if (!request[3 * i])
-			continue;
-		h->d_request[i] = request[3 * i];
-		h->d_request_type[i] = (int)request[3 * i + 1];
-		h->d_request_data[i] = request[3 * i + 2];
-		h->d_request_iobuf[i] = xmalloc(uae_u8, P6_HARDFILE_IOBUF);
-		if (!h->d_request_iobuf[i])
-			return false;
-		memcpy(h->d_request_iobuf[i], iobuf + P6_HARDFILE_IOBUF * i, P6_HARDFILE_IOBUF);
-	}
-	return true;
-}
-#endif

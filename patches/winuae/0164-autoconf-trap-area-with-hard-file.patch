@@ -1,7 +1,8 @@
 diff --git a/autoconf.cpp b/autoconf.cpp
+index 39f917e4..b3cf5156 100644
 --- a/autoconf.cpp
 +++ b/autoconf.cpp
-@@ -489,7 +489,9 @@
+@@ -504,7 +504,9 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
  		return 0;
  	if (!mode) {
  		rtarea_write_enabled = true;
@@ -11,7 +12,7 @@ diff --git a/autoconf.cpp b/autoconf.cpp
  		rombase_new = rombase;
  		int size = 4 + 2 + 4;
  		for (int i = 0; i < absolute_rom_address; i++) {
-@@ -524,7 +526,9 @@
+@@ -539,7 +541,9 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
  		write_log(_T("ROMBASE %08x RAMBASE %08x RELOC %08x (%d)\n"), rtarea_base, rombase, reloc, absolute_rom_address);
  	} else {
  		rtarea_write_enabled = false;
@@ -21,7 +22,7 @@ diff --git a/autoconf.cpp b/autoconf.cpp
  		write_log(_T("ROMBASE changed (%d).\n"), absolute_rom_address);
  		reloc = 1;
  	}
-@@ -639,7 +643,7 @@
+@@ -654,7 +658,7 @@ void rtarea_init(void)
  	dw (0);
  	dw (0);
  
@@ -30,7 +31,7 @@ diff --git a/autoconf.cpp b/autoconf.cpp
  	filesys_install_code();
  
  	trap_entry = filesys_get_entry(10);
-@@ -687,7 +691,9 @@
+@@ -702,7 +706,9 @@ void rtarea_init(void)
  	}
  }
  

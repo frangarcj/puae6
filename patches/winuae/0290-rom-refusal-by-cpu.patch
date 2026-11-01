@@ -1,0 +1,56 @@
+diff --git a/memory.cpp b/memory.cpp
+index 4114281f..50ccba12 100644
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -17,6 +17,15 @@
+ #include "rom_status.h"
+ static int rom_load_status = P6_ROM_UNLOADED;
+ int p6_memory_rom_status(void) { return rom_load_status; }
++// Requirement bits and engine name of a known ROM that the preset CPU cannot run.
++// The pointer names immutable rommgr metadata and is cleared by every load and lifecycle edge.
++static int rom_refused_cpu;
++static const TCHAR *rom_refused_name;
++int p6_memory_rom_refusal(const char **name)
++{
++	if (name) *name = rom_refused_cpu ? rom_refused_name : NULL;
++	return rom_refused_cpu;
++}
+ #endif
+ 
+ #include "options.h"
+@@ -2140,6 +2149,8 @@ static int load_kickstart (void)
+ {
+ #ifdef P6_PORTABLE
+ 	rom_load_status = P6_ROM_READ_ERROR;
++	rom_refused_cpu = 0;
++	rom_refused_name = NULL;
+ #endif
+ 	TCHAR tmprom[MAX_DPATH];
+ 
+@@ -3215,6 +3226,8 @@ static void restore_roms(void)
+ 			    ((rd->cpu & 3) == 1 && currprefs.cpu_model < 68020) ||
+ 			    ((rd->cpu & 3) == 2 && (currprefs.cpu_model < 68020 || currprefs.address_space_24))) {
+ 				rom_load_status = P6_ROM_UNSUPPORTED;
++				rom_refused_cpu = rd->cpu;
++				rom_refused_name = rd->name;
+ 				return;
+ 			}
+ #endif
+@@ -3629,6 +3642,8 @@ void memory_init (void)
+ {
+ #ifdef P6_PORTABLE
+ 	rom_load_status = P6_ROM_UNLOADED;
++	rom_refused_cpu = 0;
++	rom_refused_name = NULL;
+ #endif
+ 	init_mem_banks ();
+ 	virtualdevice_init ();
+@@ -3674,6 +3689,8 @@ void memory_cleanup (void)
+ {
+ #ifdef P6_PORTABLE
+ 	rom_load_status = P6_ROM_UNLOADED;
++	rom_refused_cpu = 0;
++	rom_refused_name = NULL;
+ #endif
+ 	mapped_free(&mem25bit_bank);
+ 	mapped_free(&a3000lmem_bank);

@@ -18,9 +18,7 @@
 #include <assert.h>
 
 #include "options.h"
-#ifndef P6_PORTABLE
 #include "threaddep/thread.h"
-#endif
 #include "uae.h"
 #include "memory.h"
 #include "custom.h"
@@ -44,11 +42,7 @@
 #include "rp.h"
 #endif
 
-#ifdef P6_PORTABLE
-#define ENABLE_MULTITHREADED_DENISE 0
-#else
 #define ENABLE_MULTITHREADED_DENISE 1
-#endif
 
 int multithread_enabled = 1;
 #define MULTITHREADED_DENISE (ENABLE_MULTITHREADED_DENISE && multithread_enabled != 0)
@@ -87,9 +81,7 @@ static uae_u8 row_tmp8g[MAX_PIXELS_PER_LINE * 32 / 8];
 static int max_drawn_amiga_line;
 uae_u8 *row_map_color_burst_buffer;
 
-#if ENABLE_MULTITHREADED_DENISE
 static uae_sem_t write_sem, read_sem;
-#endif
 
 struct denise_rga_queue
 {
@@ -120,11 +112,9 @@ struct denise_rga_queue
 	uae_u16 reg, val;
 };
 
-#if ENABLE_MULTITHREADED_DENISE
 static volatile uae_atomic rga_queue_read, rga_queue_write;
 static volatile int denise_thread_state;
 static struct denise_rga_queue rga_queue[DENISE_RGA_SLOT_CHUNKS];
-#endif
 static struct denise_rga_queue temp_line;
 static struct denise_rga_queue *this_line;
 static volatile bool thread_debug_lock;
@@ -182,7 +172,6 @@ static void update_overlapped_cycles(int endpos)
 	}
 }
 
-#if ENABLE_MULTITHREADED_DENISE
 static void read_denise_line_queue(void)
 {
 	bool nolock = false;
@@ -266,8 +255,6 @@ static void denise_thread(void *v)
 	}
 	denise_thread_state = -1;
 }
-
-#endif
 
 static bool denise_locked;
 
@@ -364,6 +351,9 @@ static uae_u32 chunky_out[4096], dpf_chunky_out[4096];
 /* AGA mode color lookup tables */
 unsigned int xredcolors[256], xgreencolors[256], xbluecolors[256];
 static int dblpf_ind1_aga[256], dblpf_ind2_aga[256];
+#else
+static uae_u8 spriteagadpfpixels[1];
+static int dblpf_ind1_aga[1], dblpf_ind2_aga[1];
 #endif
 int xredcolor_s, xredcolor_b, xredcolor_m;
 int xgreencolor_s, xgreencolor_b, xgreencolor_m;
@@ -422,9 +412,7 @@ static bool ecs_genlock_features_colorkey;
 static bool aga_genlock_features_zdclken;
 static int doublescan2xx;
 
-#if ENABLE_MULTITHREADED_DENISE
 uae_sem_t gui_sem;
-#endif
 
 static volatile int rga_denise_fast_read, rga_denise_fast_write;
 #define DENISE_RGA_SLOT_FAST_TOTAL 1024
@@ -1568,8 +1556,7 @@ static void center_image(void)
 	}
 
 	vidinfo->inbuffer->xoffset = frame_internal_pixel_start_cnt;
-	// minfirstline_linear is -1 during the first frame; multiplication keeps the scaled offset without shifting a negative value.
-	vidinfo->inbuffer->yoffset = minfirstline_linear * (1 << VRES_MAX);
+	vidinfo->inbuffer->yoffset = minfirstline_linear << VRES_MAX;
 
 	int linedbl = currprefs.gfx_vresolution;
 	if (doublescan > 0 && interlace_seen <= 0) {
@@ -1846,7 +1833,6 @@ static void setxlinebuffer(int monid, int line)
 	}
 }
 
-#ifndef P6_PORTABLE
 static uae_u8 *status_line_ptr(int monid, int line)
 {
 	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
@@ -1869,8 +1855,6 @@ static void draw_status_line(int monid, int line, int statusy)
 	else
 		draw_status_line_single(monid, buf, statusy, vidinfo->inbuffer->outwidth, xredcolors, xgreencolors, xbluecolors, NULL);
 }
-
-#endif
 
 static void draw_debug_status_line(int monid, int line)
 {
@@ -2015,11 +1999,7 @@ bool drawing_can_lineoptimizations(void)
 		currprefs.cs_color_burst || currprefs.gfx_grayscale || currprefs.monitoremu)) {
 		return false;
 	}
-	if ((lightpen_active && currprefs.lightpen_crosshair)
-#ifdef DEBUGGER
-		|| debug_dma >= 3 || debug_heatmap >= 2
-#endif
-	) {
+	if ((lightpen_active && currprefs.lightpen_crosshair) || debug_dma >= 3 || debug_heatmap >= 2) {
 		return false;
 	}
 	if (video_recording_active) {
@@ -2297,13 +2277,10 @@ void full_redraw_all(void)
 			redraw = true;
 		}
 	}
-#ifdef PICASSO96
-	// Graphics boards are not part of the A500 profile: picasso_on is never set.
 	if (ad->picasso_on) {
 		gfxboard_refresh(monid);
 		redraw = true;
 	}
-#endif
 	if (redraw) {
 		render_screen(0, 1, true);
 		show_screen(0, 0);
@@ -2493,7 +2470,6 @@ static void gen_direct_drawing_table(void)
 
 void drawing_free(void)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (denise_thread_state == 1) {
 		denise_thread_state = 2;
 		uae_sem_post(&write_sem);
@@ -2505,7 +2481,6 @@ void drawing_free(void)
 		uae_sem_destroy(&read_sem);
 		uae_sem_destroy(&write_sem);
 	}
-#endif
 }
 
 void drawing_init(void)
@@ -2514,7 +2489,6 @@ void drawing_init(void)
 	struct amigadisplay *ad = &adisplays[monid];
 	struct vidbuf_description *vidinfo = &ad->gfxvidinfo;
 
-#if ENABLE_MULTITHREADED_DENISE
 	if (!denise_thread_state) {
 		uae_sem_init(&read_sem, 0, 1);
 		uae_sem_init(&write_sem, 0, 1);
@@ -2523,7 +2497,6 @@ void drawing_init(void)
 	} else {
 		draw_denise_line_queue_flush();
 	}
-#endif
 
 	refresh_indicator_init();
 
@@ -2531,9 +2504,7 @@ void drawing_init(void)
 
 	gen_direct_drawing_table();
 
-#if ENABLE_MULTITHREADED_DENISE
 	uae_sem_init(&gui_sem, 0, 1);
-#endif
 #ifdef PICASSO96
 	if (!isrestore()) {
 		ad->picasso_on = 0;
@@ -3261,15 +3232,12 @@ static void expand_bplcon2(uae_u16 v)
 	plf1pri = bplcon2_denise & 7;
 	plf2pri = (bplcon2_denise >> 3) & 7;
 	plf_sprite_mask = 0xFFFF0000 << (4 * plf2pri);
-	plf_sprite_mask |= (0x0000FFFFu << (4 * plf1pri)) & 0xFFFF;
+	plf_sprite_mask |= (0x0000FFFF << (4 * plf1pri)) & 0xFFFF;
 	bpldualpfpri = (bplcon2_denise & 0x40) == 0x40;
 
-#ifdef AGA
 	if (aga_mode) {
 		dpf_lookup = bpldualpfpri ? dblpf_ind2_aga : dblpf_ind1_aga;
-	} else
-#endif
-	{
+	} else {
 		dpf_lookup = bpldualpfpri ? dblpf_ind2 : dblpf_ind1;
 	}
 	dpf_lookup_no = bpldualpfpri ? dblpf_2nd2 : dblpf_2nd1;
@@ -3349,12 +3317,9 @@ static void sethresolution(void)
 
 static void setlasthamcolor(void)
 {
-#ifdef AGA
 	if (aga_mode) {
 		ham_lastcolor = denise_colors.color_regs_aga[last_bpl_pix];
-	} else
-#endif
-	{
+	} else {
 		ham_lastcolor = denise_colors.color_regs_ecs[last_bpl_pix];
 	}
 }
@@ -3574,29 +3539,21 @@ static void reset_strlong(void)
 
 void denise_reset(bool hard)
 {
-#ifdef DEBUGGER
 	static int dummyint = 0;
 	static struct dma_rec dummydrec = { 0 };
-#endif
 
 	custom_end_drawing();
-#ifdef DEBUGGER
 	dummyint = 0;
 	memset(&dummydrec, 0, sizeof(dummydrec));
-#endif
 	memset(chunky_out, 0, sizeof(chunky_out));
 	memset(dpf_chunky_out, 0, sizeof(dpf_chunky_out));
-#ifdef DEBUGGER
 	debug_dma_dhpos_odd = &dummyint;
 	debug_dma_ptr = &dummydrec;
-#endif
 	denise_cycle_half = 0;
 	denise_strlong = false;
 	denise_strlong_fast = false;
 	rga_denise_fast_read = rga_denise_fast_write = 0;
-#if ENABLE_MULTITHREADED_DENISE
 	rga_queue_write = rga_queue_read = 0;
-#endif
 	denise_lol_shift_enable = false;
 	denise_lol_shift_prev = 0;
 	if (hard) {
@@ -3647,11 +3604,9 @@ void denise_reset(bool hard)
 	last_bpl_pix = 0;
 	decode_specials = 0;
 	decode_specials_debug = currprefs.gfx_overscanmode >= OVERSCANMODE_ULTRA ? 2 : (currprefs.display_calibration ? 1 : 0);
-#ifdef DEBUGGER
 	if (debug_dma == 2) {
 		decode_specials_debug |= 0x100;
 	}
-#endif
 	debug_special_hvsync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 1;
 	debug_special_csync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 2;
 	denise_csync_blanken = false;
@@ -3723,7 +3678,6 @@ void denise_reset(bool hard)
 // COLORxx write
 static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
 {
-#ifdef AGA
 	if (aga_mode) {
 
 		/* writing is disabled when RDRAM=1 */
@@ -3760,9 +3714,7 @@ static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
 			update_bordercolor();
 		}
 
-	} else
-#endif
-	{
+	} else {
 
 		if (!ecs_denise) {
 			v &= 0xfff;
@@ -3770,9 +3722,7 @@ static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
 		denise_colors.color_regs_ecs[idx] = v & 0xfff;
 		denise_colors.color_regs_genlock[idx] = v >> 15;
 		denise_colors.acolors[idx] = getxcolor(v);
-#ifdef AGA
 		denise_colors.color_regs_aga[idx] = denise_colors.acolors[idx];
-#endif
 
 		if (!idx) {
 			update_bordercolor();
@@ -3876,7 +3826,6 @@ static void bpl1dat_enable_bpls(void)
 // is decreased mid line, old higher planes must be still shifted out)
 static void bpldat_docopy(void)
 {
-#ifdef AGA
 	if (aga_mode) {
 		bplxdat2_64[0] = bplxdat_64[0];
 		bplxdat2_64[1] = bplxdat_64[1];
@@ -3886,9 +3835,7 @@ static void bpldat_docopy(void)
 		bplxdat2_64[5] = bplxdat_64[5];
 		bplxdat2_64[6] = bplxdat_64[6];
 		bplxdat2_64[7] = bplxdat_64[7];
-	} else
-#endif
-	{
+	} else {
 		bplxdat2[0] = bplxdat[0];
 		bplxdat2[1] = bplxdat[1];
 		bplxdat2[2] = bplxdat[2];
@@ -4169,15 +4116,10 @@ static void expand_drga(struct denise_rga *rd)
 			} else {
 				if (!agnus_lol && (!denise_lol_shift_prev || denise_lol_shift_enable)) {
 					int add = 1 << hresolution;
-					// No line buffer is locked before the first line: NULL plus an offset is undefined.
 					if (buf1 && buf1 < (uae_u32*)xlinebuffer_end) {
 						buf1 += add;
-						if (buf2) {
-							buf2 += add;
-						}
-						if (buf_d) {
-							buf_d += add;
-						}
+						buf2 += add;
+						buf_d += add;
 						if (gbuf) {
 							gbuf += add;
 						}
@@ -4187,12 +4129,8 @@ static void expand_drga(struct denise_rga *rd)
 				} else if (agnus_lol && denise_lol_shift_prev > 0) {
 					if (buf1 && buf1 > (uae_u32*)xlinebuffer_start) {
 						buf1 -= denise_lol_shift_prev;
-						if (buf2) {
-							buf2 -= denise_lol_shift_prev;
-						}
-						if (buf_d) {
-							buf_d -= denise_lol_shift_prev;
-						}
+						buf2 -= denise_lol_shift_prev;
+						buf_d -= denise_lol_shift_prev;
 						if (gbuf) {
 							gbuf -= denise_lol_shift_prev;
 						}
@@ -4430,7 +4368,6 @@ static void denise_update_reg(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
 }
 
 // AGA HAM
-#ifdef AGA
 static uae_u32 decode_ham_pixel_aga_fast(uint8_t pw, int planes, uae_u8 bxor, uae_u32 *colors_aga)
 {
 	if (planes >= 7) { /* AGA mode HAM8 */
@@ -4456,7 +4393,6 @@ static uae_u32 decode_ham_pixel_aga_fast(uint8_t pw, int planes, uae_u8 bxor, ua
 	}
 	return CONVERT_RGB(ham_lastcolor);
 }
-#endif
 
 // OCS/ECS HAM
 static uae_u32 decode_ham_pixel_fast(uint8_t pv, uae_u16 *colors_ocs)
@@ -4473,7 +4409,6 @@ static uae_u32 decode_ham_pixel_fast(uint8_t pv, uae_u16 *colors_ocs)
 }
 
 // AGA HAM
-#ifdef AGA
 static uae_u32 decode_ham_pixel_aga(uint8_t pw)
 {
 	if (denise_planes >= 7) { /* AGA mode HAM8 */
@@ -4499,7 +4434,6 @@ static uae_u32 decode_ham_pixel_aga(uint8_t pw)
 	}
 	return CONVERT_RGB(ham_lastcolor);
 }
-#endif
 
 // OCS/ECS HAM
 static uae_u32 decode_ham_pixel(uint8_t pv)
@@ -4553,7 +4487,6 @@ static uint8_t decode_denise_specials(uint8_t pix)
 	return pix;
 }
 
-#ifdef AGA
 static uae_u32 decode_pixel_aga(uint8_t pix)
 {
 	switch (bplmode)
@@ -4590,7 +4523,6 @@ static uae_u32 decode_pixel_aga(uint8_t pix)
 		}
 	}
 }
-#endif
 
 static uae_u32 decode_pixel(uint8_t pix)
 {
@@ -4662,9 +4594,7 @@ static uae_u8 denise_render_sprites2(uae_u8 apixel, uae_u32 vs)
 	// behaviour in C)
 	plfmask = (plf_sprite_mask >> maskshift) >> maskshift;
 	v &= ~plfmask;
-#ifdef DEBUGGER
 	v &= debug_sprite_mask;
-#endif
 	if (v) {
 		int vlo, vhi, col;
 		int v1 = v & 255;
@@ -5277,9 +5207,7 @@ static void burst_disable(void)
 }
 
 static void lts_unaligned_ecs(int, int, int);
-#ifdef AGA
 static void lts_unaligned_aga(int, int, int);
-#endif
 
 static bool checkhorizontal1_ecs(int cnt, int cnt_next, int h)
 {
@@ -5352,7 +5280,6 @@ static bool checkhorizontal1_ecs(int cnt, int cnt_next, int h)
 	return false;
 }
 
-#ifdef AGA
 static bool checkhorizontal1_aga(int cnt, int cnt_next, int h)
 {
 	denise_cycle_half = h;
@@ -5428,7 +5355,6 @@ static bool checkhorizontal1_aga(int cnt, int cnt_next, int h)
 	}
 	return false;
 }
-#endif
 
 #define SPRITE_NEAREST_MIN -3
 
@@ -5639,7 +5565,7 @@ void end_draw_denise(void)
 static void set_pixtotal_max(void)
 {
 	denise_pixtotal_max = denise_pixtotal_totalmax;
-	if (buf1 && xlinebuffer && xlinebuffer_end) {
+	if (buf1) {
 		int maxw = addrdiff((uae_u32*)xlinebuffer_end, (uae_u32*)xlinebuffer);
 		maxw >>= lts_hres_shift;
 		int resw = denise_pixtotal_max;
@@ -5650,9 +5576,7 @@ static void set_pixtotal_max(void)
 		if (xshift > 0) {
 			denise_pixtotal_max -= xshift * 2;
 		}
-		// Preserve the signed result without shifting a potentially negative signed value.
-		int pixel_offset = (int)((unsigned)denise_pixtotal_max << lts_hres_shift);
-		denise_pixtotal_max_buf_1x = ((uae_u32*)xlinebuffer) + pixel_offset;
+		denise_pixtotal_max_buf_1x = ((uae_u32*)xlinebuffer) + (denise_pixtotal_max << lts_hres_shift);
 		if (denise_pixtotal_max_buf_1x > (uae_u32*)xlinebuffer_end) {
 			denise_pixtotal_max_buf_1x = (uae_u32*)xlinebuffer_end;
 		}
@@ -5661,9 +5585,6 @@ static void set_pixtotal_max(void)
 
 	} else {
 		denise_pixtotal_max = -0x7fffffff;
-		denise_pixtotal_max_buf_1x = NULL;
-		denise_pixtotal_max_buf_2x = NULL;
-		denise_pixtotal_max_buf_4x = NULL;
 	}
 }
 
@@ -5805,7 +5726,6 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
 			}
 		}
 	}
-#ifdef DEBUGGER
 	if (debug_dma == 2 && debug_dma_ptr) {
 		uae_u32 cv = 0;
 		int t = 0;
@@ -5829,7 +5749,6 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
 			//v &= 0x7f7f7f7f;
 		}
 	}
-#endif
 
 	*buf_d++ = v;
 	return v;
@@ -5857,12 +5776,9 @@ static void lts_null(void)
 				denise_hcounter_next = denise_hcounter_new;
 			}
 
-#ifdef AGA
 			if (aga_mode) {
 				checkhorizontal1_aga(denise_hcounter, denise_hcounter_prev, h);
-			} else
-#endif
-			{
+			} else {
 				int cnt = denise_hcounter << 2;
 				checkhorizontal1_ecs(cnt, denise_hcounter_next, h);
 			}
@@ -6282,7 +6198,6 @@ static void draw_denise_line(int gfx_ypos, enum nln_how how, uae_u32 linecnt, in
 				if (lts_changed || !denise_vsync_bpl_detect) {
 					break;
 				}
-#ifdef AGA
 				if (aga_mode) {
 					for (int h = 0; h < 2 ;h++) {
 						denise_cycle_half = h;
@@ -6302,9 +6217,7 @@ static void draw_denise_line(int gfx_ypos, enum nln_how how, uae_u32 linecnt, in
 						denise_hcounter_next &= 511;
 						denise_pixtotal++;
 					}
-				} else
-#endif
-				{
+				} else {
 					for (int h = 0; h < 2 ;h++) {
 						denise_cycle_half = h;
 						if (h) {
@@ -6565,28 +6478,22 @@ bool denise_get_hboffsets(int *hbs, int *hbe, int *hblen, int *total)
 }
 
 // optimized drawing routines
-#include <linetoscr_common.cpp>
-#include <linetoscr_ocs_ecs.cpp>
-#include <linetoscr_ocs_ecs_genlock.cpp>
-#include <linetoscr_ocs_ecs_ntsc.cpp>
-#include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
-#ifdef AGA
-#include <linetoscr_aga_fm0.cpp>
-#include <linetoscr_aga_fm1.cpp>
-#include <linetoscr_aga_fm2.cpp>
-#include <linetoscr_aga_fm0_genlock.cpp>
-#include <linetoscr_aga_fm1_genlock.cpp>
-#include <linetoscr_aga_fm2_genlock.cpp>
-#endif
-#include <linetoscr_ecs_shres.cpp>
-#include <linetoscr_ecs_fast.cpp>
-#ifdef AGA
-#include <linetoscr_aga_fast.cpp>
-#endif
-#include <linetoscr_ecs_genlock_fast.cpp>
-#ifdef AGA
-#include <linetoscr_aga_genlock_fast.cpp>
-#endif
+#include "linetoscr_common.cpp"
+#include "linetoscr_ocs_ecs.cpp"
+#include "linetoscr_ocs_ecs_genlock.cpp"
+#include "linetoscr_ocs_ecs_ntsc.cpp"
+#include "linetoscr_ocs_ecs_ntsc_genlock.cpp"
+#include "linetoscr_aga_fm0.cpp"
+#include "linetoscr_aga_fm1.cpp"
+#include "linetoscr_aga_fm2.cpp"
+#include "linetoscr_aga_fm0_genlock.cpp"
+#include "linetoscr_aga_fm1_genlock.cpp"
+#include "linetoscr_aga_fm2_genlock.cpp"
+#include "linetoscr_ecs_shres.cpp"
+#include "linetoscr_ecs_fast.cpp"
+#include "linetoscr_aga_fast.cpp"
+#include "linetoscr_ecs_genlock_fast.cpp"
+#include "linetoscr_aga_genlock_fast.cpp"
 
 // select linetoscr routine
 static void select_lts(void)
@@ -6632,7 +6539,6 @@ static void select_lts(void)
 
 	lts_hres_shift = hresolution;
 
-#ifdef AGA
 	if (aga_mode) {
 
 		int spr = 0;
@@ -6666,9 +6572,7 @@ static void select_lts(void)
 			}
 		}
 
-	} else
-#endif
-	if (ecs_denise && denise_res == RES_SUPERHIRES) {
+	} else if (ecs_denise && denise_res == RES_SUPERHIRES) {
 
 		sprite_lts_selected = 1;
 		if (hresolution == RES_LORES) {
@@ -6748,13 +6652,11 @@ static void select_lts(void)
 	set_pixtotal_max();
 }
 
-#ifdef AGA
 STATIC_INLINE uae_u8 getbpl_aga(void)
 {
 	uae_u8 pix = getbpl8_64();
 	return pix;
 }
-#endif
 
 // Generic and unoptimized shres based (outputs 4xshres,2xhires or 1xlores pixels) display emulation,
 // only used when subpixel support is needed
@@ -6762,7 +6664,6 @@ STATIC_INLINE uae_u8 getbpl_aga(void)
 // For example:
 // HDIW or HB is not lores-aligned
 // or BPLCON4 changes or AGA color register is modified.
-#ifdef AGA
 static void lts_unaligned_aga(int cnt, int cnt_next, int h)
 {
 	if (!denise_odd_even) {
@@ -7001,7 +6902,6 @@ static void lts_unaligned_aga(int cnt, int cnt_next, int h)
 		bplshiftcnt[1] = bplshiftcnt[0];
 	}
 }
-#endif
 
 
 static void lts_unaligned_ecs(int cnt, int cnt_next, int h)
@@ -7652,7 +7552,6 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
 	}
 
 	LINETOSRC_FUNCF ltsf;
-#ifdef AGA
 	if (aga_mode) {
 		if (need_genlock_data) {
 			ltsf = linetoscr_aga_genlock_fast_funcs[ltsidx];
@@ -7665,9 +7564,7 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
 				ltsf = linetoscr_aga_fast_funcs_filtered[ltsidx];
 			}
 		}
-	} else
-#endif
-	{
+	} else {
 		if (need_genlock_data) {
 			ltsf = linetoscr_ecs_genlock_fast_funcs[ltsidx];
 			if (currprefs.gfx_lores_mode && linetoscr_ecs_genlock_fast_funcs_filtered[ltsidx]) {
@@ -7955,15 +7852,13 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
 #define SL save_u32
 #define SQ save_u64
 
-/* The bodies have eight planes: without AGA there are MAX_PLANES (6) registers, and BPL7DAT and BPL8DAT read as zero and are not stored. */
 uae_u16 save_custom_bpl_dat(int num)
 {
-	return num < MAX_PLANES ? bplxdat[num] : 0;
+	return bplxdat[num];
 }
 void restore_custom_bpl_dat(int num, uae_u16 dat)
 {
-	if (num < MAX_PLANES)
-		bplxdat[num] = dat;
+	bplxdat[num] = dat;
 }
 
 uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
@@ -7977,13 +7872,12 @@ uae_u8 *save_custom_bpl(size_t *len, uae_u8 *dstptr)
 
 	SL(1);
 	for (int i = 0; i < 8; i++) {
-		const bool have = i < MAX_PLANES;
-		SL(have ? bplxdat[i] : 0);
-		SL(have ? bplxdat2[i] : 0);
-		SL(have ? bplxdat3[i] : 0);
-		SQ(have ? bplxdat_64[i] : 0);
-		SQ(have ? bplxdat2_64[i] : 0);
-		SQ(have ? bplxdat3_64[i] : 0);
+		SL(bplxdat[i]);
+		SL(bplxdat2[i]);
+		SL(bplxdat3[i]);
+		SQ(bplxdat_64[i]);
+		SQ(bplxdat2_64[i]);
+		SQ(bplxdat3_64[i]);
 	}
 
 	*len = dst - dstbak;
@@ -7995,16 +7889,12 @@ uae_u8 *restore_custom_bpl(uae_u8 *src)
 	uae_u32 v = RL;
 
 	for (int i = 0; i < 8; i++) {
-		const uae_u32 d1 = RL, d2 = RL, d3 = RL;
-		const uae_u64 q1 = RQ, q2 = RQ, q3 = RQ;
-		if (i < MAX_PLANES) {
-			bplxdat[i] = d1;
-			bplxdat2[i] = d2;
-			bplxdat3[i] = d3;
-			bplxdat_64[i] = q1;
-			bplxdat2_64[i] = q2;
-			bplxdat3_64[i] = q3;
-		}
+		bplxdat[i] = RL;
+		bplxdat2[i] = RL;
+		bplxdat3[i] = RL;
+		bplxdat_64[i] = RQ;
+		bplxdat2_64[i] = RQ;
+		bplxdat3_64[i] = RQ;
 	}
 
 	return src;
@@ -8086,7 +7976,6 @@ static void updatelinedata(void)
 	this_line->linear_vpos_vb_end = linear_vpos_vb_end;
 }
 
-#if ENABLE_MULTITHREADED_DENISE
 static bool waitqueue_nolock(void)
 {
 	while (((rga_queue_write + 1) & DENISE_RGA_SLOT_CHUNKS_MASK) == (rga_queue_read & DENISE_RGA_SLOT_CHUNKS_MASK)) {
@@ -8118,11 +8007,8 @@ static bool multithread_denise_active(void)
 	return MULTITHREADED_DENISE && denise_thread_state == 1;
 }
 
-#endif
-
 void draw_denise_border_line_fast_queue(int gfx_ypos, bool blank, enum nln_how how, struct linestate *ls)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 		
 		if (!waitqueue(2)) {
@@ -8142,9 +8028,7 @@ void draw_denise_border_line_fast_queue(int gfx_ypos, bool blank, enum nln_how h
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 	
 		updatelinedata();
 		draw_denise_border_line_fast(gfx_ypos, blank, how, ls);
@@ -8154,7 +8038,6 @@ void draw_denise_border_line_fast_queue(int gfx_ypos, bool blank, enum nln_how h
 
 void draw_denise_bitplane_line_fast_queue(int gfx_ypos, enum nln_how how, struct linestate *ls)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 		
 		if (!waitqueue(1)) {
@@ -8173,9 +8056,7 @@ void draw_denise_bitplane_line_fast_queue(int gfx_ypos, enum nln_how how, struct
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 	
 		updatelinedata();
 		draw_denise_bitplane_line_fast(gfx_ypos, how, ls);
@@ -8185,7 +8066,6 @@ void draw_denise_bitplane_line_fast_queue(int gfx_ypos, enum nln_how how, struct
 
 void quick_denise_rga_queue(uae_u32 linecnt, int startpos, int endpos)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue(3)) {
@@ -8204,9 +8084,7 @@ void quick_denise_rga_queue(uae_u32 linecnt, int startpos, int endpos)
 
 		addtowritequeue();
 	
-	} else
-#endif
-	{
+	} else {
 
 		updatelinedata();
 		quick_denise_rga(linecnt, startpos, endpos);
@@ -8216,7 +8094,6 @@ void quick_denise_rga_queue(uae_u32 linecnt, int startpos, int endpos)
 
 void denise_handle_quick_strobe_queue(uae_u16 strobe, int strobe_pos, int endpos)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue_nolock()) {
@@ -8235,9 +8112,7 @@ void denise_handle_quick_strobe_queue(uae_u16 strobe, int strobe_pos, int endpos
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 
 		updatelinedata();
 		denise_handle_quick_strobe(strobe, strobe_pos, endpos);
@@ -8249,7 +8124,6 @@ void denise_handle_quick_strobe_queue(uae_u16 strobe, int strobe_pos, int endpos
 void draw_denise_line_queue(int gfx_ypos, nln_how how, uae_u32 linecnt, int startpos, int endpos, int startcycle, int endcycle, int skip_start, int skip_end, int dtotal,
 	int calib_start, int calib_len, bool lol, int hdelay, bool blanked, uae_s8 borderline, bool finalseg, struct linestate *ls)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue(0)) {
@@ -8283,9 +8157,7 @@ void draw_denise_line_queue(int gfx_ypos, nln_how how, uae_u32 linecnt, int star
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 
 		updatelinedata();
 		draw_denise_line(gfx_ypos, how, linecnt, startpos, startcycle, endcycle, skip_start, skip_end, dtotal, calib_start, calib_len, lol, hdelay, blanked, borderline, finalseg, ls);
@@ -8298,7 +8170,6 @@ void draw_denise_line_queue(int gfx_ypos, nln_how how, uae_u32 linecnt, int star
 
 void draw_denise_vsync_queue(int erase)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue_nolock()) {
@@ -8314,9 +8185,7 @@ void draw_denise_vsync_queue(int erase)
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 	
 		updatelinedata();
 		draw_denise_vsync(erase);
@@ -8326,7 +8195,6 @@ void draw_denise_vsync_queue(int erase)
 
 void denise_update_reg_queue(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue_nolock()) {
@@ -8344,9 +8212,7 @@ void denise_update_reg_queue(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 
 		updatelinedata();
 		denise_update_reg(reg, v, linecnt);
@@ -8356,7 +8222,6 @@ void denise_update_reg_queue(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
 
 void denise_store_restore_registers_queue(bool store, uae_u32 linecnt)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		if (!waitqueue(7)) {
@@ -8373,9 +8238,7 @@ void denise_store_restore_registers_queue(bool store, uae_u32 linecnt)
 
 		addtowritequeue();
 
-	} else
-#endif
-	{
+	} else {
 
 		updatelinedata();
 		if (store) {
@@ -8388,7 +8251,6 @@ void denise_store_restore_registers_queue(bool store, uae_u32 linecnt)
 
 void draw_denise_line_queue_flush(void)
 {
-#if ENABLE_MULTITHREADED_DENISE
 	if (multithread_denise_active()) {
 
 		for (;;) {
@@ -8399,84 +8261,4 @@ void draw_denise_line_queue_flush(void)
 		}
 
 	}
-#endif
-}
-
-// Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): the border colour Denise keeps apart from its colour registers.
-// restore_custom puts the 32 colour registers into denise_colors and rebuilds acolors with docols, but it does so after its queue of register writes has been flushed, and
-// those writes (BPLCON0 and BPLCON3) run update_ecs_features and update_bordercolor while acolors still holds what the image had before the load: a new image (or one
-// restarted before the load) drew the border of its first picture with the COLOR00 of its reset, black, where the state's was red. bordercolor and bordercolor_ecs_shres
-// are derived (from COLOR00 and the border-blank bit of BPLCON3) and are in no body; only a COLOR00 write or a BPLCON write recomputes them, so a machine that had already
-// written the same values hid it. Derived values only: no register is written, nothing is drawn or scheduled.
-void p6_denise_rebuild_derived(void)
-{
-	update_bordercolor();
-}
-
-// Native state (bridge/state_upstream.cpp, sub-body DNSP of P6VD): the two halves of Denise's four-pixel output pipeline. Every colour clock denise_draw writes the pixels of
-// this half into dtbuf and copies out the ones of the other half (dtbuf[h ^ lol]), so the first pixels of a line leave from what the previous colour clock left behind: no
-// body carries them (BPLX has the shift registers, not the pixels that have already been decoded), and a machine that has not drawn the same lines before (a new image) put
-// zero where the original put the colour of the border: two pixels at the start of the first line and two at the end of the third of the first picture after a load.
-// Values only, in 32-bit words: 0-7 dtbuf[0..1][0..3], 8-15 dtgbuf[0..1][0..3].
-#define P6_DENISE_PIPE_WORDS 16
-bool p6_denise_pipe_get(int32_t *out, unsigned n)
-{
-	if (!out || n != P6_DENISE_PIPE_WORDS) return false;
-	for (int h = 0; h < 2; h++)
-		for (int i = 0; i < 4; i++) {
-			out[h * 4 + i] = int32_t(dtbuf[h][i]);
-			out[8 + h * 4 + i] = dtgbuf[h][i];
-		}
-	return true;
-}
-
-bool p6_denise_pipe_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != P6_DENISE_PIPE_WORDS) return false;
-	for (int h = 0; h < 2; h++)
-		for (int i = 0; i < 4; i++) {
-			dtbuf[h][i] = uae_u32(in[h * 4 + i]);
-			dtgbuf[h][i] = uae_u8(in[8 + h * 4 + i]);
-		}
-	return true;
-}
-// Native state (bridge/state_upstream.cpp, the last two words of GEOM): beta 21 keeps the horizontal-blank interval selected after a stable half-frame in Denise. Agnus reads it
-// through denise_get_hboffsets() when it derives the next display window. A new image otherwise keeps 0/0 until its own detector settles and redraws a different border several
-// frames after a load. Values only; the bridge validates them before calling set.
-#define P6_DENISE_HBLANK_WORDS 2
-bool p6_denise_hblank_get(int32_t *out, unsigned n)
-{
-	if (!out || n != P6_DENISE_HBLANK_WORDS) return false;
-	out[0] = linear_denise_frame_hbstrt_sel;
-	out[1] = linear_denise_frame_hbstop_sel;
-	return true;
-}
-
-bool p6_denise_hblank_set(const int32_t *in, unsigned n)
-{
-	if (!in || n != P6_DENISE_HBLANK_WORDS) return false;
-	linear_denise_frame_hbstrt_sel = in[0];
-	linear_denise_frame_hbstop_sel = in[1];
-	return true;
-}
-
-// Native state (bridge/state_upstream.cpp, four words of GEOM in P6VD, patch 0103): the flags of the drawing that no body names. erase_next_draw wipes every row of the buffer before the
-// next frame draws any (a change of mode, or a display redraw that vsync_display_render turned into this one a vertical blank before), and center_y_erase is the same request raised when
-// the picture is re-centred; a boundary that follows the adoption of a new raster by one frame has one pending, and a mode the presentation refuses keeps it pending for as long as the
-// refusal lasts. thread_debug_lock (with the locked flag of the drawing buffer, which says the same) is whether the frame being drawn holds the buffer: a boundary holds it unless the
-// presentation refused the lock at the last vertical blank. A machine that loaded a state without them wiped the rows the original kept (the other field of an interlaced weave), kept the
-// ones it wiped, or, with the buffer locked where the original's was not, drew lines the original did not draw. Values only.
-void p6_draw_flags_get(int *erase, int *center, int *locked)
-{
-	*erase = erase_next_draw;
-	*center = center_y_erase;
-	*locked = thread_debug_lock;
-}
-
-void p6_draw_flags_set(int erase, int center, int locked)
-{
-	erase_next_draw = erase != 0;
-	center_y_erase = center != 0;
-	thread_debug_lock = locked != 0;
-	adisplays[0].gfxvidinfo.drawbuffer.locked = locked != 0;
 }

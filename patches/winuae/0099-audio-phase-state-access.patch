@@ -1,12 +1,11 @@
 diff --git a/audio.cpp b/audio.cpp
+index 3395affd..05b566a0 100644
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -2927,8 +2927,84 @@
- 	save_u8 (acd->drhpos);
- 	*len = dst - dstbak;
+@@ -2938,6 +2938,82 @@ uae_u8 *save_audio (int nr, size_t *len, uae_u8 *dstptr)
  	return dstbak;
-+}
-+
+ }
+ 
 +// Native state (bridge/state_upstream.cpp, sub-body AUDP of P6AU): what AUDn does not carry and the next samples depend on. restore_audio puts back the state, volume,
 +// lengths, data word, pointers and evtime of a channel, rounds the period to whole colour clocks (so PERIOD_MAX - 1, the sentinel of a channel whose period was never
 +// written, comes back as PERIOD_MAX), copies dat into dat2, derives dmaenstore from DMACON and zeroes the rest (zerostate); restore_audio_finish sets last_cycles to the
@@ -57,8 +56,8 @@ diff --git a/audio.cpp b/audio.cpp
 +		w[14] = int32_t(c->data.adk_mask);
 +	}
 +	return true;
- }
- 
++}
++
 +bool p6_audio_phase_set(const int32_t *in, unsigned n)
 +{
 +	if (!in || !p6_audio_phase_supported(n)) return false;

@@ -1,7 +1,8 @@
 diff --git a/memory.cpp b/memory.cpp
+index 6913382d..f03101b2 100644
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -3152,8 +3152,12 @@
+@@ -3208,8 +3208,12 @@ static void restore_roms(void)
  		struct romdata *rd = getromdatabydata (kickmem_bank.baseaddr, kickmem_bank.reserved_size);
  		if (rd) {
  #ifdef P6_PORTABLE

@@ -1,7 +1,64 @@
+diff --git a/custom.cpp b/custom.cpp
+index be9256d3..846436a8 100644
+--- a/custom.cpp
++++ b/custom.cpp
+@@ -13362,4 +13362,51 @@ void p6_custom_rebuild_derived(void)
+ 		SPRxCTLPOS(i);
+ 	}
+ }
++
++// Native state (bridge/state_upstream.cpp, sub-body GEOM of P6VD): the size of the raster the machine has measured and settled on. The engine does not read the size of the frame
++// from the registers: vsync_check_vsyncmode follows the lines and colour clocks the last frames really had (linear_vpos_prev and linear_hpos_prev, which BEAM carries), and only
++// after the same measure has held for a few frames does it adopt it (current_linear_*, with the candidate in current_linear_*_temp and the frames to wait in
++// current_linear_temp_change) and let compute_framesync derive the size of the picture from it (inwidth, inheight and their doublescan twins, the visible out size, the extra
++// width and height and the sync offsets of the drawing buffer). None of it is in a body, and WinUAE's own load gets it from init_hz, which the bridge never runs on a live machine:
++// a machine that had adopted a different frame (a long frame stuck on, a same image that has run on) kept it, a new image adopted the saved one a few units later and put out a
++// blank picture the unit it switched, so the same program showed 576 lines where the original showed 574, or the other way round. Values only, in 32-bit words:
++//  0 current_linear_hpos  1 current_linear_vpos  2 current_linear_hpos_short  3 current_linear_vpos_nom  4 current_linear_hpos_temp  5 current_linear_vpos_temp
++//  6 current_linear_temp_change  then beta 21's drawing buffer: 7 inwidth  8 inheight  9 outwidth  10 outheight  11 extrawidth  12 extraheight
++//  13 xoffset  14 yoffset  15 inxoffset  16 inyoffset. The obsolete inwidth2/inheight2 fields no longer exist.
++// Set does what compute_framesync does with a new size (target_graphics_buffer_update publishes the allocation of the presentation and clears what the old mode drew) and, when the
++// size changed, what vsync_check_vsyncmode does after it (resetfulllinestate and a full redraw), so that no line of the next picture is skipped as unchanged over a buffer that was
++// cleared. The profile draws into the drawing buffer itself (no auxiliary buffer): both calls refuse otherwise.
++#define P6_FRAME_GEOMETRY_WORDS 17
++bool p6_frame_geometry_get(int32_t *out, unsigned n)
++{
++	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
++	if (!out || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
++	const struct vidbuffer *vb = vi->inbuffer;
++	const int32_t words[] = {
++		current_linear_hpos, current_linear_vpos, current_linear_hpos_short, current_linear_vpos_nom, current_linear_hpos_temp, current_linear_vpos_temp,
++		current_linear_temp_change, vb->inwidth, vb->inheight, vb->outwidth, vb->outheight, vb->extrawidth, vb->extraheight,
++		vb->xoffset, vb->yoffset, vb->inxoffset, vb->inyoffset
++	};
++	static_assert(sizeof words / sizeof words[0] == P6_FRAME_GEOMETRY_WORDS, "review the frame geometry word list");
++	memcpy(out, words, sizeof words);
++	return true;
++}
++
++bool p6_frame_geometry_set(const int32_t *in, unsigned n)
++{
++	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
++	if (!in || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
++	struct vidbuffer *vb = vi->inbuffer;
++	const int owidth = vb->outwidth, oheight = vb->outheight;
++	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
++	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
++	vb->inwidth = in[7]; vb->inheight = in[8]; vb->outwidth = in[9]; vb->outheight = in[10];
++	vb->extrawidth = in[11]; vb->extraheight = in[12]; vb->xoffset = in[13]; vb->yoffset = in[14]; vb->inxoffset = in[15]; vb->inyoffset = in[16];
++	target_graphics_buffer_update(0, false);
++	if (vb->outwidth != owidth || vb->outheight != oheight) {
++		resetfulllinestate();
++		display_redraw = true;
++	}
++	return true;
++}
+ #endif
 diff --git a/drawing.cpp b/drawing.cpp
+index 47ec58d9..fecd4c1c 100644
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -8008,3 +8008,42 @@
+@@ -8397,3 +8397,61 @@ void draw_denise_line_queue_flush(void)
  	}
  #endif
  }
@@ -44,58 +101,22 @@ diff --git a/drawing.cpp b/drawing.cpp
 +		}
 +	return true;
 +}
-diff --git a/custom.cpp b/custom.cpp
---- a/custom.cpp
-+++ b/custom.cpp
-@@ -13233,4 +13233,51 @@
- 		SPRxCTLPOS(i);
- 	}
- }
-+
-+// Native state (bridge/state_upstream.cpp, sub-body GEOM of P6VD): the size of the raster the machine has measured and settled on. The engine does not read the size of the frame
-+// from the registers: vsync_check_vsyncmode follows the lines and colour clocks the last frames really had (linear_vpos_prev and linear_hpos_prev, which BEAM carries), and only
-+// after the same measure has held for a few frames does it adopt it (current_linear_*, with the candidate in current_linear_*_temp and the frames to wait in
-+// current_linear_temp_change) and let compute_framesync derive the size of the picture from it (inwidth, inheight and their doublescan twins, the visible out size, the extra
-+// width and height and the sync offsets of the drawing buffer). None of it is in a body, and WinUAE's own load gets it from init_hz, which the bridge never runs on a live machine:
-+// a machine that had adopted a different frame (a long frame stuck on, a same image that has run on) kept it, a new image adopted the saved one a few units later and put out a
-+// blank picture the unit it switched, so the same program showed 576 lines where the original showed 574, or the other way round. Values only, in 32-bit words:
-+//  0 current_linear_hpos  1 current_linear_vpos  2 current_linear_hpos_short  3 current_linear_vpos_nom  4 current_linear_hpos_temp  5 current_linear_vpos_temp
-+//  6 current_linear_temp_change  then the drawing buffer: 7 inwidth  8 inheight  9 inwidth2  10 inheight2  11 outwidth  12 outheight  13 extrawidth  14 extraheight
-+//  15 xoffset  16 yoffset  17 inxoffset  18 inyoffset
-+// Set does what compute_framesync does with a new size (target_graphics_buffer_update publishes the allocation of the presentation and clears what the old mode drew) and, when the
-+// size changed, what vsync_check_vsyncmode does after it (resetfulllinestate and a full redraw), so that no line of the next picture is skipped as unchanged over a buffer that was
-+// cleared. The profile draws into the drawing buffer itself (no auxiliary buffer): both calls refuse otherwise.
-+#define P6_FRAME_GEOMETRY_WORDS 19
-+bool p6_frame_geometry_get(int32_t *out, unsigned n)
++// Native state (bridge/state_upstream.cpp, the last two words of GEOM): beta 21 keeps the horizontal-blank interval selected after a stable half-frame in Denise. Agnus reads it
++// through denise_get_hboffsets() when it derives the next display window. A new image otherwise keeps 0/0 until its own detector settles and redraws a different border several
++// frames after a load. Values only; the bridge validates them before calling set.
++#define P6_DENISE_HBLANK_WORDS 2
++bool p6_denise_hblank_get(int32_t *out, unsigned n)
 +{
-+	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
-+	if (!out || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
-+	const struct vidbuffer *vb = vi->inbuffer;
-+	const int32_t words[] = {
-+		current_linear_hpos, current_linear_vpos, current_linear_hpos_short, current_linear_vpos_nom, current_linear_hpos_temp, current_linear_vpos_temp,
-+		current_linear_temp_change, vb->inwidth, vb->inheight, vb->inwidth2, vb->inheight2, vb->outwidth, vb->outheight, vb->extrawidth, vb->extraheight,
-+		vb->xoffset, vb->yoffset, vb->inxoffset, vb->inyoffset
-+	};
-+	static_assert(sizeof words / sizeof words[0] == P6_FRAME_GEOMETRY_WORDS, "review the frame geometry word list");
-+	memcpy(out, words, sizeof words);
++	if (!out || n != P6_DENISE_HBLANK_WORDS) return false;
++	out[0] = linear_denise_frame_hbstrt_sel;
++	out[1] = linear_denise_frame_hbstop_sel;
 +	return true;
 +}
 +
-+bool p6_frame_geometry_set(const int32_t *in, unsigned n)
++bool p6_denise_hblank_set(const int32_t *in, unsigned n)
 +{
-+	struct vidbuf_description *vi = &adisplays[0].gfxvidinfo;
-+	if (!in || n != P6_FRAME_GEOMETRY_WORDS || vi->inbuffer != &vi->drawbuffer) return false;
-+	struct vidbuffer *vb = vi->inbuffer;
-+	const int owidth = vb->outwidth, oheight = vb->outheight;
-+	current_linear_hpos = in[0]; current_linear_vpos = in[1]; current_linear_hpos_short = in[2]; current_linear_vpos_nom = in[3];
-+	current_linear_hpos_temp = in[4]; current_linear_vpos_temp = in[5]; current_linear_temp_change = in[6];
-+	vb->inwidth = in[7]; vb->inheight = in[8]; vb->inwidth2 = in[9]; vb->inheight2 = in[10]; vb->outwidth = in[11]; vb->outheight = in[12];
-+	vb->extrawidth = in[13]; vb->extraheight = in[14]; vb->xoffset = in[15]; vb->yoffset = in[16]; vb->inxoffset = in[17]; vb->inyoffset = in[18];
-+	target_graphics_buffer_update(0, false);
-+	if (vb->outwidth != owidth || vb->outheight != oheight) {
-+		resetfulllinestate();
-+		display_redraw = true;
-+	}
++	if (!in || n != P6_DENISE_HBLANK_WORDS) return false;
++	linear_denise_frame_hbstrt_sel = in[0];
++	linear_denise_frame_hbstop_sel = in[1];
 +	return true;
 +}
- #endif

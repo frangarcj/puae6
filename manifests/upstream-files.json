@@ -3,7 +3,7 @@
   "source": {
     "id": "winuae",
     "repository": "https://github.com/tonioni/WinUAE.git",
-    "commit": "6f19b872160ec98557ec9c13fe4c3d9a987ecad0"
+    "commit": "1fb263778ca0b6a6d02993acf900044522fcb76a"
   },
   "destination": "upstream/winuae",
   "files": [
@@ -3470,12 +3470,12 @@
     {
       "path": "audio.cpp",
       "mode": "100644",
-      "sha256": "a72f980cd50eaffebbadeccb011312bc0d60a9a7ad12f9db8952b3d04d3c8827"
+      "sha256": "db6862464d39310ae3915ab206abfe30e3a9f6dbdb65fc0bccc8b7d22abd8b30"
     },
     {
       "path": "autoconf.cpp",
       "mode": "100644",
-      "sha256": "a4d415ebe1bb16ca9770e6d16f6b013fe547a56c627b74821d9961fd08c6137f"
+      "sha256": "94d339ba45fb2c02032bb38b079461a741f13cdc5a7335ce5aff121036ec4c1a"
     },
     {
       "path": "blit.h",
@@ -3505,7 +3505,7 @@
     {
       "path": "blitter.cpp",
       "mode": "100644",
-      "sha256": "ad1b76fdfffc25de8a934e0555256a7a23896c11924d3f376e2d0a6255a0add1"
+      "sha256": "1ac155db9b253d51cda80d4dfcee5b189a399f7e2d876d7941d0deb1a6b83ee7"
     },
     {
       "path": "blkdev.cpp",
@@ -3565,12 +3565,12 @@
     {
       "path": "cfgfile.cpp",
       "mode": "100644",
-      "sha256": "2642541d82abf9857c0ba7ba975dd44a41abb734ffac41e7de5620bce1732f5c"
+      "sha256": "46f6192742277de6f863b8e2b783118431df470bc4c78ac1a0f08263c93a8b94"
     },
     {
       "path": "cia.cpp",
       "mode": "100644",
-      "sha256": "ffe882dd57e06ccc41695952c2df3daf2c5ae7087faca624727da5c12fae8bdd"
+      "sha256": "7b4a5ea7e3069be1c8c5013e94d2e176554b68fc30816c487ff3e264e815c292"
     },
     {
       "path": "consolehook.cpp",
@@ -3830,12 +3830,12 @@
     {
       "path": "crc32.cpp",
       "mode": "100644",
-      "sha256": "846b4f7dbe297df8cdc6b07cb377f3d39437c7b2c0704862eb0935431aa3ffff"
+      "sha256": "13cd5256337f4781032759629e7cec4e0a46f376b9ba16e1350149e8f6c952d0"
     },
     {
       "path": "custom.cpp",
       "mode": "100644",
-      "sha256": "4bcdfaced38040eb596926dc741c69856876b198b468a6ca71d7ff08c69b8213"
+      "sha256": "c969b96db85ecbe7b24ee5110b3ccbf7fcd188465679a8714745f827082f8b1f"
     },
     {
       "path": "debug.cpp",
@@ -3855,7 +3855,7 @@
     {
       "path": "devices.cpp",
       "mode": "100644",
-      "sha256": "f2e256cf804724da818765a0246f243d76194d48dd2a68ba0c9de2f96cc288df"
+      "sha256": "8c2dc0cc7e10e691f23c8615f015397400fcd231bacc7c1c64ea220fd04f84bb"
     },
     {
       "path": "disasm.cpp",
@@ -3865,7 +3865,7 @@
     {
       "path": "disk.cpp",
       "mode": "100644",
-      "sha256": "a6b17f466c1e8f36ee5f0384c800221ad5adfdc4169ab5fcf426926637ecf322"
+      "sha256": "beaf4ca7fc91dfd9771f9f87d9b813a010e190af76d31d1f83d91cff57c865ec"
     },
     {
       "path": "diskutil.cpp",
@@ -3890,7 +3890,7 @@
     {
       "path": "drawing.cpp",
       "mode": "100644",
-      "sha256": "2d879ed1f94e52b092b184d92452b2a78d259c8fe5a7891e22b5afa16b920499"
+      "sha256": "6fbd7bba79e8b18f711ce6453be72054ab410daac2cc7703b5a8bc253852dc1a"
     },
     {
       "path": "driveclick.cpp",
@@ -3940,12 +3940,12 @@
     {
       "path": "events.cpp",
       "mode": "100644",
-      "sha256": "ca402f11305a73a603265ff909275365ebb6eed72db93ee767465475435e126f"
+      "sha256": "00d968eb118162e71d11cb72f690836cfe8053af262306946fcf0265f3c1949b"
     },
     {
       "path": "expansion.cpp",
       "mode": "100644",
-      "sha256": "5ec2f1a4b9c978134406842d22ffaf836234c2b4c141c3569951bed7fc98fd66"
+      "sha256": "d9a8633c26360ea4f54748eae09e72cde8b232a297eed6186b2faf368227fe9f"
     },
     {
       "path": "fdi2raw.cpp",
@@ -3960,7 +3960,7 @@
     {
       "path": "filesys.cpp",
       "mode": "100644",
-      "sha256": "3e9a4176927e11fd56002d571115edd32095e8b0bd8247e515f761609236746f"
+      "sha256": "865bfb85d206f18bb82e621503e4523d9246dbb8a90a36d007952e4cf6e8519a"
     },
     {
       "path": "filesys.sh",
@@ -4000,7 +4000,7 @@
     {
       "path": "fpp.cpp",
       "mode": "100644",
-      "sha256": "86488ece0bf7a10ac11c9c4a507ab2ebb6ad3601322d3bf2e29ee76fce0f5c08"
+      "sha256": "35972c15328da20aa9bf644e70f631b390a9f4e26d6598dc4c42765f082327a1"
     },
     {
       "path": "fpp_native.cpp",
@@ -4010,7 +4010,7 @@
     {
       "path": "fpp_softfloat.cpp",
       "mode": "100644",
-      "sha256": "f5174d264a30806a0adf7acac782082575be69dd91452a260a40091340e70e7e"
+      "sha256": "5b0ecb8afb5b9b15476129c53f29f0a4fa7120eb0cddb51aa6a1a412ae292487"
     },
     {
       "path": "framebufferboards.cpp",
@@ -4035,7 +4035,7 @@
     {
       "path": "gayle.cpp",
       "mode": "100644",
-      "sha256": "6b52caea7a4141e01d1aa36cece2c57c90707d31614d265e7c5aca207cab2d2d"
+      "sha256": "1cecbfad9737124720ff3f871acc5c209e01627b8a6530ecc2fd17de0460444d"
     },
     {
       "path": "gdb_monitor.cpp",
@@ -4070,7 +4070,7 @@
     {
       "path": "gencpu.cpp",
       "mode": "100644",
-      "sha256": "30028f825f5b16579c827dcb178036ac04586453ef75c6bd3762c1b9ff9c605a"
+      "sha256": "e993c18b19c68a98ec5404c2ee2983dba0f17252cff42a1ba932c92d8c13f094"
     },
     {
       "path": "gencpu_mini.cpp",
@@ -4080,7 +4080,7 @@
     {
       "path": "gengenblitter.cpp",
       "mode": "100644",
-      "sha256": "7b9c7063fec93f291b5f65bea0a78eca0cccd7be938d69353774dd462e41a209"
+      "sha256": "06de815f8f488d1de7716ea99b1b80358b412efe68a79ad230c0b6e0cf2cb17d"
     },
     {
       "path": "genlinetoscr.cpp",
@@ -4115,7 +4115,7 @@
     {
       "path": "hardfile.cpp",
       "mode": "100644",
-      "sha256": "4911d6937fc7cae3c5e0e0c1467e619bab5a172c02b1715725dee83f60c33f4e"
+      "sha256": "6c96986158ad1ca1716dbbab0cd6e295414ebf05c55b1b86387fb5263f6657b3"
     },
     {
       "path": "hrtmon.rom.cpp",
@@ -4125,7 +4125,7 @@
     {
       "path": "ide.cpp",
       "mode": "100644",
-      "sha256": "c001100d315a0874bc8d7459a3ccccfa8d369a0ddc686736656a02cee1df4c7c"
+      "sha256": "cea89bf03b0041d2d436d0943a5cf2a1f276f35073e2dd6fc54f12b1eb56c29d"
     },
     {
       "path": "idecontrollers.cpp",
@@ -4235,7 +4235,7 @@
     {
       "path": "include/commpipe.h",
       "mode": "100644",
-      "sha256": "e4c9a5a9bfb3286807e3e40e67fde773b95b3106b533c93b7ea5aabfca7fbeb6"
+      "sha256": "e6e80e495e18567b8b01ca64dc84593ebf992165495cff3660c59b1bf3adc615"
     },
     {
       "path": "include/consolehook.h",
@@ -4280,7 +4280,7 @@
     {
       "path": "include/debug.h",
       "mode": "100644",
-      "sha256": "60311eeee57b0f4b98222c328940af6e3f7d44783726e93843529fb5d7505c54"
+      "sha256": "fe6af7865763e5c849647978578c73bd17238deb0691d4ffedcaa93dc2c74053"
     },
     {
       "path": "include/debugmem.h",
@@ -4485,7 +4485,7 @@
     {
       "path": "include/inputdevice.h",
       "mode": "100644",
-      "sha256": "a21dcd5a7a0ab1408265b835dc98842c847c707b8719fea3431e756e2ab77999"
+      "sha256": "3acef2aae19cd584397e970290d4580fe70d374e6c930c0a8613aec461798032"
     },
     {
       "path": "include/inputrecord.h",
@@ -4515,7 +4515,7 @@
     {
       "path": "include/keybuf.h",
       "mode": "100644",
-      "sha256": "1b5d146b68dadf2105ab24fd718b7c5493653bc85dcdda2a0a011f90cef02ea1"
+      "sha256": "1f057a6c4d8594281e03fbefdc0d48df09db4e5ba20b21f05132d11dab4be65d"
     },
     {
       "path": "include/luascript.h",
@@ -4555,12 +4555,12 @@
     {
       "path": "include/native2amiga.h",
       "mode": "100644",
-      "sha256": "c2e7f4d641b7d9b6d6ac2e4dc3ecd3f7d5a7d8432644dd9ca13aadd180477632"
+      "sha256": "ee76514e42dfa98a23aeb9004812dbc24a46f4955409f21cf1ec9bc7c267947d"
     },
     {
       "path": "include/native2amiga_api.h",
       "mode": "100644",
-      "sha256": "e32879f8cd7260049b1fa54cda85e8633d9acb43a42e5a8d82d6b62170994e6c"
+      "sha256": "f9f1386a503b755c4822d1ff73be15b4733980b7c0537d81412b73f485ca760a"
     },
     {
       "path": "include/ncr9x_scsi.h",
@@ -4575,7 +4575,7 @@
     {
       "path": "include/newcpu.h",
       "mode": "100644",
-      "sha256": "dc5740deb1d3fccb5708f6adef3732b1cda3583eab0abc7e2f48db1c2d57371e"
+      "sha256": "7c280ed63b27c764dafe73b58b7ec90a64220a871ef59e7ab0d2819c44fbf495"
     },
     {
       "path": "include/options.h",
@@ -4680,12 +4680,12 @@
     {
       "path": "include/statusline.h",
       "mode": "100644",
-      "sha256": "fe70b4db5872e590ab5de61fdae5d8ef88fb79d7ea1e78ed80c3d62281fbcc2f"
+      "sha256": "f8103e2eef82c1a519b89660bc11a67fd100733523221341365a579f9825d8ae"
     },
     {
       "path": "include/sysdeps.h",
       "mode": "100644",
-      "sha256": "c8ef246eaa033d87cf5c386547bd09c52f4d62d79349d9fdc7c26f200af3b06f"
+      "sha256": "479045f0d5a39973ea45a16eb0c04f43a7f57d2269aae8448689bc6df043f330"
     },
     {
       "path": "include/tabletlibrary.h",
@@ -4880,7 +4880,7 @@
     {
       "path": "include/zfile.h",
       "mode": "100644",
-      "sha256": "b5a94ce1296519c9d4e592b8dffc6bd984deba90690fdeb989da19400f7806bf"
+      "sha256": "41a53ad4a28837ea027b7eee48780caac5dc3708bf6d9f4e9dd94ec007eabf92"
     },
     {
       "path": "ini.cpp",
@@ -4895,7 +4895,7 @@
     {
       "path": "inputdevice.cpp",
       "mode": "100644",
-      "sha256": "154edb9a7a10c21adec9a6a090f1ac936b36b8292e7fb1011d3813fadc91bbf1"
+      "sha256": "f9ae47de223753efc69319db2c2b387c39381252ac76338844c622711b8cd1d6"
     },
     {
       "path": "inputevents.def",
@@ -5210,7 +5210,7 @@
     {
       "path": "keybuf.cpp",
       "mode": "100644",
-      "sha256": "acef61f7bb9e8454d33432e177b7d32e33dab4374dbc3fa3ebaf6dcbe1862105"
+      "sha256": "e31a87d6ab617360ad9426e7eba8ade725c5fba0c88fb0223598912114e69951"
     },
     {
       "path": "linetoscr_aga_fast.cpp",
@@ -5305,7 +5305,7 @@
     {
       "path": "main.cpp",
       "mode": "100644",
-      "sha256": "397d068f6261aa1da293ef113cff58f00247050c06c084c559a28af69e617280"
+      "sha256": "47f8209af6e656ac8d541df4c1eef2edeae7d468bfa6beabb3689b656c668539"
     },
     {
       "path": "mame/a2410.cpp",
@@ -5365,7 +5365,7 @@
     {
       "path": "memory.cpp",
       "mode": "100644",
-      "sha256": "3127bd0468dc0da90a9c1dab01b97f6b5bf4567b6dce4aa60a71d4c81ca2cddf"
+      "sha256": "dfcce3e7033a269fcb0c1ef6715beb15296ccc95f1251cce82b23ebeef554eac"
     },
     {
       "path": "midiemu.cpp",
@@ -5390,7 +5390,7 @@
     {
       "path": "native2amiga.cpp",
       "mode": "100644",
-      "sha256": "583f7a9deee048a25347d270fc8d0c3e2c782a4f10ffa2fa9a536cd2ac6f77bf"
+      "sha256": "f32264d9ebe6314051ca1b7b7f53fc6821a26cdd763d3a8f254d154973dd487b"
     },
     {
       "path": "ncr9x_scsi.cpp",
@@ -5405,12 +5405,12 @@
     {
       "path": "newcpu.cpp",
       "mode": "100644",
-      "sha256": "f4f3cb98937ba34ad4a028e225c3999ae1bb4a3c8c6a84b5dfc7551756264b4a"
+      "sha256": "56a6cb9fd9b9298ae2d361b1829d5abfcf6b56c0f85d858c397e2cc9c40c768a"
     },
     {
       "path": "newcpu_common.cpp",
       "mode": "100644",
-      "sha256": "b51428614688824996454fc71b57ad11c2b6eb67d2885e1755255cc273d6fab0"
+      "sha256": "b3e408e555b0f695ba9679de2cfccbcc70ff7e7f1870e6d16b1d10097e837876"
     },
     {
       "path": "nogui.cpp",
@@ -7860,7 +7860,7 @@
     {
       "path": "rommgr.cpp",
       "mode": "100644",
-      "sha256": "4e2d900e93f8fc692ed41b819f34e8a4cd45cc59ca7479bf44988695080b6922"
+      "sha256": "44ebb6ab83bdc35cd2282b74a5fa7581cdb2687dd7637e7b12be2b0c3e9a982e"
     },
     {
       "path": "rpc.cpp",
@@ -7870,7 +7870,7 @@
     {
       "path": "rtc.cpp",
       "mode": "100644",
-      "sha256": "5c00f1c3041aa72a04e84561ca2e3f0e90f527bf0b40689ee72a83e38cff23ef"
+      "sha256": "c6339134fdcdcfe3ec9b35dca0ab5c6d6464277809e4f07b8b7a7e58b4718684"
     },
     {
       "path": "sampler.cpp",
@@ -7885,7 +7885,7 @@
     {
       "path": "savestate.cpp",
       "mode": "100644",
-      "sha256": "911d7df25081225c7edb56859fc00f7112b452c5728f26e2fdb5d44629292f0a"
+      "sha256": "c2cc22ef97dae0ac48816645bfd0bb016e0afa11463bbdd131d12cef5c470592"
     },
     {
       "path": "scp.cpp",
@@ -8140,12 +8140,12 @@
     {
       "path": "softfloat/softfloat-specialize.h",
       "mode": "100644",
-      "sha256": "ba2a56e0a05d3dfe150605832cf36b6d93e965a1f016a9f13b68df93f6afb856"
+      "sha256": "c0461bcf1d8ea1e32b503dbcc4eb173db56a3d6e5717a4f52074ef652edac51b"
     },
     {
       "path": "softfloat/softfloat.cpp",
       "mode": "100644",
-      "sha256": "813b24494c29f8a93e80f4fcb5a535a3d6012318b3e1a9ea2bc97bb0ecea881d"
+      "sha256": "59b23822f213f916df5f8525cad10ba9b369f3848b8f56fd719626849e2cd1e6"
     },
     {
       "path": "softfloat/softfloat.h",
@@ -8155,7 +8155,7 @@
     {
       "path": "softfloat/softfloat_decimal.cpp",
       "mode": "100644",
-      "sha256": "abc054bc0028a36b9839a3bc4a406bb989937108d14088af0164f583f3bad4a2"
+      "sha256": "f10fa5b257fc278dc98446e2a6b9d1e41a694c45ef2ef6277af0d553ff4fced2"
     },
     {
       "path": "softfloat/softfloat_fpsp.cpp",
@@ -8460,7 +8460,7 @@
     {
       "path": "traps.cpp",
       "mode": "100644",
-      "sha256": "ad4d4ac833a76bb078ed55a6280676425d87efd192a49d79097f6ed58bd386cd"
+      "sha256": "f484436569afde37260ca79bfeeaa26e9deacdbbdbbcdc8088f83f8bf1b87a44"
     },
     {
       "path": "uaeexe.cpp",
@@ -8520,7 +8520,7 @@
     {
       "path": "zfile.cpp",
       "mode": "100644",
-      "sha256": "a42e4b248531492e23a090dc566ca662692206aff737228c496d0276779bb56c"
+      "sha256": "4cf946b9ddb1f0bf4f5268ec7fe0fe31a69a1b33fb0d94276c4bc04125bd2e4a"
     },
     {
       "path": "zfile_archive.cpp",

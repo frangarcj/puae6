@@ -1,7 +1,8 @@
 diff --git a/fpp.cpp b/fpp.cpp
+index e1ce8baa..03d43f81 100644
 --- a/fpp.cpp
 +++ b/fpp.cpp
-@@ -3634,6 +3634,10 @@
+@@ -3634,6 +3634,10 @@ void fpu_modechange(void)
  	for (int i = 0; i < 8; i++) {
  		fpp_from_exten_fmovem(&regs.fp[i], &temp_ext[i][0], &temp_ext[i][1], &temp_ext[i][2]);
  	}
@@ -12,7 +13,7 @@ diff --git a/fpp.cpp b/fpp.cpp
  	if (currprefs.fpu_mode > 0) {
  #ifdef WITH_SOFTFLOAT
  		fp_init_softfloat(currprefs.fpu_model);
-@@ -3650,6 +3654,7 @@
+@@ -3650,6 +3654,7 @@ void fpu_modechange(void)
  #endif
  		fp_init_native();
  	}
@@ -20,7 +21,7 @@ diff --git a/fpp.cpp b/fpp.cpp
  	get_features();
  	for (int i = 0; i < 8; i++) {
  		fpp_to_exten_fmovem(&regs.fp[i], temp_ext[i][0], temp_ext[i][1], temp_ext[i][2]);
-@@ -3676,7 +3681,7 @@
+@@ -3676,7 +3681,7 @@ static void fpu_test(void)
  
  void fpu_reset (void)
  {
@@ -30,9 +31,10 @@ diff --git a/fpp.cpp b/fpp.cpp
  	if (currprefs.fpu_mode > 0) {
  #ifdef WITH_SOFTFLOAT
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 83a55165..13c4be45 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -2016,7 +2016,7 @@
+@@ -2045,7 +2045,7 @@ static void build_cpufunctbl (void)
  		cpudatatbl[opcode].branch = tbl[i].branch;
  	}
  
@@ -41,7 +43,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	/* hack fpu to 68000/68010 mode */
  	if (currprefs.fpu_model && currprefs.cpu_model < 68020) {
  		tbl = op_smalltbl_3;
-@@ -2093,9 +2093,13 @@
+@@ -2122,9 +2122,13 @@ static void build_cpufunctbl (void)
  
  #ifdef P6_PORTABLE
  	if (currprefs.cpu_model >= 68020) {

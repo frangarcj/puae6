@@ -1,11 +1,11 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index b3c5ddbf..d9f05bcd 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -10844,4 +10844,146 @@
- 		}
+@@ -10927,3 +10927,145 @@ void inputdevice_draco_key(int kc)
  	}
  #endif
-+}
+ }
 +
 +#ifdef P6_PORTABLE
 +#include "p6_state_access.h"
@@ -96,7 +96,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
 +		keybuf[k] = (in->keys[k >> 3] >> (k & 7)) & 1;
 +	keyboard_reset_seq = in->reset_seq;
 +	keyboard_reset_seq_mode = in->reset_seq_mode;
- }
++}
 +
 +// True when the input is in a state that the fields of p6_input_raw describe completely: nothing queued, delayed or latched that they do not hold, and
 +// nothing outside the profile (the A500's keyboard, two gameports with a mouse or a joystick, no CD32 pad, light pen, on screen keyboard or key injection).

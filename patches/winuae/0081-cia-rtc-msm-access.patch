@@ -1,7 +1,8 @@
 diff --git a/cia.cpp b/cia.cpp
+index 90b4af3c..03cb1dd1 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -3365,3 +3365,21 @@
+@@ -3447,3 +3447,21 @@ uae_u8 *restore_keyboard(uae_u8 *src)
  }
  
  #endif /* SAVESTATE */

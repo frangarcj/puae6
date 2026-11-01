@@ -1,7 +1,8 @@
 diff --git a/drawing.cpp b/drawing.cpp
+index 4bee7c9d..512eae52 100644
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -342,9 +342,6 @@
+@@ -364,9 +364,6 @@ static uae_u32 chunky_out[4096], dpf_chunky_out[4096];
  /* AGA mode color lookup tables */
  unsigned int xredcolors[256], xgreencolors[256], xbluecolors[256];
  static int dblpf_ind1_aga[256], dblpf_ind2_aga[256];
@@ -11,7 +12,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  #endif
  int xredcolor_s, xredcolor_b, xredcolor_m;
  int xgreencolor_s, xgreencolor_b, xgreencolor_m;
-@@ -1792,6 +1789,7 @@
+@@ -1848,6 +1845,7 @@ static void setxlinebuffer(int monid, int line)
  	}
  }
  
@@ -19,29 +20,29 @@ diff --git a/drawing.cpp b/drawing.cpp
  static uae_u8 *status_line_ptr(int monid, int line)
  {
  	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
-@@ -1814,6 +1812,8 @@
- 	else
+@@ -1871,6 +1869,8 @@ static void draw_status_line(int monid, int line, int statusy)
  		draw_status_line_single(monid, buf, statusy, vidinfo->inbuffer->outwidth, xredcolors, xgreencolors, xbluecolors, NULL);
  }
-+
-+#endif
  
++#endif
++
  static void draw_debug_status_line(int monid, int line)
  {
-@@ -1957,7 +1957,11 @@
- 		currprefs.cs_color_burst || currprefs.gfx_grayscale || currprefs.monitoremu) {
+ 	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
+@@ -2014,7 +2014,11 @@ bool drawing_can_lineoptimizations(void)
+ 		currprefs.cs_color_burst || currprefs.gfx_grayscale || currprefs.monitoremu)) {
  		return false;
  	}
--	if ((lightpen_active && currprefs.lightpen_crosshair) || debug_dma >= 2 || debug_heatmap >= 2) {
+-	if ((lightpen_active && currprefs.lightpen_crosshair) || debug_dma >= 3 || debug_heatmap >= 2) {
 +	if ((lightpen_active && currprefs.lightpen_crosshair)
 +#ifdef DEBUGGER
-+		|| debug_dma >= 2 || debug_heatmap >= 2
++		|| debug_dma >= 3 || debug_heatmap >= 2
 +#endif
 +	) {
  		return false;
  	}
  	if (video_recording_active) {
-@@ -3189,9 +3193,12 @@
+@@ -3256,9 +3260,12 @@ static void expand_bplcon2(uae_u16 v)
  	plf_sprite_mask |= (0x0000FFFF << (4 * plf1pri)) & 0xFFFF;
  	bpldualpfpri = (bplcon2_denise & 0x40) == 0x40;
  
@@ -55,7 +56,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  		dpf_lookup = bpldualpfpri ? dblpf_ind2 : dblpf_ind1;
  	}
  	dpf_lookup_no = bpldualpfpri ? dblpf_2nd2 : dblpf_2nd1;
-@@ -3248,9 +3255,12 @@
+@@ -3338,9 +3345,12 @@ static void sethresolution(void)
  
  static void setlasthamcolor(void)
  {
@@ -69,7 +70,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  		ham_lastcolor = denise_colors.color_regs_ecs[last_bpl_pix];
  	}
  }
-@@ -3508,16 +3518,22 @@
+@@ -3560,16 +3570,22 @@ static void reset_strlong(void)
  
  void denise_reset(bool hard)
  {
@@ -92,7 +93,19 @@ diff --git a/drawing.cpp b/drawing.cpp
  	denise_cycle_half = 0;
  	denise_strlong = false;
  	denise_strlong_fast = false;
-@@ -3643,6 +3659,7 @@
+@@ -3627,9 +3643,11 @@ void denise_reset(bool hard)
+ 	last_bpl_pix = 0;
+ 	decode_specials = 0;
+ 	decode_specials_debug = currprefs.gfx_overscanmode >= OVERSCANMODE_ULTRA ? 2 : (currprefs.display_calibration ? 1 : 0);
++#ifdef DEBUGGER
+ 	if (debug_dma == 2) {
+ 		decode_specials_debug |= 0x100;
+ 	}
++#endif
+ 	debug_special_hvsync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 1;
+ 	debug_special_csync = currprefs.gfx_overscanmode == OVERSCANMODE_ULTRA + 2;
+ 	denise_csync_blanken = false;
+@@ -3701,6 +3719,7 @@ void denise_reset(bool hard)
  // COLORxx write
  static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
  {
@@ -100,7 +113,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  	if (aga_mode) {
  
  		/* writing is disabled when RDRAM=1 */
-@@ -3679,7 +3696,9 @@
+@@ -3737,7 +3756,9 @@ static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
  			update_bordercolor();
  		}
  
@@ -111,7 +124,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  		if (!ecs_denise) {
  			v &= 0xfff;
-@@ -3687,7 +3706,9 @@
+@@ -3745,7 +3766,9 @@ static void update_color(int idx, uae_u16 v, uae_u16 con2, uae_u16 con3)
  		denise_colors.color_regs_ecs[idx] = v & 0xfff;
  		denise_colors.color_regs_genlock[idx] = v >> 15;
  		denise_colors.acolors[idx] = getxcolor(v);
@@ -121,18 +134,18 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  		if (!idx) {
  			update_bordercolor();
-@@ -3787,6 +3808,7 @@
+@@ -3849,6 +3872,7 @@ static void bpl1dat_enable_bpls(void)
  // is decreased mid line, old higher planes must be still shifted out)
  static void bpldat_docopy(void)
  {
 +#ifdef AGA
  	if (aga_mode) {
- 		if (denise_bplfmode64) {
- 			bplxdat2_64[0] = bplxdat_64[0];
-@@ -3807,7 +3829,9 @@
- 			bplxdat2[6] = bplxdat[6];
- 			bplxdat2[7] = bplxdat[7];
- 		}
+ 		bplxdat2_64[0] = bplxdat_64[0];
+ 		bplxdat2_64[1] = bplxdat_64[1];
+@@ -3858,7 +3882,9 @@ static void bpldat_docopy(void)
+ 		bplxdat2_64[5] = bplxdat_64[5];
+ 		bplxdat2_64[6] = bplxdat_64[6];
+ 		bplxdat2_64[7] = bplxdat_64[7];
 -	} else {
 +	} else
 +#endif
@@ -140,7 +153,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  		bplxdat2[0] = bplxdat[0];
  		bplxdat2[1] = bplxdat[1];
  		bplxdat2[2] = bplxdat[2];
-@@ -4232,6 +4256,7 @@
+@@ -4391,6 +4417,7 @@ static void denise_update_reg(uae_u16 reg, uae_u16 v, uae_u32 linecnt)
  }
  
  // AGA HAM
@@ -148,7 +161,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  static uae_u32 decode_ham_pixel_aga_fast(uint8_t pw, int planes, uae_u8 bxor, uae_u32 *colors_aga)
  {
  	if (planes >= 7) { /* AGA mode HAM8 */
-@@ -4257,6 +4282,7 @@
+@@ -4416,6 +4443,7 @@ static uae_u32 decode_ham_pixel_aga_fast(uint8_t pw, int planes, uae_u8 bxor, ua
  	}
  	return CONVERT_RGB(ham_lastcolor);
  }
@@ -156,7 +169,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  // OCS/ECS HAM
  static uae_u32 decode_ham_pixel_fast(uint8_t pv, uae_u16 *colors_ocs)
-@@ -4273,6 +4299,7 @@
+@@ -4432,6 +4460,7 @@ static uae_u32 decode_ham_pixel_fast(uint8_t pv, uae_u16 *colors_ocs)
  }
  
  // AGA HAM
@@ -164,7 +177,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  static uae_u32 decode_ham_pixel_aga(uint8_t pw)
  {
  	if (denise_planes >= 7) { /* AGA mode HAM8 */
-@@ -4298,6 +4325,7 @@
+@@ -4457,6 +4486,7 @@ static uae_u32 decode_ham_pixel_aga(uint8_t pw)
  	}
  	return CONVERT_RGB(ham_lastcolor);
  }
@@ -172,7 +185,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  // OCS/ECS HAM
  static uae_u32 decode_ham_pixel(uint8_t pv)
-@@ -4351,6 +4379,7 @@
+@@ -4510,6 +4540,7 @@ static uint8_t decode_denise_specials(uint8_t pix)
  	return pix;
  }
  
@@ -180,7 +193,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  static uae_u32 decode_pixel_aga(uint8_t pix)
  {
  	switch (bplmode)
-@@ -4387,6 +4416,7 @@
+@@ -4546,6 +4577,7 @@ static uae_u32 decode_pixel_aga(uint8_t pix)
  		}
  	}
  }
@@ -188,7 +201,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  static uae_u32 decode_pixel(uint8_t pix)
  {
-@@ -4458,7 +4488,9 @@
+@@ -4617,7 +4649,9 @@ static uae_u8 denise_render_sprites2(uae_u8 apixel, uae_u32 vs)
  	// behaviour in C)
  	plfmask = (plf_sprite_mask >> maskshift) >> maskshift;
  	v &= ~plfmask;
@@ -198,17 +211,17 @@ diff --git a/drawing.cpp b/drawing.cpp
  	if (v) {
  		int vlo, vhi, col;
  		int v1 = v & 255;
-@@ -5053,7 +5085,9 @@
+@@ -5230,7 +5264,9 @@ static void burst_disable(void)
  }
  
  static void lts_unaligned_ecs(int, int, int);
 +#ifdef AGA
  static void lts_unaligned_aga(int, int, int);
 +#endif
- static void matchsprites2(int cnt);
- static void matchsprites2_aga(int cnt);
  
-@@ -5123,6 +5157,7 @@
+ static bool checkhorizontal1_ecs(int cnt, int cnt_next, int h)
+ {
+@@ -5303,6 +5339,7 @@ static bool checkhorizontal1_ecs(int cnt, int cnt_next, int h)
  	return false;
  }
  
@@ -216,7 +229,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  static bool checkhorizontal1_aga(int cnt, int cnt_next, int h)
  {
  	denise_cycle_half = h;
-@@ -5198,6 +5233,7 @@
+@@ -5378,6 +5415,7 @@ static bool checkhorizontal1_aga(int cnt, int cnt_next, int h)
  	}
  	return false;
  }
@@ -224,7 +237,23 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  #define SPRITE_NEAREST_MIN -3
  
-@@ -5565,9 +5601,12 @@
+@@ -5749,6 +5787,7 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
+ 			}
+ 		}
+ 	}
++#ifdef DEBUGGER
+ 	if (debug_dma == 2 && debug_dma_ptr) {
+ 		uae_u32 cv = 0;
+ 		int t = 0;
+@@ -5772,6 +5811,7 @@ static uint32_t decode_denise_specials_debug(uint32_t v, int inc)
+ 			//v &= 0x7f7f7f7f;
+ 		}
+ 	}
++#endif
+ 
+ 	*buf_d++ = v;
+ 	return v;
+@@ -5799,9 +5839,12 @@ static void lts_null(void)
  				denise_hcounter_next = denise_hcounter_new;
  			}
  
@@ -238,7 +267,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  				int cnt = denise_hcounter << 2;
  				checkhorizontal1_ecs(cnt, denise_hcounter_next, h);
  			}
-@@ -5969,6 +6008,7 @@
+@@ -6221,6 +6264,7 @@ static void draw_denise_line(int gfx_ypos, enum nln_how how, uae_u32 linecnt, in
  				if (lts_changed || !denise_vsync_bpl_detect) {
  					break;
  				}
@@ -246,7 +275,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  				if (aga_mode) {
  					for (int h = 0; h < 2 ;h++) {
  						denise_cycle_half = h;
-@@ -5988,7 +6028,9 @@
+@@ -6240,7 +6284,9 @@ static void draw_denise_line(int gfx_ypos, enum nln_how how, uae_u32 linecnt, in
  						denise_hcounter_next &= 511;
  						denise_pixtotal++;
  					}
@@ -257,7 +286,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  					for (int h = 0; h < 2 ;h++) {
  						denise_cycle_half = h;
  						if (h) {
-@@ -6154,6 +6196,7 @@
+@@ -6506,17 +6552,23 @@ bool denise_get_hboffsets(int *hbs, int *hbe, int *hblen, int *total)
  #include <linetoscr_ocs_ecs_genlock.cpp>
  #include <linetoscr_ocs_ecs_ntsc.cpp>
  #include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
@@ -265,7 +294,6 @@ diff --git a/drawing.cpp b/drawing.cpp
  #include <linetoscr_aga_fm0.cpp>
  #include <linetoscr_aga_fm1.cpp>
  #include <linetoscr_aga_fm2.cpp>
-@@ -6164,11 +6207,16 @@
  #include <linetoscr_aga_fm0_genlock.cpp>
  #include <linetoscr_aga_fm1_genlock.cpp>
  #include <linetoscr_aga_fm2_genlock.cpp>
@@ -282,15 +310,15 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  // select linetoscr routine
  static void select_lts(void)
-@@ -6212,6 +6260,7 @@
- 		bm = CMODE_NORMAL;
- 	}
+@@ -6562,6 +6614,7 @@ static void select_lts(void)
+ 
+ 	lts_hres_shift = hresolution;
  
 +#ifdef AGA
  	if (aga_mode) {
  
  		int spr = 0;
-@@ -6250,7 +6299,9 @@
+@@ -6595,7 +6648,9 @@ static void select_lts(void)
  			}
  		}
  
@@ -301,23 +329,21 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  		sprite_lts_selected = 1;
  		if (hresolution == RES_LORES) {
-@@ -6328,6 +6379,7 @@
- 	denise_hcounter_prev = denise_hcounter;
+@@ -6675,11 +6730,13 @@ static void select_lts(void)
+ 	set_pixtotal_max();
  }
  
 +#ifdef AGA
- STATIC_INLINE uae_u8 getbpl(void)
+ STATIC_INLINE uae_u8 getbpl_aga(void)
  {
- 	uae_u8 pix;
-@@ -6340,6 +6392,7 @@
- 	}
+ 	uae_u8 pix = getbpl8_64();
  	return pix;
  }
 +#endif
  
  // Generic and unoptimized shres based (outputs 4xshres,2xhires or 1xlores pixels) display emulation,
  // only used when subpixel support is needed
-@@ -6347,6 +6400,7 @@
+@@ -6687,6 +6744,7 @@ STATIC_INLINE uae_u8 getbpl_aga(void)
  // For example:
  // HDIW or HB is not lores-aligned
  // or BPLCON4 changes or AGA color register is modified.
@@ -325,7 +351,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  static void lts_unaligned_aga(int cnt, int cnt_next, int h)
  {
  	if (!denise_odd_even) {
-@@ -6587,6 +6641,7 @@
+@@ -6925,6 +6983,7 @@ static void lts_unaligned_aga(int cnt, int cnt_next, int h)
  		bplshiftcnt[1] = bplshiftcnt[0];
  	}
  }
@@ -333,7 +359,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  
  
  static void lts_unaligned_ecs(int cnt, int cnt_next, int h)
-@@ -7221,6 +7276,7 @@
+@@ -7575,6 +7634,7 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
  	}
  
  	LINETOSRC_FUNCF ltsf;
@@ -341,7 +367,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  	if (aga_mode) {
  		if (need_genlock_data) {
  			ltsf = linetoscr_aga_genlock_fast_funcs[ltsidx];
-@@ -7233,7 +7289,9 @@
+@@ -7587,7 +7647,9 @@ void draw_denise_bitplane_line_fast(int gfx_ypos, enum nln_how how, struct lines
  				ltsf = linetoscr_aga_fast_funcs_filtered[ltsidx];
  			}
  		}

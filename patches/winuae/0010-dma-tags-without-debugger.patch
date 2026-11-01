@@ -1,11 +1,11 @@
 diff --git a/include/debug.h b/include/debug.h
+index d28a60f2..10ecb40e 100644
 --- a/include/debug.h
 +++ b/include/debug.h
-@@ -21,6 +21,41 @@
- 
+@@ -22,6 +22,41 @@
  int getregidx(TCHAR **c);
  uae_u32 returnregx(int regid);
-+
+ 
 +/* Access source tags are also passed by emulation paths without a debugger. */
 +#define MW_MASK_CPU_I			0x00000001
 +#define MW_MASK_CPU_D_R			0x00000002
@@ -40,10 +40,11 @@ diff --git a/include/debug.h b/include/debug.h
 +#define MW_MASK_SPR_7			0x40000000
 +#define MW_MASK_NONE			0x80000000
 +#define MW_MASK_ALL				(MW_MASK_NONE - 1)
- 
++
  #ifdef DEBUGGER
  
-@@ -133,40 +168,6 @@
+ #define	MAX_HIST 500
+@@ -134,40 +169,6 @@ struct breakpoint_node {
  };
  extern struct breakpoint_node bpnodes[BREAKPOINT_TOTAL];
  

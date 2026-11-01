@@ -6,7 +6,7 @@ hallazgos de codigo ARM64 y plan/machawk.reference.json los fingerprints. Es la
 referencia principal de integracion; las fuentes publicas siguientes son evidencia
 comparativa. No se ejecutaron sus emuladores ni se modificaron sus archivos.
 
-Consulta: 2026-09-26. Hechos observados y decisiones de diseno estan separados.
+Consulta inicial: 2026-09-26; pin beta21 normalizado: 2026-11-01. Hechos observados y decisiones de diseno estan separados.
 Las URLs master son referencias exploratorias, no inputs reproducibles de build.
 
 ## Fuentes primarias consultadas
@@ -23,6 +23,15 @@ que apunta al COMMIT 857f48fcb09399d4d95527e29a2fdeaedb41f827. El tag tiene fech
 El sitio oficial lista WinUAE 6.0.3: https://www.winuae.net/category/news/
 Se fija esta version por ser una base 6.x verificable; no se necesita afirmar que
 sea la ultima revision de desarrollo disponible.
+
+La candidata beta21 fija despues el commit publico
+`1fb263778ca0b6a6d02993acf900044522fcb76a` (`6100b21`, 2026-10-31),
+sin tag de release. T99 sustituyo el SHA local transitorio `6f19b872...` que
+identificaba un arbol ya parcheado, no un commit del repositorio oficial. El
+snapshot `upstream/winuae` contiene ahora los 1704 blobs y modos exactos del
+commit publico; los 147 cambios PUAE6 que formaban aquel arbol local se
+reexportaron en orden a `patches/winuae` antes de los 111 parches posteriores.
+El commit oficial mas esa cola reproduce byte a byte la candidata previa.
 
 HRTMon se toma de `hrtmon.rom.cpp` de ese snapshot fijado, sin descargar otro
 asset. La guia del autor (https://github.com/wepl/hrtmon/blob/master/HRTmon.guide)

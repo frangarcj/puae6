@@ -1,55 +1,8 @@
-diff --git a/inputdevice.cpp b/inputdevice.cpp
---- a/inputdevice.cpp
-+++ b/inputdevice.cpp
-@@ -3785,9 +3785,14 @@
- 	}
- }
- 
-+#ifdef P6_PORTABLE
-+unsigned p6_input_poll_mask;
-+#endif
-+
- uae_u16 JOY0DAT (void)
- {
- 	uae_u16 v;
-+	P6_INPUT_POLL(P6_POLL_JOY0DAT);
- 	readinput ();
- 	v = getjoystate (0);
- 	v = dongle_joydat (0, v);
-@@ -3800,6 +3805,7 @@
- uae_u16 JOY1DAT (void)
- {
- 	uae_u16 v;
-+	P6_INPUT_POLL(P6_POLL_JOY1DAT);
- 	readinput ();
- 	v = getjoystate (1);
- 	v = dongle_joydat (1, v);
-@@ -4548,10 +4554,12 @@
- 
- uae_u16 POT0DAT (void)
- {
-+	P6_INPUT_POLL(P6_POLL_POT0DAT);
- 	return POTDAT (0);
- }
- uae_u16 POT1DAT (void)
- {
-+	P6_INPUT_POLL(P6_POLL_POT1DAT);
- 	return POTDAT (1);
- }
- 
-@@ -4597,6 +4605,8 @@
- {
- 	uae_u16 v;
- 
-+	P6_INPUT_POLL(P6_POLL_POTGOR);
-+
- 	v = handle_joystick_potgor (potgo_value) & 0x5500;
- 	v = dongle_potgor (v);
- #if DONGLE_DEBUG
 diff --git a/cia.cpp b/cia.cpp
+index a5d3d863..75a1d1a6 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -1884,6 +1884,7 @@
+@@ -1933,6 +1933,7 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
  	{
  		if (flags) {
  			*flags |= 1;
@@ -57,7 +10,7 @@ diff --git a/cia.cpp b/cia.cpp
  		}
  		uae_u8 v = DISK_status_ciaa() & 0x3c;
  		v |= handle_joystick_buttons(c->pra, c->dra);
-@@ -1983,6 +1984,8 @@
+@@ -2032,6 +2033,8 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
  	case 13:
  	case 14:
  	case 15:
@@ -67,9 +20,10 @@ diff --git a/cia.cpp b/cia.cpp
  	}
  	return 0;
 diff --git a/include/inputdevice.h b/include/inputdevice.h
+index d5a94bdb..2c09f918 100644
 --- a/include/inputdevice.h
 +++ b/include/inputdevice.h
-@@ -266,6 +266,16 @@
+@@ -267,6 +267,16 @@ extern int inputdevice_translatekeycode (int keyboard, int scancode, int state,
  extern void inputdevice_checkqualifierkeycode (int keyboard, int scancode, int state);
  extern void inputdevice_setkeytranslation (struct uae_input_device_kbr_default **trans, int **kbmaps);
  extern void inputdevice_do_keyboard(int code, int state);
@@ -86,3 +40,52 @@ diff --git a/include/inputdevice.h b/include/inputdevice.h
  extern void inputdevice_do_kb_reset(void);
  extern int inputdevice_iskeymapped (int keyboard, int scancode);
  extern int inputdevice_synccapslock (int, int*);
+diff --git a/inputdevice.cpp b/inputdevice.cpp
+index c7ff881d..d3d6f204 100644
+--- a/inputdevice.cpp
++++ b/inputdevice.cpp
+@@ -3805,9 +3805,14 @@ void pulse_joydat(int joy, int xy, int dir)
+ 	}
+ }
+ 
++#ifdef P6_PORTABLE
++unsigned p6_input_poll_mask;
++#endif
++
+ uae_u16 JOY0DAT (void)
+ {
+ 	uae_u16 v;
++	P6_INPUT_POLL(P6_POLL_JOY0DAT);
+ 	readinput ();
+ 	v = getjoystate (0);
+ 	v = dongle_joydat (0, v);
+@@ -3820,6 +3825,7 @@ uae_u16 JOY0DAT (void)
+ uae_u16 JOY1DAT (void)
+ {
+ 	uae_u16 v;
++	P6_INPUT_POLL(P6_POLL_JOY1DAT);
+ 	readinput ();
+ 	v = getjoystate (1);
+ 	v = dongle_joydat (1, v);
+@@ -4568,10 +4574,12 @@ static uae_u16 POTDAT (int joy)
+ 
+ uae_u16 POT0DAT (void)
+ {
++	P6_INPUT_POLL(P6_POLL_POT0DAT);
+ 	return POTDAT (0);
+ }
+ uae_u16 POT1DAT (void)
+ {
++	P6_INPUT_POLL(P6_POLL_POT1DAT);
+ 	return POTDAT (1);
+ }
+ 
+@@ -4617,6 +4625,8 @@ uae_u16 POTGOR (void)
+ {
+ 	uae_u16 v;
+ 
++	P6_INPUT_POLL(P6_POLL_POTGOR);
++
+ 	v = handle_joystick_potgor (potgo_value) & 0x5500;
+ 	v = dongle_potgor (v);
+ #if DONGLE_DEBUG

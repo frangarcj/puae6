@@ -1,7 +1,8 @@
 diff --git a/disk.cpp b/disk.cpp
+index feaaefc0..de390de0 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -839,8 +839,18 @@
+@@ -839,8 +839,18 @@ static bool ispcbridgedrive(int num)
  	return type == DRV_PC_525_ONLY_40 || type == DRV_PC_35_ONLY_80 || type == DRV_PC_525_40_80;
  }
  
@@ -20,7 +21,7 @@ diff --git a/disk.cpp b/disk.cpp
  #ifdef FLOPPYBRIDGE
  	if (drv->bridge) {
  		bool v = drv->bridge->isWriteProtected();
-@@ -975,7 +985,9 @@
+@@ -975,7 +985,9 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
  	if (crc32) *crc32 = 0;
  	if (wrprot) *wrprot = true;
  	if (outfname) outfname[0] = 0;
@@ -31,7 +32,7 @@ diff --git a/disk.cpp b/disk.cpp
  	if (!f)
  		return 0;
  	if (zfile_gettype(f) != ZFILE_DISKIMAGE) {
-@@ -1016,6 +1028,7 @@
+@@ -1016,6 +1028,7 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
  	}
  	if (outfname) _tcscpy(outfname, name);
  	if (crc32) *crc32 = crc;

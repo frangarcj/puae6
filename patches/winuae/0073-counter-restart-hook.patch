@@ -1,7 +1,8 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index f58dfd4d..44525589 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -6667,6 +6667,11 @@
+@@ -6788,6 +6788,11 @@ static void m68k_run_mmu (void)
  #endif /* CPUEMU_0 */
  
  int in_m68k_go = 0;
@@ -13,7 +14,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  #if 0
  static void exception2_handle (uaecptr addr, uaecptr fault)
-@@ -6840,6 +6845,10 @@
+@@ -6969,6 +6974,10 @@ void m68k_go (int may_quit)
  			prefs_changed_cpu();
  			build_cpufunctbl();
  			set_x_funcs();

@@ -70,10 +70,7 @@ int savestate_state = 0;
 int savestate_last_save_result = -1;
 static int savestate_first_capture;
 
-#ifndef P6_PORTABLE
-// Used only by the excluded .uss writer (save_state_internal, savestate_memorysave).
 static bool new_blitter = false;
-#endif
 
 static int replaycounter;
 
@@ -85,11 +82,8 @@ struct zfile *savestate_file;
 #define SAVESTATE_SPECIALDUMP2 8
 #define SAVESTATE_ALWAYSUSEPATH 16
 #define SAVESTATE_SPECIALDUMP (SAVESTATE_SPECIALDUMP1 | SAVESTATE_SPECIALDUMP2)
-#ifndef P6_PORTABLE
-// Used only by the excluded .uss entry points (savestate_initsave, save_state, savestate_quick).
 static int savestate_flags;
 static uae_u32 statefile_version;
-#endif
 
 TCHAR savestate_fname[MAX_DPATH];
 TCHAR path_statefile[MAX_DPATH];
@@ -106,9 +100,7 @@ struct staterecord
 	uae_u8 *cpu;
 	uae_u8 *data;
 	uae_u8 *end;
-#ifndef P6_PORTABLE
 	int inprecoffset;
-#endif
 };
 
 static struct staterecord **staterecords;
@@ -219,8 +211,6 @@ void save_u8_func(uae_u8 **dstp, uae_u8 v)
 	*dst++ = v;
 	*dstp = dst;
 }
-#ifndef P6_PORTABLE
-// String and host-path serialization needs UTF-8 and path services the A500 profile lacks; returns with T15.
 void save_string_func (uae_u8 **dstp, const TCHAR *from)
 {
 	uae_u8 *dst = *dstp;
@@ -247,7 +237,6 @@ void save_path_full_func(uae_u8 **dstp, const TCHAR *spath, int type)
 	fullpath(path, MAX_DPATH, true);
 	save_string_func(dstp, path);
 }
-#endif
 
 uae_u32 restore_u32_func (uae_u8 **dstp)
 {
@@ -282,8 +271,6 @@ uae_u8 restore_u8_func (uae_u8 **dstp)
 	*dstp = dst + 1;
 	return v;
 }
-#ifndef P6_PORTABLE
-// Legacy .uss reader/writer (host files, zlib, path resolution, every per-device save_*/restore_*); T15 replaces it.
 TCHAR *restore_string_func (uae_u8 **dstp)
 {
 	int len;
@@ -472,7 +459,7 @@ static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len, const TCHAR 
 		zfile_fwrite(zero, 1, len2, f);
 	}
 
-	write_log (_T("Chunk '%s' chunk size %zu (%zu)\n"), name, chunklen, len);
+	write_log (_T("Chunk '%s' chunk size %u (%u)\n"), name, chunklen, len);
 }
 
 static uae_u8 *restore_chunk (struct zfile *f, TCHAR *name, unsigned int *len, unsigned int *totallen, size_t *filepos)
@@ -961,10 +948,7 @@ void savestate_initsave (const TCHAR *filename, int mode, int nodialogs, bool sa
 	new_blitter = false;
 	if (save) {
 		savestate_free ();
-#ifndef P6_PORTABLE
-		// Input recording is not part of the A500 profile.
 		inprec_close (true);
-#endif
 	}
 }
 
@@ -1017,11 +1001,7 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
 	dst = header;
 	save_u32 (0);
 	save_string (_T("UAE"));
-#ifdef P6_PORTABLE
-	snprintf(tmp, sizeof(tmp), "%d.%d.%d", UAEMAJOR, UAEMINOR, UAESUBREV);
-#else
 	_stprintf (tmp, _T("%d.%d.%d"), UAEMAJOR, UAEMINOR, UAESUBREV);
-#endif
 	save_string (tmp);
 	save_string (description);
 	save_chunk (f, header, dst-header, _T("ASF "), 0);
@@ -1270,7 +1250,6 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
 		}
 	}
 
-#ifndef P6_PORTABLE
 	for (i = 0; i < MAX_TOTAL_SCSI_DEVICES; i++) {
 		dst = save_cd (i, &len);
 		if (dst) {
@@ -1278,7 +1257,6 @@ static int save_state_internal (struct zfile *f, const TCHAR *description, int c
 			save_chunk (f, dst, len, name, 0);
 		}
 	}
-#endif
 
 #ifdef DEBUGGER
 	dst = save_debug_memwatch (&len, NULL);
@@ -1377,9 +1355,7 @@ int save_state (const TCHAR *filename, const TCHAR *description)
 	savestate_state = 0;
 	return v;
 }
-#endif
 
-#ifndef P6_PORTABLE
 void savestate_quick(int slot, int save)
 {
 	if (path_statefile[0]) {
@@ -1421,20 +1397,14 @@ void savestate_quick(int slot, int save)
 		write_log (_T("staterestore starting '%s'\n"), savestate_fname);
 	}
 }
-#endif
 
 bool savestate_check(void)
 {
-#ifndef P6_PORTABLE
-	// Rerecording state capture is driven by input recording, which the A500 profile excludes.
 	if (vpos == 0 && !savestate_state) {
 		if (hsync_counter == 0 && input_play == INPREC_PLAY_NORMAL)
 			savestate_memorysave ();
 		savestate_capture (0);
 	}
-#endif
-#ifndef P6_PORTABLE
-	// Legacy .uss save/restore/rewind requests; their handlers are excluded until T15.
 	if (savestate_state == STATE_DORESTORE) {
 		savestate_state = STATE_RESTORE;
 		return true;
@@ -1447,7 +1417,6 @@ bool savestate_check(void)
 		savestate_state = 0;
 		return false;
 	}
-#endif
 	return false;
 }
 
@@ -1476,7 +1445,7 @@ int savestate_dorewind (int pos)
 		pos = replaycounter - 1;
 	if (canrewind (pos)) {
 		savestate_state = STATE_DOREWIND;
-		write_log (_T("dorewind %d (%010u/%03u) -> %d\n"), replaycounter - 1, hsync_counter, vsync_counter, pos);
+		write_log (_T("dorewind %d (%010ld/%03ld) -> %d\n"), replaycounter - 1, hsync_counter, vsync_counter, pos);
 		return 1;
 	}
 	return 0;
@@ -1506,8 +1475,6 @@ void savestate_listrewind (void)
 }
 #endif
 
-#ifndef P6_PORTABLE
-// Replays savestate_capture records through the per-device restore_*, which are excluded until T15.
 void savestate_rewind (void)
 {
 	int len, i;
@@ -1622,10 +1589,8 @@ void savestate_rewind (void)
 		uae_reset (0, 0);
 		return;
 	}
-#ifndef P6_PORTABLE
 	inprec_setposition (st->inprecoffset, pos);
-#endif
-	write_log (_T("state %d restored.  (%010u/%03u)\n"), pos, hsync_counter, vsync_counter);
+	write_log (_T("state %d restored.  (%010ld/%03ld)\n"), pos, hsync_counter, vsync_counter);
 	if (rewind) {
 		replaycounter--;
 		if (replaycounter < 0)
@@ -1635,7 +1600,6 @@ void savestate_rewind (void)
 	}
 
 }
-#endif
 
 #define BS 10000
 
@@ -1646,8 +1610,6 @@ STATIC_INLINE int bufcheck(struct staterecord *sr, uae_u8 *p, size_t len)
 	return 0;
 }
 
-#ifndef P6_PORTABLE
-// Builds the .uss image kept for rerecording; it depends on the excluded save_state_internal.
 void savestate_memorysave (void)
 {
 	new_blitter = true;
@@ -1657,10 +1619,7 @@ void savestate_memorysave (void)
 	if (staterecord_statefile)
 		save_state_internal (staterecord_statefile, _T("rerecording"), 1, false);
 }
-#endif
 
-#ifndef P6_PORTABLE
-// Only captures while input is being recorded (input_record); recording is excluded in the A500 profile.
 void savestate_capture (int force)
 {
 	uae_u8 *p, *p2, *p3, *dst;
@@ -2019,7 +1978,7 @@ retry2:
 			staterecords_first -= staterecords_max;
 	}
 
-	write_log (_T("state capture %d (%010u/%03u,%u/%d) (%td bytes, alloc %d)\n"),
+	write_log (_T("state capture %d (%010ld/%03ld,%ld/%d) (%ld bytes, alloc %d)\n"),
 		replaycounter, hsync_counter, vsync_counter,
 		hsync_counter % current_maxvpos (), current_maxvpos (),
 		st->end - st->data, statefile_alloc);
@@ -2043,7 +2002,6 @@ retry:
 	write_log (_T("can't save, too small capture buffer or out of memory\n"));
 	return;
 }
-#endif
 
 void savestate_free (void)
 {
@@ -2063,7 +2021,6 @@ void savestate_init (void)
 	staterecords_max = currprefs.statecapturebuffersize;
 	staterecords = xcalloc (struct staterecord*, staterecords_max);
 	statefile_alloc = STATEFILE_ALLOC_SIZE;
-#ifndef P6_PORTABLE
 	if (input_record && savestate_state != STATE_DORESTORE) {
 		zfile_fclose (staterecord_statefile);
 		staterecord_statefile = NULL;
@@ -2071,7 +2028,6 @@ void savestate_init (void)
 		inprec_open (NULL, NULL);
 		savestate_first_capture = 1;
 	}
-#endif
 }
 
 

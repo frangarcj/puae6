@@ -1,4 +1,5 @@
 diff --git a/cia.cpp b/cia.cpp
+index 3e5739ec..2a0d31b5 100644
 --- a/cia.cpp
 +++ b/cia.cpp
 @@ -12,6 +12,7 @@
@@ -9,7 +10,7 @@ diff --git a/cia.cpp b/cia.cpp
  
  #include "options.h"
  #include "events.h"
-@@ -68,7 +69,9 @@
+@@ -71,7 +72,9 @@
  #define CLOCK_DEBUG 0
  #define CIA_EVERY_CYCLE_DEBUG 0
  
@@ -19,7 +20,7 @@ diff --git a/cia.cpp b/cia.cpp
  
  #define CIA_IRQ_PROCESS_DELAY 0
  
-@@ -392,8 +395,8 @@
+@@ -397,8 +400,8 @@ static void compute_passed_time_cia(int num, uae_u32 ciaclocks)
  static void compute_passed_time(void)
  {
  	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
@@ -30,7 +31,7 @@ diff --git a/cia.cpp b/cia.cpp
  	}
  	uae_u32 ciaclocks = (uae_u32)ccount / DIV10;
  
-@@ -493,8 +496,8 @@
+@@ -498,8 +501,8 @@ in the same cycle.  */
  static void CIA_update_check(void)
  {
  	evt_t ccount = get_cycles() - eventtab[ev_cia].oldcycles;
@@ -41,7 +42,7 @@ diff --git a/cia.cpp b/cia.cpp
  	}
  	int ciaclocks = (uae_u32)(ccount / DIV10);
  	if (!ciaclocks) {
-@@ -897,6 +900,7 @@
+@@ -902,6 +905,7 @@ void cia_heartbeat(void)
  	heartbeat_cnt = 10;
  }
  
@@ -49,16 +50,25 @@ diff --git a/cia.cpp b/cia.cpp
  static void do_tod_hack(bool dotod)
  {
  	struct timeval tv;
-@@ -971,6 +975,8 @@
- 		cia_checkalarm(false, true, 0);
+@@ -977,6 +981,8 @@ static void do_tod_hack(bool dotod)
  	}
  }
-+
-+#endif
  
++#endif
++
  static int resetwarning_phase, resetwarning_timer;
  
-@@ -1278,9 +1284,11 @@
+ static void setcode(uae_u8 keycode)
+@@ -1012,7 +1018,7 @@ static void keyboard_handshake_write(struct CIA *c, uae_u8 val)
+ 		if (kblostsynccnt > 0 && currprefs.cs_kbhandshake) {
+ 			evt_t len = get_cycles() - kbhandshakestart;
+ 			if (len < currprefs.cs_kbhandshake * CYCLE_UNIT) {
+-				write_log(_T("Keyboard handshake pulse length %d < %d (CCKs)\n"), len / CYCLE_UNIT, currprefs.cs_kbhandshake);
++				write_log(_T("Keyboard handshake pulse length %lld < %d (CCKs)\n"), (long long)(len / CYCLE_UNIT), currprefs.cs_kbhandshake);
+ 			}
+ 		}
+ 		kblostsynccnt = 0;
+@@ -1327,9 +1333,11 @@ void CIA_hsync_posthandler(bool ciahsync, bool dotod)
  		// CIA-B HSync pulse
  		// Delayed previous line TOD increase.
  		cia_delayed_tod(1);
@@ -70,25 +80,15 @@ diff --git a/cia.cpp b/cia.cpp
  	} else {
  		if (currprefs.keyboard_mode > 0) {
  			keymcu_do();
-@@ -1909,9 +1917,9 @@
+@@ -1958,9 +1966,9 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
  			if (flags) {
  				tmp = sampler_getsample((c->pra & 4) ? 1 : 0);
  			}
--#endif
++		} else
+ #endif
 -
 -		} else if (parallel_port_scsi) {
-+		} else
-+#endif
 +		if (parallel_port_scsi) {
  
  			if (flags) {
  				tmp = parallel_port_scsi_read(0, c->prb, c->drb);
-@@ -2181,7 +2189,7 @@
- 					if (kblostsynccnt > 0 && currprefs.cs_kbhandshake) {
- 						evt_t len = get_cycles() - kbhandshakestart;
- 						if (len < currprefs.cs_kbhandshake * CYCLE_UNIT) {
--							write_log(_T("Keyboard handshake pulse length %d < %d (CCKs)\n"), len / CYCLE_UNIT, currprefs.cs_kbhandshake);
-+							write_log(_T("Keyboard handshake pulse length %lld < %d (CCKs)\n"), (long long)(len / CYCLE_UNIT), currprefs.cs_kbhandshake);
- 						}
- 					}
- 					kblostsynccnt = 0;

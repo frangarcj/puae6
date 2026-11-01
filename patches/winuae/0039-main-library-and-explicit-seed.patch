@@ -1,4 +1,5 @@
 diff --git a/main.cpp b/main.cpp
+index e86762fe..254e47ba 100644
 --- a/main.cpp
 +++ b/main.cpp
 @@ -11,7 +11,9 @@
@@ -11,7 +12,7 @@ diff --git a/main.cpp b/main.cpp
  #include "uae.h"
  #include "gensound.h"
  #include "audio.h"
-@@ -108,12 +110,16 @@
+@@ -109,12 +111,16 @@ uae_u32 uaerandgetseed(void)
  
  void uaerandomizeseed(void)
  {
@@ -28,7 +29,7 @@ diff --git a/main.cpp b/main.cpp
  }
  
  uae_u32 uaesetrandseed(uae_u32 seed)
-@@ -753,9 +759,19 @@
+@@ -748,10 +754,20 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
  	p->chipset_mask &= ~CSMASK_AGA;
  #endif
  #ifndef AUTOCONFIG
@@ -44,11 +45,12 @@ diff --git a/main.cpp b/main.cpp
  	p->z3fastmem_size = 0;
  	p->fastmem_size = 0;
  	p->rtgmem_size = 0;
-+#endif
  #endif
++#endif
  #if !defined (BSDSOCKET)
  	p->socket_emu = 0;
-@@ -871,6 +887,7 @@
+ #endif
+@@ -882,6 +898,7 @@ void uae_restart(struct uae_prefs *p, int opengui, const TCHAR *cfgfile)
  	target_restart ();
  }
  
@@ -56,7 +58,7 @@ diff --git a/main.cpp b/main.cpp
  #ifndef DONT_PARSE_CMDLINE
  
  void usage (void)
-@@ -1339,3 +1356,5 @@
+@@ -1355,3 +1372,5 @@ int main (int argc, TCHAR **argv)
  uae_u8 singlefile_config[50000] = { "_CONFIG_STARTS_HERE" };
  uae_u8 singlefile_data[1500000] = { "_DATA_STARTS_HERE" };
  #endif

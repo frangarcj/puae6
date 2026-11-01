@@ -1,7 +1,8 @@
 diff --git a/audio.cpp b/audio.cpp
+index 2314159d..6ce0e4a0 100644
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -2162,6 +2162,10 @@
+@@ -2167,6 +2167,10 @@ void check_prefs_changed_audio (void)
  		}
  		if (ch) {
  			set_audio ();
@@ -12,7 +13,7 @@ diff --git a/audio.cpp b/audio.cpp
  			audio_activate ();
  		}
  	}
-@@ -2181,6 +2185,10 @@
+@@ -2186,6 +2190,10 @@ static void set_extra_prehandler(void)
  
  void set_audio (void)
  {
@@ -23,7 +24,7 @@ diff --git a/audio.cpp b/audio.cpp
  	int old_mixed_size = mixed_stereo_size;
  	int sep, delay;
  	int ch;
-@@ -2221,6 +2229,10 @@
+@@ -2226,6 +2234,10 @@ void set_audio (void)
  	if (1) { // always reset if (1 || ch >= 0) {
  		if (currprefs.produce_sound >= 2) {
  			if (!init_audio ()) {
@@ -34,7 +35,7 @@ diff --git a/audio.cpp b/audio.cpp
  				if (! sound_available) {
  					write_log (_T("Sound is not supported.\n"));
  				} else {
-@@ -2229,11 +2241,14 @@
+@@ -2234,11 +2246,14 @@ void set_audio (void)
  					/* So we don't do this every frame */
  					changed_prefs.produce_sound = 1;
  				}

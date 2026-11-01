@@ -1,7 +1,8 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index b93cd980..bb7b71f6 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -281,6 +281,7 @@
+@@ -282,6 +282,7 @@ int inputdevice_geteventid(const TCHAR *s)
  	return 0;
  }
  
@@ -9,7 +10,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
  {
  	//write_log(_T("%s: %s\n"), s, parm);
-@@ -336,6 +337,7 @@
+@@ -337,6 +338,7 @@ int inputdevice_uaelib (const TCHAR *s, const TCHAR *parm)
  	}
  	return 0;
  }
@@ -17,7 +18,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  int inputdevice_uaelib(const TCHAR *s, int parm, int max, bool autofire)
  {
-@@ -749,6 +751,7 @@
+@@ -753,6 +755,7 @@ static bool isemptykey(int keyboard, int scancode)
  	return true;
  }
  
@@ -25,7 +26,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static void out_config (struct zfile *f, int id, int num, const TCHAR *s1, const TCHAR *s2)
  {
  	TCHAR tmp[MAX_DPATH];
-@@ -841,9 +844,11 @@
+@@ -845,9 +848,11 @@ static bool write_slot (TCHAR *p, struct uae_input_device *uid, int i, int j)
  	}
  	return ok;
  }
@@ -37,7 +38,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static void kbrlabel (TCHAR *s)
  {
  	while (*s) {
-@@ -1036,9 +1041,11 @@
+@@ -1040,9 +1045,11 @@ static void write_config (struct zfile *f, int idnum, int devnum, const TCHAR *n
  	for (i = 0; i < ID_BUTTON_TOTAL; i++)
  		write_config2 (f, idnum, i, ID_BUTTON_OFFSET, tmp1, id);
  }
@@ -49,7 +50,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  void write_inputdevice_config (struct uae_prefs *p, struct zfile *f)
  {
  	int i, id;
-@@ -1149,6 +1156,7 @@
+@@ -1153,6 +1160,7 @@ static TCHAR *getstring (const TCHAR **pp)
  	*pp = p;
  	return str;
  }
@@ -57,7 +58,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  static void reset_inputdevice_settings (struct uae_input_device *uid)
  {
-@@ -1369,7 +1377,15 @@
+@@ -1373,7 +1381,15 @@ static void gethidvals2(const TCHAR *devname, int *id, const TCHAR *str)
  	TCHAR *s = _tcsstr(dv, str);
  	if (s) {
  		int val = -1;
@@ -73,7 +74,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		*id = val;
  	}
  	xfree(dv);
-@@ -1528,6 +1544,7 @@
+@@ -1532,6 +1548,7 @@ static int matchdevice(struct uae_prefs *p, struct inputdevice_functions *inf, c
  	return match;
  }
  
@@ -81,7 +82,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  static bool read_slot (const TCHAR *parm, int num, int joystick, int button, struct uae_input_device *id, int keynum, int subnum, const struct inputevent *ie, uae_u64 flags, int port, TCHAR *custom)
  {
  	int mask;
-@@ -2077,10 +2094,12 @@
+@@ -2081,10 +2098,12 @@ void inputdevice_generate_jport_custom(struct uae_prefs *pr, int port)
  		generate_jport_custom_item(pr->keyboard_settings[pr->input_selected_setting], l, port, IDTYPE_KEYBOARD, jpc->custom);
  	}
  }
@@ -94,7 +95,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  void inputdevice_jportcustom_fixup(struct uae_prefs *p, TCHAR *data, int cnum)
  {
  	TCHAR olddata[MAX_DPATH];
-@@ -2439,6 +2458,7 @@
+@@ -2443,6 +2462,7 @@ void inputdevice_parse_jport_custom(struct uae_prefs *pr, int index, int port, T
  	}
  
  }
@@ -102,7 +103,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  static int mouseedge_alive, mousehack_alive_cnt;
  static int lastmx, lastmy;
-@@ -2643,7 +2663,9 @@
+@@ -2654,7 +2674,9 @@ static bool get_mouse_position(int *xp, int *yp, int inx, int iny)
  	int monid = 0;
  	struct vidbuf_description *vidinfo = &adisplays[monid].gfxvidinfo;
  	struct amigadisplay *ad = &adisplays[monid];
@@ -112,7 +113,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	int x, y;
  	float fdy, fdx, fmx, fmy;
  	bool ob = false;
-@@ -4203,6 +4225,7 @@
+@@ -4223,6 +4245,7 @@ struct delayed_event
  };
  static struct delayed_event *delayed_events;
  
@@ -120,7 +121,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  int handle_custom_event (const TCHAR *custom, int append)
  {
  	TCHAR *p, *buf, *nextp;
-@@ -4346,6 +4369,7 @@
+@@ -4366,6 +4389,7 @@ int handle_custom_event (const TCHAR *custom, int append)
  	xfree (buf);
  	return 0;
  }
@@ -128,7 +129,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  void inputdevice_playevents(void)
  {
-@@ -4380,7 +4404,9 @@
+@@ -4400,7 +4424,9 @@ void inputdevice_hsync(bool forceread)
  			if (de->event_string) {
  				TCHAR *s = de->event_string;
  				de->event_string = NULL;
@@ -138,7 +139,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  				xfree (s);
  			}
  		}
-@@ -4414,8 +4440,10 @@
+@@ -4434,8 +4460,10 @@ void inputdevice_hsync(bool forceread)
  					iq->state = 0;
  				else
  					iq->state = iq->storedstate;
@@ -149,7 +150,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  				if (iq->evt)
  					handle_input_event (iq->evt, iq->state, iq->max, HANDLE_IE_FLAG_PLAYBACKEVENT);
  				iq->linecnt = iq->nextlinecnt;
-@@ -4776,7 +4804,11 @@
+@@ -4803,7 +4831,11 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  
  	if (code == 0)
  		goto end;
@@ -162,7 +163,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		if (set_cpu_tracer (true)) {
  			tracer_enable = 1;
  			return true; // wait for next frame
-@@ -5042,6 +5074,7 @@
+@@ -5069,6 +5101,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_VOLUP:
  		sound_volume (newstate <= 0 ? 1 : -1);
  		break;
@@ -170,7 +171,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_VOLMUTE:
  		sound_mute (newstate);
  		break;
-@@ -5054,6 +5087,7 @@
+@@ -5081,6 +5114,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_MVOLMUTE:
  		master_sound_volume (0);
  		break;
@@ -178,7 +179,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_QUIT:
  		uae_quit ();
  		break;
-@@ -5188,6 +5222,7 @@
+@@ -5215,6 +5249,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  		changed_prefs.input_selected_setting = currprefs.input_selected_setting = code - AKS_INPUT_CONFIG_1;
  		inputdevice_updateconfig (&changed_prefs, &currprefs);
  		break;
@@ -186,7 +187,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_DISK_PREV0:
  	case AKS_DISK_PREV1:
  	case AKS_DISK_PREV2:
-@@ -5200,6 +5235,7 @@
+@@ -5227,6 +5262,7 @@ static bool inputdevice_handle_inputcode2(int monid, int code, int state, const
  	case AKS_DISK_NEXT3:
  		disk_prevnext (code - AKS_DISK_NEXT0, 1);
  		break;
@@ -194,7 +195,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	case AKS_RTG_PREV:
  		toggle_rtg(0, -1);
  		break;
-@@ -6348,12 +6384,14 @@
+@@ -6402,12 +6438,14 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
  		uae_u64 flags2 = id->flags[offset][slotoffset + sub];
  		if (checkqualifiers (evt2, flags2, qualmask, NULL)) {
  			custom = id->custom[offset][slotoffset + sub];
@@ -209,7 +210,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		}
  		return false;
  	}
-@@ -6393,8 +6431,10 @@
+@@ -6447,8 +6485,10 @@ static bool process_custom_event (struct uae_input_device *id, int offset, int s
  		custom = id->custom[offset][slotoffset + idx];
  		if (autofire)
  			queue_input_event (-1, custom, 1, 1, currprefs.input_autofire_linecnt, 1);
@@ -220,7 +221,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	}
  
  	id->flags[offset][slotoffset] &= ~(ID_FLAG_CUSTOMEVENT_TOGGLED1 | ID_FLAG_CUSTOMEVENT_TOGGLED2);
-@@ -7810,9 +7850,12 @@
+@@ -7864,9 +7904,12 @@ static void compatibility_copy (struct uae_prefs *prefs, bool gameports)
  	}
  	for (int i = 0; i < MAX_JPORTS; i++) {
  		for (int j = 0; j < MAX_JPORT_DEVS; j++) {
@@ -234,7 +235,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  				// TODO: handle sub item autofire correctly
  				setautofires(prefs, i, j, prefs->jports[i].jd[j].autofire, true);
  			}
-@@ -8106,9 +8149,11 @@
+@@ -8163,9 +8206,11 @@ void inputdevice_updateconfig_internal (struct uae_prefs *srcprefs, struct uae_p
  		mice[i].enabled = 0;
  	}
  
@@ -246,7 +247,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  	compatibility_copy (dstprefs, true);
  
-@@ -8300,9 +8345,11 @@
+@@ -8357,9 +8402,11 @@ bool inputdevice_devicechange (struct uae_prefs *prefs)
  			fixedports[i][j] = false;
  		}
  	}
@@ -258,7 +259,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  
  	for (int i = 0; i < MAX_JPORTS; i++) {
  		bool found = true;
-@@ -9106,11 +9153,13 @@
+@@ -9163,11 +9210,13 @@ int inputdevice_get_widget_type (int devnum, int num, TCHAR *name, bool inccode)
  	uae_u32 code = 0;
  	const struct inputdevice_functions *idf = getidf (devnum);
  	int r = idf->get_widget_type (inputdevice_get_device_index (devnum), num, name, &code);
@@ -272,7 +273,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	return r;
  }
  
-@@ -9722,6 +9771,7 @@
+@@ -9779,6 +9828,7 @@ void setjoystickstate (int joy, int axis, int state, int max)
  	if (input_play)
  		return;
  	if (!joysticks[joy].enabled) {
@@ -280,7 +281,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		if (currprefs.input_autoswitchleftright) {
  			if (v1 > 0)
  				v1 = 1;
-@@ -9748,6 +9798,7 @@
+@@ -9805,6 +9855,7 @@ void setjoystickstate (int joy, int axis, int state, int max)
  				}
  			}
  		}
@@ -288,7 +289,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  		return;
  	}
  	for (i = 0; i < MAX_INPUT_SUB_EVENT; i++) {
-@@ -10357,6 +10408,7 @@
+@@ -10439,6 +10490,7 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
  		return;
  
  	bool defaultports = userconfig == false;
@@ -296,7 +297,7 @@ diff --git a/inputdevice.cpp b/inputdevice.cpp
  	// Convert old style custom mapping to new style
  	for (int i = 0; i < MAX_JPORTS_CUSTOM; i++) {
  		struct jport_custom *jpc = &p->jports_custom[i];
-@@ -10367,6 +10419,7 @@
+@@ -10449,6 +10501,7 @@ void inputdevice_fix_prefs(struct uae_prefs *p, bool userconfig)
  			inputdevice_generate_jport_custom(p, i);
  		}
  	}

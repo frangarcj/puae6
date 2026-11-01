@@ -1,4 +1,5 @@
 diff --git a/cfgfile.cpp b/cfgfile.cpp
+index b4220196..9e6d455b 100644
 --- a/cfgfile.cpp
 +++ b/cfgfile.cpp
 @@ -43,7 +43,9 @@
@@ -11,11 +12,12 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  
  #define cfgfile_warning write_log
  #define cfgfile_warning_obsolete write_log
-@@ -54,9 +56,12 @@
+@@ -54,13 +56,16 @@
  #define strcasecmp _tcsicmp
  #endif
  
 +static struct strlist *error_lines;
++static bool gfx_keep_aspect_seen;
 +
 +#ifndef P6_PORTABLE
 +// Desktop text configuration is not an input to the fixed P6 profile.
@@ -25,7 +27,11 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static struct zfile *default_file, *configstore;
  static int uaeconfig;
  static int unicode_config = 0;
-@@ -457,6 +462,8 @@
+-static bool gfx_keep_aspect_seen;
+ 
+ /* @@@ need to get rid of this... just cut part of the manual and print that
+ * as a help text.  */
+@@ -475,6 +480,8 @@ static TCHAR *cfgfile_unescape_min(const TCHAR *s)
  	return cfgfile_unescape(s, NULL, 0, true);
  }
  
@@ -34,7 +40,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static void clearmountitems(struct uae_prefs *p)
  {
  	p->mountitems = 0;
-@@ -484,6 +491,7 @@
+@@ -502,6 +509,7 @@ void discard_prefs(struct uae_prefs *p, int type)
  	clearmountitems(p);
  }
  
@@ -42,7 +48,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static TCHAR *cfgfile_option_find_it(const TCHAR *s, const TCHAR *option, bool checkequals)
  {
  	TCHAR buf[MAX_DPATH];
-@@ -5837,6 +5845,8 @@
+@@ -5924,6 +5932,8 @@ static bool cfgfile_read_board_rom(struct uae_prefs *p, const TCHAR *option, con
  	return false;
  }
  
@@ -51,7 +57,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static void addbcromtype(struct uae_prefs *p, int romtype, bool add, const TCHAR *romfile, int devnum)
  {
  	if (!add) {
-@@ -5849,6 +5859,7 @@
+@@ -5936,6 +5946,7 @@ static void addbcromtype(struct uae_prefs *p, int romtype, bool add, const TCHAR
  	}
  }
  
@@ -59,7 +65,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static void addbcromtypenet(struct uae_prefs *p, int romtype, const TCHAR *netname, int devnum)
  {
  	int is = is_device_rom(p, romtype, devnum);
-@@ -6621,6 +6632,8 @@
+@@ -6717,6 +6728,8 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, const TCHAR *option, TCH
  	return 0;
  }
  
@@ -68,7 +74,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  static void romtype_restricted(struct uae_prefs *p, const int *list)
  {
  	for (int i = 0; list[i]; i++) {
-@@ -6771,12 +6784,15 @@
+@@ -6867,6 +6880,7 @@ void cfgfile_compatibility_romtype(struct uae_prefs *p)
  	}
  	p->cs_cd32fmv = get_device_romconfig(p, ROMTYPE_CD32CART, 0) != NULL;
  
@@ -76,23 +82,24 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  	if (p->config_version < ((3 << 16) | (4 << 8) | (0 << 0))) {
  		// 3.3.0 or older
  		addbcromtypenet(p, ROMTYPE_A2065, p->a2065name, 0);
- 		addbcromtypenet(p, ROMTYPE_NE2KPCMCIA, p->ne2000pcmcianame, 0);
+@@ -6874,6 +6888,8 @@ void cfgfile_compatibility_romtype(struct uae_prefs *p)
  		addbcromtypenet(p, ROMTYPE_NE2KPCI, p->ne2000pciname, 0);
  	}
-+
-+#endif
  
++#endif
++
  	static const int restricted_net[] = {
  		ROMTYPE_A2065, ROMTYPE_NE2KPCMCIA, ROMTYPE_NE2KPCI, ROMTYPE_NE2KISA,
-@@ -6790,6 +6806,7 @@
- 	romtype_restricted(p, restricted_pci);
+ 		ROMTYPE_ARIADNE2, ROMTYPE_XSURF, ROMTYPE_XSURF100Z2, ROMTYPE_XSURF100Z3,
+@@ -6908,6 +6924,7 @@ void cfgfile_compatibility_romtype(struct uae_prefs *p)
+ 
  }
  
 +#ifndef P6_PORTABLE
  static int getconfigstoreline (const TCHAR *option, TCHAR *value);
  
  static void calcformula (struct uae_prefs *prefs, TCHAR *in)
-@@ -8373,6 +8390,8 @@
+@@ -8506,6 +8523,8 @@ uae_u8 *save_configuration (size_t *len, bool fullconfig)
  	return dstbak;
  }
  
@@ -101,7 +108,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  #ifdef UAE_MINI
  static void default_prefs_mini (struct uae_prefs *p, int type)
  {
-@@ -8820,6 +8839,8 @@
+@@ -8959,6 +8978,8 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
  
  	target_default_options (p, type);
  
@@ -110,7 +117,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  	zfile_fclose (default_file);
  	default_file = NULL;
  	f = zfile_fopen_empty (NULL, _T("configstore"));
-@@ -8830,6 +8851,7 @@
+@@ -8969,6 +8990,7 @@ void default_prefs (struct uae_prefs *p, bool reset, int type)
  		cfg_write (&zero, f);
  		default_file = f;
  	}
@@ -118,7 +125,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  }
  
  static void buildin_default_prefs_68020 (struct uae_prefs *p)
-@@ -10139,6 +10161,28 @@
+@@ -10281,6 +10303,28 @@ void error_log (const TCHAR *format, ...)
  
  	va_start (parms, format);
  	bufp = buffer;
@@ -147,7 +154,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  	for (;;) {
  		int count = _vsntprintf (bufp, bufsize - 1, format, parms);
  		if (count < 0) {
-@@ -10151,6 +10195,7 @@
+@@ -10293,6 +10337,7 @@ void error_log (const TCHAR *format, ...)
  		break;
  	}
  	bufp[bufsize - 1] = 0;

@@ -1,7 +1,8 @@
 diff --git a/inputdevice.cpp b/inputdevice.cpp
+index d3d6f204..63dcc6f8 100644
 --- a/inputdevice.cpp
 +++ b/inputdevice.cpp
-@@ -4670,6 +4670,17 @@
+@@ -4690,6 +4690,17 @@ static void queue_input_event (int evt, const TCHAR *custom, int state, int max,
  }
  
  static uae_u8 keybuf[256];

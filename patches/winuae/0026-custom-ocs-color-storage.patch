@@ -1,7 +1,8 @@
 diff --git a/custom.cpp b/custom.cpp
+index d3056ef2..8d352ad9 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -1207,13 +1207,17 @@
+@@ -1219,13 +1219,17 @@ static void set_chipset_mode(bool imm)
  
  static void update_mirrors(void)
  {
@@ -20,7 +21,7 @@ diff --git a/custom.cpp b/custom.cpp
  	aga_mode = aga_mode_new;
  	ecs_agnus = (currprefs.chipset_mask & CSMASK_ECS_AGNUS) != 0;
  	ecs_denise = (currprefs.chipset_mask & CSMASK_ECS_DENISE) != 0;
-@@ -1233,11 +1237,13 @@
+@@ -1245,11 +1249,13 @@ static void update_mirrors(void)
  	} else {
  		sprite_sprctlmask = 0x01;
  	}
@@ -32,9 +33,9 @@ diff --git a/custom.cpp b/custom.cpp
  	}
 +#endif
  	ddf_mask = ecs_agnus ? 0xfe : 0xfc;
+ 	create_cycle_diagram_table();
  	set_chipset_mode(true);
- 	struct vidbuf_description *vidinfo = &adisplays[0].gfxvidinfo;
-@@ -4327,8 +4333,11 @@
+@@ -4192,8 +4198,11 @@ static uae_u16 COLOR_READ(int num)
  	return cval;
  }
  
@@ -46,7 +47,7 @@ diff --git a/custom.cpp b/custom.cpp
  	if (aga_mode) {
  		if (bplcon2 & 0x0100) {
  			return; // RDRAM=1
-@@ -4357,7 +4366,9 @@
+@@ -4222,7 +4231,9 @@ static void COLOR_WRITE(uae_u16 v, int num)
  		agnus_colors.color_regs_aga[colreg] = cval;
  		agnus_colors.acolors[colreg] = getxcolor(cval);
  
@@ -57,7 +58,7 @@ diff --git a/custom.cpp b/custom.cpp
  
  		if (!ecs_denise) {
  			v &= 0xfff;
-@@ -4365,14 +4376,14 @@
+@@ -4230,15 +4241,15 @@ static void COLOR_WRITE(uae_u16 v, int num)
  		agnus_colors.color_regs_ecs[num] = v & 0xfff;
  		agnus_colors.color_regs_genlock[num] = v >> 15;
  		agnus_colors.acolors[num] = getxcolor(v);
@@ -69,12 +70,13 @@ diff --git a/custom.cpp b/custom.cpp
  
  	color_table_changed = true;
  }
--
--#endif
  
+-#endif
+-
  bool get_custom_color_reg(int colreg, uae_u8 *r, uae_u8 *g, uae_u8 *b)
  {
-@@ -4384,11 +4395,14 @@
+ 	if (colreg < 0)
+@@ -4249,11 +4260,14 @@ bool get_custom_color_reg(int colreg, uae_u8 *r, uae_u8 *g, uae_u8 *b)
  	if (colreg >= 256) {
  		return false;
  	}
@@ -90,8 +92,8 @@ diff --git a/custom.cpp b/custom.cpp
  		*r = (agnus_colors.color_regs_ecs[colreg] >> 8) & 15;
  		*r |= (*r) << 4;
  		*g = (agnus_colors.color_regs_ecs[colreg] >> 4) & 15;
-@@ -4598,12 +4612,15 @@
- 	if (spr[0].dblscan) {
+@@ -4495,12 +4509,15 @@ static void cursorsprite(struct sprite *s)
+ 	if (spr[0].dblscan && (fmode & 0x8000)) {
  		sprite_0_height /= 2;
  	}
 +#ifdef AGA
@@ -107,7 +109,7 @@ diff --git a/custom.cpp b/custom.cpp
  		sprite_0_colors[1] = xcolors[agnus_colors.color_regs_ecs[17] & 0xfff];
  		sprite_0_colors[2] = xcolors[agnus_colors.color_regs_ecs[18] & 0xfff];
  		sprite_0_colors[3] = xcolors[agnus_colors.color_regs_ecs[19] & 0xfff];
-@@ -6889,8 +6906,10 @@
+@@ -6895,8 +6912,10 @@ void custom_reset(bool hardreset, bool keyboardreset)
  					c |= uaerand();
  				}
  				c &= 0xffffff;
@@ -118,7 +120,7 @@ diff --git a/custom.cpp b/custom.cpp
  			}
  			if (!aga_mode) {
  				for (int i = 0; i < 32; i++) {
-@@ -10822,7 +10841,7 @@
+@@ -10641,7 +10660,7 @@ static bool draw_border_fast(int ldv)
  	}
  	start_draw_denise();
  	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
@@ -127,7 +129,7 @@ diff --git a/custom.cpp b/custom.cpp
  	l->brdblank = brdblank;
  	int dvp = calculate_linetype(ldv);
  	draw_denise_border_line_fast_queue(dvp, false, nextline_how, l);
-@@ -10876,9 +10895,12 @@
+@@ -10697,9 +10716,12 @@ static bool draw_line_fast(int ldv, uaecptr bplptp[8], bool addbpl)
  		uae_u8 *dpt = l->linecolorstate;
  		memcpy(dpt, agnus_colors.acolors, colors * sizeof(uae_u32));
  		dpt += 256 * sizeof(uae_u32);
@@ -141,7 +143,7 @@ diff --git a/custom.cpp b/custom.cpp
  			memcpy(dpt, agnus_colors.color_regs_ecs, colors * sizeof(uae_u16));
  		}
  		color_table_changed = false;
-@@ -10886,7 +10908,7 @@
+@@ -10707,7 +10729,7 @@ static bool draw_line_fast(int ldv, uaecptr bplptp[8], bool addbpl)
  		l->linecolorstate = color_tables + color_table_index * 512 * sizeof(uae_u32);
  	}
  
@@ -150,7 +152,7 @@ diff --git a/custom.cpp b/custom.cpp
  	l->bplcon1 = bplcon1 & bc1mask;
  	l->fetchmode_size = fetchmode_size;
  	l->fetchstart_mask = fetchstart_mask;
-@@ -10950,7 +10972,7 @@
+@@ -10771,7 +10793,7 @@ static void storelinestate(void)
  	l->diwstrt = diwstrt;
  	l->diwstop = diwstop;
  	bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);
@@ -159,7 +161,7 @@ diff --git a/custom.cpp b/custom.cpp
  	l->brdblank = brdblank;
  
  	l->bplcon3 = bplcon3;
-@@ -10990,7 +11012,7 @@
+@@ -10828,7 +10850,7 @@ static bool checkprevfieldlinestateequal(void)
  		} else if (type == LINETYPE_BORDER) {
  			if (1) {
  				bool brdblank = (bplcon0 & 1) && (bplcon3 & 0x20);

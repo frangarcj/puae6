@@ -97,7 +97,7 @@ struct comptbl {
 };
 #endif
 
-extern cpuop_func_noret *loop_mode_table[];
+extern cpuop_func *loop_mode_table[];
 
 extern uae_u32 REGPARAM3 op_illg(uae_u32) REGPARAM;
 extern void REGPARAM3 op_illg_noret(uae_u32) REGPARAM;
@@ -114,9 +114,6 @@ typedef long double fptype;
 #else
 typedef double fptype;
 #endif
-#else
-/* fpdata and FPP declarations are shared; FPU state/operations stay guarded. */
-typedef double fptype;
 #endif
 
 #define MAX68020CYCLES 4
@@ -374,12 +371,6 @@ extern void safe_interrupt_set(int, int, bool);
 #define SPCFLAG_CHECK		0x008000
 #define SPCFLAG_MMURESTART	0x010000
 #define SPCFLAG_CALLBACK	0x020000
-#ifdef P6_PORTABLE
-// A video unit was rendered: leave the CPU loop at the next instruction boundary.
-#define SPCFLAG_UNIT_END 1
-#else
-#define SPCFLAG_UNIT_END 0
-#endif
 
 STATIC_INLINE void set_special_exter(uae_u32 x)
 {
@@ -770,15 +761,7 @@ extern int m68k_divl (uae_u32, uae_u32, uae_u16, uaecptr);
 extern int m68k_mull (uae_u32, uae_u32, uae_u16);
 extern void init_m68k (void);
 extern void m68k_run(void);
-#ifdef P6_PORTABLE
-// m68k_go is replaced by resumable video units: BEGIN once per load, then APPLY (reset preamble only)
-// and RUN (one unit) per frame, LEAVE at unload.
-enum { M68K_UNIT_BEGIN, M68K_UNIT_APPLY, M68K_UNIT_RUN, M68K_UNIT_LEAVE };
-enum { M68K_UNIT_DONE, M68K_UNIT_APPLIED, M68K_UNIT_QUIT, M68K_UNIT_NO_ROM };
-extern int m68k_go_unit (int mode);
-#else
 extern void m68k_go (int);
-#endif
 extern void m68k_dumpstate(uaecptr *, uaecptr);
 extern void m68k_dumpcache(bool);
 extern int getMulu68kCycles(uae_u16 src);

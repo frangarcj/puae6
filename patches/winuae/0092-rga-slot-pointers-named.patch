@@ -1,7 +1,26 @@
+diff --git a/audio.cpp b/audio.cpp
+index 6ce0e4a0..3395affd 100644
+--- a/audio.cpp
++++ b/audio.cpp
+@@ -2667,6 +2667,13 @@ uaecptr *audio_getpt(int nr)
+ 	cdp->pt &= ~1;
+ 	return &cdp->pt;
+ }
++#ifdef P6_PORTABLE
++/* The pointer audio_getpt returns, without its side effects: the native state names the pointer of an RGA slot (custom.cpp getregfrompt). */
++uaecptr *p6_audio_pt(int nr)
++{
++	return &audio_channel[nr].pt;
++}
++#endif
+ uaecptr audio_getloadpt(int nr)
+ {
+ 	struct audio_channel_data *cdp = audio_channel + nr;
 diff --git a/custom.cpp b/custom.cpp
+index ac0ca10b..42823731 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -8589,8 +8589,28 @@
+@@ -8608,8 +8608,28 @@ uae_u8 *save_custom_extra(size_t *len, uae_u8 *dstptr)
  
  #endif /* SAVESTATE */
  
@@ -30,7 +49,7 @@ diff --git a/custom.cpp b/custom.cpp
  	if (pt == &blt_info.bltdpt)
  		return 0x000;
  	if (pt == &blt_info.bltcpt)
-@@ -8641,6 +8661,17 @@
+@@ -8660,6 +8680,17 @@ static uaecptr *getptfromreg(int reg)
  {
  	switch (reg)
  	{
@@ -48,27 +67,11 @@ diff --git a/custom.cpp b/custom.cpp
  	case -1:
  	case 0xffff:
  		return NULL;
-diff --git a/audio.cpp b/audio.cpp
---- a/audio.cpp
-+++ b/audio.cpp
-@@ -2658,6 +2658,13 @@
- 	cdp->pt &= ~1;
- 	return &cdp->pt;
- }
-+#ifdef P6_PORTABLE
-+/* The pointer audio_getpt returns, without its side effects: the native state names the pointer of an RGA slot (custom.cpp getregfrompt). */
-+uaecptr *p6_audio_pt(int nr)
-+{
-+	return &audio_channel[nr].pt;
-+}
-+#endif
- uaecptr audio_getloadpt(int nr)
- {
- 	struct audio_channel_data *cdp = audio_channel + nr;
 diff --git a/disk.cpp b/disk.cpp
+index f5a1a9a9..3232ac99 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -5295,6 +5295,13 @@
+@@ -5325,6 +5325,13 @@ uaecptr *disk_getpt(void)
  	dskpt &= ~1;
  	return &dskpt;
  }

@@ -1,8 +1,9 @@
 diff --git a/devices.cpp b/devices.cpp
+index 9a86de90..bcf6edf1 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -201,6 +201,13 @@
- #endif
+@@ -228,6 +228,13 @@ void device_add_reset_imm(DEVICE_INT p)
+ 	p(1);
  }
  
 +#ifdef P6_FILESYS
@@ -12,10 +13,10 @@ diff --git a/devices.cpp b/devices.cpp
 +#define P6_WITH_HDF 0
 +#endif
 +
- void devices_reset_ext(int hardreset)
+ void device_check_config(void)
  {
- 	for (int i = 0; i < device_resets_cnt; i++) {
-@@ -227,6 +234,9 @@
+ 	execute_device_items(device_configs, device_configs_cnt);
+@@ -270,6 +277,9 @@ void devices_reset(int hardreset)
  	memory_reset();
  #ifdef AUTOCONFIG
  	rtarea_reset();
@@ -25,7 +26,7 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  	DISK_reset();
  	CIA_reset(hardreset);
-@@ -239,6 +249,9 @@
+@@ -282,6 +292,9 @@ void devices_reset(int hardreset)
  #endif
  #ifndef P6_PORTABLE
  	native2amiga_reset();
@@ -35,17 +36,18 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  #ifdef SCSIEMU
  	scsi_reset();
-@@ -251,17 +264,24 @@
+@@ -294,17 +307,24 @@ void devices_reset(int hardreset)
  #ifndef P6_PORTABLE
  	ethernet_reset();
  	reset_traps();
-+#elif defined(P6_FILESYS)
-+	if (P6_WITH_HDF)
-+		reset_traps();
- #endif
+-#endif
 -#ifdef FILESYS
 -	filesys_prepare_reset();
 -	filesys_reset();
++#elif defined(P6_FILESYS)
++	if (P6_WITH_HDF)
++		reset_traps();
++#endif
 +#if defined(FILESYS) || defined(P6_FILESYS)
 +	if (P6_WITH_HDF) {
 +		filesys_prepare_reset();
@@ -66,7 +68,7 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  #ifdef UAESERIAL
  	uaeserialdev_reset();
-@@ -376,9 +396,15 @@
+@@ -425,9 +445,15 @@ void virtualdevice_free(void)
  #ifndef P6_PORTABLE
  	reset_traps();
  	free_traps();
@@ -84,19 +86,19 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  #ifdef BSDSOCKET
  	bsdlib_reset();
-@@ -416,6 +442,11 @@
- #ifndef P6_PORTABLE
- 	ethernet_enumerate_free();
+@@ -459,6 +485,11 @@ void virtualdevice_free(void)
  	rtarea_free();
+ 	free_shm();
+ 	cfgfile_addcfgparam(0);
 +#elif defined(P6_FILESYS)
 +	if (P6_WITH_HDF) {
 +		native2amiga_free();
 +		rtarea_free();
 +	}
  #endif
- 	drawing_free();
- #ifdef WITH_DRACO
-@@ -455,11 +486,19 @@
+ #ifdef DRIVESOUND
+ 	driveclick_free();
+@@ -515,11 +546,19 @@ void virtualdevice_init (void)
  #endif
  #ifdef AUTOCONFIG
  	rtarea_setup ();
@@ -120,7 +122,7 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  #ifdef SCSIEMU
  	scsi_reset ();
-@@ -477,11 +516,12 @@
+@@ -537,11 +576,12 @@ void virtualdevice_init (void)
  	uaeexe_install ();
  #elif defined(P6_PORTABLE)
  	// T49: the Zorro II Fast RAM board is allocated at load, as the Chip RAM is, so that its region and the state bound exist before the first unit

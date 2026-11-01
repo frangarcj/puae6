@@ -91,12 +91,7 @@ struct romdata *getromdatabypath (const TCHAR *path)
 			if (!_tcscmp(path + 1, rd->configname))
 				return rd;
 		}
-#ifdef P6_PORTABLE
-		// ROM paths are logical asset ids: same id means the same string.
-		if (!_tcscmp(rl[i].path, path))
-#else
 		if (my_issamepath(rl[i].path, path))
-#endif
 			return rl[i].rd;
 	}
 	return NULL;
@@ -1350,7 +1345,7 @@ static int kickstart_checksum_do (uae_u8 *mem, int size)
 	uae_u32 cksum = 0, prevck = 0;
 	int i;
 	for (i = 0; i < size; i += 4) {
-		uae_u32 data = (uae_u32)mem[i] * 65536 * 256 + mem[i + 1] * 65536 + mem[i + 2] * 256 + mem[i + 3];
+		uae_u32 data = mem[i] * 65536 * 256 + mem[i + 1] * 65536 + mem[i + 2] * 256 + mem[i + 3];
 		cksum += data;
 		if (cksum < prevck)
 			cksum++;
@@ -1390,7 +1385,7 @@ static void addkey (uae_u8 *key, int size, const TCHAR *name)
 	int i;
 
 	//write_log (_T("addkey(%08x,%d,'%s')\n"), key, size, name);
-	if (key == NULL || size <= 0) {
+	if (key == NULL || size == 0) {
 		xfree (key);
 		return;
 	}
@@ -1428,20 +1423,12 @@ void addkeyfile (const TCHAR *path)
 	if (keysize > 0) {
 		zfile_fseek (f, 0, SEEK_SET);
 		keybuf = xmalloc (uae_u8, keysize);
-#ifdef P6_PORTABLE
-		if (keybuf && zfile_fread(keybuf, 1, keysize, f) == keysize)
-			addkey(keybuf, keysize, path);
-		else
-			xfree(keybuf);
-#else
 		zfile_fread (keybuf, 1, keysize, f);
 		addkey (keybuf, keysize, path);
-#endif
 	}
 	zfile_fclose (f);
 }
 
-#ifndef P6_PORTABLE
 void addkeydir(const TCHAR *path)
 {
 	TCHAR tmp[MAX_DPATH];
@@ -1459,7 +1446,6 @@ void addkeydir(const TCHAR *path)
 	_tcscat(tmp, _T("rom.key"));
 	addkeyfile(tmp);
 }
-#endif
 
 int get_keyring (void)
 {
@@ -1473,12 +1459,6 @@ int get_keyring (void)
 
 int load_keyring (struct uae_prefs *p, const TCHAR *path)
 {
-#ifdef P6_PORTABLE
-	free_keyring();
-	if (path && path[0])
-		addkeyfile(path);
-	return get_keyring();
-#else
 	uae_u8 *keybuf;
 	int keysize;
 	TCHAR tmp[MAX_DPATH], *d;
@@ -1552,7 +1532,6 @@ int load_keyring (struct uae_prefs *p, const TCHAR *path)
 			continue;
 		addkeyfile (tmp);
 	}
-#endif
 }
 void free_keyring (void)
 {
@@ -1684,11 +1663,6 @@ static struct romdata *checkromdata (const uae_u8 *sha1, int size, uae_u32 mask)
 
 int decode_cloanto_rom_do (uae_u8 *mem, int size, int real_size)
 {
-#ifdef P6_PORTABLE
-	if ((size != ROM_SIZE_256 && size != ROM_SIZE_512) ||
-		(real_size != ROM_SIZE_256 && real_size != ROM_SIZE_512) || real_size > size)
-		return 0;
-#endif
 	int cnt, t, i;
 
 	for (i = ROM_KEY_NUM - 1; i >= 0; i--) {
@@ -1696,39 +1670,26 @@ int decode_cloanto_rom_do (uae_u8 *mem, int size, int real_size)
 		struct romdata *rd;
 		int keysize = keyring[i].size;
 		uae_u8 *key = keyring[i].key;
-		if (!key || keysize <= 0)
+		if (!key)
 			continue;
 		for (t = cnt = 0; cnt < size; cnt++, t = (t + 1) % keysize)  {
 			mem[cnt] ^= key[t];
 			if (real_size == cnt + 1)
 				t = keysize - 1;
 		}
-#ifdef P6_PORTABLE
-		bool valid_checksum = kickstart_checksum_do(mem, real_size) != 0;
-#endif
-		if (((mem[2] == 0x4e && mem[3] == 0xf9) || (mem[0] == 0x11 && (mem[1] == 0x11 || mem[1] == 0x14)))
-#ifdef P6_PORTABLE
-			&& valid_checksum
-#endif
-		) {
+		if ((mem[2] == 0x4e && mem[3] == 0xf9) || (mem[0] == 0x11 && (mem[1] == 0x11 || mem[1] == 0x14))) {
 			cloanto_rom = 1;
 			return 1;
 		}
 		get_sha1 (mem, size, sha1);
 		rd = checkromdata (sha1, size, -1);
-		if (rd
-#ifdef P6_PORTABLE
-			&& valid_checksum
-#endif
-		) {
+		if (rd) {
 			if (rd->cloanto)
 				cloanto_rom = 1;
 			return 1;
 		}
-#ifndef P6_PORTABLE
 		if (i == 0)
 			break;
-#endif
 		for (t = cnt = 0; cnt < size; cnt++, t = (t + 1) % keysize)  {
 			mem[cnt] ^= key[t];
 			if (real_size == cnt + 1)
@@ -1866,32 +1827,12 @@ void getromname	(const struct romdata *rd, TCHAR *name)
 	while (rd->group)
 		rd--;
 	_tcscat (name, rd->name);
-#ifdef P6_PORTABLE
-	// Legacy callers own destination capacity; only numeric scratch is bounded here.
-	// Integer formats without grouping or floating point are locale-independent.
-	TCHAR suffix[64];
-	if ((rd->subrev || rd->subver) && rd->subver != rd->ver) {
-		snprintf(suffix, sizeof suffix, " rev %d.%d", rd->subver, rd->subrev);
-		_tcscat(name, suffix);
-	}
-	if (rd->size > 0) {
-		const unsigned kib = rd->size / 1024 + (rd->size % 1024 != 0);
-		snprintf(suffix, sizeof suffix, " (%uk)", kib);
-		_tcscat(name, suffix);
-	}
-	if (rd->partnumber && rd->partnumber[0]) {
-		_tcscat(name, " [");
-		_tcscat(name, rd->partnumber);
-		_tcscat(name, "]");
-	}
-#else
 	if ((rd->subrev || rd->subver) && rd->subver != rd->ver)
 		_stprintf (name + _tcslen (name), _T(" rev %d.%d"), rd->subver, rd->subrev);
 	if (rd->size > 0)
 		_stprintf (name + _tcslen (name), _T(" (%dk)"), (rd->size + 1023) / 1024);
 	if (rd->partnumber && rd->partnumber[0] != '\0')
 		_stprintf (name + _tcslen (name), _T(" [%s]"), rd->partnumber);
-#endif
 }
 
 struct romlist *getromlistbyromdata (const struct romdata *rd)
@@ -1912,12 +1853,7 @@ struct romlist *getromlistbyromtype(uae_u32 romtype, const TCHAR *romname)
 			for (int j = 0; j < romlist_cnt; j++) {
 				if (rl[j].rd->id == rd->id) {
 					if (romname) {
-#ifdef P6_PORTABLE
-						// Logical asset ids compare exactly.
-						if (!_tcscmp(rl[j].path, romname))
-#else
 						if (my_issamepath(rl[j].path, romname))
-#endif
 							return &rl[j];
 					} else {
 						return &rl[j];
@@ -1972,12 +1908,7 @@ struct romlist *getromlistbyids (const int *ids, const TCHAR *romname)
 			if (rd) {
 				for (j = 0; j < romlist_cnt; j++) {
 					if (rl[j].rd->id == rd->id) {
-#ifdef P6_PORTABLE
-						// Logical asset ids compare exactly.
-						if (!_tcscmp(rl[j].path, romname))
-#else
 						if (my_issamepath(rl[j].path, romname))
-#endif
 							return &rl[j];
 					}
 				}
@@ -2037,12 +1968,7 @@ void romwarning(int romtype)
 		}
 		i++;
 	}
-#ifdef P6_PORTABLE
-	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
-	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
-#else
 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
-#endif
 	gui_message (tmp3, tmp2);
 }
 
@@ -2069,12 +1995,7 @@ void romwarning (const int *ids)
 		}
 		i++;
 	}
-#ifdef P6_PORTABLE
-	// No resource table (its text points at the desktop Paths panel); gui_message feeds the diagnostics queue.
-	_tcscpy (tmp3, exp ? _T("One of the following expansion boot ROMs is required:\n\n%s") : _T("One of the following system ROMs is required:\n\n%s"));
-#else
 	translate_message (exp ? NUMSG_EXPROMNEED : NUMSG_ROMNEED, tmp3);
-#endif
 	gui_message (tmp3, tmp2);
 }
 
@@ -2133,8 +2054,6 @@ static void mergecd32 (uae_u8 *dst, uae_u8 *src, int size)
 #endif
 }
 
-#ifndef P6_PORTABLE
-// Scrambled images exist only for the Nordic Power/X-Power cartridges, which the A500 profile excludes.
 static void descramble (const struct romdata *rd, uae_u8 *data, int size, int odd)
 {
 	int flags = rd->type;
@@ -2142,7 +2061,6 @@ static void descramble (const struct romdata *rd, uae_u8 *data, int size, int od
 	if (flags & (ROMTYPE_NORDIC | ROMTYPE_XPOWER))
 		descramble_nordicpro (data, size, odd);
 }
-#endif
 
 static int read_rom_file(uae_u8 *buf, const struct romdata *rd, bool rw)
 {
@@ -2155,9 +2073,7 @@ static int read_rom_file(uae_u8 *buf, const struct romdata *rd, bool rw)
 	zf = zfile_fopen (rl->path, rw ? _T("rb+") : _T("rb"), ZFD_NORMAL);
 	if (!zf)
 		return 0;
-#ifndef P6_PORTABLE
 	addkeydir (rl->path);
-#endif
 	zfile_fread (tmp, sizeof tmp, 1, zf);
 	if (!memcmp (tmp, "AMIROMTYPE1", sizeof tmp)) {
 		zfile_fread (buf, rd->size, 1, zf);
@@ -2307,29 +2223,23 @@ struct zfile *read_rom(struct romdata *prd, bool rw)
 					read_rom_file(buf2, rd, rw);
 					if (flags & ROMTYPE_BYTESWAP)
 						byteswap (buf2, romsize);
-#ifndef P6_PORTABLE
 					if (flags & ROMTYPE_SCRAMBLED)
 						descramble (rd, buf2, romsize, odd);
-#endif
 					for (j = 0; j < size; j += 2)
 						buf[j + odd] = buf2[j / 2];
 					read_rom_file(buf2, rdpair, rw);
 					if (flags & ROMTYPE_BYTESWAP)
 						byteswap (buf2, romsize);
-#ifndef P6_PORTABLE
 					if (flags & ROMTYPE_SCRAMBLED)
 						descramble (rd + 1, buf2, romsize, !odd);
-#endif
 					for (j = 0; j < size; j += 2)
 						buf[j + (1 - odd)] = buf2[j / 2];
 				} else {
 					read_rom_file(buf2, rd, rw);
 					if (flags & ROMTYPE_BYTESWAP)
 						byteswap (buf2, romsize);
-#ifndef P6_PORTABLE
 					if (flags & ROMTYPE_SCRAMBLED)
 						descramble (rd, buf2, romsize, odd);
-#endif
 					for (j = 0; j < size; j += 4) {
 						buf[j + 2 * odd + 0] = buf2[j / 2 + 0];
 						buf[j + 2 * odd + 1] = buf2[j / 2 + 1];
@@ -2337,10 +2247,8 @@ struct zfile *read_rom(struct romdata *prd, bool rw)
 					read_rom_file(buf2, rdpair, rw);
 					if (flags & ROMTYPE_BYTESWAP)
 						byteswap (buf2, romsize);
-#ifndef P6_PORTABLE
 					if (flags & ROMTYPE_SCRAMBLED)
 						descramble (rd + 1, buf2, romsize, !odd);
-#endif
 					for (j = 0; j < size; j += 4) {
 						buf[j + 2 * (1 - odd) + 0] = buf2[j / 2 + 0];
 						buf[j + 2 * (1 - odd) + 1] = buf2[j / 2 + 1];
@@ -2420,21 +2328,9 @@ static struct zfile *rom_fopen2(const TCHAR *name, const TCHAR *mode, int mask)
 			uae_u8 *newrom = NULL;
 			uae_u8 *tmp1 = xcalloc(uae_u8, 524288 * 2);
 			uae_u8 *tmp2 = xcalloc(uae_u8, 524288 * 2);
-#ifdef P6_PORTABLE
-			if (!tmp1 || !tmp2) {
-				xfree(tmp2); xfree(tmp1); zfile_fclose(f);
-				return NULL;
-			}
-#endif
 			for (;;) {
-				if (zfile_fread(tmp1, 1, size, f) != size) {
-#ifdef P6_PORTABLE
-					xfree(tmp2); xfree(tmp1); zfile_fclose(f);
-					return NULL;
-#else
+				if (zfile_fread(tmp1, 1, size, f) != size)
 					break;
-#endif
-				}
 				if (size == 524288 * 2) {
 					// Perhaps it is 1M interleaved ROM image?
 					mergecd32(tmp2, tmp1, 524288 * 2);
@@ -2474,9 +2370,6 @@ static struct zfile *rom_fopen2(const TCHAR *name, const TCHAR *mode, int mask)
 			}
 			if (newrom) {
 				f2 = zfile_fopen_data(zfile_getname(f), size, newrom);
-#ifdef P6_PORTABLE
-				if (!f2) { zfile_fclose(f); f = NULL; }
-#endif
 			}
 			xfree(tmp2);
 			xfree(tmp1);
@@ -2496,7 +2389,6 @@ struct zfile *read_rom_name(const TCHAR *filename, bool rw)
 {
 	struct zfile *f;
 
-#ifndef P6_PORTABLE
 	for (int i = 0; i < romlist_cnt; i++) {
 		if (my_issamepath(filename, rl[i].path)) {
 			struct romdata *rd = rl[i].rd;
@@ -2505,38 +2397,14 @@ struct zfile *read_rom_name(const TCHAR *filename, bool rw)
 				return f;
 		}
 	}
-#endif
 	f = rom_fopen2(filename, rw ? _T("rb+") : _T("rb"), ZFD_NORMAL);
 	if (f) {
 		uae_u8 tmp[11] = { 0 };
-#ifdef P6_PORTABLE
-		if (zfile_fread(tmp, 1, sizeof tmp, f) != sizeof tmp) {
-			zfile_fclose(f);
-			return NULL;
-		}
-#else
 		zfile_fread(tmp, sizeof tmp, 1, f);
-#endif
 		if (!memcmp(tmp, "AMIROMTYPE1", sizeof tmp)) {
 			struct zfile *df;
 			int size;
 			uae_u8 *buf;
-#ifdef P6_PORTABLE
-			uae_s64 length = zfile_size(f);
-			if (length != ROM_SIZE_256 + 11 && length != ROM_SIZE_512 + 11) {
-				zfile_fclose(f);
-				return NULL;
-			}
-			size = (int)length - 11;
-			buf = xmalloc(uae_u8, size);
-			df = NULL;
-			if (buf && zfile_fread(buf, 1, size, f) == size &&
-				decode_cloanto_rom_do(buf, size, size) && kickstart_checksum_do(buf, size))
-				df = zfile_fopen_data(filename, size, buf);
-			xfree(buf);
-			zfile_fclose(f);
-			f = df;
-#else
 			addkeydir(filename);
 			zfile_fseek(f, 0, SEEK_END);
 			size = zfile_ftell32(f) - sizeof tmp;
@@ -2550,7 +2418,6 @@ struct zfile *read_rom_name(const TCHAR *filename, bool rw)
 			xfree(buf);
 			zfile_fseek(df, 0, SEEK_SET);
 			f = df;
-#endif
 		} else {
 			zfile_fseek (f, -((int)sizeof tmp), SEEK_CUR);
 		}
@@ -2663,11 +2530,6 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
 			romwarning(rom);
 		return 0;
 	}
-#ifdef P6_PORTABLE
-	// Excluded devices must not configure successfully or derive host filenames.
-	if (rd->type & (ROMTYPE_ARCADIABIOS | ROMTYPE_ARCADIAGAME | ROMTYPE_ALG))
-		return 0;
-#endif
 	if (rd->type & (ROMTYPE_KICK | ROMTYPE_KICKCD32))
 		_tcscpy (p->romfile, path);
 	if ((rd->type & (ROMTYPE_EXTCD32 | ROMTYPE_EXTCDTV | ROMTYPE_ARCADIABIOS | ROMTYPE_ALG)) && !(rd->type & ROMTYPE_KICKCD32))
@@ -2686,7 +2548,6 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
 	if (rd->type & ROMTYPE_CPUBOARD)
 		set_device_rom(p, path, ROMTYPE_CPUBOARD, 0);
 
-#ifndef P6_PORTABLE
 	if (rd->type & (ROMTYPE_ARCADIAGAME | ROMTYPE_ALG)) {
 		fetch_nvrampath(p->flashfile, sizeof(p->flashfile) / sizeof(TCHAR));
 		_stprintf(p->flashfile + _tcslen(p->flashfile), _T("%s.nvr"), rd->name);
@@ -2698,7 +2559,6 @@ int configure_rom (struct uae_prefs *p, const int *rom, int msg)
 		_stprintf(p->genlock_video_file + _tcslen(p->genlock_video_file), _T("%s.avi"), rd->name);
 		clean_path(p->genlock_video_file);
 	}
-#endif
 #endif
 	return 1;
 }
@@ -2721,26 +2581,12 @@ void set_device_rom(struct uae_prefs *p, const TCHAR *path, int romtype, int dev
 
 const struct expansionromtype *get_unit_expansion_rom(int hdunit)
 {
-#ifdef P6_PORTABLE
-	int index = -1;
-	if (hdunit >= HD_CONTROLLER_TYPE_SCSI_EXPANSION_FIRST && hdunit <= HD_CONTROLLER_TYPE_SCSI_LAST)
-		index = hdunit - HD_CONTROLLER_TYPE_SCSI_EXPANSION_FIRST;
-	else if (hdunit >= HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST && hdunit <= HD_CONTROLLER_TYPE_IDE_LAST)
-		index = hdunit - HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST;
-	else if (hdunit >= HD_CONTROLLER_TYPE_CUSTOM_FIRST && hdunit <= HD_CONTROLLER_TYPE_CUSTOM_LAST)
-		index = hdunit - HD_CONTROLLER_TYPE_CUSTOM_FIRST;
-	for (int i = 0; index >= 0 && expansionroms[i].name; i++) {
-		if (i == index)
-			return &expansionroms[i];
-	}
-#else
 	if (hdunit >= HD_CONTROLLER_TYPE_SCSI_EXPANSION_FIRST && hdunit <= HD_CONTROLLER_TYPE_SCSI_LAST)
 		return &expansionroms[hdunit - HD_CONTROLLER_TYPE_SCSI_EXPANSION_FIRST];
 	if (hdunit >= HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST && hdunit <= HD_CONTROLLER_TYPE_IDE_LAST)
 		return &expansionroms[hdunit - HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST];
 	if (hdunit >= HD_CONTROLLER_TYPE_CUSTOM_FIRST && hdunit <= HD_CONTROLLER_TYPE_CUSTOM_LAST)
 		return &expansionroms[hdunit - HD_CONTROLLER_TYPE_CUSTOM_FIRST];
-#endif
 	return NULL;
 }
 
@@ -3137,9 +2983,7 @@ struct zfile *load_rom_rc_zfile(struct romconfig *rc, uae_u32 romtype, int maxfi
 struct zfile *flashromfile_open(const TCHAR *name)
 {
 	struct zfile *f;
-#ifndef P6_PORTABLE
 	TCHAR path[MAX_DPATH];
-#endif
 	bool rw = true;
 
 	if (name == NULL || !name[0])
@@ -3159,8 +3003,6 @@ struct zfile *flashromfile_open(const TCHAR *name)
 		if (!f) {
 			rw = false;
 			f = zfile_fopen(name, _T("rb"), ZFD_NORMAL);
-#ifndef P6_PORTABLE
-			// Retry inside the host ROM directory; assets are found by logical id only.
 			if (!f) {
 				fetch_rompath(path, sizeof path / sizeof(TCHAR));
 				_tcscat(path, name);
@@ -3171,7 +3013,6 @@ struct zfile *flashromfile_open(const TCHAR *name)
 					f = zfile_fopen(path, _T("rb"), ZFD_NORMAL);
 				}
 			}
-#endif
 		}
 	}
 	if (f) {
@@ -3235,13 +3076,10 @@ struct romdata *scan_single_rom_file(struct zfile *f)
 			}
 		}
 	}
-#ifndef P6_PORTABLE
-	// Name-only identification accepts unhashed content; only excluded boards rely on it.
 	if (!rd) {
 		const TCHAR *name = my_getfilepart(zfile_getname(f));
 		rd = getfrombydefaultname(name, size);
 	}
-#endif
 	if (!rd) {
 		write_log(_T("!: Name='%s':%d\nCRC32=%08X SHA1=%s\n"),
 			zfile_getname(f), size, get_crc32(rombuf, size), get_sha1_txt(rombuf, size));
@@ -3258,15 +3096,13 @@ struct romdata *scan_single_rom_file(struct zfile *f)
 struct romdata *scan_single_rom(const TCHAR *path)
 {
 	struct zfile *z;
+	TCHAR tmp[MAX_DPATH];
 	struct romdata *rd;
 
-#ifdef ARCADIA
-	TCHAR tmp[MAX_DPATH];
 	_tcscpy(tmp, path);
 	rd = scan_arcadia_rom(tmp, 0);
 	if (rd)
 		return rd;
-#endif
 	rd = getromdatabypath(path);
 	if (rd && rd->crc32 == 0xffffffff)
 		return rd;

@@ -1,7 +1,8 @@
 diff --git a/fpp.cpp b/fpp.cpp
+index ad743a06..e5184539 100644
 --- a/fpp.cpp
 +++ b/fpp.cpp
-@@ -3882,3 +3882,22 @@
+@@ -3882,3 +3882,22 @@ uae_u8 *save_fpu(size_t *len, uae_u8 *dstptr)
  }
  
  #endif

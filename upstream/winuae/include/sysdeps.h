@@ -62,7 +62,7 @@ using namespace std;
 #error unrecognized CPU type
 #endif
 
-#if defined(_WIN32) && !defined(P6_PORTABLE)
+#ifdef _WIN32
 /* Parameters are passed in ECX, EDX for both x86 and x86-64 (RCX, RDX).
  * For x86-64, __fastcall is the default, so it isn't really required. */
 #define JITCALL __fastcall
@@ -277,7 +277,7 @@ extern int uaetcslen(const TCHAR*);
 #define DONT_HAVE_POSIX
 #endif
 
-#if !defined(FSUAE) && defined(_WIN32) && !defined(P6_PORTABLE)
+#if !defined(FSUAE) && defined _WIN32
 
 //#ifdef FSUAE
 //#error _WIN32 should not be defined here
@@ -527,9 +527,7 @@ extern bool use_long_double;
  */
 #define CPU_EMU_SIZE 0
 
-#ifdef P6_PORTABLE
-#include <alloc.h>
-#elif !defined(__cplusplus)
+#ifndef __cplusplus
 
 #define xmalloc(T, N) malloc(sizeof (T) * (N))
 #define xcalloc(T, N) calloc(sizeof (T), N)

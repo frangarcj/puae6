@@ -9,10 +9,11 @@
   * Overkill, n: cf. genblitter
   */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#define STATIC_INLINE static inline
+#include "sysconfig.h"
+#include "sysdeps.h"
+
+#include "config.h"
+#include "options.h"
 
 static void nop(int);
 

@@ -1,7 +1,8 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 8f7ad35d..6e90b6d7 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -42,12 +42,16 @@
+@@ -43,12 +43,16 @@
  #include "inputdevice.h"
  #include "audio.h"
  #include "fpp.h"
@@ -18,7 +19,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #ifdef WITH_X86
  #include "x86.h"
  #endif
-@@ -4326,6 +4330,7 @@
+@@ -4359,6 +4363,7 @@ static void check_uae_int_request(void)
  
  void safe_interrupt_set(int num, int id, bool i6)
  {
@@ -26,7 +27,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (!is_mainthread()) {
  		set_special_exter(SPCFLAG_UAEINT);
  		volatile uae_atomic *p;
-@@ -4336,6 +4341,9 @@
+@@ -4369,6 +4374,9 @@ void safe_interrupt_set(int num, int id, bool i6)
  		atomic_or(p, 1 << id);
  		atomic_or(&uae_interrupt, 1);
  	} else {
@@ -36,7 +37,17 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		if (currprefs.cs_compatible == CP_DRACO || currprefs.cs_compatible == CP_CASABLANCA) {
  #ifdef WITH_DRACO
  			draco_ext_interrupt(i6);
-@@ -6681,7 +6689,9 @@
+@@ -6697,7 +6705,9 @@ void m68k_run(void)
+ 
+ 	run_func();
+ 
++#ifdef WITH_THREADED_CPU
+ 	cpu_thread_tid = 0;
++#endif
+ }
+ 
+ void m68k_go (int may_quit)
+@@ -6809,7 +6819,9 @@ void m68k_go (int may_quit)
  				savestate_check ();
  			if (input_record == INPREC_RECORD_START)
  				input_record = INPREC_RECORD_NORMAL;

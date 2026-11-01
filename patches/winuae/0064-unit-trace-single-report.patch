@@ -1,7 +1,8 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 5c245070..a9953f65 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -4527,6 +4527,11 @@
+@@ -4569,6 +4569,11 @@ extern int p6_unit_skip;
  extern void p6_unit_observe(void);
  static bool p6_unit_swallowed(void)
  {

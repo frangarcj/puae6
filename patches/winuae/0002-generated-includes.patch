@@ -1,7 +1,21 @@
+diff --git a/blitter.cpp b/blitter.cpp
+index 99ce3b0f..09ff6dd0 100644
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -19,7 +19,7 @@
+ #include "events.h"
+ #include "newcpu.h"
+ #include "blitter.h"
+-#include "blit.h"
++#include <blit.h>
+ #include "savestate.h"
+ #include "debug.h"
+ 
 diff --git a/drawing.cpp b/drawing.cpp
+index 08c06a54..cd174d18 100644
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -6126,26 +6126,26 @@
+@@ -6478,22 +6478,22 @@ bool denise_get_hboffsets(int *hbs, int *hbe, int *hblen, int *total)
  }
  
  // optimized drawing routines
@@ -13,20 +27,6 @@ diff --git a/drawing.cpp b/drawing.cpp
 -#include "linetoscr_aga_fm0.cpp"
 -#include "linetoscr_aga_fm1.cpp"
 -#include "linetoscr_aga_fm2.cpp"
-+#include <linetoscr_common.cpp>
-+#include <linetoscr_ocs_ecs.cpp>
-+#include <linetoscr_ocs_ecs_genlock.cpp>
-+#include <linetoscr_ocs_ecs_ntsc.cpp>
-+#include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
-+#include <linetoscr_aga_fm0.cpp>
-+#include <linetoscr_aga_fm1.cpp>
-+#include <linetoscr_aga_fm2.cpp>
- #if FMODE64_HACK
--#include "linetoscr_aga_fm0_64.cpp"
--#include "linetoscr_aga_fm1_64.cpp"
-+#include <linetoscr_aga_fm0_64.cpp>
-+#include <linetoscr_aga_fm1_64.cpp>
- #endif
 -#include "linetoscr_aga_fm0_genlock.cpp"
 -#include "linetoscr_aga_fm1_genlock.cpp"
 -#include "linetoscr_aga_fm2_genlock.cpp"
@@ -35,6 +35,14 @@ diff --git a/drawing.cpp b/drawing.cpp
 -#include "linetoscr_aga_fast.cpp"
 -#include "linetoscr_ecs_genlock_fast.cpp"
 -#include "linetoscr_aga_genlock_fast.cpp"
++#include <linetoscr_common.cpp>
++#include <linetoscr_ocs_ecs.cpp>
++#include <linetoscr_ocs_ecs_genlock.cpp>
++#include <linetoscr_ocs_ecs_ntsc.cpp>
++#include <linetoscr_ocs_ecs_ntsc_genlock.cpp>
++#include <linetoscr_aga_fm0.cpp>
++#include <linetoscr_aga_fm1.cpp>
++#include <linetoscr_aga_fm2.cpp>
 +#include <linetoscr_aga_fm0_genlock.cpp>
 +#include <linetoscr_aga_fm1_genlock.cpp>
 +#include <linetoscr_aga_fm2_genlock.cpp>
@@ -47,6 +55,7 @@ diff --git a/drawing.cpp b/drawing.cpp
  // select linetoscr routine
  static void select_lts(void)
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 9a6352bd..8f7ad35d 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
 @@ -28,7 +28,7 @@
@@ -58,15 +67,3 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #include "cpu_prefetch.h"
  #include "autoconf.h"
  #include "traps.h"
-diff --git a/blitter.cpp b/blitter.cpp
---- a/blitter.cpp
-+++ b/blitter.cpp
-@@ -19,7 +19,7 @@
- #include "events.h"
- #include "newcpu.h"
- #include "blitter.h"
--#include "blit.h"
-+#include <blit.h>
- #include "savestate.h"
- #include "debug.h"
- 

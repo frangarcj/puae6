@@ -1,35 +1,8 @@
-diff --git a/main.cpp b/main.cpp
---- a/main.cpp
-+++ b/main.cpp
-@@ -797,7 +797,9 @@
- #ifdef P6_PORTABLE
- 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
- 		p->z3fastmem[i].size = 0;
--		p->fastmem[i].size = 0;
-+		// T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the others stay absent
-+		if (i > 0)
-+			p->fastmem[i].size = 0;
- 	}
- 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
- 		p->rtgboards[i].rtgmem_size = 0;
-diff --git a/memory.cpp b/memory.cpp
---- a/memory.cpp
-+++ b/memory.cpp
-@@ -3433,6 +3433,10 @@
- 
- #ifdef AUTOCONFIG
- 	expansion_map();
-+#elif defined(P6_PORTABLE)
-+	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
-+	if (currprefs.fastmem[0].size)
-+		expansion_map();
- #endif
- 
- 	if (a3000_f0) {
 diff --git a/custom.cpp b/custom.cpp
+index d4b83893..3a28e3cf 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -7192,6 +7192,10 @@
+@@ -7192,6 +7192,10 @@ void custom_reset(bool hardreset, bool keyboardreset)
  	// must be last
  #ifdef AUTOCONFIG
  	expamem_reset(hardreset);
@@ -41,9 +14,10 @@ diff --git a/custom.cpp b/custom.cpp
  }
  
 diff --git a/devices.cpp b/devices.cpp
+index 2aa6c294..f2b430fd 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -392,7 +392,7 @@
+@@ -441,7 +441,7 @@ void virtualdevice_free(void)
  #ifdef SERIAL_PORT
  	serial_exit();
  #endif
@@ -53,9 +27,10 @@ diff --git a/devices.cpp b/devices.cpp
  #endif
  #ifndef P6_PORTABLE
 diff --git a/expansion.cpp b/expansion.cpp
+index cc52a137..d92af47c 100644
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -3970,6 +3970,12 @@
+@@ -3975,6 +3975,12 @@ void expansion_cleanup (void)
  	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
  		mapped_free (&fastmem_bank[i]);
  		mapped_free (&z3fastmem_bank[i]);
@@ -68,3 +43,33 @@ diff --git a/expansion.cpp b/expansion.cpp
  	}
  	mapped_free (&z3chipmem_bank);
  
+diff --git a/main.cpp b/main.cpp
+index b5d25ae2..fea407d0 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -792,7 +792,9 @@ void fixup_prefs (struct uae_prefs *p, bool userconfig)
+ #ifdef P6_PORTABLE
+ 	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
+ 		p->z3fastmem[i].size = 0;
+-		p->fastmem[i].size = 0;
++		// T49: the first Zorro II board is the one the profile can have (p6_config.fast_kib); the others stay absent
++		if (i > 0)
++			p->fastmem[i].size = 0;
+ 	}
+ 	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
+ 		p->rtgboards[i].rtgmem_size = 0;
+diff --git a/memory.cpp b/memory.cpp
+index f03101b2..9bac11c1 100644
+--- a/memory.cpp
++++ b/memory.cpp
+@@ -3498,6 +3498,10 @@ void memory_reset (void)
+ 
+ #ifdef AUTOCONFIG
+ 	expansion_map();
++#elif defined(P6_PORTABLE)
++	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
++	if (currprefs.fastmem[0].size)
++		expansion_map();
+ #endif
+ 
+ 	if (a3000_f0) {

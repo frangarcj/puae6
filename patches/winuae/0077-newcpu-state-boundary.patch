@@ -1,7 +1,8 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index 44525589..bcf4df68 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -10574,3 +10574,26 @@
+@@ -10790,3 +10790,26 @@ void dfc_nommu_put_long(uaecptr addr, uae_u32 v)
  		x_put_long(addr, v);
  	ismoves_nommu = false;
  }

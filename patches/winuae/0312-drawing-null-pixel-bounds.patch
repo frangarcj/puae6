@@ -1,0 +1,23 @@
+diff --git a/drawing.cpp b/drawing.cpp
+index 826f1154..47e58a57 100644
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -5639,7 +5639,7 @@ void end_draw_denise(void)
+ static void set_pixtotal_max(void)
+ {
+ 	denise_pixtotal_max = denise_pixtotal_totalmax;
+-	if (buf1) {
++	if (buf1 && xlinebuffer && xlinebuffer_end) {
+ 		int maxw = addrdiff((uae_u32*)xlinebuffer_end, (uae_u32*)xlinebuffer);
+ 		maxw >>= lts_hres_shift;
+ 		int resw = denise_pixtotal_max;
+@@ -5661,6 +5661,9 @@ static void set_pixtotal_max(void)
+ 
+ 	} else {
+ 		denise_pixtotal_max = -0x7fffffff;
++		denise_pixtotal_max_buf_1x = NULL;
++		denise_pixtotal_max_buf_2x = NULL;
++		denise_pixtotal_max_buf_4x = NULL;
+ 	}
+ }
+ 

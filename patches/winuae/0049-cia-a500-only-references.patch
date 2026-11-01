@@ -1,7 +1,8 @@
 diff --git a/cia.cpp b/cia.cpp
+index 7447e7c1..a5d3d863 100644
 --- a/cia.cpp
 +++ b/cia.cpp
-@@ -1445,7 +1445,9 @@
+@@ -1494,7 +1494,9 @@ static void bfe001_change(void)
  			map_overlay(0);
  		}
  	}
@@ -11,7 +12,7 @@ diff --git a/cia.cpp b/cia.cpp
  }
  
  static uae_u32 getciatod(uae_u32 tod)
-@@ -1902,12 +1904,14 @@
+@@ -1951,12 +1953,14 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
  			write_log(_T("BFE001 R %02X %s\n"), v, debuginfo(0));
  #endif
  
@@ -26,7 +27,7 @@ diff --git a/cia.cpp b/cia.cpp
  
  		return v;
  	}
-@@ -1931,13 +1935,16 @@
+@@ -1980,13 +1984,16 @@ static uae_u8 ReadCIAA(uae_u32 addr, uae_u32 *flags)
  			}
  		} else
  #endif
@@ -44,7 +45,7 @@ diff --git a/cia.cpp b/cia.cpp
  			tmp = handle_parport_joystick (0, tmp);
  			tmp = dongle_cia_read (1, reg, c->drb, tmp);
  #if DONGLE_DEBUG > 0
-@@ -2010,11 +2017,15 @@
+@@ -2059,11 +2066,15 @@ static uae_u8 ReadCIAB(uae_u32 addr, uae_u32 *flags)
  				parallel_direct_read_status(&v);
  			}
  			tmp |= v & 7;
@@ -62,7 +63,7 @@ diff --git a/cia.cpp b/cia.cpp
  			// serial port in output mode
  			if (c->t[0].cr & 0x40) {
  				tmp &= ~3;
-@@ -2922,6 +2933,7 @@
+@@ -3004,6 +3015,7 @@ static void write_battclock(void)
  {
  	if (!currprefs.rtcfile[0] || currprefs.cs_rtc == 0)
  		return;
@@ -70,7 +71,7 @@ diff --git a/cia.cpp b/cia.cpp
  	TCHAR path[MAX_DPATH];
  	cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
  	struct zfile *f = zfile_fopen(path, _T("wb"));
-@@ -2967,6 +2979,7 @@
+@@ -3049,6 +3061,7 @@ static void write_battclock(void)
  		}
  		zfile_fclose(f);
  	}
@@ -78,7 +79,7 @@ diff --git a/cia.cpp b/cia.cpp
  }
  
  void rtc_hardreset(void)
-@@ -2987,6 +3000,7 @@
+@@ -3069,6 +3082,7 @@ void rtc_hardreset(void)
  		rtc_ricoh.rtc_alarm[10] = 1; /* 24H mode */
  		rtc_ricoh.delayed_write = 0;
  	}
@@ -86,7 +87,7 @@ diff --git a/cia.cpp b/cia.cpp
  	if (currprefs.rtcfile[0]) {
  		TCHAR path[MAX_DPATH];
  		cfgfile_resolve_path_out_load(currprefs.rtcfile, path, MAX_DPATH, PATH_ROM);
-@@ -3009,6 +3023,7 @@
+@@ -3091,6 +3105,7 @@ void rtc_hardreset(void)
  			zfile_fclose(f);
  		}
  	}

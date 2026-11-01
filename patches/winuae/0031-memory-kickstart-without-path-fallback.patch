@@ -1,7 +1,8 @@
 diff --git a/memory.cpp b/memory.cpp
+index c8011cc0..aafb2878 100644
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -1991,6 +1991,10 @@
+@@ -2037,6 +2037,10 @@ static void patch_kick (void)
  
  static struct zfile *get_kickstart_filehandle(struct uae_prefs *p)
  {
@@ -12,7 +13,7 @@ diff --git a/memory.cpp b/memory.cpp
  	struct zfile *f;
  	TCHAR tmprom[MAX_DPATH], tmprom2[MAX_DPATH];
  
-@@ -2024,6 +2028,7 @@
+@@ -2070,6 +2074,7 @@ static struct zfile *get_kickstart_filehandle(struct uae_prefs *p)
  		_tcscpy(p->romfile, tmprom2);
  	}
  	return f;

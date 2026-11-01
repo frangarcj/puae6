@@ -1,7 +1,8 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
+index bf45cb59..bfc554c9 100644
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -288,6 +288,7 @@
+@@ -300,6 +300,7 @@ static void set_x_cp_funcs(void)
  	x_cp_next_ilong = x_next_ilong;
  	x_cp_get_disp_ea_020 = x_get_disp_ea_020;
  
@@ -9,7 +10,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (currprefs.mmu_model == 68030) {
  		if (currprefs.cpu_compatible) {
  			x_cp_put_long = put_long_mmu030c_state;
-@@ -311,6 +312,8 @@
+@@ -323,6 +324,8 @@ static void set_x_cp_funcs(void)
  			x_cp_get_disp_ea_020 = get_disp_ea_020_mmu030;
  		}
  	}
@@ -18,7 +19,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  }
  
  static struct cputracestruct cputrace;
-@@ -1628,7 +1631,9 @@
+@@ -1650,7 +1653,9 @@ void flush_cpu_caches(bool force)
  		}
  	} else if (currprefs.cpu_model >= 68040) {
  		if (doflush && force) {
@@ -28,7 +29,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  			icachelinecnt = 0;
  			icachehalfline = 0;
  			for (int i = 0; i < CACHESETS060; i++) {
-@@ -1643,6 +1648,7 @@
+@@ -1665,6 +1670,7 @@ void flush_cpu_caches(bool force)
  	}
  }
  
@@ -36,7 +37,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #if VALIDATE_68040_DATACACHE > 1
  static void validate_dcache040(void)
  {
-@@ -1786,6 +1792,7 @@
+@@ -1813,6 +1819,7 @@ void flush_cpu_caches_040(uae_u16 opcode)
  	mmu_flush_cache();
  }
  
@@ -44,7 +45,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  void cpu_invalidate_cache(uaecptr addr, int size)
  {
  	if (!currprefs.cpu_data_cache)
-@@ -1797,13 +1804,16 @@
+@@ -1824,13 +1831,16 @@ void cpu_invalidate_cache(uaecptr addr, int size)
  			dcaches030[(addr >> 4) & (CACHELINES030 - 1)].valid[(addr >> 2) & 3] = 0;
  			addr += 4;
  		}
@@ -62,7 +63,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  }
  
  
-@@ -1811,7 +1821,9 @@
+@@ -1838,7 +1848,9 @@ void set_cpu_caches (bool flush)
  {
  	regs.prefetch020addr = 0xffffffff;
  	regs.cacheholdingaddr020 = 0xffffffff;
@@ -72,7 +73,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  	// 68060 FIC 1/2 instruction cache
  	cacheisets04060 = currprefs.cpu_model == 68060 && !(regs.cacr & 0x00002000) ? CACHESETS060 : CACHESETS040;
-@@ -2221,6 +2233,7 @@
+@@ -2248,6 +2260,7 @@ static void prefs_changed_cpu (void)
  	currprefs.cpu_model = changed_prefs.cpu_model;
  	currprefs.fpu_model = changed_prefs.fpu_model;
  	currprefs.fpu_revision = changed_prefs.fpu_revision;
@@ -80,7 +81,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (currprefs.mmu_model != changed_prefs.mmu_model) {
  		int oldmmu = currprefs.mmu_model;
  		currprefs.mmu_model = changed_prefs.mmu_model;
-@@ -2247,6 +2260,7 @@
+@@ -2274,6 +2287,7 @@ static void prefs_changed_cpu (void)
  			fake_crp_030 = crp_030;
  		}
  	}
@@ -88,7 +89,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	currprefs.mmu_ec = changed_prefs.mmu_ec;
  	if (currprefs.cpu_compatible != changed_prefs.cpu_compatible) {
  		currprefs.cpu_compatible = changed_prefs.cpu_compatible;
-@@ -2537,8 +2551,10 @@
+@@ -2565,8 +2579,10 @@ static void MakeFromSR_x(int t0trace)
  			}
  		}
  	}
@@ -99,7 +100,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  #ifdef JIT
  	// if JIT enabled and T1, T0 or M changes: end compile.
-@@ -2977,6 +2993,7 @@
+@@ -3005,6 +3021,7 @@ kludge_me_do:
  #endif
  
  // 68030 MMU
@@ -107,7 +108,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  static void Exception_mmu030 (int nr, uaecptr oldpc)
  {
  	uae_u32 currpc = m68k_getpc (), newpc;
-@@ -3047,7 +3064,9 @@
+@@ -3080,7 +3097,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
  
  	// exception vector fetch and exception stack frame
  	// operations don't allocate new cachelines
@@ -117,7 +118,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	
  	exception_debug (nr);
  	MakeSR ();
-@@ -3099,7 +3118,9 @@
+@@ -3132,7 +3151,9 @@ static void Exception_mmu (int nr, uaecptr oldpc)
  		return;
  	}
  
@@ -127,7 +128,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  	m68k_setpci (newpc);
  	if (interrupt)
-@@ -3108,6 +3129,7 @@
+@@ -3141,6 +3162,7 @@ static void Exception_mmu (int nr, uaecptr oldpc)
  	exception_check_trace (nr);
  }
  
@@ -135,7 +136,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  static void add_approximate_exception_cycles(int nr)
  {
  	int cycles;
-@@ -3180,7 +3202,9 @@
+@@ -3213,7 +3235,9 @@ static void Exception_normal (int nr)
  	int vector_nr = nr;
  	bool g1 = false;
  
@@ -145,7 +146,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  
  	interrupt = nr >= 24 && nr < 24 + 8;
  	if (interrupt)
-@@ -3201,8 +3225,10 @@
+@@ -3234,8 +3258,10 @@ static void Exception_normal (int nr)
  			m68k_areg (regs, 7) = regs.isp;
  		}
  		regs.s = 1;
@@ -156,7 +157,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	}
  
  	if ((m68k_areg(regs, 7) & 1) && currprefs.cpu_model < 68020) {
-@@ -3229,6 +3255,7 @@
+@@ -3262,6 +3288,7 @@ static void Exception_normal (int nr)
  	
  	bool used_exception_build_stack_frame = false;
  
@@ -164,18 +165,18 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (currprefs.cpu_model > 68000) {
  		uae_u32 oldpc = regs.instruction_pc;
  		nextpc = exception_pc (nr);
-@@ -3363,7 +3390,9 @@
+@@ -3396,7 +3423,9 @@ static void Exception_normal (int nr)
  			Exception_build_stack_frame_common(oldpc, currpc, regs.mmu_ssw, nr, vector_nr);
  			used_exception_build_stack_frame = true;
  		}
 - 	} else {
-+ 	} else
++	} else
 +#endif
 +	{
  		nextpc = m68k_getpc ();
  		if (nr == 2 || nr == 3) {
  			// 68000 bus/address error
-@@ -3434,7 +3463,9 @@
+@@ -3467,7 +3496,9 @@ kludge_me_do:
  	}
  	add_approximate_exception_cycles(nr);
  	m68k_setpc (newpc);
@@ -185,7 +186,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #ifdef JIT
  	if (currprefs.cachesize) {
  		set_special(SPCFLAG_END_COMPILE);
-@@ -3485,12 +3516,15 @@
+@@ -3518,12 +3549,15 @@ static void ExceptionX (int nr, uaecptr address, uaecptr oldpc)
  			regs.buscr &= 0xa0000000;
  			regs.buscr |= regs.buscr >> 1;
  		}
@@ -202,7 +203,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  			Exception_normal(nr);
  		}
  	}
-@@ -3677,7 +3711,9 @@
+@@ -3710,7 +3744,9 @@ static void m68k_reset2(bool hardreset)
  	regs.caar = regs.cacr = 0;
  	regs.itt0 = regs.itt1 = regs.dtt0 = regs.dtt1 = 0;
  	regs.tcr = regs.mmusr = regs.urp = regs.srp = regs.buscr = 0;
@@ -213,7 +214,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (currprefs.cpu_model == 68020) {
  		regs.cacr |= 8;
  		set_cpu_caches (false);
-@@ -3685,18 +3721,23 @@
+@@ -3718,18 +3754,23 @@ static void m68k_reset2(bool hardreset)
  
  	mmufixup[0].reg = -1;
  	mmufixup[1].reg = -1;
@@ -238,7 +239,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		a3000_fakekick (0);
  		/* only (E)nable bit is zeroed when CPU is reset, A3000 SuperKickstart expects this */
  		fake_tc_030 &= ~0x80000000;
-@@ -6750,7 +6791,9 @@
+@@ -6880,7 +6921,9 @@ void m68k_go (int may_quit)
  			if (cpu_prefs_changed_flag & 1) {
  				uaecptr pc = m68k_getpc();
  				prefs_changed_cpu();
@@ -248,7 +249,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  				custom_cpuchange();
  				build_cpufunctbl();
  				m68k_setpc_normal(pc);
-@@ -6937,10 +6980,12 @@
+@@ -7071,10 +7114,12 @@ void m68k_dumpstate(uaecptr *nextpc, uaecptr prevpc)
  			(fpsr & 0x1000000) != 0);
  	}
  #endif
@@ -261,7 +262,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  	if (currprefs.cpu_compatible) {
  		console_out_f(_T("Prefetch"));
  		if (currprefs.cpu_model == 68020 || currprefs.cpu_model == 68030) {
-@@ -7880,14 +7925,18 @@
+@@ -8068,14 +8113,18 @@ void hardware_exception2(uaecptr addr, uae_u32 v, bool read, bool ins, int size)
  {
  	if (currprefs.cpu_model <= 68010 && currprefs.cpu_compatible && HARDWARE_BUS_ERROR_EMULATION) {
  		hardware_bus_error = 1;

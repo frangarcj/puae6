@@ -1,7 +1,8 @@
 diff --git a/disk.cpp b/disk.cpp
+index de390de0..c1e19686 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -842,6 +842,9 @@
+@@ -842,6 +842,9 @@ static bool ispcbridgedrive(int num)
  #ifdef P6_PORTABLE
  extern "C" int p6_blob_overlay_room(unsigned int sectors);       // ports/portable/blob_io.c
  extern "C" int p6_blob_overlay_writable(const char *id);
@@ -11,7 +12,7 @@ diff --git a/disk.cpp b/disk.cpp
  #endif
  static bool drive_writeprotected(drive *drv)
  {
-@@ -2500,6 +2503,11 @@
+@@ -2510,6 +2513,11 @@ static void drive_fill_bigbuf(drive *drv, int tside, int force)
  		}
  		if (disk_debug_logging > 0)
  			write_log(_T("track %d, length %d read from \"saveimage\"\n"), tr, drv->tracklen);
@@ -23,7 +24,7 @@ diff --git a/disk.cpp b/disk.cpp
  #ifdef FLOPPYBRIDGE
  	} else if (drv->filetype == ADF_FLOPPYBRIDGE) {
  		if (drv->bridge) {
-@@ -3027,6 +3035,12 @@
+@@ -3044,6 +3052,12 @@ static void drive_write_data (drive *drv)
  			drv->buffered_side = 2;
  		} else {
  			if (drive_write_adf_amigados (drv)) {
@@ -36,7 +37,7 @@ diff --git a/disk.cpp b/disk.cpp
  #ifndef P6_PORTABLE
  				if (currprefs.floppy_auto_ext2) {
  					convert_adf_to_ext2 (drv, currprefs.floppy_auto_ext2);
-@@ -3038,6 +3052,10 @@
+@@ -3055,6 +3069,10 @@ static void drive_write_data (drive *drv)
  				}
  #endif
  			}

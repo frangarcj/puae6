@@ -1,11 +1,11 @@
 diff --git a/custom.cpp b/custom.cpp
+index 34777cec..eb1d09f3 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13024,4 +13024,30 @@
- {
+@@ -13073,3 +13073,29 @@ void custom_end_drawing(void)
  	draw_denise_line_queue_flush();
  	end_draw_denise();
-+}
+ }
 +
 +#ifdef P6_PORTABLE
 +// Native state (bridge/state_cpu.cpp): the half-CCK remainder of the cycle-exact CPU, and the secondary events whose handlers are static
@@ -30,5 +30,5 @@ diff --git a/custom.cpp b/custom.cpp
 +	default:
 +		return fakehsync_handler;
 +	}
- }
++}
 +#endif

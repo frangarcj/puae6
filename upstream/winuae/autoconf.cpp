@@ -504,9 +504,7 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
 		return 0;
 	if (!mode) {
 		rtarea_write_enabled = true;
-#ifndef P6_PORTABLE
 		protect_roms(false);
-#endif
 		rombase_new = rombase;
 		int size = 4 + 2 + 4;
 		for (int i = 0; i < absolute_rom_address; i++) {
@@ -541,9 +539,7 @@ uae_u32 boot_rom_copy(TrapContext *ctx, uaecptr rombase, int mode)
 		write_log(_T("ROMBASE %08x RAMBASE %08x RELOC %08x (%d)\n"), rtarea_base, rombase, reloc, absolute_rom_address);
 	} else {
 		rtarea_write_enabled = false;
-#ifndef P6_PORTABLE
 		protect_roms(true);
-#endif
 		write_log(_T("ROMBASE changed (%d).\n"), absolute_rom_address);
 		reloc = 1;
 	}
@@ -658,7 +654,7 @@ void rtarea_init(void)
 	dw (0);
 	dw (0);
 
-#if defined(FILESYS) || defined(P6_FILESYS)
+#ifdef FILESYS
 	filesys_install_code();
 
 	trap_entry = filesys_get_entry(10);
@@ -706,9 +702,7 @@ void rtarea_init(void)
 	}
 }
 
-#ifndef P6_PORTABLE // defined by ports/portable/atomic.cpp, which the portable probes link without the engine
 volatile uae_atomic uae_int_requested = 0;
-#endif
 
 void rtarea_setup (void)
 {
@@ -748,38 +742,3 @@ uaecptr makedatatable (uaecptr resid, uaecptr resname, uae_u8 type, uae_s8 prior
 	return datatable;
 }
 
-
-#if defined(FILESYS) || defined(P6_FILESYS)
-/* Native state of the trap area (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0181): the 64 KiB of the UAE boot ROM bank as they are (the code and
- * the tables the load wrote, the strings the boot code added from the end, the variables of the filesystem), the cursors the next ds() / here() continue from, and the
- * request line the EXTER interrupt answers. Values in this order: 0 rt_addr, 1 rt_straddr, 2 rt_addr_restart, 3 rt_addr_reset, 4 uae_int_requested. */
-#define P6_RTAREA_WORDS 5
-
-bool p6_rtarea_state_get(uint32_t *w, unsigned n, uint8_t *bytes)
-{
-	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
-		return false;
-	w[0] = (uae_u32)rt_addr;
-	w[1] = (uae_u32)rt_straddr;
-	w[2] = (uae_u32)rt_addr_restart;
-	w[3] = rt_addr_reset ? 1 : 0;
-	w[4] = (uae_u32)uae_int_requested;
-	memcpy(bytes, rtarea_bank.baseaddr, RTAREA_SIZE);
-	return true;
-}
-
-bool p6_rtarea_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
-{
-	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
-		return false;
-	if (w[0] >= RTAREA_SIZE || w[1] >= RTAREA_SIZE || w[2] >= RTAREA_SIZE || w[3] > 1 || w[4] > 1)
-		return false;
-	rt_addr = (int)w[0];
-	rt_straddr = (int)w[1];
-	rt_addr_restart = (int)w[2];
-	rt_addr_reset = w[3] != 0;
-	uae_int_requested = w[4];
-	memcpy(rtarea_bank.baseaddr, bytes, RTAREA_SIZE);
-	return true;
-}
-#endif

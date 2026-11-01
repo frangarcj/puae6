@@ -1,13 +1,56 @@
+diff --git a/autoconf.cpp b/autoconf.cpp
+index b3cf5156..b32b5efc 100644
+--- a/autoconf.cpp
++++ b/autoconf.cpp
+@@ -748,3 +748,38 @@ uaecptr makedatatable (uaecptr resid, uaecptr resname, uae_u8 type, uae_s8 prior
+ 	return datatable;
+ }
+ 
++
++#if defined(FILESYS) || defined(P6_FILESYS)
++/* Native state of the trap area (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0181): the 64 KiB of the UAE boot ROM bank as they are (the code and
++ * the tables the load wrote, the strings the boot code added from the end, the variables of the filesystem), the cursors the next ds() / here() continue from, and the
++ * request line the EXTER interrupt answers. Values in this order: 0 rt_addr, 1 rt_straddr, 2 rt_addr_restart, 3 rt_addr_reset, 4 uae_int_requested. */
++#define P6_RTAREA_WORDS 5
++
++bool p6_rtarea_state_get(uint32_t *w, unsigned n, uint8_t *bytes)
++{
++	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
++		return false;
++	w[0] = (uae_u32)rt_addr;
++	w[1] = (uae_u32)rt_straddr;
++	w[2] = (uae_u32)rt_addr_restart;
++	w[3] = rt_addr_reset ? 1 : 0;
++	w[4] = (uae_u32)uae_int_requested;
++	memcpy(bytes, rtarea_bank.baseaddr, RTAREA_SIZE);
++	return true;
++}
++
++bool p6_rtarea_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
++{
++	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
++		return false;
++	if (w[0] >= RTAREA_SIZE || w[1] >= RTAREA_SIZE || w[2] >= RTAREA_SIZE || w[3] > 1 || w[4] > 1)
++		return false;
++	rt_addr = (int)w[0];
++	rt_straddr = (int)w[1];
++	rt_addr_restart = (int)w[2];
++	rt_addr_reset = w[3] != 0;
++	uae_int_requested = w[4];
++	memcpy(rtarea_bank.baseaddr, bytes, RTAREA_SIZE);
++	return true;
++}
++#endif
 diff --git a/filesys.cpp b/filesys.cpp
+index af13bc6a..f2c9eccc 100644
 --- a/filesys.cpp
 +++ b/filesys.cpp
-@@ -6854,13 +6854,15 @@
- static uae_sem_t shellexec_sem;
+@@ -6914,12 +6914,14 @@ static uae_sem_t shellexec_sem;
  
  #define SHELLEXEC_MAX_CMD_LEN 512
-+
-+static int exter_int_unit_no; // where the walk over the units of the interrupt in progress has got to; native state (p6_filesys_state_get)
  
++static int exter_int_unit_no; // where the walk over the units of the interrupt in progress has got to; native state (p6_filesys_state_get)
++
  static uae_u32 REGPARAM2 exter_int_helper(TrapContext *ctx)
  {
  	UnitInfo *uip = mountinfo.ui;
@@ -18,7 +61,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  
  	if (n == 20) {
  		// d1 = shellexec process
-@@ -10685,3 +10687,130 @@
+@@ -10755,3 +10757,130 @@ end:
  
  	return ret;
  }
@@ -150,9 +193,10 @@ diff --git a/filesys.cpp b/filesys.cpp
 +}
 +#endif
 diff --git a/hardfile.cpp b/hardfile.cpp
+index 29d8d9f4..3dc9362b 100644
 --- a/hardfile.cpp
 +++ b/hardfile.cpp
-@@ -3309,3 +3309,82 @@
+@@ -3309,3 +3309,82 @@ void hardfile_install (void)
  	filesys_initcode_real = initcode;
  	dl (initcode);
  }
@@ -232,49 +276,6 @@ diff --git a/hardfile.cpp b/hardfile.cpp
 +			return false;
 +		memcpy(h->d_request_iobuf[i], iobuf + P6_HARDFILE_IOBUF * i, P6_HARDFILE_IOBUF);
 +	}
-+	return true;
-+}
-+#endif
-diff --git a/autoconf.cpp b/autoconf.cpp
---- a/autoconf.cpp
-+++ b/autoconf.cpp
-@@ -732,4 +732,39 @@
- 	dw (0x0000);		/* end of table */
- 	return datatable;
- }
-+
-+
-+#if defined(FILESYS) || defined(P6_FILESYS)
-+/* Native state of the trap area (bridge/state_upstream.cpp, the hard-file section of P6DK, patch 0181): the 64 KiB of the UAE boot ROM bank as they are (the code and
-+ * the tables the load wrote, the strings the boot code added from the end, the variables of the filesystem), the cursors the next ds() / here() continue from, and the
-+ * request line the EXTER interrupt answers. Values in this order: 0 rt_addr, 1 rt_straddr, 2 rt_addr_restart, 3 rt_addr_reset, 4 uae_int_requested. */
-+#define P6_RTAREA_WORDS 5
- 
-+bool p6_rtarea_state_get(uint32_t *w, unsigned n, uint8_t *bytes)
-+{
-+	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
-+		return false;
-+	w[0] = (uae_u32)rt_addr;
-+	w[1] = (uae_u32)rt_straddr;
-+	w[2] = (uae_u32)rt_addr_restart;
-+	w[3] = rt_addr_reset ? 1 : 0;
-+	w[4] = (uae_u32)uae_int_requested;
-+	memcpy(bytes, rtarea_bank.baseaddr, RTAREA_SIZE);
-+	return true;
-+}
-+
-+bool p6_rtarea_state_set(const uint32_t *w, unsigned n, const uint8_t *bytes)
-+{
-+	if (!w || n != P6_RTAREA_WORDS || !bytes || !rtarea_bank.baseaddr || rtarea_bank.allocated_size < RTAREA_SIZE)
-+		return false;
-+	if (w[0] >= RTAREA_SIZE || w[1] >= RTAREA_SIZE || w[2] >= RTAREA_SIZE || w[3] > 1 || w[4] > 1)
-+		return false;
-+	rt_addr = (int)w[0];
-+	rt_straddr = (int)w[1];
-+	rt_addr_restart = (int)w[2];
-+	rt_addr_reset = w[3] != 0;
-+	uae_int_requested = w[4];
-+	memcpy(rtarea_bank.baseaddr, bytes, RTAREA_SIZE);
 +	return true;
 +}
 +#endif

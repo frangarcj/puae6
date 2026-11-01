@@ -1,8 +1,9 @@
 diff --git a/custom.cpp b/custom.cpp
+index 24214351..be9256d3 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13216,4 +13216,21 @@
- 	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[13])) | uint64_t(uint32_t(in[14])) << 32);
+@@ -13345,4 +13345,21 @@ bool p6_custom_copper_set(const int32_t *in, unsigned n)
+ 	copper_dma_change_cycle_pending = in[21] != 0;
  	return true;
  }
 +// Native state (bridge/state_upstream.cpp, run once after every body of CHIP has been restored): what the engine derives from the registers and not stores. WinUAE's own load

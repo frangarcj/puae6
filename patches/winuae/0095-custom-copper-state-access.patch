@@ -1,44 +1,46 @@
 diff --git a/custom.cpp b/custom.cpp
+index 3a1b27d3..e0bf54ca 100644
 --- a/custom.cpp
 +++ b/custom.cpp
-@@ -13179,6 +13179,40 @@
- 	};
- 	for (unsigned i = 0; i < sizeof latches / sizeof latches[0]; ++i) *latches[i] = in[41 + i] != 0;
+@@ -13308,4 +13308,41 @@ bool p6_custom_beam_set(const int32_t *in, unsigned n)
  	setmaxhpos();
-+	return true;
-+}
+ 	return w == P6_BEAM_WORDS;
+ }
 +
-+// Native state (bridge/state_upstream.cpp, sub-body COPR of P6CH): what the Copper keeps between two of its cycles that CHSL does not carry (CHSL keeps ip and the two
-+// instruction words, and puts the state back as stopped, or as the last cycle of a MOVE). Values only, in 32-bit words in the order of the list below; it never runs
-+// the Copper, never recomputes the line flag and never touches the DMA pipeline. A word count other than P6_COPPER_WORDS is refused. moveaddr, movedata, movedelay and moveptr
-+// are only written inside an #if 0 and are not part of it. The two time stamps are cycle counts of the saved machine: the scheduler puts the cycle counter back.
-+//  0 state  1 state_prev  2 strobe_next  3 strobeip  4 vblankip  5 ignore_next  6 vcmp  7 hcmp  8 strobe  9 strobetype  10 copper_enabled_thisline
-+//  11-12 strobe_cycles (low, high)  13-14 copper_dma_change_cycle (low, high)
-+#define P6_COPPER_WORDS 15
++// Native state (bridge/state_upstream.cpp, sub-body COPR of P6CH): what beta 21's low-level Copper keeps between two cycles and CHSL does not carry
++// (CHSL keeps ip and the two instruction words). Values only, in 32-bit words in the order below; it never runs the Copper, recomputes the line flag or
++// touches the DMA pipeline. copper_access is a call-local guard that is always cleared before returning to the frame boundary, not machine state.
++//  0 vcmp  1 hcmp  2 vblankip  3 strobe  4 prev_strobe  5 inst  6 load1  7 load2  8 skiplatch  9 start  10 irload1  11 irload2
++//  12 startstrobe  13 prelatch  14 blitwait  15 cycle_alloc  16 validmove  17 dummyip  18 copper_enabled_thisline
++//  19-20 copper_dma_change_cycle (low, high)  21 copper_dma_change_cycle_pending
++#define P6_COPPER_WORDS 22
 +bool p6_custom_copper_get(int32_t *out, unsigned n)
 +{
 +	if (!out || n != P6_COPPER_WORDS) return false;
 +	const int32_t words[] = {
-+		int32_t(cop_state.state), int32_t(cop_state.state_prev), int32_t(cop_state.strobe_next), int32_t(cop_state.strobeip), int32_t(cop_state.vblankip),
-+		cop_state.ignore_next, cop_state.vcmp, cop_state.hcmp, cop_state.strobe, cop_state.strobetype, copper_enabled_thisline,
-+		int32_t(uint64_t(cop_state.strobe_cycles)), int32_t(uint64_t(cop_state.strobe_cycles) >> 32),
-+		int32_t(uint64_t(copper_dma_change_cycle)), int32_t(uint64_t(copper_dma_change_cycle) >> 32)
++		cop_state.vcmp, cop_state.hcmp, int32_t(cop_state.vblankip), cop_state.strobe, cop_state.prev_strobe, cop_state.inst,
++		cop_state.load1, cop_state.load2, cop_state.skiplatch, cop_state.start, cop_state.irload1, cop_state.irload2,
++		int32_t(cop_state.startstrobe), cop_state.prelatch, cop_state.blitwait, cop_state.cycle_alloc, cop_state.validmove,
++		int32_t(cop_state.dummyip), copper_enabled_thisline,
++		int32_t(uint64_t(copper_dma_change_cycle)), int32_t(uint64_t(copper_dma_change_cycle) >> 32), copper_dma_change_cycle_pending
 +	};
 +	static_assert(sizeof words / sizeof words[0] == P6_COPPER_WORDS, "review the Copper word list");
-+	static_assert(COP_strobe_extra + 1 == 24, "review the Copper state numbers the bridge accepts");
 +	memcpy(out, words, sizeof words);
- 	return true;
- }
++	return true;
++}
 +
 +bool p6_custom_copper_set(const int32_t *in, unsigned n)
 +{
 +	if (!in || n != P6_COPPER_WORDS) return false;
-+	cop_state.state = copper_states(in[0]); cop_state.state_prev = copper_states(in[1]); cop_state.strobe_next = copper_states(in[2]);
-+	cop_state.strobeip = uae_u32(in[3]); cop_state.vblankip = uae_u32(in[4]);
-+	cop_state.ignore_next = in[5]; cop_state.vcmp = in[6]; cop_state.hcmp = in[7]; cop_state.strobe = in[8]; cop_state.strobetype = in[9];
-+	copper_enabled_thisline = in[10];
-+	cop_state.strobe_cycles = evt_t(uint64_t(uint32_t(in[11])) | uint64_t(uint32_t(in[12])) << 32);
-+	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[13])) | uint64_t(uint32_t(in[14])) << 32);
++	cop_state.vcmp = in[0]; cop_state.hcmp = in[1]; cop_state.vblankip = uae_u32(in[2]);
++	cop_state.strobe = in[3]; cop_state.prev_strobe = in[4]; cop_state.inst = in[5];
++	cop_state.load1 = in[6] != 0; cop_state.load2 = in[7] != 0; cop_state.skiplatch = in[8] != 0;
++	cop_state.start = in[9]; cop_state.irload1 = in[10]; cop_state.irload2 = in[11];
++	cop_state.startstrobe = uae_u32(in[12]); cop_state.prelatch = uae_u16(in[13]); cop_state.blitwait = in[14] != 0;
++	cop_state.cycle_alloc = in[15] != 0; cop_state.validmove = in[16] != 0; cop_state.dummyip = uae_u32(in[17]);
++	copper_enabled_thisline = in[18];
++	copper_dma_change_cycle = evt_t(uint64_t(uint32_t(in[19])) | uint64_t(uint32_t(in[20])) << 32);
++	copper_dma_change_cycle_pending = in[21] != 0;
 +	return true;
 +}
  #endif

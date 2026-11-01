@@ -1,7 +1,8 @@
 diff --git a/disk.cpp b/disk.cpp
+index 5ace5a8d..9b42b17e 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -959,6 +959,44 @@
+@@ -959,6 +959,44 @@ void DISK_get_path_text(struct uae_prefs *p, int n, TCHAR *text)
  
  int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num, TCHAR *outfname, int leave_open, bool *wrprot, uae_u32 *crc32, struct zfile **zf)
  {
@@ -46,7 +47,7 @@ diff --git a/disk.cpp b/disk.cpp
  	TCHAR outname[MAX_DPATH];
  
  	if (zf)
-@@ -1012,6 +1050,7 @@
+@@ -1012,6 +1050,7 @@ int DISK_validate_filename (struct uae_prefs *p, const TCHAR *fname_in, int num,
  			return 0;
  		}
  	}

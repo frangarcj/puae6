@@ -1,7 +1,8 @@
 diff --git a/cfgfile.cpp b/cfgfile.cpp
+index be6f7983..9c01b0e7 100644
 --- a/cfgfile.cpp
 +++ b/cfgfile.cpp
-@@ -8414,6 +8414,12 @@
+@@ -8547,6 +8547,12 @@ static void default_prefs_mini (struct uae_prefs *p, int type)
  
  static void copy_inputdevice_settings(struct uae_input_device *src, struct uae_input_device *dst)
  {
@@ -14,7 +15,7 @@ diff --git a/cfgfile.cpp b/cfgfile.cpp
  	for (int l = 0; l < MAX_INPUT_DEVICE_EVENTS; l++) {
  		for (int i = 0; i < MAX_INPUT_SUB_EVENT_ALL; i++) {
  			if (src->custom[l][i]) {
-@@ -8427,6 +8433,15 @@
+@@ -8560,6 +8566,15 @@ static void copy_inputdevice_settings(struct uae_input_device *src, struct uae_i
  
  static void copy_inputdevice_settings_free(struct uae_input_device *src, struct uae_input_device *dst)
  {

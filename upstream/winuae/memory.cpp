@@ -13,20 +13,6 @@
 
 #include "sysconfig.h"
 #include "sysdeps.h"
-#ifdef P6_PORTABLE
-#include "rom_status.h"
-static int rom_load_status = P6_ROM_UNLOADED;
-int p6_memory_rom_status(void) { return rom_load_status; }
-// Requirement bits and engine name of a known ROM that the preset CPU cannot run.
-// The pointer names immutable rommgr metadata and is cleared by every load and lifecycle edge.
-static int rom_refused_cpu;
-static const TCHAR *rom_refused_name;
-int p6_memory_rom_refusal(const char **name)
-{
-	if (name) *name = rom_refused_cpu ? rom_refused_name : NULL;
-	return rom_refused_cpu;
-}
-#endif
 
 #include "options.h"
 #include "uae.h"
@@ -200,8 +186,6 @@ MEMORY_FUNCTIONS(fakeuaebootrom);
 #define NONEXISTINGDATA 0
 //#define NONEXISTINGDATA 0xffffffff
 
-#ifndef P6_PORTABLE
-// The UAE boot ROM (uaeboard >= 2) needs the traps area, which the A500 profile does not build.
 static bool map_uae_boot_rom_direct(void)
 {
 	if (!fakeuaebootrom_bank.allocated_size) {
@@ -251,7 +235,6 @@ static bool maybe_map_boot_rom(uaecptr addr)
 	}
 	return false;
 }
-#endif
 
 static void dummylog(int rw, uaecptr addr, int size, uae_u32 val, int ins)
 {
@@ -288,8 +271,6 @@ static void dummylog(int rw, uaecptr addr, int size, uae_u32 val, int ins)
 	}
 }
 
-#ifndef P6_PORTABLE
-// gary_timeout/gary_toenb are only set by the A3000 Gary registers (gayle.cpp), not built in the A500 profile.
 // 250ms delay
 static void gary_wait(uaecptr addr, int size, bool write)
 {
@@ -306,7 +287,6 @@ static void gary_wait(uaecptr addr, int size, bool write)
 		cnt--;
 	}
 }
-#endif
 
 static bool gary_nonrange(uaecptr addr)
 {
@@ -335,14 +315,12 @@ void dummy_put (uaecptr addr, int size, uae_u32 val)
 		flash_write(addr, val);
 #endif
 
-#ifndef P6_PORTABLE
 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
 		if (gary_timeout)
 			gary_wait(addr, size, true);
 		if (gary_toenb && currprefs.mmu_model)
 			hardware_exception2(addr, val, false, false, size);
 	}
-#endif
 }
 
 static uae_u32 nonexistingdata(void)
@@ -427,21 +405,17 @@ uae_u32 dummy_get (uaecptr addr, int size, bool inst, uae_u32 defvalue)
 	}
 #endif
 
-#ifndef P6_PORTABLE
 	if ((size == sz_word || size == sz_long) && inst && maybe_map_boot_rom(addr)) {
 		if (size == sz_word)
 			return get_word(addr);
 		return get_long(addr);
 	}
-#endif
 
 	if (gary_nonrange(addr) || (size > sz_byte && gary_nonrange(addr + (1 << size) - 1))) {
-#ifndef P6_PORTABLE
 		if (gary_timeout)
 			gary_wait(addr, size, false);
 		if (gary_toenb)
 			hardware_exception2(addr, 0, true, false, size);
-#endif
 		return v;
 	}
 
@@ -1084,10 +1058,7 @@ static void a1000_handle_kickstart (int mode)
 {
 	if (!a1000_bootrom)
 		return;
-#ifndef P6_PORTABLE
-	// Host ROM page protection only serves the JIT, which the profile excludes.
 	protect_roms (false);
-#endif
 	if (mode == 0) {
 		a1000_kickstart_mode = 0;
 		if (a1000_kickstart_size == ROM_SIZE_256) {
@@ -1453,15 +1424,11 @@ uae_u8 *REGPARAM2 default_xlate (uaecptr addr)
 		return kickmem_xlate(2);
 	}
 
-#ifndef P6_PORTABLE
 	if (maybe_map_boot_rom(addr))
 		return get_real_address(addr);
-#endif
 
 	be_recursive++;
-#ifndef P6_PORTABLE
 	int size = currprefs.cpu_model >= 68020 ? 4 : 2;
-#endif
 	if (quit_program == 0) {
 		/* do this only in 68010+ mode, there are some tricky A500 programs.. */
 		if ((currprefs.cpu_model > 68000 || !currprefs.cpu_compatible) && !currprefs.mmu_model) {
@@ -1491,16 +1458,11 @@ uae_u8 *REGPARAM2 default_xlate (uaecptr addr)
 				memory_map_dump();
 #endif
 			}
-#ifdef P6_PORTABLE
-			// gary_toenb is never set without the A3000 Gary registers.
-			cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
-#else
 			if (0 || (gary_toenb && (gary_nonrange(addr) || (size > 1 && gary_nonrange(addr + size - 1))))) {
 				hardware_exception2(addr, 0, true, true, size);
 			} else {
 				cpu_halt(CPU_HALT_OPCODE_FETCH_FROM_NON_EXISTING_ADDRESS);
 			}
-#endif
 		}
 	}
 	be_recursive--;
@@ -1693,9 +1655,7 @@ void a3000_fakekick (int map)
 {
 	static uae_u8 *kickstore;
 
-#ifndef P6_PORTABLE
 	protect_roms (false);
-#endif
 	if (map) {
 		uae_u8 *fkickmemory = a3000lmem_bank.baseaddr + a3000lmem_bank.reserved_size - fkickmem_size;
 		if (fkickmemory[2] == 0x4e && fkickmemory[3] == 0xf9 && fkickmemory[4] == 0x00) {
@@ -1727,9 +1687,7 @@ void a3000_fakekick (int map)
 		xfree (kickstore);
 		kickstore = NULL;
 	}
-#ifndef P6_PORTABLE
 	protect_roms (true);
-#endif
 }
 
 static void descramble_alg(uae_u8 *data, int size)
@@ -1816,20 +1774,12 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
 		return 0;
 	}
 #endif
-#ifdef P6_PORTABLE
-	// Complete A500 payloads (or exact version prefixes), never repair truncation.
-	if (size <= 256 ? i != size :
-		((i != ROM_SIZE_256 && i != ROM_SIZE_512) ||
-		(i != size && (noalias || i != size / 2))))
-		return 0;
-#else
 	if (i < size - 20)
 		kickstart_fix_checksum(mem, size);
 	j = 1;
 	while (j < i)
 		j <<= 1;
 	i = j;
-#endif
 
 	if (!noalias && i == size / 2)
 		memcpy(mem + size / 2, mem, size / 2);
@@ -1863,10 +1813,6 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
 		}
 	}
 
-#ifdef P6_PORTABLE
-	if (dochecksum && !kickstart_checksum(mem, i))
-		return 0;
-#else
 	for (j = 0; j < 256 && i >= ROM_SIZE_256; j++) {
 		if (!memcmp(mem + j, kickstring, strlen(kickstring) + 1))
 			break;
@@ -1876,7 +1822,6 @@ static int read_kickstart(struct zfile *f, uae_u8 *mem, int size, int dochecksum
 		dochecksum = 0;
 	if (dochecksum)
 		kickstart_checksum(mem, size);
-#endif
 	return i;
 }
 
@@ -1963,7 +1908,6 @@ static bool load_extendedkickstart (const TCHAR *romextfile, int type)
 }
 
 
-#ifndef P6_PORTABLE
 extern unsigned char arosrom[];
 extern unsigned int arosrom_len;
 extern int seriallog;
@@ -2016,8 +1960,6 @@ static bool load_kickstart_replacement(void)
 
 	return true;
 }
-
-#endif
 
 static int patch_shapeshifter (uae_u8 *kickmemory)
 {
@@ -2095,10 +2037,6 @@ static void patch_kick (void)
 
 static struct zfile *get_kickstart_filehandle(struct uae_prefs *p)
 {
-#ifdef P6_PORTABLE
-	// ROM selection belongs to the supplied asset; never search host defaults.
-	return read_rom_name(p->romfile, false);
-#else
 	struct zfile *f;
 	TCHAR tmprom[MAX_DPATH], tmprom2[MAX_DPATH];
 
@@ -2132,7 +2070,6 @@ static struct zfile *get_kickstart_filehandle(struct uae_prefs *p)
 		_tcscpy(p->romfile, tmprom2);
 	}
 	return f;
-#endif
 }
 
 static const uae_u8 romend[20] = {
@@ -2147,74 +2084,20 @@ static bool is_builtin_aros_rom(const TCHAR *romfile)
 
 static int load_kickstart (void)
 {
-#ifdef P6_PORTABLE
-	rom_load_status = P6_ROM_READ_ERROR;
-	rom_refused_cpu = 0;
-	rom_refused_name = NULL;
-#endif
 	TCHAR tmprom[MAX_DPATH];
 
 	rom_write_enabled = false;
 	cloanto_rom = 0;
 	if (is_builtin_aros_rom(currprefs.romfile)) {
-#ifdef P6_PORTABLE
-		rom_load_status = P6_ROM_UNSUPPORTED;
-		return 0;
-#else
 		return load_kickstart_replacement();
-#endif
 	}
-#ifdef P6_PORTABLE
-	if (!kickmem_bank.baseaddr) {
-		rom_load_status = P6_ROM_NO_MEMORY;
-		return 0;
-	}
-#endif
 	_tcscpy(tmprom, currprefs.romfile);
 	struct zfile *f = get_kickstart_filehandle(&currprefs);
-#ifndef P6_PORTABLE
 	addkeydir (currprefs.romfile);
-#endif
-	if (f == NULL) { /* still no luck */
-#ifdef P6_PORTABLE
-		rom_load_status = P6_ROM_OPEN_ERROR;
-#endif
+	if (f == NULL) /* still no luck */
 		goto err;
-	}
 
 	if (f != NULL) {
-#ifdef P6_PORTABLE
-		// Main firmware for the closed A500 profile; do not select an extended loader.
-		const uae_s64 length = zfile_size(f);
-		uae_u8 header[8];
-		if (zfile_fread(header, 1, sizeof header, f) != sizeof header)
-			goto err;
-		if ((!memcmp(header, "\x00\x00\x03\xf3\x00\x00\x00\x00", 8)) ||
-			!memcmp(header, "\x7f" "ELF", 4) || length == ROM_SIZE_512 + 8 ||
-			length == ROM_SIZE_512 * 2 || length == ROM_SIZE_512 * 4) {
-			rom_load_status = P6_ROM_UNSUPPORTED;
-			goto err;
-		}
-		const bool kickdisk = !memcmp(header, "KICK", 4);
-		if (kickdisk ? length != 1760 * 512 :
-			(length != ROM_SIZE_256 && length != ROM_SIZE_512))
-			goto err;
-		if (zfile_fseek(f, 0, SEEK_SET))
-			goto err;
-		const int size = read_kickstart(f, kickmem_bank.baseaddr,
-			kickdisk ? ROM_SIZE_256 : ROM_SIZE_512, 1, 0);
-		if (size != ROM_SIZE_256 && size != ROM_SIZE_512)
-			goto err;
-		// Same structural fields as rommgr's kickstart_checksum_more_do.
-		const uae_u8 *mem = kickmem_bank.baseaddr;
-		if (mem[0] != 0x11 || mem[1] != (size == ROM_SIZE_256 ? 0x11 : 0x14))
-			goto err;
-		for (unsigned i = 0; i < 4; ++i)
-			if (mem[size - 20 + i] != ((unsigned(size) >> (24 - 8 * i)) & 255))
-				goto err;
-		kickmem_bank.mask = size - 1;
-		kickmem_bank.reserved_size = size;
-#else
 		int filesize, size, maxsize;
 		int kspos = ROM_SIZE_512;
 		int extpos = 0;
@@ -2321,7 +2204,6 @@ static int load_kickstart (void)
 				extendedkickmem2b_bank.start = 0xb00000;
 			}
 		}
-	#endif
 	}
 
 #if defined(AMIGA)
@@ -2336,9 +2218,6 @@ chk_sum:
 			kickstart_version = 0;
 	}
 	zfile_fclose (f);
-#ifdef P6_PORTABLE
-	rom_load_status = P6_ROM_LOAD_OK;
-#endif
 	return 1;
 err:
 	_tcscpy (currprefs.romfile, tmprom);
@@ -2364,12 +2243,7 @@ bool mapped_malloc (addrbank *ab)
 {
 	ab->startmask = ab->start;
 	ab->startaccessmask = ab->start & ab->mask;
-#ifdef P6_PORTABLE
-	/* reserved_size is uae_u32; widen before adding the four guard bytes. */
-	ab->baseaddr = xcalloc (uae_u8, (size_t)ab->reserved_size + 4);
-#else
 	ab->baseaddr = xcalloc (uae_u8, ab->reserved_size + 4);
-#endif
 	ab->allocated_size =  ab->baseaddr != NULL ? ab->reserved_size : 0;
 	ab->baseaddr_direct_r = NULL;
 	ab->baseaddr_direct_w = NULL;
@@ -2862,11 +2736,7 @@ static void allocate_memory (void)
 
 	allocate_memory_custombanks();
 
-#ifndef P6_PORTABLE
-	// RAM is restored by the native serializer (T15), not from .uss chunks.
 	if (savestate_state == STATE_RESTORE) {
-#ifndef P6_PORTABLE
-		// The traps area (rtarea) is not built in the A500 profile: no boot ROM to restore.
 		if (bootrom_filepos) {
 			if (currprefs.uaeboard < 0)
 				currprefs.uaeboard = 0;
@@ -2877,7 +2747,6 @@ static void allocate_memory (void)
 				map_banks_set(&rtarea_bank, rtarea_base >> 16, 1, 0);
 			}
 		}
-#endif
 		restore_ram (chip_filepos, chipmem_bank.baseaddr);
 		if (bogomem_bank.allocated_size > 0)
 			restore_ram (bogo_filepos, bogomem_bank.baseaddr);
@@ -2892,7 +2761,6 @@ static void allocate_memory (void)
 		alg_flag = 0;
 #endif
 	}
-#endif
 #ifdef AGA
 	chipmem_bank_ce2.baseaddr = chipmem_bank.baseaddr;
 #endif
@@ -2901,10 +2769,7 @@ static void allocate_memory (void)
 	bogo_filepos = 0;
 	a3000lmem_filepos = 0;
 	a3000hmem_filepos = 0;
-#ifndef P6_PORTABLE
-	// Accelerator boards are excluded from the A500 profile.
 	cpuboard_init();
-#endif
 }
 
 static void setmemorywidth(struct ramboard *mb, addrbank *ab)
@@ -3065,19 +2930,10 @@ void map_overlay (int chip)
 		addrbank *rb = NULL;
 		if (size < 32 && bogomem_aliasing == 0)
 			size = 32;
-#ifdef P6_PORTABLE
-		// The debugger's memwatch layer is not built: the mapped bank is the real bank.
-		cb = &get_mem_bank(0xf00000);
-#else
 		cb = get_mem_bank_real(0xf00000);
-#endif
 		if (!rb && cb && (cb->flags & ABFLAG_ROM) && get_word(0xf00000) == 0x1114)
 			rb = cb;
-#ifdef P6_PORTABLE
-		cb = &get_mem_bank(0xe00000);
-#else
 		cb = get_mem_bank_real(0xe00000);
-#endif
 		if (!rb && cb && (cb->flags & ABFLAG_ROM) && get_word(0xe00000) == 0x1114)
 			rb = cb;
 		if (!rb)
@@ -3087,9 +2943,7 @@ void map_overlay (int chip)
 	initramboard(&chipmem_bank, &currprefs.chipmem);
 	overlay_state = chip;
 	fill_ce_banks();
-#ifndef P6_PORTABLE
 	cpuboard_overlay_override();
-#endif
 	if (!isrestore() && valid_address(regs.pc, 4)) {
 		m68k_setpc_normal(m68k_getpc());
 	}
@@ -3174,17 +3028,13 @@ void memory_clear (void)
 	if (a3000hmem_bank.baseaddr)
 		memset(a3000hmem_bank.baseaddr, 0, a3000hmem_bank.allocated_size);
 	expansion_clear ();
-#ifndef P6_PORTABLE
 	cpuboard_clear();
-#endif
 }
 
 static void restore_roms(void)
 {
 	roms_modified = false;
-#ifndef P6_PORTABLE
 	protect_roms (false);
-#endif
 	write_log (_T("ROM loader.. (%s)\n"), currprefs.romfile);
 	kickstart_rom = 1;
 	a1000_handle_kickstart (0);
@@ -3210,29 +3060,12 @@ static void restore_roms(void)
 			error_log (_T("Failed to open '%s'\n"), currprefs.romfile);
 			notify_user (NUMSG_NOROM);
 		}
-#ifdef P6_PORTABLE
-		return;
-#else
 		load_kickstart_replacement ();
-#endif
 	} else {
 		struct romdata *rd = getromdatabydata (kickmem_bank.baseaddr, kickmem_bank.reserved_size);
 		if (rd) {
-#ifdef P6_PORTABLE
-			// A ROM that needs more than the preset cannot adapt it: 68030+ (8), 68030 (3), A4000 Ramsey/Gary/IDE (4) and
-			// the 68EC020 / full 68020 of the A1200 (1, 2) are checked against the preset CPU, as upstream does.
-			if ((rd->cpu & 12) ||
-			    ((rd->cpu & 3) == 3) ||
-			    ((rd->cpu & 3) == 1 && currprefs.cpu_model < 68020) ||
-			    ((rd->cpu & 3) == 2 && (currprefs.cpu_model < 68020 || currprefs.address_space_24))) {
-				rom_load_status = P6_ROM_UNSUPPORTED;
-				rom_refused_cpu = rd->cpu;
-				rom_refused_name = rd->name;
-				return;
-			}
-#endif
 			write_log (_T("Known ROM '%s' loaded\n"), rd->name);
-#ifndef P6_PORTABLE
+#if 1
 			if ((rd->cpu & 8) && changed_prefs.cpu_model < 68030) {
 				notify_user(NUMSG_KS68030PLUS);
 				uae_restart(&currprefs, -1, NULL);
@@ -3266,9 +3099,7 @@ static void restore_roms(void)
 	}
 	patch_kick ();
 	write_log (_T("ROM loader end\n"));
-#ifndef P6_PORTABLE
 	protect_roms (true);
-#endif
 }
 
 bool read_kickstart_version(struct uae_prefs *p)
@@ -3279,14 +3110,7 @@ bool read_kickstart_version(struct uae_prefs *p)
 	if (!z)
 		return false;
 	uae_u8 mem[32] = { 0 };
-#ifdef P6_PORTABLE
-	if (read_kickstart(z, mem, sizeof mem, 0, 0) != sizeof mem) {
-		zfile_fclose(z);
-		return false;
-	}
-#else
 	read_kickstart(z, mem, sizeof mem, 0, 0);
-#endif
 	zfile_fclose(z);
 	kickstart_version = (mem[12] << 8) | mem[13];
 	if (kickstart_version == 0xffff) {
@@ -3308,9 +3132,7 @@ void reload_roms(void)
 void memory_restore(void)
 {
 	last_address_space_24 = currprefs.address_space_24;
-#ifndef P6_PORTABLE
 	cpuboard_map();
-#endif
 	map_banks_set(&kickmem_bank, 0xF8, 8, 0);
 }
 
@@ -3371,9 +3193,7 @@ void memory_reset (void)
 	currprefs.cs_fatgaryrev = changed_prefs.cs_fatgaryrev;
 	currprefs.cs_ramseyrev = changed_prefs.cs_ramseyrev;
 	currprefs.cs_unmapped_space = changed_prefs.cs_unmapped_space;
-#ifndef P6_PORTABLE
 	cpuboard_reset(mem_hardreset);
-#endif
 
 	gayleorfatgary = ((currprefs.chipset_mask & CSMASK_AGA) || currprefs.cs_pcmcia || currprefs.cs_ide > 0 || currprefs.cs_mbdmac) && !currprefs.cs_cd32cd;
 
@@ -3431,7 +3251,6 @@ void memory_reset (void)
 			map_banks (&bogomem_bank, 0xC0, t, 0);
 		initramboard(&bogomem_bank, &currprefs.bogomem);
 	}
-	// T56: Gayle with its IDE port (cs_ide) is part of the A600 and the A1200 when a hard file is attached to it; the presets leave cs_ide at 0 otherwise (bridge/config.cpp)
 	if (currprefs.cs_ide || currprefs.cs_pcmcia) {
 		if (currprefs.cs_ide == IDE_A600A1200 || currprefs.cs_pcmcia) {
 			map_banks (&gayle_bank, 0xD8, 6, 0);
@@ -3456,11 +3275,8 @@ void memory_reset (void)
 		map_banks (&clock_bank, 0xDC, 1, 0); /* none clock */
 		clock_bank.startmask = 0xdc0000;
 	}
-#ifndef P6_PORTABLE
-	// Fat Gary/Ramsey motherboard resources (A3000/A4000) are not part of the A500 profile.
 	if (currprefs.cs_fatgaryrev >= 0 || currprefs.cs_ramseyrev >= 0)
 		map_banks (&mbres_bank, 0xDE, 1, 0);
-#endif
 #ifdef CD32
 	if (currprefs.cs_cd32c2p || currprefs.cs_cd32cd || currprefs.cs_cd32nvram) {
 		map_banks (&akiko_bank, AKIKO_BASE >> 16, 1, 0);
@@ -3482,14 +3298,10 @@ void memory_reset (void)
 	if (debugmem_bank.baseaddr) {
 		map_banks(&debugmem_bank, debugmem_bank.start >> 16, debugmem_bank.allocated_size >> 16, 0);
 	}
-#ifndef P6_PORTABLE
 	cpuboard_map();
-#endif
 	map_banks_set(&kickmem_bank, 0xF8, 8, 0);
 	if (currprefs.maprom && !is_builtin_aros_rom(currprefs.romfile)) {
-#ifndef P6_PORTABLE
 		if (!cpuboard_maprom())
-#endif
 			map_banks_set(&kickram_bank, currprefs.maprom >> 16, extendedkickmem2a_bank.allocated_size ? 32 : (extendedkickmem_bank.allocated_size ? 16 : 8), 0);
 	}
 	/* map beta Kickstarts at 0x200000/0xC00000/0xF00000 */
@@ -3509,11 +3321,6 @@ void memory_reset (void)
 
 #ifdef AUTOCONFIG
 	expansion_map();
-#elif defined(P6_PORTABLE)
-	// T49: autoconfig exists only while a Zorro II Fast RAM board is configured; without one the $E80000 window stays as the machine always had it
-	// T29a: and while a hard file is mounted (the UAEFS board is on the chain)
-	if (currprefs.fastmem[0].size || currprefs.mountitems)
-		expansion_map();
 #endif
 
 	if (a3000_f0) {
@@ -3545,7 +3352,7 @@ void memory_reset (void)
 		break;
 	}
 
-#if defined(AUTOCONFIG) || defined(P6_FILESYS)
+#ifdef AUTOCONFIG
 	if ((need_uae_boot_rom (&currprefs) && currprefs.uaeboard == 0) || currprefs.uaeboard == 1) {
 		map_banks_set(&rtarea_bank, rtarea_base >> 16, 1, 0);
 	}
@@ -3638,11 +3445,6 @@ void memory_reset (void)
 
 void memory_init (void)
 {
-#ifdef P6_PORTABLE
-	rom_load_status = P6_ROM_UNLOADED;
-	rom_refused_cpu = 0;
-	rom_refused_name = NULL;
-#endif
 	init_mem_banks ();
 	virtualdevice_init ();
 
@@ -3669,9 +3471,7 @@ void memory_init (void)
 	kickmem_init();
 	_tcscpy (currprefs.romfile, _T("<none>"));
 	currprefs.romextfile[0] = 0;
-#ifndef P6_PORTABLE
 	cpuboard_reset(1);
-#endif
 
 #ifdef ACTION_REPLAY
 	action_replay_unload (0);
@@ -3685,11 +3485,6 @@ void memory_init (void)
 
 void memory_cleanup (void)
 {
-#ifdef P6_PORTABLE
-	rom_load_status = P6_ROM_UNLOADED;
-	rom_refused_cpu = 0;
-	rom_refused_name = NULL;
-#endif
 	mapped_free(&mem25bit_bank);
 	mapped_free(&a3000lmem_bank);
 	mapped_free(&a3000hmem_bank);
@@ -3708,9 +3503,7 @@ void memory_cleanup (void)
 	a1000_bootrom = NULL;
 	a1000_kickstart_mode = 0;
 
-#ifndef P6_PORTABLE
 	cpuboard_cleanup();
-#endif
 #ifdef ACTION_REPLAY
 	action_replay_cleanup();
 #endif

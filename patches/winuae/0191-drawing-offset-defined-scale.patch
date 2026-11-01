@@ -1,0 +1,14 @@
+diff --git a/drawing.cpp b/drawing.cpp
+index a55b5582..f9b3ec8d 100644
+--- a/drawing.cpp
++++ b/drawing.cpp
+@@ -1568,7 +1568,8 @@ static void center_image(void)
+ 	}
+ 
+ 	vidinfo->inbuffer->xoffset = frame_internal_pixel_start_cnt;
+-	vidinfo->inbuffer->yoffset = minfirstline_linear << VRES_MAX;
++	// minfirstline_linear is -1 during the first frame; multiplication keeps the scaled offset without shifting a negative value.
++	vidinfo->inbuffer->yoffset = minfirstline_linear * (1 << VRES_MAX);
+ 
+ 	int linedbl = currprefs.gfx_vresolution;
+ 	if (doublescan > 0 && interlace_seen <= 0) {

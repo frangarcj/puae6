@@ -1,7 +1,8 @@
 diff --git a/devices.cpp b/devices.cpp
+index f2b430fd..9a86de90 100644
 --- a/devices.cpp
 +++ b/devices.cpp
-@@ -475,6 +475,10 @@
+@@ -535,6 +535,10 @@ void virtualdevice_init (void)
  	expansion_init ();
  	emulib_install ();
  	uaeexe_install ();

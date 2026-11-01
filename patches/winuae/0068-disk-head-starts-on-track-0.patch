@@ -1,7 +1,8 @@
 diff --git a/disk.cpp b/disk.cpp
+index f8399cef..aff86192 100644
 --- a/disk.cpp
 +++ b/disk.cpp
-@@ -5555,6 +5555,10 @@
+@@ -5585,6 +5585,10 @@ void DISK_init (void)
  	for (int dr = MAX_FLOPPY_DRIVES - 1; dr >= 0; dr--) {
  		drive *drv = &floppy[dr];
  		drv->drvnum = dr;

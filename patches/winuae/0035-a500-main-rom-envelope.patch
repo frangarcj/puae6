@@ -1,7 +1,8 @@
 diff --git a/memory.cpp b/memory.cpp
+index bc8e3dbb..a3b28f5b 100644
 --- a/memory.cpp
 +++ b/memory.cpp
-@@ -2091,6 +2091,38 @@
+@@ -2144,6 +2144,38 @@ static int load_kickstart (void)
  	}
  
  	if (f != NULL) {
@@ -40,7 +41,7 @@ diff --git a/memory.cpp b/memory.cpp
  		int filesize, size, maxsize;
  		int kspos = ROM_SIZE_512;
  		int extpos = 0;
-@@ -2195,6 +2227,7 @@
+@@ -2250,6 +2282,7 @@ static int load_kickstart (void)
  				extendedkickmem2b_bank.start = 0xb00000;
  			}
  		}
@@ -48,7 +49,7 @@ diff --git a/memory.cpp b/memory.cpp
  	}
  
  #if defined(AMIGA)
-@@ -3067,8 +3100,16 @@
+@@ -3123,8 +3156,16 @@ static void restore_roms(void)
  	} else {
  		struct romdata *rd = getromdatabydata (kickmem_bank.baseaddr, kickmem_bank.reserved_size);
  		if (rd) {

@@ -1,7 +1,8 @@
 diff --git a/filesys.cpp b/filesys.cpp
+index f2c9eccc..ec0fb0e2 100644
 --- a/filesys.cpp
 +++ b/filesys.cpp
-@@ -8192,18 +8192,28 @@
+@@ -8266,18 +8266,28 @@ static uae_u16 rw (uae_u8 *p)
  	return (p[0] << 8) | (p[1]);
  }
  
@@ -33,7 +34,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  	sum = 0 - sum;
  	if (sum) {
  		TCHAR *s = au (id);
-@@ -8279,6 +8289,12 @@
+@@ -8353,6 +8363,12 @@ static const TCHAR *dostypes(TCHAR *dt, uae_u32 dostype)
  
  static void dump_partinfo (struct hardfiledata *hfd, uae_u8 *pp)
  {
@@ -46,7 +47,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  	TCHAR *s;
  	uae_u32 dostype;
  	uae_u64 size;
-@@ -8348,6 +8364,10 @@
+@@ -8422,6 +8438,10 @@ static void dumprdbblock(const uae_u8 *buf, int block)
  
  static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, uae_u8 *buf, int readblocksize)
  {
@@ -57,7 +58,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  	TCHAR dt[32];
  	uae_u32 error = 0;
  
-@@ -8371,7 +8391,7 @@
+@@ -8445,7 +8465,7 @@ static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, u
  		}
  		memset (buf, 0, readblocksize);
  		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
@@ -66,7 +67,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			write_log (_T("RDB: checksum error PART block %d\n"), partblock);
  			dumprdbblock(buf, partblock);
  			break;
-@@ -8394,7 +8414,7 @@
+@@ -8468,7 +8488,7 @@ static void dump_rdb (UnitInfo *uip, struct hardfiledata *hfd, uae_u8 *bufrdb, u
  		}
  		memset (buf, 0, readblocksize);
  		hdf_read (hfd, buf, fileblock * hfd->ci.blocksize, readblocksize, &error);
@@ -75,7 +76,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			write_log (_T("RDB: checksum error FSHD block %d\n"), fileblock);
  			dumprdbblock(buf, fileblock);
  			break;
-@@ -8604,7 +8624,7 @@
+@@ -8678,7 +8698,7 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
  		}
  		memset (buf, 0, readblocksize);
  		hdf_read (hfd, buf, (uae_u64)partblock * hfd->ci.blocksize, readblocksize, &error);
@@ -84,7 +85,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			err = -2;
  			write_log(_T("RDB: checksum error in PART block %d\n"), partblock);
  			dumprdbblock(buf, partblock);
-@@ -8689,7 +8709,7 @@
+@@ -8763,7 +8783,7 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
  #endif
  		memset (buf, 0, readblocksize);
  		hdf_read (hfd, buf, (uae_u64)fileblock * hfd->ci.blocksize, readblocksize, &error);
@@ -93,7 +94,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			write_log (_T("RDB: checksum error in FSHD block %d\n"), fileblock);
  			dumprdbblock(buf, fileblock);
  			goto error;
-@@ -8724,7 +8744,7 @@
+@@ -8798,7 +8818,7 @@ static int pt_rdsk (TrapContext *ctx, uae_u8 *bufrdb, int rdblock, UnitInfo *uip
  			goto error;
  		memset (buf, 0, readblocksize);
  		hdf_read (hfd, buf, (uae_u64)lsegblock * hfd->ci.blocksize, readblocksize, &error);
@@ -102,7 +103,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			write_log(_T("RDB: checksum error in LSEG block %d\n"), lsegblock);
  			dumprdbblock(buf, lsegblock);
  			goto error;
-@@ -8792,7 +8812,7 @@
+@@ -8866,7 +8886,7 @@ static int rdb_mount (TrapContext *ctx, UnitInfo *uip, int unit_no, int partnum,
  					return v;
  				continue;
  		}
@@ -111,7 +112,7 @@ diff --git a/filesys.cpp b/filesys.cpp
  			return pt_rdsk(ctx, bufrdb, rdblock, uip, unit_no, partnum, parmpacket);
  		}
  		if (!memcmp ("RDSK", bufrdb, 4)) {
-@@ -8801,7 +8821,7 @@
+@@ -8875,7 +8895,7 @@ static int rdb_mount (TrapContext *ctx, UnitInfo *uip, int unit_no, int partnum,
  			bufrdb[0xdd] = 0;
  			bufrdb[0xde] = 0;
  			bufrdb[0xdf] = 0;

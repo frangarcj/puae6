@@ -1,12 +1,11 @@
 diff --git a/expansion.cpp b/expansion.cpp
+index 0a0a36e1..d47ad0cc 100644
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -4071,8 +4071,89 @@
- 		clear_bank (gfxmem_banks[i]);
- 	}
+@@ -4078,6 +4078,87 @@ void expansion_clear (void)
  #endif
-+}
-+
+ }
+ 
 +/* Native state (bridge/state.cpp, the tail of the body of P6RM while a Zorro II Fast RAM board is configured, patch 0112): where the autoconfig chain of the image has got
 + * to and where the board sits. The chain is rebuilt from the preferences by every reset (expamem_reset); what the guest has done to it since is a handful of values: the
 + * card it is at (ecard), the half-written base address (hi, lo), the nibbles the card presents (expamem, the first 256 bytes: the rest stays $FF), the base of the board
@@ -41,8 +40,8 @@ diff --git a/expansion.cpp b/expansion.cpp
 +	w[12] = p6_fast_mapped() ? 1 : 0;
 +	memcpy(autoconfig, expamem, 256);
 +	return true;
- }
- 
++}
++
 +/* The inverse, for a machine of the same configuration that has run its reset head: false (and nothing touched) when the values cannot belong to such a machine. The window
 + * at $E80000 and the board's mapping are rebuilt as expamem_next and expamem_map_fastcard leave them. */
 +bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig)
