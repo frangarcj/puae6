@@ -340,16 +340,18 @@
     {
       "id": "0344-cpu-68010-020-nonexact",
       "file": "patches/winuae/0344-cpu-68010-020-nonexact.patch",
-      "sha256": "fb964347d2f73be40fff8a4100d3f3a3ecba9df65be15cb68278b3d1f44b27cd",
+      "sha256": "632655abf478b73a35f02896b2c72bf00fd4fe4ec1ae543c08d2196c4964d874",
       "title": "Select upstream normal and compatible cores for the 68010 and 68020",
-      "reason": "T53 extends the three accuracy levels to every supported CPU. Existing 68010 tables and the generated 68020 prefetch core use the same emulated scheduler; excluded input-recording callbacks stay excluded.",
+      "reason": "T53 beta21 vertical: extend the three accuracy levels to every supported CPU while retaining beta21's accessors and loops. The restricted generator starts its generic family at the requested 68020 model, so it emits 020/010/000 handlers without 030/040/060 cache dependencies; input record/playback debugging remains excluded. Beta21 also retains lastipl in the exact 68020 interrupt path, so that model may carry the bounded edge state at an instruction boundary.",
       "category": "host hooks",
       "order": 14,
       "symbols": [
         "set_x_funcs",
         "m68k_run",
         "m68k_run_2p",
-        "cputbls"
+        "cputbls",
+        "generate_cpu",
+        "p6_cpu_boundary"
       ],
       "test": "tests/state/test_cpu_modes.py",
       "upstream_candidate": false,
@@ -357,8 +359,13 @@
       "files": [
         {
           "path": "newcpu.cpp",
-          "before_sha256": "c55f641356ca726e383b938acb728ecf79f1c0a1660267a5a38438a0c2b83649",
-          "after_sha256": "363b19f2023a63cac435d7126b150756e67523a55506dabe69b561b3e331c002"
+          "before_sha256": "af774422f395e8cd90ca4f0a6e65d5a6776ad21aa34ff2213e21671b5c58867f",
+          "after_sha256": "5dcdd6a210ddb6eee387db4b32708f2a56efee59e4e3a37287326616e3634c9c"
+        },
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "d44e71e9aebb5f7d0976af790f9582af06dc78ff0bb16bb4accb1893d65d3a2f",
+          "after_sha256": "794b0743d8f33b0347c6e0732adcd1faf7cde77b71d5e46e91712c574035789b"
         }
       ]
     },

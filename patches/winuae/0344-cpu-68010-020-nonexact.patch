@@ -1,7 +1,7 @@
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -1380,8 +1380,25 @@
+@@ -1404,8 +1404,25 @@
  			x_do_cycles_pre = do_cycles;
  			x_do_cycles_post = do_cycles_post;
  		}
@@ -28,7 +28,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  		x_prefetch = get_word_ce020_prefetch;
  		x_get_ilong = get_long_ce020_prefetch;
  		x_get_iword = get_word_ce020_prefetch;
-@@ -1951,10 +1968,10 @@
+@@ -1980,10 +1997,10 @@
  static const struct cputbl *cputbls[6][8] = {
  	// 68000: generic, prefetch-compatible and cycle-exact.
  	{ op_smalltbl_5, NULL, NULL, op_smalltbl_12, op_smalltbl_14, NULL, NULL, NULL },
@@ -43,7 +43,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  };
  #else
  static const struct cputbl *cputbls[6][8] =
-@@ -6551,12 +6568,14 @@
+@@ -6689,12 +6706,14 @@
  					cputrace.readcounter = cputrace.writecounter = 0;
  				}
  
@@ -58,7 +58,7 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #ifdef DEBUGGER
  				if (debug_opcode_watch) {
  					debug_trainer_match();
-@@ -6812,9 +6831,9 @@
+@@ -6949,9 +6968,9 @@
  
  		currprefs.cpu_model < 68020 ? m68k_run_2_000 : m68k_run_2_020;
  #else
@@ -71,3 +71,110 @@ diff --git a/newcpu.cpp b/newcpu.cpp
  #endif
  
  	run_func();
+@@ -10954,9 +10973,9 @@
+ 		w = "an exception is in flight";
+ 	else if ((regs.loop_mode && currprefs.cpu_model != 68010) ||
+ #if UAEMAJOR == 6 && UAEMINOR == 1
+-			 ((regs.lastipl && currprefs.cpu_cycle_exact) || regs.lastipl < 0 || regs.lastipl > 7) ||
++			 ((regs.lastipl && currprefs.cpu_cycle_exact && currprefs.cpu_model < 68020) || regs.lastipl < 0 || regs.lastipl > 7) ||
+ #else
+-			 (regs.lastipl && currprefs.cpu_cycle_exact) ||
++			 (regs.lastipl && currprefs.cpu_cycle_exact && currprefs.cpu_model < 68020) ||
+ #endif
+ 			 (currprefs.cpu_model < 68020 && (regs.t0 || regs.m || regs.msp)) || (currprefs.cpu_model < 68010 && (regs.vbr || regs.sfc || regs.dfc)))
+ 		w = "a register or mode that the CPU of this machine does not have is set";
+diff --git a/gencpu.cpp b/gencpu.cpp
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -125,7 +125,6 @@
+ static int *opcode_last_postfix;
+ static unsigned long *counts;
+ static int generate_stbl;
+-static bool profile_68000_only;
+ static int mmufixupcnt;
+ static int mmufixupstate;
+ static int disp020cnt;
+@@ -10075,6 +10074,7 @@
+ 	char fname[100];
+ 	const char *extra, *extraup;
+ 	static int postfix2 = -1;
++	static bool generic_file_started = false;
+ 	int rp;
+ 
+ 	using_tracer = mode;
+@@ -10086,20 +10086,22 @@
+ 	}
+ 
+ 	postfix = id;
+-	if (id == 0 || id == 11 || id == 13 ||
++	// A restricted generic family may start at 68020 (id 3), without emitting 040/060 handlers.
++	const bool first_generic = id < 6 && !generic_file_started;
++	const int file_id = id < 6 ? 0 : id;
++	if (first_generic) generic_file_started = true;
++	if (first_generic || id == 11 || id == 13 ||
+ 		id == 20 || id == 21 || id == 22 || id == 23 || id == 24 ||
+ 		id == 31 || id == 32 || id == 33 || id == 34 || id == 35 ||
+ 		id == 40 || id == 50) {
+ 		if (generate_stbl)
+-			fprintf(stblfile, "#ifdef CPUEMU_%d%s\n", postfix, extraup);
+-		postfix2 = postfix;
+-		sprintf(fname, "cpuemu_%d%s.cpp", postfix, extra);
++			fprintf(stblfile, "#ifdef CPUEMU_%d%s\n", file_id, extraup);
++		postfix2 = file_id;
++		sprintf(fname, "cpuemu_%d%s.cpp", file_id, extra);
+ 		if (freopen (fname, "wb", stdout) == NULL) {
+ 			abort();
+ 		}
+ 		generate_includes (stdout, id);
+-		if (profile_68000_only && (id == 0 || id == 11))
+-			printf("#define CPUEMU_68000_ONLY 1\n\n");
+ 	}
+ 
+ 	using_exception_3 = 1;
+@@ -10225,6 +10227,9 @@
+ 			opcode_next_clev[rp] = cpu_level;
+ 	} else if (id < 6) {
+ 		cpu_level = 5 - (id - 0); // "generic"
++		if (first_generic)
++			for (rp = 0; rp < nr_cpuop_funcs; rp++)
++				opcode_next_clev[rp] = cpu_level;
+ 		cpu_generic = true;
+ 		need_special_fixup = 1;
+ 	} else if (id >= 40 && id < 46) {
+@@ -10270,20 +10275,14 @@
+ 		using_indirect = using_ce || using_ce020 || using_prefetch_020 || id >= 50;
+ 
+ 	if (generate_stbl) {
+-		if (profile_68000_only && (id == 0 || id == 11))
+-			fprintf(stblfile, "#define CPUEMU_68000_ONLY 1\n");
+-		if (((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56)) &&
+-			!(profile_68000_only && id == 5) || (profile_68000_only && id == 11))
++		if ((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56))
+ 			fprintf(stblfile, "#ifndef CPUEMU_68000_ONLY\n");
+ 		fprintf(stblfile, "const struct cputbl op_smalltbl_%d%s[] = {\n", postfix, extra);
+ 	}
+ 	generate_func (extra);
+ 	if (generate_stbl) {
+-		if (((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56)) &&
+-			!(profile_68000_only && id == 5) || (profile_68000_only && id == 11))
++		if ((id > 0 && id < 6) || (id >= 20 && id < 40) || (id > 40 && id < 46) || (id > 50 && id < 56))
+ 			fprintf(stblfile, "#endif /* CPUEMU_68000_ONLY */\n");
+-		if (profile_68000_only && (id == 5 || id == 12))
+-			fprintf(stblfile, "#undef CPUEMU_68000_ONLY\n");
+ 		if (postfix2 >= 0)
+ 			fprintf(stblfile, "#endif /* CPUEMU_%d%s */\n", postfix2, extraup);
+ 	}
+@@ -10306,13 +10305,6 @@
+ 		selected[n] = true;
+ 		restricted = true;
+ 	}
+-	profile_68000_only = restricted;
+-	for (int i = 0; i <= 55; i++) {
+-		const bool profile_model = i <= 5 || (i >= 11 && i <= 14) || i == 21;
+-		if (selected[i] != profile_model)
+-			profile_68000_only = false;
+-	}
+-
+ 	init_table68k();
+ 
+ 	opcode_map =  xmalloc (int, nr_cpuop_funcs);
