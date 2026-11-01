@@ -214,12 +214,14 @@ void scheduler(Canon &c)
 {
     // The bridge's tick accounting reads the same counter (cycles_seen): it is the scheduler's, and at a boundary both are equal.
     c.put(int64_t(get_cycles())).put(p6_session::session.cycles_seen);
-    // Only what is scheduled is state: the time of an event that is not active is what its last firing left behind. oldcycles is read even while
-    // an entry is inactive (cia.cpp), so it counts always.
-    for (const ev &e : eventtab) {
+    // Only what is scheduled is state: the time of an event that is not active is what its last firing left behind. CIA reads its oldcycles while
+    // inactive, so that origin counts always. MISC instead overwrites oldcycles whenever secondary work arms it and has no inactive reader: its
+    // stale origin after the last secondary event fired is not causal.
+    for (int i = 0; i < ev_max; ++i) {
+        const ev &e = eventtab[i];
         c.put(uint8_t(e.active != 0));
         if (e.active) c.put(int64_t(e.evtime));
-        c.put(int64_t(e.oldcycles));
+        c.put(int64_t(i == ev_misc && !e.active ? 0 : e.oldcycles));
     }
     for (int i = 0; i < ev2_max; ++i) {
         c.put(uint8_t(eventtab2[i].active != 0));
