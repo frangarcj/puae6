@@ -4,9 +4,9 @@
 // stays undefined, and what upstream also saves but another chunk owns (CYCS, CHPD, CHPX, CIAA/B, KEYB, CINP, the CPU, the RAMs) is not here.
 //
 //   P6DK  DSK0..DSK3 (24 bytes each), DSD0..DSD3 (absent: length 0; present: the engine's track buffer), DISK (17) and DSKX (248), the last ours and not upstream's
-//   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (320), COPR (60) and BLTP (72), the last three ours and not upstream's
+//   P6CH  CHIP (360), CAGA (1024, AGA machines only), BLTX (226), BLIT (63), CHSL (245), SPR0..SPR7 (25 each), BEAM (692), COPR (88) and BLTP (72), the last three ours and not upstream's
 //   P6AU  AUD0..AUD3 (25 each), AUDP (356) and DCLK (160), the last two portable extensions
-//   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (104) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
+//   P6VD  BPLX (292), DNSP (64), DRNG (90132, AGA machines only), GEOM (kGeometryBytes; 104 in beta 21) and PIXL (the rows of the picture, up to kRasterBound bytes), the last four ours and not upstream's
 //
 // BEAM (patch 0103 added four words) also carries the first and last line of the vertical display window and the flag that tests them: calcvdiw derives the lines from the registers and
 // restore_custom runs it, but custom_reset does not, so a machine that never wrote DIWSTRT has other lines than the one that loaded its state, and the vertical window bit that DIWHIGH
@@ -23,16 +23,12 @@
 // elsewhere at a vertical blank, and the machine that loaded the state fetched its first display line differently: the CPU, which the DMA of that line had been holding off the bus,
 // ran 148 colour clocks early. Patch 0260 is the other half of T15n: p6_custom_rebuild_derived runs init_beamcon0, so that a programmed beam loaded into a fresh image gets its derived lengths.
 //
-// BEAM is the one body that is not WinUAE's: its restore_custom reads VPOSR and VHPOSR and throws them away, and the counters of the frame, the line history and the
-// sync latches of Agnus live in file statics that no body names. It is 61 words of 32 bits, big endian like the others, copied by p6_custom_beam_get and
-// p6_custom_beam_set (patch 0094; the list is in custom.cpp): the beam and the line history, the frame phase (display_hsync_counter, display_vsync_counter,
-// maxvpos_display_vsync_next, the field detection), the strobe that raises the vertical blank, the DMA list of the line in flight and the sync latches. The line length is the
-// only value derived (setmaxhpos), from the lol that CHIP restores and the linetoggle it carries, which is why BEAM comes after CHIP and no init_hz or reset head runs.
+// BEAM is beta 21's 173-word phase body. Its rewritten beam keeps separate linear-display candidates, sync event stamps and Agnus/Paula DMAL shifters; none is represented by
+// the old 6.0.3 fields. It also completes CHSL's logical four-slot RGA ring with bltadd and conflict2 identities. A pending pfunc is refused because it contains a host function
+// pointer. Values are copied by p6_custom_beam_get/set; no event is run or scheduled, and setmaxhpos is the only derived update.
 //
-// COPR is the other: CHSL keeps the Copper's ip and instruction words and restores its state as stopped (or as the last cycle of a MOVE), so a Copper that was waiting for the
-// beam, skipping or half way through a strobe came back stopped. It is 15 words (patch 0095, p6_custom_copper_get and p6_custom_copper_set): the state and its two companions,
-// the compare values of the wait, the strobe in flight, the latched COP1LC, the flag that lets the Copper run this line and the two cycle stamps that the strobe and the DMA enable
-// are compared with. Values only: the Copper does not run, advance or drain when it is applied, and COPR comes after CHSL, which it overrides.
+// COPR is beta 21's 22-word low-level Copper body. CHSL owns ip and ir[0..1]; COPR carries its compare, strobe, decoded instruction, two-cycle load/start latches and delayed
+// DMA-enable stamp. Values only: the Copper does not run, advance or drain when it is applied, and COPR comes after CHSL.
 //
 // AUDP is the fourth (patch 0099, p6_audio_phase_get and p6_audio_phase_set): restore_audio rounds the period, copies dat into dat2 and zeroes what AUDn does not carry, and
 // restore_audio_finish sets last_cycles to the cycle of the load, so a restored Paula restarted its resampler phase, its filters and its interpolation from zero and lost
@@ -64,7 +60,8 @@
 // presentation refused the mode as larger than its buffer (compute_framesync clamps the sizes afterwards, so the words above look like a mode that fits, and a machine that had not
 // refused it handed over pictures the original never did), the allocation of the last mode it accepted and the flags of the drawing: the three requests to clear the buffer that wait
 // for the first line of the next frame (display_redraw, erase_next_draw, center_y_erase) and whether the frame being drawn holds the buffer (thread_debug_lock): a machine that loaded a
-// state without them wiped the other field of an interlaced weave that the original kept, kept it where a restart of its own had left a request, or drew lines in a refused mode.
+// state without them wiped the other field of an interlaced weave that the original kept, kept it where a restart of its own had left a request, or drew lines in a refused mode. Beta 21
+// appends Denise's selected horizontal blank start and stop: Agnus reads them when it derives the next display window, but a fresh image otherwise keeps its unrelated initial pair.
 //
 // PIXL (the eighth) (patch 0103, p6_frame_raster): the rows of the drawing buffer, which the renderer writes only where it draws, so that a unit without drawing, or the other field of an
 // interlaced picture, hands over what the history before the state left there. It has no length of its own: its width and height are the allocation GEOM names, the pixels travel as the
@@ -151,6 +148,10 @@ extern void p6_custom_rebuild_derived(void);                    // custom.cpp 00
 extern void p6_denise_rebuild_derived(void);                    // drawing.cpp 0100
 extern bool p6_denise_pipe_get(int32_t *out, unsigned n);
 extern bool p6_denise_pipe_set(const int32_t *in, unsigned n);
+#if UAEMAJOR == 6 && UAEMINOR == 1
+extern bool p6_denise_hblank_get(int32_t *out, unsigned n);
+extern bool p6_denise_hblank_set(const int32_t *in, unsigned n);
+#endif
 extern bool p6_denise_ring_cursors_get(int32_t *out, unsigned n);       // custom.cpp 0109
 extern bool p6_denise_ring_cursors_set(const int32_t *in, unsigned n);
 extern bool p6_frame_geometry_get(int32_t *out, unsigned n);    // custom.cpp 0100
@@ -262,20 +263,38 @@ uint8_t *apply_caga(int, uint8_t *b) { return restore_custom_agacolors(b); }
 enum BeamWord : unsigned {
     kVpos, kVposPrev, kAgnusHpos, kAgnusHposPrev, kAgnusHposNext, kAgnusVposNext, kAgnusPosChange, kHhpos,
     kLinearVpos, kLinearHpos, kLinearVposPrev0, kLinearVposPrev1, kLinearVposPrev2, kLinearHposPrev0, kLinearHposPrev1, kLinearHposPrev2,
-    kLinearVposVsync, kLinearDisplayVpos, kLinearVposVisible, kCurrentLinearVposVisible,
+    kLinearVposVbStart, kLinearVposVbEnd, kLinearVbOffset, kLinearVposStart, kLinearVposStartPrev,
+    kCurrentLinearVpos, kCurrentLinearHpos, kCurrentLinearHblank, kCurrentLinearHblankTemp, kCurrentLinearVposNom, kCurrentLinearHposShort,
+    kLinearVblankEnd, kLinearVblankStart, kLinearVblankVsync, kLinearVblankLinesCount, kLinearVblankLines,
+    kVbStartDetect, kVbEndDetect, kVbDetectCount, kCurrentLinearVblankLines,
+    kCurrentLinearVbStart, kCurrentLinearVbEnd, kCurrentLinearVbVsync, kCurrentLinearVposTemp, kCurrentLinearHposTemp,
+    kCurrentLinearTempChange, kLinearVposValuesChanged,
+    kDisplayCyclewaitStart, kDisplayCyclewaitCount, kDisplayCyclewaitEnd, kDisplayCyclewaitSkipStart, kDisplayCyclewaitSkipEnd,
+    kDisplayVblankStartSkip, kDisplayVblankEndSkip, kDisplayCyclewaitStarted, kLinearVposChanges, kNextlineHow,
     kDisplayHsyncCounter, kDisplayVsyncCounter, kVsyncNext, kLinetoggle, kLofDisplay,
     kLofDetect, kLofPdetect, kLofDetectVsync, kPrevLof0, kPrevLof1, kPrevLof2,
     kLastHsyncLow, kLastHsyncHigh, kLastVsyncLow, kLastVsyncHigh,
-    kAgnusVb, kAgnusPvb, kPrevStrobe, kDmalShifter, kDmal, kDmalNext, kLatches,      // 20 flags from here: phsync, phblank, pvsync, pcsync, csync, vb_active, ... bsvb_prev, equdis
-    kPlfFirstLine = kLatches + 20, kPlfLastLine, kNeedVdiwCheck, kInterlaceSeen,      // patch 0103: the vertical display window, which calcvdiw derives and custom_reset does not, and the interlace
+    kAgnusVb, kAgnusPvb, kPrevStrobe,
+    kAgnusDmalShifter, kPaulaDmalShifter, kPaulaDmalShifterFast, kDmalSpriteEnable, kDmalSpriteEnable2, kDmalAlloc, kDmalNext,
+    kAgnusEvenPrev, kVbFast, kVbFastPrev, kAgnusTriggerLow, kAgnusTriggerHigh, kInitBeamconDelay, kAgnusAfterReset,
+    kDisplayRedraw, kCiaHsyncs, kCiaVsyncs,
+    kLatches,      // 20 flags from here: phsync, phblank, pvsync, pcsync, csync, vb_active, ... bsvb_prev, equdis
+    kPhblankStartTempLow = kLatches + 20, kPhblankStartTempHigh, kPhblankStartLow, kPhblankStartHigh,
+    kPhblankEndLow, kPhblankEndHigh, kHsyncStartLow, kHsyncStartHigh, kVsyncStartLow, kVsyncStartHigh,
+    kHsyncCcks, kCurrentHsHbDistance, kHsStartLow, kHsStartHigh, kHsStopLow, kHsStopHigh,
+    kHsLength, kHsLengthPrev, kHsLengthCount, kCurrentHsLength,
+    kPhsStartLow, kPhsStartHigh, kPhsStopLow, kPhsStopHigh, kPchsStartLow, kPchsStartHigh, kPchsStopLow, kPchsStopHigh,
+    kVsyncLines, kVsyncLineCount, kVsyncActiveCount, kVsyncPActiveCount, kHsyncChangeCount, kHblankDisplayTemp, kHblankCount,
+    kPlfFirstLine, kPlfLastLine, kNeedVdiwCheck, kInterlaceSeen,
     kProgrammedH, kProgrammedV,        // patch 0104: whether a program has written the ECS registers that program the beam (restore_custom sets the horizontal one itself on an ECS Agnus)
     kNoSignalCount, kNoSignalStatus, kNoSignalTrigger, kLinesAfterBeamcon, kSyncsStopped,      // patch 0220: the monitor's no-signal countdown (two blank vertical blanks after a change of the programmed beam), its request and the stopped syncs (BPLCON0 ERSY)
-    kRgaBltadd, kRgaConflictAddr = kRgaBltadd + 4,      // patch 0220: bltadd and conflictaddr of the four slots of the DMA pipeline (a blit D write in flight advances its pointer by the first)
-    kBprun = kRgaConflictAddr + 4, kBprunCycle, kDdfStopping, kDdfEnableOn, kDdfLimitIn, kDdfLimit, kDdfStrtMatch, kHwiOld, kDdfStrtVal,      // patch 0261: the bitplane sequencer of Agnus (bprun, how far its fetch has gone, DDF passed, DDF enabled, the hard limits, the DDFSTRT match, the edge detector of "DMA and window and DDF" and the clock at which a fetch may start)
+    kRgaBltadd, kRgaConflict2 = kRgaBltadd + 4,      // four logical RGA slots; conflict2 is a validated register identity, never a host pointer
+    kBprun = kRgaConflict2 + 4, kBprunCycle, kDdfStopping, kDdfEnableOn, kDdfLimitIn, kDdfLimit, kDdfStrtMatch, kHwiOld, kDdfStrtVal,      // patch 0261: the bitplane sequencer of Agnus (bprun, how far its fetch has gone, DDF passed, DDF enabled, the hard limits, the DDFSTRT match, the edge detector of "DMA and window and DDF" and the clock at which a fetch may start)
     kConfigChanged, kConfigChangedFlags,      // patch 0383: preference checks can change the beam even when preferences are fixed
     kBeamWords
 };
 constexpr uint32_t kBeamBytes = kBeamWords * 4;
+static_assert(kBeamWords == 173, "bridge and beta 21 BEAM inventory disagree");
 
 uint8_t *produce_beam(int, size_t *len, uint8_t *w)
 {
@@ -361,12 +380,13 @@ const char *check_ctod(const Sub &, const Body &b, Seen &)
 
 // The words of the body, in the order of p6_custom_copper_get.
 enum CopperWord : unsigned {
-    kCopState, kCopStatePrev, kCopStrobeNext, kCopStrobeIp, kCopVblankIp, kCopIgnoreNext, kCopVcmp, kCopHcmp, kCopStrobe, kCopStrobeType, kCopEnabledThisLine,
-    kCopStrobeCyclesLow, kCopStrobeCyclesHigh, kCopDmaChangeLow, kCopDmaChangeHigh, kCopperWords
+    kCopVcmp, kCopHcmp, kCopVblankIp, kCopStrobe, kCopPrevStrobe, kCopInst,
+    kCopLoad1, kCopLoad2, kCopSkipLatch, kCopStart, kCopIrLoad1, kCopIrLoad2,
+    kCopStartStrobe, kCopPreLatch, kCopBlitWait, kCopCycleAlloc, kCopValidMove,
+    kCopDummyIp, kCopEnabledThisLine, kCopDmaChangeLow, kCopDmaChangeHigh, kCopDmaChangePending, kCopperWords
 };
 constexpr uint32_t kCopperBytes = kCopperWords * 4;
-constexpr int32_t kCopStates = 24;             // COP_stop .. COP_strobe_extra of custom.cpp (the patch asserts it)
-constexpr int32_t kCopRead1 = 2, kCopRead2 = 3, kCopStrobeDelayStartOdd = 19, kCopStrobeDelay1 = 20;       // the only states strobe_next takes besides COP_stop (0)
+static_assert(kCopperWords == 22, "bridge and beta 21 COPR inventory disagree");
 
 uint8_t *produce_copr(int, size_t *len, uint8_t *w)
 {
@@ -559,17 +579,29 @@ const char *check_drng(const Sub &, const Body &b, Seen &)
 // The words of the body, in the order of p6_frame_geometry_get.
 enum GeometryWord : unsigned {
     kGeoHpos, kGeoVpos, kGeoHposShort, kGeoVposNom, kGeoHposTemp, kGeoVposTemp, kGeoTempChange,
-    kGeoInWidth, kGeoInHeight, kGeoInWidth2, kGeoInHeight2, kGeoOutWidth, kGeoOutHeight, kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset,
+    kGeoInWidth, kGeoInHeight, kGeoOutWidth, kGeoOutHeight, kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset,
     kGeoRefused, kGeoAllocWidth, kGeoAllocHeight,        // patch 0103: the mode the presentation refused as too large and the allocation of the last one it accepted
     kGeoDisplayRedraw, kGeoEraseNext, kGeoCenterErase, kGeoLocked,      // and the flags of the drawing: the requests to clear the buffer, and whether the frame being drawn holds it
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    kGeoHbStart, kGeoHbStop,                             // beta 21: the stable horizontal blank interval selected by Denise
+#endif
     kGeometryWords
 };
 constexpr uint32_t kGeometryBytes = kGeometryWords * 4;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+constexpr unsigned kEngineGeometryWords = kGeoHbStart;
+static_assert(kEngineGeometryWords == 24 && kGeometryWords == 26, "GEOM must append Denise's beta-21 blanking interval");
+#else
+constexpr unsigned kEngineGeometryWords = kGeometryWords;
+#endif
 
 uint8_t *produce_geom(int, size_t *len, uint8_t *w)
 {
     int32_t words[kGeometryWords];
-    if (!p6_frame_geometry_get(words, kGeometryWords)) return nullptr;
+    if (!p6_frame_geometry_get(words, kEngineGeometryWords)) return nullptr;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    if (!p6_denise_hblank_get(words + kEngineGeometryWords, kGeometryWords - kEngineGeometryWords)) return nullptr;
+#endif
     for (unsigned i = 0; i < kGeometryWords; ++i)
         for (unsigned b = 0; b < 4; ++b) w[i * 4 + b] = uint8_t(uint32_t(words[i]) >> (24 - 8 * b));
     *len = kGeometryBytes;
@@ -580,7 +612,11 @@ uint8_t *apply_geom(int, uint8_t *body)
 {
     int32_t words[kGeometryWords];
     for (unsigned i = 0; i < kGeometryWords; ++i) words[i] = int32_t(Body{body, kGeometryBytes}.u32(i * 4));
-    return p6_frame_geometry_set(words, kGeometryWords) ? body + kGeometryBytes : nullptr;
+    if (!p6_frame_geometry_set(words, kEngineGeometryWords)) return nullptr;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    if (!p6_denise_hblank_set(words + kEngineGeometryWords, kGeometryWords - kEngineGeometryWords)) return nullptr;
+#endif
+    return body + kGeometryBytes;
 }
 
 // -- PIXL: the rows of the drawing buffer (patch 0103) -----------------------------------------------------------------------------------------------
@@ -1033,14 +1069,18 @@ const char *check_geom(const Sub &, const Body &b, Seen &)
     const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
     for (unsigned w : {kGeoHpos, kGeoVpos, kGeoHposShort, kGeoVposNom, kGeoHposTemp, kGeoVposTemp})
         if (at(w) < 0 || at(w) > 0xffff) return "a size of the raster is negative or beyond 16 bits";
-    for (unsigned w : {kGeoInWidth, kGeoInWidth2, kGeoOutWidth})
+    for (unsigned w : {kGeoInWidth, kGeoOutWidth})
         if (at(w) < 0 || at(w) > P6_VIDEO_MAX_WIDTH) return "a width of the picture is negative or wider than the drawing buffer";
-    for (unsigned w : {kGeoInHeight, kGeoInHeight2, kGeoOutHeight})
+    for (unsigned w : {kGeoInHeight, kGeoOutHeight})
         if (at(w) < 0 || at(w) > P6_VIDEO_MAX_HEIGHT) return "a height of the picture is negative or taller than the drawing buffer";
     for (unsigned w : {kGeoExtraWidth, kGeoExtraHeight, kGeoXOffset, kGeoYOffset, kGeoInXOffset, kGeoInYOffset})
         if (at(w) < -0xffff || at(w) > 0xffff) return "an offset of the raster is beyond 16 bits";
     for (unsigned w : {kGeoRefused, kGeoDisplayRedraw, kGeoEraseNext, kGeoCenterErase, kGeoLocked})
         if (at(w) < 0 || at(w) > 1) return "a flag of the presentation is not a flag";
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    for (unsigned w : {kGeoHbStart, kGeoHbStop})
+        if (at(w) < -2 * P6_VIDEO_MAX_WIDTH || at(w) > 2 * P6_VIDEO_MAX_WIDTH) return "a selected horizontal blank limit is outside two drawing-buffer widths";
+#endif
     if (at(kGeoAllocWidth) < 1 || at(kGeoAllocWidth) > P6_VIDEO_MAX_WIDTH || at(kGeoAllocHeight) < 1 || at(kGeoAllocHeight) > P6_VIDEO_MAX_HEIGHT)
         return "the allocation of the drawing buffer is empty or larger than the presentation buffer";
     g_raster = {uint32_t(at(kGeoAllocWidth)), uint32_t(at(kGeoAllocHeight))};
@@ -1060,16 +1100,20 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     if (!within(kAgnusHpos, 0, positions - 1) || !within(kAgnusHposPrev, 0, positions - 1)) return "the colour clock of the beam is beyond the longest line";
     if (!within(kAgnusHposNext, -1, 255) || !within(kAgnusVposNext, -1, 2047) || !within(kAgnusPosChange, -2, 2)) return "a pending beam write is out of range";
     if (!within(kHhpos, 0, 0xffff)) return "the horizontal counter is not 16 bits";
-    for (unsigned w : {kLinearVpos, kLinearVposPrev0, kLinearVposPrev1, kLinearVposPrev2, kLinearVposVsync, kLinearDisplayVpos, kLinearVposVisible, kCurrentLinearVposVisible,
-                       kLinearHpos, kLinearHposPrev0, kLinearHposPrev1, kLinearHposPrev2})
+    for (unsigned w : {kLinearVpos, kLinearVposPrev0, kLinearVposPrev1, kLinearVposPrev2, kCurrentLinearVpos, kCurrentLinearVposNom,
+                       kLinearHpos, kLinearHposPrev0, kLinearHposPrev1, kLinearHposPrev2, kCurrentLinearHpos, kCurrentLinearHposShort})
         if (!within(w, 0, INT32_MAX)) return "a linear counter is negative";       // they count lines and colour clocks of the display: nothing indexes with them unchecked
     if (!within(kDisplayHsyncCounter, 0, lines + 1)) return "the display line counter is beyond the frame";
-    for (unsigned w : {kVsyncNext, kLinetoggle, kLofDisplay, kLofDetect, kLofPdetect, kLofDetectVsync, kPrevLof0, kPrevLof1, kPrevLof2, kAgnusPvb})
+    for (unsigned w : {kVbStartDetect, kVbEndDetect, kDisplayCyclewaitStarted, kVsyncNext, kLinetoggle, kLofDisplay, kLofDetect, kLofPdetect, kLofDetectVsync,
+                       kPrevLof0, kPrevLof1, kPrevLof2, kAgnusPvb, kDmalAlloc, kDmalNext, kAgnusEvenPrev, kVbFast, kVbFastPrev,
+                       kDisplayRedraw, kCiaHsyncs, kCiaVsyncs})
         if (!within(w, 0, 1)) return "a flag of the frame phase is not a flag";
-    if (!within(kDmal, 0, 0xffff) || !within(kDmalNext, 0, 1)) return "the DMA list of the line is not 16 bits, or its flag is not a flag";       // kDmalShifter is a bit register
+    if (!within(kDmalSpriteEnable, -1, 0) || !within(kDmalSpriteEnable2, 0, 1)) return "a sprite phase of the DMA list is out of range";
+    if (!within(kCurrentLinearTempChange, 0, 3) || !within(kNextlineHow, 0, 9)) return "a phase of the linear display is out of range";
+    if (!within(kInitBeamconDelay, -1, 3) || !within(kAgnusAfterReset, 0, 10)) return "a delayed beam transition is out of range";
     if (!within(kAgnusVb, 0, 2)) return "the vertical blank latch is not off, on or starting";
     if (at(kPrevStrobe) < 0x38 || at(kPrevStrobe) > 0x3e || (at(kPrevStrobe) & 1)) return "the strobe of the last line is not one of the four";
-    for (unsigned w = kLatches; w < kPlfFirstLine; ++w)
+    for (unsigned w = kLatches; w < kPhblankStartTempLow; ++w)
         if (!within(w, 0, 1)) return "a sync latch is not a flag";
     if (!within(kPlfFirstLine, 0, 0xfff) || !within(kPlfLastLine, 0, 0xfff)) return "a line of the vertical display window is beyond what DIWSTRT, DIWSTOP and DIWHIGH can name";
     if (!within(kNeedVdiwCheck, 0, 1)) return "the flag that tests the vertical display window is not a flag";
@@ -1085,29 +1129,41 @@ const char *check_beam(const Sub &, const Body &b, Seen &)
     // Win32's GUI also uses bit 2. Preserve all 32 bits without inventing a mask.
     for (unsigned slot = 0; slot < 4; ++slot)
         if (!within(kRgaBltadd + slot, -2, 2) || (at(kRgaBltadd + slot) & 1)) return "the pointer increment of a slot of the DMA pipeline is not one the blitter sets (-2, 0 or 2)";
-    if (at(kLastHsyncHigh) < 0 || at(kLastVsyncHigh) < 0) return "a time stamp of the display is negative";
+    const auto rga_pointer = [&at](unsigned word) {
+        const int32_t v = at(word);
+        if (v == -1 || v == 0 || v == 0x70 || v == 0x72 || v == 0x74 || v == 0x8c || (v >= 0x110 && v <= 0x11e && !(v & 1)) ||
+            (v >= 0x140 && v <= 0x14e && !(v & 1)) || (v >= 0x200 && v <= 0x205)) return true;
+        return false;
+    };
+    for (unsigned slot = 0; slot < 4; ++slot)
+        if (!rga_pointer(kRgaConflict2 + slot)) return "a pointer identity of a slot of the DMA pipeline is unknown";
+    for (unsigned high : {kLastHsyncHigh, kLastVsyncHigh})
+        if (at(high) < 0) return "a time stamp of the display is negative";
+    // Beta 21's private currcycle_cck is deliberately not another scheduler. Its stamps are zero (no edge yet), or a ZigZag displacement plus one;
+    // 0x1fffffff is the largest encoding strictly inside get_cck_cycles_sub's +/-0x10000000 interval.
+    for (unsigned low : {kAgnusTriggerLow, kPhblankStartTempLow, kPhblankStartLow, kPhblankEndLow, kHsyncStartLow, kVsyncStartLow,
+                         kHsStartLow, kHsStopLow, kPhsStartLow, kPhsStopLow, kPchsStartLow, kPchsStopLow})
+        if (b.u32((low + 1) * 4) != 0 || b.u32(low * 4) > 0x1fffffffu) return "a CCK stamp is outside the relative clock interval";
     return nullptr;
 }
 
-// COPR: the state numbers index the Copper's switch and the compare values are what a WAIT or SKIP makes of its two words (vcmp is the line of the first word masked by the
-// second, hcmp the colour clock, even), so they have the range of those words; the pointers are the even addresses the registers latch (the strobe pointer is also 0xffffffff
-// while none is armed) and the engine masks them to the chip RAM it reads; the stamps are cycle counts and have no bound. CHSL says whether the Copper is in the last cycles of
-// a MOVE, and COPR has to say the same: the two bodies are one machine.
+// COPR: beta 21's low-level Copper has explicit two-cycle load/start latches instead of the enum state machine of 6.0.3. CHSL owns ip and ir[0..1]; this body owns every
+// other field of struct copper plus the delayed DMA-enable stamp. Values are copied without running or draining the Copper.
 const char *check_copr(const Sub &, const Body &b, Seen &seen)
 {
     const auto at = [&b](unsigned word) { return int32_t(b.u32(word * 4)); };
     const auto within = [&at](unsigned word, int low, int high) { return at(word) >= low && at(word) <= high; };
-    if (!within(kCopState, 0, kCopStates - 1) || !within(kCopStatePrev, 0, kCopStates - 1)) return "a state of the Copper is not one of its states";
-    const int32_t next = at(kCopStrobeNext);
-    if (next != 0 && next != kCopStrobeDelayStartOdd && next != kCopStrobeDelay1) return "the state after the strobe is not one the strobe leads to";
-    if (((seen.chsl_flags & 2) != 0) != (at(kCopState) == kCopRead1) || ((seen.chsl_flags & 4) != 0) != (at(kCopState) == kCopRead2))
-        return "the state of the Copper is not the one CHSL says (last cycles of a MOVE)";
-    if ((b.u32(kCopStrobeIp * 4) & 1) && b.u32(kCopStrobeIp * 4) != 0xffffffffu) return "the strobe pointer is odd";
     if (b.u32(kCopVblankIp * 4) & 1) return "the pointer latched at the vertical blank is odd";
-    if (!within(kCopIgnoreNext, -1, 1)) return "the flag that skips the next register write is not -1, 0 or 1";
     if (!within(kCopVcmp, 0, 255) || !within(kCopHcmp, 0, 254) || (at(kCopHcmp) & 1)) return "a compare value of the Copper is beyond what a WAIT writes";
-    if (!within(kCopStrobe, 0, 3) || !within(kCopStrobeType, -1, 2)) return "the strobe of the Copper is out of range";
-    if (!within(kCopEnabledThisLine, 0, 1)) return "the flag that lets the Copper run this line is not a flag";
+    if (!within(kCopStrobe, 0, 0x7f) || !within(kCopPrevStrobe, 0, 0x7f)) return "the strobe of the Copper is out of range";
+    if (!within(kCopInst, 0, 2)) return "the decoded Copper instruction is not MOVE, WAIT or SKIP";
+    for (unsigned w : {kCopLoad1, kCopLoad2, kCopSkipLatch, kCopBlitWait, kCopCycleAlloc, kCopValidMove, kCopEnabledThisLine, kCopDmaChangePending})
+        if (!within(w, 0, 1)) return "a latch of the Copper is not a flag";
+    for (unsigned w : {kCopStart, kCopIrLoad1, kCopIrLoad2})
+        if (!within(w, 0, 2)) return "a two-cycle Copper latch is outside its three phases";
+    if (!within(kCopPreLatch, 0, 0xffff)) return "the chipset data prelatch is wider than 16 bits";
+    if (b.u32(kCopDummyIp * 4) & 1) return "the dummy Copper pointer is odd";
+    (void)seen;
     return nullptr;
 }
 
