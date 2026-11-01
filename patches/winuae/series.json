@@ -2095,13 +2095,13 @@
       "file": "patches/winuae/0414-frestore040-fe-normalized-exponent.patch",
       "sha256": "01ef67bd3dd434b9e663e5ca41e02672bb54a2116649ff18685ba082fa540efa",
       "title": "Preserve FPSP-normalized small operands in 68040 FE continuation",
-      "reason": "T55c13: FPSP mk_norm sets E15 for ordinary small normals as well as wrapped negative biased exponents. Use exponent bit14, as FPSP round.S:denorm does, before the existing denormalizer; preserve SINGLE denormals normalized by get_op and existing extended-denormal FE. CU06 remains unresolved.",
+      "reason": "T95ej uses exponent bit14 with E15 so FPSP-normalized small operands survive FE continuation while wrapped extended denormals retain their existing reconstruction.",
       "category": "FPU state correction",
-      "order": 83,
+      "order": 69,
       "symbols": [
         "fpuop_restore"
       ],
-      "test": "tests/host/test_frestore040.py; tests/host/test_internal_fpu_state.py",
+      "test": "tests/host/test_frestore040.py",
       "upstream_candidate": true,
       "removal_version": null,
       "files": [
