@@ -574,9 +574,9 @@
     {
       "id": "0349-generic-040-060-no-mmu-cache",
       "file": "patches/winuae/0349-generic-040-060-no-mmu-cache.patch",
-      "sha256": "e1fdec02c1616e91d8e3cbf42a30ee791643ad091c235af3491d4abe1a119ce5",
+      "sha256": "b65fd601f1f18102947a9e689dc3c52718cb67c2b75c2123bdc8374e133c4e6e",
       "title": "Generate 040/060 instruction tables without MMU and retain real cache maintenance",
-      "reason": "T55c1 prepares normal 040/060 handlers without exposing models. Every PMMU opcode and MOVEC translation control is rejected by the no-MMU profile. Upstream cache pushes and invalidations operate on the real cache arrays and memory writer; only unavailable MMU maintenance is excluded.",
+      "reason": "T55c1 beta21 vertical prepares normal 040/060 handlers without exposing models. PMMU opcodes and MOVEC translation controls are rejected in the no-MMU profile; real cache pushes and invalidations remain active while unavailable MMU maintenance is excluded.",
       "category": "host hooks",
       "order": 22,
       "symbols": [
@@ -590,18 +590,18 @@
       "files": [
         {
           "path": "gencpu.cpp",
-          "before_sha256": "55bcff520d9ada2e05ecb16524c82b9024129c5179ebe5aa365075f3a0b6fae3",
-          "after_sha256": "54427250b7288f110392377748dd11d145d602bc0e2c2a8262b9b33c3a33c41b"
+          "before_sha256": "c6d10bdf50e668ee71e78603287ce196866b01b2d6be00452c5cb4b58382f45b",
+          "after_sha256": "716565dda3799e0552852d30ce539e4958ed117cb7e7d6ef82f49ff264537a54"
         },
         {
           "path": "newcpu_common.cpp",
-          "before_sha256": "96601a4ded9f9e54a0589738b289f20f16f3bd5ad61ee0b06ac9b006bfbd5670",
-          "after_sha256": "b3011e8f0fbf840984cb5af38111b1950fbd4d4c5ce606da81480187c665ac0e"
+          "before_sha256": "b51428614688824996454fc71b57ad11c2b6eb67d2885e1755255cc273d6fab0",
+          "after_sha256": "002b0e935794d3527c1cc28493995f44e37350ff0fd40c3ff2c2c9d32c9ce5f0"
         },
         {
           "path": "newcpu.cpp",
-          "before_sha256": "3526759937af760d3a32ade6e002f4ec3fd5d73cd51ed02aca24d17ea4d5d6c3",
-          "after_sha256": "a3d6cf3092eef7b8f92efd973d754d0434bac917bfc0323db7fb0155e6fb4319"
+          "before_sha256": "a731dcd94e7d65d2e0e6ecf11323f8f54b4ccb9a1972020b4f09aad8bbe9c827",
+          "after_sha256": "d2e7de2ef3a02c1c59108943bbc0fdcd0069ad9c562c67f25ca5313948c0f733"
         }
       ]
     },
