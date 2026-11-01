@@ -1,7 +1,7 @@
 diff --git a/ar.cpp b/ar.cpp
 --- a/ar.cpp
 +++ b/ar.cpp
-@@ -1782,6 +1782,13 @@
+@@ -1855,6 +1855,13 @@
  /* This only deallocates memory, it is not suitable for unloading roms and continuing */
  void action_replay_cleanup()
  {
@@ -15,7 +15,7 @@ diff --git a/ar.cpp b/ar.cpp
  	if (armemory_rom)
  		free (armemory_rom);
  	if (armemory_ram)
-@@ -2107,16 +2114,29 @@
+@@ -2185,16 +2192,29 @@
  }
  
  #ifdef P6_PORTABLE
@@ -49,7 +49,7 @@ diff --git a/ar.cpp b/ar.cpp
  	if (!s || (s->flag != ACTION_REPLAY_WAITRESET && (s->flag < ACTION_REPLAY_IDLE || s->flag > ACTION_REPLAY_HIDE)) ||
  		s->mapped < 0 || s->mapped > 1 || s->banks > 1 || s->mapped != int(s->banks) || s->mode_read > 3 || s->mode_write > 255 ||
  		s->hardreset > 1 || s->hide > 1 || s->hidden > 1) return false;
-@@ -2135,6 +2155,7 @@
+@@ -2213,6 +2233,7 @@
  		if (&get_mem_bank(arrom_start + n * 65536) != (banks ? &arrom_bank : &dummy_bank)) return false;
  	if (&get_mem_bank(arram_start) != (banks ? &arram_bank : &dummy_bank)) return false;
  	out->flag = action_replay_flag; out->mapped = ar_mapped; out->banks = banks;
@@ -57,7 +57,7 @@ diff --git a/ar.cpp b/ar.cpp
  	out->mode_read = armode_read; out->mode_write = armode_write; out->hardreset = action_replay_hardreset;
  	out->hide = ar_hide; out->hidden = ar_hidden;
  	memcpy(out->vector, artemp, 4); memcpy(out->custom, ar_custom, 512);
-@@ -2147,11 +2168,12 @@
+@@ -2225,11 +2246,12 @@
  	ar_mapped = -1;
  	if (in->banks) action_replay_map_banks(); else action_replay_unmap_banks();
  	action_replay_flag = in->flag; ar_mapped = in->mapped; ar_hide = in->hide; ar_hidden = in->hidden;
@@ -74,7 +74,7 @@ diff --git a/ar.cpp b/ar.cpp
 diff --git a/newcpu.cpp b/newcpu.cpp
 --- a/newcpu.cpp
 +++ b/newcpu.cpp
-@@ -10757,7 +10757,9 @@
+@@ -11000,7 +11000,9 @@
  		w = "a register or mode that the CPU of this machine does not have is set";
  	else if (regs.spcflags & ~(SPCFLAG_CPUINRESET | SPCFLAG_TRACE | SPCFLAG_DOTRACE | SPCFLAG_BLTNASTY | SPCFLAG_CHECK |
  		(((hrtmem_size == 0x100000 && (hrtmon_flag == ACTION_REPLAY_ACTIVATE || hrtmon_flag == ACTION_REPLAY_ACTIVE)) ||
