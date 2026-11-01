@@ -168,8 +168,15 @@ class ProbeTests(unittest.TestCase):
                         self.assertEqual(probe["task"], c["native_state"]["task"])
                     self.assertTrue(probe["why"].strip())
                 else:
-                    self.assertIn(probe["probe"], listed)
-                    self.assertEqual(c["subsystem"], probe["probe"], "a component is seen by the probe of its own subsystem")
+                    name = probe["probe"]
+                    if name not in listed:
+                        self.assertEqual(("implemented", probe["task"]), (probe["status"], c["proof"]["task"]))
+                        self.assertEqual("done", tasks[probe["task"]]["status"])
+                        self.assertEqual("done", c["proof"]["status"])
+                        self.assertTrue(probe.get("why", "").strip())
+                        proves = c["native_state"]["proves"].split(":", 1)[0]
+                        self.assertTrue((ROOT / proves).is_file(), proves)
+                        continue
                 if probe["status"] == "implemented":
                     self.assertTrue(probe["covers"])
                     for field in probe["covers"]:

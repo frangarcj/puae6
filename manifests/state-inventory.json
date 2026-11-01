@@ -7897,6 +7897,7 @@
           "probe": "private deterministic uaescsi fixture in p6_state_probe",
           "status": "implemented",
           "task": "T84g2",
+          "why": "The private --uaescsi-fixture and tests/state/test_uaescsi_state.py exercise the complete device graph; the generic A500 digest has no live uaescsi owner.",
           "covers": [
             "pending guest request and private open",
             "fresh-process native restore",
