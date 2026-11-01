@@ -1249,7 +1249,7 @@
       "file": "patches/winuae/0377-frestore040-busy-pending.patch",
       "sha256": "af5e644b43bb9a3392571585f5551dd845bbbd26935038ee04a40cadb80d91d6",
       "title": "Preserve BUSY040 fields and service pending arithmetic before CU",
-      "reason": "T55c8 stages the full BUSY frame, retains defined pipeline metadata through private state and FSAVE, and prevents premature CU execution with pending E3/E1. Full pipeline continuation remains in T55c.",
+      "reason": "T95do stages the full BUSY frame, retains defined pipeline metadata through private state and FSAVE, and prevents premature CU execution with pending E3/E1. Full pipeline continuation remains outside this correction.",
       "category": "state corrections",
       "order": 48,
       "symbols": [
@@ -1257,7 +1257,7 @@
         "fpuop_save",
         "p6_fpu_state_validate"
       ],
-      "test": "tests/host/test_frestore040.py; tests/host/test_internal_fpu_state.py; tests/host/test_cpu_late_state.py",
+      "test": "tests/host/test_frestore040.py; tests/host/test_internal_fpu_state.py",
       "upstream_candidate": true,
       "removal_version": null,
       "files": [
