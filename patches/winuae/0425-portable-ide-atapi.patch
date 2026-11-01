@@ -28,9 +28,11 @@ diff --git a/ide.cpp b/ide.cpp
 index 6b507eab..48ca2c87 100644
 --- a/ide.cpp
 +++ b/ide.cpp
-@@ -26,12 +26,14 @@
+@@ -26,14 +26,16 @@
  #include "ini.h"
  
+ #include <atomic>
+
  #ifdef P6_PORTABLE
 -/* T56: the IDE of the A600 and the A1200 (Gayle) with hard disks only. A drive is a hard file on the block backend of the session (hardfile.cpp): there is no ATAPI
 - * device (CD-ROM, tape: no scsi.cpp), no .ini file that overrides its identity (no ini.cpp) and no thread (a request is served at once, as the hard files of the UAE
@@ -47,7 +49,7 @@ index 6b507eab..48ca2c87 100644
  #endif
  
  /* STATUS bits */
-@@ -885,7 +887,11 @@ static void process_rw_command (struct ide_hdf *ide)
+@@ -900,7 +902,11 @@ static void process_rw_command (struct ide_hdf *ide)
  static void process_packet_command (struct ide_hdf *ide)
  {
  	setbsy (ide);
@@ -59,7 +61,7 @@ index 6b507eab..48ca2c87 100644
  }
  #endif
  
-@@ -929,7 +935,7 @@ static void atapi_packet (struct ide_hdf *ide)
+@@ -944,7 +950,7 @@ static void atapi_packet (struct ide_hdf *ide)
  {
  	ide->packet_data_offset = 0;
  	ide->packet_data_size = (ide->regs.ide_hcyl << 8) | ide->regs.ide_lcyl;
@@ -68,7 +70,7 @@ index 6b507eab..48ca2c87 100644
  		ide->packet_data_size = 65534;
  	ide->data_size = 12;
  	if (IDE_LOG > 0)
-@@ -945,6 +951,28 @@ static void atapi_packet (struct ide_hdf *ide)
+@@ -960,6 +966,28 @@ static void atapi_packet (struct ide_hdf *ide)
  
  static void do_packet_command (struct ide_hdf *ide)
  {
@@ -97,7 +99,7 @@ index 6b507eab..48ca2c87 100644
  	memcpy (ide->scsi->cmd, ide->secbuf, 12);
  	ide->scsi->cmd_len = 12;
  	if (IDE_LOG > 0) {
-@@ -984,6 +1012,7 @@ static void do_packet_command (struct ide_hdf *ide)
+@@ -999,6 +1027,7 @@ static void do_packet_command (struct ide_hdf *ide)
  	ide->packet_state = 2; // data phase
  	if (atapi_set_size (ide))
  		ide->intdrq = true;
@@ -105,7 +107,7 @@ index 6b507eab..48ca2c87 100644
  }
  
  static void do_process_packet_command (struct ide_hdf *ide)
-@@ -997,6 +1026,9 @@ static void do_process_packet_command (struct ide_hdf *ide)
+@@ -1012,6 +1041,9 @@ static void do_process_packet_command (struct ide_hdf *ide)
  			if (atapi_set_size (ide))
  				ide->intdrq = true;
  		} else {
@@ -115,7 +117,7 @@ index 6b507eab..48ca2c87 100644
  			if (atapi_set_size (ide)) {
  				ide->intdrq = true;
  			} else {
-@@ -1006,6 +1038,7 @@ static void do_process_packet_command (struct ide_hdf *ide)
+@@ -1021,6 +1053,7 @@ static void do_process_packet_command (struct ide_hdf *ide)
  				ide->scsi->data_len = ide->packet_data_size;
  				scsi_emulate_cmd (ide->scsi);
  			}
@@ -123,7 +125,7 @@ index 6b507eab..48ca2c87 100644
  		}
  	}
  	ide_fast_interrupt (ide);
-@@ -1722,7 +1755,10 @@ void remove_ide_unit(struct ide_hdf **idetable, int ch)
+@@ -1737,7 +1770,10 @@ void remove_ide_unit(struct ide_hdf **idetable, int ch)
  	if (ide) {
  		struct ide_thread_state *its;
  		hdf_hd_close(&ide->hdhfd);
@@ -135,7 +137,7 @@ index 6b507eab..48ca2c87 100644
  		scsi_free(ide->scsi);
  #endif
  		xfree(ide->secbuf);
-@@ -1745,14 +1781,22 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+@@ -1760,14 +1796,22 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
  	ide = idetable[ch];
  	if (ci)
  		memcpy (&ide->hdhfd.hfd.ci, ci, sizeof (struct uaedev_config_info));
@@ -164,7 +166,7 @@ index 6b507eab..48ca2c87 100644
  		device_func_init(0);
  		ide->scsi = scsi_alloc_cd(ch, ci->device_emu_unit, true, ci->uae_unitnum);
  		if (!ide->scsi) {
-@@ -1767,9 +1811,11 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+@@ -1782,9 +1826,11 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
  		ide->blocksize = 512;
  		ide->uae_unitnum = ci->uae_unitnum;
  		gui_flicker_led(LED_CD, ci->uae_unitnum, -1);
@@ -176,7 +178,7 @@ index 6b507eab..48ca2c87 100644
  	} else if (ci->type == UAEDEV_TAPE) {
  
  		ide->scsi = scsi_alloc_tape(ch, ci->rootdir, ci->readonly, ci->uae_unitnum);
-@@ -1787,9 +1833,8 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
+@@ -1802,9 +1848,8 @@ struct ide_hdf *add_ide_unit (struct ide_hdf **idetable, int max, int ch, struct
  
  		write_log(_T("IDE%d TAPE %d\n"), ch, ide->cd_unit_num);
  

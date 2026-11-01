@@ -2394,7 +2394,7 @@
     {
       "id": "0425-portable-ide-atapi",
       "file": "patches/winuae/0425-portable-ide-atapi.patch",
-      "sha256": "24809561db4319a7c41e6a71eca755f46a673b7f5f4ccdef939bb0b208d5971f",
+      "sha256": "de7f9854e37581825fdbfbfa6abf5d9ec8251fcb8539c1175a98713222003590",
       "title": "Serve the portable IDE CD through a bounded cooperative ATAPI subset",
       "reason": "T84e2 attaches the already authenticated immutable Disc owner to Gayle without the full host SCSI graph. PACKET commands execute synchronously at emulated register boundaries, use the common CDDA clock and return CHECK CONDITION for every unsupported or invalid request.",
       "category": "portable IDE CD transport",
@@ -2415,8 +2415,8 @@
         },
         {
           "path": "ide.cpp",
-          "before_sha256": "12d3e57a95e9e5e29c066efb4aaaaf2fcfbb5c41342c86d91b13f364e446c79e",
-          "after_sha256": "e69980523675a397ef4f478beafa58c3f5046514982070be52656f136a1cda79"
+          "before_sha256": "c001100d315a0874bc8d7459a3ccccfa8d369a0ddc686736656a02cee1df4c7c",
+          "after_sha256": "1895d4e6c1ad07e624d7676031305a99db3c831c5e80cbf02b0dd2de7a44735f"
         },
         {
           "path": "include/ide.h",
