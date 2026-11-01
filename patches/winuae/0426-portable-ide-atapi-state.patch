@@ -2,7 +2,7 @@ diff --git a/ide.cpp b/ide.cpp
 index 48ca2c87..2bdd6128 100644
 --- a/ide.cpp
 +++ b/ide.cpp
-@@ -959,6 +959,8 @@ static void do_packet_command (struct ide_hdf *ide)
+@@ -974,6 +974,8 @@ static void do_packet_command (struct ide_hdf *ide)
  	if (reply.check_condition) {
  		ide->regs.ide_error = (ide->p6_atapi.sense_key << 4) | IDE_ERR_ABRT;
  		atapi_data_done (ide);
@@ -11,7 +11,7 @@ index 48ca2c87..2bdd6128 100644
  		ide->regs.ide_status |= ATAPI_STATUS_CHK;
  		return;
  	}
-@@ -1966,18 +1968,32 @@ uae_u8 *ide_restore_state(uae_u8 *src, struct ide_hdf *ide)
+@@ -1981,18 +1983,32 @@ uae_u8 *ide_restore_state(uae_u8 *src, struct ide_hdf *ide)
  #endif /* !P6_PORTABLE */
  
  #ifdef P6_PORTABLE
@@ -51,7 +51,7 @@ index 48ca2c87..2bdd6128 100644
  		return false;
  	for (int i = 0; i < 14; i++) {
  		if (w[i] > 0xff)
-@@ -1987,16 +2003,34 @@ bool p6_ide_words_valid (const uint32_t *w, unsigned n, bool drive)
+@@ -2002,16 +2018,34 @@ bool p6_ide_words_valid (const uint32_t *w, unsigned n, bool drive)
  		w[19] > 1 || w[20] > 1 || w[23] > 256 || w[24] > 128 || w[25] > 2 || w[26] > 1 || w[27] > 1 || w[28] > 1 || w[29] > 2 || w[30] > 1 || w[31] > 1 || w[32] > 0x7fffffff || w[33] > 0xffff || w[34] > 0xffff)
  		return false;
  	// a slot without a drive keeps the registers (the two drives of a channel share them) and nothing of a transfer
@@ -89,7 +89,7 @@ index 48ca2c87..2bdd6128 100644
  	uint64_t live = 512;
  	const uint64_t position = (uint64_t)w[14] + w[15] + w[16];
  	if (position > live)
-@@ -2009,10 +2043,20 @@ uint32_t p6_ide_live_bytes (const uint32_t *w, bool drive)
+@@ -2024,10 +2058,20 @@ uint32_t p6_ide_live_bytes (const uint32_t *w, bool drive)
  	return live > P6_IDE_SECBUF_MAX ? P6_IDE_SECBUF_MAX : (uint32_t)live;
  }
  
@@ -111,7 +111,7 @@ index 48ca2c87..2bdd6128 100644
  	const struct ide_registers &r = ide->regs;
  	const uint8_t regs[14] = { r.ide_select, r.ide_nsector, r.ide_sector, r.ide_lcyl, r.ide_hcyl, r.ide_devcon, r.ide_error, r.ide_feat, r.ide_nsector2, r.ide_sector2, r.ide_lcyl2,
  		r.ide_hcyl2, r.ide_feat2, r.ide_status };
-@@ -2039,10 +2083,23 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
+@@ -2054,10 +2098,23 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
  	w[32] = (uint32_t)ide->hdhfd.cyls;
  	w[33] = (uint32_t)ide->hdhfd.heads;
  	w[34] = (uint32_t)ide->hdhfd.secspertrack;
@@ -138,7 +138,7 @@ index 48ca2c87..2bdd6128 100644
  	if (live > (uint32_t)ide->secbuf_size || (live && !ide->secbuf))
  		return false;
  	if (live)
-@@ -2055,12 +2112,12 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
+@@ -2070,12 +2127,12 @@ bool p6_ide_state_get (struct ide_hdf *ide, uint32_t *w, unsigned n, uint8_t *se
   * bridge has validated with the two functions above never does. The sector buffer is made large enough for any position the values can name. */
  bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const uint8_t *secbuf, uint32_t secbuf_size)
  {
@@ -155,7 +155,7 @@ index 48ca2c87..2bdd6128 100644
  		ide_grow_buffer (ide, P6_IDE_SECBUF_MAX + 2);
  	if (ide->secbuf_size)
  		memset (ide->secbuf, 0, (size_t)ide->secbuf_size);
-@@ -2090,6 +2147,14 @@ bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const
+@@ -2105,6 +2162,14 @@ bool p6_ide_state_set (struct ide_hdf *ide, const uint32_t *w, unsigned n, const
  	ide->hdhfd.cyls = (int)w[32];
  	ide->hdhfd.heads = (int)w[33];
  	ide->hdhfd.secspertrack = (int)w[34];

@@ -2428,7 +2428,7 @@
     {
       "id": "0426-portable-ide-atapi-state",
       "file": "patches/winuae/0426-portable-ide-atapi-state.patch",
-      "sha256": "f5c1e93a68e88975531722c2b75022010fcb71083490a36fd26be2af7eb98ced",
+      "sha256": "d5489b6e9c88c26147a9027ce05ec55ca806300a442383e89036f562abf3e6ed",
       "title": "Serialize the portable IDE ATAPI drive semantically",
       "reason": "T84e3 restores an IDE CD at command, data and CDDA boundaries without copying ide_hdf or any pointer. The accessor validates ATA/ATAPI cursors, bounded causal buffer, sense and medium identity before applying them to the already-open drive.",
       "category": "portable IDE CD state",
@@ -2444,8 +2444,8 @@
       "files": [
         {
           "path": "ide.cpp",
-          "before_sha256": "e69980523675a397ef4f478beafa58c3f5046514982070be52656f136a1cda79",
-          "after_sha256": "90cac009d6caef402743f28a99f8329814679a926fd5ede079c9f817e903bea7"
+          "before_sha256": "1895d4e6c1ad07e624d7676031305a99db3c831c5e80cbf02b0dd2de7a44735f",
+          "after_sha256": "a9584a516d710bcaac471ab62a7fc348e5cea175e4aa8d76668d9dfdc7457e30"
         }
       ]
     },
