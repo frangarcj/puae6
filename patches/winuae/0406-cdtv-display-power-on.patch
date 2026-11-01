@@ -13,11 +13,11 @@ diff --git a/custom.cpp b/custom.cpp
 +// own fields afterwards, including palette, sprites, mode and DMA enables.
 +void p6_custom_display_power_on(void)
 +{
-+	cop1lc = cop2lc = 0;
-+	diwstrt = diwstop = 0;
-+	plffirstline = plflastline = 0;
-+	need_vdiw_check = false;
-+	diw_change = 0;
++	extern bool p6_denise_hblank_set(const int32_t *in, unsigned n);
++	const int32_t denise_hblank[3] = {};
++	p6_denise_hblank_set(denise_hblank, 3);
++	cop1lc = cop2lc = diwstrt = diwstop = 0;
++	plffirstline = plflastline = need_vdiw_check = diw_change = 0;
 +	ddfstrt = ddfstop = ddfstrt_saved = ddfstop_saved = 0;
 +	ddfstrt_val = ddfstrt_val_old = ddfstop_old = 0;
 +	ddfstrt_cycle = ddfstop_cycle = 0;

@@ -1948,9 +1948,9 @@
     {
       "id": "0406-cdtv-display-power-on",
       "file": "patches/winuae/0406-cdtv-display-power-on.patch",
-      "sha256": "dfd2b4f4b59518674bf8295d5d7447297e7cad1c0cb7654108861bb5edb4c4a3",
+      "sha256": "30b13f75b01550b61fd38b3a0549ed11f696921d5656a8e699d55e65dff66866",
       "title": "Reset retained CDTV display latches only on a new power-on",
-      "reason": "T67c3d: two long independent owners diverge by1024ticks at169; transplanting the display/Copper state reproduces it, blitter does not. Restore BSS-zero display state before custom_init only on CDTV power-on, preserving warm reset and first-owner behavior.",
+      "reason": "T67c3d/T95fi: independent CDTV owners must begin from the same cold display phase. Restore the retained display/Copper latches and beta21 Denise horizontal-blank selection to BSS before custom_init only on CDTV power-on, preserving warm reset and state restore.",
       "category": "cold session boundary",
       "order": 78,
       "symbols": [
@@ -1963,7 +1963,7 @@
         {
           "path": "custom.cpp",
           "before_sha256": "3421de8fbc78706b437f90d70cfbb65e007c982039837fd1be4b61515cc90f12",
-          "after_sha256": "e42cb318f5bf8f76cccccbd7ba6efd8ce4539883eef1365c574aec2d1a14cda9"
+          "after_sha256": "5ade9dc75d2123e5ed6baef70e3a2ce5af4eeb2755e508e46cf7ea4242a907b7"
         }
       ]
     },
@@ -2129,8 +2129,8 @@
       "files": [
         {
           "path": "custom.cpp",
-          "before_sha256": "e42cb318f5bf8f76cccccbd7ba6efd8ce4539883eef1365c574aec2d1a14cda9",
-          "after_sha256": "71cd86b7d40964133f20458e39b742879dc898ab414239f8a8f7657634dc82e2"
+          "before_sha256": "5ade9dc75d2123e5ed6baef70e3a2ce5af4eeb2755e508e46cf7ea4242a907b7",
+          "after_sha256": "4677bd19c074e3d91547cd625f634c23897f44ab06a39d469a1c804de9f5c6b7"
         }
       ]
     },
@@ -2155,8 +2155,8 @@
       "files": [
         {
           "path": "custom.cpp",
-          "before_sha256": "71cd86b7d40964133f20458e39b742879dc898ab414239f8a8f7657634dc82e2",
-          "after_sha256": "262bdfbef81eeed9a332eab848d1b85454a9d6545391ab6834edb917e6738a1c"
+          "before_sha256": "4677bd19c074e3d91547cd625f634c23897f44ab06a39d469a1c804de9f5c6b7",
+          "after_sha256": "23d33f11ca4c1662b36d49652455ed6c311fc443cf63e2b77d4fce42b2057b69"
         },
         {
           "path": "devices.cpp",
@@ -2283,8 +2283,8 @@
         },
         {
           "path": "custom.cpp",
-          "before_sha256": "262bdfbef81eeed9a332eab848d1b85454a9d6545391ab6834edb917e6738a1c",
-          "after_sha256": "de63e09dc3de8d62e44f7f1186d1fa49a27d9a34bb34df8bb7138a0a834f43b4"
+          "before_sha256": "23d33f11ca4c1662b36d49652455ed6c311fc443cf63e2b77d4fce42b2057b69",
+          "after_sha256": "0f84dce86e0b31810eb670393964362ab2ee8b55fc8e521a31e859681cb70b77"
         }
       ]
     },
