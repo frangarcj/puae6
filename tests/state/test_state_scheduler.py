@@ -17,9 +17,8 @@ from tests.state import envelope as e
 from tests.state.harness import FieldTable, ProbeCase, SCENARIOS, SUBSYSTEMS, TRACE, USER, parse_chunks, reforge
 
 SCHEDULER = 1           # index of the chunk in the state
-IDS = tuple(range(1, 13))  # legacy handlers; optical event13 runs with the LPEN fixture in tests/input/test_pointer.py
+LEGACY_IDS = tuple(range(1, 13))  # optical event13 runs with the LPEN fixture in tests/input/test_pointer.py
 MISC, SYNC = 2, 0       # indexes of ev_misc and ev_sync in eventtab
-POKES = [f"ev2:{i}" for i in IDS]
 EVENTS_AT = 5           # the unit in which the events are scheduled
 
 
@@ -37,9 +36,22 @@ class SchedulerChunkTests(ProbeCase):
 
     def poke_arguments(self, unit=EVENTS_AT):
         arguments = []
-        for poke in POKES:
-            arguments += ["--poke-at", str(unit), poke]
+        for ident in self.event_ids():
+            arguments += ["--poke-at", str(unit), f"ev2:{ident}"]
         return arguments
+
+    def handler_lines(self):
+        lines = {}
+        out = subprocess.run([str(self.exe), str(self.roms["vsync"]), "--units", "0", "--handler-table"], capture_output=True, text=True, timeout=300).stdout
+        for line in out.splitlines():
+            if line.startswith("handler "):
+                _, ident, verdict = line.split()
+                lines[ident] = verdict
+        return lines
+
+    def event_ids(self):
+        lines = self.handler_lines()
+        return tuple(ident for ident in LEGACY_IDS if str(ident) in lines)
 
     def table_of(self, rom, unit, *arguments):
         path = self.dir / f"{rom}-{unit}.sched"
@@ -47,7 +59,7 @@ class SchedulerChunkTests(ProbeCase):
         return FieldTable(path.read_bytes(), SCHEDULER, run.fields), run
 
     def events_state(self):
-        """The state of vsync after twelve real secondary events were scheduled (one for each id), and what the machine's digests were then."""
+        """The state of vsync after one real secondary event per legacy handler, and what the machine's digests were then."""
         path = self.dir / "events.state"
         run = self.probe("vsync", "--units", str(EVENTS_AT), "--every", "1", *self.poke_arguments(), "--digest-at", str(EVENTS_AT), "--save-fields-at",
                          str(EVENTS_AT), str(path))
@@ -56,13 +68,8 @@ class SchedulerChunkTests(ProbeCase):
     # -- the table of handler ids ----------------------------------------------------------------------------------------------------------
 
     def test_every_handler_a_state_can_name_has_its_own_id_and_the_engine_function_behind_it(self):
-        lines = {}
-        out = subprocess.run([str(self.exe), str(self.roms["vsync"]), "--units", "0", "--handler-table"], capture_output=True, text=True, timeout=300).stdout
-        for line in out.splitlines():
-            if line.startswith("handler "):
-                _, ident, verdict = line.split()
-                lines[ident] = verdict
-        self.assertEqual({str(i) for i in IDS} | {"0", "13", "14", "15", "16", "foreign"}, set(lines))
+        lines = self.handler_lines()
+        self.assertEqual({str(i) for i in self.event_ids()} | {"0", "13", "14", "15", "16", "foreign"}, set(lines))
         self.assertEqual({"OK"}, set(lines.values()), lines)
 
     # -- the chunk puts the scheduler back ---------------------------------------------------------------------------------------------------
@@ -104,9 +111,13 @@ class SchedulerChunkTests(ProbeCase):
 
     def test_secondary_events_of_every_handler_are_restored_by_slot_with_their_handler_in_the_same_process_and_in_a_new_one(self):
         table, then, run = self.events_state()
-        self.assertEqual(12, sum(table.get(f"ev2.active[{i}]") for i in range(16)))
-        self.assertEqual(sorted(IDS), sorted(table.get(f"ev2.handler[{i}]") for i in range(16) if table.get(f"ev2.active[{i}]")))
-        self.assertEqual(1, table.get("ev2.handler[0]"), "slot 0 is the blitter's")
+        ids = self.event_ids()
+        self.assertEqual(len(ids), sum(table.get(f"ev2.active[{i}]") for i in range(16)))
+        self.assertEqual(sorted(ids), sorted(table.get(f"ev2.handler[{i}]") for i in range(16) if table.get(f"ev2.active[{i}]")))
+        if "ev2.idx" in table.order:
+            self.assertEqual(1, table.get("ev2.handler[0]"), "slot 0 is the blitter's")
+        else:
+            self.assertEqual(16, table.get("ev2.max"), "eleven events grow beta 21's allocation to all sixteen slots")
         path = self.dir / "events.state"
         again = self.dir / "events.again"
         # The same program, four units later and with no events: the chunk puts the table back, handlers included (the digest names them by id).
@@ -173,6 +184,14 @@ class SchedulerChunkTests(ProbeCase):
             return [{label: n - 1}, {label: n + 1}, {label: n ^ 1}]
         if name == "ev2.idx":
             return [{label: n ^ 1}, {label: n + 1}, {label: n - 1}]
+        if name == "ev2.max":
+            target = 8 if n == 16 else n * 2
+            values = {label: target}
+            if table.get("ev2.next") >= target:
+                values["ev2.next"] = 2
+            for i in range(target, 16):
+                values.update({f"ev2.active[{i}]": 0, f"ev2.handler[{i}]": 0, f"ev2.evtime[{i}]": 0, f"ev2.data[{i}]": 0})
+            return [values, {label: 3}]
         if name == "ev2.next":
             return [{label: n + 1}, {label: n - 1}]
         slot = f"[{index}]"
@@ -220,7 +239,7 @@ class SchedulerChunkTests(ProbeCase):
                 else:
                     refused.add(label)
         # What cannot be changed on its own: the sync event is never scheduled, ev_misc stays armed while secondary events are pending, slot 0 is
-        # the blitter's alone, and what an inactive entry or slot holds is zero by definition.
+        # the blitter's alone in 6.0, and what an inactive entry or slot holds is zero by definition.
         tied = set()
         for label in table.order:
             name, _, index = label.partition("[")
@@ -229,7 +248,7 @@ class SchedulerChunkTests(ProbeCase):
                 tied.add(label)
             if name == "ev.evtime" and not table.get(f"ev.active[{index}]"):
                 tied.add(label)
-            if name == "ev2.handler" and index == 0:
+            if name == "ev2.handler" and index == 0 and "ev2.idx" in table.order:
                 tied.add(label)
             if name in ("ev2.handler", "ev2.evtime", "ev2.data") and not table.get(f"ev2.active[{index}]"):
                 tied.add(label)
@@ -273,6 +292,7 @@ class SchedulerChunkTests(ProbeCase):
         slots = [i for i in range(16) if table.get(f"ev2.active[{i}]")]
         free = next(i for i in range(1, 16) if not table.get(f"ev2.active[{i}]") and i not in slots) if len(slots) < 15 else None
         latest = max(table.get(f"ev2.evtime[{i}]", signed=True) for i in slots)
+        beta = "ev2.max" in table.order
         live = self.dir / "events.state"
 
         def forge(values, source=table):
@@ -289,7 +309,9 @@ class SchedulerChunkTests(ProbeCase):
             ("an inactive event with a time", forge({"ev.evtime[3]": now + 5}), 9, "an event is in the past, or an inactive one has a time"),
             ("an oldcycles in the future", forge({"ev.oldcycles[1]": now + 1}), 9, "ev.oldcycles: later than the cycle counter"),
             ("a negative oldcycles", forge({"ev.oldcycles[1]": -1}), 9, rng_range),
-            ("a secondary round of 17", forge({"ev2.idx": 17}), 9, rng_range),
+            (("a secondary range of 3" if beta else "a secondary round of 17"),
+             forge({"ev2.max" if beta else "ev2.idx": 3 if beta else 17}), 9,
+             "ev2.max: the allocated range is not a power-of-two scheduler range" if beta else rng_range),
             ("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
             ("a next slot of 16", forge({"ev2.next": 16}), 9, rng_range),
             ("a handler id of 16", forge({"ev2.handler[1]": 16}), 9, rng_range),
@@ -297,14 +319,18 @@ class SchedulerChunkTests(ProbeCase):
             ("AR CIA event without a cartridge", forge({"ev2.handler[1]": 15, "ev2.data[1]": 0}), 9, "AR CIA event has no owner or invalid data"),
             ("an active slot with no handler", forge({"ev2.handler[1]": 0}), 9, "has no handler or is in the past"),
             ("an active slot in the past", forge({"ev2.evtime[1]": now - 1}), 9, "has no handler or is in the past"),
-            ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
-            ("another id in slot 0", forge({"ev2.handler[0]": 2}), 9, "slot 0 holds the blitter's event and nothing else does"),
             ("secondary events pending and ev_misc off", forge({"ev.active[%d]" % MISC: 0, "ev.evtime[%d]" % MISC: 0}), 9,
              "secondary events are pending but ev_misc is not armed for them"),
             ("ev_misc later than the earliest event", forge({"ev.evtime[%d]" % MISC: latest + 1}), 9,
              "secondary events are pending but ev_misc is not armed for them"),
             ("the body one byte short", self.shorter(table), 9, "chunk scheduler: the body ends before its last field"),
         ]
+        if beta:
+            attempts += [("the private blitter id", forge({"ev2.handler[1]": 1}), 9, "beta 21 cannot name the private non-CE blitter handler"),
+                         ("an active slot beyond a smaller allocation", forge({"ev2.max": 8, "ev2.next": 2}), 9, "a secondary event is active outside the allocated range")]
+        else:
+            attempts += [("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),
+                         ("another id in slot 0", forge({"ev2.handler[0]": 2}), 9, "slot 0 holds the blitter's event and nothing else does")]
         if free is not None:
             attempts += [("an inactive slot with a handler", forge({f"ev2.handler[{free}]": 2}), 9, "an inactive secondary event has data"),
                          ("an inactive slot with a time", forge({f"ev2.evtime[{free}]": now + 5}), 9, "an inactive secondary event has data"),
