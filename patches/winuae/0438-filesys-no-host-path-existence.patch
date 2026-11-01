@@ -1,0 +1,16 @@
+diff --git a/filesys.cpp b/filesys.cpp
+--- a/filesys.cpp
++++ b/filesys.cpp
+@@ -3671,7 +3671,12 @@
+ 	else if (unit->volflags & MYVOLUMEINFO_CDFS)
+ 		ok = isofs_stat(unit->ui.cdfs_superblock, aino->uniq_external, &statbuf);
+ 	else {
++#ifdef P6_PORTABLE
++		// Host directory volumes are rejected when configured; keep this unreachable fallback explicit and do not import host filesystem probes.
++		ok = false;
++#else
+ 		ok = my_existsfiledir(aino->nname);
++#endif
+ 	}
+ 	return ok;
+ }

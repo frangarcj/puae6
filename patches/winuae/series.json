@@ -2711,6 +2711,28 @@
           "after_sha256": "052a99933ce6b89a116fa8c3f90da90934015caf32d5a68599ddf65f07cfa7f1"
         }
       ]
+    },
+    {
+      "id": "0438-filesys-no-host-path-existence",
+      "file": "patches/winuae/0438-filesys-no-host-path-existence.patch",
+      "sha256": "9c35cbf790fad765478b2fc81af10b2303b1f00ca9395eb5393e1705d7c9ff82",
+      "title": "Reject host directory existence probes in the portable profile",
+      "reason": "WinUAE 6.1 beta21 adds a host-path existence query to filedir_exists. Portable configuration already rejects host directory volumes, so keep the unreachable fallback explicit and return false without importing a host filesystem probe; archive and CDFS paths retain their upstream implementations.",
+      "category": "portable host filesystem exclusion",
+      "order": 107,
+      "symbols": [
+        "filedir_exists"
+      ],
+      "test": "tests/host/test_zfile.py; native link",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "filesys.cpp",
+          "before_sha256": "c04f67fa007ad870dd674591248cf6fbb5f230e7c6a313847807fa65b74638d2",
+          "after_sha256": "95750e004709ceef5ce38032b9ea73a12ce915deb46b3b5b8008652be90335c6"
+        }
+      ]
     }
   ]
 }
