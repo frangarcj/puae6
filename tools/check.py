@@ -1414,6 +1414,16 @@ TASK_SUITES[('WB03', 'T84g3')] = dict(TASK_SUITES[('WB03', 'T84g2')])
 TASK_SUITES[('BUILD01', 'T84g3')] = {
     'sync_settings_and_managed_abi': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'real_emuhawk_bootstrap': 'tests.packages.test_emuhawk_selfcheck.RealBootstrapTests'}
+TASK_SUITES[('GEN01', 'T100')] = {
+    'uaescsi_schema_and_generated_files': 'tests.config.test_schema',
+    'uaescsi_wrapper_parity': 'tests.config.test_parity',
+    'uaescsi_managed_resolution': 'tests.bizhawk-movies.test_media_start.MixedCdManagedTests',
+    'uaescsi_sync_setting_compiles': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests'}
+TASK_SUITES[('WB03', 'T100')] = {
+    'uaescsi_auto_two_hdf_local_and_fresh_restore':
+        'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_uaescsi_with_two_uae_hdfs_restores_in_place_and_in_a_new_sandbox',
+    'uaescsi_auto_without_cd':
+        'tests.waterbox-state.test_wrapper_state.WrapperStateTests.test_uaescsi_auto_without_cd_resolves_disabled_and_runs'}
 for _gate, _children in {
     'MED02': ('T84g1', 'T84g3'), 'STATE01': ('T84g2',), 'WB03': ('T84g2',), 'BUILD01': ('T84g3',),
 }.items():

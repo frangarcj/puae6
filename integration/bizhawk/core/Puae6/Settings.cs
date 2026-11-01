@@ -56,6 +56,9 @@ public enum Puae6HdfController { Uae, Ide }
 /// <summary>The CD hardware selected at restart. Auto keeps the historical CD32/CDTV profile for CD-only loads and resolves to IDE for supported mixed-media machines.</summary>
 public enum Puae6CdController { Auto, None, Cd32, Ide }
 
+/// <summary>uaescsi.device policy (restart): Auto installs it only for a supplied CD catalog with controller None; explicit choices never change the controller.</summary>
+public enum Puae6UaeScsi { Disabled, Auto, Enabled }
+
 /// <summary>Paula's stereo separation (restart): how much of each side's channels stays on that side, 0 % (mono) to 100 %. 70 % is the profile's own setting.</summary>
 public enum Puae6SoundSeparation { P0, P10, P20, P30, P40, P50, P60, P70, P80, P90, P100 }
 
@@ -171,10 +174,10 @@ public sealed class Puae6SyncSettings
 	[Description("Automatic uses CD32 for CD-only content and IDE for mixed media on A600, A1200 or A4000. Explicit choices never change the machine.")]
 	public Puae6CdController CdController { get; set; } = Puae6CdController.Auto;
 
-	/// <summary>Install uaescsi.device over the immutable CD catalog. Requires direct CD content and CD controller None; HDF controller selection is unchanged.</summary>
+	/// <summary>Install uaescsi.device over the immutable CD catalog. Auto requires both CD content and controller None; HDF controller selection is unchanged.</summary>
 	[DisplayName("uaescsi.device")]
-	[Description("Expose the loaded CD catalog through uaescsi.device. Use CD controller None; hard files remain on their selected controller.")]
-	public bool UaeScsi { get; set; } = false;
+	[Description("Automatic exposes a loaded CD catalog only when CD controller None is selected. Enabled reports incompatible or missing CD content; hard files remain on their selected controller.")]
+	public Puae6UaeScsi UaeScsi { get; set; } = Puae6UaeScsi.Auto;
 
 	/// <summary>Paula's stereo separation. It changes every sample the machine hands over, so it is a sync setting: it enters the identity of states and movies when it is not the profile's 70 %.</summary>
 	public Puae6SoundSeparation SoundSeparation { get; set; } = Puae6SoundSeparation.P70;

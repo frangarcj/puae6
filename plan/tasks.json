@@ -28063,7 +28063,7 @@
       "title": "Añadir modo automatico para uaescsi.device",
       "milestone": "M4",
       "required": false,
-      "status": "pending",
+      "status": "done",
       "blocked_reason": "",
       "depends": [
         "T99",
@@ -28086,6 +28086,9 @@
         "integration/bizhawk/core/Puae6/**",
         "tests/config/**",
         "tests/waterbox-state/**",
+        "tests/ffi/**",
+        "tests/bizhawk-movies/**",
+        "tools/generate_options.py",
         "tools/check.py",
         "docs/02-contracts.md",
         "docs/user/waterbox-preview.md",

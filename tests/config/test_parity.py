@@ -177,11 +177,12 @@ class WrapperParity(Schema):
                 elif option["type"] == "enum":
                     members = re.search(rf"enum {kind} \{{ ([^}}]*) \}}", self.settings)
                     # A value the schema marks "wrapper": false is one the wrapper does not offer yet: the enum lists the others, in order.
-                    offered = [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
-                    offered += [v["wrapper_name"] for v in (option["libretro"] or {}).get("extra_values", []) if "wrapper_name" in v]
+                    offered = how.get("values") or [v.get("wrapper_name", v["value"]) for v in option["values"] if v.get("wrapper") is not False]
+                    if "values" not in how:
+                        offered += [v["wrapper_name"] for v in (option["libretro"] or {}).get("extra_values", []) if "wrapper_name" in v]
                     self.assertEqual([m.partition("=")[0].strip() for m in members[1].split(",")], offered,
                                      f"enum {kind} does not list the schema's values in order, less the ones marked wrapper false")
-                    default_name = next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
+                    default_name = how.get("default") or next(v.get("wrapper_name", v["value"]) for v in option["values"] if v["value"] == option["default"])
                     self.assertEqual(default, f"{kind}.{default_name}", f"{how['setting']} defaults to {default}, the schema to {option['default']}")
                 else:
                     self.assertEqual(int(default), option["default"], f"{how['setting']} defaults to {default}, the schema to {option['default']}")
@@ -276,6 +277,9 @@ class WrapperParity(Schema):
                 if name == "floppy_drive_count":
                     self.assertIn("init.Config.FloppyDrives = ConnectedFloppyDrives", self.core)
                     self.assertIn("_syncSettings.PhysicalFloppyDrives == Puae6FloppyDrives.Auto ? _syncSettings.FloppyDrives", self.core)
+                elif name == "uaescsi":
+                    self.assertIn("init.Config.Flags = ConfigFlags(_syncSettings.Cartridge, _syncSettings.FloppyWrites, UaeScsiEnabled(_syncSettings), _syncSettings.Machine);", self.core)
+                    self.assertIn("settings.UaeScsi == Puae6UaeScsi.Enabled", self.core)
                 else:
                     self.assertRegex(self.core, rf"init\.Config\.{field} = [^;]*_syncSettings\.{how['setting']}", f"{how['setting']} does not reach the config")
         sets = set(re.findall(r"init\.Config\.(\w+) = ", self.core))

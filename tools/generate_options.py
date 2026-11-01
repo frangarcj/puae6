@@ -468,13 +468,23 @@ def _validate_adapters(option, klass, where, errors):
                 errors.append(f"{where}: headless '{how}' names every value of an enum once, in lowercase ASCII (the spelling after the flag)")
         if (klass == "presentation" and how not in ("none", "value", "named")) or (klass == "reboot" and how == "none"):
             errors.append(f"{where}: headless 'none' is for presentation options only (a reboot option is part of the machine headless runs)")
-    if _only(wrapper, {"how", "setting", "type", "where"}, {"how"}, f"{where} wrapper", errors):
+    if _only(wrapper, {"how", "setting", "type", "where", "values", "default"}, {"how"}, f"{where} wrapper", errors):
         how = wrapper["how"]
         if how not in ("setting", "fixed", "none", "profile"):
             errors.append(f"{where}: wrapper how must be setting, fixed, profile or none")
         needed = {"setting": {"setting", "type"}, "fixed": {"where"}}.get(how, set())
-        if set(wrapper) - {"how"} != needed:
+        optional = {"values", "default"} if how == "setting" else set()
+        if set(wrapper) - {"how"} - optional != needed:
             errors.append(f"{where}: wrapper '{how}' takes exactly the fields {sorted(needed)}")
+        if ("values" in wrapper) != ("default" in wrapper):
+            errors.append(f"{where}: wrapper values and default must be declared together")
+        if "values" in wrapper:
+            values = wrapper["values"]
+            native = [v.get("wrapper_name", v.get("value")) for v in option.get("values", []) if v.get("wrapper") is not False]
+            if option["type"] != "enum" or not isinstance(values, list) or not values or len(values) != len(set(values)) \
+                    or not all(isinstance(v, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", v) for v in values) \
+                    or any(v not in values for v in native) or wrapper["default"] not in values:
+                errors.append(f"{where}: wrapper values must be unique C# enum members containing every native value and the wrapper default")
         if (klass == "presentation" and how not in ("none", "setting")) or (klass == "reboot" and how == "none"):
             errors.append(f"{where}: wrapper 'none' is for presentation options only")
 

@@ -660,13 +660,13 @@
       "maps_to": "p6_config.flags",
       "default": "disabled",
       "values": [
-        {"value": "disabled", "abi": 0, "label": "Disabled"},
-        {"value": "enabled", "abi": 4, "abi_name": "P6_CONFIG_UAESCSI", "label": "Enabled: expose the fixed CD catalog through uaescsi.device"}
+        {"value": "disabled", "abi": 0, "label": "Disabled", "wrapper_name": "Disabled"},
+        {"value": "enabled", "abi": 4, "abi_name": "P6_CONFIG_UAESCSI", "label": "Enabled: expose the fixed CD catalog through uaescsi.device", "wrapper_name": "Enabled"}
       ],
       "libretro": null,
       "libretro_policy": "The libretro adapter has no fixed multi-disc catalog binding for uaescsi.device yet. BizHawk offers the deterministic catalog as a sync setting; libretro keeps the resident disabled.",
       "headless": {"how": "fixed"},
-      "wrapper": {"how": "setting", "setting": "UaeScsi", "type": "bool"}
+      "wrapper": {"how": "setting", "setting": "UaeScsi", "type": "Puae6UaeScsi", "values": ["Disabled", "Auto", "Enabled"], "default": "Auto"}
     },
     {
       "id": "cartridge",
