@@ -1,7 +1,7 @@
 diff --git a/expansion.cpp b/expansion.cpp
 --- a/expansion.cpp
 +++ b/expansion.cpp
-@@ -4257,6 +4257,22 @@ static bool p6_z3_mapped(void)
+@@ -4262,6 +4262,22 @@ static bool p6_z3_mapped(void)
  	return b.allocated_size && b.start >= 0x10000000 && b.start < 0xf0000000 && &get_mem_bank(b.start) == &b;
  }
  
@@ -24,7 +24,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  static bool p6_cdtv_current_card(uint32_t index)
  {
  	return currprefs.cs_cdtvcd && index < uint32_t(cardno) && cards[index]->initrc == cdtv_init;
-@@ -4264,7 +4280,7 @@ static bool p6_cdtv_current_card(uint32_t index)
+@@ -4269,7 +4285,7 @@ static bool p6_cdtv_current_card(uint32_t index)
  
  bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
  {
@@ -33,7 +33,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  		return false;
  	if (expamem_bank_current && expamem_bank_current != &expamem_bank &&
  		(!p6_cdtv_current_card(ecard) || expamem_bank_current != cards[ecard]->aci.addrbank)) return false;
-@@ -4281,11 +4297,20 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+@@ -4286,11 +4302,20 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
  	w[10] = fastmem_bank[0].start;
  	w[11] = fastmem_bank[0].allocated_size;
  	w[12] = p6_fast_mapped() ? 1 : 0;
@@ -55,7 +55,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	memcpy(autoconfig, expamem, 256);
  	return true;
  }
-@@ -4294,7 +4319,7 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
+@@ -4299,7 +4324,7 @@ bool p6_expansion_state_get(uint32_t *w, unsigned n, uint8_t *autoconfig)
   * at $E80000 and the board's mapping are rebuilt as expamem_next and expamem_map_fastcard leave them. */
  bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoconfig)
  {
@@ -64,7 +64,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  		return false;
  	const uint32_t size = fastmem_bank[0].allocated_size;
  	const uint32_t start = w[10];
-@@ -4317,6 +4342,21 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
+@@ -4322,6 +4347,21 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
  		if (w[15] && (w[13] < 0x10000000 || uint64_t(w[13]) + z3size > 0xf0000000))
  			return false;
  	}
@@ -86,7 +86,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	if (size) {
  		if (p6_fast_mapped())
  			map_banks(&dummy_bank, fastmem_bank[0].start >> 16, size >> 16, 0);
-@@ -4339,6 +4379,20 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
+@@ -4344,6 +4384,20 @@ bool p6_expansion_state_set(const uint32_t *w, unsigned n, const uint8_t *autoco
  		if (w[15])
  			map_banks_z3(&b, b.start >> 16, z3size >> 16);
  	}
