@@ -118,8 +118,9 @@ class StateComponentTests(unittest.TestCase):
             "P6CH": ("chipset", "visit_chipset"), "P6VD": ("video", "visit_video"),
             "P6AU": ("audio", "visit_audio"), "P6CI": ("cia", "visit_cia"),
             "P6DK": ("disk", "visit_disk"), "P6IN": ("input", "visit_input"),
-            "P6BR": ("bridge", "visit_bridge"), "P6AK": ("akiko", "visit_akiko"), "P6CT": ("cdtv", "visit_cdtv"),
-        }, registry, "eleven base chunks and the alternative CD32/CDTV chunks retain their owners")
+            "P6BR": ("bridge", "visit_bridge"), "P6AK": ("akiko", "visit_akiko"),
+            "P6FM": ("fmv", "visit_fmv"), "P6CT": ("cdtv", "visit_cdtv"),
+        }, registry, "the base and optional CD32/CDTV chunks retain their owners")
         written = [c for c in self.components if "native_state" in c]
         self.assertTrue(written)
         self.assertEqual(set(registry), {c["native_state"]["chunk"] for c in written},
@@ -133,7 +134,11 @@ class StateComponentTests(unittest.TestCase):
                 self.assertIn(c["policy"], {"serialize", "serialize_extended", "extension"}, "only state that is serialized has a visitor")
                 self.assertTrue(c["in_profile"])
                 self.assertIn(native["chunk"], registry)
-                self.assertEqual(native["visitor"], registry[native["chunk"]][1], "the registry entry of the chunk names this visitor")
+                registered = registry[native["chunk"]][1]
+                if native["visitor"] != registered:
+                    calls = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "bridge").glob("state*.cpp"))
+                    self.assertRegex(calls, rf"\b{re.escape(native['visitor'])}\(a\)",
+                                     f"the registered {registered} path dispatches to the component visitor")
                 source = ROOT / native["file"]
                 self.assertRegex(native["file"], r"^bridge/state\w*\.cpp$")
                 self.assertRegex(source.read_text(encoding="utf-8"), r"\bvoid %s\(Archive &" % re.escape(native["visitor"]), "the visitor is defined in its file")

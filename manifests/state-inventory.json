@@ -5042,6 +5042,55 @@
         }
       },
       {
+        "id": "cd32-fmv-cartridge-decoder-state",
+        "subsystem": "video",
+        "component": "CD32 FMV cartridge, bounded MPEG decoder journal, PCM queues and compositor state",
+        "owner": "bridge/state_fmv.cpp; build/upstream/cd32_fmv.cpp",
+        "chunk": "P6FM",
+        "save": "p6_fmv_state_get",
+        "restore": "p6_fmv_state_apply",
+        "reset": "cd32_fmv_init and the registered FMV lifecycle reset the cartridge owner",
+        "in_profile": true,
+        "upstream_compiled": true,
+        "policy": "extension",
+        "saved_fields": "FMV cartridge RAM/registers, CL450/L64111 state, packet and decoded-frame queues, MP2/PCM queues, CDA stream, genlock/compositor buffers, auxiliary output, bounded parser journal and decoder reconstruction inputs. P6FM writes values and bounded used payloads rather than the live aggregate's addresses or padding.",
+        "omitted": "P6SC owns scheduler cycles, P6RM owns emulated machine RAM and P6AK owns the CD32 controller and disc transport. Host presentation buffers outside the cartridge, decoder code/function identities and borrowed callback addresses are not state.",
+        "pointers": "Decoder, packet, pixel, PCM, CDA callback and owner pointers are never serialized. Validation reconstructs a clean bounded decoder from the operation journal before the candidate may be applied.",
+        "rebuild": "Resolve the already validated CD32 owner, validate every bounded dimension/count and replay the journal into fresh decoder storage. Apply then rebinds cartridge-owned buffers and canonical callbacks without host I/O, wall time or guest advancement.",
+        "evidence": [
+          "bridge/state.cpp:402",
+          "bridge/state_fmv.cpp:124",
+          "ports/portable/fmv_state.h:1",
+          "patches/winuae/0421-cd32-fmv-state-owner.patch",
+          "tests/fmv/fmv_machine_state_probe.cpp:1",
+          "tests/fmv/test_fmv_state.py:1"
+        ],
+        "proof": {
+          "task": "T43d2",
+          "checks": [
+            "DET02",
+            "STATE01",
+            "STATE02"
+          ],
+          "status": "done",
+          "what": "tests/fmv/test_fmv_state.py and fmv_machine_state_probe cover partial header/I/P/B, pending audio and IRQ cuts, bounded state and transactional corruption rejection in a fresh native owner."
+        },
+        "probe": {
+          "probe": "tests/fmv/fmv_machine_state_probe.cpp",
+          "status": "implemented",
+          "task": "T43d2",
+          "why": "The dedicated FMV probe observes the complete cartridge aggregate and exact future; the generic A500 state probe cannot instantiate this optional device."
+        },
+        "waterbox": "The original T43d2 gate covers the FMV snapshot; beta21 Waterbox remains a separate runtime gate and is not inferred from this native inventory entry.",
+        "native_state": {
+          "task": "T43d2",
+          "chunk": "P6FM",
+          "file": "bridge/state_fmv.cpp",
+          "visitor": "visit_fmv",
+          "proves": "tests/fmv/test_fmv_state.py: bounded transactional P6FM capture, reconstruction and exact native future in a fresh owner."
+        }
+      },
+      {
         "id": "ide-atapi-cd-transport-audio",
         "subsystem": "disk",
         "component": "Gayle IDE ATAPI packet transport, selected immutable CD device and owned CDA stream",
