@@ -28,7 +28,7 @@ class CIAKeyboardTests(unittest.TestCase):
             ("static void check_keyboard(void)", "static void cia_delayed_tod(int num)"),
             ("void cia_keyreq(uae_u8 code)", "/* All this complexity"),
             ("int resetwarning_do(int canreset)", "void cia_keyreq(uae_u8 code)"),
-            ("\t\t\tif (currprefs.keyboard_mode == 0) {\n\t\t\t\t// keyboard handshake handling",
+            ("\t\t\tbool handshake = (val & CR_INMODE1) != (c->t[0].cr & CR_INMODE1);",
              "\t\t\tWriteCIAReg(0, reg, val);")
         ):
             self.assertEqual(current.split(start)[1].split(end)[0],
