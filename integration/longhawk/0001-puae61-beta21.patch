@@ -1,0 +1,753 @@
+diff --git a/.github/workflows/hatari-waterbox-preview.yml b/.github/workflows/hatari-waterbox-preview.yml
+index 61e5718..d64d6b2 100644
+--- a/.github/workflows/hatari-waterbox-preview.yml
++++ b/.github/workflows/hatari-waterbox-preview.yml
+@@ -521,16 +521,26 @@ jobs:
+           Copy-Item "$base/dll/*.wbx.zst" Assets/dll/ -Force
+           Copy-Item "$base/CAPSIMG-LICENCE-NOTICE.md" Assets/ -Force
+           Copy-Item "$base/etos1024k.img" Assets/ -Force
+-      - name: Prepare pinned PUAE6 guest and native CHD reader
++      - name: Prepare pinned PUAE6 and PUAE61 guests and native CHD reader
+         shell: pwsh
+         run: |
+           python waterbox/puae6/windows-smoke.py prepare --runtime waterbox/waterboxhost/target/release/waterboxhost.dll
+           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
++          python waterbox/puae61/prepare.py prepare
++          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       - name: Build actual EmuHawk Release
+         shell: pwsh
+         run: |
+           $guest = python waterbox/puae6/windows-smoke.py pin
+-          dotnet build src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj -c Release --nologo -p:InstallGitHooks=false "-p:Puae6GuestSha256=$guest"
++          $guest61 = python waterbox/puae61/prepare.py pin
++          dotnet build src/BizHawk.Client.EmuHawk/BizHawk.Client.EmuHawk.csproj -c Release --nologo -p:InstallGitHooks=false "-p:Puae6GuestSha256=$guest" "-p:Puae61GuestSha256=$guest61"
++          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
++      - name: Verify UAE, PUAE6 and PUAE61 core inventory
++        shell: pwsh
++        run: |
++          $guest = python waterbox/puae6/windows-smoke.py pin
++          $guest61 = python waterbox/puae61/prepare.py pin
++          dotnet test src/BizHawk.Tests.Client.Common/BizHawk.Tests.Client.Common.csproj -c Release --nologo -p:InstallGitHooks=false "-p:Puae6GuestSha256=$guest" "-p:Puae61GuestSha256=$guest61" --filter FullyQualifiedName~CorePickerStabilityTests
+           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+       - name: Package tested Windows frontend with PUAE6 sources and notices
+         shell: bash
+@@ -542,9 +552,11 @@ jobs:
+           cp Assets/etos1024k.img packaged_output/
+           test -f packaged_output/EmuHawk.exe
+           test -f packaged_output/dll/puae6.wbx
++          test -f packaged_output/dll/puae61.wbx
+           test -f packaged_output/dll/p6_chd_host.dll
+           test -f packaged_output/PUAE6/source.tar.gz
+           test -f packaged_output/PUAE6/source-x64.tar.gz
++          test -f packaged_output/PUAE61/source.tar.gz
+       - name: Execute Windows ABI, RomLoader, restore and CHD checks
+         shell: pwsh
+         run: |
+diff --git a/.gitignore b/.gitignore
+index f99f79f..6a11fad 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -54,3 +54,4 @@ launchSettings.json
+ /Assets/dll/libp6_chd_host.dylib
+ /waterbox/puae6/build/
+ /Assets/PUAE6/
++/Assets/PUAE61/
+diff --git a/Dist/Package.sh b/Dist/Package.sh
+index 719fbd4..3e1379a 100755
+--- a/Dist/Package.sh
++++ b/Dist/Package.sh
+@@ -3,7 +3,7 @@ set -e
+ targetDir="packaged_output"
+ cd "$(dirname "$0")/.."
+ rm -fr "$targetDir" && mkdir -p "$targetDir"
+-find "output" -type f \( -name '.keep' -o -wholename "output/EmuHawk.exe" -o -wholename "output/DiscoHawk.exe" -o -wholename "output/*.config" -o -wholename "output/defctrl.json" -o -wholename "output/EmuHawkMono.sh" -o -wholename "output/dll/*" -o -wholename "output/Shaders/*" -o -wholename "output/gamedb/*" -o -wholename "output/NES/Palettes/*" -o -wholename "output/Lua/*" -o -wholename "output/Gameboy/Palettes/*" -o -wholename "output/overlay/*" -o -wholename "output/PUAE6/*" \) \
++find "output" -type f \( -name '.keep' -o -wholename "output/EmuHawk.exe" -o -wholename "output/DiscoHawk.exe" -o -wholename "output/*.config" -o -wholename "output/defctrl.json" -o -wholename "output/EmuHawkMono.sh" -o -wholename "output/dll/*" -o -wholename "output/Shaders/*" -o -wholename "output/gamedb/*" -o -wholename "output/NES/Palettes/*" -o -wholename "output/Lua/*" -o -wholename "output/Gameboy/Palettes/*" -o -wholename "output/overlay/*" -o -wholename "output/PUAE6/*" -o -wholename "output/PUAE61/*" \) \
+ 	-not -name "*.pdb" -not -name "*.lib" -not -name "*.pgd" -not -name "*.ipdb" -not -name "*.iobj" -not -name "*.exp" -not -name "*.ilk" \
+ 	-not -wholename "output/dll/*.xml" -not -wholename "output/dll/*.deps.json" \
+ 	-exec install -D -m644 "{}" "packaged_{}" \;
+diff --git a/src/BizHawk.Client.Common/RomLoader.cs b/src/BizHawk.Client.Common/RomLoader.cs
+index d1664e0..2884f89 100644
+--- a/src/BizHawk.Client.Common/RomLoader.cs
++++ b/src/BizHawk.Client.Common/RomLoader.cs
+@@ -31,11 +31,19 @@ namespace BizHawk.Client.Common
+ 			public bool IsDisposed => _disposed;
+ 			public void Dispose() { if (!_disposed) { _disposed = true; DiscData.Dispose(); } }
+ 		}
++		private static bool IsPuae6CoreName(string coreName)
++			=> coreName == CoreNames.PUAE6 || coreName == CoreNames.PUAE61;
++		private string SelectedPuae6CoreName(string forcedCoreName)
++		{
++			if (IsPuae6CoreName(forcedCoreName)) return forcedCoreName;
++			return _config.PreferredCores.TryGetValue(VSystemID.Raw.Amiga, out var preferred) && IsPuae6CoreName(preferred)
++				? preferred : CoreNames.PUAE6;
++		}
+ 		private bool UsePuae6DiscContext(string system, string forcedCoreName)
+ 		{
+ 			if (system != null && system != VSystemID.Raw.Amiga) return false;
+-			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
+-			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && preferred == CoreNames.PUAE6;
++			if (forcedCoreName != null) return IsPuae6CoreName(forcedCoreName);
++			return system == VSystemID.Raw.Amiga && _config.PreferredCores.TryGetValue(system, out var preferred) && IsPuae6CoreName(preferred);
+ 		}
+ 		private bool UsePuae6Cd(string path, string system, string forcedCoreName)
+ 			=> (".chd".EqualsIgnoreCase(Path.GetExtension(path)) || ".nrg".EqualsIgnoreCase(Path.GetExtension(path)))
+@@ -47,7 +55,7 @@ namespace BizHawk.Client.Common
+ 		{
+ 			var extension = Path.GetExtension(path).ToLowerInvariant();
+ 			if (extension is not (".chd" or ".nrg")) return false;
+-			if (forcedCoreName != null) return forcedCoreName == CoreNames.PUAE6;
++			if (forcedCoreName != null) return IsPuae6CoreName(forcedCoreName);
+ 			return _config.TryGetChosenSystemForFileExt(extension, out var system) && UsePuae6Cd(path, system, null);
+ 		}
+ 		private bool UsePuae6DirectChd(string path, string forcedCoreName)
+@@ -417,7 +425,7 @@ namespace BizHawk.Client.Common
+ 							asset,
+ 						},
+ 				};
+-				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? CoreNames.PUAE6 : forcedCoreName);
++				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? SelectedPuae6CoreName(forcedCoreName) : forcedCoreName);
+ 				return true;
+ 			}
+ 			catch { (asset as IOwnedDiscAsset)?.Dispose(); throw; }
+@@ -552,7 +560,7 @@ namespace BizHawk.Client.Common
+ 			if (forcedCoreName == null
+ 				&& cip.Game.System == VSystemID.Raw.Amiga
+ 				&& _config.PreferredCores.TryGetValue(cip.Game.System, out var amigaPreference)
+-				&& amigaPreference == CoreNames.PUAE6)
++				&& IsPuae6CoreName(amigaPreference))
+ 			{
+ 				forcedCoreName = amigaPreference;
+ 			}
+@@ -933,7 +941,7 @@ namespace BizHawk.Client.Common
+ 					Roms = roms,
+ 					Discs = discs,
+ 				};
+-				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? CoreNames.PUAE6 : forcedCoreName);
++				nextEmulator = MakeCoreFromCoreInventory(cip, puae6 ? SelectedPuae6CoreName(forcedCoreName) : forcedCoreName);
+ 				return true;
+ 			}
+ 			catch (Exception ex)
+diff --git a/src/BizHawk.Client.Common/config/Config.cs b/src/BizHawk.Client.Common/config/Config.cs
+index e073a66..ae2614e 100644
+--- a/src/BizHawk.Client.Common/config/Config.cs
++++ b/src/BizHawk.Client.Common/config/Config.cs
+@@ -29,7 +29,7 @@ namespace BizHawk.Client.Common
+ 			([ VSystemID.Raw.A26 ],
+ 				[ CoreNames.Atari2600Hawk, CoreNames.Stella ]),
+ 			([ VSystemID.Raw.Amiga ],
+-				[ CoreNames.UAE, CoreNames.PUAE6 ]),
++				[ CoreNames.UAE, CoreNames.PUAE6, CoreNames.PUAE61 ]),
+ 			([ VSystemID.Raw.Satellaview ],
+ 				[ CoreNames.Bsnes115, CoreNames.SubBsnes115 ]),
+ 			([ VSystemID.Raw.GB, VSystemID.Raw.GBC ],
+diff --git a/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs b/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
+index 456cdc6..77443e0 100644
+--- a/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
++++ b/src/BizHawk.Client.Common/movie/bk2/Bk2Movie.IO.cs
+@@ -114,7 +114,8 @@ namespace BizHawk.Client.Common
+ 				}
+ 			}
+ 			// PUAE6 state movies carry their sealed media bases separately from Corestate.
+-			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate && Core == global::Puae6.Puae6Names.Core && SaveRam is not null))
++			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate
++				&& (Core == global::Puae6.Puae6Names.Core || Core == global::Puae6.Puae61Names.Core) && SaveRam is not null))
+ 			{
+ 				bs.PutLump(BinaryStateLump.MovieSaveRam, (BinaryWriter bw) => bw.Write(SaveRam));
+ 			}
+@@ -184,7 +185,8 @@ namespace BizHawk.Client.Common
+ 						}
+ 					});
+ 			}
+-			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate && Core == global::Puae6.Puae6Names.Core))
++			if ((!StartsFromSavestate && StartsFromSaveRam) || (StartsFromSavestate
++				&& (Core == global::Puae6.Puae6Names.Core || Core == global::Puae6.Puae61Names.Core)))
+ 			{
+ 				bl.GetLump(BinaryStateLump.MovieSaveRam, false,
+ 					br => SaveRam = br.ReadAllBytes());
+diff --git a/src/BizHawk.Client.EmuHawk/MainForm.VSystem.cs b/src/BizHawk.Client.EmuHawk/MainForm.VSystem.cs
+index c06a649..2b5230e 100644
+--- a/src/BizHawk.Client.EmuHawk/MainForm.VSystem.cs
++++ b/src/BizHawk.Client.EmuHawk/MainForm.VSystem.cs
+@@ -1513,6 +1513,9 @@ namespace BizHawk.Client.EmuHawk
+ 			// PUAE6
+ 			items.Add(CreateCoreSubmenu(VSystemCategory.PCs, CoreNames.PUAE6, CreateGenericCoreConfigItem<Puae6Core>(CoreNames.PUAE6)));
+ 
++			// PUAE61
++			items.Add(CreateCoreSubmenu(VSystemCategory.PCs, CoreNames.PUAE61, CreateGenericCoreConfigItem<Puae61Core>(CoreNames.PUAE61)));
++
+ 			// UAE
+ 			items.Add(CreateCoreSubmenu(VSystemCategory.PCs, CoreNames.UAE, CreateGenericCoreConfigItem<UAE>(CoreNames.UAE)));
+ 
+diff --git a/src/BizHawk.Client.EmuHawk/MainForm.cs b/src/BizHawk.Client.EmuHawk/MainForm.cs
+index 3a4139c..6a411b2 100644
+--- a/src/BizHawk.Client.EmuHawk/MainForm.cs
++++ b/src/BizHawk.Client.EmuHawk/MainForm.cs
+@@ -225,6 +225,7 @@ namespace BizHawk.Client.EmuHawk
+ 			ToolStripMenuItemEx AmigaSettingsToolStripMenuItem = new() { Text = "Settings..." };
+ 			AmigaSettingsToolStripMenuItem.Click += (_, _) => _ = Emulator switch
+ 			{
++				Puae61Core => OpenGenericCoreConfigFor<Puae61Core>(CoreNames.PUAE61 + " Settings"),
+ 				Puae6Core => OpenGenericCoreConfigFor<Puae6Core>(CoreNames.PUAE6 + " Settings"),
+ 				UAE => OpenGenericCoreConfigFor<UAE>(CoreNames.UAE + " Settings"),
+ 				_ => DialogResult.None,
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+index 54da5b6..dd31c97 100644
+--- a/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6Coexistence.cs
+@@ -128,7 +128,8 @@ namespace BizHawk.Client.EmuHawk
+ 	: puae6Sync?.Clone() ?? new Puae6SyncSettings { Machine = Puae6Machine.A500, WhdLoad = Puae6WhdLoadMode.Disabled };
+    Require(loader.LoadRom(Path.Combine(Stage, "Own.adf"), comm, null, record ? null : session.QueuedCoreName), "RomLoader failed");
+    var core = loader.LoadedEmulator;
+-   Require(core.GetType() == (name == "UAE" ? typeof(UAE) : typeof(Puae6Core)) && core.Attributes().CoreName == name, "Wrong RomLoader core");
++   var expectedType = name == "UAE" ? typeof(UAE) : name == "PUAE61" ? typeof(Puae61Core) : typeof(Puae6Core);
++   Require(core.GetType() == expectedType && core.Attributes().CoreName == name, "Wrong RomLoader core");
+    core.ControllerDefinition.BuildMnemonicsCache("Amiga"); session.MovieIn = new Buttons(core.ControllerDefinition); session.StickySource = session.MovieIn;
+    if (record) {
+     var movie = session.Get(path, false); movie.Core = name; movie.SystemID = "Amiga"; movie.Hash = loader.Game.Hash; movie.GameName = "Own disk";
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs b/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs
+index d43e3b4..8b9be73 100644
+--- a/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6SelfCheck.cs
+@@ -33,8 +33,9 @@ namespace BizHawk.Client.EmuHawk
+ 				var amiga = CoreInventory.Instance.GetCores("Amiga")
+ 					.Select(c => new Dictionary<string, object> { ["name"] = c.Name, ["type"] = c.Type.FullName, ["priority"] = (int)c.Priority })
+ 					.OrderBy(c => (string)c["name"], StringComparer.Ordinal).ToArray();
+-				if (amiga.Length != 2 || !amiga.Any(c => (string)c["name"] == "UAE" && (string)c["type"] == "BizHawk.Emulation.Cores.Computers.Amiga.UAE")
+-					|| !amiga.Any(c => (string)c["name"] == "PUAE6" && (string)c["type"] == "Puae6.Puae6Core")) throw new InvalidOperationException("Incomplete Amiga inventory");
++				if (amiga.Length != 3 || !amiga.Any(c => (string)c["name"] == "UAE" && (string)c["type"] == "BizHawk.Emulation.Cores.Computers.Amiga.UAE")
++					|| !amiga.Any(c => (string)c["name"] == "PUAE6" && (string)c["type"] == "Puae6.Puae6Core")
++					|| !amiga.Any(c => (string)c["name"] == "PUAE61" && (string)c["type"] == "Puae6.Puae61Core")) throw new InvalidOperationException("Incomplete Amiga inventory");
+ 				Console.WriteLine("P6_EMUHAWK_BOOTSTRAP " + JsonConvert.SerializeObject(new Dictionary<string, object> {
+ 					["schema_version"] = 1, ["kind"] = "emuhawk-cli-bootstrap", ["runtime"] = Environment.Version.ToString(),
+ 					["entry_name"] = entry.GetName().Name, ["entry_type"] = entry.EntryPoint.DeclaringType.FullName,
+diff --git a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+index c2414ce..db8ce28 100644
+--- a/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
++++ b/src/BizHawk.Client.EmuHawk/Puae6WindowsSmoke.cs
+@@ -33,11 +33,12 @@ namespace BizHawk.Client.EmuHawk
+ 
+   private static void WindowsFiles(Dictionary<string, string> native)
+   {
+-   Require(native != null && native.Keys.OrderBy(n => n, StringComparer.Ordinal).SequenceEqual(new[] { "puae6.wbx", "waterboxhost.dll" }), "Windows native manifest keys");
++   Require(native != null && native.Keys.OrderBy(n => n, StringComparer.Ordinal).SequenceEqual(new[] { "puae6.wbx", "puae61.wbx", "waterboxhost.dll" }), "Windows native manifest keys");
+    foreach (var item in native)
+     Require(item.Value != null && item.Value.Length == 64 && item.Value.All(Uri.IsHexDigit)
+      && Hash(File.ReadAllBytes(Path.Combine(Stage, "dll", item.Key))) == item.Value, "Windows native input differs: " + item.Key);
+    Require(Puae6Guest.BuiltWithSha256 == native["puae6.wbx"], "Compiled guest pin differs from staged guest");
++   Require(Puae6Guest.BuiltWithSha256For("Puae61GuestSha256") == native["puae61.wbx"], "Compiled PUAE61 guest pin differs from staged guest");
+   }
+ 
+   private static void WindowsIdentity(Dictionary<string, string> native)
+@@ -273,8 +274,8 @@ namespace BizHawk.Client.EmuHawk
+     var db = Path.Combine(Stage, "gamedb"); Database.InitializeDatabase(db, db, true); MAMEMachineDB.Initialize(db);
+     foreach (var directory in new[] { "User", "Movies", "Movie backups", "Temp Files" }) Directory.CreateDirectory(Path.Combine(Stage, directory));
+     PreferredMediaDoesNotFallback();
+-    var firstSession = Session(); var secondSession = Session(); var rtgSession = Session();
+-    IEmulator first = null, second = null, rtg = null;
++    var firstSession = Session(); var secondSession = Session(); var rtgSession = Session(); var beta21Session = Session();
++    IEmulator first = null, second = null, rtg = null, beta21 = null;
+     try
+     {
+      first = Open("PUAE6", firstSession, Path.Combine(Stage, "Movies", "windows-first.bk2"), true);
+@@ -305,6 +306,11 @@ namespace BizHawk.Client.EmuHawk
+      for (int i = 0; i < 3; i++) rows.Add(Step(first, firstSession));
+      var future = State(first);
+      Require(first.Frame == baselineFrame + 3 && !baseline.SequenceEqual(future), "No observable future");
++     beta21 = Open("PUAE61", beta21Session, Path.Combine(Stage, "Movies", "windows-beta21.bk2"), true);
++     Require(beta21 is Puae61Core && beta21.Attributes().CoreName == Puae61Names.Core, "PUAE61 did not select its own core type");
++     var puae6BeforeBeta21 = State(first);
++     Step(beta21, beta21Session);
++     Require(beta21.Frame == 1 && puae6BeforeBeta21.SequenceEqual(State(first)), "PUAE61 advance changed the PUAE6 sandbox");
+      second = Open("PUAE6", secondSession, Path.Combine(Stage, "Movies", "windows-second.bk2"), true);
+      Step(second, secondSession);
+      Require(second.Frame != baselineFrame && !State(second).SequenceEqual(baseline), "Restore control must differ");
+@@ -346,7 +352,8 @@ namespace BizHawk.Client.EmuHawk
+       ["rtg_fpu"] = nameof(Puae6Fpu.M68040), ["rtg_cpu_multiplier"] = nameof(Puae6CpuClock.X8),
+       ["uaescsi_display"] = uaeScsi.DisplayName, ["uaescsi_default"] = new Puae6SyncSettings().UaeScsi.ToString(),
+       ["rtg_width"] = rtgVideo.BufferWidth, ["rtg_height"] = rtgVideo.BufferHeight, ["rtg_frames"] = 1,
+-      ["abi_slots"] = 15, ["callbacks"] = 1, ["reentries"] = 1, ["sandboxes"] = 7, ["advanced_frames"] = 19,
++      ["abi_slots"] = 15, ["callbacks"] = 1, ["reentries"] = 1, ["sandboxes"] = 8, ["advanced_frames"] = 20,
++      ["beta21_core"] = beta21.Attributes().CoreName, ["beta21_frames"] = beta21.Frame,
+       ["baseline_frame"] = baselineFrame, ["future_frame"] = first.Frame, ["restored_frames"] = 3,
+       ["baseline_sha256"] = Hash(baseline), ["future_sha256"] = Hash(future),
+       ["av_sha256"] = Hash(Encoding.UTF8.GetBytes(string.Join("\n", rows.Select(r => string.Join("/", r))))),
+@@ -356,8 +363,8 @@ namespace BizHawk.Client.EmuHawk
+     }
+     finally
+     {
+-     if (firstSession.Movie != null) Close(firstSession); if (secondSession.Movie != null) Close(secondSession); if (rtgSession.Movie != null) Close(rtgSession);
+-     first?.Dispose(); second?.Dispose(); rtg?.Dispose();
++     if (firstSession.Movie != null) Close(firstSession); if (secondSession.Movie != null) Close(secondSession); if (rtgSession.Movie != null) Close(rtgSession); if (beta21Session.Movie != null) Close(beta21Session);
++     first?.Dispose(); second?.Dispose(); rtg?.Dispose(); beta21?.Dispose();
+     }
+    }
+    catch (Exception error) { Console.Error.WriteLine(error); return 2; }
+diff --git a/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj b/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
+index 3a0e424..470b3de 100644
+--- a/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
++++ b/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj
+@@ -8,6 +8,7 @@
+ 		<Nullable>disable</Nullable>
+ 	</PropertyGroup>
+ 	<Import Project="../../waterbox/puae6/Guest.props" />
++	<Import Project="../../waterbox/puae61/Guest.props" />
+ 	<ItemGroup>
+ 		<PackageReference Include="Microsoft.CSharp" />
+ 		<PackageReference Include="Google.FlatBuffers" Private="true" />
+@@ -24,6 +25,10 @@
+ 			<_Parameter1>Puae6GuestSha256</_Parameter1>
+ 			<_Parameter2>$(Puae6GuestSha256)</_Parameter2>
+ 		</AssemblyAttribute>
++		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
++			<_Parameter1>Puae61GuestSha256</_Parameter1>
++			<_Parameter2>$(Puae61GuestSha256)</_Parameter2>
++		</AssemblyAttribute>
+ 	</ItemGroup>
+ 	<ItemGroup>
+ 		<Compile Update="Arcades/MAME/MAME.*.cs" DependentUpon="MAME.cs" />
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Movie.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Movie.cs
+index 03bdc19..68bd5bb 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Movie.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Movie.cs
+@@ -55,14 +55,14 @@ public static class Puae6Movie
+ 	/// <summary>The keys that tie a movie to this core: BizHawk's own Core and Platform, and what the core was built and configured with.</summary>
+ 	public static Dictionary<string, string> Header(Puae6Core core)
+ 	{
+-		return Header(core.Identity, core.Identity.Machine == "CD32" ? core.InitialNvramHash : null);
++		return Header(core.Identity, core.Identity.Machine == "CD32" ? core.InitialNvramHash : null, core.MovieCoreName);
+ 	}
+ 
+-	private static Dictionary<string, string> Header(StateIdentity identity, byte[]? nvramHash)
++	private static Dictionary<string, string> Header(StateIdentity identity, byte[]? nvramHash, string coreName)
+ 	{
+ 		var header = new Dictionary<string, string>
+ 		{
+-			["Core"] = Puae6Names.Core,
++			["Core"] = coreName,
+ 			["Platform"] = Platform,
+ 			[GuestKey] = Hex(identity.GuestSha256),
+ 			[ConfigKey] = Hex(identity.ConfigHash),
+@@ -76,9 +76,9 @@ public static class Puae6Movie
+ 	/// <summary>Capture before the frontend reboots: a SRAM movie starts from the captured bytes, a state movie from the original boot identity.</summary>
+ 	public static Dictionary<string, string> HeaderForStart(Puae6Core core, bool fromState, byte[]? saveRam)
+ 	{
+-		if (core.Identity.Machine != "CD32") return Header(fromState ? core.Identity : core.MediaMovieIdentity(saveRam), null);
++		if (core.Identity.Machine != "CD32") return Header(fromState ? core.Identity : core.MediaMovieIdentity(saveRam), null, core.MovieCoreName);
+ 		var hash = fromState ? core.InitialNvramHash : StateEnvelope.Sha256(saveRam ?? new byte[P6.Cd32NvramBytes]);
+-		return Header(core.MovieIdentity(hash), hash);
++		return Header(core.MovieIdentity(hash), hash, core.MovieCoreName);
+ 	}
+ 
+ 	/// <summary>Preflight before Movie.Attach (TAS Attach can already import SRAM). Only CD32 may project an initial snapshot identity.</summary>
+@@ -91,7 +91,7 @@ public static class Puae6Movie
+ 			core.CheckMediaMovieBoot();
+ 			if (fromSram && saveRam is null) throw new MovieRejectedException(MovieRejection.BadStart, "the movie has no initial SaveRAM");
+ 			var mediaIdentity = core.MediaMovieIdentity(fromState || fromSram ? saveRam : null);
+-			Validate(header, mediaIdentity, null);
++			Validate(header, mediaIdentity, null, core.MovieCoreName);
+ 			if (fromState)
+ 			{
+ 				core.ValidateMediaMovieState(state ?? throw new MovieRejectedException(MovieRejection.BadStart, "a binary initial state is required"), mediaIdentity);
+@@ -103,7 +103,7 @@ public static class Puae6Movie
+ 		if (text.Length != 64 || text.Any(c => !Uri.IsHexDigit(c))) throw new MovieRejectedException(MovieRejection.BadStart, "invalid initial NVRAM hash");
+ 		var hash = Enumerable.Range(0, 32).Select(i => Convert.ToByte(text.Substring(i * 2, 2), 16)).ToArray();
+ 		var identity = core.MovieIdentity(hash);
+-		Validate(header, identity, hash);
++		Validate(header, identity, hash, core.MovieCoreName);
+ 		if (fromState)
+ 			return core.PrepareMovieState(state ?? throw new MovieRejectedException(MovieRejection.BadStart, "a binary initial state is required"), identity, hash);
+ 		var initial = fromSram ? saveRam : new byte[P6.Cd32NvramBytes];
+@@ -115,16 +115,16 @@ public static class Puae6Movie
+ 
+ 	/// <summary>Throws <see cref="MovieRejectedException"/> unless the header is the one of a movie recorded with exactly this core setup.</summary>
+ 	public static void Validate(IReadOnlyDictionary<string, string> header, Puae6Core core)
+-		=> Validate(header, core.Identity, core.Identity.Machine == "CD32" ? core.InitialNvramHash : null);
++		=> Validate(header, core.Identity, core.Identity.Machine == "CD32" ? core.InitialNvramHash : null, core.MovieCoreName);
+ 
+-	private static void Validate(IReadOnlyDictionary<string, string> header, StateIdentity identity, byte[]? nvramHash)
++	private static void Validate(IReadOnlyDictionary<string, string> header, StateIdentity identity, byte[]? nvramHash, string coreName)
+ 	{
+ 		string Get(string key) => header.TryGetValue(key, out var value) ? value : throw new MovieRejectedException(MovieRejection.MissingKey, $"the movie has no {key}");
+ 		string recorded = Get("Core");
+-		if (recorded != Puae6Names.Core)
+-			throw new MovieRejectedException(MovieRejection.WrongCore, $"this movie was recorded with the core {recorded}; {Puae6Names.Core} plays only its own movies (there is no conversion)");
++		if (recorded != coreName)
++			throw new MovieRejectedException(MovieRejection.WrongCore, $"this movie was recorded with the core {recorded}; {coreName} plays only its own movies (there is no conversion)");
+ 		if (Get("Platform") != Platform) throw new MovieRejectedException(MovieRejection.WrongSystem, $"this is a movie for {Get("Platform")}, not for the Amiga");
+-		var expected = Header(identity, nvramHash);
++		var expected = Header(identity, nvramHash, coreName);
+ 		void Same(string key, MovieRejection reason, string what)
+ 		{
+ 			if (!string.Equals(Get(key), expected[key], StringComparison.OrdinalIgnoreCase)) throw new MovieRejectedException(reason, $"the movie was recorded with {what}");
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs
+index 4c2e433..4339161 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs
+@@ -13,7 +13,7 @@ namespace Puae6;
+ // The half of the core that only exists inside BizHawk: the constructor that CoreInventory finds by its attribute and calls with what the loader
+ // has. integration/bizhawk/patches/build_tree.py copies it, with the rest of Puae6/, into BizHawk.Emulation.Cores; the standalone build of the core
+ // (Puae6.Core.csproj) does not compile it, because CoreInventory and CoreLoadParameters are not part of the pinned capture.
+-public sealed partial class Puae6Core
++public partial class Puae6Core
+ {
+ 	/// <summary>
+ 	/// Registered with a low priority: UAE stays the core an Amiga game opens with, and PUAE6 is chosen explicitly (the core picker or
+@@ -21,19 +21,24 @@ public sealed partial class Puae6Core
+ 	/// </summary>
+ 	[CoreConstructor(VSystemID.Raw.Amiga, Priority = CorePriority.Low)]
+ 	public Puae6Core(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
+-		: this(lp.Comm, ParametersFrom(lp))
++		: this(lp, Puae6Names.Core, "puae6.wbx", Puae6Guest.BuiltWithSha256For("Puae6GuestSha256"))
+ 	{
+ 	}
+ 
+-	private static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
++	protected Puae6Core(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp, string coreName, string guestFileName, string guestSha256)
++		: this(lp.Comm, ParametersFrom(lp, coreName, guestFileName, guestSha256))
++	{
++	}
++
++	private static Puae6Parameters ParametersFrom(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp, string coreName, string guestFileName, string guestSha256)
+ 	{
+ 		// Refuse unsupported hosts, the other ISA or a different build's guest
+ 		// before firmware, media ownership or any sandbox mapping.
+ 		string guestDirectory = PathUtils.DllDirectoryPath;
+-		Puae6Guest.VerifyForCurrentHost(guestDirectory, "puae6.wbx");
++		Puae6Guest.VerifyForCurrentHost(guestDirectory, guestFileName, guestSha256);
+ 		var settings = lp.SyncSettings?.Clone() ?? new Puae6SyncSettings();
+ 		if (lp.Discs.Count > 16)
+-			throw new NotSupportedException("PUAE6 loads at most 16 fixed CD slots");
++			throw new NotSupportedException($"{coreName} loads at most 16 fixed CD slots");
+ 		var sources = new List<Puae6DiscSource>();
+ 		var owners = new List<IOwnedDiscAsset?>();
+ 		var slots = new List<int>();
+@@ -69,14 +74,17 @@ public sealed partial class Puae6Core
+ 			|| rom.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) && Puae6Volumes.IsVolumeZip(rom.FileData, settings.WhdLoad == Puae6WhdLoadMode.Auto);
+ 		foreach (var rom in lp.Roms)
+ 			if (!IsHardFile(rom) && !IsVolume(rom) && !rom.Extension.Equals(".adf", StringComparison.OrdinalIgnoreCase) && !rom.Extension.Equals(".fdi", StringComparison.OrdinalIgnoreCase) && !rom.Extension.Equals(".ipf", StringComparison.OrdinalIgnoreCase))
+-				throw new NotSupportedException($"PUAE6 loads ADF (plain or extended), FDI and IPF disks, HDF hard files and LHA or ZIP volumes only ({rom.Extension} is not one); open the game with the UAE core");
++				throw new NotSupportedException($"{coreName} loads ADF (plain or extended), FDI and IPF disks, HDF hard files and LHA or ZIP volumes only ({rom.Extension} is not one); open the game with the UAE core");
+ 		var floppies = lp.Roms.Where(rom => !IsHardFile(rom) && !IsVolume(rom)).ToList();
+ 		var hardFiles = lp.Roms.Where(IsHardFile).ToList();
+ 		var volumes = lp.Roms.Where(IsVolume).ToList();
+ 		string NameOf(IRomAsset rom) => Path.GetFileName(rom.RomPath.Split('|')[^1]);
+ 		var result = Puae6WhdLoad.Resolve(new Puae6Parameters
+ 		{
++			CoreName = coreName,
+ 			GuestDirectory = guestDirectory,
++			GuestFileName = guestFileName,
++			PinnedGuestSha256 = guestSha256,
+ 			SyncSettings = settings,
+ 			CdInfo = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count == 0 ? cd.Descriptor() : null,
+ 			CdInfoV2 = cd is not null && !sessioned && lp.Discs[0].DiscData.Regions.Count != 0 ? cd.DescriptorV2() : null,
+@@ -150,3 +158,14 @@ public sealed partial class Puae6Core
+ 		_ => machine.ToString(),
+ 	};
+ }
++
++/// <summary>WinUAE 6.1 beta21 under a separate core and guest identity; it shares only the stable PUAE6 managed ABI.</summary>
++[PortedCore(name: Puae61Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.1.0 beta 21", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
++public sealed class Puae61Core : Puae6Core
++{
++	[CoreConstructor(VSystemID.Raw.Amiga, Priority = CorePriority.Low)]
++	public Puae61Core(CoreLoadParameters<Puae6Settings, Puae6SyncSettings> lp)
++		: base(lp, Puae61Names.Core, "puae61.wbx", Puae6Guest.BuiltWithSha256For("Puae61GuestSha256"))
++	{
++	}
++}
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Movie.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Movie.cs
+index 37dddff..705fa7e 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Movie.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Movie.cs
+@@ -4,7 +4,7 @@ using System.IO;
+ 
+ namespace Puae6;
+ 
+-public sealed unsafe partial class Puae6Core
++public unsafe partial class Puae6Core
+ {
+ 	// Only the initial movie LOAD may use this projected identity. Normal state loads remain strict.
+ 	private MovieStart? _movieStart;
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Persistence.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Persistence.cs
+index b1f91d1..ce1497b 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Persistence.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.Persistence.cs
+@@ -32,7 +32,7 @@ public sealed class MediaWriteStatus
+ 
+ // Floppy writes and their durable form (T28). Rollback is the snapshot: it carries the overlay and is what a state, rewind or a branch of a movie use. Persistence is ISaveRam: the
+ // sectors that differ from the base, taken by an explicit call (CloneSaveRam), never during the replay of a movie, and given back only before the first unit (StoreSaveRam).
+-public sealed unsafe partial class Puae6Core
++public unsafe partial class Puae6Core
+ {
+ 	/// <summary>The core was created with floppy writes: the disks are writable and the machine has an overlay (a sync setting).</summary>
+ 	public bool FloppyWrites => _syncSettings.FloppyWrites;
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs
+index 6daad5a..e3439a8 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs
+@@ -15,6 +15,9 @@ namespace Puae6;
+ /// <summary>What the core needs to be created. In EmuHawk the constructor that BizHawk calls fills this from CoreLoadParameters and the firmware database.</summary>
+ public sealed class Puae6Parameters
+ {
++	/// <summary>The product identity used by movie headers. Variants sharing this managed ABI must still name their own core.</summary>
++	public string CoreName { get; set; } = Puae6Names.Core;
++
+ 	/// <summary>Where the guest is, and its file name. The guest is the one this build of the wrapper was built with.</summary>
+ 	public string GuestDirectory { get; set; } = "";
+ 	public string GuestFileName { get; set; } = "puae6.wbx";
+@@ -200,7 +203,7 @@ public sealed class Puae6Parameters
+ /// state) and speaks only the ABI of adapters/waterbox/p6w.h.
+ /// </summary>
+ [PortedCore(name: Puae6Names.Core, author: "WinUAE team and the PUAE6 project", portedVersion: "WinUAE 6.0.3", portedUrl: "https://github.com/tonioni/WinUAE", isReleased: false)]
+-public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<Puae6Settings, Puae6SyncSettings>
++public unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISoundProvider, IStatable, IInputPollable, IRegionable, IDriveLight, ICycleTiming, ISaveRam, ISettable<Puae6Settings, Puae6SyncSettings>
+ {
+ 	// p6_caps keeps describing the historical 760x576 profile. Raster options can reach 1520x576; the optional RTG configuration instead delivers a fixed 1024x768 canvas.
+ 
+@@ -503,7 +506,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
+ 		_hardFileNames = parameters.HardFileNames;
+ 		_parameters = new Puae6Parameters
+ 		{
+-			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
++			CoreName = parameters.CoreName, GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
+ 			// EmuHawk must persist the user's Auto policies, not the content-specific values used by this live guest.
+ 			SyncSettings = requestedSyncSettings,
+ 			Firmware = (byte[])parameters.Firmware.Clone(), CartridgeFirmware = parameters.CartridgeFirmware?.ToArray(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
+@@ -843,6 +846,9 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
+ 	/// <summary>What a state or a movie of this core is valid for: guest build, heaps, settings, firmware and disks.</summary>
+ 	public StateIdentity Identity => _identity;
+ 
++	/// <summary>The exact core identity written into and required from movie headers.</summary>
++	public string MovieCoreName => _parameters.CoreName;
++
+ 	public void ResetCounters()
+ 	{
+ 		Frame = 0;
+@@ -1271,3 +1277,8 @@ public static class Puae6Names
+ {
+ 	public const string Core = "PUAE6";
+ }
++
++public static class Puae61Names
++{
++	public const string Core = "PUAE61";
++}
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs
+index 76f8ddb..d665193 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs
+@@ -62,6 +62,14 @@ public sealed class Puae6Guest : IDisposable
+ 	public static string BuiltWithSha256 { get; } = typeof(Puae6Guest).Assembly
+ 		.GetCustomAttributes<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "Puae6GuestSha256")?.Value ?? "";
+ 
++	/// <summary>Returns the guest pin compiled into the core assembly for a named product variant.</summary>
++	public static string BuiltWithSha256For(string metadataKey)
++	{
++		var value = typeof(Puae6Guest).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
++			.FirstOrDefault(a => a.Key == metadataKey)?.Value ?? "";
++		return value.Length != 0 ? value : throw new InvalidOperationException($"this build of the wrapper has no pinned guest hash ({metadataKey})");
++	}
++
+ 	/// <summary>The public loader's early gate, always using this assembly's compiled guest pin.</summary>
+ 	public static GuestIdentity.VerifiedGuest VerifyForCurrentHost(string directory, string fileName)
+ 	{
+@@ -70,6 +78,10 @@ public sealed class Puae6Guest : IDisposable
+ 		return GuestIdentity.Verify(Path.Combine(directory, fileName), BuiltWithSha256, isa);
+ 	}
+ 
++	/// <summary>The public loader's early gate for a product variant with its own compiled guest pin.</summary>
++	public static GuestIdentity.VerifiedGuest VerifyForCurrentHost(string directory, string fileName, string pinnedSha256)
++		=> GuestIdentity.Verify(Path.Combine(directory, fileName), pinnedSha256, GuestIdentity.CurrentHostIsa);
++
+ 	/// <summary>Opens the guest this wrapper was built with. A build that did not record one cannot open anything.</summary>
+ 	public static Puae6Guest Open(string directory, string fileName, WaterboxOptions heaps, P6CdHost? cd = null)
+ 		=> Open(directory, fileName, BuiltWithSha256.Length != 0 ? BuiltWithSha256
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Volumes.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Volumes.cs
+index da1da9f..8e0ac0f 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Volumes.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Volumes.cs
+@@ -81,7 +81,7 @@ public static class Puae6Volumes
+ 		}
+ 		var result = new Puae6Parameters
+ 		{
+-			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
++			CoreName = parameters.CoreName, GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
+ 			Firmware = parameters.Firmware, CartridgeFirmware = parameters.CartridgeFirmware, RomKey = parameters.RomKey,
+ 			CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3, ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
+ 			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
+diff --git a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/WhdLoad.cs b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/WhdLoad.cs
+index 7bb323f..ae042cd 100644
+--- a/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/WhdLoad.cs
++++ b/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/WhdLoad.cs
+@@ -43,7 +43,7 @@ public static class Puae6WhdLoad
+ 		var rom = Puae6RomKey.Resolve(firmware?.Invoke(settings.Machine) ?? p.Firmware, p.RomKey);
+ 		var result = new Puae6Parameters
+ 		{
+-			GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
++			CoreName = p.CoreName, GuestDirectory = p.GuestDirectory, GuestFileName = p.GuestFileName, PinnedGuestSha256 = p.PinnedGuestSha256,
+ 			Firmware = rom, CartridgeFirmware = p.CartridgeFirmware, CdInfo = p.CdInfo, CdInfoV2 = p.CdInfoV2, CdInfoV3 = p.CdInfoV3, CdOwner = p.CdOwner,
+ 			CdCatalog = p.CdCatalog?.ToArray(), CdCatalogV2 = p.CdCatalogV2?.ToArray(), CdCatalogV3 = p.CdCatalogV3?.ToArray(), ReadCdCatalog = p.ReadCdCatalog,
+ 			CdSlots = (int[])p.CdSlots.Clone(), CdNames = (string[])p.CdNames.Clone(),
+diff --git a/src/BizHawk.Emulation.Cores/CoreNames.cs b/src/BizHawk.Emulation.Cores/CoreNames.cs
+index e2a12e9..9f9f274 100644
+--- a/src/BizHawk.Emulation.Cores/CoreNames.cs
++++ b/src/BizHawk.Emulation.Cores/CoreNames.cs
+@@ -54,6 +54,7 @@ namespace BizHawk.Emulation.Cores
+ 		public const string PicoDrive = "PicoDrive";
+ 		public const string PPSSPP = "PPSSPP";
+ 		public const string PUAE6 = "PUAE6";
++		public const string PUAE61 = "PUAE61";
+ 		public const string QuickNes = "quickerNES";
+ 		public const string Sameboy = "SameBoy";
+ 		public const string Saturnus = "Saturnus";
+diff --git a/src/BizHawk.Tests.Client.Common/config/CorePickerStabilityTests.cs b/src/BizHawk.Tests.Client.Common/config/CorePickerStabilityTests.cs
+index 81d33b6..6622a82 100644
+--- a/src/BizHawk.Tests.Client.Common/config/CorePickerStabilityTests.cs
++++ b/src/BizHawk.Tests.Client.Common/config/CorePickerStabilityTests.cs
+@@ -2,6 +2,7 @@
+ using System.Linq;
+ 
+ using BizHawk.Client.Common;
++using BizHawk.Emulation.Common;
+ using BizHawk.Emulation.Cores;
+ 
+ namespace BizHawk.Tests.Client.Common.config
+@@ -58,5 +59,16 @@ namespace BizHawk.Tests.Client.Common.config
+ 				CollectionAssert.That.Contains(Config.CorePickerUIData.SelectMany(static item => item.AppliesTo), sysID, $"missing core picker submenu for {sysID} with {cores.Count} core choices");
+ 			}
+ 		}
++
++		[TestMethod]
++		public void AssertThreeIndependentAmigaChoices()
++		{
++			var registered = CoreInventory.Instance.AllCores[VSystemID.Raw.Amiga].Select(static core => core.Name).ToArray();
++			CollectionAssert.AreEquivalent(new[] { CoreNames.UAE, CoreNames.PUAE6, CoreNames.PUAE61 }, registered);
++
++			var picker = Config.CorePickerUIData.Single(static item => item.AppliesTo.Contains(VSystemID.Raw.Amiga));
++			CollectionAssert.AreEqual(new[] { CoreNames.UAE, CoreNames.PUAE6, CoreNames.PUAE61 }, picker.CoreNames);
++			Assert.AreEqual(CoreNames.UAE, DefaultCorePrefDict[VSystemID.Raw.Amiga]);
++		}
+ 	}
+ }
+diff --git a/waterbox/puae6/windows-smoke.py b/waterbox/puae6/windows-smoke.py
+index 1d442f4..3fb020e 100644
+--- a/waterbox/puae6/windows-smoke.py
++++ b/waterbox/puae6/windows-smoke.py
+@@ -240,11 +240,13 @@ def run(output):
+     with tempfile.TemporaryDirectory(prefix='windows-core-', dir=HERE / 'build') as temporary:
+         stage = Path(temporary)
+         shutil.copytree(output, stage, dirs_exist_ok=True)
+-        for name in ('puae6.wbx', 'waterboxhost.dll', 'p6_chd_host.dll'):
++        for name in ('puae6.wbx', 'puae61.wbx', 'waterboxhost.dll', 'p6_chd_host.dll'):
+             shutil.copyfile(ROOT / 'Assets/dll' / name, stage / 'dll' / name)
+         if (stage / 'dll/puae6.wbx.zst').exists() or sha(stage / 'dll/puae6.wbx') != GUEST_SHA:
+             raise ValueError('Ambiguous or wrong staged guest')
+-        native = {name: sha(stage / 'dll' / name) for name in ('puae6.wbx', 'waterboxhost.dll')}
++        if (stage / 'dll/puae61.wbx.zst').exists() or sha(stage / 'dll/puae61.wbx') != 'a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2':
++            raise ValueError('Ambiguous or wrong staged beta21 guest')
++        native = {name: sha(stage / 'dll' / name) for name in ('puae6.wbx', 'puae61.wbx', 'waterboxhost.dll')}
+         stable = {name: sha(stage / name) for name in ('EmuHawk.exe', 'dll/BizHawk.Emulation.Cores.dll')}
+         (stage / 'native.json').write_text(json.dumps(native))
+         rom_builder = load('p6_own_rom', source / 'tests/fixtures/microrom/build_rom.py')
+@@ -286,7 +288,8 @@ def run(output):
+                         settings_profiles=dict(count=16, schema_presets=6, a4040_fpu='M68040',
+                                                a4060_fpu='M68060', overrides_bold=True),
+                         rtg_width=1024, rtg_height=768, rtg_frames=1,
+-                        abi_slots=15, callbacks=1, reentries=1, sandboxes=7, advanced_frames=19,
++                        abi_slots=15, callbacks=1, reentries=1, sandboxes=8, advanced_frames=20,
++                        beta21_core='PUAE61', beta21_frames=1,
+                         baseline_frame=3, future_frame=6, restored_frames=3)
+         hashes = {'baseline_sha256', 'future_sha256', 'av_sha256'}
+         cpu_queries = records[0].get('cpu_queries', {}) if len(records) == 1 else {}
+diff --git a/waterbox/puae61/Guest.props b/waterbox/puae61/Guest.props
+new file mode 100644
+index 0000000..1c49e21
+--- /dev/null
++++ b/waterbox/puae61/Guest.props
+@@ -0,0 +1,5 @@
++<Project>
++  <PropertyGroup>
++    <Puae61GuestSha256 Condition="'$(Puae61GuestSha256)' == ''">a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2</Puae61GuestSha256>
++  </PropertyGroup>
++</Project>
+diff --git a/waterbox/puae61/README.md b/waterbox/puae61/README.md
+new file mode 100644
+index 0000000..ae18735
+--- /dev/null
++++ b/waterbox/puae61/README.md
+@@ -0,0 +1,18 @@
++# PUAE61 beta21 guest
++
++`PUAE61` is the side-by-side WinUAE 6.1.0 beta 21 option. It does not replace
++BizHawk's `UAE` core or LongHawk's existing `PUAE6` core.
++
++The Windows x64 guest is `puae61-x64.wbx`; its SHA-256 is
++`a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2`.
++The frontend installs it as `Assets/dll/puae61.wbx` and compiles that hash into
++`BizHawk.Emulation.Cores.dll` as `Puae61GuestSha256`. A missing, renamed or
++different guest is rejected before firmware or media are acquired.
++
++`source.tar.gz` contains the corresponding PUAE6 sources, the pristine official
++WinUAE beta21 snapshot and the complete ordered patch queue. Keep it with any
++distributed binary. No Kickstart ROM or game is included.
++
++States and movies remain build-specific. `PUAE6` and `PUAE61` deliberately use
++different core names, guest files and guest hashes; neither may load the other's
++state or silently substitute its guest.
+diff --git a/waterbox/puae61/prepare.py b/waterbox/puae61/prepare.py
+new file mode 100644
+index 0000000..9035f96
+--- /dev/null
++++ b/waterbox/puae61/prepare.py
+@@ -0,0 +1,50 @@
++#!/usr/bin/env python3
++"""Install the pinned PUAE61 beta21 Windows guest and corresponding sources."""
++
++import argparse
++import hashlib
++from pathlib import Path
++import shutil
++
++
++HERE = Path(__file__).resolve().parent
++ROOT = HERE.parents[1]
++GUEST = HERE / 'puae61-x64.wbx'
++SOURCES = HERE / 'source.tar.gz'
++GUEST_SHA = 'a244f88642163ab6163d92d3ba3ed004a5e02c5eb2f94b99f41f89484c80a2b2'
++SOURCES_SHA = 'dfaf5c5ec4fc81cc95ccc59f4ce5e88fb2c74e11d1784bdb1fa817e15aff0c0b'
++
++
++def digest(path):
++	return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def prepare():
++	for path, expected in ((GUEST, GUEST_SHA), (SOURCES, SOURCES_SHA)):
++		if path.is_symlink() or not path.is_file() or digest(path) != expected:
++			raise ValueError(f'{path.name} identity differs')
++	assets = ROOT / 'Assets'
++	dll = assets / 'dll'
++	notices = assets / 'PUAE61'
++	dll.mkdir(parents=True, exist_ok=True)
++	notices.mkdir(parents=True, exist_ok=True)
++	if (dll / 'puae61.wbx.zst').exists():
++		raise ValueError('Remove the conflicting puae61.wbx.zst explicitly before preparing')
++	shutil.copyfile(GUEST, dll / 'puae61.wbx')
++	shutil.copyfile(SOURCES, notices / 'source.tar.gz')
++	shutil.copyfile(HERE / 'README.md', notices / 'README.md')
++	print('Prepared pinned PUAE61 beta21 x64 guest and corresponding sources')
++
++
++def main():
++	parser = argparse.ArgumentParser(description=__doc__)
++	parser.add_argument('command', choices=('pin', 'prepare'))
++	args = parser.parse_args()
++	if args.command == 'pin':
++		print(GUEST_SHA)
++	else:
++		prepare()
++
++
++if __name__ == '__main__':
++	main()
+

@@ -28064,6 +28064,55 @@
       "stop": "No actualizar a master/beta22, alterar semantica, goldens o identidad, ni modificar ../uae o ../MacHawk; si la equivalencia exacta falla, conservar el primer archivo/hunk divergente y no cerrar."
     },
     {
+      "id": "T100",
+      "title": "Ofrecer WinUAE 6.1 beta21 como PUAE61 junto a UAE y PUAE6 en LongHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "depends": [
+        "T99"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "integration/bizhawk/patches/build_tree.py",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "integration/bizhawk/core/Puae6/Puae6Guest.cs",
+        "build/longhawk-puae61/src/BizHawk.Client.Common/config/Config.cs",
+        "build/longhawk-puae61/src/BizHawk.Client.EmuHawk/MainForm.VSystem.cs",
+        "build/longhawk-puae61/src/BizHawk.Emulation.Cores/CoreNames.cs",
+        "build/longhawk-puae61/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.cs",
+        "build/longhawk-puae61/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Core.EmuHawk.cs",
+        "build/longhawk-puae61/src/BizHawk.Emulation.Cores/Computers/Amiga/PUAE6/Puae6Guest.cs",
+        "build/longhawk-puae61/src/BizHawk.Emulation.Cores/BizHawk.Emulation.Cores.csproj"
+      ],
+      "touch": [
+        "integration/longhawk/**",
+        "tests/test_longhawk_puae61.py",
+        "tools/check.py",
+        "build/longhawk-puae61/**",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Crear una rama/worktree efimera de LongHawk main sin tocar el checkout MacHawk del usuario ni sustituir el PUAE6 existente.",
+        "Registrar PUAE61 como tercer core Amiga con constructor, menu y preferencia propios; fijar puae61.wbx al guest x64 beta21 normalizado y conservar UAE como predeterminado.",
+        "Probar que el inventario expone exactamente UAE, PUAE6 y PUAE61, que cada guest conserva nombre y SHA distintos y que el frontend administrado compila.",
+        "Cierre 2026-11-01: BUILD01/T100 aplica la receta sobre el commit LongHawk fijado, verifica los dos artefactos, las tres identidades y recompila EmuHawk con ambos pins; el smoke Windows queda incorporado al workflow para su ejecucion al publicar la rama."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "LongHawk ofrece UAE, PUAE6 y PUAE61 para Amiga y sigue abriendo por defecto con UAE.",
+        "PUAE6 conserva su guest 6.0 y PUAE61 carga exclusivamente puae61.wbx con el SHA-256 del beta21; no comparten nombre de core, estado ni identidad de pelicula.",
+        "La integracion es reproducible desde un parche/receta bajo integration/longhawk y pasa la compilacion y regresiones dirigidas sin modificar ../MacHawk."
+      ],
+      "stop": "No reemplazar PUAE6, reutilizar puae6.wbx para beta21, prometer compatibilidad cruzada de estados/peliculas, tocar ../MacHawk ni publicar la rama o una release."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

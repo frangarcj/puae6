@@ -29,6 +29,9 @@ SUITES = {
 # (M3U playlists, a VFS that lies and option values, through the adapter's own headers built with the sanitizers) and `normalize_config` (the option
 # schema's normalization with random keys, values and types).
 TASK_SUITES = {
+    ('BUILD01', 'T100'): {
+        'longhawk_puae61': 'tests.test_longhawk_puae61',
+    },
     ('SAFE01', 'T26'): {
         'canary_self_test': 'tests.canaries.test_canaries',
         'sanitized_lifecycle': 'tests.host.test_bridge_lifecycle',
