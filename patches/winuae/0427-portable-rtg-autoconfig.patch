@@ -13,7 +13,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  #ifdef NCR
  #include "ncr_scsi.h"
  #endif
-@@ -2224,19 +2228,25 @@
+@@ -2229,19 +2233,25 @@
  	return true;
  }
  
@@ -40,7 +40,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  static addrbank *expamem_map_gfxcard_z2 (struct autoconfig_info *aci)
  {
  	int devnum = aci->devnum;
-@@ -2244,6 +2254,7 @@
+@@ -2249,6 +2259,7 @@
  	map_banks_z2(gfxmem_banks[devnum], gfxmem_banks[devnum]->start >> 16, gfxmem_banks[devnum]->allocated_size >> 16);
  	return gfxmem_banks[devnum];
  }
@@ -48,7 +48,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  
  static bool expamem_init_gfxcard (struct autoconfig_info *aci, bool z3)
  {
-@@ -2251,5 +2262,11 @@
+@@ -2256,5 +2267,11 @@
  	struct uae_prefs *p = aci->prefs;
  	int size = p->rtgboards[devnum].rtgmem_size;
 +#ifdef P6_PORTABLE_RTG
@@ -60,7 +60,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  	int code = (size == 0x100000 ? Z2_MEM_1MB
  		: size == 0x200000 ? Z2_MEM_2MB
  		: size == 0x400000 ? Z2_MEM_4MB
-@@ -2300,11 +2317,29 @@
+@@ -2305,11 +2322,29 @@
  {
  	return expamem_init_gfxcard (aci, true);
  }
@@ -90,7 +90,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  
  
  #ifdef SAVESTATE
-@@ -2464,6 +2499,24 @@
+@@ -2469,6 +2504,24 @@
  			mapped_malloc_dynamic (&rbc->rtgmem_size, &changed_prefs.rtgboards[0].rtgmem_size, gfxmem_banks[0], 1, NULL);
  		memory_hardreset (1);
  	}
@@ -115,7 +115,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  #endif
  
  #ifdef SAVESTATE
-@@ -3923,6 +3976,9 @@
+@@ -3928,6 +3981,9 @@
  		}
  	}
  #endif
@@ -125,7 +125,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  #ifdef GFXBOARD
  	for (int i = 0; i < MAX_RTG_BOARDS; i++) {
  		struct rtgboardconfig *rbc = &p->rtgboards[i];
-@@ -4026,6 +4082,9 @@
+@@ -4031,6 +4087,9 @@
  			gfxmem_banks[i]->baseaddr = NULL;
  		}
  #endif
@@ -135,7 +135,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  
  #ifdef CATWEASEL
  		catweasel_mask = catweasel_start = 0;
-@@ -4074,6 +4133,9 @@
+@@ -4079,6 +4138,9 @@
  		}
  	}
  #endif
@@ -145,7 +145,7 @@ diff --git a/expansion.cpp b/expansion.cpp
  
  #if defined(FILESYS) || defined(P6_FILESYS)
  	mapped_free (&filesys_bank);
-@@ -4166,9 +4228,12 @@
+@@ -4171,9 +4233,12 @@
  	}
  	clear_bank (&z3chipmem_bank);
 -#ifndef P6_PORTABLE
