@@ -340,8 +340,8 @@ class SchedulerChunkTests(ProbeCase):
             ("the body one byte short", self.shorter(table), 9, "chunk scheduler: the body ends before its last field"),
         ]
         if beta:
-            attempts += [("the private blitter id", forge({"ev2.handler[1]": 1}), 9, "beta 21 cannot name the private non-CE blitter handler"),
-                         ("an active slot beyond a smaller allocation", forge({"ev2.max": 8, "ev2.next": 2}), 9, "a secondary event is active outside the allocated range")]
+            attempts += [("an active slot beyond a smaller allocation", forge({"ev2.max": 8, "ev2.next": 2}), 9,
+                          "a secondary event is active outside the allocated range")]
         else:
             attempts += [("a next slot of 0", forge({"ev2.next": 0}), 9, rng_range),
                          ("the blitter's id in another slot", forge({"ev2.handler[1]": 1}), 9, "slot 0 holds the blitter's event and nothing else does"),

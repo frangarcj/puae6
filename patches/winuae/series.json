@@ -2863,6 +2863,29 @@
           "after_sha256": "276c86c538b5e809c8b3842382b9a764c5f135e309e4884045aaad2a339a7d96"
         }
       ]
+    },
+    {
+      "id": "0444-beta21-blitter-event-state-access",
+      "file": "patches/winuae/0444-beta21-blitter-event-state-access.patch",
+      "sha256": "65517705714642f6cc23912a73b298c05d480bdf69b88669cd725be649308535",
+      "title": "Expose the beta21 normal blitter event identity to native state",
+      "reason": "WinUAE 6.1 beta21 makes the non-cycle-exact blitter completion handler file-local and places it in the dynamic secondary-event table. Expose only its function identity so the native scheduler codec can preserve an in-flight normal blit without running, moving or rescheduling it.",
+      "category": "state access",
+      "order": 113,
+      "symbols": [
+        "p6_blitter_event2_handler",
+        "blitter_handler"
+      ],
+      "test": "tests/state/test_state_scheduler.py; tests/state/test_det02_clock.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "blitter.cpp",
+          "before_sha256": "d98c8f8c8335ad432436a8f7aa37c06ec992b3b092b88a5285fc980a79d1a4d4",
+          "after_sha256": "769669718384d87a46c343d3be041fbb5d930717bee735138ebdddeb55824f65"
+        }
+      ]
     }
   ]
 }

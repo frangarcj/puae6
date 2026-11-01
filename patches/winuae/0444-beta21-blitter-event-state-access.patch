@@ -1,0 +1,17 @@
+diff --git a/blitter.cpp b/blitter.cpp
+index d98c8f8c8..000000000 100644
+--- a/blitter.cpp
++++ b/blitter.cpp
+@@ -1029,6 +1029,12 @@ static void blitter_handler(uae_u32 data)
+ 		return;
+ 	}
+ 	blitter_doit();
+ }
++
++// Native state identity only: exposing the pointer neither runs nor reschedules the blitter.
++evfunc2 p6_blitter_event2_handler(void)
++{
++	return blitter_handler;
++}
+ 
+ #ifdef CPUEMU_13

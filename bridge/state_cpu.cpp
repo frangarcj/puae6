@@ -39,6 +39,9 @@ extern int p6_custom_extra_cycle_get(void);                                     
 extern void p6_custom_extra_cycle_set(int v);
 extern evfunc2 p6_custom_event2_handler(int which);                                        // 0 intreq, 1 intena, 2 fakehsync
 extern evfunc2 p6_disk_motordelay_handler(void);                                           // disk.cpp 0080
+#if UAEMAJOR == 6 && UAEMINOR == 1
+extern evfunc2 p6_blitter_event2_handler(void);                                            // blitter.cpp 0444
+#endif
 extern int p6_custom_ce020_extra_get(void);                                                // custom.cpp 0108
 extern void p6_custom_ce020_extra_set(int v);
 extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp 0108
@@ -74,8 +77,11 @@ uint16_t current_sr()
 evfunc2 scheduler_handler(uint8_t id)
 {
     switch (id) {
-#if UAEMAJOR == 6 && UAEMINOR == 0
-    case 1: return blitter_handler;
+    case 1:
+#if UAEMAJOR == 6 && UAEMINOR == 1
+        return p6_blitter_event2_handler();
+#else
+        return blitter_handler;
 #endif
     case 2: return event_doint_delay_do_ext;
     case 3: return p6_custom_event2_handler(0);
@@ -96,7 +102,7 @@ evfunc2 scheduler_handler(uint8_t id)
 }
 
 // Stable ids of the secondary-event handlers: the vocabulary of the state, not of the engine. Reachable in the A500 profile (read from the callers
-// of event2_newevent* in the compiled units): 1 blitter_handler (slot 0 only, assigned by init_eventtab; never active with a cycle-exact blitter),
+// of event2_newevent* in the compiled units): 1 blitter_handler (slot 0 in 6.0; a dynamically allocated slot in beta 21; never active with a cycle-exact blitter),
 // 2 event_doint_delay_do_ext, 3 event_doint_delay_do_intreq, 4 event_doint_delay_do_intena (m68k_interrupt_delay is true), 5 event_audxdat_func,
 // 6 event_setdsr, 7 event_CIA_synced_interrupt, 8 event_CIA_tod_inc_event, 9 event_DISK_handler, 10 motordelay_func, 11 fakehsync_handler. 12 is
 // setup_fmodes_delayed, reachable only with AGA (setup_fmodes queues it two colour clocks after a write that changes FMODE; T24c).
@@ -104,7 +110,9 @@ evfunc2 scheduler_handler(uint8_t id)
 // cputester_event (keyboard_mode 0). 0 is "no handler that a state can name": a save refuses an active event that has one.
 uint8_t scheduler_handler_id(evfunc2 f)
 {
-#if UAEMAJOR == 6 && UAEMINOR == 0
+#if UAEMAJOR == 6 && UAEMINOR == 1
+    if (f == p6_blitter_event2_handler()) return 1;
+#else
     if (f == blitter_handler) return 1;
 #endif
     if (f == event_doint_delay_do_ext) return 2;
@@ -689,7 +697,6 @@ void visit_scheduler(Archive &a)
                 a.require(sec_id[i] != 0 && sec_time[i] >= now, "a secondary event has no handler or is in the past");
 #if UAEMAJOR == 6 && UAEMINOR == 1
                 a.require(i < round, "a secondary event is active outside the allocated range");
-                a.require(sec_id[i] != kEv2Blitter, "beta 21 cannot name the private non-CE blitter handler");
 #else
                 a.require((i == ev2_blitter) == (sec_id[i] == kEv2Blitter), "slot 0 holds the blitter's event and nothing else does");
 #endif
