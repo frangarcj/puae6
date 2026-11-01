@@ -2,7 +2,7 @@
 
 What is decided here (docs/adr/0009-state-format.md, validation = hash + identity + structure):
   * the A1200 state has the same eleven chunks, in the same order and with the same versions as the A500's. Two bodies follow the machine, as P6RT's does on the A600: P6CP carries the block
-    of the 68020 after the body of the 68000 (the 68000 body is untouched; 662 bytes: the control registers, the prefetch queue with its pipeline, the 64 lines of the instruction cache and
+    of the 68020 after the body of the 68000 (the 68000 body is untouched; 662 bytes in 6.0 and 663 in 6.1: the control registers, the prefetch queue with its pipeline, the 64 lines of the instruction cache and
     what the cycle-exact core keeps between two instructions) and P6CH carries CAGA, the 256 colours of 24 bits, right after CHIP. The A500 and A600 states have neither.
   * P6VD's PIXL travels as three bytes per pixel on an AGA machine (the 12-bit code of the others cannot name a colour of 24 bits) and its bound grows with it. The bound of each machine is the
     sum of what its chunks can hold, and the difference between the machines is accounted for here to the byte.
@@ -26,7 +26,20 @@ from tests.state.harness import FieldTable, ProbeCase, SUBSYSTEMS, parse_chunks,
 ROOT = Path(__file__).resolve().parents[2]
 CPU, RAM, RTC, CHIPSET, VIDEO = 0, 2, 3, 4, 5
 INCOMPATIBLE, CORRUPT = 10, 9
-CPU_020_BYTES = 662                 # the block of the 68020 in P6CP, see bridge/state_cpu.cpp
+
+
+def winuae_version():
+    for path in (ROOT / "upstream/winuae/include/options.h", ROOT / "upstream/winuae/include/winuae_version.h"):
+        if path.is_file():
+            values = {name: int(value) for name, value in re.findall(r"#define UAE(MAJOR|MINOR) (\d+)", path.read_text())}
+            if values.keys() >= {"MAJOR", "MINOR"}:
+                return values["MAJOR"], values["MINOR"]
+    raise AssertionError("the WinUAE version header is missing")
+
+
+WINUAE_VERSION = winuae_version()
+assert WINUAE_VERSION in ((6, 0), (6, 1))
+CPU_020_BYTES = 662 + (WINUAE_VERSION == (6, 1))   # 6.1 appends lastipl; see bridge/state_cpu.cpp
 CAGA_BYTES = 1024
 RING_BYTES = 5 * 4 + 4096 * 22         # DRNG: the five cursors of the Denise ring and its 4096 slots of 22 bytes
 VIDEO_MAX = {name: int(value) for name, value in re.findall(r"P6_VIDEO_MAX_(WIDTH|HEIGHT) = (\d+)", (ROOT / "ports/portable/video_present.h").read_text())}
@@ -251,6 +264,18 @@ class A1200RewoundCpuStateTests(ProbeCase):
                 self.assertEqual([(0, 0, "")], run.loads)
                 self.assertEqual(source.read_bytes(), again.read_bytes())
 
+    @unittest.skipUnless(WINUAE_VERSION == (6, 1), "lastipl is not live state in WinUAE 6.0")
+    def test_beta21_lastipl_roundtrips_in_the_cpu_digest_and_the_state_bytes(self):
+        source, again = self.dir / "lastipl.state", self.dir / "lastipl.again"
+        original = self.probe("vsync", "--units", "3", "--digest-at", "3", "--save-fields-at", "3", str(source))
+        cpu = FieldTable(source.read_bytes(), CPU, original.fields)
+        self.assertIn("cpu.lastipl", cpu.where)
+        self.assertIn(cpu.get("cpu.lastipl"), range(1, 8), "the reproducer must leave the beta-21 IPL latch live")
+        loaded = self.probe("vsync", "--units", "0", "--load-at", "0", str(source), "--save-at", "0", str(again))
+        self.assertEqual([(0, 0, "")], loaded.loads)
+        self.assertEqual(original.digests[(3, "cpu")], loaded.after[0]["cpu"])
+        self.assertEqual(source.read_bytes(), again.read_bytes())
+
 
 class A1200ValidationTests(ProbeCase):
     """Every field of the 68020 block, of CAGA and of FMODE is refused outside its range before anything is applied."""
@@ -278,6 +303,8 @@ class A1200ValidationTests(ProbeCase):
             "the extra cycles beyond 16": ("cpu.ce020extracycles", 17), "the remainder of a colour clock beyond a colour clock": ("cpu.ce020_extra", 512),
             "the end of the last prefetch in the past of time": ("cpu.ce020prefetchendcycle", -1), "the start of the last cycle in the past of time": ("cpu.ce020startcycle", -1),
         }
+        if "cpu.lastipl" in self.cpu.where:
+            changes["an interrupt latch above level 7"] = ("cpu.lastipl", 8)
         self.refusals(self.attempts(self.cpu, changes), rom="cache020", unit=6, units=9)
 
     def test_a_status_register_bit_a_68020_has_is_accepted_and_one_it_has_not_is_refused(self):
