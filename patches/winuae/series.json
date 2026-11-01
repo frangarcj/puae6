@@ -1596,9 +1596,9 @@
       "file": "patches/winuae/0395-frestore040-fpsp-cu06-nan.patch",
       "sha256": "5844e97510c7f7732b17186bb4cd312bab3d3f386a73744cb47911102a428000",
       "title": "Decode FPSP reconstructed CU06 NaN SINGLE payloads",
-      "reason": "T55c11: FPSP op2_xi/op2_com remaps SINGLE max exponent407f to43ff while retaining STAG3 and payload. Convert only this bounded shape to extended NaN before existing arithmetic; preserve sign, payload and quiet/signaling bit. Native DOUBLE06 and denormals remain pending.",
+      "reason": "T95ed decodes only FPSP op2_xi/op2_com SINGLE NaN shapes with STAG3, preserving sign, payload and quiet/signaling semantics; native DOUBLE06 and denormals remain pending.",
       "category": "FPU state correction",
-      "order": 64,
+      "order": 63,
       "symbols": [
         "fpuop_restore"
       ],
