@@ -284,6 +284,13 @@ bool p6_fmv_aux_validate(const p6_fmv_aux_state *s)
   return false;
  for (int32_t v : {s->outwidth, s->inwidth, s->inwidth2}) if (v < 0 || v > P6_VIDEO_MAX_WIDTH) return false;
  for (int32_t v : {s->outheight, s->inheight, s->inheight2}) if (v < 0 || v > P6_VIDEO_MAX_HEIGHT) return false;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+ // WinUAE 6.1 removed these duplicate vidbuffer fields. Keep their state slots
+ // deterministic and reject a candidate that does not contain the derived value.
+ if (s->inwidth2 != s->inwidth || s->inheight2 != s->inheight) return false;
+#elif !(UAEMAJOR == 6 && UAEMINOR == 0)
+#error Audit the FMV auxiliary geometry before selecting another WinUAE version
+#endif
  for (int32_t v : {s->extrawidth, s->extraheight, s->xoffset, s->yoffset, s->inxoffset, s->inyoffset})
   if (v < -0xffff || v > 0xffff) return false;
  return s->monitor_id == 0 && s->last_drawn_line >= -1;
@@ -297,7 +304,12 @@ bool p6_fmv_aux_get(p6_fmv_aux_state *out)
  s.selected = vi.inbuffer == &vi.tempbuffer; s.initialized = aux.initialized; s.locked = aux.locked;
  s.hardwired = aux.hardwiredpositioning; s.width_allocated = aux.width_allocated; s.height_allocated = aux.height_allocated;
  s.outwidth = aux.outwidth; s.outheight = aux.outheight; s.inwidth = aux.inwidth; s.inheight = aux.inheight;
- s.inwidth2 = aux.inwidth2; s.inheight2 = aux.inheight2; s.extrawidth = aux.extrawidth; s.extraheight = aux.extraheight;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+ s.inwidth2 = s.inwidth; s.inheight2 = s.inheight;
+#else
+ s.inwidth2 = aux.inwidth2; s.inheight2 = aux.inheight2;
+#endif
+ s.extrawidth = aux.extrawidth; s.extraheight = aux.extraheight;
  s.xoffset = aux.xoffset; s.yoffset = aux.yoffset; s.inxoffset = aux.inxoffset; s.inyoffset = aux.inyoffset;
  s.monitor_id = aux.monitor_id; s.last_drawn_line = aux.last_drawn_line;
  s.pixel_width = uint32_t(output.width_allocated); s.pixel_height = uint32_t(output.height_allocated);
@@ -322,7 +334,10 @@ bool p6_fmv_aux_apply(const p6_fmv_aux_state *s)
  aux.initialized = s->initialized; aux.locked = s->locked; aux.hardwiredpositioning = s->hardwired;
  aux.width_allocated = s->width_allocated; aux.height_allocated = s->height_allocated;
  aux.outwidth = s->outwidth; aux.outheight = s->outheight; aux.inwidth = s->inwidth; aux.inheight = s->inheight;
- aux.inwidth2 = s->inwidth2; aux.inheight2 = s->inheight2; aux.extrawidth = s->extrawidth; aux.extraheight = s->extraheight;
+#if UAEMAJOR == 6 && UAEMINOR == 0
+ aux.inwidth2 = s->inwidth2; aux.inheight2 = s->inheight2;
+#endif
+ aux.extrawidth = s->extrawidth; aux.extraheight = s->extraheight;
  aux.xoffset = s->xoffset; aux.yoffset = s->yoffset; aux.inxoffset = s->inxoffset; aux.inyoffset = s->inyoffset;
  aux.monitor_id = s->monitor_id; aux.last_drawn_line = s->last_drawn_line;
  memset(aux_pixels, 0, sizeof aux_pixels);
@@ -494,7 +509,14 @@ bool target_graphics_buffer_update(int monid, bool force)
 void updatedisplayarea(int monid)
 {
  (void)monid;
+#if UAEMAJOR == 6 && UAEMINOR == 1
+ // WinUAE 6.1 derives the old `blank` argument from gfx_filter_blanking.
+ set_custom_limits(-1, -1, -1, -1);
+#elif UAEMAJOR == 6 && UAEMINOR == 0
  set_custom_limits(-1, -1, -1, -1, false);
+#else
+#error Audit set_custom_limits before selecting another WinUAE version
+#endif
 }
 
 /* Identity mapping: the pointer coordinate is the raster coordinate. The float
