@@ -1,7 +1,7 @@
 diff --git a/audio.cpp b/audio.cpp
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -3215,10 +3215,14 @@
+@@ -3224,10 +3224,14 @@
      if (!s.active) return !s.paused && !s.offset && !s.remaining && !s.event_cycles && !s.userdata;
      return s.offset <= frames && s.remaining <= frames - s.offset && s.event_cycles <= s.period;
  }
