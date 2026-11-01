@@ -1530,6 +1530,21 @@ TASK_SUITES[('LR01', 'T98')] = {
 TASK_SUITES[('WB03', 'T98')] = {
     'normal_late_cpu_work_cadence_and_restore':
         'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4000_normal_multiplier_changes_cpu_work_and_restores_without_changing_cadence'}
+_t99_cpu_queries = {
+    'a4030_architectural_pmmu_and_restore': 'tests.state.test_a4030',
+    'a4040_cpu_queries_and_internal_fpu':
+        'tests.state.test_a4040.A4040Tests.test_real_cpu_controls_line_f_and_public_restore',
+    'a4040_absent_internal_fpu_frame_and_restore':
+        'tests.state.test_a4040.A4040Tests.test_absent_internal_fpu_uses_the_040_line_f_frame_and_restores',
+}
+TASK_SUITES[('DET02', 'T99')] = dict(_t99_cpu_queries)
+TASK_SUITES[('STATE01', 'T99')] = dict(_t99_cpu_queries)
+TASK_SUITES[('WB03', 'T99')] = {
+    'a4030_pmmu_query_and_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_cpu.WrapperCpuTests.test_a4030_normal_restores_in_same_and_new_sandbox_with_auto_or_no_fast',
+    'a4040_cpu_fpu_query_and_sandbox_restore':
+        'tests.waterbox-state.test_wrapper_a4040.WrapperA4040Tests.test_cpu_fpu_z3_oracles_and_same_new_sandbox_and_process_restore',
+}
 TASK_SUITES[('BUILD01', 'T85r')] = {
     'rtg_sync_setting_compiles_against_machawk': 'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
     'rtg_managed_abi_layout': 'tests.ffi.test_ffi.ConfigLayoutTests'}

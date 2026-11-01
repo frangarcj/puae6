@@ -6762,6 +6762,41 @@
           "after_sha256": "6aae10c5209a4167bd6160a45d0df67a0aa534e176725c72d41f12d1c1d86b2e"
         }
       ]
+    },
+    {
+      "id": "0438-portable-030-architectural-pmmu",
+      "file": "patches/winuae/0438-portable-030-architectural-pmmu.patch",
+      "sha256": "1853eecfef5be6b8655e36526a53146252ca90ad05bc928a06d286ea08569f23",
+      "title": "Keep 68030 PMMU queries architectural without enabling translation",
+      "reason": "T99 reproduces a Line-F software failure when SysInfo and CPU query a real 68030. The 68030 integrates its PMMU even when address translation is disabled, so retain WinUAE's architectural PMOVE, PTEST, PLOAD and PFLUSH register model while the portable profile continues to compile out page-table translation. 68020 profiles still reject the same coprocessor opcodes. On 68040/060, retain generated FPU handlers even when the configured unit is absent so they build the processor-specific Line-F frame used to identify an LC/EC part instead of the generic illegal-opcode frame. End the generated instruction immediately after that exception: a second portable prefetch otherwise replaces the handler queue and leaves SysInfo with a mangled LC040 identity.",
+      "category": "portable 68030 control registers",
+      "order": 253,
+      "symbols": [
+        "mmu_op30",
+        "fp_unimp_instruction_exception_pending",
+        "p6_mmu030_fake_get",
+        "p6_mmu030_fake_set"
+      ],
+      "test": "tests/state/test_a4030.py",
+      "upstream_candidate": false,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "fpp.cpp",
+          "before_sha256": "cc16eeb4e53dd8395aafb51a8c56a4a9c1eb51b2865af1a35fcd59ba382ae3d4",
+          "after_sha256": "64b065941678e823e113802aef8bc5ac52d553001cd9c52996b1bddf97c32f05"
+        },
+        {
+          "path": "gencpu.cpp",
+          "before_sha256": "178ad47fe97ad89bff56d41ceef7e24356b320262ee09787407994b90cf3cc4b",
+          "after_sha256": "9ed66c181241d481443b820a3d0a8309a9c870a2939901103ce243aea338ac8e"
+        },
+        {
+          "path": "newcpu.cpp",
+          "before_sha256": "6aae10c5209a4167bd6160a45d0df67a0aa534e176725c72d41f12d1c1d86b2e",
+          "after_sha256": "8659e5245804ee526dc231d939999c2ffed47c01a167276a6ac874093b6d7749"
+        }
+      ]
     }
   ]
 }

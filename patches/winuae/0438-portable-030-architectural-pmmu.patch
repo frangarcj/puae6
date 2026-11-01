@@ -1,0 +1,138 @@
+diff --git a/fpp.cpp b/fpp.cpp
+--- a/fpp.cpp
++++ b/fpp.cpp
+@@ -430,6 +430,9 @@ static void fp_unimp_instruction_exception_pending(void)
+ 		}
+ 		regs.fpu_exp_pre = true;
+ 		Exception(11);
++#ifdef P6_PORTABLE
++		regs.fp_exception = true;
++#endif
+ 		regs.fp_unimp_ins = false;
+ 		regs.fp_unimp_pend = 0;
+ 	}
+diff --git a/gencpu.cpp b/gencpu.cpp
+index c39bf46..b5cb1d7 100644
+--- a/gencpu.cpp
++++ b/gencpu.cpp
+@@ -5470,8 +5470,7 @@ static void gen_opcode (unsigned int opcode)
+ 
+ 	// do not unnecessarily create useless mmuop030
+ 	// functions when CPU is not 68030
+-	const bool portable_mmu = portable_no_mmu && curi->mnemo == i_MMUOP030;
+-	if (portable_mmu || (curi->mnemo == i_MMUOP030 && cpu_level != 3 && !cpu_generic)) {
++	if (curi->mnemo == i_MMUOP030 && cpu_level != 3 && !cpu_generic) {
+ 		illg();
+ 		if (portable_no_mmu) clear_m68k_offset(); // The exception keeps the opcode PC.
+ 		did_prefetch = -1;
+diff --git a/newcpu.cpp b/newcpu.cpp
+index 0cba116..a6ef99a 100644
+--- a/newcpu.cpp
++++ b/newcpu.cpp
+@@ -150,6 +150,28 @@ static uae_u64 fake_srp_030, fake_crp_030;
+ static uae_u32 fake_tt0_030, fake_tt1_030, fake_tc_030;
+ static uae_u16 fake_mmusr_030;
+ 
++#ifdef P6_PORTABLE
++void p6_mmu030_fake_get(uae_u64 *srp, uae_u64 *crp, uae_u32 *tt0, uae_u32 *tt1, uae_u32 *tc, uae_u16 *mmusr)
++{
++	*srp = fake_srp_030;
++	*crp = fake_crp_030;
++	*tt0 = fake_tt0_030;
++	*tt1 = fake_tt1_030;
++	*tc = fake_tc_030;
++	*mmusr = fake_mmusr_030;
++}
++
++void p6_mmu030_fake_set(uae_u64 srp, uae_u64 crp, uae_u32 tt0, uae_u32 tt1, uae_u32 tc, uae_u16 mmusr)
++{
++	fake_srp_030 = srp;
++	fake_crp_030 = crp;
++	fake_tt0_030 = tt0;
++	fake_tt1_030 = tt1;
++	fake_tc_030 = tc;
++	fake_mmusr_030 = mmusr;
++}
++#endif
++
+ static struct cache020 caches020[CACHELINES020];
+ static struct cache030 icaches030[CACHELINES030];
+ static struct cache030 dcaches030[CACHELINES030];
+@@ -2153,13 +2175,15 @@ static void build_cpufunctbl (void)
+ 
+ #ifdef P6_PORTABLE
+ 	if (currprefs.cpu_model >= 68020) {
+-		// No PMMU is present on 020/030 and no integrated MMU is enabled on 040/060.
++		// No external PMMU is present on 020 and no address translation is enabled on 030/040/060.
+-		// Preserve the generated integer F-line instructions on 040/060 below.
+-		// FPU coprocessor id 1 ($F200-$F3FF: cpGEN/conditions/SAVE/RESTORE) is
+-		// available only when the configuration explicitly supplies an FPU.
++		// Preserve generated integer F-line instructions on 040/060 below.
++		// Their generated FPU handlers also construct the processor-specific absent-unit frame.
++		// On 020/030 coprocessor id 1 remains available only with an explicit FPU.
+ 		for (opcode = 0xf000; opcode <= 0xffff; opcode++) {
+-			if (currprefs.fpu_model && (opcode & 0xfe00) == 0xf200)
++			if ((currprefs.fpu_model || currprefs.cpu_model >= 68040) && (opcode & 0xfe00) == 0xf200)
+ 				continue;
++			if (currprefs.cpu_model == 68030 && table68k[opcode].mnemo == i_MMUOP030)
++				continue;
+ 			// Keep the generated handler, including CPU and privilege checks.
+ 			if (currprefs.cpu_model >= 68040) {
+ 				switch (table68k[opcode].mnemo) {
+@@ -4133,8 +4157,7 @@ void REGPARAM2 op_illg_noret(uae_u32 opcode)
+ 	op_illg(opcode);
+ }
+ 
+-#if defined(CPUEMU_0) && !defined(P6_PORTABLE)
+-// The portable no-MMU profile rejects PMMU opcodes in the generated handler, without fake MMU state.
++#if defined(CPUEMU_0)
+ static bool mmu_op30_invea(uae_u32 opcode)
+ {
+ 	int eamode = (opcode >> 3) & 7;
+@@ -4333,6 +4356,12 @@ static bool mmu_op30fake_pflush (uaecptr pc, uae_u32 opcode, uae_u16 next, uaecp
+ 	return false;
+ }
+ 
++#ifdef P6_PORTABLE
++#define P6_MMU030(real, fake) (fake)
++#else
++#define P6_MMU030(real, fake) (currprefs.mmu_model ? (real) : (fake))
++#endif
++
+ // 68030 (68851) MMU instructions only
+ bool mmu_op30(uaecptr pc, uae_u32 opcode, uae_u16 extra, uaecptr extraa)
+ {
+@@ -4344,22 +4373,13 @@ bool mmu_op30(uaecptr pc, uae_u32 opcode, uae_u16 extra, uaecptr extraa)
+ 	case 0:
+ 	case 2:
+ 	case 3:
+-		if (currprefs.mmu_model)
+-			fline = mmu_op30_pmove(pc, opcode, extra, extraa); 
+-		else
+-			fline = mmu_op30fake_pmove(pc, opcode, extra, extraa);
++		fline = P6_MMU030(mmu_op30_pmove(pc, opcode, extra, extraa), mmu_op30fake_pmove(pc, opcode, extra, extraa));
+ 	break;
+ 	case 1:
+-		if (currprefs.mmu_model)
+-			fline = mmu_op30_pflush(pc, opcode, extra, extraa); 
+-		else
+-			fline = mmu_op30fake_pflush(pc, opcode, extra, extraa);
++		fline = P6_MMU030(mmu_op30_pflush(pc, opcode, extra, extraa), mmu_op30fake_pflush(pc, opcode, extra, extraa));
+ 	break;
+ 	case 4:
+-		if (currprefs.mmu_model)
+-			fline = mmu_op30_ptest(pc, opcode, extra, extraa);
+-		else
+-			fline = mmu_op30fake_ptest(pc, opcode, extra, extraa);
++		fline = P6_MMU030(mmu_op30_ptest(pc, opcode, extra, extraa), mmu_op30fake_ptest(pc, opcode, extra, extraa));
+ 	break;
+ 	}
+ 	if (fline > 0) {
+@@ -4368,6 +4388,7 @@ bool mmu_op30(uaecptr pc, uae_u32 opcode, uae_u16 extra, uaecptr extraa)
+ 	}
+ 	return fline != 0;	
+ }
++#undef P6_MMU030
+ 
+ #endif
+ #if defined(CPUEMU_0)

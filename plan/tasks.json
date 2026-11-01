@@ -28008,6 +28008,105 @@
       "stop": "No generar una preview desde un guest antiguo ni publicar un artefacto cuyo gate Windows falle."
     },
     {
+      "id": "T99",
+      "title": "Corregir consultas de CPU en 68030 y 68040 sin FPU",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T98"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/04-validation.md",
+        "docs/05-maintenance.md",
+        "docs/07-machawk.md",
+        "patches/winuae/0436-portable-040-transparent-translation-registers.patch",
+        "patches/winuae/0437-portable-normal-late-cpu-clock.patch",
+        "bridge/config.cpp",
+        "tests/state/test_a4030.py",
+        "tests/state/test_a4040.py",
+        "tests/host/test_cpu_fpu.py"
+      ],
+      "touch": [
+        "patches/winuae/**",
+        "bridge/**",
+        "tests/host/**",
+        "tests/state/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Reproducir con programas sinteticos la consulta de identidad y las excepciones F-line en A4030 sin FPU, A4040/68040 sin FPU y A4040/68040 con FPU interna; reducir el reinicio a la frontera minima del motor.",
+        "Corregir mediante la cola de parches sin inventar una FPU: 68030 sin coprocesador y 68LC040/68EC040 sin FPU siguen siendo configuraciones validas y deben informar su identidad coherentemente.",
+        "Probar estado/restauracion y Waterbox; contrastar despues SysInfo y el comando CPU del HDF privado sin incorporar ROM, HDF, capturas ni hashes privados."
+      ],
+      "checks": [
+        "DET02",
+        "STATE01",
+        "WB03"
+      ],
+      "acceptance": [
+        "A4030 sin FPU, A4040/68040 sin FPU y A4040/68040 con FPU ejecutan consultas de CPU/FPU sin crash ni reinicio; la ausencia de FPU produce las excepciones documentadas y no datos de una FPU ficticia.",
+        "El HDF autorizado arranca en las tres configuraciones aplicables, SysInfo y CPU terminan, y save/load conserva exactamente el futuro sin alterar multiplicador, video, DMA o audio."
+      ],
+      "stop": "No forzar FPU68040 para ocultar el fallo ni rechazar 68030/68040 sin FPU; tras dos intentos razonados conservar reproducer y dos hipotesis verificables."
+    },
+    {
+      "id": "T100",
+      "title": "Añadir modo automatico para uaescsi.device",
+      "milestone": "M4",
+      "required": false,
+      "status": "pending",
+      "blocked_reason": "",
+      "depends": [
+        "T99",
+        "T84g"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/03-waterbox.md",
+        "docs/07-machawk.md",
+        "config/schema/options.json",
+        "integration/bizhawk/core/Puae6/Settings.cs",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "tests/waterbox-state/test_wrapper_state.py"
+      ],
+      "touch": [
+        "config/**",
+        "adapters/**",
+        "integration/bizhawk/core/Puae6/**",
+        "tests/config/**",
+        "tests/waterbox-state/**",
+        "tools/check.py",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Sustituir la casilla ambigua por Disabled/Auto/Enabled en la Sync Setting sin cambiar el bit ABI que el guest recibe despues de resolver el contenido.",
+        "Auto habilita uaescsi solo cuando hay catalogo CD y la topologia lo permite; sin CD queda deshabilitado sin excepcion. Enabled conserva errores explicitos ante ausencia de CD o controlador incompatible.",
+        "Probar identidades, estados, peliculas, dos HDF UAE mas CD y los negativos sin CD, sin cambiar silenciosamente el controlador elegido por el usuario."
+      ],
+      "checks": [
+        "GEN01",
+        "WB03"
+      ],
+      "acceptance": [
+        "Auto no falla al abrir contenido sin CD y expone uaescsi.device al cargar el caso compatible con CD; Disabled y Enabled conservan semantica explicita y determinista.",
+        "La resolucion forma parte de la identidad causal y sobrevive save/load, nueva sandbox y replay sin sustituir CD32/IDE ni tocar un dispositivo SCSI host."
+      ],
+      "stop": "No convertir Auto en un cambio silencioso de maquina/controlador ni hacer que la identidad dependa de estado host no registrado."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

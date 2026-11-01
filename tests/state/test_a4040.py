@@ -5,6 +5,7 @@ Frontend selectors, real firmware and the Waterbox gate remain in the parent.
 import struct
 from tests.state import test_det02 as d
 from tests.state import test_a4030 as a30
+from tests.state import test_det02_a1200 as c20
 from tests.state import test_z3 as z3
 from tests.state import test_state_a600 as a600
 from tests.state.harness import FieldTable
@@ -29,13 +30,34 @@ loop:
     MOVE.L D2,$2000.L
     BRA.S loop
 """
+FPU_ABSENT = c20.PROLOGUE + """    MOVE.L #$4000,D0
+    .word $4E7B,$0801           ; VBR = $4000
+    MOVE.L #fline,$402C.L
+    LEA $7000.W,A7
+    LEA $6000.W,A0
+    MOVEQ #0,D0
+    MOVEQ #0,D2
+loop:
+    .word $F200,$4000           ; an LC040 takes its processor-specific Line-F frame
+    .word $F310                 ; FSAVE (A0) must end at the same exception
+    ADDQ.L #1,D0
+    MOVE.L D0,$2000.L
+    BRA.S loop
+fline:
+    .word $322F,$0006           ; MOVE.W 6(A7),D1: format/vector word
+    .word $33C1,$0000,$2004     ; MOVE.W D1,$2004.L; saved PC follows the extension
+    ADDQ.L #1,D2
+    MOVE.L D2,$2008.L
+    RTE
+"""
 
 
 class A4040Tests(d.Det02Case):
     MACHINE = "a4040"
     SAVE_OP, LOAD_OP = "--public-save-at", "--public-load-at"
     ROMS = {**{"cpu-"+cpu: (a30.PROGRAM.replace("#$3113", "#$"+cacr), None, None)
-               for cpu, cacr in CPU.items()}, "fpu": (FPU, None, None), "z3": (z3.program(True), None, None)}
+               for cpu, cacr in CPU.items()}, "fpu": (FPU, None, None),
+            "fpu-absent": (FPU_ABSENT, None, None), "z3": (z3.program(True), None, None)}
 
     @classmethod
     def probe_on(cls, machine, rom, *args):
@@ -47,11 +69,12 @@ class A4040Tests(d.Det02Case):
                 name="cpu-"+cpu
                 state, ram = self.dir/(name+".state"), self.dir/(name+".ram")
                 run=self.probe(name, "--cpu", cpu, "--units", "3", "--save-fields-at", "3", str(state),
-                               "--ramout-at", "3", "0x2000", "20", str(ram))
+                               "--ramout-at", "3", "0x2000", "24", str(ram))
                 self.assertFalse(run.save_errors)
-                resumed, fline, alias=struct.unpack_from(">III", ram.read_bytes())
+                resumed, fline=struct.unpack_from(">II", ram.read_bytes())
                 self.assertGreater(min(resumed,fline),0)
                 self.assertLessEqual(abs(resumed-fline),1)
+                alias=struct.unpack_from(">I",ram.read_bytes(),20)[0]
                 self.assertEqual(0x13572468,alias)
                 self.assertEqual(bytes([15,0x96,0x7f,10]),ram.read_bytes()[16:20])
                 table=FieldTable(state.read_bytes(),0,run.fields)
@@ -84,6 +107,19 @@ class A4040Tests(d.Det02Case):
                 self.assertEqual((0x3ffd,0xaaaaaaaa,0xaaaaaaab),struct.unpack(">H2xII",ram.read_bytes()))
                 for mode in (d.SAME,d.NEW):
                     self.assertIsNone(self.first_divergence("fpu",extra,3,mode))
+
+    def test_absent_internal_fpu_uses_the_040_line_f_frame_and_restores(self):
+        ram=self.dir/"68040-no-fpu.ram"
+        extra=["--cpu","68040","--fpu","0"]
+        self.probe("fpu-absent",*extra,"--units","3","--ramout-at","3","0x2000","12",str(ram))
+        resumed,frame=struct.unpack_from(">IH",ram.read_bytes())
+        exceptions=struct.unpack_from(">I",ram.read_bytes(),8)[0]
+        self.assertGreater(resumed,0,"the 040 handler must resume after the absent FPU instruction")
+        self.assertEqual(0x402c,frame,"LC040 uses the format-4 unimplemented-FPU frame for vector 11")
+        self.assertGreaterEqual(exceptions,2*resumed)
+        self.assertLessEqual(exceptions,2*resumed+2,"arithmetic and FSAVE must each end at one exception")
+        for mode in (d.SAME,d.NEW):
+            self.assertIsNone(self.first_divergence("fpu-absent",extra,3,mode))
 
     def test_identity_separates_internal_fpu_and_cpu_and_normalizes_auto(self):
         states=[];hashes=[]

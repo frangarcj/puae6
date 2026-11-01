@@ -127,8 +127,11 @@ class WrapperCpuTests(unittest.TestCase):
             with self.subTest(fast=fast):
                 settings = ("accuracy=Normal", f"fast={fast}")
                 out = self.session([self.core("A", *settings, machine="a4030"), "run A 3", "save A s", "run A 5", "digest A first",
+                                    "peek A Chip_RAM 2004 4", "peek A Chip_RAM 2008 4",
                                     "load A s", "run A 5", "digest A second", self.core("B", *settings, machine="a4030"),
                                     "load B s", "run B 5", "digest B third"], "a4030")
+                self.assertIn("peek A Chip_RAM 2004 00000000", out)
+                self.assertIn("peek A Chip_RAM 2008 80000000", out)
                 digests = self.digests(out, "A")
                 self.assertEqual(digests["first"], digests["second"])
                 self.assertEqual(digests["first"], self.digests(out, "B")["third"])

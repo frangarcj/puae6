@@ -12,9 +12,14 @@ configuracion 0), con CPU 68030, AGA, Gary 0, Ramsey 15, Ricoh RTC y mapa de
 y la carga de CD directo (T66r3). El ID10 sigue
 reservado y rechazado. El struct ABI sigue en
 72 bytes. La primera implementacion acepta exclusivamente CPU Normal (byte 66 = 2)
-y no ofrece MMU: PMMU entra en F-line, sin registros ficticios. La FPU externa
-68881/68882 es opcional. Los niveles Compatible/Exact 030 requieren completar
-sus caches y actualmente devuelven UNSUPPORTED.
+y no ofrece traduccion de direcciones: el 68030 conserva su PMMU integrada como
+superficie arquitectonica y admite PMOVE/PTEST/PLOAD/PFLUSH sobre TC, SRP, CRP,
+TT0, TT1 y MMUSR, pero esos registros no seleccionan un backend de tablas. El
+68020 sin coprocesador sigue entrando en F-line para esos opcodes. P6CP conserva
+los seis registros para que una consulta iniciada antes de un estado tenga el
+mismo futuro al restaurar. La FPU externa 68881/68882 es opcional e independiente.
+Los niveles Compatible/Exact 030 requieren completar sus caches y actualmente
+devuelven UNSUPPORTED.
 
 La memoria propia es 2 MiB Chip y 8 MiB Fast Zorro II, como el A4030 de PUAE5;
 no se habilita RAM de placa. Zorro III ofrece1/2/4/8/16/32/64/128/256/512MiB
@@ -63,6 +68,18 @@ P6CP y el digestCPU incluyen controles040/060 y todo el estado semantico de la
 FPU interna, sin punteros ni padding. La identidad distingue CPU/FPU, incluso
 sin FPU; Auto y68040 explicito representan la misma configuracion. No se anuncia
 compatibilidad universal de framesFRESTORE ni de estados entre builds.
+
+Un 68040 sin FPU conserva la identidad valida del 68LC040: las instrucciones
+FPU generan la excepcion de coprocesador ausente del propio procesador, con el
+frame formato4 y vector11, y reanudan segun el PC guardado. No se convierten en
+un opcode ilegal generico ni se simula una FPU para que las consultas funcionen.
+El estado publico conserva este camino exactamente tambien en otro proceso.
+Kickstart publica en `ExecBase.AttnFlags` los bits 68010/020/030/040 y ningun
+bit FPU en esa configuracion. SysInfo3.24 no presenta correctamente la variante
+EC/LC040 y deja CPU/MHz a cero aunque esos flags y las excepciones sean correctos;
+es una limitacion de esa version de la utilidad, no motivo para anunciar una FPU
+inexistente. El comando `CPU` y software que consulta AttnFlags conservan la
+identidad real.
 
 Los denormales SINGLE reconstruidos por FPSP en CU06 rev40 no forman parte
 del cierre publico de CPU: T55c12 queda como extra final opcional despues de

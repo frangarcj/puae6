@@ -43,6 +43,8 @@ extern int p6_custom_ce020_extra_get(void);                                     
 extern void p6_custom_ce020_extra_set(int v);
 extern bool p6_caches020_get(uae_u32 *data, uae_u32 *tag, uae_u8 *valid, unsigned n);      // newcpu.cpp 0108
 extern bool p6_caches020_set(const uae_u32 *data, const uae_u32 *tag, const uae_u8 *valid, unsigned n);
+extern void p6_mmu030_fake_get(uae_u64 *srp, uae_u64 *crp, uae_u32 *tt0, uae_u32 *tt1, uae_u32 *tc, uae_u16 *mmusr); // newcpu.cpp 0438
+extern void p6_mmu030_fake_set(uae_u64 srp, uae_u64 crp, uae_u32 tt0, uae_u32 tt1, uae_u32 tc, uae_u16 mmusr);
 extern void p6_fpu_fsave_get(uae_u32 *ccr, uae_u32 *eo);                                   // fpp.cpp 0142
 extern void p6_fpu_fsave_set(uae_u32 ccr, const uae_u32 *eo);
 
@@ -234,10 +236,15 @@ struct Cpu010 {
     uint8_t sfc = 0, dfc = 0;
 };
 
-// T55b normal 68030: direct instruction reads do not consult the prefetch or cache tables.
-// Control registers and instruction count still decide exceptions, guest reads and audio DMA.
+// T55b/T99 normal 68030: direct instruction reads do not consult the prefetch or cache tables.
+// Page-table translation is unavailable, but the integrated PMMU's architectural registers remain
+// guest-visible through PMOVE/PTEST. Control registers and instruction count decide exceptions,
+// guest reads and audio DMA.
 struct Cpu030Normal {
     uint32_t vbr = 0, msp = 0, caar = 0, cacr = 0;
+    uint64_t srp = 0, crp = 0;
+    uint32_t tt0 = 0, tt1 = 0, tc = 0;
+    uint16_t mmusr = 0;
     uint8_t sfc = 0, dfc = 0;
     int32_t instruction_cnt = 0;
 };
@@ -252,12 +259,24 @@ void visit_030_normal(Archive &a, Cpu030Normal &c)
     c.sfc = get<uint8_t>(a, regs.sfc, 0, 7, "cpu.sfc");
     c.dfc = get<uint8_t>(a, regs.dfc, 0, 7, "cpu.dfc");
     c.instruction_cnt = a.val<int32_t>(regs.instruction_cnt, "cpu.instruction_cnt");
+    uae_u64 live_srp = 0, live_crp = 0;
+    uae_u32 live_tt0 = 0, live_tt1 = 0, live_tc = 0;
+    uae_u16 live_mmusr = 0;
+    if (a.mode() == Mode::Save)
+        p6_mmu030_fake_get(&live_srp, &live_crp, &live_tt0, &live_tt1, &live_tc, &live_mmusr);
+    c.srp = a.val<uint64_t>(live_srp, "cpu.pmmu030.srp");
+    c.crp = a.val<uint64_t>(live_crp, "cpu.pmmu030.crp");
+    c.tt0 = a.val<uint32_t>(live_tt0, "cpu.pmmu030.tt0");
+    c.tt1 = a.val<uint32_t>(live_tt1, "cpu.pmmu030.tt1");
+    c.tc = a.val<uint32_t>(live_tc, "cpu.pmmu030.tc");
+    c.mmusr = a.val<uint16_t>(live_mmusr, "cpu.pmmu030.mmusr");
 }
 
 void apply_030_normal(const Cpu030Normal &c)
 {
     regs.vbr = c.vbr; regs.msp = c.msp; regs.caar = c.caar; regs.cacr = c.cacr;
     regs.sfc = c.sfc; regs.dfc = c.dfc; regs.instruction_cnt = c.instruction_cnt;
+    p6_mmu030_fake_set(c.srp, c.crp, c.tt0, c.tt1, c.tc, c.mmusr);
 }
 
 void visit_010(Archive &a, Cpu010 &c)
