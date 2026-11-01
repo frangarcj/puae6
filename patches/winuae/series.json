@@ -1337,9 +1337,9 @@
     {
       "id": "0381-z3-normal-040-060",
       "file": "patches/winuae/0381-z3-normal-040-060.patch",
-      "sha256": "c4ca7f27487ce619b2528b544abda5956fb0d09e87dcebd248d5d3ec109c1621",
+      "sha256": "8baeb72147f43221364da0b000a0609258a8e4b3330b2f8254f8cbc44f53e997",
       "title": "Retain the physical Z3 board on Normal no-MMU 040 and 060",
-      "reason": "T55c: the native A4040 profile uses the same real Z3 autoconfig/backing as A4030; the portable guard must retain its validated power-of-two capacity on all three 32-bit CPUs.",
+      "reason": "T95ds opens the native A4040 profile to the same validated physical Z3 board as A4030 on Normal 040/060, without enabling MMU or frontend selectors.",
       "category": "profile support",
       "order": 52,
       "symbols": [
@@ -1351,8 +1351,8 @@
       "files": [
         {
           "path": "main.cpp",
-          "before_sha256": "6580b19ed335747630db80065402cc6b2d9ad3fa3b11061676c4b8fee10b1bbd",
-          "after_sha256": "923832bcff7f4f44b4c6d8b5bdd4fb2dbb8ad3e9017f89a2841e04f528c68ef1"
+          "before_sha256": "1e0c036cd49d92ca6c4a778b6a9ef7165c910f45be2f18dae27e7fd8e035bd00",
+          "after_sha256": "7e93c7adf28a2e8f84ebe4f142d16e19d19b498803394b5f94d15a585791d5fb"
         }
       ]
     },

@@ -1,7 +1,7 @@
 diff --git a/main.cpp b/main.cpp
 --- a/main.cpp
 +++ b/main.cpp
-@@ -798,7 +798,7 @@
+@@ -793,7 +793,7 @@
  	for (int i = 0; i < MAX_RAM_BOARDS; i++) {
  		// One physical Z3 board, populated with a power-of-two capacity from1 to512MiB.
  		const uae_u32 z3size = p->z3fastmem[i].size;
