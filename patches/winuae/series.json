@@ -1616,7 +1616,7 @@
     {
       "id": "0394-hrtmon-port",
       "file": "patches/winuae/0394-hrtmon-port.patch",
-      "sha256": "767e4a50081a90d4e8f0936f52963d656f801c6a487987ec40324a82f1d1081e",
+      "sha256": "2300b1ac1332c3c6e097f6e9218724f6f3fa94880d016aa4c1274409fb32b6be",
       "title": "Port pinned HRTMon owner and lifecycle through original Action Replay hooks",
       "reason": "T69a: private raw pinned GPL HRTMon through copied blob asset, no built-in gzip dependency or host FS. Exclude RTG calls and validate reads/allocation, reset monitor flags/shadows across sessions. Native state is explicitly unsupported until complete cartridge codec. Legacy .uss path codecs are excluded in portable; no successful stubs or path deserialization.",
       "category": "optional cartridge host boundary",

@@ -12,7 +12,7 @@ diff --git a/ar.cpp b/ar.cpp
  
  #define DEBUG
  #ifdef DEBUG
-@@ -269,12 +271,16 @@
+@@ -270,12 +272,16 @@
  
  static void cartridge_enter(void)
  {
@@ -29,7 +29,7 @@ diff --git a/ar.cpp b/ar.cpp
  	stored_picasso_on = -1;
  }
  
-@@ -1751,6 +1757,21 @@
+@@ -1829,6 +1835,21 @@
  	hrtmon_zeropage = 0;
  	hrtmem_end = 0;
  	hrtmem2_end = 0;
@@ -51,7 +51,7 @@ diff --git a/ar.cpp b/ar.cpp
  }
  
  #ifndef FALSE
-@@ -1815,7 +1836,17 @@
+@@ -1893,7 +1914,17 @@
  			write_log (_T("failed to load '%s' cartridge ROM\n"), currprefs.cartfile);
  			return 0;
  		}
@@ -69,7 +69,7 @@ diff --git a/ar.cpp b/ar.cpp
  		if (!memcmp (header, "ATZ!", 4)) {
  			cart_type = CART_AR1200;
  			armodel = 1200;
-@@ -1830,7 +1861,7 @@
+@@ -1908,7 +1939,7 @@
  	hrtmem_size = 0x100000;
  	hrtmem_mask = hrtmem_size - 1;
  	if (isinternal) {
@@ -78,7 +78,7 @@ diff --git a/ar.cpp b/ar.cpp
  		extern unsigned char hrtrom[];
  		extern unsigned int hrtrom_len;
  		struct zfile *zf;
-@@ -1846,9 +1877,19 @@
+@@ -1924,9 +1955,19 @@
  	hrtmem_bank.label = _T("hrtmem");
  	mapped_malloc (&hrtmem_bank);
  	hrtmemory = hrtmem_bank.baseaddr;
@@ -98,7 +98,7 @@ diff --git a/ar.cpp b/ar.cpp
  	zfile_fclose (f);
  	hrtmon_configure ();
  	hrtmon_custom = hrtmemory + 0x08f000;
-@@ -2007,6 +2048,8 @@
+@@ -2085,6 +2126,8 @@
  		action_replay_flag = ACTION_REPLAY_ACTIVE;
  }
  
@@ -107,7 +107,7 @@ diff --git a/ar.cpp b/ar.cpp
  uae_u8 *save_hrtmon(size_t *len, uae_u8 *dstptr)
  {
  	uae_u8 *dstbak, *dst;
-@@ -2188,6 +2231,8 @@
+@@ -2266,6 +2309,8 @@
  	}
  }
  
