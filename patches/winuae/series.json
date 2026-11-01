@@ -2222,7 +2222,7 @@
     {
       "id": "0419-cd32-fmv-pcm-owner",
       "file": "patches/winuae/0419-cd32-fmv-pcm-owner.patch",
-      "sha256": "f9906365f0654dcdefc0c14ed98caa9a54047b0771e7755ab437861eff585eb9",
+      "sha256": "cf884a76c84d21e4075284b16ced3a6424b330f3d5ac3a7741814f571d82e2ea",
       "title": "Keep FMV and CDDA PCM streams bounded and owner-distinct",
       "reason": "T43c lets the 4608-frame FMV block coexist with the existing 588-frame CDDA stream on the same emulated scheduler. Stop, refill and pause validate the exact cd_audio_state owner; forged or stale ids cannot replace another stream, and portable buffers are capped at one FMV block.",
       "category": "portable audio ownership",
@@ -2239,8 +2239,8 @@
       "files": [
         {
           "path": "audio.cpp",
-          "before_sha256": "77a937afc625022bb5517fe7ff4fa1568cac41c67f8ebe55dbd4bfd5aed5c48d",
-          "after_sha256": "ab07d3b5cd029878d3ab93ed2ce6fdbf239ff357079a544f4f9a1c6419d3a3ce"
+          "before_sha256": "16fd07217b369774e0d2f2096f2d56491eeef083d5fccb37a7a79072680e716b",
+          "after_sha256": "a712ac35eec9601192f69a0f4979eb964bf77b1c8c0bdf5d4997cc0fb846ca0f"
         }
       ]
     },

@@ -1,7 +1,7 @@
 diff --git a/audio.cpp b/audio.cpp
 --- a/audio.cpp
 +++ b/audio.cpp
-@@ -2033,8 +2033,8 @@ static bool audio_state_channel2 (int nr, bool perfin)
+@@ -2038,8 +2038,8 @@ static bool audio_state_channel2 (int nr, bool perfin)
  
  static void audio_state_channel (int nr, bool perfin)
  {
@@ -11,7 +11,7 @@ diff --git a/audio.cpp b/audio.cpp
  		if (audio_state_channel2(nr, perfin)) {
  			cdp->dat_written = false;
  		}
-@@ -3059,13 +3059,17 @@ int audio_enable_stream(bool enable, int streamid, int ch, SOUND_STREAM_CALLBACK
+@@ -3068,13 +3068,17 @@ int audio_enable_stream(bool enable, int streamid, int ch, SOUND_STREAM_CALLBACK
  	if (streamid == 0)
  		return 0;
  	if (!enable) {
@@ -30,7 +30,7 @@ diff --git a/audio.cpp b/audio.cpp
  		if (streamid < 0) {
  			for (int i = 0; i < AUDIO_CHANNEL_STREAMS; i++) {
  				if (!audio_extra_streams[i]) {
-@@ -3132,7 +3136,7 @@ static bool audio_state_cda(int streamid, void *state)
+@@ -3141,7 +3145,7 @@ static bool audio_state_cda(int streamid, void *state)
  {
  	struct cd_audio_state *cas = (struct cd_audio_state*)state;
  	if (cas->cda_bufptr == dummy_buffer || cas->cda_length <= 0) {
@@ -39,7 +39,7 @@ diff --git a/audio.cpp b/audio.cpp
  		cas->cda_streamid = 0;
  		return false;
  	}
-@@ -3157,10 +3161,28 @@ static bool audio_state_cda(int streamid, void *state)
+@@ -3166,10 +3170,28 @@ static bool audio_state_cda(int streamid, void *state)
  	return true;
  }
  
@@ -69,7 +69,7 @@ diff --git a/audio.cpp b/audio.cpp
  		cas->cda_streamid = 0;
  #ifdef P6_PORTABLE
  		cas->cda_paused = false;
-@@ -3197,10 +3219,9 @@ void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int lengt
+@@ -3206,10 +3228,9 @@ void audio_cda_new_buffer(struct cd_audio_state *cas, uae_s16 *buffer, int lengt
  namespace p6_cda {
  static bool available(const cd_audio_state &cas)
  {
@@ -81,7 +81,7 @@ diff --git a/audio.cpp b/audio.cpp
  }
  static bool geometry(const int16_t *base, uint32_t frames)
  {
-@@ -3273,7 +3294,7 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
+@@ -3282,7 +3303,7 @@ bool restore(cd_audio_state &cas, int16_t *base, uint32_t frames, const State &s
  }
  bool pause(cd_audio_state &cas, bool paused)
  {
