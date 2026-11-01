@@ -1,7 +1,7 @@
 diff --git a/drawing.cpp b/drawing.cpp
 --- a/drawing.cpp
 +++ b/drawing.cpp
-@@ -3463,7 +3463,7 @@
+@@ -3516,7 +3516,7 @@
  	if (clxcon_bpl_enable_o != clxcon_bpl_enable2 || clxcon_bpl_match_o != clxcon_bpl_match2) {
  		for (int i = 0; i < (aga_mode ? 256 : 64); i++) {
  			uae_u8 m = i & clxcon_bpl_enable;

@@ -518,9 +518,9 @@
     {
       "id": "0348-collision-level-bitplane-table",
       "file": "patches/winuae/0348-collision-level-bitplane-table.patch",
-      "sha256": "76d676317404c848997d22731cb4a41e44b8842b8d00946a8078a26f3083d42d",
+      "sha256": "0bd2aec55e876f3a0dadf5d8448ebecb41908348b103553bfbf359254f666064",
       "title": "Disable bitplane collisions below Full collision level",
-      "reason": "T77a guest CLXDAT reproducer reads bit 0 with None because the zeroed comparison masks still match pixel zero. Gate the bitplane table entries on Full; Full keeps its existing expression and every hardware collision.",
+      "reason": "T77a beta21 vertical: None otherwise leaks CLXDAT bit 0 because zeroed comparison masks match pixel zero. Gate the bitplane table on Full; Full keeps every previous hardware collision.",
       "category": "state corrections",
       "order": 20,
       "symbols": [
@@ -532,8 +532,8 @@
       "files": [
         {
           "path": "drawing.cpp",
-          "before_sha256": "d858b216d6b183c29b993b5c2572d6c555de541dc1743c7f39f171bf1e8895c5",
-          "after_sha256": "5d2765d69ed4a10232aa6c5f99f14e272c50bdb5a865b8c47ba05ba212678986"
+          "before_sha256": "54790c032346bf28b87801cb0d4937a94480be773364a57395df2a57ee84eef2",
+          "after_sha256": "eba1fe8e17a6caa05bfe715c707f4a88ac12af7658d24b6f4e4773d26e3d8416"
         }
       ]
     },
