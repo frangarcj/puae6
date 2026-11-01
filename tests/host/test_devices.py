@@ -24,7 +24,7 @@ class DeviceTests(unittest.TestCase):
         # Every retained provider has a hardware, presentation or cleanup role. This
         # checks the WHOLE object, independent of the instrumented test link.
         required = set("""DISK_hsync DISK_reset a1000_reset audio_hsync audio_vsync
-            close_sound dump_counts dongle_reset drawing_free memory_reset rethink_cias
+            close_sound dump_counts dongle_reset drawing_free memory_reset rethink_cias blitter_hsync
             update_sound init_eventtab decide_blitter graphics_leave memory_cleanup
             savestate_free rethink_uae_int inputdevice_close inputdevice_vsync
             CIA_vsync_prehandler check_prefs_changed_cpu
@@ -33,7 +33,8 @@ class DeviceTests(unittest.TestCase):
             rtarea_setup native2amiga_install rtarea_init uaeres_install hardfile_install filesys_install rtarea_reset native2amiga_reset
             reset_traps filesys_prepare_reset filesys_reset filesys_start_threads hardfile_reset free_traps filesys_cleanup
             native2amiga_free rtarea_free driveclick_reset driveclick_free
-            akiko_init update_cda_sound""".split())
+            akiko_init update_cda_sound cd32_fmv_set_sync
+            scsidev_reset scsidev_start_threads scsidev_install""".split())
         with tempfile.TemporaryDirectory(prefix="p6-devices-", dir=ROOT / "build") as tmp:
             obj, exe = Path(tmp) / "devices.o", Path(tmp) / "probe"
             for optimization in ("-O0", "-O2"):

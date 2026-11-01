@@ -45,8 +45,8 @@ class ExpansionSourceTests(unittest.TestCase):
                 self.assertNotIn("od-win32", content.replace(allowed, ""))
 
     def test_actual_catalog_and_bounded_device_lookup(self):
-        # Keep the real Gayle/CDTV table intact and also exercise synthetic
-        # catalogs of zero, one and two entries for bounded lookups.
+        # Keep the real Gayle/FMV/CDTV table intact and also exercise synthetic
+        # catalogs of zero through three entries for bounded lookups.
         ensure_generated()
         tree = ROOT / "build/upstream"
         expansion = (tree / "expansion.cpp").read_text()
@@ -64,10 +64,10 @@ class ExpansionSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="p6-expansion-catalog-", dir=ROOT / "build") as directory:
             tmp = Path(directory)
             src, exe = tmp / "catalog.cpp", tmp / "probe"
-            for actual, entries in ((True, 2), (False, 0), (False, 1), (False, 2)):
+            for actual, entries in ((True, 3), (False, 0), (False, 1), (False, 2), (False, 3)):
                 data = catalog
                 if not actual:
-                    names = ''.join('{ "' + name + '" }, ' for name in ('one', 'two')[:entries])
+                    names = ''.join('{ "' + name + '" }, ' for name in ('one', 'two', 'three')[:entries])
                     data = catalog[:table] + 'const struct expansionromtype expansionroms[] = { ' + names + '{ NULL } };' + catalog[table_end:]
                 src.write_text('#include "sysconfig.h"\n#include "sysdeps.h"\n'
                     '#include "options.h"\n#include "memory.h"\n#include "autoconf.h"\n'
@@ -76,6 +76,7 @@ class ExpansionSourceTests(unittest.TestCase):
                     # The catalog names providers; invoking any is outside this lookup probe.
                     'bool gayle_ide_init(struct autoconfig_info*) { abort(); }\n'
                     'void gayle_add_ide_unit(int, struct uaedev_config_info*, struct romconfig*) { abort(); }\n'
+                    'static bool expamem_init_cd32fmv(struct autoconfig_info*) { abort(); }\n'
                     'bool cdtv_init(struct autoconfig_info*) { abort(); }\n'
                     + data + queries + exporter + '''
 int main() {
@@ -105,16 +106,18 @@ int main() {
         assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
     }
     if (ACTUAL) {
-        assert(ENTRIES == 2);
+        assert(ENTRIES == 3);
         assert(!strcmp(expansionroms[0].name, "ide_mb"));
-        assert(!strcmp(expansionroms[1].name, "cdtvdmac"));
+        assert(!strcmp(expansionroms[1].name, "cd32fmv"));
+        assert(!strcmp(expansionroms[2].name, "cdtvdmac"));
         assert(expansionroms[0].init == gayle_ide_init);
-        assert(expansionroms[1].init == cdtv_init);
+        assert(expansionroms[1].init == expamem_init_cd32fmv);
+        assert(expansionroms[2].init == cdtv_init);
         assert(get_device_expansion_rom(ROMTYPE_MB_IDE) == &expansionroms[0]);
-        assert(get_device_expansion_rom(ROMTYPE_CDTVDMAC) == &expansionroms[1]);
+        assert(get_device_expansion_rom(ROMTYPE_CD32CART) == &expansionroms[1]);
+        assert(get_device_expansion_rom(ROMTYPE_CDTVDMAC) == &expansionroms[2]);
         assert(get_unit_expansion_rom(HD_CONTROLLER_TYPE_IDE_EXPANSION_FIRST) == &expansionroms[0]);
         assert(!get_device_expansion_rom(ROMTYPE_CPUBOARD));
-        assert(!get_device_expansion_rom(ROMTYPE_CD32CART));
         assert(!get_device_expansion_rom(ROMTYPE_MB_PCMCIA));
     }
 }
