@@ -3,7 +3,7 @@ diff --git a/disk.cpp b/disk.cpp
 +++ b/disk.cpp
 @@ -48,6 +48,9 @@
  #ifdef CAPS
- #include "caps/caps_win32.h"
+ #include "od-win32/caps/caps_win32.h"
  #endif
 +#ifdef P6_IPF
 +#include "media/ipf_track.h"
@@ -67,7 +67,7 @@ diff --git a/disk.cpp b/disk.cpp
  #endif
  		break;
  	case ADF_SCP:
-@@ -1554,6 +1582,22 @@
+@@ -1556,6 +1584,22 @@
  		drive_fill_bigbuf(drv, side, fake ? -1 : 1);
  
  		return 1;
@@ -90,7 +90,7 @@ diff --git a/disk.cpp b/disk.cpp
  #endif
  #ifdef CAPS
  	} else if (strncmp ((char*)buffer, "CAPS", 4) == 0) {
-@@ -2540,6 +2584,16 @@
+@@ -2550,6 +2594,16 @@
  
  #ifdef CAPS
  		caps_loadtrack(drv->bigmfmbuf, drv->tracktiming, drv->drvnum, tr, &drv->tracklen, &drv->multi_revolution, &drv->skipoffset, &drv->lastrev, retrytrack);
@@ -107,7 +107,7 @@ diff --git a/disk.cpp b/disk.cpp
  #endif
  
  	} else if (drv->filetype == ADF_SCP) {
-@@ -4028,6 +4082,10 @@
+@@ -4047,6 +4101,10 @@
  	case ADF_IPF:
  #ifdef CAPS
  		caps_loadrevolution(drv->bigmfmbuf, drv->tracktiming, drv->drvnum, drv->cyl * 2 + side, &drv->tracklen, &drv->lastrev, drv->track_access_done);
