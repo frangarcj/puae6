@@ -115,6 +115,9 @@ class CdDiscTests(unittest.TestCase):
             expected = b'\xff' * 12 + q + (binascii.crc_hqx(q, 0) ^ 0xffff).to_bytes(2, 'big') + bytes(72)
             self.assertEqual(bytes.fromhex(row[4]), expected)
 
+    def test_mode2_form1_2048_payload_and_rejections_are_transactional(self):
+        self.run_probe("mode2-form1")
+
     def test_explicit_regions_modes_subchannels_postgap_and_rebind(self):
         rows = self.run_probe('regions').splitlines(); self.assertTrue(rows)
         for row in map(str.split,rows):

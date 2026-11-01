@@ -1528,6 +1528,16 @@ TASK_SUITES[('BUILD01', 'T101')] = {
 TASK_SUITES[('BUILD01', 'T102')] = {
     'real_windows_profiles_and_bold_overrides':
         'tests.test_machawk_windows.WindowsCandidateTests.test_settings_profiles_and_bold_overrides'}
+TASK_SUITES[('BUILD01', 'T103')] = {
+    'managed_auto_policy_persistence':
+        'tests.ffi.test_ffi.SyncSettingsPersistenceTests',
+    'real_windows_auto_policy_persistence':
+        'tests.test_machawk_windows.WindowsCandidateTests.test_current_application_guest_abi_restore_and_chd'}
+TASK_SUITES[('MED01', 'T104')] = {
+    'mode2_form1_disc_and_regressions': 'tests.media.test_cd_disc.CdDiscTests'}
+TASK_SUITES[('MED02', 'T104')] = {
+    'mode2_form1_atapi_and_uaescsi':
+        'tests.media.test_uaescsi.UaeScsiTests.test_pcm_pause_semantic_restore_and_bounds'}
 TASK_SUITES[('WB03', 'T95b')] = {
     'rtg_a4040_wrapper_new_sandbox_restore':
         'tests.waterbox-state.test_wrapper_rtg.WrapperRtgTests.test_a4040_internal_fpu_rtg_restores_in_another_sandbox'}

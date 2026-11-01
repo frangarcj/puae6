@@ -28218,6 +28218,104 @@
       "stop": "No habilitar MMU, JIT, PPC, red, tags de filename ni overrides arbitrarios del chipset; no cambiar el PropertyGrid de otros cores ni serializar el nombre del perfil."
     },
     {
+      "id": "T103",
+      "title": "Conservar politicas Auto de CD y uaescsi en MacHawk",
+      "milestone": "M4",
+      "required": false,
+      "status": "done",
+      "blocked_reason": "",
+      "depends": [
+        "T102"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "integration/bizhawk/core/Puae6/Puae6Core.cs",
+        "integration/bizhawk/core/Puae6/WhdLoad.cs",
+        "integration/bizhawk/core/EmuHawk/Puae6Core.EmuHawk.cs",
+        "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
+        "tests/test_machawk_windows.py"
+      ],
+      "touch": [
+        "integration/bizhawk/core/Puae6/**",
+        "integration/bizhawk/core/EmuHawk/**",
+        "build/machawk-puae6/**",
+        "tests/ffi/Program.cs",
+        "tests/ffi/test_ffi.py",
+        "tests/test_machawk_windows.py",
+        "tools/check.py",
+        "docs/user/waterbox-preview.md",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Separar los Sync Settings solicitados por el frontend de sus valores efectivos resueltos por contenido, conservando Auto al guardar y usando Enabled/Disabled o IDE/CD32 solo para la maquina viva.",
+        "Cubrir reapertura con CD y sin CD, incluyendo uaescsi Auto y CD controller Auto, sin cambiar identidad, ABI, guest ni estado.",
+        "Ejecutar el smoke gestionado dirigido y la puerta Windows real antes de integrar una candidata."
+      ],
+      "checks": [
+        "BUILD01"
+      ],
+      "acceptance": [
+        "GetSyncSettings devuelve Auto cuando el usuario eligio Auto aunque la sesion con CD use uaescsi Enabled o controlador IDE efectivo.",
+        "Guardar esa configuracion y abrir despues sin CD no persiste Enabled ni produce la excepcion de medio ausente; una eleccion Enabled explicita conserva su error sin CD.",
+        "La topologia efectiva, hashes de estado y guest permanecen iguales para la misma sesion y la prueba Windows real pasa."
+      ],
+      "stop": "No mantener uaescsi conectado sin catalogo en esta ficha, no convertir Auto en un dispositivo vacio permanente y no cambiar ABI, guest, codecs CD ni semantica de estados."
+    },
+    {
+      "id": "T104",
+      "title": "Leer sectores MODE2 Form 1 por IDE y uaescsi",
+      "milestone": "M4",
+      "required": false,
+      "status": "in_progress",
+      "blocked_reason": "",
+      "depends": [
+        "T103"
+      ],
+      "read": [
+        "README.md",
+        "AGENTS.md",
+        "docs/02-contracts.md",
+        "ports/portable/media/cd_disc.h",
+        "ports/portable/media/cd_disc.cpp",
+        "ports/portable/media/cd_device.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/uaescsi_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tests/media/test_uaescsi.py"
+      ],
+      "touch": [
+        "ports/portable/media/cd_disc.h",
+        "ports/portable/media/cd_disc.cpp",
+        "tests/media/cd_disc_probe.cpp",
+        "tests/media/uaescsi_probe.cpp",
+        "tests/media/test_cd_disc.py",
+        "tests/media/test_uaescsi.py",
+        "docs/02-contracts.md",
+        "docs/user/waterbox-preview.md",
+        "tools/check.py",
+        "plan/tasks.json"
+      ],
+      "steps": [
+        "Extender la vista canonica de 2048 bytes para extraer desde offset 24 el payload de un sector MODE2/2352 Form 1 con cabecera y subcabeceras coherentes, conservando Form 2 y sectores malformados como errores explicitos y transaccionales.",
+        "Probar el mismo payload mediante Disc, ATAPI READ(10) y uaescsi.device con una pista sintetica equivalente al CUE MODE2/2352 observado, sin incorporar el disco privado ni depender de su ruta.",
+        "Ejecutar MED01 y MED02 dirigidos, reconstruir el guest y comprobar la lectura en la candidata MacHawk antes de publicar otra preview."
+      ],
+      "checks": [
+        "MED01",
+        "MED02"
+      ],
+      "acceptance": [
+        "Una lectura de 2048 bytes de MODE2 Form 1 devuelve exactamente el payload situado en 24..2071, incluida la firma CD001 del sector 16 del reproducer sintetico.",
+        "ATAPI READ(10) y uaescsi.device entregan esos mismos bytes; MODE2 Form 2, subcabeceras inconsistentes y modo incorrecto no publican datos parciales ni se presentan como lecturas correctas.",
+        "Las vistas raw 2352/2448, CDDA, identidad, estado, ABI y el comportamiento MODE1 permanecen iguales."
+      ],
+      "stop": "No incorporar el ZIP, BIN, CUE privado ni sus hashes al repositorio; no fingir 2048 bytes para Form 2, no cambiar TOC, identidad, estado, ABI ni formatos de frontend."
+    },
+    {
       "id": "T55c12",
       "title": "Extra final: denormales SINGLE reconstruidos por FPSP en CU06 rev40",
       "milestone": "FUTURE",

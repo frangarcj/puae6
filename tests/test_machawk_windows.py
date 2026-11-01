@@ -54,7 +54,9 @@ class WindowsCandidateTests(unittest.TestCase):
         self.assertEqual(record['uaescsi_default'], 'Auto')
         self.assertEqual(record['uaescsi_policy'], {
             'uaescsi_auto_without_cd': 'Disabled', 'uaescsi_auto_with_cd': 'Enabled',
+            'uaescsi_auto_saved': 'Auto', 'uaescsi_auto_reopened_without_cd': 'Disabled',
             'uaescsi_enabled_without_cd_rejected': True, 'uaescsi_enabled_ide_rejected': True})
+        self.assertEqual(record['get_sync_without_cd'], 'Auto')
         self.assertEqual(record['settings_profiles'], {
             'count': 16, 'schema_presets': 6, 'a4040_fpu': 'M68040',
             'a4060_fpu': 'M68060', 'overrides_bold': True})

@@ -47,7 +47,7 @@ public:
     Result describe(uint32_t lba, SectorInfo *) const;
     const Layout &layout() const { return layout_; }
     // One sector, exact 2048/2352/2448-byte view. Failure leaves output intact.
-    // 2048 is Mode1 only; normalized 2448 = 2352 data + 96 P-W deinterleaved.
+    // 2048 is Mode1 or Mode2 Form 1; normalized 2448 = 2352 data + 96 P-W deinterleaved.
     // Disc preserves supplied audio bytes; CDDA interpretation belongs to its consumer.
     Result read_sector(uint32_t lba, uint32_t view, void *out, size_t capacity) const;
 private:

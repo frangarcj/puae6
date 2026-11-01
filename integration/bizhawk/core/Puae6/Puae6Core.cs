@@ -151,6 +151,8 @@ public sealed class Puae6Parameters
 		return s;
 	}
 	public Puae6SyncSettings SyncSettings { get; set; } = new();
+	/// <summary>The frontend spelling before content-dependent Auto policies are resolved. It is carried only between loader stages; the live machine always uses <see cref="SyncSettings"/>.</summary>
+	internal Puae6SyncSettings? RequestedSyncSettings { get; set; }
 	public Puae6Settings Settings { get; set; } = new();
 	/// <summary>The floppy images the machine may use (ADF of 880 KiB, an extended ADF, an FDI or an IPF, all together at most what 16 ADF take): the first <see cref="Puae6SyncSettings.FloppyDrives"/> are in a drive at power-on.</summary>
 	public IReadOnlyList<byte[]> Media { get; set; } = new List<byte[]>();
@@ -459,6 +461,7 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		CoreComm = comm;
 		parameters = Puae6WhdLoad.Resolve(parameters);
 		parameters = Puae6Volumes.Resolve(parameters);
+		var requestedSyncSettings = parameters.RequestedSyncSettings?.Clone() ?? parameters.SyncSettings.Clone();
 		parameters.SyncSettings = parameters.ResolveCdSettings(parameters.SyncSettings);
 		_syncSettings = parameters.SyncSettings.Clone();
 		ValidateRtg(_syncSettings);
@@ -480,7 +483,8 @@ public sealed unsafe partial class Puae6Core : IEmulator, IVideoProvider, ISound
 		_parameters = new Puae6Parameters
 		{
 			GuestDirectory = parameters.GuestDirectory, GuestFileName = parameters.GuestFileName, PinnedGuestSha256 = parameters.PinnedGuestSha256,
-			SyncSettings = _syncSettings.Clone(),
+			// EmuHawk must persist the user's Auto policies, not the content-specific values used by this live guest.
+			SyncSettings = requestedSyncSettings,
 			Firmware = (byte[])parameters.Firmware.Clone(), CartridgeFirmware = parameters.CartridgeFirmware?.ToArray(), CdInfo = parameters.CdInfo, CdInfoV2 = parameters.CdInfoV2, CdInfoV3 = parameters.CdInfoV3,
 			ReadCd = parameters.ReadCd, CdOwner = parameters.CdOwner,
 			CdCatalog = parameters.CdCatalog?.ToArray(), CdCatalogV2 = parameters.CdCatalogV2?.ToArray(), CdCatalogV3 = parameters.CdCatalogV3?.ToArray(), ReadCdCatalog = parameters.ReadCdCatalog,
