@@ -830,7 +830,7 @@
       "file": "patches/winuae/0361-nrg-metadata-only.patch",
       "sha256": "affdad0ed1b01287eaa57eeaf1d9bda6d850a636eaa6a1401b371b66b0c4f5fa",
       "title": "Export bounded DAO NRG metadata through pinned parsenrg",
-      "reason": "T66l1 reuses the pinned chunk traversal with exact bounded offset reads, correct DAOI/CUES layouts and strict single-session DAO validation. No payload or device loading.",
+      "reason": "T95cs reuses the pinned chunk traversal on beta21 with bounded offset reads, correct DAOI/CUES layouts and strict single-session DAO validation; no payload or device is opened.",
       "category": "host hooks",
       "order": 32,
       "symbols": [
