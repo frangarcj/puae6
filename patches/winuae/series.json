@@ -1227,7 +1227,7 @@
       "file": "patches/winuae/0376-frestore040-unimp-fields.patch",
       "sha256": "6383e454b59be423065cf3d8491df5e2a394f9af04e289a2edaf10f3edb6cf37",
       "title": "Restore defined UNIMP040 fields and pending arithmetic exception",
-      "reason": "T55c7 replaces the FRESTORE040 frame-size skip with real bus reads of the defined fields and E3/E1 arithmetic priority. Null/idle clear stale pending exceptions. Busy pipeline resumption remains outside this correction.",
+      "reason": "T95dn replaces the FRESTORE040 frame-size skip with real bus reads of the defined fields and E3/E1 arithmetic priority. Null/idle clear stale pending exceptions. Busy pipeline resumption remains outside this correction.",
       "category": "state corrections",
       "order": 47,
       "symbols": [
