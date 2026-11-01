@@ -3,12 +3,16 @@
 #include "machdep/m68k.h" // The portable entry point must be safe to repeat.
 
 flag_struct regflags{};
-#if defined(CPU_x86_64)
+#if defined(CPU_AARCH64)
+static_assert(sizeof(flag_struct) == 16 && sizeof(regflags.nzcv) == 8);
+static_assert(FLAGBIT_C == 29 && FLAGBIT_N == 31 && FLAGBIT_Z == 30 && FLAGBIT_V == 28);
+#elif defined(CPU_x86_64)
 static_assert(sizeof(flag_struct) == 16 && sizeof(regflags.cznv) == 8);
+static_assert(FLAGBIT_C == 0 && FLAGBIT_N == 7 && FLAGBIT_Z == 6 && FLAGBIT_V == 11);
 #else
 static_assert(sizeof(flag_struct) == 8 && sizeof(regflags.cznv) == 4);
-#endif
 static_assert(FLAGBIT_C == 0 && FLAGBIT_N == 7 && FLAGBIT_Z == 6 && FLAGBIT_V == 11);
+#endif
 
 // State index is NZVC (C bit0, V bit1, Z bit2, N bit3).
 // Each mask independently encodes the 16 outcomes of one 68000 condition.
@@ -18,6 +22,7 @@ static const unsigned truth[16] = {
 };
 using flag_word = decltype(regflags.cznv);
 static const flag_word cznv_mask = FLAGVAL_C | FLAGVAL_Z | FLAGVAL_N | FLAGVAL_V;
+static const flag_word cznv_storage_mask = ~flag_word(0);
 
 static void set_flag(unsigned flag, int value)
 {
@@ -34,7 +39,7 @@ static void set_flag(unsigned flag, int value)
 int main()
 {
  const unsigned positions[] = {FLAGBIT_C, FLAGBIT_V, FLAGBIT_Z, FLAGBIT_N};
- for (flag_word noise : {flag_word(0), ~cznv_mask}) {
+ for (flag_word noise : {flag_word(0), cznv_storage_mask & ~cznv_mask}) {
   for (unsigned state = 0; state < 32; ++state) {
    regflags.cznv = noise;
    for (unsigned f = 0; f < 5; ++f) set_flag(f, (state >> f) & 1);
@@ -65,8 +70,12 @@ int main()
    SET_CZNV(packed); SET_XFLG((state >> 4) & 1);
    COPY_CARRY();
    assert(GET_XFLG() == GET_CFLG() && GET_CZNV() == packed);
+#if defined(CPU_AARCH64)
+   assert(regflags.x == ((packed >> FLAGBIT_C) & 1));
+#else
    // COPY_CARRY copies the packed word; only GET_XFLG interprets bit0.
    assert(regflags.x == (packed >> (FLAGBIT_C - FLAGBIT_X)));
+#endif
    CLEAR_CZNV();
    assert(GET_CZNV() == 0 && GET_XFLG() == (state & 1));
    IOR_CZNV(packed);

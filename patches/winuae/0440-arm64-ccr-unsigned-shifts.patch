@@ -1,0 +1,29 @@
+diff --git a/od-win32/machdep/m68k.h b/od-win32/machdep/m68k.h
+--- a/od-win32/machdep/m68k.h
++++ b/od-win32/machdep/m68k.h
+@@ -35,16 +35,16 @@ extern struct flag_struct regflags;
+ #define FLAGBIT_V	28
+ #define FLAGBIT_X	0
+ 
+-#define FLAGVAL_N	(1u << FLAGBIT_N)
+-#define FLAGVAL_Z	(1u << FLAGBIT_Z)
+-#define FLAGVAL_C	(1u << FLAGBIT_C)
+-#define FLAGVAL_V	(1u << FLAGBIT_V)
+-#define FLAGVAL_X	(1u << FLAGBIT_X)
++#define FLAGVAL_N	(((uae_u64)1) << FLAGBIT_N)
++#define FLAGVAL_Z	(((uae_u64)1) << FLAGBIT_Z)
++#define FLAGVAL_C	(((uae_u64)1) << FLAGBIT_C)
++#define FLAGVAL_V	(((uae_u64)1) << FLAGBIT_V)
++#define FLAGVAL_X	(((uae_u64)1) << FLAGBIT_X)
+ 
+-#define SET_NFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_N) | (((y) & 1) << FLAGBIT_N))
+-#define SET_ZFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_Z) | (((y) & 1) << FLAGBIT_Z))
+-#define SET_CFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_C) | (((y) & 1) << FLAGBIT_C))
+-#define SET_VFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_V) | (((y) & 1) << FLAGBIT_V))
++#define SET_NFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_N) | (((uae_u64)((y) & 1)) << FLAGBIT_N))
++#define SET_ZFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_Z) | (((uae_u64)((y) & 1)) << FLAGBIT_Z))
++#define SET_CFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_C) | (((uae_u64)((y) & 1)) << FLAGBIT_C))
++#define SET_VFLG(y)		(regflags.nzcv = (regflags.nzcv & ~FLAGVAL_V) | (((uae_u64)((y) & 1)) << FLAGBIT_V))
+ #define SET_XFLG(y)		(regflags.x = ((y) & 1))
+ 
+ #define GET_NFLG()		((regflags.nzcv >> FLAGBIT_N) & 1)

@@ -2755,6 +2755,31 @@
           "after_sha256": "65390609bae569fa7b95bb0322a5e0875485b643b85dd53aaec580adac3c99ba"
         }
       ]
+    },
+    {
+      "id": "0440-arm64-ccr-unsigned-shifts",
+      "file": "patches/winuae/0440-arm64-ccr-unsigned-shifts.patch",
+      "sha256": "721a2b25353eff9992d75ceedcb30c5bb2b302005de0bf3044fef293c2d78663",
+      "title": "Keep beta21 ARM64 CCR shifts unsigned",
+      "reason": "WinUAE 6.1 beta21 places native ARM64 NZCV flags at bits 28 through 31 of a 64-bit field, but its setters shift signed int values and SET_NFLG(1) reaches the sign bit. Use the field type for masks and shifted values so all setters are defined and preserve unrelated bits.",
+      "category": "CPU correctness/portability",
+      "order": 109,
+      "symbols": [
+        "SET_NFLG",
+        "SET_ZFLG",
+        "SET_CFLG",
+        "SET_VFLG"
+      ],
+      "test": "tests.host.test_m68k_flags",
+      "upstream_candidate": true,
+      "removal_version": null,
+      "files": [
+        {
+          "path": "od-win32/machdep/m68k.h",
+          "before_sha256": "758fda30a5f2d109fe589deda023da2cc86e74f5e8d3e27c1911ef7a5286b935",
+          "after_sha256": "0eb4742f9c726b9417f9aa0e081ff4c70cf0bc70e6d30b20f903718bb95effcf"
+        }
+      ]
     }
   ]
 }

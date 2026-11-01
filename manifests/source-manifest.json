@@ -327,9 +327,9 @@
     "od-win32/machdep/m68k.cpp": {
       "reason": "Pure C/C++ cctrue implementation; no Windows services, assembly or runtime host calls. Compile intact as one selected unit. Narrow exception to od-win32 backend exclusion.",
       "header": "od-win32/machdep/m68k.h",
-      "header_sha256": "51abf03b7904f191f2ac78d254600a27b0b162ea9e4a97a72223e2623c075b09",
+      "header_sha256": "0eb4742f9c726b9417f9aa0e081ff4c70cf0bc70e6d30b20f903718bb95effcf",
       "source_sha256": "9987eeb533cc6f08a902eeaf3376075de5c38cc8158aa417e93001b7a53a1811",
-      "profile": "Default FLAGBIT layout; SAHF_SETO_PROFITABLE rejected. Preserve upstream32-bit fields on ARM64 and64-bit fields on x86_64; states are not portable between builds.",
+      "profile": "beta21 ARM64 NZCV layout with 64-bit fields; default FLAGBIT layout keeps 64-bit fields on x86_64 and 32-bit fields elsewhere. SAHF_SETO_PROFITABLE rejected; states are not portable between builds.",
       "test": "tests.host.test_m68k_flags; 32 CCR states x16 conditions, setters/preservation/carry, whole-object imports and depfiles."
     }
   }
