@@ -134,7 +134,7 @@ def dskx_at(word, drive=None):
 
 
 BLT_RUNNING = 2                 # BLTX byte 1: idle, pending, running
-COP_WAIT1 = 8                   # COP_wait1 of custom.cpp: the Copper waits for the beam to reach the position of its WAIT
+COP_INS_WAIT = 1                # beta 21's decoded WAIT instruction; vcmp/hcmp carry the beam position it waits for
 
 # Bitplane, sprite, audio, copper, blitter and disk DMA on; the motor on and a step pulse every frame, so that the medium (mounted by an event) is stepped and its track is
 # read into the buffer; a blit of 1024 lines of 64 words that lasts more than a frame, and a result of zeros, so that DMACONR's zero bit is set when it ends. The wait of
@@ -499,13 +499,12 @@ loop:
         return dict(zip(COPR_WORDS, struct.unpack(">%di" % len(COPR_WORDS), body)))
 
     def test_a_copper_that_waits_for_the_beam_comes_back_waiting(self):
-        # CHSL says "stopped" for every state but the last cycles of a MOVE (its flags are 9 here), so a machine that had only CHSL would have a stopped Copper and never raise
-        # the interrupt of the list. COPR is what says the Copper is in COP_wait1 with the compare values of its WAIT, and a new image takes it from the state.
+        # CHSL has only the instruction words and pointer (its flags are 9 here), while COPR carries beta 21's decoded WAIT and its compare values. A new image takes both from the state.
         first, again = self.dir / "copper.first", self.dir / "copper.again"
         self.probe("copper_irq", "--units", "2", "--save-at", "2", str(first))
         waiting = self.copper_of(first.read_bytes())
         self.assertEqual(9, struct.unpack_from(">I", upstream_bodies(first.read_bytes())[b"P6CH"]["CHSL"])[0], "CHSL has no way to say what the Copper waits for")
-        self.assertEqual((COP_WAIT1, 4), (waiting["state"], waiting["vcmp"]), "the list of the program waits for line 4")
+        self.assertEqual((COP_INS_WAIT, 4, 4), (waiting["inst"], waiting["vcmp"], waiting["hcmp"]), "the list of the program waits for position (4, 4)")
         self.assertEqual(1, waiting["enabled_thisline"])
         run = self.probe("copper_irq", "--units", "0", "--load-at", "0", str(first), "--save-at", "0", str(again))
         self.assertEqual([(0, 0, "")], run.loads)
